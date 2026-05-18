@@ -2359,6 +2359,7 @@ impl NativeRuntime {
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             }
+            self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
             // Called from loc_A94E (kid.asm:13239) in the jump-loop landing
             // sequence: `bsr.w sub_AF7A; bne.w loc_A762`. Runs after
@@ -2685,6 +2686,31 @@ impl NativeRuntime {
             return;
         }
         self.opening_slice = Some(slice);
+    }
+
+    pub(crate) fn trigger_skycutter_top_boundary_bounce_loc_9114(
+        &mut self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) {
+        if self.progression.current_form != PlayerForm::Skycutter
+            || !self.helmet.skycutter_on_board
+            || pre_physics_y_velocity >= 0
+            || slice.player.y_velocity != 0x0003_0000
+        {
+            return;
+        }
+
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        if y_px != PlayerForm::Skycutter.ceiling_probe_height() {
+            return;
+        }
+
+        // ASM loc_9114 (kid.asm:10524): mounted Skycutter above-level ceiling
+        // contact stores `move.b #1,($FFFFFA69)` before the `$30000` downward
+        // velocity. Native movement owns the velocity; the runtime shell owns
+        // the helmet latch that drives the flipboard coroutine.
+        self.helmet.skycutter_flipboard = 1;
     }
 }
 

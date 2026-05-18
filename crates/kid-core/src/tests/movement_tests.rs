@@ -7307,8 +7307,6 @@ mod chunk_11 {
     /// is above level top AND $FFFFFA6A (skycutter_on_board) is set:
     /// `move.b #1,($FFFFFA69)` (flipboard deploy trigger), snap y_pos,
     /// `move.l #$30000,y_vel` (push downward), return 0.
-    /// TODO(fidelity): native does not yet model the `$FFFFFA69` flipboard
-    /// trigger side effect; this regression covers the movement-visible bounce.
     #[test]
     fn loc_9114_skycutter_ceiling_bounce_sets_downward_velocity() {
         let w: u16 = 6;
@@ -7336,6 +7334,31 @@ mod chunk_11 {
         assert_eq!(
             slice.player.y_velocity, 0x0003_0000,
             "ASM loc_9114: y_vel should be $30000 (3px/frame downward push)"
+        );
+    }
+
+    /// ASM loc_9114 (kid.asm:10524): after the mounted Skycutter top-boundary
+    /// bounce, `$FFFFFA69` is set to 1 so the flipboard coroutine deploys.
+    #[test]
+    fn loc_9114_skycutter_ceiling_bounce_triggers_flipboard() {
+        let mut rt = skycutter_runtime();
+        rt.helmet.skycutter_on_board = true;
+        rt.helmet.skycutter_flipboard = 0;
+
+        let bounds = LevelBounds {
+            width_pixels: 96,
+            height_pixels: 64,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_pos = (PlayerForm::Skycutter.ceiling_probe_height() as u32) << 16;
+        slice.player.y_velocity = 0x0003_0000;
+
+        rt.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, -0x0005_0000);
+
+        assert_eq!(
+            rt.helmet.skycutter_flipboard, 1,
+            "ASM loc_9114: top-boundary bounce should store 1 in $FFFFFA69"
         );
     }
 

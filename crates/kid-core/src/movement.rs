@@ -4952,14 +4952,14 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
 
-        // TODO(fidelity): ASM loc_90F6 (kid.asm:10512): when the ceiling
-        // probe row goes negative (above level top), sub_902A checks
-        // $FFFFFA6A (skycutter_on_board). If NOT on board: `clr.l y_vel;
-        // snap y_pos; clr.w $20; moveq #0,d7; rts` — normal stop.
-        // If on board → loc_9114 (kid.asm:10524): `move.b #1,($FFFFFA69)`
-        // (flipboard deploy trigger), snap y_pos, set y_vel=$30000
-        // (push downward), return 0. Native models the downward velocity here;
-        // the `$FFFFFA69` flipboard trigger remains owned by helmet state.
+        // ASM loc_90F6 (kid.asm:10512): when the ceiling probe row goes
+        // negative (above level top), sub_902A checks $FFFFFA6A
+        // (skycutter_on_board). If NOT on board: `clr.l y_vel; snap y_pos;
+        // clr.w $20; moveq #0,d7; rts` — normal stop. If on board →
+        // loc_9114 (kid.asm:10524): `move.b #1,($FFFFFA69)` (flipboard
+        // deploy trigger), snap y_pos, set y_vel=$30000 (push downward),
+        // return 0. Native movement models the snap/velocity here; the
+        // runtime shell mirrors the `$FFFFFA69` helmet latch.
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
         let above_level_top = y_px - collision_height < 0;
 
