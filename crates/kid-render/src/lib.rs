@@ -147,6 +147,7 @@ mod tests {
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
         let kid = visuals.player.forms.get(&0).expect("Kid visuals");
         let red_stealth = visuals.player.forms.get(&3).expect("Red Stealth visuals");
+        let juggernaut = visuals.player.forms.get(&5).expect("Juggernaut visuals");
         let iron_knight = visuals.player.forms.get(&6).expect("Iron Knight visuals");
 
         assert_eq!(kid.palette.colours.len(), 15);
@@ -169,6 +170,28 @@ mod tests {
         assert_eq!(red_stealth.slash_air.len(), 4);
         assert_eq!(red_stealth.slash_air[0].origin_x, 0x0C);
         assert_eq!(red_stealth.slash_air[0].height_px, 0x28);
+
+        assert_eq!(
+            juggernaut.idle.width_px, 0x2F,
+            "ASM unk_BEDF0 + unk_BF714 compose Juggernaut's split head/body idle sprite"
+        );
+        assert_eq!(juggernaut.idle.height_px, 0x20);
+        assert_eq!(juggernaut.idle.tile_sheet.tiles.len(), 24);
+        assert_eq!(juggernaut.walk.len(), 6);
+        assert_eq!(
+            juggernaut.jump_rise.height_px, 0x25,
+            "ASM unk_BFAE0 pairs the taller rising body with the shared head"
+        );
+        assert_eq!(
+            juggernaut
+                .transform_palette
+                .as_ref()
+                .expect("transform palette")
+                .colours
+                .len(),
+            15
+        );
+        assert_eq!(juggernaut.transform_steps.len(), 11);
 
         assert_eq!(iron_knight.palette.colours.len(), 15);
         assert_eq!(iron_knight.idle.origin_x, 0x13);
@@ -508,6 +531,22 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/palette_kid/Juggernaut.bin",
+                &(0..15)
+                    .map(|value| 0x02A0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Juggernaut_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x02B0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc_kid/kid.bin",
                 &vec![0x11; 32 * 12],
             )?;
@@ -616,6 +655,51 @@ mod tests {
                 "ingame/artunc_kid/iron_knight_transformation_4.bin",
                 &vec![0x4D; 32 * 40],
             )?;
+            for (path, tile_count, fill) in [
+                ("ingame/artunc_kid/juggernaut_head.bin", 12, 0x4E),
+                ("ingame/artunc_kid/juggernaut_head_walk_2.bin", 12, 0x4F),
+                ("ingame/artunc_kid/juggernaut_head_walk_3.bin", 12, 0x50),
+                ("ingame/artunc_kid/juggernaut_head_walk_4.bin", 12, 0x51),
+                ("ingame/artunc_kid/juggernaut_head_walk_5.bin", 12, 0x52),
+                ("ingame/artunc_kid/juggernaut_head_walk_6.bin", 12, 0x53),
+                ("ingame/artunc_kid/juggernaut_bottom.bin", 12, 0x54),
+                ("ingame/artunc_kid/juggernaut_bottom_move_1.bin", 12, 0x55),
+                ("ingame/artunc_kid/juggernaut_bottom_move_2.bin", 12, 0x56),
+                ("ingame/artunc_kid/juggernaut_bottom_move_3.bin", 12, 0x57),
+                ("ingame/artunc_kid/juggernaut_bottom_move_4.bin", 12, 0x58),
+                (
+                    "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    18,
+                    0x59,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_bottom_jumping_3.bin",
+                    18,
+                    0x5A,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_1.bin",
+                    25,
+                    0x5B,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_2.bin",
+                    25,
+                    0x5C,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_3.bin",
+                    30,
+                    0x5D,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_4.bin",
+                    48,
+                    0x5E,
+                ),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * tile_count])?;
+            }
             write_file(
                 root.path(),
                 "ingame/palette_kid/Red_Stealth.bin",
@@ -769,6 +853,11 @@ mod tests {
                         root.path(),
                         "ingame/palette_kid/Iron_Knight_Transformation.bin",
                     ),
+                    asset_file(root.path(), "ingame/palette_kid/Juggernaut.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Juggernaut_Transformation.bin",
+                    ),
                     asset_file(root.path(), "ingame/palette_kid/Red_Stealth.bin"),
                     asset_file(
                         root.path(),
@@ -807,6 +896,53 @@ mod tests {
                     asset_file(
                         root.path(),
                         "ingame/artunc_kid/iron_knight_transformation_4.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_bottom.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_4.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_jumping_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_4.bin",
                     ),
                     asset_file(root.path(), "ingame/artunc_kid/red_stealth.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_1.bin"),

@@ -2497,7 +2497,6 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         )),
         transform_steps: &EYECLOPS_TRANSFORM_STEPS,
     },
-    // TODO(fidelity): Juggernaut uses split head/base sprites in the original game.
     PlayerFormSpec {
         form_id: PLAYER_FORM_IRON_KNIGHT,
         palette_path: IRON_KNIGHT_PALETTE_PATH,
