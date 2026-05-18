@@ -122,7 +122,7 @@ themselves, prove `human-play-stable`.
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [x] HeadyMetal death wobble visual — covered by effects-only render regressions that use visible body/eye tiles and assert the full sprite footprints plus two-frame wobble phase flip at each ASM timer boundary.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
-- **Native playability** [ ] recurring player-facing failures now live in `backlog.md` as canonical queue items; the remaining work is to attach recording slugs, reduced cases, or frame-capture checkpoints to the newly opened visual/block/enemy/Level 2 issues rather than letting them sit as free-text reports.
+- **Native playability** [?] recurring player-facing failures now live in `backlog.md` with canonical evidence. Remaining work is mostly human validation of saved PNG/recording bundles plus the blocked Level 2 death/loading repro (#146), not another broad TAS/frontier lane.
 
 ### Game flow verification
 - **#132** [x] 2-player alternating mode — strong native scenarios now cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.

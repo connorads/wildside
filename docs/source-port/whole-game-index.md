@@ -27,9 +27,9 @@ Presence is not the same as full verification.
 ## Systems still carrying meaningful risk
 
 - Native 1P playability beyond the current smoke gate
-- Death/respawn and transition stability
-- Level 2 entry and post-transition landing stability
-- Block lifecycle visuals and interaction correctness
+- Human validation of current visual/playability evidence bundles
+- Human repro for the remaining Level 2 death/loading report (#146)
+- Block lifecycle visuals and interaction correctness beyond the current bundles
 - Slopes, bounce surfaces, and other movement edge cases
 - Visual fidelity not covered by existing frame checks
 - Enemy behaviour gaps recorded in `phase4-enemy-findings.md`

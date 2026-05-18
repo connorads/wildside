@@ -11,9 +11,10 @@ The TAS frontier is in a good place:
 That does **not** mean the game is nearly finished.
 
 The current `1p-accurate` release gate is useful, but it is narrower than "the game
-works". Native play still has open breakage around deaths, transitions, block
-behaviour, slopes, bounce surfaces, and visual/state regressions. This roadmap treats
-those failures as first-class work, not as noise beneath a mostly-complete port.
+works". Native play no longer has open agent-actionable P0/P1 playability rows in
+the canonical backlog, but human validation/repro items and visual-fidelity polish
+still block a completion claim. This roadmap treats those gaps as first-class work,
+not as noise beneath a mostly-complete port.
 
 ## Finish line for this phase
 
@@ -49,7 +50,7 @@ Exit criteria:
 
 Goal: fix the bugs that make native play unreliable even when narrow parity gates are green.
 
-First queue:
+Original queue, now mostly closed by backlog #122-#130 and #136-#145:
 
 - death/respawn camera drift and stuck-from-start failures
 - Level 2 entry / spawn / floor-fall regressions
@@ -70,6 +71,8 @@ Exit criteria:
 - native boot -> Level 1 -> Level 2 is stable
 - death and respawn no longer leave the player or camera in broken states
 - the recurring playtest failures above have permanent regression coverage
+- remaining `[?]` rows have human validation, and `[b]` rows have human repro or a
+  deliberate out-of-scope decision
 
 ### 3. Native playtest evidence pipeline
 
@@ -137,7 +140,7 @@ Tracks:
 
 Policy:
 
-- the six documented DEVIATIONs are debt to remove or reclassify with evidence
+- documented DEVIATIONs are debt to remove or reclassify with evidence
 - enemy gaps from `phase4-enemy-findings.md` move into the canonical active backlog
 - visual TODOs stay visible until oracle-backed or frame-backed verification closes them
 
