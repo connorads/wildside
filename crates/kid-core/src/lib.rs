@@ -2589,11 +2589,21 @@ impl NativeRuntime {
 
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;
-        apply_platform_collision(&mut slice, &self.active_platforms);
+        let platform_collision_outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &self.active_platforms,
+            self.block_grid.as_ref(),
+            self.progression.current_form,
+        );
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_platform_collision
         {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PlatformCollision;
+        }
+        if platform_collision_outcome == PlatformCollisionOutcome::CrushDeath {
+            self.opening_slice = Some(slice);
+            self.begin_death_windup();
+            return;
         }
 
         // Evanescent blocks: trigger when player stands on one, tick timers,

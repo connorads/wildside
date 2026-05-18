@@ -6076,7 +6076,8 @@ mod chunk_11 {
     // `moveq #0,d7; bra.w Death` — generic death (d7=0).
     // This is the walking-on-platform equivalent of loc_78C0 (standing-on-
     // platform crush).  Both clear d7 to 0 before calling Death.
-    // TODO(fidelity): native does not yet detect platform-vs-ceiling crush.
+    // Native regression coverage lives in combat_tests:
+    // loc_78a8_upward_platform_ceiling_hit_reports_crush_death.
     // ---------------------------------------------------------------------------
 
     /// ASM loc_8DF6: sub_902A d7==2 → generic death (d7 cleared to 0).

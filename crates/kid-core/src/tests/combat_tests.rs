@@ -8962,6 +8962,33 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_78a8_upward_platform_ceiling_hit_reports_crush_death() {
+        let mut platform = make_test_platform(40, 48, 2, 0);
+        platform.y_velocity = -0x0010_0000;
+
+        let mut slice = make_airborne_slice(50, 48);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0x60, 0));
+        grid.set_cell_at(3, 0, terrain::Cell::from_be_bytes(0x60, 0));
+
+        let outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            Some(&grid),
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::CrushDeath,
+            "ASM loc_78A8/loc_78C0: upward platform ceiling contact routes to generic Death with d7=0"
+        );
+    }
+
+    #[test]
     fn platform_collision_bitwise_or_in_landing() {
         // Mutant: line 153 — replace | with ^ in sub-pixel preservation
         // (floor_y_fp & 0xFFFF_0000) | (y_pos & 0x0000_FFFF)

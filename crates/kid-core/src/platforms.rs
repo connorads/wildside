@@ -651,10 +651,26 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
 /// Runs after terrain collision so that platforms override terrain when the
 /// player is above a platform surface. Only applies when the player is not
 /// already grounded by terrain (falling or airborne).
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn apply_platform_collision(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],
-) {
+) -> PlatformCollisionOutcome {
+    apply_platform_collision_with_ceiling_probe(slice, platforms, None, PlayerForm::TheKid)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlatformCollisionOutcome {
+    None,
+    CrushDeath,
+}
+
+pub(crate) fn apply_platform_collision_with_ceiling_probe(
+    slice: &mut OpeningSliceState,
+    platforms: &[ActivePlatform],
+    block_grid: Option<&terrain::BlockGrid>,
+    current_form: PlayerForm,
+) -> PlatformCollisionOutcome {
     let player_x_px = (slice.player.x_pos >> 16) as i32;
     let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
     let player_left = player_x_px - PLAYER_HALF_WIDTH;
@@ -714,9 +730,9 @@ pub(crate) fn apply_platform_collision(
             // bra.w loc_8BF0` (continue walking on platform).
             // Native: `platform_support_check_sub_8ED0` decides skip/carry;
             // unsupported platforms are skipped so Kid falls via gravity.
-            // TODO(fidelity): native does not yet detect platform-vs-ceiling
-            // crush death.  Upward-moving platforms carry the player without
-            // checking for ceiling collision.
+            // Native uses the same ceiling probe as sub_902A when a block grid
+            // is available, then lets the runtime shell route CrushDeath to the
+            // existing generic death windup.
             //
             // ASM loc_8306 (kid.asm:9077): crawling-on-platform y tracking —
             // `move.w (Addr_PlatformStandingOn).w,a4; move.l $E(a4),y_vel(a3);
@@ -726,8 +742,8 @@ pub(crate) fn apply_platform_collision(
             // (ceiling hit) → detach + re-enter crawl (loc_8218); if EQ →
             // loc_833E floor/edge check.
             // Native: platform carry applies velocity additively rather than
-            // snapping to platform_y - 1; the sub_902A ceiling/crush branch
-            // is a TODO(fidelity) above.
+            // snapping to platform_y - 1; the ceiling crush branch uses the
+            // same post-carry probe as the standing path.
             //
             // ASM loc_833E (kid.asm:9093): crawl-on-platform floor/edge
             // check — `bsr.w sub_8ED0` (platform support test): if EQ
@@ -746,14 +762,28 @@ pub(crate) fn apply_platform_collision(
                 .clamp(0, i64::from(u32::MAX)) as u32;
             let floor_y_px = (slice.player.y_pos >> 16) as i32;
             slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
-            return;
+            if platform.y_velocity < 0
+                && block_grid.is_some_and(|grid| {
+                    terrain::probe_ceiling(
+                        grid,
+                        (slice.player.x_pos >> 16) as i32,
+                        floor_y_px,
+                        current_form.half_width(),
+                        current_form.ceiling_probe_height(),
+                    )
+                    .hit
+                })
+            {
+                return PlatformCollisionOutcome::CrushDeath;
+            }
+            return PlatformCollisionOutcome::None;
         }
-        return;
+        return PlatformCollisionOutcome::None;
     }
 
     if slice.player.y_velocity < 0 {
         // Moving upward — don't land on platforms from below
-        return;
+        return PlatformCollisionOutcome::None;
     }
 
     for platform in platforms {
@@ -794,9 +824,10 @@ pub(crate) fn apply_platform_collision(
             slice.player.on_ground = true;
             slice.player.y_velocity = 0;
             slice.terrain.floor_y_pos = floor_y_fp;
-            return;
+            return PlatformCollisionOutcome::None;
         }
     }
+    PlatformCollisionOutcome::None
 }
 
 #[allow(non_snake_case)]

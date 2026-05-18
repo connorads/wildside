@@ -6427,8 +6427,8 @@ mod chunk_06 {
     /// (platform y_vel).  If bmi (y_vel < 0, platform moving up), the ROM
     /// branches to loc_78C0.  If y_vel >= 0, the ROM clears
     /// Addr_PlatformStandingOn, calls sub_942A, and enters walking (loc_8BF0).
-    /// Native does not yet model ceiling crush detection on platforms.
-    /// This test documents the expected ASM branching.
+    /// Native mirrors this through `apply_platform_collision_with_ceiling_probe`;
+    /// the integration-style regression lives with the platform collision tests.
     #[test]
     fn loc_78a8_upward_platform_ceiling_collision_branches_to_crush_death() {
         // ASM loc_78A8: `move.w (Addr_PlatformStandingOn).w,a4 / tst.l $E(a4)
@@ -6436,10 +6436,6 @@ mod chunk_06 {
         let mut platform = make_test_platform(40, 100, 2, 0);
         platform.y_velocity = -0x1_0000; // moving upward
 
-        // TODO(fidelity): native does not yet detect this crush condition.
-        // When platform ceiling crush is implemented, this test should verify
-        // that an upward-moving platform pushing Kid into a ceiling triggers
-        // the Death path (loc_78C0).
         assert!(
             platform.y_velocity < 0,
             "ASM loc_78A8: upward platform velocity (bmi) should route to loc_78C0 crush death",
@@ -6468,13 +6464,14 @@ mod chunk_06 {
     /// pushes Kid into a ceiling (sub_902A returns negative and platform
     /// y_vel < 0).  d7=0 tells the Death routine that no specific sub-type
     /// applies (generic death).
-    /// TODO(fidelity): native does not yet implement platform crush death.
+    /// Native reports the CrushDeath outcome from the ceiling-aware platform
+    /// collision path, then the runtime shell enters generic death windup.
     #[test]
     fn loc_78c0_platform_crush_death_is_generic_death_d7_zero() {
         // The ASM sets d7=0 before branching to Death, distinguishing this
         // from other death types (spike d7=1, pit d7=2, etc.).
-        // This documents the expected behaviour for when platform crush death
-        // is implemented in native.
+        // The concrete native collision regression lives beside the platform
+        // carry tests.
         let d7: i32 = 0; // moveq #0,d7
         assert_eq!(
             d7, 0,
