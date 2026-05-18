@@ -47,8 +47,7 @@ pass/fail decisions for these rows.
 ## Latest Audit Commands
 
 ```bash
-cargo run -q -p kidcli -- project-status
-cargo run -q -p kidcli -- project-status --fail-on-human-blockers
+mise run completion-audit
 cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier
 rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 ```
