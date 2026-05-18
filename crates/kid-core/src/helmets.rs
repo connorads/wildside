@@ -5041,7 +5041,6 @@ impl NativeRuntime {
     /// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
     ///   axe velocity = base_speed (±5) + Kid x_vel high word. moveq #$C,d0
     ///   sets turnaround counter to 12.
-    /// TODO(fidelity): native uses fixed base speed; ASM adds Kid's x_vel word.
     ///
     /// ASM loc_8A52 (kid.asm:9868): main flight loop body —
     ///   `jsr Hibernate_Object_1Frame; tst.b $18(a3); beq loc_8A74` —
@@ -5080,11 +5079,15 @@ impl NativeRuntime {
         if c_pressed && !self.helmet.maniaxe_axe_active {
             self.helmet.maniaxe_axe_active = true;
             self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
-            let x_velocity = if slice.player.facing == Direction::Right {
-                MANIAXE_BASE_SPEED << 16
+            let player_x_velocity_word = slice.player.x_velocity >> 16;
+            let base_x_velocity_word = if slice.player.facing == Direction::Right {
+                MANIAXE_BASE_SPEED
             } else {
-                -MANIAXE_BASE_SPEED << 16
+                -MANIAXE_BASE_SPEED
             };
+            // ASM loc_8A42: add Kid's signed x_vel high word before storing the
+            // axe object's 16.16 x velocity.
+            let x_velocity = (base_x_velocity_word + player_x_velocity_word) << 16;
             self.projectiles.push(EnemyProjectile {
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (16 << 16)) as u32,

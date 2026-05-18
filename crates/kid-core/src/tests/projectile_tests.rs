@@ -3021,12 +3021,12 @@ mod chunk_06 {
     /// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
     /// axe velocity = base_speed (±5) + Kid's x_vel high word ($26 = x_vel long).
     /// `moveq #$C,d0` sets the turnaround counter to 12 frames.
-    /// Native: MANIAXE_BASE_SPEED * dir = ±5, turnaround = MANIAXE_TRAVEL_FRAMES = 12.
-    /// TODO(fidelity): native does not add Kid's x_velocity word to axe base speed.
+    /// Native mirrors the signed high word of Kid's 16.16 x_velocity.
     fn loc_8a42_axe_velocity_uses_base_speed_and_sets_turnaround_counter() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
-        let slice = combat_slice(); // player facing Right
+        let mut slice = combat_slice(); // player facing Right
+        slice.player.x_velocity = 0x0002_8000;
         let input = FrameInput {
             c: true,
             ..FrameInput::default()
@@ -3037,9 +3037,8 @@ mod chunk_06 {
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
             rt.projectiles[0].x_velocity,
-            MANIAXE_BASE_SPEED << 16,
-            "ASM loc_8A42: right-facing axe velocity should be +5 px/frame (native uses fixed base; \
-             ASM would add Kid's x_vel word)"
+            (MANIAXE_BASE_SPEED + 2) << 16,
+            "ASM loc_8A42: right-facing axe velocity should add Kid's signed x_vel high word"
         );
         assert_eq!(
             rt.helmet.maniaxe_turnaround,
@@ -3057,6 +3056,7 @@ mod chunk_06 {
         rt.progression.current_form = PlayerForm::Maniaxe;
         let mut slice = combat_slice();
         slice.player.facing = Direction::Left;
+        slice.player.x_velocity = -0x0002_0000;
         let input = FrameInput {
             c: true,
             ..FrameInput::default()
@@ -3067,8 +3067,8 @@ mod chunk_06 {
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
             rt.projectiles[0].x_velocity,
-            -MANIAXE_BASE_SPEED << 16,
-            "ASM loc_8A42: left-facing axe should use moveq #-5 base speed"
+            (-MANIAXE_BASE_SPEED - 2) << 16,
+            "ASM loc_8A42: left-facing axe should add Kid's signed x_vel high word after moveq #-5"
         );
     }
 
