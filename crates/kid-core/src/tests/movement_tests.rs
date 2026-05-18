@@ -7986,10 +7986,8 @@ mod chunk_11 {
     ///   `moveq #1,d7; addq.w #2,sp; rts` — return NE (wall found)
     ///
     /// Native: probe_wall_column returns `hit: true`. The Berzerker_charging
-    /// clear is not performed in the probe — it is managed separately by
-    /// `step_berzerker_charge` and `berzerker_break_wall_block`.
-    /// TODO(fidelity): ROM clears berzerker_charging on ANY wall hit (not just
-    /// Berzerker block-break); native only clears it via charge lifecycle.
+    /// clear is performed by `berzerker_break_wall_block`, the runtime wall
+    /// side-effect path that owns Berzerker charge state.
     #[test]
     fn loc_9326_hit_return_ne_wall_found() {
         let w: u16 = 6;

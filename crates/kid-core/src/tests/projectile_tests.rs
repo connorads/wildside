@@ -7043,6 +7043,7 @@ mod chunk_06 {
     fn berzerker_charge_solid_non_block_wall_is_not_deleted_loc_92de() {
         let solid_non_block = terrain::Cell::from_be_bytes(0x60, 0x01);
         let mut rt = NativeRuntime::new(manifest());
+        rt.helmet.berzerker_charging = true;
         rt.set_block_grid(berzerker_wall_grid(
             terrain::Cell::from_be_bytes(0, 0),
             solid_non_block,
@@ -7058,6 +7059,10 @@ mod chunk_06 {
             grid.cell_at(5, 3),
             solid_non_block,
             "ASM loc_92DE: solid terrain without the block flag must not dispatch off_933E"
+        );
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9326: non-rubber wall hit clears Berzerker_charging even when no block handler runs"
         );
     }
 

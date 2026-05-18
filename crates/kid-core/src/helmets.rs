@@ -5231,6 +5231,12 @@ impl NativeRuntime {
             PLAYER_HEIGHT,
             moving_right,
         );
+        if probe.hit {
+            // ASM loc_9326 (kid.asm:10762): any non-rubber wall hit reaches
+            // `sf (Berzerker_charging).w` after the scan, even if loc_92DE
+            // skipped the block dispatch because the solid cell has no block.
+            self.helmet.berzerker_charging = false;
+        }
         if probe.hit && probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Smash {
             grid.set_cell_at(
                 probe.cell_x,
