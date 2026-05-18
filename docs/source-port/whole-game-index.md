@@ -37,15 +37,18 @@ Presence is not the same as full verification.
 
 ## Explicitly open areas
 
-- HeadyMetal death wobble visual verification
-- Fire Demon death-trail visuals
+- Fire Demon death-trail exact ROM tile extraction polish
 - Remaining floating-item / block-state visual fidelity work
-- 2-player alternating-mode verification
-- Full native playtest evidence pipeline
 - Wider `1p-playable` gate beyond the current smoke contract
 
 Password-system investigation is no longer open: backlog #133 records the ASM audit and native
 options-menu alignment. The stock ROM title/options flow has no password entry path.
+
+Recently closed items that used to appear here:
+
+- HeadyMetal death wobble visual verification is covered by backlog #062 render regressions.
+- 2-player alternating-mode verification is covered by backlog #132 native scenarios.
+- The standard native playtest evidence pipeline is covered by backlog #130 recording bundles.
 
 ## Reading this file correctly
 

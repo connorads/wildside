@@ -104,9 +104,9 @@ themselves, prove `human-play-stable`.
 
 ## Remaining work
 
-### Visual fidelity — sprite extraction (3 TODO(fidelity) markers)
+### Visual fidelity — sprite extraction
 - **#033** [x] Transform animation visual sprites — original `Kid_Transform` art and timing are now wired for all forms. Juggernaut now composes the split head/base sprites into native player frames.
-- Fire Demon death trail visual sprites — rendered as generic projectile, needs real fire fragment tiles from ROM.
+- Fire Demon death trail visual sprites — live play now uses a dedicated six-phase flame footprint for the death trail (#025); exact ROM tile extraction from `Fire_Demon.asm` `stru_3A622` remains polish.
 - Floating item ROM sprites — some items use content-type-specific pixel-art icons, others placeholder rectangles (scene.rs). Needs ROM VRAM tile extraction.
 
 ### Visual fidelity — rendering accuracy (not yet investigated)
@@ -120,13 +120,13 @@ themselves, prove `human-play-stable`.
 
 ### Gameplay fidelity (TAS recordings verified, native-play gaps still open)
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
-- **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble from the ROM's staged `sub_37708` quiver magnitudes, and native-player tests lock the body/eye sprite offsets at each timer boundary; full oracle frame verification still remains.
+- **#062** [x] HeadyMetal death wobble visual — covered by effects-only render regressions that use visible body/eye tiles and assert the full sprite footprints plus two-frame wobble phase flip at each ASM timer boundary.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
 - **Native playability** [ ] recurring player-facing failures now live in `backlog.md` as canonical queue items; the remaining work is to attach recording slugs, reduced cases, or frame-capture checkpoints to the newly opened visual/block/enemy/Level 2 issues rather than letting them sit as free-text reports.
 
-### Game flow verification (not yet investigated)
-- **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
-- **Password system**: the original game has a password system for level progression. Not yet investigated whether this is implemented or needed. Trace ASM for password generation/validation. Check whether `BootState` has a password entry screen.
+### Game flow verification
+- **#132** [x] 2-player alternating mode — strong native scenarios now cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
+- **#133** [x] Password/options scope — ASM audit found no stock-ROM password entry path; native options now mirror the ROM four-row options menu.
 
 ### Enemy behaviour gaps (tracked in `asm-coverage.yaml`)
 These items are now tracked systematically via `kidcli asm-coverage --uncovered --subsystem enemy`.
