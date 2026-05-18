@@ -400,6 +400,9 @@ enum Commands {
         slug: Option<String>,
         #[arg(long)]
         bundle: Option<PathBuf>,
+        /// Only verify deterministic native replay; skip oracle state/pixel comparison.
+        #[arg(long, default_value_t = false)]
+        native_only: bool,
     },
     DiagnoseNativeGameplayDrift {
         #[arg(long)]
@@ -1281,6 +1284,7 @@ fn main() -> Result<()> {
             dir,
             slug,
             bundle,
+            native_only,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1288,7 +1292,7 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let record_to =
                 resolve_recording_bundle_input(&repo_root, slug.as_deref(), bundle.as_deref())?;
-            verify_recording(&repo_root, &rom_path, &manifest, &record_to)?;
+            verify_recording(&repo_root, &rom_path, &manifest, &record_to, native_only)?;
         }
         Commands::DiagnoseNativeGameplayDrift {
             rom,

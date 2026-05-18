@@ -180,7 +180,7 @@ Correction 2026-05-06: the long #139/#140 table rows above still contain old pro
 
 Correction 2026-05-06: #136 no longer needs the "wire native floating-item rendering to that spec" follow-up. Native rendering now resolves the content byte through `PrizeContent::from_id`, consumes the exported `floating_prize_graphics_spec` table from `kid-core`, and pins diamond/Skycutter renderer metadata against `PrizeDiamond_Init` / `sub_10CB0`. Keep #136 at `[?]` until a human-controlled prize-emergence bundle validates the visual result.
 
-Correction 2026-05-18: `play-native --record` now accepts `--record-frames N`, which saves and exits after `N` captured native frames. Use this on remaining human-validation recordings so F10/Esc is no longer required to produce `.cache/recordings/<slug>/manifest.json`.
+Correction 2026-05-18: `play-native --record` now accepts `--record-frames N`, which saves and exits after `N` captured native frames. Use this on remaining human-validation recordings so F10/Esc is no longer required to produce `.cache/recordings/<slug>/manifest.json`. For playtest bundles whose purpose is deterministic native replay plus human visual inspection, run `verify-recording --native-only`; the default verifier still performs oracle state/pixel comparison and may fail for visual-validation evidence that is not intended to be oracle-clean yet.
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -995,7 +995,7 @@ Recording slug `issue-146` is a negative baseline only (never enters Level 2).
 When a human is available:
 - `cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record issue-146-level2-death --record-frames 1800`
 - Die in Level 2, observe if loading screen hangs
-- `cargo run -p kidcli -- verify-recording --slug issue-146-level2-death`
+- `cargo run -p kidcli -- verify-recording --slug issue-146-level2-death --native-only`
 
 ### 132 — Verify 2-player alternating mode against oracle-backed or strong native scenarios (FIXED)
 Evidence source: backlog triage after the 1P gates stabilised. Native repro: existing behaviour, but only partially covered by tests.

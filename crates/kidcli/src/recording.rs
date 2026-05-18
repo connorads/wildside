@@ -83,6 +83,8 @@ pub(crate) struct NativeRecording {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct RecordingVerificationReport {
     pub(crate) slug: String,
+    #[serde(default)]
+    pub(crate) native_replay_only: bool,
     pub(crate) trace_match: bool,
     pub(crate) oracle_state_match: bool,
     pub(crate) oracle_frame_match: bool,
@@ -335,6 +337,7 @@ pub(crate) fn verify_recording(
     rom_path: &Path,
     manifest: &AssetManifest,
     record_to: &Path,
+    native_only: bool,
 ) -> Result<()> {
     let record_dir = resolve_recording_dir(record_to)?;
     let recording = load_recording(&record_dir)?;
@@ -387,46 +390,52 @@ pub(crate) fn verify_recording(
         render_dynamic_checkpoint_frames(manifest, &replay_trace, &recording.manifest.scenario)?;
     write_rendered_frames(&native_dir, &native_frames)?;
 
-    let env = ensure_oracles(repo_root)?;
-    let (oracle_scenario, oracle_frame_prefix) = oracle_scenario_for_recording(&recording);
-    let oracle_scenario_path = oracle_dir.join("scenario.json");
-    fs::write(
-        &oracle_scenario_path,
-        serde_json::to_vec_pretty(&oracle_scenario)?,
-    )
-    .with_context(|| format!("failed to write {}", oracle_scenario_path.display()))?;
-    let oracle =
-        run_jgenesis_capture_dynamic(&env, rom_path, &oracle_scenario_path, &oracle_dir, None)?;
-    let oracle = normalise_oracle_manifest_frame_indices(oracle, oracle_frame_prefix);
-    fs::write(
-        oracle_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&oracle)?,
-    )
-    .with_context(|| {
-        format!(
-            "failed to write {}",
-            oracle_dir.join("manifest.json").display()
+    let (oracle_state_match, oracle_frame_match, frame_diffs) = if native_only {
+        (true, true, Vec::new())
+    } else {
+        let env = ensure_oracles(repo_root)?;
+        let (oracle_scenario, oracle_frame_prefix) = oracle_scenario_for_recording(&recording);
+        let oracle_scenario_path = oracle_dir.join("scenario.json");
+        fs::write(
+            &oracle_scenario_path,
+            serde_json::to_vec_pretty(&oracle_scenario)?,
         )
-    })?;
+        .with_context(|| format!("failed to write {}", oracle_scenario_path.display()))?;
+        let oracle =
+            run_jgenesis_capture_dynamic(&env, rom_path, &oracle_scenario_path, &oracle_dir, None)?;
+        let oracle = normalise_oracle_manifest_frame_indices(oracle, oracle_frame_prefix);
+        fs::write(
+            oracle_dir.join("manifest.json"),
+            serde_json::to_vec_pretty(&oracle)?,
+        )
+        .with_context(|| {
+            format!(
+                "failed to write {}",
+                oracle_dir.join("manifest.json").display()
+            )
+        })?;
 
-    let oracle_state_match =
-        compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states).is_ok();
-    let frame_diffs = compare_recording_frames(
-        &native_dir,
-        &native_frames,
-        &oracle.frames,
-        recording
-            .manifest
-            .start
-            .warp_level
-            .unwrap_or_else(|| replay_trace.last().map_or(0, |frame| frame.current_level.0)),
-    )?;
-    let oracle_frame_match = frame_diffs
-        .iter()
-        .all(|diff| diff.max_channel_delta == 0 && diff.mean_absolute_error == 0.0);
+        let oracle_state_match =
+            compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states)
+                .is_ok();
+        let frame_diffs =
+            compare_recording_frames(
+                &native_dir,
+                &native_frames,
+                &oracle.frames,
+                recording.manifest.start.warp_level.unwrap_or_else(|| {
+                    replay_trace.last().map_or(0, |frame| frame.current_level.0)
+                }),
+            )?;
+        let oracle_frame_match = frame_diffs
+            .iter()
+            .all(|diff| diff.max_channel_delta == 0 && diff.mean_absolute_error == 0.0);
+        (oracle_state_match, oracle_frame_match, frame_diffs)
+    };
 
     let report = RecordingVerificationReport {
         slug: recording.manifest.slug.clone(),
+        native_replay_only: native_only,
         trace_match,
         oracle_state_match,
         oracle_frame_match,
@@ -458,24 +467,32 @@ pub(crate) fn verify_recording(
             verify_dir.display()
         );
     }
-    if !report.oracle_state_match {
+    if !native_only && !report.oracle_state_match {
         bail!(
             "recording checkpoints diverged from oracle state; artefacts in {}",
             verify_dir.display()
         );
     }
-    if !report.oracle_frame_match {
+    if !native_only && !report.oracle_frame_match {
         bail!(
             "recording checkpoint frames diverged from oracle pixels; artefacts in {}",
             verify_dir.display()
         );
     }
 
-    println!(
-        "recording verification passed for {}: {}",
-        recording.manifest.slug,
-        verify_dir.display()
-    );
+    if native_only {
+        println!(
+            "native recording replay verification passed for {}: {}",
+            recording.manifest.slug,
+            verify_dir.display()
+        );
+    } else {
+        println!(
+            "recording verification passed for {}: {}",
+            recording.manifest.slug,
+            verify_dir.display()
+        );
+    }
     Ok(())
 }
 
