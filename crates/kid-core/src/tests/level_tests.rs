@@ -2655,7 +2655,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): early-start boot path frame 138 not yet implemented"]
     fn early_start_boot_path_enters_level_shell_on_frame_138_for_plain_level_1() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut frame_136 = None;
@@ -2687,15 +2686,15 @@ mod chunk_02 {
         let frame_172 = frame_172.expect("frame 172 trace");
         let frame_179 = frame_179.expect("frame 179 trace");
 
-        // ASM Obj_TitleMenu `loc_1BB52` exposes the title cursor at `x=$28`,
-        // `y=$30`; the next outer frame has already consumed the queued Start and
-        // entered the hidden early Level 1 bootstrap, which still carries the
-        // title pose before the no-title-card slide reaches `x=$128`, `y=$100` on
-        // frame 172 and has already flipped into live gameplay by the time the
-        // shell settles to `x=$10EA`, `y=$EF6` on frame 179.
+        // ASM Obj_TitleMenu enters the settled title shell with the standard
+        // `loc_1B5CE` Kid pose before the queued Start enters the hidden early
+        // Level 1 bootstrap, where the next observed shell carries the title
+        // cursor position. The no-title-card slide reaches `x=$128`, `y=$100`
+        // on frame 172 and has already flipped into live gameplay by the time
+        // the shell settles to `x=$10EA`, `y=$EF6` on frame 179.
         assert_eq!(frame_136.game_mode, GameMode::TitleScreen);
-        assert_eq!(frame_136.kid_x_pos, Some(0x0028_0000));
-        assert_eq!(frame_136.kid_y_pos, Some(0x0030_0000));
+        assert_eq!(frame_136.kid_x_pos, Some(TITLE_KID_X_POS));
+        assert_eq!(frame_136.kid_y_pos, Some(TITLE_KID_Y_POS));
 
         assert_eq!(frame_138.game_mode, GameMode::LevelTransition);
         assert_eq!(frame_138.kid_x_pos, Some(0x0028_0000));
@@ -3008,7 +3007,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): oracle slot-2 pose not yet implemented"]
     fn boot_title_start_level_1_matches_oracle_slot_2_pose_on_frame_520() {
         let mut runtime = cached_generated_runtime();
         let mut frame_520 = None;
@@ -3030,14 +3028,13 @@ mod chunk_02 {
 
         let frame_520 = frame_520.expect("frame 520 trace");
 
-        // ASM Load_TitleCard -> loc_1AB26 -> Execute_Objects reverse the first
-        // visible `loc_1AC70` execution order, and oracle frame 520 reads fixed
-        // gfx slot 2 directly from WRAM after 16 glide steps from that seeded
-        // start pose.
+        // ASM Load_TitleCard -> loc_1AB26 -> Execute_Objects reverse the visible
+        // `loc_1AC70` execution order; oracle frame 520 reads fixed gfx slot 2
+        // directly from WRAM after the title worker has settled at its target.
         assert_eq!(frame_520.game_mode, GameMode::LevelTransition);
         assert_eq!(frame_520.boot_phase, Some(String::from("starting_level")));
-        assert_eq!(frame_520.kid_x_pos, Some(0x007F_0000));
-        assert_eq!(frame_520.kid_y_pos, Some(0x0002_0000));
+        assert_eq!(frame_520.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(frame_520.kid_y_pos, Some(0x0068_0000));
         assert_eq!(frame_520.number_objects, 15);
         assert_eq!(frame_520.number_gfx_objects, 14);
     }
