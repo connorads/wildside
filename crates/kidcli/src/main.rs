@@ -142,6 +142,21 @@ enum Commands {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+    /// Record a native review bundle from a DynamicScenario JSON.
+    RecordScenarioFile {
+        /// Recording slug — bundle is written to .cache/recordings/<slug>/.
+        #[arg(long)]
+        slug: String,
+        /// Path to the DynamicScenario JSON to replay.
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Optional ROM path (defaults to repo-root resolution).
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Optional upstream-dir path.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
     /// Launch the native runtime. Defaults to the full boot/title/game flow.
     PlayNative {
         #[arg(long)]
@@ -841,6 +856,43 @@ fn main() -> Result<()> {
             recording.manifest.scenario = dynamic;
             recording.manifest.record_command =
                 record_scenario_command(&slug, scenario, level, walk_frames);
+            recording::save_recording_with_artifacts(
+                &record_to,
+                &recording,
+                &recording::RecordingBundleArtifacts::default(),
+            )?;
+            println!(
+                "wrote recording bundle to {}",
+                record_to
+                    .strip_prefix(&repo_root)
+                    .unwrap_or(&record_to)
+                    .display()
+            );
+        }
+        Commands::RecordScenarioFile {
+            slug,
+            scenario,
+            rom,
+            dir,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let dynamic = load_record_scenario_file(&scenario)?;
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            let start = recording_start_for_dynamic_scenario(&dynamic);
+            let trace = recording::run_recorded_trace(&manifest, start, &dynamic.script)?;
+            let record_to = repo_root
+                .join(".cache/recordings")
+                .join(recording::validate_recording_slug(&slug)?);
+            let recording =
+                recording::build_recording(&manifest, &slug, start, dynamic.script.clone(), trace)?;
+            let mut recording = recording;
+            recording.manifest.scenario = dynamic;
+            recording.manifest.record_command = record_scenario_file_command(&slug, &scenario);
             recording::save_recording_with_artifacts(
                 &record_to,
                 &recording,
@@ -2103,6 +2155,20 @@ fn build_record_scenario(
     }
 }
 
+fn load_record_scenario_file(path: &Path) -> Result<DynamicScenario> {
+    let scenario_json =
+        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+    serde_json::from_str(&scenario_json).context("invalid scenario JSON")
+}
+
+fn recording_start_for_dynamic_scenario(scenario: &DynamicScenario) -> recording::RecordingStart {
+    recording::RecordingStart {
+        warp_level: scenario.warp_to_level,
+        settled: scenario.warp_to_level.is_some(),
+        record_frames: None,
+    }
+}
+
 fn record_scenario_command(
     slug: &str,
     kind: RecordScenarioKind,
@@ -2125,6 +2191,13 @@ fn record_scenario_command(
         let _ = write!(command, " --walk-frames {frames}");
     }
     command
+}
+
+fn record_scenario_file_command(slug: &str, scenario: &Path) -> String {
+    format!(
+        "cargo run --release -p kidcli -- record-scenario-file --slug {slug} --scenario {}",
+        scenario.display()
+    )
 }
 
 fn gameplay_move_right_script() -> Result<Vec<u8>> {
@@ -2394,13 +2467,14 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        GameplayCapture, GameplayScenario, GameplayState, RecordScenarioKind, ReferenceName,
-        analyse_audio_samples, audio_envelope_similarity, build_controller_script,
+        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, RecordScenarioKind,
+        ReferenceName, analyse_audio_samples, audio_envelope_similarity, build_controller_script,
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
         gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
         parse_input_spec, prepare_generated_assets_with, record_scenario_command,
+        record_scenario_file_command, recording_start_for_dynamic_scenario,
         selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
@@ -3711,6 +3785,57 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-136-prize-emergence --scenario prize-block --level 00 --walk-frames 420"
+        );
+    }
+
+    #[test]
+    fn recording_start_for_dynamic_scenario_uses_power_on_for_tas_files() {
+        let scenario = DynamicScenario {
+            slug: "kc_any_percent_2024".into(),
+            script: vec![0, 8, 8],
+            frame_count: 3,
+            checkpoints: Vec::new(),
+            warp_to_level: None,
+        };
+
+        let start = recording_start_for_dynamic_scenario(&scenario);
+
+        assert_eq!(start.warp_level, None);
+        assert!(
+            !start.settled,
+            "power-on TAS scenarios must replay boot/title state, not a settled level shortcut"
+        );
+    }
+
+    #[test]
+    fn recording_start_for_dynamic_scenario_settles_warped_files() {
+        let scenario = DynamicScenario {
+            slug: "issue-143-heavy-man-block-break".into(),
+            script: vec![0, 8, 8],
+            frame_count: 3,
+            checkpoints: Vec::new(),
+            warp_to_level: Some(0x15),
+        };
+
+        let start = recording_start_for_dynamic_scenario(&scenario);
+
+        assert_eq!(start.warp_level, Some(0x15));
+        assert!(
+            start.settled,
+            "warp scenarios run after the level-load prelude and should start settled"
+        );
+    }
+
+    #[test]
+    fn record_scenario_file_command_preserves_json_provenance() {
+        let command = record_scenario_file_command(
+            "issue-143-tas-route",
+            Path::new("tests/data/tas/kc_any_percent_2024/scenario.json"),
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario-file --slug issue-143-tas-route --scenario tests/data/tas/kc_any_percent_2024/scenario.json"
         );
     }
 }

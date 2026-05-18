@@ -58,6 +58,17 @@ The replacement bundle must show Heavy Man or Iron Knight block-breaking with
 helmet/form state active. A generic Level 00 damage/death recording is not
 evidence for this row.
 
+The TAS-derived route is useful but still insufficient:
+
+```bash
+cargo run --release -p kidcli -- record-scenario-file --slug issue-143-tas-route --scenario tests/data/tas/kc_any_percent_2024/scenario.json
+cargo run -p kidcli -- verify-recording --slug issue-143-tas-route --native-only
+```
+
+That route reaches Knight's Isle Iron Knight (`helmet 0 -> 6` at frame 3170)
+and verifies as replayable, but it has no Iron Knight block-break candidate,
+block bounce, or block destroy effect before returning to the title screen.
+
 ## Blocked Repro Row
 
 | Backlog row | Current command | Current evidence | Required human action |
