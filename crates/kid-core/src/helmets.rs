@@ -4771,8 +4771,8 @@ impl NativeRuntime {
     /// Damages hit enemies and removes dead ones.
     /// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
     /// `sfx_Red_Stealth_hitting_a_target`, then `bra.s loc_86E8` (delete).
-    /// Native processes the hit (damage/kill) and continues checking each
-    /// active frame — the ASM deletes on first contact per swing.
+    /// Native consumes the swing timer on first contact to mirror the sword
+    /// worker deletion path.
     pub(crate) fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
         if !self.sword_is_active() {
             return;
@@ -4800,6 +4800,8 @@ impl NativeRuntime {
                 } else {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                 }
+                self.helmet.red_stealth_sword_timer = 0;
+                break;
             }
         }
 

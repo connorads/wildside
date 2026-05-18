@@ -2368,10 +2368,9 @@ mod chunk_06 {
     #[test]
     #[allow(non_snake_case)]
     /// ASM loc_86EC → loc_86E8: after the hit sound, the sword object is deleted.
-    /// In native, damage is applied but the timer continues ticking. Verify that
-    /// a hit does NOT prematurely end the swing (native checks every active frame,
-    /// unlike ASM which deletes on first contact).
-    fn loc_86EC_hit_does_not_end_active_frames() {
+    /// A native hit must consume the swing timer so the sword cannot damage
+    /// again after the first contact.
+    fn loc_86EC_hit_consumes_active_swing() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
@@ -2383,11 +2382,34 @@ mod chunk_06 {
 
         rt.process_sword_hits(&slice);
 
-        // Timer should still be active (native doesn't delete on first hit)
         assert!(
-            rt.sword_is_active(),
-            "native sword stays active after a hit (ASM deletes on first contact — \
-             native checks every frame instead)",
+            !rt.sword_is_active(),
+            "ASM loc_86EC -> loc_86E8 deletes the sword worker after first contact",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_86EC branches directly to loc_86E8 after the first collision, so
+    /// one swing cannot damage multiple overlapped enemies in a single frame.
+    fn loc_86EC_hit_consumes_before_second_overlap() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, sx, sy, 5));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::MiniHoppingSkull, sx, sy, 5));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 4);
+        assert_eq!(
+            rt.active_enemies[1].hit_points, 5,
+            "ASM loc_86EC -> loc_86E8 deletes the sword worker before a second overlap can be processed",
         );
     }
 
