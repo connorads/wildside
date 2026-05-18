@@ -769,13 +769,13 @@ impl PlayerForm {
             Self::TheKid => 5,
             Self::Skycutter => 10,
             Self::Juggernaut => 23,
+            Self::Micromax => 4,
             Self::Cyclone
             | Self::RedStealth
             | Self::Eyeclops
             | Self::IronKnight
             | Self::Berzerker
-            | Self::Maniaxe
-            | Self::Micromax => 7,
+            | Self::Maniaxe => 7,
         }
     }
 

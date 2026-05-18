@@ -11323,9 +11323,7 @@ mod chunk_05 {
             (PlayerForm::IronKnight, 7),  // unk_B408[12] = 7
             (PlayerForm::Berzerker, 7),   // unk_B408[14] = 7
             (PlayerForm::Maniaxe, 7),     // unk_B408[16] = 7
-            // TODO(fidelity): ASM unk_B408[18] = 4 for Micromax, but native
-            // currently returns 7. Micromax collision is narrower in the ROM.
-            (PlayerForm::Micromax, 7), // unk_B408[18] = 4 (native: 7)
+            (PlayerForm::Micromax, 4),    // unk_B408[18] = 4
         ];
         for (form, expected) in asm_table {
             assert_eq!(form.half_width(), expected, "sub_B41C: {form:?} half-width");

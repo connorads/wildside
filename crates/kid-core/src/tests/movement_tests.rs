@@ -18605,8 +18605,9 @@ mod chunk_12 {
 
     /// ASM loc_B482 (kid.asm:14366): crawling floor-scan half-width defaults
     /// to 7 for most helmets.  `moveq #7,d1` is the first instruction.
-    /// Native: `PlayerForm::half_width()` returns 7 for Cyclone, RedStealth,
-    /// Eyeclops, IronKnight, Berzerker, Maniaxe, Micromax.
+    /// Native: `PlayerForm::half_width()` returns 7 for the crawl-capable
+    /// default-width helmet forms. Micromax cannot enter crawl (`loc_8C70`)
+    /// and keeps its narrower `unk_B408` collision width elsewhere.
     #[test]
     fn loc_b482_crawl_scan_default_half_width_is_7() {
         use crate::types::PlayerForm;
@@ -18617,7 +18618,6 @@ mod chunk_12 {
             PlayerForm::IronKnight,
             PlayerForm::Berzerker,
             PlayerForm::Maniaxe,
-            PlayerForm::Micromax,
         ] {
             assert_eq!(
                 form.half_width(),
