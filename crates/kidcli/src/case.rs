@@ -1019,8 +1019,19 @@ fn semantic_from_native(
             .character_movement
             .map(|movement| format!("movement_{movement:04x}"))
             .or(sega_screen_player_hidden.then_some(String::from("movement_0000"))),
-        current_form: Some(snapshot.current_helmet_id),
-        hitpoints: Some(snapshot.number_hitpoints),
+        // ASM loc_65C/sub_8A4 seed progression before the main loop, but
+        // Load_SegaScreen still has no gameplay player. Case semantics hide
+        // those bookkeeping slots until the boot shell leaves the Sega logo.
+        current_form: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            snapshot.current_helmet_id
+        }),
+        hitpoints: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            snapshot.number_hitpoints
+        }),
         invulnerable_frames: Some(snapshot.invulnerable_frames as u16),
         collision_type: snapshot
             .gameplay_debug_fields
@@ -1037,7 +1048,11 @@ fn semantic_from_native(
         player_1_level_id: u16::from(snapshot.player_1_level_id.0),
         current_player: snapshot.current_player,
         score: Some(snapshot.score),
-        number_lives: Some(snapshot.number_lives),
+        number_lives: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            snapshot.number_lives
+        }),
         diamond_count: Some(snapshot.diamond_count),
         paused: snapshot.paused,
         boot_phase: snapshot.boot_phase.clone(),
@@ -2487,5 +2502,8 @@ mod tests {
             semantic.player.movement_state.as_deref(),
             Some("movement_0000")
         );
+        assert_eq!(semantic.player.current_form, Some(0));
+        assert_eq!(semantic.player.hitpoints, Some(0));
+        assert_eq!(semantic.world.number_lives, Some(0));
     }
 }
