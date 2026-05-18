@@ -40,7 +40,6 @@ Open `.cache/human-validation/index.html` after generation.
 
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
-| #135 Level 1 background | `cargo run -p kidcli -- verify-recording --slug issue-135-level1-background --native-only` | `.cache/recordings/issue-135-level1-background/verify/native/000000_start.png` | Settled Blue Lake Woods 1 background matches the original game closely enough for the current 1P phase |
 | #136 prize emergence | `cargo run -p kidcli -- verify-recording --slug issue-136-prize-emergence --native-only` | `.cache/recordings/issue-136-prize-emergence/verify/native/000150_post_first_jump.png`, `000270_post_second_jump.png`, `000359_scenario_end.png` | Diamond/helmet emergence uses the expected item graphics and does not show the old incorrect block/item art |
 
 ## Playability Validation Rows
