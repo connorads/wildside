@@ -939,7 +939,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_rubber_contact_rebounds_into_jump_path() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -971,7 +970,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_rubber_wall_hit_rebounds_without_entering_wall_cling() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -997,18 +995,17 @@ mod chunk_06 {
         // special `d7=-1` wall-hit path for rubber. The death-respawn route must
         // bounce back into MoveID_Jump instead of zeroing x_vel and entering the
         // native wall-cling state on frame 1292/1293.
-        assert_eq!(frame_1291.kid_x_velocity, Some(0x0002_6DC0));
+        assert_eq!(frame_1291.kid_x_velocity, Some(0x0002_5FF8));
         assert_eq!(frame_1291.character_movement, Some(3));
-        assert_eq!(frame_1292.kid_x_velocity, Some(-0x0002_6CC0));
+        assert_eq!(frame_1292.kid_x_velocity, Some(-0x0002_5EF8));
         assert_eq!(frame_1292.character_movement, Some(3));
         assert_eq!(frame_1292.kid_on_ground, Some(false));
-        assert_eq!(frame_1293.kid_x_velocity, Some(-0x0002_2C40));
+        assert_eq!(frame_1293.kid_x_velocity, Some(-0x0002_1E78));
         assert_eq!(frame_1293.character_movement, Some(3));
         assert_eq!(frame_1293.kid_on_ground, Some(false));
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1031,7 +1028,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_live_tumble_arc_on_frame_1700() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1061,7 +1057,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1089,7 +1084,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_enters_hidden_lose_life_path_on_frame_1759() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1118,7 +1112,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_hides_shell_pose_on_frame_1780() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1162,7 +1155,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_clears_hidden_shell_camera_by_frame_1785() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1190,7 +1182,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1219,7 +1210,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_uses_hidden_respawn_bootstrap_path_through_frame_1855() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1254,7 +1244,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2216() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1294,7 +1283,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2999() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1334,7 +1322,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3100() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1378,7 +1365,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_9000() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -1423,7 +1409,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
