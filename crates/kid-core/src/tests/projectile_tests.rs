@@ -75,7 +75,9 @@ mod chunk_06 {
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.x_pos = (5 * 16 + 8) << 16;
         slice.player.y_pos = 223 << 16;
-        slice.player.y_velocity = 0x0002_0000;
+        // ASM sub_AF7A: the first Iron Knight block-breaker hit must meet
+        // the `$48000` velocity gate before off_AFD8 can dispatch Metal.
+        slice.player.y_velocity = 0x0005_0000;
         slice.player.on_ground = false;
         runtime.opening_slice = Some(slice);
 
@@ -140,6 +142,63 @@ mod chunk_06 {
         assert!(
             !cell_after.has_block,
             "ASM loc_AF96/loc_AFF0: smash block should be destroyed"
+        );
+    }
+
+    #[test]
+    fn loc_af96_iron_knight_live_landing_preserves_block_breaker_latch_for_slow_followup() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+        let mut grid = grid_with_floor_at_row(14);
+        // First handled hit: metal block bounces via off_AFD8 -> loc_110D0
+        // and, because sub_AF7A returns non-zero, loc_A94E branches to
+        // loc_A762 before sub_DB22 can clear Iron_Knight_block_breaker.
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+        // Follow-up low-speed landing on a Smash block. ASM sub_AF7A skips the
+        // `$48000` velocity gate once Iron_Knight_block_breaker is already set.
+        grid.set_cell_at(6, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            runtime.iron_knight_block_breaker,
+            "ASM loc_AF96: handled sub_AF7A collision must preserve Iron_Knight_block_breaker by skipping sub_DB22"
+        );
+
+        let mut slice = runtime.opening_slice.expect("slice should remain");
+        slice.player.x_pos = (6 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        let cell_after = runtime.block_grid().unwrap().cell_at(6, 14);
+        assert!(
+            !cell_after.has_block,
+            "ASM sub_AF7A: a latched Iron Knight follow-up must dispatch through off_AFD8 even below `$48000`"
+        );
+        assert_eq!(
+            runtime.opening_slice.unwrap().player.y_velocity,
+            -0x8000,
+            "ASM loc_AF96: handled latched collision still rebounds with `#$FFFF8000`"
+        );
+        assert!(
+            runtime.iron_knight_block_breaker,
+            "ASM loc_AF96: handled follow-up keeps the latch until a later sub_DB22 clear path"
         );
     }
 

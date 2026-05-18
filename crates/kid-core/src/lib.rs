@@ -91,6 +91,10 @@ pub struct NativeRuntime {
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// Floating prize items rising from blocks.
     floating_items: Vec<FloatingItem>,
+    /// ASM `Iron_Knight_block_breaker` ($FFFFFA6B): set by sub_AF7A after a
+    /// handled Iron Knight block impact, cleared by sub_DB22 on the normal
+    /// grounded clean-up path.
+    iron_knight_block_breaker: bool,
     /// Prize diamonds award their count later via PrizeDiamondCollected_Init,
     /// not on the touch frame.
     pending_prize_diamond_awards: Vec<u8>,
@@ -1090,6 +1094,7 @@ impl NativeRuntime {
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
+            iron_knight_block_breaker: false,
             pending_prize_diamond_awards: Vec::new(),
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
@@ -2367,10 +2372,7 @@ impl NativeRuntime {
             // Checks after physics so we know the player just touched a floor cell.
             // Not-IK or velocity < $48000 (without prior flag) → loc_AFD0
             // (kid.asm:13830): `moveq #0,d7; rts` — no break, return 0.
-            if self.progression.current_form == PlayerForm::IronKnight
-                && slice.player.on_ground
-                && pre_physics_y_velocity > 0
-            {
+            if slice.player.on_ground && pre_physics_y_velocity > 0 {
                 let px = (slice.player.x_pos >> 16) as i32;
                 let py = (slice.player.y_pos >> 16) as i32;
                 let hw = self.progression.current_form.half_width();
@@ -2383,12 +2385,27 @@ impl NativeRuntime {
                     // y_vel(a3); moveq #1,d7; rts`.  No block or block ID
                     // > 5 → loc_AFCA (kid.asm:13826): restore regs, fall
                     // through to loc_AFD0 (`moveq #0,d7; rts`).
-                    if probe.on_ground && probe.cell.has_block {
-                        match probe.cell.block_type {
+                    let collision = Self::iron_knight_block_breaker_collision_sub_AF7A(
+                        self.progression.current_form == PlayerForm::IronKnight,
+                        self.iron_knight_block_breaker,
+                        pre_physics_y_velocity,
+                        probe.on_ground && probe.cell.has_block,
+                        probe.cell.block_type,
+                    );
+                    self.iron_knight_block_breaker = if collision.handled_collision {
+                        collision.next_block_breaker
+                    } else {
+                        // ASM loc_A94E falls through to sub_DB22 when sub_AF7A
+                        // returns zero; sub_DB22 clears Iron_Knight_block_breaker.
+                        false
+                    };
+
+                    if let Some(effect) = collision.effect {
+                        match effect {
                             // ASM loc_AFF0 (kid.asm:13854): off_AFD8 block
                             // type 0 (Smash) handler — `moveq #2,d6; jmp
                             // (j_Block_LoadSmashBits).l`.
-                            terrain::BlockType::Smash => {
+                            blocks::IronKnightBlockEffectSubAF7A::Smash => {
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,
@@ -2399,10 +2416,11 @@ impl NativeRuntime {
                                     probe.cell_y * 16,
                                     Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 );
-                                slice.player.y_velocity = -0x8000;
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;
                             }
-                            terrain::BlockType::Prize => {
+                            blocks::IronKnightBlockEffectSubAF7A::Prize => {
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,
@@ -2413,10 +2431,11 @@ impl NativeRuntime {
                                     y_px: probe.cell_y * 16,
                                     remaining: 8,
                                 });
-                                slice.player.y_velocity = -0x8000;
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;
                             }
-                            terrain::BlockType::Ice => {
+                            blocks::IronKnightBlockEffectSubAF7A::Ice => {
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,
@@ -2427,21 +2446,19 @@ impl NativeRuntime {
                                     probe.cell_y * 16,
                                     Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 );
-                                slice.player.y_velocity = -0x8000;
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;
                             }
                             // ASM off_AFD8 -> loc_110D0/sub_11120: metal
                             // blocks bounce, play the steel hit effect, then
                             // restore $E50B instead of being deleted.
-                            terrain::BlockType::Metal => {
+                            blocks::IronKnightBlockEffectSubAF7A::Metal => {
                                 slice.metal_block_hit = Some((probe.cell_x, probe.cell_y));
-                                slice.player.y_velocity = -0x8000;
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;
                             }
-                            // ASM off_AFD8 -> sub_AFD4: SolidGhost and
-                            // Teleporter blocks are not broken by this path.
-                            terrain::BlockType::SolidGhost | terrain::BlockType::Teleporter => {}
-                            _ => {}
                         }
                     }
                 }

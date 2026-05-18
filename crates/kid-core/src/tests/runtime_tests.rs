@@ -6208,7 +6208,9 @@ mod chunk_09 {
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.x_pos = (5 * 16 + 8) << 16;
         slice.player.y_pos = 223 << 16;
-        slice.player.y_velocity = 0x0002_0000;
+        // ASM sub_AF7A requires the first Iron Knight block-break hit to meet
+        // `$48000` before off_AFD8 dispatches the smash effect.
+        slice.player.y_velocity = 0x0005_0000;
         slice.player.on_ground = false;
         runtime.opening_slice = Some(slice);
 
@@ -6238,7 +6240,9 @@ mod chunk_09 {
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.x_pos = (5 * 16 + 8) << 16;
         slice.player.y_pos = 223 << 16;
-        slice.player.y_velocity = 0x0002_0000;
+        // ASM sub_AF7A requires the first Iron Knight block-break hit to meet
+        // `$48000` before off_AFD8 dispatches the ice effect.
+        slice.player.y_velocity = 0x0005_0000;
         slice.player.on_ground = false;
         runtime.opening_slice = Some(slice);
 
