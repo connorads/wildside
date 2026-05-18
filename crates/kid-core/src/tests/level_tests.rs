@@ -16131,7 +16131,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): floating clock item cleanup not yet implemented"]
     fn collecting_clock_preserves_item_coords_until_visual_cleanup() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.floating_items.push(FloatingItem {
@@ -16148,7 +16147,7 @@ mod chunk_02 {
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 72 << 16;
-        slice.player.y_pos = 100 << 16;
+        slice.player.y_pos = 116 << 16;
 
         runtime.collect_floating_items(&mut slice);
 
