@@ -217,24 +217,29 @@ REVIEW_ITEMS = (
         backlog_row="#146",
         title="Level 2 death/loading hang",
         verifier=(
-            "cargo run -p kidcli -- verify-recording "
+            "cargo run -q -p kidcli -- verify-recording "
             "--slug issue-146-level2-death --native-only"
         ),
         decision=(
-            "Record a Level 2 death that either reproduces the loading hang or "
-            "proves the report cannot be reproduced after reasonable attempts."
+            "Accept the scripted Level 2 death transition as non-blocking for "
+            "the current 1P phase, or provide a different Level 2 death route "
+            "that still hangs."
         ),
         images=(
             ReviewImage(
                 repo_path(
                     ".cache/recordings/issue-146-level2-death/verify/native/"
-                    "001799_end.png"
+                    "001859_stomp_end.png"
                 ),
-                "Current idle negative baseline end frame",
+                "Scripted Level 2 death transition checkpoint",
             ),
         ),
         transcripts=(repo_path(".cache/recordings/issue-146-level2-death/transcript.txt"),),
-        note="Current bundle is an idle negative baseline with no events.",
+        note=(
+            "Scripted route takes damage at frames 814 and 1272, enters "
+            "LevelTransition at frame 1347, and the longer 9000-frame probe "
+            "recovers to InGame at frame 8589."
+        ),
     ),
 )
 
