@@ -6703,11 +6703,7 @@ fn source_port_frontier_bug_investigation_task(
         _ => "crates/kid-core/src/lib.rs",
     };
     let issue_slug = format!("issue-{}", issue.id);
-    let level_hint = if issue.summary.to_ascii_lowercase().contains("2nd level") {
-        "01"
-    } else {
-        "00"
-    };
+    let level_hint = backlog_issue_level_hint(&issue.summary);
     let focus_label = match issue.focus {
         BacklogIssueFocus::Playability => "playability",
         BacklogIssueFocus::VisualParity => "visual-parity",
@@ -6744,11 +6740,11 @@ fn source_port_frontier_bug_investigation_task(
         ],
         commands: vec![
             format!(
-                "cargo run --release -p kidcli -- play-native --warp-level {} --settled --record {}-repro",
+                "cargo run --release -p kidcli -- play-native --warp-level {} --settled --record {}-repro --record-frames 1800",
                 level_hint, issue_slug
             ),
             format!(
-                "cargo run -p kidcli -- verify-recording --slug {}-repro",
+                "cargo run -p kidcli -- verify-recording --slug {}-repro --native-only",
                 issue_slug
             ),
             format!(
@@ -7083,11 +7079,7 @@ fn source_port_frontier_backlog_issue_task(
         BacklogIssueFocus::Playability => "playability",
         BacklogIssueFocus::VisualParity => "visual-parity",
     };
-    let level_hint = if issue.summary.to_ascii_lowercase().contains("2nd level") {
-        "01"
-    } else {
-        "00"
-    };
+    let level_hint = backlog_issue_level_hint(&issue.summary);
     let (title, summary, sources, implementation_targets, commands, done_criteria, reason) =
         match phase {
             BacklogIssuePhase::CaptureEvidence => (
@@ -7109,8 +7101,14 @@ fn source_port_frontier_backlog_issue_task(
                 ],
                 vec![SOURCE_PORT_BACKLOG_PATH.to_owned()],
                 vec![
-                    format!("cargo run -p kidcli -- play-native --record {}", issue_slug),
-                    format!("cargo run -p kidcli -- verify-recording --slug {}", issue_slug),
+                    format!(
+                        "cargo run --release -p kidcli -- play-native --warp-level {} --settled --record {} --record-frames 1800",
+                        level_hint, issue_slug
+                    ),
+                    format!(
+                        "cargo run -p kidcli -- verify-recording --slug {} --native-only",
+                        issue_slug
+                    ),
                     format!(
                         "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/{}/",
                         level_hint, issue_slug
@@ -7235,6 +7233,16 @@ fn source_port_frontier_backlog_issue_task(
         target_routines: None,
         definitively_stalled: false,
         missing_artefact: None,
+    }
+}
+
+fn backlog_issue_level_hint(summary: &str) -> &'static str {
+    let summary = summary.to_ascii_lowercase();
+    if summary.contains("2nd level") || summary.contains("level 2") || summary.contains("level two")
+    {
+        "01"
+    } else {
+        "00"
     }
 }
 
@@ -15406,10 +15414,13 @@ strategies:
 
         assert_eq!(task.delegated_target.as_deref(), Some("146:capture"));
         assert!(task.title.contains("backlog issue #146"));
+        assert!(task.commands.iter().any(|command| command.contains(
+            "play-native --warp-level 01 --settled --record issue-146 --record-frames 1800"
+        )));
         assert!(
             task.commands
                 .iter()
-                .any(|command| command.contains("play-native --record issue-146"))
+                .any(|command| command.contains("verify-recording --slug issue-146 --native-only"))
         );
         assert!(
             cycle
