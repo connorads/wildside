@@ -966,6 +966,17 @@ the column-80 rubber cells (world X `1280`) inside the captured viewport around 
 This is a bounded visual-inspection bundle for #139 only; it still needs a human to inspect the PNG
 before #139 can move from `[?]` to `[x]`, and it does not cover the #140 prize-block hit path.
 
+Narrowed evidence 2026-05-18 for #140: the existing non-interactive prize-block route created
+`.cache/recordings/issue-140-prize-block-window/` with
+`cargo run -q -p kidcli -- record-scenario --slug issue-140-prize-block-window --scenario prize-block --level 00`.
+Verification passed with
+`cargo run -q -p kidcli -- verify-recording --slug issue-140-prize-block-window --native-only`.
+Trace evidence shows `blocks_hit_this_frame=1` at frame `128` for block cell `(8,12)`, and a
+floating item appears from frame `162` onward at world X `136`; the saved checkpoints include
+`000150_post_first_jump.png`, `000239_pre_second_jump.png`, and `000359_scenario_end.png`.
+This is the first deterministic bundle that reaches the prize-block hit/spawn path, but #140 still
+needs human visual inspection of the PNGs before moving from `[?]` to `[x]`.
+
 ### 142 — Level 1 dragon breath travels too far (FIXED)
 ASM audit 2026-04-05: `loc_3D02A` spawns breath as a stationary GfxObject (animation `stru_3CCC8`, 68 frames: 8+10+10+10+10+10+10) placed at ±28px (`DRAGON_WALKING_BREATH_OFFSET_PX`). Native incorrectly created a travelling projectile with `x_velocity=0x30000` and `lifetime=68`, covering 204px. Fix: zero velocity, keep lifetime=68 (matches animation duration). Also fixed flying dragon fire (`loc_34BAC`): added ±10px X offset and `terrain_kill` (ASM uses off-screen `$19(a3)` cull, not frame timer).
 
