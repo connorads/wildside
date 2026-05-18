@@ -2236,7 +2236,7 @@ pub fn probe_ceiling(
         let probe = probe_at(grid, px, top_y);
         if matches!(
             probe.cell.collision,
-            CollisionKind::Solid | CollisionKind::HiddenBlock
+            CollisionKind::Solid | CollisionKind::HiddenBlock | CollisionKind::Spikes
         ) {
             return CeilingProbe {
                 hit: true,

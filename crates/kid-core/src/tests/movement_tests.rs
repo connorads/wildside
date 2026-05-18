@@ -7494,11 +7494,8 @@ mod chunk_11 {
     /// `cmpi.w #$7000,d7; beq.w loc_91A6` — collision type $7000 (Spikes)
     /// sets `move.w #colid_kidbelow,collision_type(a3)` ($28 into the player's
     /// collision_type field) before falling through to loc_91AC hit handler.
-    /// TODO(fidelity): native probe_ceiling does not detect Spikes collision;
-    /// it only matches Solid | HiddenBlock. A spike ceiling tile is invisible
-    /// to the native ceiling probe.
     #[test]
-    fn loc_91a6_sub_914a_spikes_ceiling_not_detected_by_native() {
+    fn loc_91a6_sub_914a_spikes_ceiling_is_detected() {
         let w: u16 = 10;
         let h: u16 = 10;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -7510,11 +7507,14 @@ mod chunk_11 {
         // Same geometry: player at x=48, feet at y=65, top_y=34, row 2.
         // Right edge (col 3) is Spikes.
         let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
-        // TODO(fidelity): ASM loc_91A6 would detect this as a ceiling hit and
-        // set colid_kidbelow ($28). Native probe_ceiling ignores Spikes.
         assert!(
-            !probe.hit,
-            "ASM loc_91A6: native probe_ceiling does not detect Spikes (TODO(fidelity))"
+            probe.hit,
+            "ASM loc_91A6: sub_914A must detect Spikes ceiling collision $7000"
+        );
+        assert_eq!(
+            probe.cell.collision,
+            terrain::CollisionKind::Spikes,
+            "ASM loc_91A6: detected ceiling cell should preserve Spikes so callers can route colid_kidbelow"
         );
     }
 
