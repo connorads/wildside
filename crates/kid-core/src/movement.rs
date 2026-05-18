@@ -5392,9 +5392,10 @@ impl OpeningSliceState {
         let player_x_px = (self.player.x_pos >> 16) as i32;
         let mut player_y_px = (self.player.y_pos >> 16) as i32;
         // ASM sub_71E4 loc_728C: when offset >= $1E, add it to camera Y target
-        // and subtract the reference $1E. This effectively shifts the view down.
+        // and subtract the reference $1E. This effectively shifts the view down
+        // only by the accumulator amount beyond the look threshold.
         if y_look_offset >= 0x1E {
-            player_y_px += i32::from(y_look_offset);
+            player_y_px += i32::from(y_look_offset) - 0x1E;
         }
         let camera_x_px = (self.camera.x_pos >> 16) as i32;
         let camera_y_px = (self.camera.y_pos >> 16) as i32;

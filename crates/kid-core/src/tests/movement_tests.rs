@@ -5207,6 +5207,35 @@ mod chunk_11 {
         assert_eq!(decay(9), 1, "ASM loc_8C12: 9 - 8 = 1, bge passes");
     }
 
+    /// ASM sub_71E4 loc_728C adds `$FFFFFB58` to the camera target and then
+    /// subtracts the `$1E` reference threshold, so an exact `$1E` accumulator
+    /// must not shift the target down; only values beyond `$1E` do.
+    #[test]
+    fn loc_728c_exact_look_threshold_is_neutral_for_camera_target() {
+        let run = |y_look_offset| {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: 640,
+                height_pixels: 1000,
+            });
+            slice.player.x_pos = 160 << 16;
+            slice.player.y_pos = 200 << 16;
+            slice.camera.y_pos = 60 << 16;
+            slice.update_camera_follow(y_look_offset);
+            slice.camera.y_pos
+        };
+
+        assert_eq!(
+            run(0x1E),
+            58 << 16,
+            "ASM loc_728C: d0 += $FFFFFB58; d0 -= $1E, so offset $1E leaves the Y target at KidY-$A0",
+        );
+        assert_eq!(
+            run(0x28),
+            59 << 16,
+            "ASM loc_728C: offset $28 shifts the target by only $28-$1E pixels before the camera step",
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 (Juggernaut 5-way arm)
     // + Eyeclops hard beam check. Duplicate of loc_7606 in the walking loop:
