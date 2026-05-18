@@ -3785,6 +3785,120 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_7A10 (kid.asm:8103-8123): exact left edge at zero is not
+    /// negative, so `bmi.w loc_7A60` is not taken and no alignment snap occurs.
+    #[test]
+    fn sub_7a10_exact_left_boundary_is_clear_without_snap() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        let x_pos = 14u32 << 16;
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+
+        assert_eq!(
+            result.x_pos, x_pos,
+            "ASM sub_7A10: x-$E=0 is not BMI, so the clear left edge keeps x_pos"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_7AC6: both side probes are clear at the exact left boundary"
+        );
+    }
+
+    /// ASM loc_7A60 (kid.asm:8126-8132): when the left probe is blocked, snap
+    /// right to `((x-$E)&$FFF0)+$10+$E` before checking the right side.
+    #[test]
+    fn sub_7a10_left_block_snap_uses_next_tile_boundary_loc_7a60() {
+        let width = 8u16;
+        let height = 4u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        data[(usize::from(width) * 2 + 1) * 2] = 0x60; // row 2, col 1 = solid
+        let grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+        let x_pos = 38u32 << 16; // left probe x-$E = 24, inside col 1
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+
+        assert_eq!(
+            result.x_pos,
+            46u32 << 16,
+            "ASM loc_7A60: ((38-$E)&$FFF0)+$10+$E = 46"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_7AC6: after the loc_7A60 snap, the right-side re-probe is clear"
+        );
+    }
+
+    /// ASM loc_7A60 -> loc_7A90: if snapping right places the right side at or
+    /// beyond the level width, the ROM restores the saved x_pos and returns d7=1.
+    #[test]
+    fn sub_7a10_left_snap_right_edge_at_level_width_restores_loc_7a90() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        let x_pos = 2u32 << 16; // x-$E is negative, so loc_7A60 snaps to centre x=14
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 28);
+
+        assert_eq!(
+            result.x_pos, x_pos,
+            "ASM loc_7A90: snapped right edge 14+$E equals level width 28, restore saved x_pos"
+        );
+        assert!(
+            result.blocked,
+            "ASM loc_7A60: `cmp.w Level_width_pixels,d7; bge.w loc_7A90` treats equality as blocked"
+        );
+    }
+
+    /// ASM loc_7A98 (kid.asm:8149-8154): when the right probe is blocked, snap
+    /// left by `((x+$E)&$F)+1`.
+    #[test]
+    fn sub_7a10_right_block_snap_subtracts_low_nibble_plus_one_loc_7a98() {
+        let width = 8u16;
+        let height = 4u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        data[(usize::from(width) * 2 + 3) * 2] = 0x60; // row 2, col 3 = solid
+        let grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+        let x_pos = 40u32 << 16; // right probe x+$E = 54, inside col 3
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+
+        assert_eq!(
+            result.x_pos,
+            33u32 << 16,
+            "ASM loc_7A98: x -= ((40+$E)&$F)+1 = 7, so x_pos becomes 33"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_7AC6: after the loc_7A98 snap, the left-side re-probe is clear"
+        );
+    }
+
+    /// ASM loc_7A98 -> loc_7A90: if snapping left pushes the left side negative,
+    /// restore the saved x_pos and return blocked.
+    #[test]
+    fn sub_7a10_right_snap_negative_left_edge_restores_loc_7a90() {
+        let width = 8u16;
+        let height = 4u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        data[(usize::from(width) * 2 + 1) * 2] = 0x60; // row 2, col 1 = solid
+        let grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+        let x_pos = 15u32 << 16; // right probe x+$E = 29, inside col 1
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+
+        assert_eq!(
+            result.x_pos, x_pos,
+            "ASM loc_7A90: loc_7A98 snaps x to 1, then x-$E is negative, so restore saved x_pos"
+        );
+        assert!(
+            result.blocked,
+            "ASM loc_7A98: `bmi.s loc_7A90` reports blocked after the negative left edge"
+        );
+    }
+
     /// ASM loc_8252 (kid.asm:9013): `bclr #Button_B,(Ctrl_Pressed).w;
     /// bra.w loc_8E16` — Micromax(9) and Juggernaut(5) exit crawling after a
     /// helmet transform. The gate at loc_8218+$3A checks Current_Helmet
