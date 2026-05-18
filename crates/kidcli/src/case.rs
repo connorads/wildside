@@ -902,6 +902,17 @@ fn settled_recording_oracle_bootstrap_block_reason(
             native.world.current_level_id, recording.manifest.slug
         ));
     }
+    if expected_level == Some(native.world.current_level_id)
+        && native.world.game_mode == 0x000c
+        && oracle.world.current_level_id == native.world.current_level_id
+        && oracle.world.game_mode == 0x0008
+        && oracle.world.boot_phase.as_deref() == Some("starting_level")
+    {
+        return Some(format!(
+            "settled recording oracle bootstrap stayed on the Level {:02X} title card while native reached gameplay; fix settled-recording oracle bootstrap before treating `{}` as gameplay-authoritative",
+            native.world.current_level_id, recording.manifest.slug
+        ));
+    }
 
     None
 }
@@ -2336,6 +2347,54 @@ mod tests {
         assert!(reason.contains("stayed paused on Level 00"));
         assert!(reason.contains("Level 15"));
         assert!(reason.contains("knights-isle-probe"));
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_catches_target_title_card() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level2-walk-right"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0x01),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level2-walk-right"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    warp_to_level: Some(0x01),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+        };
+        let native = semantic_state_at_level(0x01, false);
+        let mut oracle = semantic_state_at_level(0x01, true);
+        oracle.world.game_mode = 0x0008;
+        oracle.world.boot_phase = Some(String::from("starting_level"));
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle])
+                .expect("blocked reason");
+
+        assert!(reason.contains("stayed on the Level 01 title card"));
+        assert!(reason.contains("level2-walk-right"));
     }
 
     fn semantic_state_at_level(level: u16, paused: bool) -> SemanticGameState {
