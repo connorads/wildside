@@ -101,6 +101,10 @@ description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares,
 run = "cargo run -q -p kidcli -- project-status"
 description = "Summarise repo health with 1P-playable first, 1P-accurate second, and TAS frontier status separate"
 
+[tasks.completion-audit]
+run = "cargo run -q -p kidcli -- project-status --fail-on-human-blockers"
+description = "Fail until all source-port human validation/repro blockers are resolved"
+
 [tasks.verify-human-validation]
 run = """
 scripts/strict-rust.sh sh -ec '

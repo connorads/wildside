@@ -504,6 +504,9 @@ enum Commands {
     ProjectStatus {
         #[arg(long, value_enum, default_value_t = ProjectStatusFormat::Text)]
         format: ProjectStatusFormat,
+        /// Exit non-zero when human validation/repro blockers remain.
+        #[arg(long, default_value_t = false)]
+        fail_on_human_blockers: bool,
     },
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
@@ -1432,9 +1435,12 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             run_release_gate(&repo_root, &rom_path, &manifest, target, max_failures)?;
         }
-        Commands::ProjectStatus { format } => {
+        Commands::ProjectStatus {
+            format,
+            fail_on_human_blockers,
+        } => {
             let repo_root = current_dir()?;
-            run_project_status(&repo_root, format)?;
+            run_project_status(&repo_root, format, fail_on_human_blockers)?;
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;

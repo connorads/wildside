@@ -1,7 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use serde::Serialize;
 use std::fs;
+use std::io::{self, Write};
 use std::path::Path;
 
 const BACKLOG_PATH: &str = "docs/source-port/backlog.md";
@@ -97,11 +98,22 @@ struct GateStep {
     detail: String,
 }
 
-pub(crate) fn run_project_status(repo_root: &Path, format: ProjectStatusFormat) -> Result<()> {
+pub(crate) fn run_project_status(
+    repo_root: &Path,
+    format: ProjectStatusFormat,
+    fail_on_human_blockers: bool,
+) -> Result<()> {
     let report = build_project_status_report(repo_root)?;
     match format {
         ProjectStatusFormat::Text => print_project_status(&report),
         ProjectStatusFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
+    }
+    if fail_on_human_blockers && !report.human_validation_blockers.is_empty() {
+        let _ = io::stdout().flush();
+        bail!(
+            "{} human validation/repro blocker(s) remain",
+            report.human_validation_blockers.len()
+        );
     }
     Ok(())
 }
@@ -708,7 +720,58 @@ mod tests {
         )
         .expect("accurate gate");
 
-        run_project_status(temp_dir.path(), ProjectStatusFormat::Text).expect("text output");
-        run_project_status(temp_dir.path(), ProjectStatusFormat::Json).expect("json output");
+        run_project_status(temp_dir.path(), ProjectStatusFormat::Text, false).expect("text output");
+        run_project_status(temp_dir.path(), ProjectStatusFormat::Json, false).expect("json output");
+    }
+
+    #[test]
+    fn fail_on_human_blockers_returns_error_after_rendering_status() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-playable"))
+            .expect("playable gate dir");
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("accurate gate dir");
+        fs::create_dir_all(temp_dir.path().join(".cache/autonomy/source-port-frontier"))
+            .expect("autonomy dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/frontier-state.yaml"),
+            r#"{"active_frontier":{"slug":"frontier","status":"complete","recording":"any-percent-published","authoritative_clean_through":37759,"area":"closed"}}"#,
+        )
+        .expect("frontier");
+        fs::write(
+            temp_dir
+                .path()
+                .join(".cache/autonomy/source-port-frontier/next-agent.md"),
+            "---\nslug: frontier\n---\n",
+        )
+        .expect("note");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 135 | [?] | P1 | render | human visual blocker | review |
+",
+        )
+        .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join(".cache/release-gate/1p-playable/latest.json"),
+            r#"{"passed":true}"#,
+        )
+        .expect("playable gate");
+        fs::write(
+            temp_dir
+                .path()
+                .join(".cache/release-gate/1p-accurate/latest.json"),
+            r#"{"passed":true}"#,
+        )
+        .expect("accurate gate");
+
+        let error = run_project_status(temp_dir.path(), ProjectStatusFormat::Text, true)
+            .expect_err("human blockers fail completion audit");
+        assert!(error.to_string().contains("human validation/repro blocker"));
     }
 }

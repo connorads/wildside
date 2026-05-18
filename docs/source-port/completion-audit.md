@@ -48,6 +48,7 @@ pass/fail decisions for these rows.
 
 ```bash
 cargo run -q -p kidcli -- project-status
+cargo run -q -p kidcli -- project-status --fail-on-human-blockers
 cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier
 rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 ```

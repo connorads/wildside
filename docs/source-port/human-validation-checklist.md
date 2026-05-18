@@ -15,6 +15,13 @@ To verify every currently referenced bundle before review:
 mise run verify-human-validation
 ```
 
+To run the completion audit gate, which must fail until the rows below are
+closed or deliberately deferred:
+
+```bash
+mise run completion-audit
+```
+
 To build a local HTML review page for the exact PNGs/transcripts in this
 checklist:
 
