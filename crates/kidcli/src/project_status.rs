@@ -23,6 +23,7 @@ pub(crate) struct ProjectStatusReport {
     ready_to_implement_items: Vec<BacklogItem>,
     top_open_playability_items: Vec<BacklogItem>,
     top_open_visual_items: Vec<BacklogItem>,
+    human_validation_blockers: Vec<HumanValidationBlocker>,
     warnings: Vec<String>,
 }
 
@@ -48,6 +49,15 @@ struct TasFrontierStatus {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 struct BacklogItem {
     id: String,
+    priority: String,
+    system: String,
+    summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct HumanValidationBlocker {
+    id: String,
+    status: String,
     priority: String,
     system: String,
     summary: String,
@@ -103,6 +113,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let ready_to_implement_items = load_ready_to_implement_items(repo_root, 5)?;
     let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
+    let human_validation_blockers = load_human_validation_blockers(repo_root)?;
 
     let mut warnings = Vec::new();
     if !playable_gate.passed {
@@ -129,6 +140,12 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
                 .to_owned(),
         );
     }
+    if !human_validation_blockers.is_empty() {
+        warnings.push(format!(
+            "{} human validation/repro blocker(s) remain; run `mise run human-validation-review` before claiming completion",
+            human_validation_blockers.len()
+        ));
+    }
 
     Ok(ProjectStatusReport {
         headline_gate: playable_gate.name.clone(),
@@ -138,6 +155,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         ready_to_implement_items,
         top_open_playability_items,
         top_open_visual_items,
+        human_validation_blockers,
         warnings,
     })
 }
@@ -373,6 +391,52 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
     Ok(items)
 }
 
+fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidationBlocker>> {
+    let path = repo_root.join(BACKLOG_PATH);
+    let contents = fs::read_to_string(&path)
+        .with_context(|| format!("failed to read backlog {}", path.display()))?;
+    let mut items = Vec::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 5 {
+            continue;
+        }
+        let status = columns[1];
+        let priority = columns[2];
+        if !matches!(status, "[?]" | "[b]") || !matches!(priority, "P0" | "P1" | "P2") {
+            continue;
+        }
+        items.push(HumanValidationBlocker {
+            id: columns[0].to_owned(),
+            status: status.to_owned(),
+            priority: priority.to_owned(),
+            system: columns[3].to_owned(),
+            summary: columns[4].to_owned(),
+        });
+    }
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    Ok(items)
+}
+
 fn print_project_status(report: &ProjectStatusReport) {
     println!("Project Status");
     println!(
@@ -438,6 +502,18 @@ fn print_project_status(report: &ProjectStatusReport) {
             );
         }
     }
+    println!("  human validation/repro blockers:");
+    if report.human_validation_blockers.is_empty() {
+        println!("    - none");
+    } else {
+        for item in &report.human_validation_blockers {
+            println!(
+                "    - #{} {} {} {}: {}",
+                item.id, item.status, item.priority, item.system, item.summary
+            );
+        }
+        println!("    - review: mise run human-validation-review");
+    }
     println!("  warnings:");
     if report.warnings.is_empty() {
         println!("    - none");
@@ -452,7 +528,8 @@ fn print_project_status(report: &ProjectStatusReport) {
 mod tests {
     use super::{
         BacklogFocus, ProjectStatusFormat, build_project_status_report,
-        load_ready_to_implement_items, load_top_open_items, run_project_status,
+        load_human_validation_blockers, load_ready_to_implement_items, load_top_open_items,
+        run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -511,6 +588,31 @@ mod tests {
     }
 
     #[test]
+    fn project_status_extracts_human_validation_blockers() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 135 | [?] | P1 | render | Level 1 background needs validation | review |
+| 146 | [b] | P1 | level | Level 2 death needs repro | review |
+| 147 | [x] | P1 | render | Closed validation row | done |
+| 148 | [ ] | P1 | player | Agent-actionable row | fix |
+",
+        )
+        .expect("backlog");
+
+        let items = load_human_validation_blockers(temp_dir.path()).expect("items");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "135");
+        assert_eq!(items[0].status, "[?]");
+        assert_eq!(items[1].id, "146");
+        assert_eq!(items[1].status, "[b]");
+    }
+
+    #[test]
     fn project_status_reports_missing_headline_gate() {
         let temp_dir = TempDir::new().expect("temp dir");
         fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
@@ -527,6 +629,7 @@ mod tests {
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 123 | [ ] | P1 | player | core playability bug | verify |
+| 135 | [?] | P1 | render | human visual blocker | review |
 ",
         )
         .expect("backlog");
@@ -543,11 +646,18 @@ mod tests {
         assert!(!report.headline_passed);
         assert_eq!(report.secondary_gates[0].name, "1p-accurate");
         assert_eq!(report.top_open_playability_items.len(), 1);
+        assert_eq!(report.human_validation_blockers.len(), 1);
         assert!(
             report
                 .warnings
                 .iter()
                 .any(|warning| warning.contains("1p-playable"))
+        );
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("human validation/repro blocker"))
         );
     }
 
