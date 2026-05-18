@@ -12743,6 +12743,30 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9DE4 also clamps against Micromax's smaller table max `$20000`;
+    /// the later loc_9F32 global clamp is wider, so this path must clamp here.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_micromax_uphill_over_max_clamps_before_global_cap_loc_9DE4() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            0x0003_0000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::Micromax,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, 0x0002_0000,
+            "ASM loc_9DE4: Micromax $30000-$4000 remains above max $20000, so clamp before loc_9F32"
+        );
+    }
+
     /// ASM loc_9E1E: downhill velocity below the table cap brakes toward the
     /// negative max-speed floor and clamps there if still too negative.
     #[test]
@@ -12764,6 +12788,30 @@ mod chunk_12 {
         assert_eq!(
             vel, -0x0004_0000,
             "ASM loc_9E1E: -$50000+$4000 remains below -$40000, so clamp to -$40000"
+        );
+    }
+
+    /// ASM loc_9E1E mirrors loc_9DE4 for Micromax's smaller negative max
+    /// floor `$FFFE0000` (-$20000), before the wider loc_9F32 global clamp.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_micromax_downhill_below_floor_clamps_before_global_cap_loc_9E1E() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            -0x0003_0000,
+            Direction::Left,
+            HorizontalInput {
+                left: true,
+                right: false,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::Micromax,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, -0x0002_0000,
+            "ASM loc_9E1E: Micromax -$30000+$4000 remains below -$20000, so clamp before loc_9F32"
         );
     }
 
