@@ -8064,9 +8064,6 @@ impl NativeRuntime {
         //   d7==Current_Helmet_Available (same helmet): play sfx_Replenish_Health,
         //     `bra.w loc_7E14` — skip both animation phases, jump to cleanup.
         //   d7!=Current_Helmet_Available: fall through to loc_7C96 for reverse.
-        // Native collapses these into the frame counter formula below.
-        // TODO(fidelity): ASM same-helmet replenish path (loc_7C76 → loc_7E14)
-        // has no animation frames; native computes old_frames+new_frames+1.
         self.progression.number_hitpoints =
             transform_hitpoints_sub_7eb2(form, self.progression.extra_hitpoint_slots);
         // ASM Kid_Transform calls sub_B41C which sets per-helmet half-width.
@@ -8076,44 +8073,52 @@ impl NativeRuntime {
         if width_delta != 0 {
             self.progression.form_width_delta = width_delta;
         }
-        // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-
-        // old-helmet animation setup. Indexes off_7EE2[old_helmet] to find the
-        // end of the old helmet's animation table, then iterates backwards.
-        //
-        // ASM loc_7CA6 (kid.asm:8407): `move.w -(a0),d7; bmi.w loc_7CD0` —
-        // inner loop reading animation entries in reverse. Each entry has a repeat
-        // count (high byte) and function index (low byte, into off_7D34 dispatch).
-        // The $FFFF sentinel terminates and falls through to loc_7CD0.
-        //
-        // ASM loc_7CBE (kid.asm:8418): `jsr (j_sub_8E0).w; dbf d0,loc_7CBE` —
-        // per-frame Hibernate wait loop inside the reverse animation. Calls
-        // j_sub_8E0 (VBlank/palette DMA) `d0+1` times, then returns to loc_7CA6
-        // for the next entry. Native doesn't run a coroutine; the total repeat
-        // counts are pre-summed into form_change_flash_frames.
-        //
-        // ASM loc_8FE (kid.asm:1015): second half of sub_8E0 —
-        // `jsr j_Transfer_ScrollDataToVRAM; bsr.w sub_1596;
-        // jsr j_Make_SpriteAttr_HUD; move.b #1,($FFFFFAD6).w; rts`.
-        // Transfers scroll/tile data to VDP, drains custom FG update queue
-        // (sub_1596), and builds HUD sprite attributes. Native models sub_1596
-        // as drain_fg_update_queue_custom_sub_1596; the VDP DMA and HUD sprite
-        // generation are handled by the rendering pipeline outside kid-core.
-        //
-        // ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
-        // (Current_Helmet).w` — put-on-new-helmet phase. Sets Current_Helmet to
-        // the target, plays per-helmet transform sound (unk_7ED8), then walks
-        // the new helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
-        // Native sets current_form above; frame counting below covers both phases.
-        let old_frames = transform_anim_frames(old_form);
-        let new_frames = transform_anim_frames(form);
-        // +1 for the Kid_Transform entry frame (sub_7C1C + palette save +
-        // condition checks + initial Hibernate) before the animation loop starts.
-        // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
-        // move.l d7,a0; move.l $C(a0),a0; jsr Delete_Object_a0; bra.s loc_7C24`
-        // — sub_7C1C walks the linked object list at $FFFFF862, deleting each
-        // child's GFX object ($C(a0)) before transform. Native doesn't model
-        // linked GFX child objects, so this is a no-op here.
-        self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
+        let same_helmet_replenish = old_form == form && old_form != PlayerForm::TheKid;
+        if same_helmet_replenish {
+            // ASM loc_7C76 (kid.asm:8387): equal Current_Helmet and
+            // Current_Helmet_Available plays Replenish_Health, then branches
+            // directly to loc_7E14 cleanup without reverse or forward tables.
+            self.progression.form_change_flash_frames = 0;
+        } else {
+            // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-
+            // old-helmet animation setup. Indexes off_7EE2[old_helmet] to find the
+            // end of the old helmet's animation table, then iterates backwards.
+            //
+            // ASM loc_7CA6 (kid.asm:8407): `move.w -(a0),d7; bmi.w loc_7CD0` —
+            // inner loop reading animation entries in reverse. Each entry has a repeat
+            // count (high byte) and function index (low byte, into off_7D34 dispatch).
+            // The $FFFF sentinel terminates and falls through to loc_7CD0.
+            //
+            // ASM loc_7CBE (kid.asm:8418): `jsr (j_sub_8E0).w; dbf d0,loc_7CBE` —
+            // per-frame Hibernate wait loop inside the reverse animation. Calls
+            // j_sub_8E0 (VBlank/palette DMA) `d0+1` times, then returns to loc_7CA6
+            // for the next entry. Native doesn't run a coroutine; the total repeat
+            // counts are pre-summed into form_change_flash_frames.
+            //
+            // ASM loc_8FE (kid.asm:1015): second half of sub_8E0 —
+            // `jsr j_Transfer_ScrollDataToVRAM; bsr.w sub_1596;
+            // jsr j_Make_SpriteAttr_HUD; move.b #1,($FFFFFAD6).w; rts`.
+            // Transfers scroll/tile data to VDP, drains custom FG update queue
+            // (sub_1596), and builds HUD sprite attributes. Native models sub_1596
+            // as drain_fg_update_queue_custom_sub_1596; the VDP DMA and HUD sprite
+            // generation are handled by the rendering pipeline outside kid-core.
+            //
+            // ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
+            // (Current_Helmet).w` — put-on-new-helmet phase. Sets Current_Helmet to
+            // the target, plays per-helmet transform sound (unk_7ED8), then walks
+            // the new helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
+            // Native sets current_form above; frame counting below covers both phases.
+            let old_frames = transform_anim_frames(old_form);
+            let new_frames = transform_anim_frames(form);
+            // +1 for the Kid_Transform entry frame (sub_7C1C + palette save +
+            // condition checks + initial Hibernate) before the animation loop starts.
+            // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
+            // move.l d7,a0; move.l $C(a0),a0; jsr Delete_Object_a0; bra.s loc_7C24`
+            // — sub_7C1C walks the linked object list at $FFFFF862, deleting each
+            // child's GFX object ($C(a0)) before transform. Native doesn't model
+            // linked GFX child objects, so this is a no-op here.
+            self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
+        }
         // ASM loc_7E26 (kid.asm:8564): `move.b (a4,d0.w),d0; jsr (sub_E1330).l;
         // jsr (sub_E1338).l` — index unk_7ECC[Foreground_theme] (or
         // MusicSpeed_Murderwall if MurderWall_flag set) for the post-transform

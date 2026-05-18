@@ -4157,6 +4157,31 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_7C76 (kid.asm:8387): when `Current_Helmet` equals
+    /// `Current_Helmet_Available`, the ROM plays Replenish_Health and branches
+    /// straight to loc_7E14. No reverse or forward transform animation runs.
+    #[test]
+    fn loc_7c76_same_helmet_replenishes_without_animation_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = 1;
+        runtime.queue_form_change(PlayerForm::IronKnight);
+        runtime.resolve_pending_form_change();
+
+        assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints(),
+            "ASM loc_7C76 same-helmet path replenishes health before loc_7E14 cleanup"
+        );
+        assert_eq!(
+            runtime.progression.form_change_flash_frames, 0,
+            "ASM loc_7C76 -> loc_7E14 skips both transform animation phases"
+        );
+    }
+
     /// ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7; lea off_7EE2(pc),a0;
     /// move.w (a0,d7.w),d7; subq.w #2,d7; add.w d7,a0` — indexes the old helmet's
     /// animation table end via off_7EE2, then iterates backward through loc_7CA6.
