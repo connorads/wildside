@@ -2156,6 +2156,7 @@ mod tests {
                 start: crate::recording::RecordingStart {
                     warp_level: Some(0),
                     settled: true,
+                    record_frames: None,
                 },
                 rom_sha1: String::new(),
                 script_sha1: String::new(),

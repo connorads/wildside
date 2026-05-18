@@ -40,6 +40,8 @@ pub(crate) struct RecordingBundleArtifacts {
 pub(crate) struct RecordingStart {
     pub(crate) warp_level: Option<u8>,
     pub(crate) settled: bool,
+    #[serde(default)]
+    pub(crate) record_frames: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,6 +111,7 @@ pub(crate) fn recording_start_from_options(options: &NativePlayOptions) -> Recor
     RecordingStart {
         warp_level: options.warp_level,
         settled: options.settled,
+        record_frames: options.record_frames,
     }
 }
 
@@ -1017,6 +1020,9 @@ fn recording_command(slug: &str, start: RecordingStart) -> String {
         command.push_str(" --settled");
     }
     let _ = write!(command, " --record {slug}");
+    if let Some(frame_limit) = start.record_frames {
+        let _ = write!(command, " --record-frames {frame_limit}");
+    }
     command
 }
 
@@ -1191,6 +1197,7 @@ mod tests {
             RecordingStart {
                 warp_level: Some(0),
                 settled: true,
+                record_frames: None,
             },
             vec![0, 1, 2],
             vec![
@@ -1230,6 +1237,7 @@ mod tests {
             RecordingStart {
                 warp_level: Some(0),
                 settled: true,
+                record_frames: None,
             },
             vec![1, 2, 3],
             vec![
@@ -1264,6 +1272,7 @@ mod tests {
             RecordingStart {
                 warp_level: None,
                 settled: false,
+                record_frames: None,
             },
             vec![1, 2, 3],
             vec![
@@ -1289,6 +1298,7 @@ mod tests {
             RecordingStart {
                 warp_level: Some(0x01),
                 settled: true,
+                record_frames: None,
             },
             vec![1, 2, 3],
             vec![
@@ -1323,6 +1333,7 @@ mod tests {
             RecordingStart {
                 warp_level: Some(0x01),
                 settled: true,
+                record_frames: None,
             },
             vec![1, 2, 3],
             vec![
@@ -1412,6 +1423,7 @@ mod tests {
             RecordingStart {
                 warp_level: Some(0x01),
                 settled: true,
+                record_frames: None,
             },
             vec![1, 2, 3],
             vec![start, damaged, game_over],

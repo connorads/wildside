@@ -160,6 +160,9 @@ enum Commands {
         settled: bool,
         #[arg(long)]
         record: Option<String>,
+        /// Stop, save, and exit after this many recorded native frames.
+        #[arg(long)]
+        record_frames: Option<usize>,
         #[arg(long)]
         record_notes: Option<PathBuf>,
     },
@@ -829,6 +832,7 @@ fn main() -> Result<()> {
                 recording::RecordingStart {
                     warp_level: Some(level),
                     settled: false,
+                    record_frames: None,
                 },
                 dynamic.script.clone(),
                 trace,
@@ -860,6 +864,7 @@ fn main() -> Result<()> {
             warp_level,
             settled,
             record,
+            record_frames,
             record_notes,
         } => {
             let repo_root = current_dir()?;
@@ -891,6 +896,11 @@ fn main() -> Result<()> {
                 ),
                 (_, None) => None,
             };
+            match (&record_to, record_frames) {
+                (None, Some(_)) => bail!("--record-frames requires --record <slug>"),
+                (Some(_), Some(0)) => bail!("--record-frames must be greater than zero"),
+                _ => {}
+            }
             run_native_player(
                 &manifest,
                 &NativePlayOptions {
@@ -900,6 +910,7 @@ fn main() -> Result<()> {
                     warp_level,
                     settled,
                     record_to,
+                    record_frames,
                     record_notes,
                 },
             )?;

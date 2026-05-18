@@ -86,6 +86,7 @@ pub struct NativePlayOptions {
     pub warp_level: Option<u8>,
     pub settled: bool,
     pub record_to: Option<PathBuf>,
+    pub record_frames: Option<usize>,
     pub record_notes: Option<String>,
 }
 
@@ -431,6 +432,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 if options.record_to.is_some() {
                     recorded_script.push(buttons);
                     recorded_trace.push(trace.clone());
+                    if recording_frame_limit_reached(options, recorded_trace.len()) {
+                        dump_recording_and_exit = true;
+                    }
                 }
             }
 
@@ -602,6 +606,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
 
         level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
 
+        if dump_recording_and_exit {
+            break 'running;
+        }
+
         let elapsed = frame_started.elapsed();
         if let Some(remaining) = FRAME_TIME.checked_sub(elapsed) {
             thread::sleep(remaining);
@@ -620,6 +628,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     )?;
 
     Ok(())
+}
+
+fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
+    options
+        .record_frames
+        .is_some_and(|limit| recorded_frames >= limit)
 }
 
 fn save_native_recording_bundle(
@@ -3274,6 +3288,7 @@ mod tests {
                 warp_level: None,
                 settled: false,
                 record_to: None,
+                record_frames: None,
                 record_notes: None,
             },
         );
@@ -3309,6 +3324,7 @@ mod tests {
                 warp_level: Some(0x00),
                 settled: true,
                 record_to: None,
+                record_frames: None,
                 record_notes: None,
             },
         );
@@ -3335,6 +3351,7 @@ mod tests {
                 warp_level: None,
                 settled: false,
                 record_to: Some(record_dir.clone()),
+                record_frames: Some(900),
                 record_notes: Some(String::from("stuck on level card")),
             },
             Vec::new(),
@@ -3358,6 +3375,32 @@ mod tests {
             fs::read_to_string(record_dir.join("scenario.json")).expect("scenario text");
         assert!(scenario_text.contains("\"frame_count\": 1"));
         assert!(scenario_text.contains("\"script\": [\n    0\n  ]"));
+        assert!(manifest_text.contains("\"record_frames\": 900"));
+        assert!(manifest_text.contains("--record freeze-repro --record-frames 900"));
+    }
+
+    #[test]
+    fn recording_frame_limit_reached_only_when_recorded_count_hits_limit() {
+        let options = NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: Some(0x01),
+            settled: true,
+            record_to: Some(PathBuf::from("recordings/level2-death")),
+            record_frames: Some(3),
+            record_notes: None,
+        };
+
+        assert!(!recording_frame_limit_reached(&options, 2));
+        assert!(recording_frame_limit_reached(&options, 3));
+        assert!(recording_frame_limit_reached(&options, 4));
+
+        let unbounded = NativePlayOptions {
+            record_frames: None,
+            ..options
+        };
+        assert!(!recording_frame_limit_reached(&unbounded, usize::MAX));
     }
 
     #[test]
