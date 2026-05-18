@@ -124,8 +124,13 @@ done
 description = "Replay all recording bundles that still require human validation/repro decisions"
 
 [tasks.human-validation-review]
-run = "python3 scripts/build_human_validation_review.py"
-description = "Build .cache/human-validation/index.html for the remaining human validation/repro decisions"
+run = """
+sh -ec '
+mise run verify-human-validation
+python3 scripts/build_human_validation_review.py
+'
+"""
+description = "Verify bundles, then build .cache/human-validation/index.html for the remaining human validation/repro decisions"
 
 [tasks.verify-audio-driver]
 run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"

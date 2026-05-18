@@ -22,8 +22,8 @@ closed or deliberately deferred:
 mise run completion-audit
 ```
 
-To build a local HTML review page for the exact PNGs/transcripts in this
-checklist:
+To verify all referenced bundles and build a local HTML review page for the
+exact PNGs/transcripts in this checklist:
 
 ```bash
 mise run human-validation-review
