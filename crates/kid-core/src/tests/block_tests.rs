@@ -9191,7 +9191,6 @@ mod chunk_04 {
     // --- Orca ---
 
     #[test]
-    #[ignore = "TODO(fidelity): Orca enemy lunge not yet implemented"]
     fn orca_lunges_when_player_nearby() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
@@ -9203,7 +9202,11 @@ mod chunk_04 {
         step_orca(&mut enemy, Some(&grid), player_x);
         assert_eq!(enemy.orca_state, OrcaState::Lunging);
         assert!(enemy.y_velocity < 0, "should launch upward");
-        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Orca.asm loc_3D2F4 enters the lunge wind-up without refacing toward Kid"
+        );
     }
 
     #[test]
