@@ -4358,17 +4358,16 @@ mod chunk_11 {
 
     /// ASM loc_8382 (kid.asm:9122): sub_8600 is called with `d0=-$10, d1=$F`
     /// to scan the full crawl width for surface type (ice/rubber/normal).
-    /// Verify that `grounded_surface_type_sub_8600` returns Normal on an
-    /// all-normal surface.
+    /// Verify that `grounded_surface_type_sub_8600` preserves the loc_8688
+    /// empty-scan quirk for all-empty terrain.
     #[test]
-    #[ignore = "TODO(fidelity): loc_8382/sub_8600 not yet implemented"]
-    fn loc_8382_sub_8600_surface_type_normal_on_empty_terrain() {
+    fn loc_8382_sub_8600_surface_type_rubber_on_empty_terrain() {
         let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 2 * 2], 8, 2);
         let surface = grounded_surface_type_sub_8600(&grid, 64, 31, 14);
         assert_eq!(
             surface,
-            TerrainType::Normal,
-            "ASM loc_8382/sub_8600: all-empty scan should return Normal"
+            TerrainType::Rubber,
+            "ASM loc_8382/sub_8600 -> loc_8688: ORIGINAL_QUIRK - all-empty scan returns Rubber because rubber_count*2 >= solid_count when both are zero"
         );
     }
 
