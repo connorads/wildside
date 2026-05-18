@@ -7259,15 +7259,13 @@ mod chunk_11 {
 
     /// ASM loc_90F6 (kid.asm:10512): when ceiling probe row goes negative
     /// (above level top) and $FFFFFA6A=0 (not on Skycutter board), sub_902A
-    /// clears y_vel and returns 0. Native: probe_ceiling returns no-hit for
-    /// out-of-bounds rows.
-    /// TODO(fidelity): native doesn't explicitly handle the above-level-top
-    /// path; it relies on probe returning no-hit.
+    /// clears y_vel, snaps y_pos back below the top boundary, and returns 0.
     #[test]
     fn loc_90f6_above_level_top_not_on_skycutter_preserves_position() {
         // Player near level top with strong upward velocity.
         // In a small grid, the head goes above row 0 → ASM loc_90F6 path.
-        // Native: probe_ceiling returns no-hit, position is unchanged.
+        // Native follows ASM loc_90F6 by treating the negative head row as a
+        // ceiling hit, snapping below the top boundary and clearing y_vel.
         let w: u16 = 6;
         let h: u16 = 4;
         let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -7281,12 +7279,11 @@ mod chunk_11 {
         // y_pos=10, head at y=10-31=-21 → above level top. Strong upward vel.
         // old_y=10+5=15, head_old=15-31=-16, distance_to_tile=(-16)&0xF=0.
         // displacement=5 > 0 → probe runs. top_y=10-31=-21 → negative row →
-        // probe_ceiling returns no-hit (ASM loc_90F6 path).
+        // probe_ceiling takes the ASM loc_9226/loc_90F6 above-level path.
         slice.player.x_pos = 48 << 16;
         slice.player.y_pos = 10 << 16;
         slice.player.y_velocity = -0x0005_0000;
 
-        let y_before = slice.player.y_pos;
         slice.apply_ceiling_collision(
             Some(&mut grid),
             None,
@@ -7295,11 +7292,14 @@ mod chunk_11 {
             &[],
         );
 
-        // No ceiling found → y_pos and y_vel unchanged (clean exit like loc_913A).
-        // ASM loc_90F6 would explicitly zero y_vel; native just skips.
         assert_eq!(
-            slice.player.y_pos, y_before,
-            "ASM loc_90F6: above-level-top with no Skycutter should leave y_pos unchanged"
+            slice.player.y_pos,
+            31 << 16,
+            "ASM loc_90F6: above-level-top should snap y_pos below the top boundary"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_90F6: above-level-top should clear y_vel"
         );
     }
 
@@ -7645,9 +7645,6 @@ mod chunk_11 {
     /// `asr.w #4,d7; bmi.w loc_9226` — when the ceiling probe row is above the
     /// level top (negative), the ROM returns d7=1 (treat as ceiling hit) via
     /// `moveq #1,d7; addq.w #2,sp; rts`.
-    /// TODO(fidelity): native probe_ceiling returns no-hit for OOB rows because
-    /// `probe_at` returns Empty for out-of-bounds coordinates. The ROM explicitly
-    /// treats above-level as a ceiling hit to prevent upward escape.
     #[test]
     fn loc_9226_sub_914a_above_level_returns_hit_in_rom() {
         let w: u16 = 4;
@@ -7656,12 +7653,11 @@ mod chunk_11 {
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
         // Player feet at y=10, height=31 → top_y = 10-31 = -21 → row negative.
-        // ROM: bmi.w loc_9226 → d7=1 (hit). Native: returns no-hit.
+        // ROM: bmi.w loc_9226 → d7=1 (hit).
         let probe = terrain::probe_ceiling(&grid, 32, 10, PLAYER_HALF_WIDTH, 31);
-        // TODO(fidelity): native does not treat above-level as ceiling hit
         assert!(
-            !probe.hit,
-            "ASM loc_9226: native returns no-hit for above-level (TODO(fidelity))"
+            probe.hit,
+            "ASM loc_9226: above-level head row should return a ceiling hit"
         );
     }
 

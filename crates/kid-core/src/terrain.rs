@@ -2211,7 +2211,6 @@ pub fn vertical_collision_scan_up_sub_36CB8(
 ///
 /// loc_9226: early exit when head row is negative (above level top):
 /// `asr.w #4,d7; bmi.w loc_9226` → d7=1 (treat as ceiling hit).
-/// TODO(fidelity): native returns no-hit for OOB rows instead.
 ///
 /// loc_91AC sets the hit flag (`st 1(sp)`) and records the first-hit tile
 /// address in `$FFFFFB6C`. It then checks for Rubber blocks at loc_91C0
@@ -2231,6 +2230,18 @@ pub fn probe_ceiling(
     height: i32,
 ) -> CeilingProbe {
     let top_y = foot_y_px - height;
+    if top_y < 0 {
+        // ASM loc_9226 (kid.asm:10655): negative head rows return d7=1 so
+        // sub_902A takes the normal ceiling-stop path instead of letting Kid
+        // escape above the level.
+        return CeilingProbe {
+            hit: true,
+            ceiling_y_px: 0,
+            cell: Cell::from_be_bytes(0, 0),
+            cell_x: pixel_to_cell(center_x_px).max(0) as u16,
+            cell_y: 0,
+        };
+    }
 
     for &px in &[center_x_px - half_width, center_x_px + half_width] {
         let probe = probe_at(grid, px, top_y);
