@@ -41,6 +41,9 @@ These are the current blockers to a completion claim:
 | #143 | playability validation | Human records a settled Heavy Man helmet/block-break route; current scripted bundle is only a negative baseline |
 | #146 | blocked repro | Human records a Level 2 death/loading repro or decides the report is out of scope |
 
+Use `human-validation-checklist.md` for the exact verifier commands, PNGs, and
+pass/fail decisions for these rows.
+
 ## Latest Audit Commands
 
 ```bash
