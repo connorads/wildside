@@ -3927,22 +3927,28 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1C264 game-mode 2C not yet implemented"]
     fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
-        let mut script = vec![0u8; 125];
-        script[124] = 0x80;
+        let mut script = vec![0u8; 436];
+        script[33] = 0x80;
+        script[434] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
-        let frame_123 = &trace[123];
-        let frame_124 = &trace[124];
+        let frame_433 = &trace[433];
+        let frame_434 = &trace[434];
+        let frame_435 = &trace[435];
 
-        assert_eq!(frame_123.game_mode, GameMode::IntroSequence5);
+        assert_eq!(frame_433.game_mode, GameMode::IntroSequence5);
         assert_eq!(
-            frame_124.game_mode,
+            frame_434.game_mode,
+            GameMode::IntroSequence5,
+            "ASM loc_1BA60 polls sub_1C246 from the intro-sequence-5 hibernate loop before loc_1C250 consumes the Start edge",
+        );
+        assert_eq!(
+            frame_435.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C250: cmpi.w #$24,(Game_Mode).w; beq.s loc_1C264 branch targets loc_1C264 for intro sequence 5 (Game_Mode=$24)",
         );
         assert_eq!(
-            frame_124.game_mode,
+            frame_435.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C264: move.w #$2C,(Game_Mode).w writes TitleScreen mode when branching from either intro sequence 5 ($24) or 6 ($28)",
         );
