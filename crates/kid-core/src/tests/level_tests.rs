@@ -5043,10 +5043,8 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "absolute boot/transition checkpoints need re-derivation after boot_title_start_level1 timing fix"]
     fn progress_two_transitions_skip_cheat_matches_resume_timeline() {
-        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
-        runtime.set_block_grid(grid_with_floor_at_row(17));
+        let mut runtime = cached_generated_runtime();
         let mut frames = BTreeMap::new();
         while runtime.trace_frame().frame_index <= 2214 {
             let frame_index = runtime.trace_frame().frame_index;
@@ -5144,10 +5142,8 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "absolute boot/transition checkpoints need re-derivation after boot_title_start_level1 timing fix"]
     fn progress_two_transitions_rearms_level_2_into_live_gameplay() {
-        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
-        runtime.set_block_grid(grid_with_floor_at_row(17));
+        let mut runtime = cached_generated_runtime();
         let mut frames = BTreeMap::new();
         while runtime.trace_frame().frame_index <= 2_701 {
             let frame_index = runtime.trace_frame().frame_index;
