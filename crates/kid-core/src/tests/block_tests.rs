@@ -11360,6 +11360,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn horizontal_overlap_resolution_loc_25ee_ties_choose_the_right_exit() {
+        assert_eq!(
+            horizontal_overlap_resolution_loc_25EE(40, 59, 50, 49),
+            HorizontalOverlapResolutionLoc25EE {
+                left_exit_px: -10,
+                right_exit_px: 10,
+                push_x_px: 10,
+            },
+            "ASM loc_25EE uses `blt.w loc_261E`, so equal exit magnitudes fall through and keep the right-hand push in `d7`",
+        );
+    }
+
+    #[test]
     fn horizontal_overlap_right_exit_loc_2616_uses_the_platform_right_edge_only() {
         assert_eq!(
             horizontal_overlap_right_exit_loc_2616(87, 60),
@@ -11400,6 +11413,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn vertical_overlap_resolution_loc_2632_ties_choose_the_bottom_exit() {
+        assert_eq!(
+            vertical_overlap_resolution_loc_2632(100, 129, 120, 109),
+            VerticalOverlapResolutionLoc2632 {
+                top_exit_px: -10,
+                bottom_exit_px: 10,
+                push_y_px: 10,
+            },
+            "ASM loc_2632 uses `blt.w loc_2662`, so equal exit magnitudes fall through and keep the bottom push in `d6`",
+        );
+    }
+
+    #[test]
     fn vertical_overlap_bottom_exit_loc_265a_uses_the_platform_bottom_edge_only() {
         assert_eq!(
             vertical_overlap_bottom_exit_loc_265A(139, 130),
@@ -11435,6 +11461,20 @@ mod chunk_04 {
                 takes_negative_branch: true,
             },
             "ASM loc_2686 (kid.asm:4583) should add the signed `d7` push into `Kid_hitbox_left/right` and `$1A(a0)` before `tst.w d7` chooses the `loc_26B6` negative branch",
+        );
+    }
+
+    #[test]
+    fn apply_horizontal_platform_push_loc_2686_zero_push_takes_non_negative_branch() {
+        assert_eq!(
+            apply_horizontal_platform_push_loc_2686(40, 55, 48, 0),
+            HorizontalPlatformPushLoc2686 {
+                kid_hitbox_left_px: 40,
+                kid_hitbox_right_px: 55,
+                kid_gfx_x_px: 48,
+                takes_negative_branch: false,
+            },
+            "ASM loc_2686 uses `bmi.w loc_26B6`, so `d7 == 0` stays on the non-negative loc_26A2 side",
         );
     }
 
