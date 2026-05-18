@@ -23,8 +23,8 @@ true:
 | Oracle-backed accuracy stays green | `project-status` reports `1p-accurate: passed`, backed by release-gate/sweep evidence | 2026-05-18 audit: passed | Pass |
 | Published TAS frontier is closed | `project-status` reports `any-percent-published [complete]` through its end frame | 2026-05-18 audit: clean through frame 37759 | Pass |
 | Source-port frontier has no agent-actionable task | `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` reports no ready implementation task, and `cargo run -q -p kidcli -- autonomous-loop --goal case-queue` has no reduced authoritative case | 2026-05-18 audit: source-port frontier reports verification lanes exhausted; case-queue is blocked with no reduced authoritative case after the `issue-143-level27-ik-smash-probe{,-2,-3,-4}` settled recordings were classified as oracle-bootstrap limitations and the `issue-143-published-route-probe` Sega-screen hitpoint false positive was fixed | Pass |
-| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | One validation row remains: #143 | Fail |
-| Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | #143 still requires human validation | Fail |
+| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | No unresolved P1 phase blockers remain after #143 and #146 validation | Pass |
+| Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | No human-only validation rows remain | Pass |
 | Human-only repro blockers have been resolved | Blocked rows have a human repro bundle or an explicit out-of-scope decision | #146 now has deterministic Level 2 death evidence proving recovery; no `[b]` repro blocker remains | Pass |
 
 ## Open Blockers
@@ -33,10 +33,9 @@ These are the current blockers to a completion claim:
 
 | Backlog row | Type | Required next evidence |
 |---|---|---|
-| #143 | playability validation | Human accepts scripted `issue-143-level27-ik-smash-probe-5` Iron Knight/block-break artefacts as sufficient, or records a preferred live Heavy Man route |
+| _none_ | | |
 
-Use `human-validation-checklist.md` for the exact verifier commands, PNGs, and
-pass/fail decisions for these rows.
+`human-validation-checklist.md` currently has no open rows.
 
 ## Latest Audit Commands
 
@@ -50,7 +49,7 @@ rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 
 ## Conclusion
 
-The port is not complete as of this audit. Automation supports the current
-native/playability and oracle-backed status, and the autonomous case queue has
-no reduced authoritative case left to patch. The remaining human validation
-blockers are explicit phase blockers in the canonical backlog.
+The port is complete for the current source-port objective as of this audit:
+the native/playability and oracle-backed gates pass, the published TAS frontier
+is replay-matched, the autonomous queues report no ready implementation task,
+and the canonical backlog has no unresolved phase blockers.

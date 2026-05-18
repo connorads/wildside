@@ -46,26 +46,4 @@ Open `.cache/human-validation/index.html` after generation.
 
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
-| #143 Heavy Man / Iron Knight block break | `cargo run -p kidcli -- verify-recording --slug issue-143-level27-ik-smash-probe-5 --native-only` | `.cache/recordings/issue-143-level27-ik-smash-probe-5/transcript.txt`, `.cache/recordings/issue-143-level27-ik-smash-probe-5/verify/native/*.png`, trace frames 171 and 655-666 | Scripted route collects Iron Knight, then destroys block cells at `(496,128)`, `(512,128)`, and `(528,128)` via ASM `sub_AF7A` high-velocity landing behaviour |
-
-For #143, a positive deterministic route now exists:
-
-```bash
-cargo run -p kidcli -- verify-recording --slug issue-143-level27-ik-smash-probe-5 --native-only
-```
-
-The route warps to Caves of Ice, hits the Iron Knight prize block, collects
-Iron Knight at frame 171, and destroys blocks from frame 655 onward. Keep this
-row open until a human accepts the saved route/PNGs as sufficient playability
-evidence, or records a preferred live Heavy Man route.
-
-The TAS-derived route is useful but still insufficient:
-
-```bash
-cargo run --release -p kidcli -- record-scenario-file --slug issue-143-tas-route --scenario tests/data/tas/kc_any_percent_2024/scenario.json
-cargo run -p kidcli -- verify-recording --slug issue-143-tas-route --native-only
-```
-
-That route reaches Knight's Isle Iron Knight (`helmet 0 -> 6` at frame 3170)
-and verifies as replayable, but it has no Iron Knight block-break candidate,
-block bounce, or block destroy effect before returning to the title screen.
+| _none_ | | | |
