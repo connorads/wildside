@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-18T09:43:15Z",
+  "updated_at": "2026-05-18T10:28:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -43,13 +43,18 @@
       "The frame-35148 later demo-2 transform Start-abort miss is cleared locally: `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` now passes after suppressing demo abort edges while Kid_Transform still hibernates the gameplay/object loop, `tas-diff --frame-start 35140 --frame-end 35160 --include-advisory` is advisory-only across that window, and `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean."
     ],
     "advisory_diffs": [
-      "The repaired later mode-0x28 / demo-2 preload / intro-sequence-4 title-return windows still carry only the known advisory `number_objects` drift from frame 27602 onward."
+      "The repaired later mode-0x28 / demo-2 preload / intro-sequence-4 title-return windows still carry only the known advisory `number_objects` drift from frame 27602 onward.",
+      "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
       "name": "No active authoritative frontier remains in the published any-percent tail",
       "reason": "Frame 34916 needed the later intro-sequence-1 title idle seeded two frames ahead of the shared `Obj_TitleMenu loc_1BAEA -> loc_1BB02` hand-off, and frame 35148 needed demo Start-abort edges suppressed while Kid_Transform still hibernated the gameplay/object loop. With both fixes in place, chunked CRC checks keep the published tail clean through frame 37759."
     },
     "rejected_hypotheses": [
+      {
+        "name": "The frame-3392 `kc_any_percent_2024` lower walking-dragon miss is caused by the patrol-timer turnaround itself",
+        "reason": "Rejected 2026-05-18. ASM `Scorpion.asm loc_3DEA0`, reached by DragonWalking through `$6A(a5)=loc_3DEA0`, decrements `$54(a5)`, rotates the packed `$6E(a5)` timer pair, reloads `$54(a5)`, then branches by `x_direction(a3)` to the opposite grounded-loop entry (`beq.w loc_3E392`, otherwise `loc_3E546`), so native's `patrol_timer_turn` direction flip is consistent with the shared walker routine. `tas-diff --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3388 --frame-end 3394 --include-advisory --show-object-roster-on-match --frontier-kind enemy` shows native layout #02 already 12px behind oracle by frame 3388 (`native=0x01E68000`, `oracle=0x01F28000`) and still walking left through frame 3391 before the native timer expires on frame 3392. The root cause is earlier enemy-roster drift, not the timer-turn branch. `verify-tas --frame-start 3390 --frame-end 3410` remains CRC-clean, so this is advisory fidelity debt."
+      },
       {
         "name": "Sweep oracle_limitations come from the oracle being stuck on the title card (game_mode=0x0008) after a short post-Start wait in boot_and_warp_oracle",
         "reason": "The multi-lane recovery plan (Lane 1 / C8) asserted the 662 oracle_limitations would drop to ~52 by making the post-Start wait in `crates/kidcli/src/oracle_helper_main.rs.txt` poll `Game_Mode` until it leaves 0x0008 instead of a fixed 120-frame wait. After invalidating the oracle cache (new helper-version-aware cache key) and running `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` with the dynamic wait in place, 662 oracle_limitations remained: field breakdown shows `game_paused=136` and `current_level_id=136` dominating, with only `game_mode=8` diffs. Per commit 230a2632 (`Add game_paused to oracle state, treat paused oracle diffs as advisory`), the real root cause is `Ctrl_Pressed` carryover from the title-card Start press pausing the oracle once gameplay begins — which no post-title-card `Game_Mode` wait can fix. Any future attempt on C8 must start by probing Start-press timing or adding explicit unpause logic, not by widening the title-card wait."
