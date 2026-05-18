@@ -38,12 +38,14 @@ Tasks:
 
 - keep this roadmap as the top-level programme document
 - treat `backlog.md` as the canonical queue for active source-port work
+- use `completion-audit.md` before claiming the source-port objective is done
 - keep `frontier-state.yaml` as the compact truth for TAS/frontier status only
 - archive or rewrite any doc that still says "full playable game", "all done", or similar
 
 Exit criteria:
 
 - roadmap, research map, and whole-game index agree on current status
+- completion audit maps finish criteria to current command/backlog evidence
 - no active doc claims the project is effectively complete
 
 ### 2. 1P playability closure
