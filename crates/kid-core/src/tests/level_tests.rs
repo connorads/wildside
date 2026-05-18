@@ -4961,7 +4961,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "absolute boot/transition checkpoints need re-derivation after boot_title_start_level1 timing fix"]
     fn progress_two_transitions_skip_cheat_matches_early_transition_timeline() {
         // After entry animation removal (a33a4f0) the player starts grounded at
         // spawn, so the camera and Kid reach further right by frame 900.  The
