@@ -14702,6 +14702,314 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_B4A0/loc_B4B2 scans both hitbox edges when preserving grounded
+    /// support across a flat-to-slope boundary. Either edge can be the deeper
+    /// carrying surface while the centre probe is already in the slope tile.
+    #[test]
+    fn grounded_slope_edge_support_uses_distinct_left_and_right_probe_columns() {
+        let w: u16 = 6;
+        let h: u16 = 7;
+        let make_grid = |support_col: usize| {
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+                let offset = (row * usize::from(w) + col) * 2;
+                data[offset] = hi;
+            };
+            set(&mut data, 2, 4, 0x40);
+            set(&mut data, support_col, 5, 0x60);
+            terrain::BlockGrid::from_level_layout(&data, w, h)
+        };
+        let left_grid = make_grid(1);
+        let right_grid = make_grid(3);
+        let both_grid = {
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+                let offset = (row * usize::from(w) + col) * 2;
+                data[offset] = hi;
+            };
+            set(&mut data, 1, 4, 0x40);
+            set(&mut data, 2, 4, 0x40);
+            set(&mut data, 3, 5, 0x60);
+            terrain::BlockGrid::from_level_layout(&data, w, h)
+        };
+        let equal_depth_grid = {
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+                let offset = (row * usize::from(w) + col) * 2;
+                data[offset] = hi;
+            };
+            set(&mut data, 2, 4, 0x50);
+            set(&mut data, 3, 4, 0x60);
+            terrain::BlockGrid::from_level_layout(&data, w, h)
+        };
+
+        let mut left_supported = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        left_supported.player.on_ground = true;
+        left_supported.player.x_pos = 37 << 16;
+        left_supported.player.y_pos = 78 << 16;
+        left_supported.apply_floor_collision(Some(&left_grid), false, false, 13, true);
+
+        assert_eq!(
+            left_supported.player.y_pos,
+            79 << 16,
+            "ASM loc_B4A0/loc_B4B2: left edge support at x-half_width must keep Kid on the deeper flat floor",
+        );
+
+        let mut right_supported = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        right_supported.player.on_ground = true;
+        right_supported.player.x_pos = 43 << 16;
+        right_supported.player.y_pos = 78 << 16;
+        right_supported.apply_floor_collision(Some(&right_grid), false, false, 13, true);
+
+        assert_eq!(
+            right_supported.player.y_pos,
+            79 << 16,
+            "ASM loc_B4A0/loc_B4B2: right edge support at x+half_width must keep Kid on the deeper flat floor",
+        );
+
+        let mut both_supported = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        both_supported.player.on_ground = true;
+        both_supported.player.x_pos = 43 << 16;
+        both_supported.player.y_pos = 78 << 16;
+        both_supported.apply_floor_collision(Some(&both_grid), false, false, 13, true);
+
+        assert_eq!(
+            both_supported.player.y_pos,
+            79 << 16,
+            "ASM loc_B4A0/loc_B4B2: when both edges are supported, the deeper edge floor carries Kid across the slope boundary",
+        );
+
+        let mut equal_depth = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        equal_depth.player.on_ground = true;
+        equal_depth.player.x_pos = 32 << 16;
+        equal_depth.player.y_pos = 64 << 16;
+        equal_depth.apply_floor_collision(Some(&equal_depth_grid), false, false, 16, true);
+
+        assert_eq!(
+            equal_depth.player.y_pos,
+            64 << 16,
+            "ASM loc_B4A0/loc_B4B2: equal-depth edge support must not replace the centre slope probe with a solid edge probe",
+        );
+    }
+
+    /// ASM loc_A912 -> loc_A99E keeps airborne slope recontact available when
+    /// either hitbox edge, not necessarily both, reaches the slope surface.
+    #[test]
+    fn airborne_slope_recontact_allows_single_edge_slope_hitbox_snap() {
+        let w: u16 = 6;
+        let h: u16 = 7;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (4usize * usize::from(w) + 2) * 2;
+        data[offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0;
+
+        slice.apply_floor_collision(Some(&grid), false, false, 15, true);
+
+        assert!(
+            slice.player.on_ground,
+            "ASM loc_A912 -> loc_A99E: one slope edge at the surface is enough for airborne hitbox snap when the centre is still above it",
+        );
+        assert_eq!(slice.player.y_pos, 64 << 16);
+    }
+
+    /// ASM sub_902A upward slope recontact is only for a gentle upward movement:
+    /// zero vertical speed and over-tolerance upward speed must both stay airborne.
+    #[test]
+    fn upward_slope_recontact_requires_negative_velocity_within_tolerance() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let make_slice = |y_velocity| {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.on_ground = false;
+            slice.player.x_pos = 36 << 16;
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = y_velocity;
+            slice
+        };
+
+        let mut zero_velocity = make_slice(0);
+        zero_velocity.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
+        assert!(
+            !zero_velocity.player.on_ground,
+            "ASM sub_902A upward slope recontact requires y_vel < 0; zero velocity above the slope must remain airborne",
+        );
+
+        let mut too_fast_upward = make_slice(-0x0004_0000);
+        too_fast_upward.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
+        assert!(
+            !too_fast_upward.player.on_ground,
+            "ASM sub_902A upward slope recontact only accepts velocities within SLOPE_AIR_SNAP_TOLERANCE_FP",
+        );
+
+        let mut on_surface_upward = make_slice(-0x0001_0000);
+        on_surface_upward.player.y_pos = 75 << 16;
+        on_surface_upward.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
+        assert!(
+            on_surface_upward.player.on_ground,
+            "ASM sub_902A upward slope recontact accepts gentle upward motion once y_pos has reached the slope surface",
+        );
+
+        let mut below_surface_upward = make_slice(-0x0001_0000);
+        below_surface_upward.player.x_pos = 47 << 16;
+        below_surface_upward.player.y_pos = 71 << 16;
+        below_surface_upward.apply_floor_collision(
+            Some(&grid),
+            false,
+            true,
+            PLAYER_HALF_WIDTH,
+            true,
+        );
+        assert!(
+            below_surface_upward.player.on_ground,
+            "ASM sub_902A upward slope recontact accepts gentle upward motion after y_pos has passed the slope surface",
+        );
+    }
+
+    /// ASM sub_902A block landing feeds teleporter blocks into the post-motion
+    /// block handler with the contacted tile coordinates, not the player's
+    /// pixel-space coordinates or unrelated block types.
+    #[test]
+    fn floor_teleporter_contact_reports_tile_coordinates_only_for_teleporters() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let make_grid = |hi: u8| {
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let offset = (4usize * usize::from(w) + 2) * 2;
+            data[offset] = hi;
+            terrain::BlockGrid::from_level_layout(&data, w, h)
+        };
+        let teleporter_grid = make_grid(0xE4);
+        let prize_grid = make_grid(0xE1);
+
+        let make_slice = || {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.on_ground = false;
+            slice.player.x_pos = 39 << 16;
+            slice.player.y_pos = 64 << 16;
+            slice.player.y_velocity = 0x0001_0000;
+            slice
+        };
+
+        let mut teleporter = make_slice();
+        teleporter.apply_floor_collision(
+            Some(&teleporter_grid),
+            false,
+            false,
+            PLAYER_HALF_WIDTH,
+            true,
+        );
+
+        assert_eq!(
+            teleporter.teleporter_contact,
+            Some((2, 4)),
+            "ASM sub_902A teleporter landing should queue the contacted tile column/row",
+        );
+
+        let mut prize = make_slice();
+        prize.apply_floor_collision(Some(&prize_grid), false, false, PLAYER_HALF_WIDTH, true);
+
+        assert_eq!(
+            prize.teleporter_contact, None,
+            "ASM sub_902A block landing must not queue non-teleporter block types",
+        );
+    }
+
+    /// ASM loc_A99E immediately promotes fresh SlopeDown floor contact into the
+    /// slope-walk path when the trailing flat support is gone.
+    #[test]
+    fn fresh_slope_down_floor_contact_returns_recontact_collision() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 68 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0;
+
+        let collision = slice.apply_floor_collision(Some(&grid), false, false, 0, true);
+
+        assert_eq!(
+            collision,
+            Some(terrain::CollisionKind::SlopeDown),
+            "ASM loc_A99E should return SlopeDown for same-frame slope recontact",
+        );
+    }
+
+    /// ASM loc_9D22 stores `y_vel = x_vel` for SlopeDown during the immediate
+    /// recontact slope-walk handoff.
+    #[test]
+    fn immediate_slope_down_recontact_sets_y_velocity_from_x_velocity() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 68 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+
+        slice.apply_immediate_slope_recontact(
+            FrameInput::default(),
+            PlayerForm::TheKid,
+            terrain::CollisionKind::SlopeDown,
+            &grid,
+            0,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, slice.player.x_velocity,
+            "ASM loc_9D22: SlopeDown immediate recontact stores y_vel = +x_vel",
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6

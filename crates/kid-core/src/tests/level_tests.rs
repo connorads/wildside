@@ -15786,6 +15786,303 @@ mod chunk_02 {
     }
 
     #[test]
+    fn fresh_smash_prize_ceiling_deferral_matches_exact_cell_only() {
+        let mut grid = grid_with_blocks();
+
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 40 << 16,
+                y_pos: 63 << 16,
+                x_velocity: 0,
+                y_velocity: -0x0011_0000,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 64 << 16,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_block_hit: None,
+            lift_block_hit: None,
+            drill_projectile_hit: None,
+            metal_block_hit: None,
+            rubber_block_hit: None,
+            smash_block_hit: None,
+            shooter_block_hit: None,
+            teleporter_contact: None,
+            ceiling_prize_clear: None,
+            pre_gravity_y_vel: 0,
+            physics_trace: None,
+            wall_cling_release_probe: None,
+            kid_flip_follow_on_stages: None,
+            kid_jump_gravity_probe: None,
+        };
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[(3, 2, DeferredPrizeBlockPhase::FreshSmash)],
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM sub_914A/loc_91AC: only the exact Level_Layout cell is deferred; same-row FreshSmash metadata must not suppress the real ceiling hit",
+        );
+        assert_eq!(slice.player.y_pos, 79 << 16);
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Diamond, 32, 32)),
+            "ASM sub_914A/loc_91AC: same-row deferred metadata must not suppress the actual prize ceiling dispatch or its 16px tile coordinates",
+        );
+        assert_eq!(
+            slice.ceiling_prize_clear.map(|(col, row, _)| (col, row)),
+            Some((2, 2))
+        );
+    }
+
+    #[test]
+    fn hidden_prize_ceiling_fallback_reports_tile_pixel_coordinates() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        // Hidden placeholder with has_block=1, collision=HiddenBlock, block_type=Prize.
+        // No BlockList is supplied, so native takes the fallback reveal path.
+        set_cell(&mut data, 2, 2, 0xA1, 0x04);
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60, 0x01);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Diamond, 32, 32)),
+            "ASM loc_E03A/sub_E3C6 fallback: hidden Prize ceiling dispatch should report block col,row as 16px tile coordinates",
+        );
+        assert_eq!(
+            slice.ceiling_prize_clear.map(|(col, row, _)| (col, row)),
+            Some((2, 2))
+        );
+    }
+
+    #[test]
+    fn visible_prize_ceiling_clears_adjacent_smash_on_same_scan_row() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE1, 0x01);
+        set_cell(&mut data, 3, 2, 0xE0, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Diamond, 32, 32)),
+            "ASM loc_9188/loc_91AC: left-edge Prize hit should still dispatch from the first ceiling scan cell",
+        );
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM sub_914A scans all tiles across Kid's width, so adjacent Smash on the same ceiling row must clear on the same frame",
+        );
+    }
+
+    #[test]
+    fn smash_ceiling_headbutt_reports_tile_pixel_coordinates() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (2 * usize::from(w) + 2) * 2;
+        data[offset] = 0xE0;
+        data[offset + 1] = 0x01;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.smash_block_hit,
+            Some((32, 32)),
+            "ASM loc_BB6E/off_BB80 -> j_Block_LoadSmashBits: Smash ceiling dispatch should report block col,row as 16px tile coordinates",
+        );
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
+    }
+
+    #[test]
+    fn lift_and_drill_ceiling_headbutts_report_block_coordinates() {
+        let hit_block = |hi: u8| {
+            let w = 6u16;
+            let h = 5u16;
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let offset = (2 * usize::from(w) + 2) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01;
+            let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            });
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 63 << 16;
+            slice.player.y_velocity = -0x0011_0000;
+
+            slice.apply_ceiling_collision(
+                Some(&mut grid),
+                None,
+                PlayerForm::TheKid,
+                PLAYER_HALF_WIDTH,
+                &[],
+            );
+
+            (slice, grid)
+        };
+
+        let (lift_hit, lift_grid) = hit_block(0xEB);
+        assert_eq!(
+            lift_hit.lift_block_hit,
+            Some((32, 32)),
+            "ASM loc_BB6E/off_BB80: Lift ceiling dispatch should report block col,row as 16px tile coordinates",
+        );
+        assert_eq!(lift_grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
+
+        let (drill_hit, drill_grid) = hit_block(0xEC);
+        assert_eq!(
+            drill_hit.drill_projectile_hit,
+            Some((40 << 16, 48 << 16)),
+            "ASM loc_BB6E/off_BB80: Drill ceiling dispatch should spawn from tile centre x and tile-bottom y fixed-point coordinates",
+        );
+        assert_eq!(drill_grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
+    }
+
+    #[test]
+    fn metal_and_shooter_ceiling_headbutts_queue_block_effects() {
+        let mut metal_grid = grid_with_blocks();
+        let mut metal_hit = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        metal_hit.player.x_pos = 56 << 16;
+        metal_hit.player.y_pos = 63 << 16;
+        metal_hit.player.y_velocity = -0x0011_0000;
+
+        metal_hit.apply_ceiling_collision(
+            Some(&mut metal_grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            metal_hit.metal_block_hit,
+            Some((3, 2)),
+            "ASM loc_BB6E/off_BB80: Metal ceiling headbutt should queue the metal block effect at the hit cell",
+        );
+
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE8, 0x01);
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60, 0x01);
+        }
+        let mut shooter_grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut shooter_hit = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        shooter_hit.player.x_pos = 40 << 16;
+        shooter_hit.player.y_pos = 63 << 16;
+        shooter_hit.player.y_velocity = -0x0011_0000;
+
+        shooter_hit.apply_ceiling_collision(
+            Some(&mut shooter_grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            shooter_hit.shooter_block_hit,
+            Some((2, 2)),
+            "ASM loc_BBC2 -> loc_11430: Shooter ceiling headbutt should queue the shooter block effect at the hit cell",
+        );
+    }
+
+    #[test]
     fn floating_helmet_prize_above_lower_body_does_not_collect() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.floating_items.push(FloatingItem {
