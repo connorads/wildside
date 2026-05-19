@@ -1945,6 +1945,23 @@ mod chunk_06 {
     }
 
     #[test]
+    fn loc_868e_red_stealth_sword_start_plays_swing_sound() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+
+        rt.step_red_stealth_sword(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::RedStealthSwordSwinging],
+            "ASM sub_868E plays sfx_Red_Stealth_sword_swinging before the 8-frame sword hibernate",
+        );
+    }
+
+    #[test]
     /// ASM loc_76B0 stores the Red Stealth sword flag in RAM; native trace exposes
     /// that timer so the player renderer can select `stru_8B3C` slash art.
     fn red_stealth_c_press_reports_sword_timer_in_trace() {
@@ -2435,6 +2452,26 @@ mod chunk_06 {
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
             "ASM loc_86EC: collision_type non-zero path must damage the enemy",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_86EC_sword_collision_plays_hit_sound() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, sx, sy, 3));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::RedStealthHittingTarget],
+            "ASM loc_86EC plays sfx_Red_Stealth_hitting_a_target before deleting the sword worker",
         );
     }
 

@@ -4779,6 +4779,10 @@ impl NativeRuntime {
         if c_pressed && self.helmet.red_stealth_sword_timer == 0 {
             self.helmet.red_stealth_sword_timer =
                 RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
+            // ASM sub_868E (kid.asm:9518): the allocated sword worker plays
+            // `sfx_Red_Stealth_sword_swinging` before its `#8` hibernate.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::RedStealthSwordSwinging);
         }
 
         // Tick down active timer
@@ -4832,6 +4836,10 @@ impl NativeRuntime {
                 } else {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                 }
+                // ASM loc_86EC (kid.asm:9556): on non-zero sword collision,
+                // play `sfx_Red_Stealth_hitting_a_target`, then delete.
+                self.played_sound_effects
+                    .push(QueuedSoundEffect::RedStealthHittingTarget);
                 self.helmet.red_stealth_sword_timer = 0;
                 break;
             }

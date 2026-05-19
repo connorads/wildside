@@ -38,6 +38,8 @@ pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
+    RedStealthSwordSwinging,
+    RedStealthHittingTarget,
     RedStealthAttackDown,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
