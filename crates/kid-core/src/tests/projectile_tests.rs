@@ -3433,6 +3433,7 @@ mod chunk_06 {
             y_velocity: 0,
             lifetime: 20,
             friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -3468,6 +3469,7 @@ mod chunk_06 {
             y_velocity: 0,
             lifetime: 20,
             friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -3493,6 +3495,39 @@ mod chunk_06 {
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
             "ASM loc_8ABC: enemy HP decremented by 1"
+        );
+    }
+
+    /// ASM ManiaxeAxe_Init reinitialises `stru_8B86`; its active frames use
+    /// `LnkTo_unk_A5924`/`A59AA`, whose `CollisionSize_Index` entry
+    /// `unk_318B2` is left=-7, width=14, top=-14, height=14.  Native centres
+    /// that ROM box for enemy damage, so Maniaxe's axe reaches one pixel beyond
+    /// the generic projectile contact extent.
+    #[test]
+    fn maniaxe_axe_uses_rom_collision_width_against_enemies_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let maniaxe_only_dx = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Dragon,
+            ((100 + maniaxe_only_dx) as u32) << 16,
+            100 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM stru_8B86/unk_318B2: Maniaxe axe should use the 14px ROM collision width"
         );
     }
 

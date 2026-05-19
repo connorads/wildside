@@ -583,6 +583,11 @@ pub(crate) const RED_STEALTH_HIT_HALF_HEIGHT: i32 = 8;
 pub(crate) const MANIAXE_STARTUP_FRAMES: u8 = 6;
 pub(crate) const MANIAXE_BASE_SPEED: i32 = 5;
 pub(crate) const MANIAXE_TRAVEL_FRAMES: u8 = 12;
+/// ASM ManiaxeAxe_Init uses `stru_8B86`; active frames map through
+/// `LnkTo_unk_A5924`/`LnkTo_unk_A59AA` to `CollisionSize_Index` entry
+/// `unk_318B2`: left=-7, width=14, top=-14, height=14.
+pub(crate) const MANIAXE_AXE_ENEMY_HIT_HALF_WIDTH: i32 = 7;
+pub(crate) const MANIAXE_AXE_ENEMY_HIT_HALF_HEIGHT: i32 = 7;
 
 // === Eyeclops ===
 

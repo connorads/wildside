@@ -4134,6 +4134,20 @@ pub(crate) fn diamond_power_invuln_haze_slot_sprite(
     }
 }
 
+fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, i32) {
+    match projectile.kind {
+        // ASM ManiaxeAxe_Init (kid.asm:9833) loops `stru_8B86`; active frames
+        // use CollisionSize_Index `unk_318B2` (left=-7, width=14,
+        // top=-14, height=14). Native keeps the existing centred contact
+        // approximation but uses the ROM dimensions for axe enemy damage.
+        EnemyProjectileKind::ManiaxeAxe => (
+            MANIAXE_AXE_ENEMY_HIT_HALF_WIDTH,
+            MANIAXE_AXE_ENEMY_HIT_HALF_HEIGHT,
+        ),
+        _ => (PROJECTILE_HITBOX_HALF, PROJECTILE_HITBOX_HALF),
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -5028,6 +5042,7 @@ impl NativeRuntime {
             let prx = (proj.x_pos >> 16) as i32;
             let pry = (proj.y_pos >> 16) as i32;
 
+            let (hit_half_width, hit_half_height) = friendly_projectile_enemy_hit_extents(proj);
             for (ei, enemy) in self.active_enemies.iter_mut().enumerate() {
                 if matches!(enemy.family, EnemyFamily::Diamond) {
                     continue;
@@ -5036,8 +5051,8 @@ impl NativeRuntime {
                 let ey = (enemy.y_pos >> 16) as i32;
                 let dx = (prx - ex).abs();
                 let dy = (pry - ey).abs();
-                if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
-                    && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                if dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
+                    && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
                     enemy.hit_points = enemy.hit_points.saturating_sub(1);
                     if enemy.hit_points == 0 {
