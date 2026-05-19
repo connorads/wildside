@@ -508,8 +508,7 @@ mod chunk_06 {
     }
 
     /// ASM loc_A606 (kid.asm:12960): main grab loop accumulates gravity each
-    /// frame via `($FFFFFA98) += $800`.  Native applies MICROMAX_STUCK_GRAVITY
-    /// (0x600) per frame while stuck.  After enough frames, y_velocity exceeds
+    /// frame via `($FFFFFA98) += $800`. After enough frames, y_velocity exceeds
     /// MICROMAX_STUCK_MAX_FALL and Micromax peels off (micromax_stuck cleared).
     #[test]
     fn micromax_stuck_gravity_accumulates_and_peels_off() {
@@ -524,8 +523,8 @@ mod chunk_06 {
         rt.step_micromax_stick(&mut slice, FrameInput::default());
         assert!(rt.helmet.micromax_stuck, "still stuck after one frame");
         assert_eq!(
-            slice.player.y_velocity, MICROMAX_STUCK_GRAVITY,
-            "one frame of gravity"
+            slice.player.y_velocity, 0x800,
+            "ASM loc_A606: one frame adds $800 to the grab gravity accumulator"
         );
 
         // Accumulate until peel-off: from 0, need > MICROMAX_STUCK_MAX_FALL

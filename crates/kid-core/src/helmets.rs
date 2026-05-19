@@ -4675,9 +4675,9 @@ impl NativeRuntime {
     /// Native architectural difference: the ASM uses a platform-object
     /// reference ($FFFFFA96) set by platform collision code; native uses
     /// terrain probes (ceiling/wall) to detect and maintain stick state.
-    /// The grab loop's gravity accumulator ($800/frame) differs from
-    /// native's MICROMAX_STUCK_GRAVITY (0x600) because the ASM value
-    /// includes platform y_vel contribution.
+    /// The grab loop's gravity accumulator is modelled with
+    /// MICROMAX_STUCK_GRAVITY ($800/frame).  Native still omits the platform
+    /// y_vel contribution because it has no live platform-object reference.
     //
     // Micromax has no special enemy-attack routine in the ROM: contact-only
     // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
@@ -4720,8 +4720,8 @@ impl NativeRuntime {
             }
 
             // ASM loc_A606: `($FFFFFA98) += $800` per frame, then y_vel =
-            // accumulator + platform.y_vel.  Native approximation: fixed
-            // MICROMAX_STUCK_GRAVITY (0x600) without platform vel component.
+            // accumulator + platform.y_vel.  Native currently has no live
+            // platform-object reference, so the platform vel component is 0.
             slice.player.y_velocity += MICROMAX_STUCK_GRAVITY;
             if slice.player.y_velocity > MICROMAX_STUCK_MAX_FALL {
                 // Peeled off

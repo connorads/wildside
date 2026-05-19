@@ -640,8 +640,8 @@ pub(crate) const IRON_KNIGHT_MAX_FALL_VEL: i32 = 0x4_0000;
 /// Micromax hitbox: half-size character (16-pixel grid alignment per ASM).
 pub(crate) const MICROMAX_HALF_W: i32 = 3;
 pub(crate) const MICROMAX_H: i32 = 15;
-/// Micromax stuck gravity: $600 per frame (much lower than normal $4000).
-pub(crate) const MICROMAX_STUCK_GRAVITY: i32 = 0x600;
+/// Micromax grab gravity accumulator: ASM loc_A606 adds $800 per frame.
+pub(crate) const MICROMAX_STUCK_GRAVITY: i32 = 0x800;
 /// Micromax max fall speed before peeling off surface.
 pub(crate) const MICROMAX_STUCK_MAX_FALL: i32 = 0x1_0000;
 /// Micromax detach Y velocity: -4.0 FP (strong upward kick).
