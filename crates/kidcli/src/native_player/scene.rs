@@ -1428,105 +1428,33 @@ fn build_game_scene_filtered(
                 (u32::from(base_colour[1]) * alpha / 255) as u8,
                 (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
-            // Draw content-type-specific pixel-art icon.
-            match content {
-                // Diamond: rotated square (diamond shape)
-                kid_core::terrain::PrizeContent::Diamond => {
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 1,
-                        y: fy - 4,
-                        width: 2,
-                        height: 1,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy - 3,
-                        width: 6,
-                        height: 4,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 1,
-                        y: fy + 1,
-                        width: 2,
-                        height: 1,
-                        colour,
-                    });
-                }
-                // Ankh: cross shape
-                kid_core::terrain::PrizeContent::Ankh => {
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 1,
-                        y: fy - 4,
-                        width: 2,
-                        height: 8,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy - 2,
-                        width: 6,
-                        height: 2,
-                        colour,
-                    });
-                }
-                // Clock: square with dot centre
-                kid_core::terrain::PrizeContent::Clock => {
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy - 3,
-                        width: 6,
-                        height: 1,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy + 2,
-                        width: 6,
-                        height: 1,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy - 2,
-                        width: 1,
-                        height: 4,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx + 2,
-                        y: fy - 2,
-                        width: 1,
-                        height: 4,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx,
-                        y: fy - 1,
-                        width: 1,
-                        height: 2,
-                        colour,
-                    });
-                }
-                // Helmets and other items: filled square with highlight
-                _ => {
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 3,
-                        y: fy - 3,
-                        width: 6,
-                        height: 6,
-                        colour,
-                    });
-                    commands.push(DrawCommand::Rect {
-                        x: fx - 2,
-                        y: fy - 2,
-                        width: 2,
-                        height: 1,
-                        colour: [255, 255, 255],
-                    });
-                }
-            }
+            // Degraded-asset fallback only: in production, Diamond / Ankh /
+            // Clock / Continue / helmet floating prizes resolve through
+            // `floating_prize_visuals` to real ROM sprite frames (ASM
+            // PrizeDiamond_Init `stru_10D6E`, sub_10CB0 helmet selectors,
+            // `stru_10C08/10C18/10C28` icon tiles), and Points10000 /
+            // TenDiamonds render through `render_floating_prize_worker_effect`
+            // (ASM Prize10000Points_Init / Prize10Diamonds_Init). The
+            // previous Diamond / Ankh / Clock branches drew hand-invented
+            // pixel-art "diamond", "cross", and "clock face" approximations
+            // with no ROM citation — those shapes never appeared in the
+            // original game. Collapse the fallback to one consistent
+            // filled-square indicator so missing-asset states are visible
+            // without inventing per-prize artwork.
+            commands.push(DrawCommand::Rect {
+                x: fx - 3,
+                y: fy - 3,
+                width: 6,
+                height: 6,
+                colour,
+            });
+            commands.push(DrawCommand::Rect {
+                x: fx - 2,
+                y: fy - 2,
+                width: 2,
+                height: 1,
+                colour: [255, 255, 255],
+            });
         }
 
         // Enemy death effect: only HeadyMetal spawns one. ASM
