@@ -2015,6 +2015,20 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_swing_anchor_sub_868e_wraps_word_positions() {
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0010_0000;
+        slice.player.y_pos = 0x0005_0000;
+        slice.player.facing = Direction::Left;
+
+        assert_eq!(
+            red_stealth_swing_anchor_sub_868E(&slice.player),
+            (0xFFF4_0000, 0xFFFB_0000),
+            "ASM sub_868E uses word add/sub for sword x/y, so offsets below zero wrap instead of clamping"
+        );
+    }
+
+    #[test]
     /// ASM loc_76B0: `tst.b (Red_Stealth_sword_swing) / bne.w loc_76E4` —
     /// if the sword swing flag is already set, a new C press is ignored.
     fn red_stealth_loc_76b0_already_swinging_blocks_new_swing() {

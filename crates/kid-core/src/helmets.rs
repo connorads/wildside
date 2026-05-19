@@ -262,8 +262,11 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     } else {
         -RED_STEALTH_REACH_X
     };
-    let x_px = ((player.x_pos >> 16) as i32 + x_offset_px).max(0) as u32;
-    let y_px = ((player.y_pos >> 16) as i32 + RED_STEALTH_OFFSET_Y).max(0) as u32;
+    // ASM sub_868E writes only word positions (`move.w`) after `add.w`/`subi.w`;
+    // positions that cross zero wrap in 16-bit world space instead of clamping.
+    let x_px = u32::from(((player.x_pos >> 16) as u16).wrapping_add_signed(x_offset_px as i16));
+    let y_px =
+        u32::from(((player.y_pos >> 16) as u16).wrapping_add_signed(RED_STEALTH_OFFSET_Y as i16));
     (x_px << 16, y_px << 16)
 }
 
