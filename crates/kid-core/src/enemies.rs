@@ -9534,7 +9534,7 @@ fn cloud_projectile_spawn_loc_35df0(
         terrain_kill: true,
         owner: None,
         kind: EnemyProjectileKind::Generic,
-        diamond_power_rain_tracking: false,
+        diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
     }
 }
@@ -22696,7 +22696,7 @@ pub(crate) fn step_archer(
         terrain_kill: true,
         owner: None,
         kind: EnemyProjectileKind::Generic,
-        diamond_power_rain_tracking: false,
+        diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
     });
 }

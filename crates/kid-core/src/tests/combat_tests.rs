@@ -407,6 +407,10 @@ mod chunk_03 {
         assert!(projectile.friendly);
         assert_eq!(projectile.kind, EnemyProjectileKind::DiamondPowerRain);
         assert_eq!(
+            projectile.diamond_power_rain_tracking_word_3e, 0,
+            "ASM loc_3FE46: fresh rain slot `$3E(a0)` starts non-tracking"
+        );
+        assert_eq!(
             projectile.diamond_power_rain_size_word_24, 4,
             "ASM loc_3FE4C: rain slot `$24(a0)` is initialised to 4"
         );
@@ -553,7 +557,7 @@ mod chunk_03 {
             "ASM loc_3FF70: non-tracking rain still falls by its slot y velocity"
         );
         assert!(
-            !projectile.diamond_power_rain_tracking,
+            projectile.diamond_power_rain_tracking_word_3e == 0,
             "loc_3FF70 drift should not mark the slot as tracking"
         );
     }
@@ -595,6 +599,10 @@ mod chunk_03 {
         assert_eq!(
             projectile.y_velocity, 0,
             "ASM loc_3FF3C: target y is enemy_y-$80000, equal to the rain y in this setup"
+        );
+        assert_eq!(
+            projectile.diamond_power_rain_tracking_word_3e, 1,
+            "ASM loc_3FF6A: addq.w #1,$3E(a0) marks the rain slot as tracking"
         );
     }
 

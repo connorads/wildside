@@ -584,7 +584,7 @@ impl NativeRuntime {
             }
 
             if is_diamond_power_rain
-                && !p.diamond_power_rain_tracking
+                && p.diamond_power_rain_tracking_word_3e == 0
                 && tracking_rain_scan_enabled
                 && let Some(camera) = camera
                 && let Some(target) = diamond_power_rain_find_nearest_enemy(
@@ -607,10 +607,12 @@ impl NativeRuntime {
                 // `$3E(a0)`, causing future frames to skip the scan path.
                 p.x_velocity = tracking.x_vel;
                 p.y_velocity = tracking.y_vel;
-                p.diamond_power_rain_tracking = true;
+                p.diamond_power_rain_tracking_word_3e =
+                    p.diamond_power_rain_tracking_word_3e.wrapping_add(1);
             }
 
-            let x_velocity = if is_diamond_power_rain && !p.diamond_power_rain_tracking {
+            let x_velocity = if is_diamond_power_rain && p.diamond_power_rain_tracking_word_3e == 0
+            {
                 // ASM loc_3FE62 (kid.asm:45210): a5 = Kid x_vel * 3/4.
                 // ASM loc_3FF70: non-tracking rain adds that drift after the
                 // slot's own `$26(a0)` x velocity.

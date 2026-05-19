@@ -1993,9 +1993,9 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
-    /// DiamondPower_Main_SlashingRain `$3E(a0)`: nonzero after Tracking Rain
-    /// has locked onto an enemy and written `$26/$2A` slot velocity.
-    pub(crate) diamond_power_rain_tracking: bool,
+    /// DiamondPower_Main_SlashingRain `$3E(a0)`: zero for non-tracking rain;
+    /// incremented by loc_3FF6A after Tracking Rain writes `$26/$2A` velocity.
+    pub(crate) diamond_power_rain_tracking_word_3e: u16,
     /// DiamondPower_Main_SlashingRain `$24(a0)`: diamond sprite size used by
     /// loc_3FF90 when centring and culling the compiled rain sprite.
     pub(crate) diamond_power_rain_size_word_24: u16,
