@@ -1270,25 +1270,26 @@ fn build_game_scene_filtered(
             });
         }
 
-        // Lava geysers: orange/red eruption columns
+        // Lava geyser placeholder. ASM `sub_14BD8` -> `loc_14BE8`
+        // (kid.asm:28255-28278) emits per-row sprite slots driven by 8-byte
+        // template entries at `unk_14624`, `dword_14636`, `unk_14650`,
+        // `unk_1465A`, `unk_14664`, `unk_1466E`. The companion helper
+        // `lava_geyser_sprite_chunks_loc_14BE8` in kid-core already implements
+        // the row walk but is marked `#[allow(dead_code)]` because the
+        // template tables are not yet extracted from ROM. Until the
+        // templates are wired, render a single warm-orange column at the
+        // geyser's position so the eruption is visible without inventing
+        // the previous "core + hot centre" two-band gradient that the ROM
+        // does not draw.
         for &(gx, gy_top, height) in &trace.active_geysers {
             let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
             let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
-            // Core column
             commands.push(DrawCommand::Rect {
                 x: sx - 4,
                 y: sy,
                 width: 8,
                 height: i32::from(height),
                 colour: [255, 120, 20],
-            });
-            // Hot centre
-            commands.push(DrawCommand::Rect {
-                x: sx - 2,
-                y: sy,
-                width: 4,
-                height: i32::from(height),
-                colour: [255, 200, 60],
             });
         }
 
