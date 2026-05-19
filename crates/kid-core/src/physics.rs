@@ -925,11 +925,11 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
 ///   move.l  d0,(Camera_BG_Y_pos).w
 /// ```
 ///
-/// The native port does not maintain `Camera_BG_X/Y_pos` because background
-/// rendering uses a separate scroll register pipeline.  The 1:4 ratio is
-/// implicit in the VDP scroll setup.
-// TODO(fidelity): BG parallax ratio is currently hardcoded in rendering;
-// if a level ever uses a non-1:4 ratio this function would need to supply it.
+/// The native port does not maintain `Camera_BG_X/Y_pos` as runtime state
+/// because live per-layer background scroll is driven by `level.rs` helpers
+/// around ASM `BackgroundScroll_ComputeShiftData` / `sub_30194`.  This helper
+/// only preserves the camera routine's base `Camera_BG_X/Y_pos = camera >> 2`
+/// calculation for tests that cite `loc_72E2`.
 #[cfg(test)]
 pub(crate) fn camera_bg_scroll_loc_72e2(camera_x: u32, camera_y: u32) -> (u32, u32) {
     (camera_x >> 2, camera_y >> 2)
