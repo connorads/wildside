@@ -293,8 +293,9 @@ mod chunk_03 {
         // Non-tracking objects drift with Kid velocity and fall; tracking objects
         // home toward nearest enemy.
         //
-        // Native approximation: projectile-backed rain slots without the full
-        // linked-list tracking object pool. This test verifies that rain objects
+        // Native approximation: projectile-backed rain slots rather than the
+        // ROM DP linked list. Tracking scan/velocity and screen cull are
+        // modelled in step_projectiles; this test verifies that rain objects
         // accumulate on the ROM Time_Frames&$F cadence and that the timer counts
         // down, exercising the equivalent of DiamondPower_Main_SlashingRain and
         // the loc_3FE62 -> loc_3FE90 loop.

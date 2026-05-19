@@ -5409,9 +5409,12 @@ impl NativeRuntime {
                     // velocities), zero → loc_3FEBC (not yet tracking: check
                     // frame timing, search enemies, possibly start tracking).
                     //
-                    // TODO(fidelity): native still represents rain slots as
-                    // friendly projectiles rather than the ROM linked-list DP
-                    // object pool with per-slot tracking state.
+                    // TODO(fidelity): native still uses friendly projectiles
+                    // as the carrier for rain slots instead of the ROM
+                    // Diamond Power linked list. Tracking scan/velocity and
+                    // screen-cull behaviour are modelled in `step_projectiles`,
+                    // but sprite compilation/lifecycle are still projected
+                    // through the generic projectile path.
                     let rain_count = self
                         .projectiles
                         .iter()
