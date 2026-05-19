@@ -4653,6 +4653,56 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_83bc_crawl_frame_integrates_sub_83e6_and_stops_on_slope_snap() {
+        let mut grid = grid_with_cells(
+            8,
+            4,
+            &[
+                (3, 2, 0x60, 0x00), // current crawl support
+                (4, 2, 0x40, 0x00), // right-side `$4000` slope-up probe
+            ],
+        );
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 4 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 50 << 16;
+        slice.player.y_pos = 32 << 16;
+        // ASM loc_83BC is the moving crawl-loop frame after loc_83B4/sub_8506
+        // has produced rightward velocity.
+        slice.player.x_velocity = 0x1_0000;
+        slice.player.facing = Direction::Right;
+
+        slice.step_with_order(
+            FrameInput {
+                down: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos,
+            49 << 16,
+            "ASM loc_83BC -> sub_83E6 should apply the rightward crawl `$4000` slope snap inside the frame loop",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM loc_83BC -> loc_83D8 should zero x_vel after sub_83E6 returns NE",
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // sub_8446 (kid.asm:9205): walk sprite animation accumulator
     // ---------------------------------------------------------------------------

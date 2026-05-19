@@ -3505,11 +3505,29 @@ impl OpeningSliceState {
                 let pre_collision_x = self.player.x_pos;
                 if let Some(grid) = block_grid {
                     self.apply_wall_collision(Some(grid), collision_hw);
+                    let wall_hit = self.player.x_pos != pre_collision_x;
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
                     {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
+                    }
+                    if input.down && self.player.on_ground && !wall_hit {
+                        // ASM loc_83BC -> sub_83E6 -> loc_83D8: the crawl
+                        // path probes the motion-side slope after sub_8F26.
+                        // A matching `$4000`/`$5000` slope snap adjusts x_pos
+                        // and branches to the shared stop tail that clears x_vel.
+                        let crawl_slope = crawl_slope_snap_sub_83E6(
+                            grid,
+                            self.player.x_pos,
+                            self.player.y_pos.saturating_add(0x0001_0000),
+                            self.player.x_velocity,
+                            14,
+                        );
+                        if crawl_slope.adjusted {
+                            self.player.x_pos = crawl_slope.x_pos;
+                            self.player.x_velocity = 0;
+                        }
                     }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
                         kid_flip_follow_on_stages.after_wall =
@@ -6313,15 +6331,14 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
     // (wall collision). If NE (wall hit) → loc_83D8 (zero x_vel). If EQ
     // (no wall), `bsr.w sub_83E6` (slope snap). If NE → loc_83D8 (zero
     // x_vel). Otherwise load x_vel, `bsr.w sub_8446` (walk sprite), back
-    // to loc_8218. Native: wall collision is `apply_wall_collision`;
-    // sub_83E6 exists as this function but is not yet integrated into the
-    // crawl frame loop.
+    // to loc_8218. Native: wall collision is `apply_wall_collision`, and
+    // the AsmFaithful frame loop calls this after the horizontal wall pass.
     //
     // ASM loc_83D8 (kid.asm:9153): wall/slope stop — `moveq #0,d0;
     // move.l d0,x_vel(a3); bsr.w sub_8446; bra.w loc_8218`. Zeroes
     // x_vel on wall contact or slope snap. Native: wall collision already
-    // snaps x_pos (sub_8F26 pushback) but does not separately zero x_vel
-    // for the crawl path — the velocity update next frame handles decay.
+    // snaps x_pos and clears x_vel; the integrated slope snap mirrors the
+    // same stop tail when sub_83E6 returns NE.
     //
     // ASM sub_83E6 (kid.asm:9163): when crawling without a direct wall hit,
     // inspect the motion-side foot cell. Rightward or neutral motion accepts
