@@ -1203,27 +1203,14 @@ fn build_game_scene_filtered(
                 .iter()
                 .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
             {
-                if trace.death_windup_elapsed > 0 {
-                    // ASM Kid_Killed: ~30f freeze, then tumble upward and fall off screen.
-                    // Apply a visual Y offset to simulate the tumble animation.
-                    let elapsed = trace.death_windup_elapsed;
-                    let freeze_frames = 30u16;
-                    if elapsed > freeze_frames {
-                        let tumble = elapsed - freeze_frames;
-                        // Parabolic arc: start at -6px/frame upward, accelerate downward
-                        let y_offset =
-                            -6i32 * i32::from(tumble) + i32::from(tumble) * i32::from(tumble) / 3;
-                        let mut adjusted = object.clone();
-                        adjusted.y_pos = (adjusted.y_pos as i64 + ((y_offset as i64) << 16))
-                            .clamp(0, i64::from(u32::MAX))
-                            as u32;
-                        push_player_sprite(&mut commands, &adjusted, trace, level_visuals);
-                    } else {
-                        push_player_sprite(&mut commands, object, trace, level_visuals);
-                    }
-                } else {
-                    push_player_sprite(&mut commands, object, trace, level_visuals);
-                }
+                // ASM loc_B7FA/loc_B80C: the death tumble is driven by the
+                // engine's `advance_death_windup_motion` (combat.rs:8801),
+                // which applies the ROM's x_vel=$8000, initial y_vel=-$40000,
+                // and per-frame +$3000 gravity directly to the player
+                // position. The renderer must NOT add its own offset on top
+                // — doing so doubled the tumble during user-reported playtest
+                // bug #148 (incorrect dying animation).
+                push_player_sprite(&mut commands, object, trace, level_visuals);
             }
         }
     }
