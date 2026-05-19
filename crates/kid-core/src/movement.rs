@@ -2974,6 +2974,31 @@ impl OpeningSliceState {
                     after_wall: entry_stage,
                 };
 
+                if on_ground_before
+                    && let Some(grid) = block_grid.as_deref()
+                    && matches!(
+                        self.grounded_slope_probe_result_loc_9386(grid),
+                        Some((_, true))
+                    )
+                    && let NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos } =
+                        negative_slope_dispatch_loc_8E98(
+                            form,
+                            self.player.x_pos,
+                            self.player.x_velocity,
+                        )
+                {
+                    // ASM loc_8E3E -> sub_9386 -> loc_8E98: current-row
+                    // slopes return a negative d7. Helmets outside bitmask
+                    // $2C5 skip loc_9D22, tile-snap x_pos, and branch through
+                    // loc_8EC8 to the standing path instead of slope-walking.
+                    self.player.x_pos = x_pos;
+                    self.player.y_velocity = 0;
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
+                }
+
                 // ASM loc_AA9C (kid.asm:13334): wall-cling direction dispatch.
                 // `tst.b ($FFFFFA72); bne.w loc_AAB8` — if $FA72 set (wall
                 // on left), branch to loc_AAB8. Else fall through: check
@@ -3448,10 +3473,10 @@ impl OpeningSliceState {
                 // accumulator), tile-snap x_pos to `(x_pos & $FFF0) - 1`, then
                 // adjust by `+$11` if x_vel was negative (rightward tile edge).
                 // Falls through to loc_8EC8.
-                // TODO(fidelity): native has a typed model in
-                // negative_slope_dispatch_loc_8E98, but the walking path still
-                // applies slope velocity mirroring unconditionally until the
-                // negative sub_9386 dispatch is threaded into movement state.
+                // Native: current-row negative sub_9386 results now dispatch
+                // through negative_slope_dispatch_loc_8E98 before the slope
+                // velocity path. Positive next-row slope hand-off remains part
+                // of the slope-walk path below.
                 //
                 // ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4`
                 // — refresh grounded helmet state and transition to standing still.
@@ -4647,6 +4672,31 @@ impl OpeningSliceState {
             terrain::CollisionKind::SlopeUp => Some(terrain::CollisionKind::SlopeUp),
             _ => None,
         }
+    }
+
+    fn grounded_slope_probe_result_loc_9386(
+        &self,
+        grid: &terrain::BlockGrid,
+    ) -> Option<(terrain::CollisionKind, bool)> {
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let current = terrain::probe_at(grid, x_px, y_px);
+        if matches!(
+            current.cell.collision,
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+        ) {
+            return Some((current.cell.collision, true));
+        }
+
+        let below = grid.cell_at(current.cell_x, current.cell_y.saturating_add(1));
+        if matches!(
+            below.collision,
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+        ) {
+            return Some((below.collision, false));
+        }
+
+        None
     }
 
     /// ASM sub_B43A (kid.asm:14348): floor-support scan across player width.

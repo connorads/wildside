@@ -6435,6 +6435,50 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E3E -> sub_9386 -> loc_8E98: a current-row slope returns
+    /// negative, so non-bitmask helmets tile-snap into the standing path instead
+    /// of entering the loc_9D22 slope-walk velocity path.
+    #[test]
+    fn asm_faithful_negative_slope_dispatch_tilesnaps_red_stealth_loc_8e98() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 3) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x37 << 16;
+        slice.player.y_pos = 72 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x2F_0000,
+            "ASM loc_8E98: Red Stealth lacks bit 7 in $2C5, so x=$37 snaps to ($37&$FFF0)-1"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_8E98 -> loc_8EC8 reaches standing instead of loc_9D22 slope velocity mirroring"
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4` —
     // refresh grounded helmet state then transition to standing still.
