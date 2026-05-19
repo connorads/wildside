@@ -82,11 +82,11 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ### Dragon Walking — Fixed this session
 - Breath interval: initial $12C (300f), reset $1F4 (500f) — dual constant implemented
 
-### Dragon Flying — Fire velocity + collision gaps
+### Dragon Flying — Fire velocity/offset fixed, collision gaps remain
 - All script constants verified correct (drift speeds, accelerations, caps, dive script entries)
 - All 3 variant scripts verified correct
 - **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
-- **Fire spawn X offset missing**: ASM applies ±10px mouth offset. Native spawns at dragon centre.
+- **Fixed: fire mouth X offset**: ASM `loc_34BAC/loc_34BE6` applies ±10px from the dragon mouth. Native applies the signed offset and `dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc` covers the live spawn path.
 - **Missing: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Not in native.
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
 - **Missing: Death-on-stomp sequence**: ASM has specific death animation + explosion spawn.
@@ -147,6 +147,5 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### Low impact (edge cases or rare scenarios)
 8. Crab/Driller speed cap at high HP (rare enemy levels)
-9. Dragon Flying fire mouth X offset
-10. Dragon Flying collision-recovery during Descent
-11. Dragon Flying death-on-stomp sequence
+9. Dragon Flying collision-recovery during Descent
+10. Dragon Flying death-on-stomp sequence
