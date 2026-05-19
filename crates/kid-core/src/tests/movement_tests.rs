@@ -19190,23 +19190,24 @@ mod chunk_12 {
     /// at $5A (90) will reach 0 after exactly 90 scan passes.
     #[test]
     fn loc_b522_telepad_timer_decrement_and_activation() {
-        // ASM: subi.w #1,(Telepad_timer).w — decrement constant is 1
-        let decrement: u16 = 1;
-
-        // Starting from reset value $5A (90), simulate countdown
         let mut timer: u16 = 0x5A;
         let mut passes = 0u16;
 
         while timer > 0 {
-            timer = timer.wrapping_sub(decrement);
             passes += 1;
-            if timer != 0 {
-                // bne.s loc_B51E — return early, d7 still 1
-                continue;
+            match movement::telepad_countdown_loc_B522(timer, 0x1236) {
+                movement::TelepadCountdownLocB522::FloorStillFound { next_timer } => {
+                    timer = next_timer;
+                    assert_ne!(
+                        timer, 0,
+                        "loc_B522: bne loc_B51E should keep d7=1 while timer remains nonzero",
+                    );
+                }
+                movement::TelepadCountdownLocB522::Activated { layout_addr } => {
+                    assert_eq!(layout_addr, 0x1234, "loc_B522: activation stores a0-2");
+                    timer = 0;
+                }
             }
-            // Timer reached 0: moveq #-1,d7 — activation signal
-            let d7: i16 = -1;
-            assert_eq!(d7, -1, "loc_B522: d7 = -1 on activation");
         }
         assert_eq!(passes, 90, "loc_B522: exactly 90 passes from $5A to 0");
     }
@@ -19218,12 +19219,13 @@ mod chunk_12 {
     /// subq.w #2 restores it to point AT the telepad cell.
     #[test]
     fn loc_b522_telepad_address_pointer_backup() {
-        // Simulate: a0 was advanced by (a0)+ during scan, so points 2 bytes past
         let cell_address: u16 = 0x1234;
-        let a0_after_read = cell_address.wrapping_add(2); // post-increment
-        let a0_backed_up = a0_after_read.wrapping_sub(2); // subq.w #2,a0
+        let a0_after_read = cell_address.wrapping_add(2);
         assert_eq!(
-            a0_backed_up, cell_address,
+            movement::telepad_countdown_loc_B522(1, a0_after_read),
+            movement::TelepadCountdownLocB522::Activated {
+                layout_addr: cell_address
+            },
             "loc_B522: subq.w #2 restores a0 to the telepad cell address"
         );
     }

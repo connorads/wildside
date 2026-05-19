@@ -4695,8 +4695,10 @@ impl OpeningSliceState {
         // address of the telepad block, then returns (d7=-1, NZ = true).
         // The stored address is later consumed by loc_BC80 (kid.asm:15219)
         // which reads $FFFFFA86 to locate the telepad destination.
-        // Native: telepad countdown not yet implemented; the telepad path
-        // at loc_B522 is a TODO(fidelity) deferred until telepad levels.
+        // Native: telepad_countdown_loc_B522 models the exact countdown and
+        // address backup, but live telepad timer/address state is not yet
+        // threaded into this floor probe path. TODO(fidelity): integrate it
+        // when telepad levels are promoted.
         // ASM loc_B514 (kid.asm:14428): loop tail — dbf d2,loc_B4E0; after loop
         // resets Telepad_timer to $5A (90).
         // ASM loc_B51E (kid.asm:14432): tst.w d7; rts — return NZ if any Solid
@@ -5726,6 +5728,34 @@ pub(crate) fn negative_slope_dispatch_loc_8E98(
     }
     NegativeSlopeDispatchLoc8E98::TileSnapToStanding {
         x_pos: u32::from(snapped_pixel_x) << 16,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) enum TelepadCountdownLocB522 {
+    FloorStillFound { next_timer: u16 },
+    Activated { layout_addr: u16 },
+}
+
+#[allow(dead_code, non_snake_case)]
+pub(crate) fn telepad_countdown_loc_B522(
+    telepad_timer: u16,
+    a0_after_cell_read: u16,
+) -> TelepadCountdownLocB522 {
+    // ASM loc_B522 (kid.asm:14437): `subi.w #1,(Telepad_timer).w`.
+    // When the post-decrement word is nonzero, the routine branches to
+    // loc_B51E with d7 still `1` from loc_B4FA (floor found).
+    let next_timer = telepad_timer.wrapping_sub(1);
+    if next_timer != 0 {
+        return TelepadCountdownLocB522::FloorStillFound { next_timer };
+    }
+
+    // ASM loc_B522: activation sets `d7=-1`, backs `a0` up from the
+    // post-incremented cell pointer, and stores that layout address in
+    // `$FFFFFA86` for the later loc_BC80 teleporter lookup.
+    TelepadCountdownLocB522::Activated {
+        layout_addr: a0_after_cell_read.wrapping_sub(2),
     }
 }
 
