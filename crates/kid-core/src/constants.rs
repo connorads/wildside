@@ -165,8 +165,10 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // loc_1BA5C starts its long intro-sequence-5 timeout. Oracle traces of the
 // published TAS later timeout-restart revisit keep `Game_Mode=$24` alive
 // through frame 20893 and only reach loc_1BA5C's `move.w #$28,(Game_Mode).w`
-// hand-off on 20894, so the older `17 + 0x1BD` approximation was 59 frames
-// short on the real timeout path.
+// hand-off on 20894. A later TAS diff showed the earlier +59 correction had
+// conflated another restart lineage with this plain timeout path, leaving the
+// native hand-off 34 frames late; this path needs only the 25-frame post-fade
+// skew below.
 // ASM loc_1BA28 also allocates a worker at loc_1BC36 (kid.asm:30516) for
 // tile decompression via repeated sub_1C034 calls and j_Hibernate_Object
 // yields. After the tile uploads complete, loc_1BCCA (kid.asm:30562) spins
@@ -178,7 +180,7 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // `jsr (j_Hibernate_Object_1Frame).w; bsr.w sub_1C246; dbf d0,loc_1BA60`
 // for 0x1BC+1 = 0x1BD = 445 iterations before the `move.w #$28,(Game_Mode).w`
 // transition to intro sequence 6. The DBF loop includes the zero slot.
-pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 59;
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 25;
 // ASM loc_1BA60: after the 445-iteration hibernate loop finishes, the
 // routine clears the intro-sequence flag at `$FFFFFBCE`, then ASM loc_1BA82
 // fills Palette_Buffer_3 with 64 words of `$AAA` for the fade-to-black.

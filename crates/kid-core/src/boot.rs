@@ -6527,8 +6527,8 @@ impl NativeRuntime {
             }
             BootState::IntroSequence6 {
                 cursor,
+                carry_intro_sequence_5_slot_2_pose,
                 carry_timeout_restart_hidden_camera_wrap,
-                ..
             } => {
                 let mut just_activated_title_menu = false;
                 if self.demo_auto_timeout_handoff_active
@@ -6590,10 +6590,21 @@ impl NativeRuntime {
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;
-                        if self.title_idle_frames >= INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
+                        if self.title_idle_frames > INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
                             self.title_idle_frames = 0;
-                            self.demo_toggle = !self.demo_toggle;
-                            self.begin_demo_play(self.demo_toggle);
+                            let use_demo_2 = if *carry_intro_sequence_5_slot_2_pose
+                                && *carry_timeout_restart_hidden_camera_wrap
+                            {
+                                // ASM Load_IntroSequence6 reaches Obj_TitleMenu
+                                // loc_1BB02 on this timeout-restart lineage
+                                // with Demo_Num still cleared, so the first
+                                // natural demo hand-off is Knights Isle.
+                                false
+                            } else {
+                                self.demo_toggle = !self.demo_toggle;
+                                self.demo_toggle
+                            };
+                            self.begin_demo_play(use_demo_2);
                         }
                     }
                 } else if start_pressed {
