@@ -2033,17 +2033,14 @@ fn floating_item_colour(
     }
 }
 
-fn helmet_placeholder_colour(object_meta: u16) -> [u8; 3] {
-    match object_meta {
-        0x006C => [200, 200, 255], // Skycutter
-        0x0070 => [180, 255, 180], // Cyclone
-        0x0074 => [255, 100, 100], // RedStealth
-        0x0078 => [255, 180, 50],  // Eyeclops
-        0x007C => [160, 160, 160], // Juggernaut
-        0x0080 => [220, 220, 255], // IronKnight
-        0x0084 => [255, 100, 50],  // Berzerker
-        0x0088 => [200, 150, 100], // Maniaxe
-        0x008C => [255, 200, 255], // Micromax
-        _ => [220, 220, 255],
-    }
+fn helmet_placeholder_colour(_object_meta: u16) -> [u8; 3] {
+    // ASM sub_10CB0 places every helmet prize on palette line 3 with the
+    // helmet's own `Pal_*` block (e.g. `Pal_DD7A1` for Berzerker). The
+    // previous nine hand-picked RGB triples — "Skycutter pale blue",
+    // "Cyclone mint", "RedStealth pink", etc. — were guessed palette
+    // colours with no ROM citation. Until each helmet's ROM palette
+    // flows through `level_visuals.floating_prizes.helmets`, render a
+    // single consistent placeholder so missing-asset states do not
+    // claim per-helmet hues that the ROM does not specify.
+    [220, 220, 255]
 }
