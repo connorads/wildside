@@ -1399,21 +1399,30 @@ fn build_game_scene_filtered(
             // Block-pass handles the offset draw; nothing to do here.
         }
 
-        // Block destruction fragments: 4 small pieces moving outward
-        for &(x_px, y_px, remaining) in &trace.block_destroy_effects {
+        // Block destruction fragments. ASM `sub_292E` (kid.asm:4881) emits
+        // FIVE direction-keyed sprite slots whose per-row X/Y deltas come
+        // from `unk_29E8`/`unk_29F2` (base table) plus the direction-selected
+        // `unk_29FC`/`unk_2A06`/`unk_2A10`/`unk_2A1A`/`unk_2A24`/`unk_2A2E`/
+        // `unk_2A38`/`unk_2A42` pairs (d6=0..3 routes via loc_297A/loc_296C/
+        // loc_2988 and default loc_2994). The previous 4-corner brown
+        // gradient with hand-tuned alpha was an invention — the ROM uses
+        // theme-specific block tile art and a 5-sprite spread, not coloured
+        // rectangles. TODO(fidelity): plumb the spawn-time direction byte
+        // through `block_destroy_effects` and replace the rect cluster with
+        // ROM tile sprites emitted from the unk_29E8 family of offset
+        // tables. Until then, draw a single small placeholder rect at the
+        // smash centre so the destruction is visible without inventing the
+        // 4-corner gradient.
+        for &(x_px, y_px, _remaining) in &trace.block_destroy_effects {
             let cx = i32::from(x_px) + 8 - (trace.camera_x_pos >> 16) as i32;
             let cy = i32::from(y_px) + 8 - (trace.camera_y_pos >> 16) as i32;
-            let spread = i32::from(8 - remaining) * 2;
-            let alpha_colour = [200u8.saturating_sub(remaining * 15), 160, 120];
-            for &(dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
-                commands.push(DrawCommand::Rect {
-                    x: cx + dx * spread - 2,
-                    y: cy + dy * spread - 2,
-                    width: 4,
-                    height: 4,
-                    colour: alpha_colour,
-                });
-            }
+            commands.push(DrawCommand::Rect {
+                x: cx - 3,
+                y: cy - 3,
+                width: 6,
+                height: 6,
+                colour: [180, 150, 110],
+            });
         }
 
         // Floating prize items: small coloured shape rising upward
