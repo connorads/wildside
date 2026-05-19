@@ -716,6 +716,18 @@ fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
 /// 2. `y_vel = -(jump_height * factor) << 4`
 /// 3. `x_vel = x_vel * 3/4`  (asr #1, copy, asr #1, add)
 pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
+    initiate_jump_with_hand_grab(x_vel, jump_height, false)
+}
+
+/// Initiate a jump with the global KidGrabbedByHand flag supplied by the caller.
+///
+/// ASM sub_A432 tests `KidGrabbedByHand` just before loc_A466 stores y_vel.
+/// When set, the ROM applies `addi.l #$20000,d0`, weakening the launch.
+pub fn initiate_jump_with_hand_grab(
+    x_vel: i32,
+    jump_height: u16,
+    kid_grabbed_by_hand: bool,
+) -> (i32, i32) {
     // ASM loc_A44A (kid.asm:12792): entry after `bpl.s` / `neg.l d1` —
     // d1 = abs(x_vel). The remaining arithmetic computes jump height from
     // horizontal speed: `lsl.l #4,d1; swap d1; addi.w #$100,d1;
@@ -738,10 +750,15 @@ pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
 
     // ASM loc_A466 (kid.asm:12803): `move.l d0,y_vel(a3); move.l d0,($FFFFFAAA)`
     // — stores computed y_vel. Also `tst.l y_pos(a3); bpl.s loc_A480` wraps
-    // negative y_pos to Level_height_pixels. KidGrabbedByHand check at 12799
-    // weakens the jump by `addi.l #$20000,d0` (less negative → lower jump).
-    // Native: y_vel store and y_pos clamp happen at call sites (movement.rs);
-    // $FFFFFAAA is not modelled; KidGrabbedByHand not yet ported.
+    // negative y_pos to Level_height_pixels. ASM line 12799 weakens the jump
+    // while KidGrabbedByHand is set: `addi.l #$20000,d0` (less negative →
+    // lower jump). Native: y_vel store and y_pos clamp happen at call sites
+    // (movement.rs); $FFFFFAAA is not modelled.
+    let y_vel = if kid_grabbed_by_hand {
+        y_vel.wrapping_add(0x2_0000)
+    } else {
+        y_vel
+    };
 
     // ASM loc_A480 (kid.asm:12813): `move.l x_vel(a3),d0; asr.l #1,d0;
     // move.l d0,d1; asr.l #1,d1; add.l d1,d0; move.l d0,x_vel(a3)` — x_vel
@@ -2401,10 +2418,19 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn loc_A466_grabbed_by_hand_weakens_jump() {
-        // Normal jump y_vel (KidGrabbedByHand = false)
         let (_, y_vel_normal) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
-        // Grabbed adjustment: y_vel += $20000 (closer to zero)
-        let y_vel_grabbed = y_vel_normal + 0x2_0000;
+        let (_, y_vel_ungrabbed) = initiate_jump_with_hand_grab(0x2_0000, JUMP_HEIGHTS[0], false);
+        let (_, y_vel_grabbed) = initiate_jump_with_hand_grab(0x2_0000, JUMP_HEIGHTS[0], true);
+
+        assert_eq!(
+            y_vel_ungrabbed, y_vel_normal,
+            "loc_A466: false KidGrabbedByHand path should match initiate_jump wrapper"
+        );
+        assert_eq!(
+            y_vel_grabbed,
+            y_vel_normal.wrapping_add(0x2_0000),
+            "loc_A466: grabbed jump applies addi.l #$20000,d0"
+        );
         assert!(
             y_vel_grabbed > y_vel_normal,
             "loc_A466: grabbed y_vel ({y_vel_grabbed:#x}) should be closer to zero \
