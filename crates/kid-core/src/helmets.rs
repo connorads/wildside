@@ -5566,6 +5566,7 @@ impl NativeRuntime {
                             lifetime: 60,
                             friendly: true, // damages enemies, not player
                             kind: EnemyProjectileKind::DiamondPowerRain,
+                            diamond_power_rain_size_word_24: rain_slot.size_word_24,
                             ..Default::default()
                         });
                     }

@@ -406,6 +406,10 @@ mod chunk_03 {
         assert_eq!(projectile.lifetime, 60);
         assert!(projectile.friendly);
         assert_eq!(projectile.kind, EnemyProjectileKind::DiamondPowerRain);
+        assert_eq!(
+            projectile.diamond_power_rain_size_word_24, 4,
+            "ASM loc_3FE4C: rain slot `$24(a0)` is initialised to 4"
+        );
     }
 
     /// ASM loc_3FE90 loops over a bounded object list. Native rain uses a
@@ -466,6 +470,7 @@ mod chunk_03 {
             lifetime: 1,
             friendly: true,
             kind: EnemyProjectileKind::DiamondPowerRain,
+            diamond_power_rain_size_word_24: 4,
             ..Default::default()
         });
 
@@ -477,6 +482,37 @@ mod chunk_03 {
             runtime.projectiles.len(),
             1,
             "ASM loc_3FF90: visible DiamondPowerRain slots should not expire from projectile lifetime"
+        );
+    }
+
+    /// ASM loc_3FF90 uses each rain slot's `$24(a0)` diamond size when
+    /// centring the sprite before culling. Native must carry that field on the
+    /// projectile-backed slot rather than hard-coding size 4.
+    #[test]
+    fn diamond_power_rain_live_cull_uses_slot_size_word_24_loc_3ff90() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x0001_0000,
+            // screen_y = y + $7F = $16E. With size 6, centred y is $168
+            // and visible; with the old hard-coded size 4 it is $16A and removed.
+            y_pos: 0x00EF_0000,
+            lifetime: 1,
+            friendly: true,
+            kind: EnemyProjectileKind::DiamondPowerRain,
+            diamond_power_rain_size_word_24: 6,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM loc_3FF90: cull should use `$24(a0)` size word before comparing d1 <= $168"
         );
     }
 
@@ -498,6 +534,7 @@ mod chunk_03 {
             lifetime: 1,
             friendly: true,
             kind: EnemyProjectileKind::DiamondPowerRain,
+            diamond_power_rain_size_word_24: 4,
             ..Default::default()
         });
 
@@ -541,6 +578,7 @@ mod chunk_03 {
             lifetime: 1,
             friendly: true,
             kind: EnemyProjectileKind::DiamondPowerRain,
+            diamond_power_rain_size_word_24: 4,
             ..Default::default()
         });
 

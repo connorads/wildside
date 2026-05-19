@@ -633,8 +633,11 @@ impl NativeRuntime {
                 // ASM loc_3FF90/loc_3FFC0: DiamondPower_Main_SlashingRain
                 // removes rain slots only when the compiled diamond sprite
                 // leaves the ROM's camera-relative screen bounds.
-                let (_, action) =
-                    diamond_power_rain_screen_cull_and_compile(screen_x as i16, screen_y as i16, 4);
+                let (_, action) = diamond_power_rain_screen_cull_and_compile(
+                    screen_x as i16,
+                    screen_y as i16,
+                    p.diamond_power_rain_size_word_24,
+                );
                 if action == RainSlotSpriteAction::Removed {
                     return false;
                 }
