@@ -21126,6 +21126,9 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         enemy.wait_timer -= 1;
         return;
     }
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
     // ASM loc_33424/loc_3345C: the drop starts from rest and accelerates
     // downward under `$2000` gravity until it reaches the floor.
     projectiles.push(EnemyProjectile {
@@ -34735,6 +34738,24 @@ mod tests {
         step_tar_monster(&mut enemy, &mut projectiles);
 
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
+    }
+
+    #[test]
+    fn drips_drop_respects_native_projectile_slot_cap_loc_33424() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
+
+        step_drips(&mut enemy, &mut projectiles);
+
+        assert_eq!(
+            projectiles.len(),
+            MAX_PROJECTILES,
+            "ASM Drips.asm loc_33424 reuses the preallocated falling-drop object; native's projectile-backed approximation must not exceed the live projectile slot cap",
+        );
     }
 
     #[test]
