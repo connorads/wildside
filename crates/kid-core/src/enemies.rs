@@ -6370,6 +6370,12 @@ pub(crate) struct ActiveEnemy {
     pub(crate) orca_state: OrcaState,
     /// Orca: wall-pinned flag ($5C(a5)), suppresses X accel during lunge.
     pub(crate) wall_pinned: bool,
+    /// Drips: set once the ceiling-attach phase (ASM `Drips.asm loc_333F6`)
+    /// converges. Until attached, the slime rises with `y_velocity = -$1_0000`
+    /// and probes the ceiling each frame; once a solid cell is found above,
+    /// the position snaps and this flag flips true, after which the existing
+    /// wait/drop cycle runs.
+    pub(crate) drips_attached: bool,
     pub(crate) tar_monster_state: TarMonsterState,
     pub(crate) spinning_twins_phase: SpinningTwinsPhase,
     pub(crate) spinning_twins_orbit_index: u8,
@@ -8065,6 +8071,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         robot_state: RobotState::Walking,
         orca_state: OrcaState::Walking,
         wall_pinned: false,
+        drips_attached: false,
         tar_monster_state: TarMonsterState::default(),
         spinning_twins_phase: SpinningTwinsPhase::default(),
         spinning_twins_orbit_index: 0,
@@ -8732,6 +8739,7 @@ pub(crate) fn activate_enemies_with_rng(
                 robot_state: RobotState::Walking,
                 orca_state: OrcaState::Walking,
                 wall_pinned: false,
+                drips_attached: false,
                 tar_monster_state: TarMonsterState::default(),
                 spinning_twins_phase: SpinningTwinsPhase::default(),
                 spinning_twins_orbit_index: 0,
@@ -8953,7 +8961,13 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
-                        step_drips(enemy, projs, player_x_pos.unwrap_or(enemy.x_pos), rng);
+                        step_drips(
+                            enemy,
+                            projs,
+                            player_x_pos.unwrap_or(enemy.x_pos),
+                            rng,
+                            block_grid,
+                        );
                     }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -21148,12 +21162,68 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawl
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a dedicated physics projectile for the preallocated falling child.
+/// Initial rising velocity for the Drips ceiling-attach phase.
+/// ASM Enemy16_Drip_Init (Drips.asm:35): `move.l #-$10000,y_vel(a3)` seeds
+/// the slime with -1.0 fp/frame upward velocity before the loc_333F6 loop.
+pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
+
+/// Half-width used by the Drips ceiling probe. The ROM's collision check is
+/// at the GfxObject's hitbox; native approximates the slime sprite as ±4px
+/// horizontally for the rise-to-ceiling probe.
+const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 4;
+/// Vertical reach above the spawn point used to look for a solid ceiling.
+/// Matches the player ceiling probe convention so the rising slime stops as
+/// soon as its head crosses into a solid cell.
+const DRIPS_CEILING_PROBE_HEIGHT: i32 = 1;
+
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: u32,
     rng: &mut RomRandomState,
+    block_grid: Option<&terrain::BlockGrid>,
 ) {
+    // ASM Enemy16_Drip_Init -> loc_333F6 (Drips.asm:35-64): the slime spawns
+    // with `y_vel=-$10000` and hibernates one frame at a time until the
+    // engine reports `collision_type(a3) == colid_ceiling`. On collision the
+    // ROM clears collision_type and y_vel, then enters the wait/drop cycle.
+    if !enemy.drips_attached {
+        if let Some(grid) = block_grid {
+            // Apply rising velocity to position, then probe for solid tiles
+            // directly above. `probe_ceiling` treats the player coordinate as
+            // a foot position with head at `foot_y - height`; we reuse it by
+            // passing the Drips body position as the foot row.
+            let new_y_fp = enemy
+                .y_pos
+                .wrapping_add(DRIPS_CEILING_ATTACH_RISE_VELOCITY as u32);
+            enemy.y_pos = new_y_fp;
+            let center_x_px = (enemy.x_pos >> 16) as i32;
+            let body_y_px = (enemy.y_pos >> 16) as i32;
+            let probe = terrain::probe_ceiling(
+                grid,
+                center_x_px,
+                body_y_px,
+                DRIPS_CEILING_PROBE_HALF_WIDTH,
+                DRIPS_CEILING_PROBE_HEIGHT,
+            );
+            if probe.hit {
+                // ASM loc_3340A: clear collision_type and y_vel, then enter
+                // the dormant-delay seed loop. Snap the body so the next-row
+                // ceiling cell is exactly one pixel above the slime's head,
+                // matching the ROM's `loc_333F6` exit position.
+                enemy.y_pos = (probe.ceiling_y_px as u32 + DRIPS_CEILING_PROBE_HEIGHT as u32) << 16;
+                enemy.y_velocity = 0;
+                enemy.drips_attached = true;
+                enemy.wait_timer = drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos);
+            }
+            return;
+        }
+        // No block grid (e.g., unit tests without terrain): act as if already
+        // attached so the wait/drop cycle still runs.
+        enemy.drips_attached = true;
+        enemy.y_velocity = 0;
+    }
+
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
@@ -23622,6 +23692,7 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             wall_pinned: false,
+            drips_attached: false,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -29789,9 +29860,21 @@ mod tests {
             "ASM Drips.asm loc_3340E shifts the RNG byte right by two, then XORs only d0's low byte with Kid X"
         );
 
+        // ASM Enemy16_Drip_Init runs the ceiling-attach loop (loc_333F6) BEFORE
+        // seeding the dormant delay at loc_3340E. Native `spawn_wait_timer`
+        // therefore returns 0 for Drips so the rise phase in `step_drips`
+        // executes immediately; the RNG-driven wait is seeded once the slime
+        // attaches to the ceiling. The post-attach seed itself is exercised
+        // separately via `drips_wait_timer_with_rng_loc_3340e`.
         let mut rng = RomRandomState::default();
         assert_eq!(
             spawn_wait_timer(EnemyFamily::Drips, 0, 0x0123_0000, &mut rng),
+            0,
+            "ASM Drips.asm loc_3340E only seeds the dormant timer after loc_333F6 ceiling attach"
+        );
+        let mut rng = RomRandomState::default();
+        assert_eq!(
+            drips_wait_timer_with_rng_loc_3340e(&mut rng, 0x0123_0000),
             0x0013,
             "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Kid integer X low byte `$23`"
         );
@@ -34842,7 +34925,7 @@ mod tests {
         let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
         let mut rng = RomRandomState::default();
 
-        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
+        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
 
         assert_eq!(
             projectiles.len(),
@@ -35966,6 +36049,10 @@ pub(crate) fn spawn_y_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
                     0
                 }
         }
+        // ASM Enemy16_Drip_Init (Drips.asm:35): `move.l #-$10000,y_vel(a3)`
+        // seeds the slime with -1.0 fp/frame upward velocity before the
+        // ceiling-attach loop at loc_333F6.
+        EnemyFamily::Drips => DRIPS_CEILING_ATTACH_RISE_VELOCITY,
         _ => 0,
     }
 }
@@ -36077,8 +36164,12 @@ pub(crate) fn spawn_wait_timer(
         EnemyFamily::Robot => 1,
         // TarMonster: starts submerged, waits before first emergence.
         EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
-        // ASM Drips.asm loc_3340E seeds the dormant delay from RNG and Kid X.
-        EnemyFamily::Drips => drips_wait_timer_with_rng_loc_3340e(rng, player_x),
+        // ASM Drips.asm loc_3340E seeds the dormant delay AFTER the ceiling
+        // attach (loc_333F6) converges. Native runs the rise-to-ceiling phase
+        // first via `step_drips`, then seeds the RNG-driven dormant timer at
+        // that point; on spawn the wait timer stays at 0 so the rise phase
+        // executes immediately.
+        EnemyFamily::Drips => 0,
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
         // Orca.asm loc_3D194 overwrites `$54(a5)` with `$12C` before the
