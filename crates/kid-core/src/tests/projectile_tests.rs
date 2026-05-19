@@ -2093,6 +2093,30 @@ mod chunk_06 {
     }
 
     #[test]
+    fn loc_868e_red_stealth_sword_stays_inactive_through_eight_startup_frames() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+
+        rt.step_red_stealth_sword(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+
+        for _ in 0..RED_STEALTH_STARTUP_FRAMES - 1 {
+            rt.step_red_stealth_sword(FrameInput::default());
+        }
+
+        assert!(
+            !rt.sword_is_active(),
+            "ASM sub_868E `move.w #8; Hibernate_Object` keeps the sword collision inactive through the eighth startup frame",
+        );
+    }
+
+    #[test]
     fn red_stealth_sword_damages_nearby_enemy() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;

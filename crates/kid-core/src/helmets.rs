@@ -4800,17 +4800,21 @@ impl NativeRuntime {
 
         // C rising edge starts a new swing (only if not already swinging)
         let c_pressed = input.c && !self.prior_input.c;
+        let mut just_started_swing = false;
         if c_pressed && self.helmet.red_stealth_sword_timer == 0 {
             self.helmet.red_stealth_sword_timer =
                 RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
+            just_started_swing = true;
             // ASM sub_868E (kid.asm:9518): the allocated sword worker plays
             // `sfx_Red_Stealth_sword_swinging` before its `#8` hibernate.
             self.played_sound_effects
                 .push(QueuedSoundEffect::RedStealthSwordSwinging);
         }
 
-        // Tick down active timer
-        if self.helmet.red_stealth_sword_timer > 0 {
+        // ASM sub_868E (kid.asm:9522): the allocated sword worker begins with
+        // `move.w #8,-(sp); jsr Hibernate_Object`, so the allocation frame
+        // itself must not consume one of the startup hibernate frames.
+        if self.helmet.red_stealth_sword_timer > 0 && !just_started_swing {
             self.helmet.red_stealth_sword_timer -= 1;
         }
     }
