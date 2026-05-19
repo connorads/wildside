@@ -995,6 +995,11 @@ impl NativeRuntime {
                 .iter()
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
                 .chain(
+                    self.diamond_power_rain_slots
+                        .iter()
+                        .map(|slot| (slot.x_pos, slot.y_pos, true)),
+                )
+                .chain(
                     self.fire_demon_trails
                         .iter()
                         .map(|trail| (trail.x_pos, trail.y_pos, false)),
@@ -1010,6 +1015,17 @@ impl NativeRuntime {
                     remaining_frames: p.lifetime,
                     kind: active_projectile_kind(p),
                 })
+                .chain(
+                    self.diamond_power_rain_slots
+                        .iter()
+                        .map(|slot| ActiveProjectileSnapshot {
+                            x_pos: slot.x_pos,
+                            y_pos: slot.y_pos,
+                            friendly: true,
+                            remaining_frames: 0,
+                            kind: ActiveProjectileKind::Generic,
+                        }),
+                )
                 .chain(
                     self.fire_demon_trails
                         .iter()

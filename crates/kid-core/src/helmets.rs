@@ -5047,6 +5047,9 @@ impl NativeRuntime {
                 if matches!(enemy.family, EnemyFamily::Diamond) {
                     continue;
                 }
+                if enemy.hit_points == 0 {
+                    continue;
+                }
                 let ex = (enemy.x_pos >> 16) as i32;
                 let ey = (enemy.y_pos >> 16) as i32;
                 let dx = (prx - ex).abs();
@@ -5068,6 +5071,38 @@ impl NativeRuntime {
                         projectile_consumed.push(pi);
                     }
                     break; // one enemy per projectile per frame
+                }
+            }
+        }
+
+        for slot in &self.diamond_power_rain_slots {
+            let prx = (slot.x_pos >> 16) as i32;
+            let pry = (slot.y_pos >> 16) as i32;
+
+            for (ei, enemy) in self.active_enemies.iter_mut().enumerate() {
+                if matches!(enemy.family, EnemyFamily::Diamond) {
+                    continue;
+                }
+                if enemy.hit_points == 0 {
+                    continue;
+                }
+                let ex = (enemy.x_pos >> 16) as i32;
+                let ey = (enemy.y_pos >> 16) as i32;
+                let dx = (prx - ex).abs();
+                let dy = (pry - ey).abs();
+                if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
+                    && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                {
+                    enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                    if enemy.hit_points == 0 {
+                        kill_indices.push(ei);
+                    } else {
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    }
+                    // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
+                    // rain slots stay in the DP list after enemy contact and
+                    // are removed only by the screen-cull path.
+                    break;
                 }
             }
         }
@@ -5555,20 +5590,10 @@ impl NativeRuntime {
                     // tst.w $3E(a0): nonzero → loc_3FE98 (tracking: apply own
                     // velocities), zero → loc_3FEBC (not yet tracking: check
                     // frame timing, search enemies, possibly start tracking).
-                    //
-                    // TODO(fidelity): native still uses friendly projectiles
-                    // as the carrier for rain slots instead of the ROM
-                    // Diamond Power linked list. Tracking scan/velocity and
-                    // screen-cull behaviour are modelled in `step_projectiles`,
-                    // but sprite compilation/lifecycle are still projected
-                    // through the generic projectile path.
-                    let rain_count = self
-                        .projectiles
-                        .iter()
-                        .filter(|projectile| {
-                            projectile.kind == EnemyProjectileKind::DiamondPowerRain
-                        })
-                        .count();
+                    // Native keeps the same dedicated DP rain list: spawn
+                    // here, then `step_diamond_power_rain_slots` walks it like
+                    // loc_3FE90 through loc_3FFDA.
+                    let rain_count = self.diamond_power_rain_slots.len();
                     if diamond_power_rain_spawn_gate_loc_3FDFE(
                         self.progression.diamond_power_frames as i16,
                         rain_count,
@@ -5582,17 +5607,13 @@ impl NativeRuntime {
                             cam_y,
                             self.rom_random.next_byte(),
                         );
-                        self.projectiles.push(EnemyProjectile {
+                        self.diamond_power_rain_slots.push(DiamondPowerRainSlot {
                             x_pos: rain_slot.x_pos,
                             y_pos: rain_slot.y_pos,
                             x_velocity: rain_slot.x_velocity,
                             y_velocity: rain_slot.y_velocity,
-                            lifetime: 60,
-                            friendly: true, // damages enemies, not player
-                            kind: EnemyProjectileKind::DiamondPowerRain,
-                            diamond_power_rain_tracking_word_3e: rain_slot.tracking_word_3e,
-                            diamond_power_rain_size_word_24: rain_slot.size_word_24,
-                            ..Default::default()
+                            tracking_word_3e: rain_slot.tracking_word_3e,
+                            size_word_24: rain_slot.size_word_24,
                         });
                     }
                 }

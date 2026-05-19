@@ -529,12 +529,95 @@ impl NativeRuntime {
         });
     }
 
+    pub(crate) fn step_diamond_power_rain_slots(&mut self) {
+        let player_x_velocity = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |s| s.player.x_velocity);
+        let camera = self.opening_slice.as_ref().map(|s| s.camera);
+        let tracking_rain_scan_enabled = self.progression.diamond_power_type
+            == crate::helmets::DiamondPowerType::TrackingRain
+            && (self.frame_index & 7) == 1;
+        let rain_target_candidates: Vec<SnakeTargetCandidate> = self
+            .active_enemies
+            .iter()
+            .map(|enemy| SnakeTargetCandidate {
+                x_pos: (enemy.x_pos >> 16) as u16 as i16,
+                y_pos: (enemy.y_pos >> 16) as u16 as i16,
+            })
+            .collect();
+
+        self.diamond_power_rain_slots.retain_mut(|slot| {
+            if slot.tracking_word_3e == 0
+                && tracking_rain_scan_enabled
+                && let Some(camera) = camera
+                && let Some(target) = diamond_power_rain_find_nearest_enemy(
+                    (slot.x_pos >> 16) as u16 as i16,
+                    (slot.y_pos >> 16) as u16 as i16,
+                    (camera.x_pos >> 16) as u16 as i16,
+                    (camera.y_pos >> 16) as u16 as i16,
+                    &rain_target_candidates,
+                )
+                && let Some(tracking) = diamond_power_rain_compute_tracking_velocity(
+                    target.distance,
+                    (target.x as i32 as u32) << 16,
+                    (target.y as i32 as u32) << 16,
+                    slot.x_pos,
+                    slot.y_pos,
+                )
+            {
+                // ASM loc_3FF3C/loc_3FF6A: valid Tracking Rain target writes
+                // `$26/$2A` velocity, then increments `$3E(a0)` so later
+                // frames use loc_3FE98 instead of the scan path.
+                slot.x_velocity = tracking.x_vel;
+                slot.y_velocity = tracking.y_vel;
+                slot.tracking_word_3e = slot.tracking_word_3e.wrapping_add(1);
+            }
+
+            let x_velocity = if slot.tracking_word_3e == 0 {
+                // ASM loc_3FE62: a5 = Kid x_vel * 3/4.
+                // ASM loc_3FF70: non-tracking rain adds that drift after the
+                // slot's own `$26(a0)` x velocity.
+                let kid_drift = player_x_velocity - (player_x_velocity >> 2);
+                slot.x_velocity.wrapping_add(kid_drift)
+            } else {
+                slot.x_velocity
+            };
+
+            slot.x_pos = (slot.x_pos as i64 + i64::from(x_velocity)) as u32;
+            slot.y_pos = (slot.y_pos as i64 + i64::from(slot.y_velocity)) as u32;
+
+            if let Some(camera) = camera {
+                let screen_x = ((slot.x_pos >> 16) as i32)
+                    .wrapping_add(0x7F)
+                    .wrapping_sub((camera.x_pos >> 16) as i32);
+                let screen_y = ((slot.y_pos >> 16) as i32)
+                    .wrapping_add(0x7F)
+                    .wrapping_sub((camera.y_pos >> 16) as i32);
+                // ASM loc_3FF90/loc_3FFC0: DiamondPower_Main_SlashingRain
+                // removes slots only when the compiled diamond sprite leaves
+                // the ROM camera-relative screen bounds.
+                let (_, action) = diamond_power_rain_screen_cull_and_compile(
+                    screen_x as i16,
+                    screen_y as i16,
+                    slot.size_word_24,
+                );
+                if action == RainSlotSpriteAction::Removed {
+                    return false;
+                }
+            }
+
+            true
+        });
+    }
+
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     /// Homing projectiles accelerate toward `player_pos` each frame.
     /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
     /// Wall-bounce projectiles (Lion) reverse velocity on terrain collision (Lion.asm loc_3E260).
     pub(crate) fn step_projectiles(&mut self) {
         self.step_fire_demon_trails();
+        self.step_diamond_power_rain_slots();
 
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);

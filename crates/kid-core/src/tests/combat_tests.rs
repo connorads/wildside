@@ -67,7 +67,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
+    fn diamond_power_cyclone_slashing_rain_spawns_slots() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
@@ -82,13 +82,13 @@ mod chunk_03 {
             runtime.progression.diamond_power_frames, 720,
             "SlashingRain = 720f"
         );
-        // Step a few frames — rain should spawn projectiles
+        // Step a few frames: ASM loc_3FE90 rain should spawn DP object slots.
         for _ in 0..20 {
             runtime.step_frame(FrameInput::default());
         }
         assert!(
-            !runtime.projectiles.is_empty(),
-            "SlashingRain should spawn projectiles"
+            !runtime.diamond_power_rain_slots.is_empty(),
+            "SlashingRain should spawn DP object-list slots"
         );
     }
 
@@ -113,11 +113,16 @@ mod chunk_03 {
 
         assert_eq!(
             runtime.projectiles.len(),
-            MAX_PROJECTILES + 1,
-            "ASM DiamondPower_Main_SlashingRain loc_3FE62 caps rain at six DP objects, so four generic native projectiles must not block another rain spawn",
+            MAX_PROJECTILES,
+            "ASM DiamondPower_Main_SlashingRain loc_3FE62 caps rain at six DP objects, so generic native projectiles must not receive the rain spawn",
+        );
+        assert_eq!(
+            runtime.diamond_power_rain_slots.len(),
+            1,
+            "ASM loc_3FE90: generic projectile capacity must not block a DP rain slot"
         );
         let rain = runtime
-            .projectiles
+            .diamond_power_rain_slots
             .last()
             .expect("rain object should spawn");
         assert_eq!(
@@ -323,14 +328,14 @@ mod chunk_03 {
             "ASM loc_3FE62: timer decrements each frame"
         );
         assert!(
-            !runtime.projectiles.is_empty(),
+            !runtime.diamond_power_rain_slots.is_empty(),
             "ASM loc_3FE90: rain objects spawned and iterated"
         );
-        // Each projectile should move downward (friendly rain)
-        for proj in &runtime.projectiles {
+        // ASM loc_3FE90 iterates DP rain slots, not generic projectiles.
+        for slot in &runtime.diamond_power_rain_slots {
             assert!(
-                proj.friendly,
-                "ASM loc_3FE90: rain projectiles are friendly (damage enemies)"
+                slot.y_velocity > 0,
+                "ASM loc_3FDFE: rain slot starts with downward `$2A(a0)` velocity"
             );
         }
     }
@@ -390,28 +395,29 @@ mod chunk_03 {
 
         runtime.step_diamond_power(FrameInput::default());
 
-        assert_eq!(runtime.projectiles.len(), 1);
-        let projectile = &runtime.projectiles[0];
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_3FE90: Diamond Power rain lives in the DP object list, not generic projectiles"
+        );
+        assert_eq!(runtime.diamond_power_rain_slots.len(), 1);
+        let slot = &runtime.diamond_power_rain_slots[0];
         assert_eq!(
-            projectile.x_pos,
+            slot.x_pos,
             0x0020_0000 + (expected_offset << 16),
             "ASM loc_3FE62: native rain x is camera_x plus the RNG-derived screen offset"
         );
         assert_eq!(
-            projectile.y_pos, 0x0028_0000,
+            slot.y_pos, 0x0028_0000,
             "ASM loc_3FDFE: native rain starts at Camera_Y_pos-8"
         );
-        assert_eq!(projectile.x_velocity, 0);
-        assert_eq!(projectile.y_velocity, 0x2_0000);
-        assert_eq!(projectile.lifetime, 60);
-        assert!(projectile.friendly);
-        assert_eq!(projectile.kind, EnemyProjectileKind::DiamondPowerRain);
+        assert_eq!(slot.x_velocity, 0);
+        assert_eq!(slot.y_velocity, 0x2_0000);
         assert_eq!(
-            projectile.diamond_power_rain_tracking_word_3e, 0,
+            slot.tracking_word_3e, 0,
             "ASM loc_3FE46: fresh rain slot `$3E(a0)` starts non-tracking"
         );
         assert_eq!(
-            projectile.diamond_power_rain_size_word_24, 4,
+            slot.size_word_24, 4,
             "ASM loc_3FE4C: rain slot `$24(a0)` is initialised to 4"
         );
     }
@@ -424,18 +430,15 @@ mod chunk_03 {
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
         runtime.frame_index = 0x10;
         runtime.progression.diamond_power_frames = 9;
-        runtime.projectiles.resize(
+        runtime.diamond_power_rain_slots.resize(
             DIAMOND_POWER_RAIN_MAX_OBJECTS,
-            EnemyProjectile {
-                kind: EnemyProjectileKind::DiamondPowerRain,
-                ..Default::default()
-            },
+            DiamondPowerRainSlot::default(),
         );
 
         runtime.step_diamond_power(FrameInput::default());
 
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime.diamond_power_rain_slots.len(),
             DIAMOND_POWER_RAIN_MAX_OBJECTS,
             "ASM loc_3FE90: native rain must not exceed the six-object rain cap"
         );
@@ -452,7 +455,7 @@ mod chunk_03 {
         runtime.step_diamond_power(FrameInput::default());
 
         assert!(
-            runtime.projectiles.is_empty(),
+            runtime.diamond_power_rain_slots.is_empty(),
             "ASM loc_3FE90: native rain should skip non-cadence frames"
         );
     }
@@ -467,14 +470,11 @@ mod chunk_03 {
         slice.camera.x_pos = 0x0020_0000;
         slice.camera.y_pos = 0x0030_0000;
         runtime.opening_slice = Some(slice);
-        runtime.projectiles.push(EnemyProjectile {
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
             x_pos: 0x00A0_0000,
             y_pos: 0x0030_0000,
             y_velocity: 0x2_0000,
-            lifetime: 1,
-            friendly: true,
-            kind: EnemyProjectileKind::DiamondPowerRain,
-            diamond_power_rain_size_word_24: 4,
+            size_word_24: 4,
             ..Default::default()
         });
 
@@ -483,9 +483,9 @@ mod chunk_03 {
         }
 
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime.diamond_power_rain_slots.len(),
             1,
-            "ASM loc_3FF90: visible DiamondPowerRain slots should not expire from projectile lifetime"
+            "ASM loc_3FF90: visible Diamond Power rain slots should not expire from projectile lifetime"
         );
     }
 
@@ -499,22 +499,19 @@ mod chunk_03 {
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
         runtime.opening_slice = Some(slice);
-        runtime.projectiles.push(EnemyProjectile {
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
             x_pos: 0x0001_0000,
             // screen_y = y + $7F = $16E. With size 6, centred y is $168
             // and visible; with the old hard-coded size 4 it is $16A and removed.
             y_pos: 0x00EF_0000,
-            lifetime: 1,
-            friendly: true,
-            kind: EnemyProjectileKind::DiamondPowerRain,
-            diamond_power_rain_size_word_24: 6,
+            size_word_24: 6,
             ..Default::default()
         });
 
         runtime.step_projectiles();
 
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime.diamond_power_rain_slots.len(),
             1,
             "ASM loc_3FF90: cull should use `$24(a0)` size word before comparing d1 <= $168"
         );
@@ -527,13 +524,10 @@ mod chunk_03 {
     fn diamond_power_rain_hit_damages_enemy_without_consuming_slot_loc_3ff90() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0080_0000, 0x0080_0000, 2)];
-        runtime.projectiles.push(EnemyProjectile {
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
             x_pos: 0x0080_0000,
             y_pos: 0x0080_0000,
-            lifetime: 1,
-            friendly: true,
-            kind: EnemyProjectileKind::DiamondPowerRain,
-            diamond_power_rain_size_word_24: 4,
+            size_word_24: 4,
             ..Default::default()
         });
 
@@ -544,7 +538,7 @@ mod chunk_03 {
             "ASM collision helper marks enemies hurt by friendly DP sprites"
         );
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime.diamond_power_rain_slots.len(),
             1,
             "ASM loc_3FF90/loc_3FFC0: rain slots survive enemy contact and are culled only by screen bounds"
         );
@@ -561,33 +555,30 @@ mod chunk_03 {
         slice.camera.y_pos = 0;
         slice.player.x_velocity = 0x0004_0000;
         runtime.opening_slice = Some(slice);
-        runtime.projectiles.push(EnemyProjectile {
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
             x_pos: 0x0080_0000,
             y_pos: 0x0080_0000,
             y_velocity: 0x2_0000,
-            lifetime: 1,
-            friendly: true,
-            kind: EnemyProjectileKind::DiamondPowerRain,
-            diamond_power_rain_size_word_24: 4,
+            size_word_24: 4,
             ..Default::default()
         });
 
         runtime.step_projectiles();
 
-        let projectile = runtime
-            .projectiles
+        let slot = runtime
+            .diamond_power_rain_slots
             .first()
             .expect("visible rain slot should remain live");
         assert_eq!(
-            projectile.x_pos, 0x0083_0000,
+            slot.x_pos, 0x0083_0000,
             "ASM loc_3FE62/loc_3FF70: Kid x_vel $40000 contributes $30000 drift"
         );
         assert_eq!(
-            projectile.y_pos, 0x0082_0000,
+            slot.y_pos, 0x0082_0000,
             "ASM loc_3FF70: non-tracking rain still falls by its slot y velocity"
         );
         assert!(
-            projectile.diamond_power_rain_tracking_word_3e == 0,
+            slot.tracking_word_3e == 0,
             "loc_3FF70 drift should not mark the slot as tracking"
         );
     }
@@ -605,33 +596,30 @@ mod chunk_03 {
         slice.camera.y_pos = 0;
         runtime.opening_slice = Some(slice);
         runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0098_0000, 0x0088_0000, 1)];
-        runtime.projectiles.push(EnemyProjectile {
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
             x_pos: 0x0080_0000,
             y_pos: 0x0080_0000,
             y_velocity: 0x2_0000,
-            lifetime: 1,
-            friendly: true,
-            kind: EnemyProjectileKind::DiamondPowerRain,
-            diamond_power_rain_size_word_24: 4,
+            size_word_24: 4,
             ..Default::default()
         });
 
         runtime.step_projectiles();
 
-        let projectile = runtime
-            .projectiles
+        let slot = runtime
+            .diamond_power_rain_slots
             .first()
             .expect("tracking rain slot should remain visible");
         assert_eq!(
-            projectile.x_velocity, 0x0006_0000,
+            slot.x_velocity, 0x0006_0000,
             "ASM loc_3FF3C: distance $18 gives shift 2, so x velocity is (+$18px)<<16 >> 2"
         );
         assert_eq!(
-            projectile.y_velocity, 0,
+            slot.y_velocity, 0,
             "ASM loc_3FF3C: target y is enemy_y-$80000, equal to the rain y in this setup"
         );
         assert_eq!(
-            projectile.diamond_power_rain_tracking_word_3e, 1,
+            slot.tracking_word_3e, 1,
             "ASM loc_3FF6A: addq.w #1,$3E(a0) marks the rain slot as tracking"
         );
     }

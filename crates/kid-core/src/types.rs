@@ -2009,6 +2009,20 @@ pub(crate) struct EnemyProjectile {
     pub(crate) diamond_power_rain_size_word_24: u16,
 }
 
+/// DiamondPower_Main_SlashingRain DP object-list slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct DiamondPowerRainSlot {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    /// ASM DiamondPower_Main_SlashingRain `$3E(a0)`: zero before Tracking Rain
+    /// acquires a target; incremented at loc_3FF6A after `$26/$2A` are written.
+    pub(crate) tracking_word_3e: u16,
+    /// ASM loc_3FF90 uses `$24(a0)` to centre and cull the compiled diamond.
+    pub(crate) size_word_24: u16,
+}
+
 /// Murder wall: an advancing wall that kills the player on contact.
 /// Accelerates from zero to max_speed at $100/frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
