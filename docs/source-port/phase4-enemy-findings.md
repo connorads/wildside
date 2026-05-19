@@ -34,7 +34,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - HP: `enemy_level + 2` — correct
 - **Fixed: Speed cap**: ASM is binary ($8000 at HP=2, $18000 at HP≥3). Native now routes Crab speed through `crab_motion_profile_loc_3b00a`.
 - **Fixed: Probe half-width**: ASM uses $C (12px) via $48(a5). Native now uses `pacer_probe_half_width`, with boundary coverage in `crab_wall_turnaround_uses_twelve_pixel_probe_width`.
-- **Missing: Player proximity freeze**: ASM `loc_3B0BE` implements freeze within 64px when player faces Crab, unfreeze beyond 224px. Not in native.
+- **Fixed: Player proximity freeze**: ASM `loc_3B0BE` implements freeze within 64px when player faces Crab, unfreeze beyond 224px. Native wires this through `step_crab_freeze`, including the `loc_3B0FE` facing gate and movement skip while frozen.
 - **Missing: Hit animation pause**: ASM pauses movement during hurt animation. Native continues pacing.
 - **Missing: Berzerker-charge launch**: ASM launches Crab at 2x player velocity with deceleration physics.
 - **Fixed: high-HP speed cap**: ASM `loc_3AFD0/loc_3B00A` gives HP 2 `$8000` and HP≥3 `$18000`; `crab_motion_profile_matches_loc_3b00a` now covers HP 5 through `pacer_walk_speed`.
@@ -102,7 +102,6 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Fixed: Acceleration doubling for levels 1-2**: native now persists the ROM's `$4E(a5)` init flag and doubles the signed per-axis acceleration after `loc_35444` resolves the drift row.
 - **Fixed: Target velocity doubling for level 2**: native now persists the ROM's `$4F(a5)` init flag, doubles the desired drift speeds, and reloads the 60/40/30 pattern timer from the raw layout level instead of live HP.
 - **Fixed: Cyclone-flying bounce interaction**: ASM `loc_35986` implements bounce when Cyclone-flying player contacts Tornado. Native now sets player x_velocity = ±$20000, Tornado x_velocity = opposite halved ∓$10000, and cyclone_y_accel = $28 (40). Other forms take normal contact damage.
-- **Missing: Cyclone-flying interaction**: ASM boosts player Y-acceleration ($28) and reflects Tornado x_velocity when player is in Cyclone form. Meaningful gameplay mechanic — ~~IMPLEMENTED~~.
 - RNG pattern selection: documented DEVIATION.
 
 ### Ninja, Hand, Lion, Robot, Orca, SpinningTwins, TarMonster, Drips
