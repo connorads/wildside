@@ -74,6 +74,12 @@ pub enum ActiveProjectileKind {
     #[default]
     Generic,
     FireDemonDeathTrail,
+    /// Drips slime drop: ASM `Drips.asm loc_33424`/`loc_3345C` spawn a falling
+    /// child object that accelerates under `$2000` gravity. The ROM draws it
+    /// as an animated slime-blob sprite; native currently renders a
+    /// placeholder rect tagged with this kind so the colour is closer to
+    /// slime green than the generic red enemy-projectile fallback.
+    DripsDrop,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

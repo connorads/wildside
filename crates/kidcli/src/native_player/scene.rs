@@ -1369,6 +1369,23 @@ fn build_game_scene_filtered(
                         push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
                     }
                 }
+                ActiveProjectileKind::DripsDrop => {
+                    // ASM Drips.asm loc_33424/loc_3345C spawn an animated
+                    // slime-blob child sprite that accelerates under `$2000`
+                    // gravity. Real sprite art is not yet wired through the
+                    // asset bundle; until it is, render a small green-tinted
+                    // placeholder so the projectile reads as slime rather than
+                    // the generic red enemy-projectile rect.
+                    // TODO(fidelity): replace with the ROM blob sprite from
+                    // the Drips animation script (`ingame/anim/enemy/Drips.asm`).
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 2,
+                        y: sy - 2,
+                        width: 4,
+                        height: 5,
+                        colour: [120, 200, 90],
+                    });
+                }
             }
         }
 
