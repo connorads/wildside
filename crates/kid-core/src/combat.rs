@@ -7939,8 +7939,8 @@ impl NativeRuntime {
         // object_meta flags whether to negate x_vel on hit. loc_B692:
         // `move.l x_vel(a3),d7; neg.l d7; move.l d7,x_vel(a3); rts` — bounce.
         // Bit 15 clear → return_B690 (rts, no velocity change).
-        // Native: berzerker_charging immunity is handled here; the tornado
-        // and velocity-negation sub-paths are not yet implemented.
+        // Native: berzerker_charging and Cyclone_flying/Tornado immunity are
+        // handled here; the velocity-negation sub-path is not yet implemented.
         //
         // ASM loc_B672 (kid.asm:14576): unexpected collision type dispatch.
         // Character_CheckCollision's off_B640 jump table maps leftwall, floor,
@@ -7959,6 +7959,11 @@ impl NativeRuntime {
         self.active_enemies.iter().find_map(|enemy| {
             // All enemies damage on contact except collectible diamonds
             if matches!(enemy.family, EnemyFamily::Diamond) {
+                return None;
+            }
+            // ASM loc_B69E: Tornado contact returns without damage while
+            // Cyclone_flying is set; grounded Cyclone falls through.
+            if matches!(enemy.family, EnemyFamily::Tornado) && self.helmet.cyclone_flying {
                 return None;
             }
             // Skip invulnerable enemies (e.g. submerged TarMonster)

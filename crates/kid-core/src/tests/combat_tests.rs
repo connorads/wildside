@@ -169,6 +169,60 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn loc_b69e_cyclone_flying_ignores_tornado_contact_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = true;
+        runtime.progression.invulnerable_frames = 0;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::Tornado,
+            0x0100_0000,
+            0x00C0_0000,
+            1,
+        )];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+
+        assert_eq!(
+            runtime.find_contact_damage_source(&slice),
+            None,
+            "ASM loc_B69E checks Cyclone_flying before Check_for_recent_damge and returns without damage while flying",
+        );
+    }
+
+    #[test]
+    fn loc_b69e_grounded_cyclone_takes_tornado_contact_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = false;
+        runtime.progression.invulnerable_frames = 0;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::Tornado,
+            0x0100_0000,
+            0x00C0_0000,
+            1,
+        )];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+
+        assert_eq!(
+            runtime.find_contact_damage_source(&slice),
+            Some((0x0100_0000, EnemyFamily::Tornado)),
+            "ASM loc_B69E falls through to Check_for_recent_damge when Cyclone_flying is clear",
+        );
+    }
+
     // -----------------------------------------------------------------------
     // DiamondPower_Init / Main rain (loc_3FDFE, loc_3FE62, loc_3FE90)
     // -----------------------------------------------------------------------
