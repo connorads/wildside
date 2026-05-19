@@ -8029,8 +8029,13 @@ impl NativeRuntime {
 
     /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
     pub(crate) fn apply_level_completion_bonuses(&mut self) {
-        // Time bonus: remaining seconds × 100
-        self.add_score(u32::from(self.level_timer.seconds) * 100);
+        // Time bonus matches the ROM EOL tally at kid.asm:16692-16699:
+        //   d0 = secs_low + secs_high*10            ; (0..59)
+        //   d0 += minutes*100                       ; "M:SS" as decimal MSS
+        //   d0 *= 10
+        // i.e. the visible "minutes:seconds" reading interpreted as a
+        // decimal number and multiplied by 10.
+        self.add_score(time_bonus_loc_d56e(self.level_timer.seconds));
 
         // No-hit bonus: 5000 points if no damage taken during level
         if !self.level_damage_taken {
@@ -9343,6 +9348,18 @@ fn special_hurt_marker_loc_211c(tile_word: u16) -> bool {
     // ASM loc_211C (kid.asm:3940-3956): neighbouring `$4000`/`$5000`
     // collision-nibble cells route to loc_216A before the hurt writeback.
     matches!(tile_word & 0x7000, 0x4000 | 0x5000)
+}
+
+/// ASM EOL time-bonus tally at kid.asm:16692-16699: build the visible
+/// "M:SS" reading as a decimal number (`minutes*100 + (seconds % 60)`)
+/// and multiply by 10. The previous native formula was a flat
+/// `seconds_remaining * 100`, which inflates the bonus by 6×–10×
+/// depending on the M:SS split. Used by both `apply_level_completion_bonuses`
+/// and the scene-renderer LEVEL COMPLETE overlay.
+pub fn time_bonus_loc_d56e(seconds_remaining: u16) -> u32 {
+    let minutes = u32::from(seconds_remaining / 60);
+    let secs_in_minute = u32::from(seconds_remaining % 60);
+    (minutes * 100 + secs_in_minute) * 10
 }
 
 fn solid_overlap_resolution_sub_201c(

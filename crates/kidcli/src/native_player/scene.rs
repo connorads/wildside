@@ -1471,7 +1471,7 @@ fn build_game_scene_filtered(
         );
         commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
         let mut line_y = text_y + 22;
-        let time_bonus = u32::from(trace.level_timer_seconds) * 100;
+        let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
         let bonus_line = format!("TIME BONUS: {time_bonus}");
         let bonus_x = (FRAME_WIDTH as i32 - bonus_line.len() as i32 * 8) / 2;
         commands.push(text(bonus_x, line_y, &bonus_line, [200, 255, 200], 1));

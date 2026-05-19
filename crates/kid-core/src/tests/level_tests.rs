@@ -7670,7 +7670,7 @@ mod chunk_02 {
         let seconds_remaining = runtime.level_timer.seconds;
         let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
-        let expected = u32::from(seconds_remaining) * 100
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000  // no-hit bonus (no damage taken)
             + 5000  // no-prize bonus (no prize blocks hit)
             + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
@@ -7702,7 +7702,7 @@ mod chunk_02 {
         let seconds_remaining = runtime.level_timer.seconds;
         let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
-        let expected = u32::from(seconds_remaining) * 100
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000  // no-prize bonus (no prize blocks hit)
             + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
         assert_eq!(
@@ -7730,7 +7730,7 @@ mod chunk_02 {
         let seconds_remaining = runtime.level_timer.seconds;
         let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
-        let expected = u32::from(seconds_remaining) * 100
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000 // no-hit bonus (no damage taken)
             // no-prize bonus ABSENT because prize was collected
             + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
@@ -7782,7 +7782,7 @@ mod chunk_02 {
         let seconds_remaining = runtime.level_timer.seconds;
         // Flag touch occurs after the timer has ticked once on this frame, so the
         // time bonus uses 149 seconds here rather than the pre-step 150.
-        let expected = u32::from(seconds_remaining) * 100 + 5000 + 5000;
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining) + 5000 + 5000;
         assert_eq!(
             runtime.progression.score, expected,
             "speed bonus should be absent when completion time exceeds threshold"
@@ -7806,7 +7806,7 @@ mod chunk_02 {
 
         assert_eq!(
             runtime.progression.score,
-            u32::from(runtime.level_timer.seconds) * 100 + 10_000,
+            crate::combat::time_bonus_loc_d56e(runtime.level_timer.seconds) + 10_000,
             "ASM loc_D660 should award speed bonus when completion time equals the threshold"
         );
     }
@@ -14611,7 +14611,7 @@ mod chunk_02 {
         runtime.apply_level_completion_bonuses();
 
         // Only time + no-hit + no-prize; no path or speed.
-        let expected = u32::from(seconds_remaining) * 100 + 5000 + 5000;
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining) + 5000 + 5000;
         assert_eq!(
             runtime.progression.score, expected,
             "Elsewhere levels should skip path and speed bonuses"
@@ -14763,7 +14763,7 @@ mod chunk_02 {
         let seconds_remaining = runtime.level_timer.seconds;
         // Flag touch occurs after the timer has ticked once on this frame, so the
         // time bonus uses 169 seconds here rather than the pre-step 170.
-        let expected = u32::from(seconds_remaining) * 100 + 5000 + 5000;
+        let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining) + 5000 + 5000;
         assert_eq!(
             runtime.progression.score, expected,
             "clock collected should extend elapsed time for speed bonus calc"
