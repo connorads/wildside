@@ -553,6 +553,7 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 | **Untested test suite** | Tests pass but miss real bugs (false confidence) | Mutation testing quarterly; surviving mutants = test gaps (Trail of Bits) |
 | **Unclassified divergences** | Chasing advisory divergences, ignoring accumulation drift | Classify every divergence by category; trend by category over time |
 | **Coarse divergence detection** | "Something's wrong in level 23" but no precision | Framewise checksums + frame-level bisection to pinpoint exact frame and field |
+| **Dead-coded helper drift** | Helper implements ASM routine and has tests, but no production caller exists; the broken behaviour the helper would fix ships anyway | Grep for `#[cfg_attr(not(test), allow(dead_code))]` whenever a user reports a behaviour gap. Examples found 2026-05-19: `kid_airborne_visual_sub_B270` (Red Stealth airborne slash, #153) and `drips_ceiling_gate_loc_333_f6` (Drips slime ceiling attach, #155) both shipped untested in production. Pattern: helper is faithful to ASM and unit-tested, but no `step_*` or runtime call invokes it. Fix order: state field → runtime call → renderer plumbing → integration test |
 
 ---
 
