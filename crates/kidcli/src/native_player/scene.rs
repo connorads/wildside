@@ -1250,30 +1250,23 @@ fn build_game_scene_filtered(
             );
         }
 
-        // Murder wall: layered red wall advancing from the side
+        // Murder wall placeholder. ASM `sub_5E02` (kid.asm:5840-5965) emits
+        // the wall as 24 hardware sprites in a 4×6 grid using compressed
+        // tile art at `$13AA4..$1408A` (`Murder_wall.bin`) with the dedicated
+        // `$1408A..$1409A` palette (`Murder_wall.bin` palette entry), animated
+        // through a 4-frame cycle on timer `$FFFFFAC0` / `$FFFFFABF`. The
+        // tile/palette wiring is not yet wired into `level_visuals` — until
+        // it is, render a single solid rect at the wall's leading edge so
+        // the wall remains visible without inventing a multi-band red
+        // gradient that the ROM does not draw.
         if let Some(wall_x_fp) = trace.murder_wall_x {
             let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-            // Gradient: dark core, lighter leading edge
             commands.push(DrawCommand::Rect {
                 x: wall_x_screen - 64,
                 y: 0,
-                width: 40,
-                height: FRAME_HEIGHT as i32,
-                colour: [120, 0, 0],
-            });
-            commands.push(DrawCommand::Rect {
-                x: wall_x_screen - 24,
-                y: 0,
-                width: 16,
+                width: 64,
                 height: FRAME_HEIGHT as i32,
                 colour: [200, 30, 10],
-            });
-            commands.push(DrawCommand::Rect {
-                x: wall_x_screen - 8,
-                y: 0,
-                width: 8,
-                height: FRAME_HEIGHT as i32,
-                colour: [255, 80, 20],
             });
         }
 
