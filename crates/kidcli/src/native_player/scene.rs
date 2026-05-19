@@ -1508,23 +1508,23 @@ fn build_game_scene_filtered(
         push_game_hud(&mut commands, trace, level_visuals);
     }
 
-    // Level Complete overlay
+    // Level Complete overlay. ASM `loc_D55E` onwards (kid.asm:16670-16800)
+    // animates a sequence of sprite-art labels — `LnkTo_Spr_EOL_Score`,
+    // `LnkTo_Spr_EOL_Time`, `LnkTo_Spr_EOL_Bonus`, `LnkTo_Spr_EOL_NoHit`,
+    // `LnkTo_Spr_EOL_NoPrize`, `LnkTo_Spr_EOL_Path`, `LnkTo_Spr_EOL_Speed`
+    // — flying in from off-screen left (X=$FF20..$FFA0) with their numeric
+    // values appearing on the right (X=$1B0). There is no "LEVEL COMPLETE"
+    // banner in the ROM and no green panel framing — those were invented
+    // here to make the bonus tally readable in non-VDP contexts. Until the
+    // EOL sprite-art assets are wired through the bundle, drop the invented
+    // banner/panel and just paint the bonus lines on the existing
+    // background; the line text is still invented framing for real ROM
+    // values, but the obvious "we made this up" elements are gone.
+    // TODO(fidelity): replace the typed bonus lines with the EOL sprite
+    // workers (`Load_Object_EOL_Text` + `Load_Object_EOL_Number` from ASM
+    // `sub_D55E`).
     if trace.level_complete {
-        let lc_text = "LEVEL COMPLETE";
-        let text_w = lc_text.len() as i32 * 8 * 2;
-        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
         let text_y = (FRAME_HEIGHT as i32) / 2 - 40;
-        let panel_w = text_w + 16;
-        push_panel(
-            &mut commands,
-            text_x - 8,
-            text_y - 4,
-            panel_w,
-            88,
-            [0, 40, 0],
-            [80, 255, 80],
-        );
-        commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
         let mut line_y = text_y + 22;
         let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
         let bonus_line = format!("TIME BONUS: {time_bonus}");
