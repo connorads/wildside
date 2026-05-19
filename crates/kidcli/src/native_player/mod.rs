@@ -4631,31 +4631,61 @@ mod tests {
     }
 
     #[test]
-    fn player_invulnerability_blink_preserves_existing_visibility_rule() {
-        let trace = trace_with_player(0, 100);
+    fn loc_bc34_damage_flash_keeps_player_visible_and_marks_white_phase() {
+        let white_phase = trace_with_player(0, 66);
+        let white_scene = build_ingame_scene(&white_phase, false, None);
+        assert!(
+            scene_has_player_sprite(&white_scene),
+            "ASM loc_BC34 keeps Kid visible through Just_received_damage instead of blinking out"
+        );
+        let has_white_flash_rect = |scene: &Scene| {
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect {
+                        width: 16,
+                        height: 24,
+                        colour: [240, 240, 240],
+                        ..
+                    }
+                )
+            })
+        };
+        assert!(
+            has_white_flash_rect(&white_scene),
+            "ASM loc_BC56 spends the first two frames of each six-frame slot on the white palette"
+        );
+
+        let normal_phase = trace_with_player(4, 64);
+        let normal_scene = build_ingame_scene(&normal_phase, false, None);
+        assert!(scene_has_player_sprite(&normal_scene));
+        assert!(
+            !has_white_flash_rect(&normal_scene),
+            "ASM loc_BC6E returns to the normal palette for the next four frames"
+        );
+
+        let no_damage = trace_with_player(4, 0);
         assert!(scene_has_player_sprite(&build_ingame_scene(
-            &trace, false, None
+            &no_damage, false, None
         )));
+    }
 
-        let trace = trace_with_player(4, 100);
-        assert!(!scene_has_player_sprite(&build_ingame_scene(
-            &trace, false, None
-        )));
+    #[test]
+    fn loc_b7fa_death_tumble_renderer_uses_engine_position_without_extra_offset() {
+        let mut trace = trace_with_player(30, 0);
+        trace.death_windup_elapsed = 30;
+        if let Some(player) = trace.active_objects.first_mut() {
+            player.x_pos = 0x0018_0000;
+            player.y_pos = 0x0040_0000;
+        }
 
-        let trace = trace_with_player(8, 100);
-        assert!(scene_has_player_sprite(&build_ingame_scene(
-            &trace, false, None
-        )));
+        let scene = build_ingame_scene(&trace, false, None);
 
-        let trace = trace_with_player(12, 100);
-        assert!(!scene_has_player_sprite(&build_ingame_scene(
-            &trace, false, None
-        )));
-
-        let trace = trace_with_player(4, 0);
-        assert!(scene_has_player_sprite(&build_ingame_scene(
-            &trace, false, None
-        )));
+        assert_eq!(
+            sprite_position(&scene, 1),
+            Some((8, 24)),
+            "ASM loc_B7FA/loc_B80C already advances the death tumble in engine state; the renderer must not add the old parabolic y-offset"
+        );
     }
 
     // --- US-012: HUD display ---
