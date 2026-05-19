@@ -21127,7 +21127,7 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawl
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
-/// Native approximation uses a physics projectile for the drop.
+/// Native approximation uses a dedicated physics projectile for the preallocated falling child.
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
@@ -21138,12 +21138,11 @@ pub(crate) fn step_drips(
         enemy.wait_timer -= 1;
         return;
     }
-    if projectiles.len() >= MAX_PROJECTILES {
-        return;
-    }
-    // ASM loc_33424/loc_3345C: the drop starts from rest and accelerates
-    // downward under `$2000` gravity until it reaches the floor.
+    // ASM Drips.asm loc_33424/loc_3345C: the ROM reuses the preallocated
+    // falling child object, starts it from rest, then accelerates downward
+    // under `$2000` gravity until it reaches the floor.
     projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::DripsDrop,
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
         x_velocity: 0,
@@ -34809,7 +34808,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_drop_respects_native_projectile_slot_cap_loc_33424() {
+    fn drips_drop_ignores_generic_projectile_slot_cap_loc_33424() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Drips,
             wait_timer: 0,
@@ -34822,8 +34821,13 @@ mod tests {
 
         assert_eq!(
             projectiles.len(),
-            MAX_PROJECTILES,
-            "ASM Drips.asm loc_33424 reuses the preallocated falling-drop object; native's projectile-backed approximation must not exceed the live projectile slot cap",
+            MAX_PROJECTILES + 1,
+            "ASM Drips.asm loc_33424 reuses the preallocated falling-drop object, so unrelated generic projectiles do not consume the drop child slot",
+        );
+        assert_eq!(
+            projectiles.last().map(|projectile| projectile.kind),
+            Some(EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_33424 starts the dedicated falling child, not a generic enemy projectile",
         );
     }
 

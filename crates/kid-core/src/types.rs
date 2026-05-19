@@ -1948,6 +1948,7 @@ pub(crate) struct EnemyProjectileOwner {
 pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
+    DripsDrop,
     Hail,
     TankBullet,
     ManiaxeAxe,

@@ -9869,6 +9869,11 @@ mod chunk_04 {
             u16::MAX,
             "ASM loc_3345C has no short DBF lifetime; collision ends the falling drop"
         );
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::DripsDrop,
+            "ASM Drips.asm loc_33424 reuses the dedicated falling child object, so native should not leave the drop as a generic projectile"
+        );
         assert!(
             projectiles[0].terrain_kill,
             "native drop should expire on terrain contact instead of only a short timer"
@@ -9889,6 +9894,27 @@ mod chunk_04 {
         step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
         assert!(projectiles.is_empty(), "should not drop while timer active");
         assert_eq!(enemy.wait_timer, 4);
+    }
+
+    #[test]
+    fn drips_drop_uses_dedicated_child_slot_not_generic_projectile_cap_loc_33424() {
+        let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
+        enemy.wait_timer = 0;
+        let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
+        let mut rng = RomRandomState::default();
+
+        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
+
+        assert_eq!(
+            projectiles.len(),
+            MAX_PROJECTILES + 1,
+            "ASM Drips.asm loc_33424 uses Drips' preallocated falling child, so unrelated generic projectiles must not block the drop"
+        );
+        assert_eq!(
+            projectiles.last().map(|projectile| projectile.kind),
+            Some(EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_3345C should leave the native Drips child distinguishable from generic enemy projectiles"
+        );
     }
 
     // --- SpinningTwins ---
