@@ -6406,6 +6406,12 @@ pub(crate) struct ActiveEnemy {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PendingDragonDeathChild {
+    pub(crate) remaining_frames: u16,
+    pub(crate) child: ActiveEnemy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EnemyArchetype {
     Bouncer,
     Collectible,
@@ -6423,6 +6429,9 @@ pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
 const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// Walking dragons also use the 1px Y offset.
 const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
+/// ASM Dragon_Flying.asm loc_3492C: `move.w #2,-(sp); jsr Hibernate_Object`
+/// before the walking-dragon child is allocated at loc_3CD16.
+pub(crate) const DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES: u16 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -8002,7 +8011,7 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
         animation_label: "stru_345E4",
         is_moved: false,
         vram_tile: 0,
-        pre_child_hibernate_frames: 2,
+        pre_child_hibernate_frames: DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES,
         child_x_word: (parent_x_pos >> 16) as u16,
         child_y_word: ((parent_y_pos >> 16) as u16).wrapping_add(0x10),
         child_facing: parent_facing,

@@ -107,6 +107,9 @@ pub struct NativeRuntime {
     played_sound_effects: Vec<QueuedSoundEffect>,
     /// Enemy death particle effects.
     enemy_death_effects: Vec<EnemyDeathEffect>,
+    /// ASM Dragon_Flying.asm loc_3492C hibernates before allocating the
+    /// walking-dragon child; keep that delayed child outside the active roster.
+    pending_dragon_death_children: Vec<PendingDragonDeathChild>,
     /// Set each frame if a stomp occurred.
     stomped_this_frame: bool,
     /// `kidabove` collisions resolve on the next frame, not immediately on the
@@ -1103,6 +1106,7 @@ impl NativeRuntime {
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
             enemy_death_effects: Vec::new(),
+            pending_dragon_death_children: Vec::new(),
             stomped_this_frame: false,
             pending_stomp_bounce: None,
             rom_random: RomRandomState::default(),
@@ -1454,6 +1458,7 @@ impl NativeRuntime {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
+            self.step_pending_dragon_death_children();
             // ASM loc_892 (kid.asm:956): Mode_Level rendering tail join point.
             // When $FFFFFB49 (paused), skip j_DiamondPower_CompileSprites and
             // Make_SpritesFromPlatforms but still run j_sub_30194 (HUD sprites),

@@ -720,7 +720,7 @@ mod chunk_03 {
 
         runtime.step_diamond_power(FrameInput::default());
 
-        assert_eq!(runtime.active_enemies.len(), 3);
+        assert_eq!(runtime.active_enemies.len(), 2);
         assert_eq!(
             runtime.active_enemies[0].family,
             EnemyFamily::Diamond,
@@ -734,14 +734,30 @@ mod chunk_03 {
             ENEMY_DAMAGE_FLASH_FRAMES
         );
         assert_eq!(
-            runtime.active_enemies[2].family,
-            EnemyFamily::DragonWalking,
-            "ASM Dragon_Flying.asm loc_3492C death removes the flying parent but leaves a walking-dragon child at the shared death boundary"
+            runtime.pending_dragon_death_children.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_3492C queues the walking-dragon child until the two-frame hibernate finishes"
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
             runtime.active_enemies.len(),
             "native AoE kill path must refresh the trace roster after removing enemies"
+        );
+
+        runtime.step_pending_dragon_death_children();
+        assert_eq!(runtime.active_enemies.len(), 2);
+        runtime.step_pending_dragon_death_children();
+
+        assert_eq!(runtime.active_enemies.len(), 3);
+        assert_eq!(
+            runtime.active_enemies[2].family,
+            EnemyFamily::DragonWalking,
+            "ASM Dragon_Flying.asm loc_3492C death removes the flying parent, waits two hibernate frames, then leaves a walking-dragon child at the shared death boundary"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            runtime.active_enemies.len(),
+            "native pending child spawn must refresh the trace roster when the child becomes active"
         );
     }
 
@@ -7533,7 +7549,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn dragon_flying_death_spawns_walking_dragon_child_loc_3492c() {
+    fn dragon_flying_death_queues_walking_child_until_loc_3492c_hibernate_finishes() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut dragon = test_dragon(0, 0x0123_8000, 0x0045_0000);
         dragon.facing = Direction::Right;
@@ -7553,6 +7569,18 @@ mod chunk_03 {
             1,
             "Native runtime still uses the generic death-effect shell while the loc_3492C child spawn is represented explicitly"
         );
+        assert!(
+            runtime.active_enemies.is_empty(),
+            "ASM Dragon_Flying.asm loc_3492C hibernates for two frames before allocating the loc_3CD16 walking child"
+        );
+
+        runtime.step_pending_dragon_death_children();
+        assert!(
+            runtime.active_enemies.is_empty(),
+            "ASM Dragon_Flying.asm loc_3492C should still be inside the two-frame pre-child hibernate after one pending tick"
+        );
+
+        runtime.step_pending_dragon_death_children();
         assert_eq!(runtime.active_enemies.len(), 1);
         let child = &runtime.active_enemies[0];
         assert_eq!(child.family, EnemyFamily::DragonWalking);

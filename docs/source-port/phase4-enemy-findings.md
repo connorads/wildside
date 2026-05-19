@@ -88,9 +88,9 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
 - **Fixed: fire mouth X offset**: ASM `loc_34BAC/loc_34BE6` applies ±10px from the dragon mouth. Native applies the signed offset and `dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc` covers the live spawn path.
 - **Fixed: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Native flips facing and negates x_velocity in Drifting state.
-- **Fixed: death child spawn**: ASM `loc_3492C` spawns a walking-dragon child 16px below the flying parent before deleting the parent. Native now spawns the child at the runtime death boundary while retaining the generic death-effect shell.
+- **Fixed: death child spawn**: ASM `loc_3492C` spawns a walking-dragon child 16px below the flying parent before deleting the parent. Native now queues that child from the runtime death boundary while retaining the generic death-effect shell.
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
-- **Missing: Death animation timing/status route**: ASM `loc_3492C` hibernates for two frames, waits for `stru_345E4`, and runs the EnemyStatus_Table route. Native still approximates that animation/status timing.
+- **Partially fixed: Death animation timing/status route**: ASM `loc_3492C` hibernates for two frames before allocating the walking-dragon child, waits for `stru_345E4`, and runs the EnemyStatus_Table route. Native now delays the walking-child spawn by the two-frame hibernate; the live animation-finish wait and status-table side effects remain approximated.
 
 ### Tornado — Acceleration scaling fixed, Cyclone interaction implemented
 - Cycle timers: 60/40/30 by level — correct

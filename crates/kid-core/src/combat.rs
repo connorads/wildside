@@ -7507,9 +7507,34 @@ impl NativeRuntime {
         }
         self.active_enemies.remove(idx);
         if let Some(child) = death_child {
-            self.active_enemies.push(child);
+            self.pending_dragon_death_children
+                .push(PendingDragonDeathChild {
+                    remaining_frames: DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES,
+                    child,
+                });
         }
         self.add_score(1000);
+    }
+
+    pub(crate) fn step_pending_dragon_death_children(&mut self) {
+        let mut ready_children = Vec::new();
+        self.pending_dragon_death_children.retain_mut(|pending| {
+            pending.remaining_frames = pending.remaining_frames.saturating_sub(1);
+            if pending.remaining_frames == 0 {
+                ready_children.push(pending.child);
+                false
+            } else {
+                true
+            }
+        });
+        if !ready_children.is_empty() {
+            self.active_enemies.extend(ready_children);
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
     }
 
     /// Check for stomp-kills: player landing on enemies from above.
