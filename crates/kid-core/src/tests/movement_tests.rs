@@ -17054,6 +17054,74 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_ABA4 (kid.asm:13422-13427): the ROM probes the tile at
+    /// (x±5, y-20) relative to Kid before allowing a wall-grab pull-up.
+    /// `bsr.w sub_B55C; cmpi.w #$6000, d5; bge.w loc_AD2C` — if that tile is
+    /// already solid (e.g. Kid is wall-grabbing mid-way up a tall column of
+    /// blocks), the pull-up is rejected because there is no clear head-room
+    /// to pull Kid onto a ledge.
+    ///
+    /// User-reported playtest bug #147 (2026-05-19): on Level 2 (Blue Lake
+    /// Woods 2), jumping at a tall block stack and wall-grabbing lets Kid
+    /// pull up mid-stack, then chain the 22-frame pullup over and over to
+    /// "zoom to the top" of the stack, skipping geometry. The cause is
+    /// `try_snap_wall_sticky_ledge` taking the `direct_probe.cell.is_solid_floor()`
+    /// fast path without ever verifying ASM's head-clearance gate at
+    /// (probe_x, y_pos-20).
+    #[test]
+    fn loc_aba4_rejects_pullup_when_head_clearance_is_solid_mid_tall_stack() {
+        let w = 8u16;
+        let h = 16u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // Tall stack at column 5, rows 2..=10 (9 cells tall, y=32..175).
+        // The cell 20px above Kid is still part of the stack — pullup must
+        // reject.
+        for row in 2..=10 {
+            set_solid(&mut data, 5, row);
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        // Kid at x=74 (col 4, just left of the stack), y=96 (row 6, mid-stack).
+        // probe_x_px = 74+5+1 = 80, which lands in col 5 (the stack).
+        // ASM probes at (80, 96-20=76) → row 4 → still in stack → reject.
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let pre_x = slice.player.x_pos;
+        let pre_y = slice.player.y_pos;
+        let snapped = slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            !snapped,
+            "loc_ABA4 head-clearance gate: pull-up must reject mid-stack wall-grab \
+             because the cell at (probe_x, y_pos-20) is still solid"
+        );
+        assert_eq!(
+            slice.player.x_pos, pre_x,
+            "rejected pullup must not move Kid"
+        );
+        assert_eq!(
+            slice.player.y_pos, pre_y,
+            "rejected pullup must not move Kid"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "rejected pullup must not ground Kid"
+        );
+    }
+
     /// ASM loc_ABD4 (kid.asm:13439): adjacent tile check in kid_flip pull-up.
     /// After the initial ledge probe (loc_ABA4 / sub_B55C), the ASM offsets
     /// a2 by ±2 tiles based on x_direction and checks whether that adjacent
@@ -17190,7 +17258,10 @@ mod chunk_12 {
     /// ASM loc_ABF0 (kid.asm:13449): when the immediate ledge probe is not a
     /// floor, the native buffered pull-up path scans down from
     /// `(y_pos-$14)&$FFF0`. The scan start matters: an older solid tile above
-    /// that row must not be reused as the pull-up floor.
+    /// that row must not be reused as the pull-up floor. The "older" trap is
+    /// placed at row 1 (well above the head-clearance probes at y-20 and
+    /// y-36) so it does not collide with the ASM loc_ABA4 head-clearance
+    /// gate added for issue #147.
     #[test]
     fn loc_abf0_buffered_pullup_scans_from_masked_y_minus_14_row() {
         let w = 8u16;
@@ -17200,7 +17271,11 @@ mod chunk_12 {
             let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
             data[offset] = 0x60;
         };
-        set_solid(&mut data, 4, 3);
+        // Row 1 is the "older solid row" trap — it sits well above both the
+        // probe-1 row (y-20 → row 4) and probe-2 row (y-36 → row 3), so the
+        // head-clearance gate lets the scan reach loc_ABF0. If the scan
+        // started earlier than the masked y-$14 row, it would snap to row 1.
+        set_solid(&mut data, 4, 1);
         set_solid(&mut data, 4, 5);
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 

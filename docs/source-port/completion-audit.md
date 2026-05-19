@@ -33,7 +33,7 @@ These are the current blockers to a completion claim:
 
 | Backlog row | Type | Required next evidence |
 |---|---|---|
-| #147 | P1 playability | Deterministic repro recording of Level 2 wall-grab cheat; frame compare against oracle; ASM-cited fix and regression test |
+| #147 | P1 playability | Agent-proposed fix landed (head-clearance gate at ASM `loc_ABA4`); awaiting human validation that the cheat is gone on Level 2 |
 | #148 | P2 fidelity | Frame-by-frame oracle comparison of Kid death sequence; ASM read of `Kid_Death` / `DeathWindup` |
 | #149 | P2 fidelity | Native trace of non-prize block hit confirming whether `sub_1007A` wobble plays; ASM-cited fix if missing |
 

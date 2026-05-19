@@ -4227,6 +4227,23 @@ impl OpeningSliceState {
             return false;
         };
 
+        // ASM loc_ABA4 (kid.asm:13422-13427) head-clearance gate. The ROM
+        // probes `sub_B55C` at (kid+half_width+5, kid_y-20) and rejects via
+        // `bge.w loc_AD2C` if that exact tile is solid. The companion check
+        // at (probe_x, y-20-16) follows. Without these gates a wall-grab
+        // mid-way up a tall column of blocks can repeatedly pull Kid up one
+        // cell at a time, skipping geometry (user-reported playtest bug #147).
+        // Use `probe_at` (exact cell lookup) rather than `probe_floor` (falls
+        // through to the row below if empty).
+        let head_probe = terrain::probe_at(grid, probe_x_px, y_px - 20);
+        if head_probe.cell.is_solid_floor() {
+            return false;
+        }
+        let head_above_probe = terrain::probe_at(grid, probe_x_px, y_px - 36);
+        if head_above_probe.cell.is_solid_floor() {
+            return false;
+        }
+
         let probe = if direct_probe.cell.is_solid_floor() {
             direct_probe
         } else if self.player.y_velocity >= 0 && self.player.jump_buffer_frames > 0 {
