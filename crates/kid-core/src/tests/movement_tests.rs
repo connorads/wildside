@@ -6346,8 +6346,9 @@ mod chunk_11 {
     // `andi.w #$FFF0,x_pos; subq.w #1` tile-snap leftward;
     // if x_vel was negative, `addi.w #$11` adjusts to right tile edge.
     // Falls through to loc_8EC8 (standing still transition).
-    // TODO(fidelity): native applies slope velocity unconditionally to all
-    // helmets; this bitmask gate and tile-snap fallback are not modelled.
+    // Native live coverage: current-row negative sub_9386 results now dispatch
+    // through loc_8E98 before slope velocity mirroring; see
+    // asm_faithful_negative_slope_dispatch_tilesnaps_red_stealth_loc_8e98.
     // ---------------------------------------------------------------------------
 
     /// ASM loc_8E98: bitmask $2C5 selects slope-capable helmets (bits 0,2,6,7,9).
