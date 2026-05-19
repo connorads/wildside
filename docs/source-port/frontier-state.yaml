@@ -168,8 +168,8 @@
         "fingerprint": "proactive-verification:mutation-testing:helmets:triage:6a1df18a:shard-3/5"
       },
       {
-        "name": "Helmets mutation shard 4/5 still has actionable Diamond Power survivors after cycle 192",
-        "reason": "Rejected 2026-05-06. A refreshed shard-4/5 run after the Berzerker, Juggernaut skull, Diamond Power rain, FiveWayShot, snake, and activation/AoE focused tests reported only two missed mutants: both deleted minus signs in the fifth FiveWayShot tuple. That tuple was unreachable because native Diamond Power projectiles are capped by `MAX_PROJECTILES = 4`, so the fifth ASM `word_40124` vector could never be emitted or observed. Commit `56a78eb5` removed the unreachable tuple and documented the native four-projectile cap beside the ASM citation. The follow-up verification `KID_REPO_ROOT=$(pwd) cargo mutants -p kid-core -f helmets.rs -j 1 --gitignore=true --shard 4/5 --output .cache/mutants/helmets/shard-4-of-5 -- --lib -- --skip demo_ --skip published_tas --skip snapshot` completed cleanly with `172 mutants tested in 52m: 172 caught`. Treat shard 4/5 as exhausted."
+        "name": "Helmets mutation shard 4/5 FiveWayShot cap rejection was superseded",
+        "reason": "Superseded 2026-05-19 by commit `3946c7be` (`Model loc_400DE FiveWayShot live spread`). The 2026-05-06 rejection treated the fifth ASM `word_40124` tuple as intentionally unreachable because native FiveWayShot used the generic `MAX_PROJECTILES = 4` cap. That assumption is no longer true: live FiveWayShot now follows ASM `DiamondPower_Init_FiveWayShot` loc_400DE/loc_400F4 by emitting all five Diamond Power slots, mirroring the `$20` spawn offset and X velocities for set `x_direction`, using the `$50` timer, and bypassing the generic projectile cap. Do not reuse this rejection as evidence that the fifth tuple is dead. Re-run the helmets shard when mutation-testing rotation reaches it again."
       },
       {
         "name": "Level mutation shard 1/16 still has an actionable loc_132D6 OR/XOR survivor after cycle 193",
