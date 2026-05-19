@@ -1182,8 +1182,8 @@ Fix: added `stationary` field to NativeObjectSnapshot, populated from
 
 ### 010 — Enemy attacks (MOSTLY DONE)
 11 enemy families + 4 bosses + 3 helmets + 3 environmental sources have projectile support.
-The remaining gap is the exact child-object lifecycle for Fire Demon fire trails
-(child objects spawned on death). All simple projectile-based attacks are implemented.
+Fire Demon fire trails now use a typed child-object lifecycle for the death-spawned trail.
+All simple projectile-based attacks are implemented.
 UFO beam is now covered by the native segmented beam path (`step_ufo_beam`) and
 its loc_34EEC/loc_34FD6/loc_351EE/loc_35512 regression tests; it is no longer
 an open attack-system blocker.
@@ -1201,8 +1201,7 @@ projectile snapshots as the visual carrier rather than the original child-object
 Follow-up (2026-05-19): Kid contact no longer consumes the native Fire Demon death-trail carrier.
 Regression `fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca` pins ASM
 `Fire_Demon.asm` `loc_3A6CA`: the trail child loops until `$19(a3)` level collision or d3 expiry.
-The remaining gap is narrower now: the carrier is still a projectile snapshot rather than a typed
-Fire Demon child object with the exact three-cell floor-support deletion check from `loc_3A63C`.
+At that point, only typed child storage and the exact three-cell support check remained.
 
 Follow-up (2026-05-19): the native Fire Demon trail now uses a typed child list instead of the
 generic projectile carrier. The child projects to the existing trace/render projectile snapshot
