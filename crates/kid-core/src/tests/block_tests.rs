@@ -9849,7 +9849,11 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
         enemy.wait_timer = 0;
         let mut projectiles = Vec::new();
-        step_drips(&mut enemy, &mut projectiles);
+        let mut expected_rng = RomRandomState::default();
+        let expected_wait_timer =
+            drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, 0x1234_0000);
+        let mut rng = RomRandomState::default();
+        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
         assert_eq!(projectiles.len(), 1, "should drop one projectile");
         assert_eq!(projectiles[0].x_velocity, 0, "drops straight down");
         assert_eq!(
@@ -9870,7 +9874,10 @@ mod chunk_04 {
             "native drop should expire on terrain contact instead of only a short timer"
         );
         assert!(!projectiles[0].friendly);
-        assert_eq!(enemy.wait_timer, DRIPS_DROP_INTERVAL);
+        assert_eq!(
+            enemy.wait_timer, expected_wait_timer,
+            "ASM Drips.asm loc_3350E branches back to loc_3340E after a drop, so the next dormant delay must be reseeded from RNG and Kid X",
+        );
     }
 
     #[test]
@@ -9878,7 +9885,8 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
         enemy.wait_timer = 5;
         let mut projectiles = Vec::new();
-        step_drips(&mut enemy, &mut projectiles);
+        let mut rng = RomRandomState::default();
+        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
         assert!(projectiles.is_empty(), "should not drop while timer active");
         assert_eq!(enemy.wait_timer, 4);
     }

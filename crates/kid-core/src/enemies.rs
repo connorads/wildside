@@ -8946,7 +8946,7 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
-                        step_drips(enemy, projs);
+                        step_drips(enemy, projs, player_x_pos.unwrap_or(enemy.x_pos), rng);
                     }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -19947,14 +19947,11 @@ pub(crate) fn step_dragon_walking(
 // Native approximation: periodic projectile drop with ASM-matched timing.
 // Random dormant delay: Drips.asm loc_3340E uses `(RNG >> 2)`,
 // then XORs the low byte with Kid's integer X low byte.
-// Forming animation: ~35f. Total interval ≈ 67f average.
 // Drop child starts with zero vertical speed, then gains $2000/frame gravity
 // until it hits the floor. ASM loc_33424 clears `$2A(a1)` before the fall and
 // loc_3345C adds `#$2000` every frame.
 // Surface-crawl spawning (max 5 crawlers, x_vel=$3000) not implemented —
 // would require multi-object child spawning system.
-/// Drop interval: forming animation (~35f) + average random delay (~32f) = ~67f.
-pub(crate) const DRIPS_DROP_INTERVAL: u16 = 67;
 /// ASM loc_33424 clears the drop child's y-velocity before the fall begins.
 pub(crate) const DRIPS_DROP_INITIAL_Y_SPEED: i32 = 0;
 /// Gravity accumulation: ASM loc_3345C `addi.l #$2000,$2A(a1)`.
@@ -21130,7 +21127,12 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawl
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
-pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+pub(crate) fn step_drips(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: u32,
+    rng: &mut RomRandomState,
+) {
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
@@ -21154,7 +21156,8 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         terrain_kill: true,
         ..Default::default()
     });
-    enemy.wait_timer = DRIPS_DROP_INTERVAL;
+    // ASM loc_3350E branches back to loc_3340E after the drop/splash cycle.
+    enemy.wait_timer = drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos);
 }
 
 // SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
@@ -34811,8 +34814,9 @@ mod tests {
             ..mini_hopping_skull_test_enemy()
         };
         let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
+        let mut rng = RomRandomState::default();
 
-        step_drips(&mut enemy, &mut projectiles);
+        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng);
 
         assert_eq!(
             projectiles.len(),
