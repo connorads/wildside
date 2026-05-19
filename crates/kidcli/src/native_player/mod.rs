@@ -1824,8 +1824,22 @@ mod tests {
                 },
                 idle: sample_player_frame(21),
                 walk: vec![sample_player_frame(22)],
-                slope_walk: Vec::new(),
-                slope_walk_left: Vec::new(),
+                slope_walk: vec![
+                    sample_player_frame(38),
+                    sample_player_frame(39),
+                    sample_player_frame(39),
+                    sample_player_frame(38),
+                    sample_player_frame(39),
+                    sample_player_frame(39),
+                ],
+                slope_walk_left: vec![
+                    sample_player_frame(38),
+                    sample_player_frame(39),
+                    sample_player_frame(39),
+                    sample_player_frame(38),
+                    sample_player_frame(39),
+                    sample_player_frame(39),
+                ],
                 jump_rise: sample_player_frame(23),
                 jump_fall: sample_player_frame(24),
                 slash_ground: vec![
@@ -4306,6 +4320,23 @@ mod tests {
             player_sprite_signature(&scene),
             Some(35),
             "ASM sub_B270 buckets the Red Stealth airborne slash through `unk_B40DE..unk_B4870`",
+        );
+    }
+
+    #[test]
+    fn red_stealth_on_slope_selects_rom_tilted_frame_off_a23c() {
+        let mut trace = trace_with_player(4, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.kid_x_velocity = Some(0x0001_0000);
+        trace.kid_on_ground = Some(true);
+        trace.kid_on_slope = 0x40;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(39),
+            "ASM off_A23C selects `unk_B7150` for Red Stealth's second slope animation slot instead of the generic walk frame"
         );
     }
 

@@ -564,7 +564,7 @@ fn apply_layered_background_palette_fallback(
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct PlayerFrameDescriptor {
     relative_path: &'static str,
     origin_x: i16,
@@ -1760,6 +1760,17 @@ const RED_STEALTH_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/red_stealth_walk_5.bin", 0x0F, 0x01, 0x18, 0x24),
     pfd("artunc_kid/red_stealth_walk_6.bin", 0x0F, 0x01, 0x18, 0x22),
 ];
+// ASM off_A23C: Red Stealth slope animation repeats two pre-drawn tilted
+// frames in a six-step cycle. The ROM only has one Red Stealth slope art set;
+// native uses the same set for both facing buckets and applies sprite H-flip.
+const RED_STEALTH_SLOPE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/red_stealth_slope_1.bin", 0x0B, 0x05, 0x1D, 0x21),
+    pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
+    pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
+    pfd("artunc_kid/red_stealth_slope_1.bin", 0x0B, 0x05, 0x1D, 0x21),
+    pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
+    pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
+];
 const RED_STEALTH_SLASH_GROUND_FRAMES: [PlayerFrameDescriptor; 4] = [
     pfd("artunc_kid/red_stealth_slash_1.bin", 0x0E, 0x01, 0x18, 0x26),
     pfd("artunc_kid/red_stealth_slash_2.bin", 0x1A, 0x01, 0x25, 0x21),
@@ -2526,8 +2537,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Red Stealth palette",
         idle: RED_STEALTH_IDLE_FRAME,
         walk: &RED_STEALTH_WALK_FRAMES,
-        slope_walk: &[],
-        slope_walk_left: &[],
+        slope_walk: &RED_STEALTH_SLOPE_WALK_FRAMES,
+        slope_walk_left: &RED_STEALTH_SLOPE_WALK_FRAMES,
         jump_rise: pfd(
             "artunc_kid/red_stealth_jumping_1.bin",
             0x0B,
@@ -3603,6 +3614,33 @@ mod tests {
         assert_eq!(
             generated[4].pixels[1], 4,
             "ASM loc_14512 duplicates the four source foreground tiles before the eight-tile merge"
+        );
+    }
+
+    #[test]
+    fn red_stealth_visual_spec_includes_rom_slope_cycle_off_a23c() {
+        let red_stealth = super::PLAYER_FORM_SPECS
+            .iter()
+            .find(|spec| spec.form_id == super::PLAYER_FORM_RED_STEALTH)
+            .expect("red stealth player form spec");
+
+        assert_eq!(
+            red_stealth.slope_walk,
+            &super::RED_STEALTH_SLOPE_WALK_FRAMES,
+            "ASM off_A23C uses Red Stealth slope frames `unk_B6ECA, unk_B7150, unk_B7150` twice"
+        );
+        assert_eq!(
+            red_stealth.slope_walk_left,
+            &super::RED_STEALTH_SLOPE_WALK_FRAMES,
+            "native mirrors the one ROM Red Stealth slope art set by H-flipping the sprite"
+        );
+        assert_eq!(
+            red_stealth.slope_walk[0].relative_path,
+            "artunc_kid/red_stealth_slope_1.bin"
+        );
+        assert_eq!(
+            red_stealth.slope_walk[1].relative_path,
+            "artunc_kid/red_stealth_slope_2.bin"
         );
     }
 }
