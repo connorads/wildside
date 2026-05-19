@@ -35,6 +35,31 @@ pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollis
     ]
 }
 
+fn fire_demon_trail_has_floor_support_loc_3a63c(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+) -> bool {
+    // ASM Fire_Demon loc_3A63C calls loc_33286 with d7=#8 and d6=#$3E7.
+    // loc_33286 samples three consecutive cells starting at x_pos-$E on
+    // row (y_pos+8)>>4 and returns raw d5/d6/d7 words on the #$3E7 bypass.
+    let x_px = (x_pos >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let row = terrain::pixel_to_cell(y_px + 8).max(0) as u16;
+    let start_col = terrain::pixel_to_cell(x_px - 0x0E).max(0) as u16;
+    let left = grid.cell_at(start_col, row);
+    let centre = grid.cell_at(start_col.wrapping_add(1), row);
+    let right = grid.cell_at(start_col.wrapping_add(2), row);
+
+    // ASM Fire_Demon loc_3A63C: `bclr #$F,d6; bne loc_3A6DA` deletes when
+    // the centre support word has the block flag set, then all three sampled
+    // collision nibbles must compare equal to `$6000`.
+    !centre.has_block
+        && left.collision == terrain::CollisionKind::Solid
+        && centre.collision == terrain::CollisionKind::Solid
+        && right.collision == terrain::CollisionKind::Solid
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidProjectileTargetXSpanLoc1DB4 {
@@ -695,6 +720,13 @@ impl NativeRuntime {
                 {
                     return false;
                 }
+            }
+
+            if p.kind == EnemyProjectileKind::FireDemonDeathTrail
+                && let Some(g) = grid
+                && !fire_demon_trail_has_floor_support_loc_3a63c(g, p.x_pos, p.y_pos)
+            {
+                return false;
             }
 
             // ASM Lion.asm sub_3E2CE: lion projectiles only survive while the

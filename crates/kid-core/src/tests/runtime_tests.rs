@@ -8835,6 +8835,56 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_death_trail_deletes_when_centre_support_has_block_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        for col in 1..=3 {
+            let offset = (2 * 5 + col) * 2;
+            data[offset] = if col == 2 { 0xE0 } else { 0x60 };
+        }
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            lifetime: 0x96,
+            kind: EnemyProjectileKind::FireDemonDeathTrail,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Fire_Demon loc_3A63C: `bclr #$F,d6; bne loc_3A6DA` deletes when the centre support word has bit 15 set"
+        );
+    }
+
+    #[test]
+    fn fire_demon_death_trail_survives_on_three_plain_solid_cells_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        for col in 1..=3 {
+            data[(2 * 5 + col) * 2] = 0x60;
+        }
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            lifetime: 0x96,
+            kind: EnemyProjectileKind::FireDemonDeathTrail,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Fire_Demon loc_3A63C keeps the trail only when d5/d6/d7 all mask to `$6000` and centre d6 has no block flag"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.
