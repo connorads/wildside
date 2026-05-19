@@ -193,37 +193,97 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
         height: FRAME_HEIGHT as i32,
         colour: [0, 0, 0],
     });
-    let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
-    let level_text = level_name.to_string();
-    let text_w = level_text.len() as i32 * 8 * 2;
-    let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-    let text_y = (FRAME_HEIGHT as i32) / 2 - 20;
-    commands.push(text(text_x, text_y, &level_text, [255, 255, 255], 2));
 
-    // Level ID subtitle
-    let id_text = format!("Level {:02X}", trace.current_level.0);
-    let id_w = id_text.len() as i32 * 8;
-    commands.push(text(
-        (FRAME_WIDTH as i32 - id_w) / 2,
-        text_y + 22,
-        &id_text,
-        [120, 120, 120],
-        1,
-    ));
+    // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
+    // builds a Title_Letter object per glyph in the level's title-card script.
+    // Each worker decompresses its sprite from `ArtComp_19C68_TtlCardLetters`
+    // into VRAM at tile `$8120`, picks one of four random off-screen entry
+    // poses via `loc_1ACB0`..`loc_1ACFE`, then glides toward the script-side
+    // target through `loc_1AD2A`/`loc_1AD3A` (axis-independent step add).
+    // The engine simulates this in `starting_level_title_workers`; each worker
+    // is surfaced through `active_objects` with `Enemy{object_type:0}` and
+    // debug fields `gfx_slot_index` + `glyph`. Render each visible glyph at
+    // its current interpolated (x_pos, y_pos).
+    let mut drew_any_glyph = false;
+    for object in &trace.active_objects {
+        let NativeObjectKind::Enemy { object_type: 0 } = object.kind else {
+            continue;
+        };
+        let Some(glyph_str) = object.debug_fields.get("glyph") else {
+            continue;
+        };
+        let glyph = parse_title_glyph(glyph_str);
+        let Some(ch) = title_glyph_to_ascii(glyph) else {
+            continue;
+        };
+        // ASM loc_1AC70 stores worker positions as 16.16 fixed-point signed
+        // ints; entry poses include `$FFE0`/`$FFD0` (left of screen) and
+        // `$160` (right of screen). Interpret as i32 to keep off-screen
+        // start positions correct.
+        let sx = (object.x_pos as i32) >> 16;
+        let sy = (object.y_pos as i32) >> 16;
+        // TODO(fidelity): substitute ROM letter art decompressed from
+        // `ArtComp_19C68_TtlCardLetters` (see `off_1AC2A` sprite mapping
+        // table). Using the placeholder font here still drives accurate
+        // per-glyph fly-in motion from the simulated worker pose.
+        commands.push(text(sx, sy, &ch.to_string(), [255, 240, 200], 2));
+        drew_any_glyph = true;
+    }
 
-    // Lives and score
-    let info_text = format!("Lives: {}  Score: {}", trace.number_lives, trace.score);
-    let info_w = info_text.len() as i32 * 8;
-    commands.push(text(
-        (FRAME_WIDTH as i32 - info_w) / 2,
-        text_y + 40,
-        &info_text,
-        [100, 140, 180],
-        1,
-    ));
+    // Fallback: death/respawn transitions never seed title workers, and the
+    // pre-cold-boot frames briefly trace LevelTransition with no workers
+    // either. Keep the lightweight name/ID/score readout for those windows.
+    if !drew_any_glyph {
+        let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
+        let level_text = level_name.to_string();
+        let text_w = level_text.len() as i32 * 8 * 2;
+        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 20;
+        commands.push(text(text_x, text_y, &level_text, [255, 255, 255], 2));
+
+        let id_text = format!("Level {:02X}", trace.current_level.0);
+        let id_w = id_text.len() as i32 * 8;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - id_w) / 2,
+            text_y + 22,
+            &id_text,
+            [120, 120, 120],
+            1,
+        ));
+
+        let info_text = format!("Lives: {}  Score: {}", trace.number_lives, trace.score);
+        let info_w = info_text.len() as i32 * 8;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - info_w) / 2,
+            text_y + 40,
+            &info_text,
+            [100, 140, 180],
+            1,
+        ));
+    }
+
     Scene {
         background: [0, 0, 0],
         commands,
+    }
+}
+
+fn parse_title_glyph(value: &str) -> u8 {
+    let trimmed = value.strip_prefix("0x").unwrap_or(value);
+    u8::from_str_radix(trimmed, 16).unwrap_or(0)
+}
+
+fn title_glyph_to_ascii(glyph: u8) -> Option<char> {
+    // ASM `loc_1AC70` -> `off_1AC2A` (kid.asm:28859-28893) maps `glyph - $61`
+    // into a 35-entry sprite table covering letters `a..z` (indices 0..$19)
+    // and five wide glyphs at $7B..$7F (indices $1A..$1E), plus four marker
+    // glyphs at $80..$83 (indices $1F..$22). The control bytes $00 (newline),
+    // $84 (space), and $FF (end) never allocate a worker.
+    match glyph {
+        b'a'..=b'z' => Some((glyph - b'a' + b'A') as char),
+        0x7B..=0x7F => Some('*'),
+        0x80..=0x83 => Some('!'),
+        _ => None,
     }
 }
 

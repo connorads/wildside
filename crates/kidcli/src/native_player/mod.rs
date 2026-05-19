@@ -2554,6 +2554,90 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_renders_level_transition_title_workers_at_their_fly_in_positions() {
+        // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
+        // builds Title_Letter workers that glide from a random off-screen
+        // entry pose toward the title-card destination. The engine projects
+        // each worker into `active_objects` with `Enemy{object_type:0}` and a
+        // `glyph` debug field; the LevelTransition renderer must draw each
+        // visible glyph at the worker's interpolated screen position rather
+        // than the old static "Blue Lake Woods 1" placeholder text.
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        let make_worker = |x_pos: u32, y_pos: u32, slot: usize, glyph: u8| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0 },
+            x_pos,
+            y_pos,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::from([
+                (String::from("gfx_slot_index"), slot.to_string()),
+                (String::from("glyph"), format!("{glyph:#04x}")),
+            ]),
+        };
+        // Mid-flight 'h' worker still off-screen left at screen x = -16,
+        // settled 'i' worker at the target (200, 80).
+        trace.active_objects = vec![
+            make_worker(0xFFF0_0000, 0x0050_0000, 0, b'h'),
+            make_worker(0x00C8_0000, 0x0050_0000, 1, b'i'),
+        ];
+
+        let visuals = sample_level_visuals();
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let has_glyph_at = |needle: &str, x: i32, y: i32| {
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Text { x: cx, y: cy, text, .. }
+                        if *cx == x && *cy == y && text == needle
+                )
+            })
+        };
+        assert!(
+            has_glyph_at("H", -16, 80),
+            "off-screen-left 'h' worker should still be drawn at its interpolated negative screen X",
+        );
+        assert!(
+            has_glyph_at("I", 200, 80),
+            "settled 'i' worker should render at the script-side target (200, 80)",
+        );
+        assert!(
+            !contains_text(&scene, "Blue Lake Woods 1"),
+            "static placeholder level name must not appear once title workers are visible",
+        );
+    }
+
+    #[test]
+    fn build_scene_falls_back_to_static_text_when_level_transition_has_no_title_workers() {
+        // Death/respawn transitions reach LevelTransition without seeding any
+        // Title_Letter workers (see kid_core::trace `PlayerLifecycle::Dying`
+        // and `Respawning` branches mapping to GameMode::LevelTransition).
+        // Keep the lightweight name/ID readout for those frames so the screen
+        // is not blank.
+        let trace = sample_trace(GameMode::LevelTransition);
+        assert!(trace.active_objects.is_empty());
+        let visuals = sample_level_visuals();
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            contains_text(&scene, "Blue Lake Woods 1"),
+            "without title workers the transition scene should still show the level name",
+        );
+    }
+
+    #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.floating_items = vec![(48, 64, u8::MAX, 0x01)];

@@ -2244,10 +2244,19 @@ impl NativeRuntime {
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
                     wait_timer: None,
-                    debug_fields: BTreeMap::from([(
-                        String::from("gfx_slot_index"),
-                        worker.gfx_slot_index.to_string(),
-                    )]),
+                    // ASM loc_1AC70 (kid.asm:28896-28907): each title worker
+                    // stores its source glyph at `$44(a5)` and reads it back
+                    // before computing the per-letter VRAM sprite offset via
+                    // `off_1AC2A`. Surface the same glyph byte so the renderer
+                    // can draw the correct letter art at the worker's current
+                    // interpolated (x_pos, y_pos) during the fly-in.
+                    debug_fields: BTreeMap::from([
+                        (
+                            String::from("gfx_slot_index"),
+                            worker.gfx_slot_index.to_string(),
+                        ),
+                        (String::from("glyph"), format!("{:#04x}", worker.glyph)),
+                    ]),
                 }
             })
             .collect::<Vec<_>>();
