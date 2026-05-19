@@ -8818,6 +8818,23 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca() {
+        let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
+        rt.projectiles[0].kind = EnemyProjectileKind::FireDemonDeathTrail;
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM Fire_Demon loc_3A63C trail still has hostile collision"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Fire_Demon loc_3A6CA loops until `$19(a3)` or d3 expiry; Kid collision must not delete the trail child"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.

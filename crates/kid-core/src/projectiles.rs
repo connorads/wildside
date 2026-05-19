@@ -843,10 +843,18 @@ impl NativeRuntime {
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
             if overlaps {
                 hit = true;
-                if let Some(owner) = p.owner {
-                    released_owners.push(owner);
+                if p.kind == EnemyProjectileKind::FireDemonDeathTrail {
+                    // ASM Fire_Demon loc_3A6CA: the trail child hibernates
+                    // until `$19(a3)` level collision or d3 expiry. Kid
+                    // collision may hurt Kid, but it does not delete the
+                    // fire-trail object.
+                    true
+                } else {
+                    if let Some(owner) = p.owner {
+                        released_owners.push(owner);
+                    }
+                    false // remove projectile on hit
                 }
-                false // remove projectile on hit
             } else {
                 true
             }
