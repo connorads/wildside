@@ -1182,9 +1182,11 @@ Fix: added `stationary` field to NativeObjectSnapshot, populated from
 
 ### 010 — Enemy attacks (MOSTLY DONE)
 11 enemy families + 4 bosses + 3 helmets + 3 environmental sources have projectile support.
-Only gaps: UFO beam (child object system, spawns beam segments) and Fire Demon fire trails
-(child objects spawned on death). Both require a child-object spawning system not yet built.
-All simple projectile-based attacks are implemented.
+The remaining gap is the exact child-object lifecycle for Fire Demon fire trails
+(child objects spawned on death). All simple projectile-based attacks are implemented.
+UFO beam is now covered by the native segmented beam path (`step_ufo_beam`) and
+its loc_34EEC/loc_34FD6/loc_351EE/loc_35512 regression tests; it is no longer
+an open attack-system blocker.
 
 Follow-up (2026-03-28): the native player renderer now tags the existing Fire Demon death-trail
 projectiles and renders a dedicated six-phase flame footprint instead of the old generic enemy
