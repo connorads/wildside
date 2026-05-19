@@ -17449,14 +17449,13 @@ mod chunk_12 {
 
     /// ASM loc_AD00 (kid.asm:13533): when already on board, the ASM gates
     /// flipboard deploy on sub_B43A floor probe + y_pos top check. If floor
-    /// exists, skip (bne loc_AD2C). Native omits this gate — C press always
-    /// starts the counter. Verify the native behaviour (counter starts even
-    /// when on board).
+    /// exists, skip (`bne loc_AD2C`) instead of setting `$FFFFFA69`.
     #[test]
-    fn loc_ad00_skycutter_c_press_while_on_board_starts_counter() {
+    fn loc_ad00_skycutter_c_press_while_on_board_with_floor_skips_flipboard() {
         let mut rt = skycutter_runtime();
         rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default();
+        rt.block_grid = Some(grid_with_floor_at_row(16));
         let mut slice = airborne_slice();
 
         let c_input = FrameInput {
@@ -17465,12 +17464,9 @@ mod chunk_12 {
         };
         rt.step_skycutter_flipboard(&mut slice, c_input);
 
-        // Native: always starts the counter. ASM would gate on floor probe.
-        // TODO(fidelity): native omits the sub_B43A floor probe gate from
-        // loc_AD00 — document the known divergence.
-        assert!(
-            rt.helmet.skycutter_flipboard > 0,
-            "loc_AD00: native C press should start counter even when on board",
+        assert_eq!(
+            rt.helmet.skycutter_flipboard, 0,
+            "ASM loc_AD00: on-board C press with sub_B43A floor support should skip the flipboard deploy trigger",
         );
     }
 

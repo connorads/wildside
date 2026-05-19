@@ -4161,12 +4161,14 @@ impl NativeRuntime {
         //   If on board: `moveq #-$21,d7; add.w y_pos,d6; bmi loc_AD2C`
         //   (near top → skip), `bsr.w sub_B43A; bne loc_AD2C` (floor → skip).
         //   loc_AD26 (kid.asm:13545): `move.b #1,($FFFFFA69)` — set flipboard
-        //   deploy trigger ($FA69). Native: unified C-press logic below.
-        //
-        //   Native: same `step_skycutter_flipboard` C-press logic.
+        //   deploy trigger ($FA69). Native: unified C-press logic below, with
+        //   the same near-top / sub_B43A floor-support gate.
         // C button rising edge → deploy/retract flipboard
         let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && self.helmet.skycutter_flipboard == 0 {
+        if c_pressed
+            && self.helmet.skycutter_flipboard == 0
+            && self.skycutter_flipboard_deploy_allowed_loc_ad00(slice)
+        {
             self.helmet.skycutter_flipboard = 1;
         }
 
@@ -4274,9 +4276,31 @@ impl NativeRuntime {
             return true;
         }
 
+        self.skycutter_board_floor_support_loc_b43a(slice)
+    }
+
+    fn skycutter_flipboard_deploy_allowed_loc_ad00(&self, slice: &OpeningSliceState) -> bool {
+        if !self.helmet.skycutter_on_board {
+            return true;
+        }
+
+        // ASM loc_AD00 (kid.asm:13533): when Skycutter is already on-board,
+        // the C-press deploy path first rejects the near-top signed word case,
+        // then rejects frames where sub_B43A finds floor support.  Only an
+        // on-board, away-from-top, no-floor frame reaches loc_AD26.
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
+        if y_word.wrapping_sub(0x21).is_negative() {
+            return false;
+        }
+
+        !self.skycutter_board_floor_support_loc_b43a(slice)
+    }
+
+    fn skycutter_board_floor_support_loc_b43a(&self, slice: &OpeningSliceState) -> bool {
         let Some(grid) = self.block_grid.as_ref() else {
             return false;
         };
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
         let x_int = (slice.player.x_pos >> 16) as u16 as i16 as i32;
         let y_int = y_word as i32;
         let collision_hw = PlayerForm::Skycutter.half_width();
