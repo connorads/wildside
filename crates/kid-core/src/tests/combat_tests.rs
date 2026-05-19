@@ -6889,6 +6889,50 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14693):
+    /// damage voice dispatch compares object_meta d5 against `$50`, `$40`,
+    /// and `$30`; enemy init stores object type * 4 in that word.
+    #[test]
+    fn contact_damage_ouch_sound_loc_b73c_selects_voice_from_enemy_meta() {
+        assert_eq!(
+            contact_damage_ouch_sound_loc_b73c(EnemyFamily::SpinningTwins),
+            QueuedSoundEffect::VoiceOuch1,
+            "object type $14 -> d5 $50 -> sfx_Voice_ouch_1",
+        );
+        assert_eq!(
+            contact_damage_ouch_sound_loc_b73c(EnemyFamily::Goat),
+            QueuedSoundEffect::VoiceOuch2,
+            "object type $10 -> d5 $40 -> sfx_Voice_ouch_2",
+        );
+        assert_eq!(
+            contact_damage_ouch_sound_loc_b73c(EnemyFamily::Dragon),
+            QueuedSoundEffect::VoiceOuch3,
+            "object type $0C -> d5 $30 -> sfx_Voice_ouch_3",
+        );
+        assert_eq!(
+            contact_damage_ouch_sound_loc_b73c(EnemyFamily::BigHoppingSkull),
+            QueuedSoundEffect::VoiceOuch,
+            "other d5 values fall through to sfx_Voice_ouch",
+        );
+    }
+
+    #[test]
+    fn contact_damage_queues_loc_b73c_voice_before_damage_resolution() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+        let mut slice = combat_slice();
+
+        runtime.apply_damage_with_knockback(&mut slice, 0, EnemyFamily::Goat);
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceOuch2],
+            "Goat object type $10 should queue the loc_B750 slowed-down ouch",
+        );
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+    }
+
     #[test]
     fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
         let mut runtime = NativeRuntime::new(manifest());

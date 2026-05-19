@@ -38,6 +38,10 @@ pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
+    VoiceOuch,
+    VoiceOuch1,
+    VoiceOuch2,
+    VoiceOuch3,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -52,6 +56,19 @@ pub(crate) struct PendingSoundEffect {
     pub(crate) effect: QueuedSoundEffect,
     pub(crate) delay_frames: u8,
     pub(crate) suppress: bool,
+}
+
+pub(crate) fn contact_damage_ouch_sound_loc_b73c(enemy_family: EnemyFamily) -> QueuedSoundEffect {
+    // ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14693):
+    // Character_CheckCollision compares d5, the object_meta word after
+    // clearing high collision bits. Enemy init stores object type * 4 there,
+    // so object ids $14/$10/$0C select the three special "ouch" takes.
+    match u16::from(enemy_family.object_type()) << 2 {
+        0x50 => QueuedSoundEffect::VoiceOuch1,
+        0x40 => QueuedSoundEffect::VoiceOuch2,
+        0x30 => QueuedSoundEffect::VoiceOuch3,
+        _ => QueuedSoundEffect::VoiceOuch,
+    }
 }
 
 /// Per-helmet transform animation frame counts from ASM Kid_Transform tables
@@ -8257,12 +8274,15 @@ impl NativeRuntime {
         &mut self,
         _slice: &mut OpeningSliceState,
         _enemy_x: u32,
+        enemy_family: EnemyFamily,
     ) {
         // ASM does NOT apply knockback velocity on contact damage —
         // the player's velocity is unchanged. The perceived "push" in
         // the original comes from bounding-box separation, not an
         // impulse. Previous native code applied KNOCKBACK_X/Y_VELOCITY
         // which was an invented approximation.
+        self.played_sound_effects
+            .push(contact_damage_ouch_sound_loc_b73c(enemy_family));
         self.apply_damage();
     }
 
@@ -8285,7 +8305,8 @@ impl NativeRuntime {
         //   d5 == $40 → sfx_Voice_ouch_2 ($6C, slowed down)
         //   d5 == $30 → sfx_Voice_ouch_3 ($6D, slowed down)
         //   else      → sfx_Voice_ouch   ($61, default)
-        // Native does not yet implement sound.
+        // Native contact damage queues this in apply_damage_with_knockback;
+        // direct hazards still use apply_damage without an enemy d5 value.
         self.level_damage_taken = true;
         // ASM loc_BC40 (kid.asm:15187): the damage-flash thread polls
         // Just_received_damage each hibernate; setting it here wakes the
@@ -9846,7 +9867,7 @@ impl NativeRuntime {
                 // scream SFX unless `$19(a3)` suppresses it.
                 self.queue_mini_hopping_skull_scream(false);
             }
-            self.apply_damage_with_knockback(slice, enemy_x);
+            self.apply_damage_with_knockback(slice, enemy_x, enemy_family);
             self.opening_slice = Some(*slice);
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
             return true;
