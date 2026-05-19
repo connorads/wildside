@@ -59,6 +59,21 @@ pub struct FlagVisuals {
     pub frame_duration: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EolScoreVisuals {
+    pub palette: Palette,
+    pub bonus: SpriteFrame,
+    pub no_hit: SpriteFrame,
+    pub no_prize: SpriteFrame,
+    pub path: SpriteFrame,
+    pub score: SpriteFrame,
+    pub seconds: SpriteFrame,
+    pub speed: SpriteFrame,
+    pub time: SpriteFrame,
+    pub under: SpriteFrame,
+    pub digits: Vec<SpriteFrame>,
+}
+
 /// Enemy sprite visuals keyed by object_type (0x00..0x22).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {

@@ -1099,6 +1099,103 @@ fn push_sprite_frame(
     });
 }
 
+fn push_sprite_frame_top_left(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    palette: &Palette,
+    x: i32,
+    y: i32,
+) {
+    let screen_x = x + i32::from(frame.origin_x);
+    let screen_y = y + i32::from(frame.height_px) - i32::from(frame.origin_y);
+    push_sprite_frame(commands, frame, palette, screen_x, screen_y);
+}
+
+fn push_eol_number_sprites(
+    commands: &mut Vec<DrawCommand>,
+    eol: &kid_render::EolScoreVisuals,
+    x: i32,
+    y: i32,
+    value: u32,
+) {
+    let mut remaining = value.min(9_999_999);
+    let mut started = false;
+    for (slot, divisor) in [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1]
+        .into_iter()
+        .enumerate()
+    {
+        let digit = remaining / divisor;
+        remaining %= divisor;
+        if digit == 0 && !started && slot < 6 {
+            continue;
+        }
+        started = true;
+        if let Some(frame) = eol.digits.get(digit as usize) {
+            // ASM Object_EOL_Number loc_C4E2 spaces seven digit workers 12px apart.
+            push_sprite_frame_top_left(commands, frame, &eol.palette, x + slot as i32 * 12, y);
+        }
+    }
+}
+
+fn push_eol_bonus_row(
+    commands: &mut Vec<DrawCommand>,
+    eol: &kid_render::EolScoreVisuals,
+    label: &kid_render::SpriteFrame,
+    y: i32,
+    value: u32,
+) {
+    push_sprite_frame_top_left(commands, label, &eol.palette, 56, y);
+    push_sprite_frame_top_left(commands, &eol.bonus, &eol.palette, 120, y);
+    push_eol_number_sprites(commands, eol, 200, y - 2, value);
+}
+
+fn push_eol_score_overlay(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    eol: &kid_render::EolScoreVisuals,
+) {
+    // ASM loc_D55E emits these rows with Load_Object_EOL_Text and
+    // Load_Object_EOL_Number. Native currently renders the settled row
+    // positions only; the off-screen fly-in worker timer is not in trace state.
+    let mut y = (FRAME_HEIGHT as i32) / 2 - 18;
+    push_eol_bonus_row(
+        commands,
+        eol,
+        &eol.time,
+        y,
+        kid_core::time_bonus_loc_d56e(trace.level_timer_seconds),
+    );
+    y += 14;
+    if !trace.level_damage_taken {
+        push_eol_bonus_row(commands, eol, &eol.no_hit, y, 5_000);
+        y += 14;
+    }
+    if !trace.level_prize_collected {
+        push_eol_bonus_row(commands, eol, &eol.no_prize, y, 5_000);
+        y += 14;
+    }
+    if trace.level_path_bonus_amount > 0 {
+        push_eol_bonus_row(commands, eol, &eol.path, y, trace.level_path_bonus_amount);
+        y += 14;
+    }
+    if trace.level_speed_bonus_awarded {
+        push_eol_bonus_row(commands, eol, &eol.speed, y, 10_000);
+        y += 14;
+        push_sprite_frame_top_left(commands, &eol.under, &eol.palette, 56, y);
+        push_eol_number_sprites(
+            commands,
+            eol,
+            128,
+            y - 2,
+            u32::from(trace.level_timer_seconds),
+        );
+        push_sprite_frame_top_left(commands, &eol.seconds, &eol.palette, 184, y);
+        y += 14;
+    }
+    push_sprite_frame_top_left(commands, &eol.score, &eol.palette, 56, y);
+    push_eol_number_sprites(commands, eol, 200, y - 2, trace.score);
+}
+
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
 // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
 const FOREST_RIPPLE: [i8; 64] = [
@@ -1664,21 +1761,20 @@ fn build_game_scene_filtered(
     }
 
     // Level Complete overlay. ASM `loc_D55E` onwards (kid.asm:16670-16800)
-    // animates a sequence of sprite-art labels — `LnkTo_Spr_EOL_Score`,
+    // emits sprite-art labels — `LnkTo_Spr_EOL_Score`,
     // `LnkTo_Spr_EOL_Time`, `LnkTo_Spr_EOL_Bonus`, `LnkTo_Spr_EOL_NoHit`,
     // `LnkTo_Spr_EOL_NoPrize`, `LnkTo_Spr_EOL_Path`, `LnkTo_Spr_EOL_Speed`
-    // — flying in from off-screen left (X=$FF20..$FFA0) with their numeric
-    // values appearing on the right (X=$1B0). There is no "LEVEL COMPLETE"
-    // banner in the ROM and no green panel framing — those were invented
-    // here to make the bonus tally readable in non-VDP contexts. Until the
-    // EOL sprite-art assets are wired through the bundle, drop the invented
-    // banner/panel and just paint the bonus lines on the existing
-    // background; the line text is still invented framing for real ROM
-    // values, but the obvious "we made this up" elements are gone.
-    // TODO(fidelity): replace the typed bonus lines with the EOL sprite
-    // workers (`Load_Object_EOL_Text` + `Load_Object_EOL_Number` from ASM
-    // `sub_D55E`).
+    // — plus seven digit workers from `Load_Object_EOL_Number`. Native draws
+    // the settled row positions when the EOL score sheet is available; the
+    // off-screen fly-in timing is not in `NativeTraceFrame` yet.
     if trace.level_complete {
+        if let Some(eol_score) = &level_visuals.eol_score {
+            push_eol_score_overlay(&mut commands, trace, eol_score);
+            return Scene {
+                background,
+                commands,
+            };
+        }
         let text_y = (FRAME_HEIGHT as i32) / 2 - 40;
         let mut line_y = text_y + 22;
         let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);

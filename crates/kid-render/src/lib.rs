@@ -20,8 +20,8 @@ pub use level::{
 };
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
-    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, PlatformVisuals,
-    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
+    PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -299,6 +299,26 @@ mod tests {
     }
 
     #[test]
+    fn load_eol_score_visuals_returns_rom_label_and_digit_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let eol = visuals.eol_score.expect("EOL score visuals");
+
+        assert_eq!(eol.time.tile_base_index, 0x0B9);
+        assert_eq!(eol.time.width_px, 0x2D);
+        assert_eq!(eol.bonus.tile_base_index, 0x000);
+        assert_eq!(eol.bonus.width_px, 0x40);
+        assert_eq!(eol.digits.len(), 10);
+        assert_eq!(eol.digits[0].tile_base_index, 0x0CB);
+        assert_eq!(eol.digits[1].origin_x, -0x03);
+        assert_eq!(
+            eol.digits[9].tile_base_index, 0x061,
+            "ASM Spr_EOL_Digits_Index maps digit 9 to Spr_EOL_Digit9",
+        );
+    }
+
+    #[test]
     fn missing_required_asset_reports_contextual_error() {
         let fixture = TestBundle::new().expect("test bundle");
         let missing_path = fixture
@@ -471,6 +491,23 @@ mod tests {
                 root.path(),
                 "ingame/artunc/Flag_bottom.bin",
                 &[0x6F; 32 * 4],
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/End_level_stats_text.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0xD8))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/palette/Score_screen.bin",
+                &(0..15)
+                    .map(|value| 0x0340_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
             )?;
             write_file(
                 root.path(),
@@ -821,7 +858,10 @@ mod tests {
                     asset_file(root.path(), "theme/block_mappings.bin"),
                     asset_file(root.path(), "theme/bg_chunks/cave_00.bin"),
                 ],
-                scene_assets: Vec::new(),
+                scene_assets: vec![
+                    asset_file(root.path(), "scenes/artcomp/End_level_stats_text.bin"),
+                    asset_file(root.path(), "scenes/palette/Score_screen.bin"),
+                ],
                 animation_assets: Vec::new(),
                 sound_assets: Vec::new(),
                 ingame_assets: vec![

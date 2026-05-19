@@ -7,8 +7,8 @@ use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
-    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, PlatformVisuals,
-    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
+    PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -96,6 +96,9 @@ pub struct NativeLevelVisuals {
     pub floating_prizes: FloatingPrizeVisuals,
     pub flag: FlagVisuals,
     pub platforms: PlatformVisuals,
+    /// ASM `loc_D55E` / `Load_Object_EOL_Text` / `Load_Object_EOL_Number`
+    /// draw score-screen labels and digits from `End_level_stats_text`.
+    pub eol_score: Option<EolScoreVisuals>,
     /// ASM `Load_TitleCard` `loc_1AB26` (kid.asm:28750) decompresses
     /// `ArtComp_19C68_TtlCardLetters` to VRAM tile `$8120` and copies
     /// `Pal_19C48` (16 colours, palette line 1) before the per-glyph
@@ -304,6 +307,12 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         floating_prizes,
         flag,
         platforms,
+        eol_score: load_eol_score_visuals(manifest).unwrap_or_else(|err| {
+            if !cfg!(test) {
+                eprintln!("warning: end-of-level score art unavailable: {err}");
+            }
+            None
+        }),
         title_card_letters: load_title_card_letters_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: title card letter art unavailable: {err}");
@@ -353,6 +362,62 @@ fn load_title_card_letters_visuals(
     Ok(Some(TitleCardLettersVisuals {
         tile_sheet,
         palette,
+    }))
+}
+
+fn load_eol_score_visuals(manifest: &AssetManifest) -> Result<Option<EolScoreVisuals>> {
+    let scenes_root = manifest.output_root.join("scenes");
+    let art_path = scenes_root.join("artcomp/End_level_stats_text.bin");
+    if !art_path.is_file() {
+        return Ok(None);
+    }
+    let palette_path = scenes_root.join("palette/Score_screen.bin");
+    if !palette_path.is_file() {
+        return Ok(None);
+    }
+    let art_compressed = fs::read(&art_path)
+        .with_context(|| format!("failed to read EOL score art: {}", art_path.display()))?;
+    let art_bytes = decode_saxman(&art_compressed).context("failed to decompress EOL score art")?;
+    let tile_sheet =
+        TileSheet::from_4bpp_bytes(&art_bytes).context("failed to parse EOL score tile sheet")?;
+    let palette_raw = fs::read(&palette_path).with_context(|| {
+        format!(
+            "failed to read EOL score palette: {}",
+            palette_path.display()
+        )
+    })?;
+    let palette = Palette::from_bytes(&palette_raw).context("failed to parse EOL score palette")?;
+    let frame = |descriptor: SpriteFrameDescriptor| SpriteFrame {
+        origin_x: descriptor.origin_x,
+        origin_y: descriptor.origin_y,
+        width_px: descriptor.width_px,
+        height_px: descriptor.height_px,
+        tile_base_index: descriptor.tile_base_index,
+        tile_sheet: tile_sheet.clone(),
+    };
+    Ok(Some(EolScoreVisuals {
+        palette,
+        bonus: frame(fd(0x000, 0x00, 0x00, 0x40, 0x08)),
+        no_hit: frame(fd(0x065, 0x00, 0x00, 0x57, 0x08)),
+        no_prize: frame(fd(0x070, 0x00, 0x00, 0x6F, 0x08)),
+        path: frame(fd(0x080, 0x00, 0x00, 0x35, 0x08)),
+        score: frame(fd(0x091, 0x00, 0x00, 0x3D, 0x08)),
+        seconds: frame(fd(0x099, 0x00, 0x00, 0x5F, 0x08)),
+        speed: frame(fd(0x0AD, 0x00, 0x00, 0x3F, 0x08)),
+        time: frame(fd(0x0B9, 0x00, 0x00, 0x2D, 0x08)),
+        under: frame(fd(0x0C3, 0x00, 0x00, 0x40, 0x08)),
+        digits: vec![
+            frame(fd(0x0CB, 0x00, 0x00, 0x0C, 0x0B)),
+            frame(fd(0x07E, -0x03, 0x00, 0x05, 0x0B)),
+            frame(fd(0x0BF, 0x00, 0x00, 0x0B, 0x0B)),
+            frame(fd(0x0B5, 0x00, 0x00, 0x0B, 0x0B)),
+            frame(fd(0x02D, 0x00, 0x00, 0x0C, 0x0B)),
+            frame(fd(0x029, 0x00, 0x00, 0x0B, 0x0B)),
+            frame(fd(0x0A9, 0x00, 0x00, 0x0A, 0x0B)),
+            frame(fd(0x0A5, 0x00, 0x00, 0x0B, 0x0B)),
+            frame(fd(0x016, 0x00, 0x00, 0x0B, 0x0B)),
+            frame(fd(0x061, 0x00, 0x00, 0x0B, 0x0B)),
+        ],
     }))
 }
 

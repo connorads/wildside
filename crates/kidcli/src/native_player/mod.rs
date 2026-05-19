@@ -1573,6 +1573,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn level_complete_overlay_uses_eol_sprite_workers_loc_d55e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_timer_seconds = 180;
+        trace.level_damage_taken = false;
+        trace.level_prize_collected = false;
+        trace.level_path_bonus_amount = 3_000;
+        trace.level_speed_bonus_awarded = true;
+        trace.score = 12_340;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            has_sprite_signature(&scene, 128),
+            "ASM loc_D55E should render Spr_EOL_Time instead of typed TIME text",
+        );
+        assert!(
+            has_sprite_signature(&scene, 121),
+            "ASM loc_D55E should render Spr_EOL_Bonus label sprites",
+        );
+        assert!(
+            has_sprite_signature(&scene, 131),
+            "ASM Object_EOL_Number should render digit sprite workers",
+        );
+        assert!(!contains_text(&scene, "TIME BONUS"));
+        assert!(!contains_text(&scene, "SCORE:"));
+    }
+
     fn has_guide_rect(scene: &Scene) -> bool {
         scene.commands.iter().any(
             |command| matches!(command, DrawCommand::Rect { colour, .. } if *colour == GUIDE_COLOUR),
@@ -2080,6 +2110,28 @@ mod tests {
         }
     }
 
+    fn sample_eol_score_visuals() -> kid_render::EolScoreVisuals {
+        kid_render::EolScoreVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(220, 220, 255)],
+            },
+            bonus: sample_object_frame_with_base(121, 0x40, 0x08, 0x000),
+            no_hit: sample_object_frame_with_base(122, 0x57, 0x08, 0x065),
+            no_prize: sample_object_frame_with_base(123, 0x6F, 0x08, 0x070),
+            path: sample_object_frame_with_base(124, 0x35, 0x08, 0x080),
+            score: sample_object_frame_with_base(125, 0x3D, 0x08, 0x091),
+            seconds: sample_object_frame_with_base(126, 0x5F, 0x08, 0x099),
+            speed: sample_object_frame_with_base(127, 0x3F, 0x08, 0x0AD),
+            time: sample_object_frame_with_base(128, 0x2D, 0x08, 0x0B9),
+            under: sample_object_frame_with_base(129, 0x40, 0x08, 0x0C3),
+            digits: (0..10)
+                .map(|digit| {
+                    sample_object_frame_with_base(130 + digit, 0x0C, 0x0B, 0x0CB + digit as u16)
+                })
+                .collect(),
+        }
+    }
+
     fn sample_background_visuals() -> BackgroundVisuals {
         BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
             placements: vec![BackgroundPlacement {
@@ -2167,6 +2219,7 @@ mod tests {
             floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),
             platforms: sample_platform_visuals(),
+            eol_score: Some(sample_eol_score_visuals()),
             title_card_letters: None,
         }
     }
