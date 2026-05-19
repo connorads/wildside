@@ -20,12 +20,17 @@ pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 0;
 /// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
 /// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
-/// TODO(fidelity): ASM `Load_IntroSequence6 -> loc_1BAB0 -> loc_1BAEA`
-/// clearly owns the later `Game_Mode=$10` flip, but the published TAS oracle
-/// keeps the timeout-restart mode-$28 rebuild alive 45 frames beyond the raw
-/// `$280` DBF window. Keep the oracle-backed 686-frame hold here until the
-/// exact pre-`loc_1BB02` gate is traced from the ROM.
-pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 0x02AE;
+/// ASM Obj_TitleMenu `loc_1BAEA -> loc_1BAEE` seeds `d0=$280`, then hibernates
+/// once before each inclusive `dbf` pass.
+pub(crate) const TITLE_IDLE_DBF_FRAMES_LOC_1BAEA: u16 = 0x0280 + 1;
+/// ASM `loc_1B37C -> loc_1B3BC` runs the hidden title-shell lightning's central
+/// `d1=$2C` DBF loop for 45 inclusive passes on the IntroSequence6 rebuild.
+pub(crate) const INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC: u16 = 0x002C + 1;
+/// The timeout-restart IntroSequence6 title rebuild reaches the demo hand-off
+/// after the shared title-menu idle plus the ROM lightning loop that runs
+/// alongside the hidden title shell.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 =
+    TITLE_IDLE_DBF_FRAMES_LOC_1BAEA + INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.

@@ -7719,6 +7719,11 @@ mod tests {
             "ASM loc_1B37C runs four opening flashes, a 45-iteration `dbf d1,loc_1B3BC` loop, then five closing flashes before deleting the worker",
         );
         assert_eq!(
+            INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES,
+            TITLE_IDLE_DBF_FRAMES_LOC_1BAEA + INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC,
+            "ASM Obj_TitleMenu loc_1BAEA supplies the shared title idle, and the IntroSequence6 loc_1B3BC lightning loop supplies the traced 45-frame extension",
+        );
+        assert_eq!(
             &sequence.steps[..4],
             &[
                 TitleScreenLightningFlashStepLoc1B37C {

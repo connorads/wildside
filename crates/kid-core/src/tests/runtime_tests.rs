@@ -3675,10 +3675,10 @@ mod chunk_09 {
             }
         }
 
-        // TODO(fidelity): The ROM still keeps this timeout-restart title rebuild
-        // in `Game_Mode=$28` for 45 more frames than the raw `$280` DBF window
-        // would suggest. The oracle-backed guard here locks the currently proven
-        // hand-off while the exact pre-`loc_1BB02` gate is traced from ASM.
+        // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BAEE` supplies the raw `$280+1`
+        // DBF idle, and the timeout-restart IntroSequence6 rebuild carries the
+        // central `loc_1B37C -> loc_1B3BC` lightning loop's extra 45 inclusive
+        // passes before `loc_1BB02` flips back into demo play.
         assert_eq!(
             frame_21763,
             Some((
@@ -3688,7 +3688,7 @@ mod chunk_09 {
                 Some(TITLE_KID_X_POS),
                 Some(TITLE_KID_Y_POS),
             )),
-            "frame 21763 should still keep the rebuilt mode-$28 title pose visible one frame before the current oracle-backed hand-off",
+            "frame 21763 should still keep the rebuilt mode-$28 title pose visible one frame before the loc_1B3BC-extended hand-off",
         );
         assert_eq!(
             frame_21764,
@@ -3699,7 +3699,7 @@ mod chunk_09 {
                 Some(TITLE_KID_X_POS),
                 Some(TITLE_KID_Y_POS),
             )),
-            "frame 21764 should still stay in mode $28 on the last oracle-backed title-pose frame before the later demo flip",
+            "frame 21764 should still stay in mode $28 on the last loc_1B3BC-extended title-pose frame before the later demo flip",
         );
     }
 
@@ -3735,9 +3735,9 @@ mod chunk_09 {
             }
         }
 
-        // TODO(fidelity): The exact ROM gate that extends this timeout-restart
-        // mode-$28 hold beyond the plain `$280` DBF loop still needs tracing, but
-        // the oracle-backed hand-off itself is now locked to frame 21765.
+        // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BAEE` plus the IntroSequence6
+        // lightning `loc_1B37C -> loc_1B3BC` loop keep mode `$28` through the
+        // previous frame; `loc_1BB02` is the first demo-play frame.
         assert_eq!(
             frame_21764,
             Some((
