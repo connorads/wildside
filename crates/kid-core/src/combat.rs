@@ -8189,10 +8189,9 @@ impl NativeRuntime {
             slice.player.x_velocity = 0;
             slice.player.y_velocity = 0;
         }
-        // TODO(fidelity): visual sprite art for transform animation.
-        // ASM uses per-helmet sprite+palette cycling tables for a spinning
-        // animation. Currently renders as a flash overlay. Needs ROM sprite
-        // tile extraction for real visuals.
+        // Native core keeps only transform timing/state. The ROM sprite and
+        // palette cycling is applied by the renderer/native-player from
+        // form_change_flash_frames and PlayerFormVisuals::transform_steps.
         //
         // ASM loc_7CFE (kid.asm:8439): `add.w d7,d7; lea off_7EE2(pc),a0;
         // move.w (a0,d7.w),d7; add.w d7,a0` — forward animation table setup.
