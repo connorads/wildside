@@ -347,7 +347,15 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         colour: [8, 12, 20],
     });
 
-    // Title
+    // Title. ASM `Obj_TitleMenu` (kid.asm:30310) renders the title screen
+    // through tile art uploaded by `Load_TitleScreen` — the ROM never
+    // displays typed ASCII. The interactive player routes the title through
+    // `kid_md::render_vdp_into` when `runtime.vdp_state()` is populated;
+    // this fallback only fires in sweep/recording/TAS-viewer contexts.
+    // Keep the typed "KID CHAMELEON" as a degraded-asset readability cue —
+    // the previous "Native Playtest" subtitle was a pure dev invention and
+    // is dropped so the fallback doesn't claim a sub-heading the ROM never
+    // shows.
     let title = "KID CHAMELEON";
     let title_w = title.len() as i32 * 8 * 3;
     commands.push(text(
@@ -356,13 +364,6 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         title,
         [255, 220, 80],
         3,
-    ));
-    commands.push(text(
-        (FRAME_WIDTH as i32 - 15 * 8) / 2,
-        72,
-        "Native Playtest",
-        [140, 180, 255],
-        1,
     ));
 
     // Blinking "PRESS START" (blink every 30 frames)
