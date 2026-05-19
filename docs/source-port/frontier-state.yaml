@@ -322,10 +322,7 @@
     ]
   },
   "next_actions": {
-    "ready_to_implement": [
-      "#144 — Tank enemy ID 0x0B not mapped (root cause identified, see backlog evidence)",
-      "#145 — Tank two-object rendering missing (root cause identified, see backlog evidence)"
-    ],
+    "ready_to_implement": [],
     "proactive_verification": [
       "Run cargo mutants on enemies.rs, combat.rs, blocks.rs (see ralph-gameplay-loop.md Strategy 1)",
       "Audit mini_hopping_skull family (92 uncovered locs, see Strategy 2)",
