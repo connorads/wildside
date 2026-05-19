@@ -8794,6 +8794,8 @@ pub(crate) fn step_active_enemies(
         player_facing,
         player_x_velocity,
         player_form,
+        0,
+        false,
         projectiles,
         &mut rng,
         drilled_blocks,
@@ -8810,11 +8812,18 @@ pub(crate) fn step_active_enemies_with_rng(
     player_facing: Option<Direction>,
     player_x_velocity: Option<i32>,
     player_form: PlayerForm,
+    time_frames: u16,
+    samurai_haze_active: bool,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<(u16, u16)>,
 ) {
     for enemy in active.iter_mut() {
+        // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set,
+        // so Samurai Haze skips their object execution on 3 of every 4 frames.
+        if samurai_haze_active && time_frames & 3 != 0 {
+            continue;
+        }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
@@ -23615,6 +23624,60 @@ mod tests {
         grid
     }
 
+    #[test]
+    fn active_enemy_step_respects_samurai_haze_object_gate_loc_e1e() {
+        let mut enemy = fireball_test_enemy();
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+        let mut enemies = [enemy];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            1,
+            true,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            enemies[0].x_pos,
+            32 << 16,
+            "ASM loc_E1E skips `$10(a5)` enemy objects during Samurai Haze when `Time_Frames & 3 != 0`, before their per-frame movement can run",
+        );
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            4,
+            true,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            enemies[0].x_pos,
+            (32 << 16) + 0x0001_0000,
+            "ASM loc_E1E lets haze-flagged enemy objects execute normally when `Time_Frames & 3 == 0`",
+        );
+    }
+
     fn tar_monster_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::TarMonster,
@@ -36873,6 +36936,10 @@ impl NativeRuntime {
                     Some(slice.player.facing),
                     Some(slice.player.x_velocity),
                     self.progression.current_form,
+                    self.frame_index as u16,
+                    self.progression.diamond_power_type
+                        == crate::helmets::DiamondPowerType::SamuraiHaze
+                        && self.progression.diamond_power_frames > 0,
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
