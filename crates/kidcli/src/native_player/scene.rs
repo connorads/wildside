@@ -9,6 +9,7 @@ const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
 const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
+const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 
 const FIRE_DEMON_DEATH_TRAIL_FRAMES: [kid_render::SpriteFrame; 6] = [
@@ -35,6 +36,22 @@ const fn fire_demon_trail_frame(
         tile_base_index,
         tile_sheet: kid_render::TileSheet { tiles: Vec::new() },
     }
+}
+
+fn drips_drop_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    Some(kid_render::SpriteFrame {
+        // ASM Drips.asm loc_33424 writes `LnkTo_unk_C7B26` to the falling
+        // child. `unk_C7B26` is `sprite_frame_vram $082,$02,$09,$05,$0A`.
+        origin_x: 0x02,
+        origin_y: 0x09,
+        width_px: 0x05,
+        height_px: 0x0A,
+        tile_base_index: 0x082,
+        tile_sheet,
+    })
 }
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
@@ -1498,21 +1515,31 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::DripsDrop => {
-                    // ASM Drips.asm loc_33424/loc_3345C spawn an animated
-                    // slime-blob child sprite that accelerates under `$2000`
-                    // gravity. Real sprite art is not yet wired through the
-                    // asset bundle; until it is, render a small green-tinted
-                    // placeholder so the projectile reads as slime rather than
-                    // the generic red enemy-projectile rect.
-                    // TODO(fidelity): replace with the ROM blob sprite from
-                    // the Drips animation script (`ingame/anim/enemy/Drips.asm`).
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 2,
-                        y: sy - 2,
-                        width: 4,
-                        height: 5,
-                        colour: [120, 200, 90],
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&DRIPS_OBJECT_TYPE)
+                        .and_then(|drips_visuals| {
+                            let frame = drips_drop_child_frame(drips_visuals)?;
+                            push_sprite_frame(
+                                &mut commands,
+                                &frame,
+                                &drips_visuals.palette,
+                                sx,
+                                sy,
+                            );
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 2,
+                            width: 4,
+                            height: 5,
+                            colour: [120, 200, 90],
+                        });
+                    }
                 }
             }
         }

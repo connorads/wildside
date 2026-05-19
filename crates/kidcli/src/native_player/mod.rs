@@ -1544,6 +1544,35 @@ mod tests {
         );
     }
 
+    #[test]
+    fn drips_drop_uses_rom_child_sprite_frame_loc_33424() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 200,
+            kind: ActiveProjectileKind::DripsDrop,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let drop_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 30 && *y == 23 => Some(tiles),
+            _ => None,
+        });
+        let tiles = drop_sprite.expect("ASM Drips.asm loc_33424 should render the falling child");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x082,
+            "ASM `unk_C7B26: sprite_frame_vram $082,$02,$09,$05,$0A` is the falling-drop child frame",
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 5, [120, 200, 90]),
+            "the green rectangle approximation should disappear once the ROM child sprite is wired",
+        );
+    }
+
     fn has_guide_rect(scene: &Scene) -> bool {
         scene.commands.iter().any(
             |command| matches!(command, DrawCommand::Rect { colour, .. } if *colour == GUIDE_COLOUR),
@@ -1967,6 +1996,24 @@ mod tests {
                     sample_object_frame_with_base(83, 0x1E, 0x08, 0x034),
                 ],
                 frame_duration: 6,
+            },
+        );
+        families.insert(
+            0x16,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(120, 200, 90)],
+                },
+                extra_palettes: vec![],
+                frames: vec![SpriteFrame {
+                    origin_x: 0x0C,
+                    origin_y: 0,
+                    width_px: 0x0F,
+                    height_px: 0x0E,
+                    tile_base_index: 0,
+                    tile_sheet: blank_tile_sheet(0x090),
+                }],
+                frame_duration: 8,
             },
         );
         EnemyVisuals { families }
