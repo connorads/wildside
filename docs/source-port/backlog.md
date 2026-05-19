@@ -1198,6 +1198,12 @@ Follow-up (2026-05-18): the native player now renders the tagged death-trail sig
 the Fire Demon art bundle. The remaining fidelity gap is the core representation: native still uses
 projectile snapshots as the visual carrier rather than the original child-object lifecycle.
 
+Follow-up (2026-05-19): Kid contact no longer consumes the native Fire Demon death-trail carrier.
+Regression `fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca` pins ASM
+`Fire_Demon.asm` `loc_3A6CA`: the trail child loops until `$19(a3)` level collision or d3 expiry.
+The remaining gap is narrower now: the carrier is still a projectile snapshot rather than a typed
+Fire Demon child object with the exact three-cell floor-support deletion check from `loc_3A63C`.
+
 ### 011 — Bricks half-broken (FIXED)
 Resolved by palette permutation fix (#004). Verified via capture-frames comparison —
 block tiles render with correct colours matching original game.
