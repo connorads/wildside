@@ -6272,6 +6272,87 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_descent_right_wall_enters_loc_34a24_left_slide() {
+        let mut enemy = test_dragon(0, 155 << 16, 104 << 16);
+        enemy.dragon_phase = DragonFlyingState::Descending;
+        enemy.dragon_descent_index = 0;
+        enemy.dragon_descent_frames = 1;
+        enemy.x_velocity = 1 << 16;
+        enemy.y_velocity = 0;
+
+        let w = 20u16;
+        let h = 15u16;
+        let mut data = vec![0u8; (w * h * 2) as usize];
+        let offset = (6 * w as usize + 10) * 2;
+        data[offset] = 0x60;
+        data[offset + 1] = 0x01;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::TerrainSlideLeft,
+            "ASM Dragon_Flying.asm loc_349DE dispatches collision `$04` through off_349C6 to loc_34A24"
+        );
+        assert_eq!(
+            enemy.x_velocity, -0x0002_0000,
+            "ASM loc_34A24 starts the left-slide recovery with high word `$FFFE`"
+        );
+        assert_eq!(enemy.y_velocity, 0);
+    }
+
+    #[test]
+    fn dragon_flying_descent_floor_enters_loc_34a48_up_slide() {
+        let mut enemy = test_dragon(0, 100 << 16, 95 << 16);
+        enemy.dragon_phase = DragonFlyingState::Descending;
+        enemy.dragon_descent_index = 0;
+        enemy.dragon_descent_frames = 1;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 1 << 16;
+
+        let w = 20u16;
+        let h = 15u16;
+        let mut data = vec![0u8; (w * h * 2) as usize];
+        let offset = (6 * w as usize + 6) * 2;
+        data[offset] = 0x60;
+        data[offset + 1] = 0x01;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::TerrainSlideUp,
+            "ASM Dragon_Flying.asm loc_349DE dispatches collision `$0C` through off_349C6 to loc_34A48"
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0003_0000,
+            "ASM loc_34A48 starts the upward slide by writing high word `$FFFD` into y_vel"
+        );
+    }
+
+    #[test]
     fn dragon_flyer_drift_continues_without_wall() {
         // Without a wall, drift should continue accelerating normally.
         let mut enemy = test_dragon(0, 100 << 16, 100 << 16);

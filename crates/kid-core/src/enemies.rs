@@ -6215,6 +6215,18 @@ pub(crate) enum DragonFlyingState {
     DriftingWithFire,
     /// Descent attack sub-script: fixed velocity segments from unk_34554.
     Descending,
+    /// Terrain response after the descent hits the dragon's right side. ASM loc_34A00.
+    TerrainSlideRight,
+    /// Terrain response after the descent hits the dragon's left side. ASM loc_34A24.
+    TerrainSlideLeft,
+    /// Terrain response after the descent hits the floor. ASM loc_34A48.
+    TerrainSlideUp,
+    /// Terrain response after the descent hits the ceiling. ASM loc_34A68.
+    TerrainSlideDown,
+    /// Slope-up rebound path after snap-back. ASM loc_34A88.
+    TerrainReboundLeft,
+    /// Slope-down rebound path after snap-back. ASM loc_34ADC.
+    TerrainReboundRight,
     /// Rising back to anchor Y with deceleration (ASM cmd 6, loc_34B44).
     ReturningToAnchor,
 }
@@ -7117,6 +7129,13 @@ const DRAGON_TERRAIN_UP_SLIDE_Y_ACCEL: i32 = 0x5000;
 const DRAGON_TERRAIN_DOWN_SLIDE_Y_DECEL: i32 = 0x2000;
 /// Post-snap rebound vertical acceleration per frame: $2000. ASM loc_34AC2.
 const DRAGON_TERRAIN_REBOUND_Y_ACCEL: i32 = 0x2000;
+const DRAGON_FLYING_COLID_RIGHTWALL: u16 = 0x0004;
+const DRAGON_FLYING_COLID_LEFTWALL: u16 = 0x0008;
+const DRAGON_FLYING_COLID_FLOOR: u16 = 0x000C;
+const DRAGON_FLYING_COLID_CEILING: u16 = 0x0010;
+const DRAGON_FLYING_COLID_SLOPEUP: u16 = 0x0014;
+const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = 0x0018;
+const DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES: u16 = 2;
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
@@ -12612,6 +12631,19 @@ pub(crate) fn step_dragon(
         DragonFlyingState::Descending => {
             step_dragon_descent(enemy, projectiles);
             dragon_apply_velocity(enemy);
+            if let Some(grid) = block_grid
+                && let Some(collision_type) = dragon_flying_terrain_collision_type(enemy, grid)
+            {
+                dragon_enter_terrain_response(enemy, collision_type);
+            }
+        }
+        DragonFlyingState::TerrainSlideRight
+        | DragonFlyingState::TerrainSlideLeft
+        | DragonFlyingState::TerrainSlideUp
+        | DragonFlyingState::TerrainSlideDown
+        | DragonFlyingState::TerrainReboundLeft
+        | DragonFlyingState::TerrainReboundRight => {
+            step_dragon_terrain_response(enemy, block_grid);
         }
         DragonFlyingState::ReturningToAnchor => {
             // Return to anchor: decelerate upward. ASM loc_34B4C.
@@ -12638,6 +12670,236 @@ pub(crate) fn step_dragon(
 fn dragon_apply_velocity(enemy: &mut ActiveEnemy) {
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+fn dragon_flying_terrain_collision_type(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+) -> Option<u16> {
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+
+    if enemy.x_velocity != 0 {
+        let moving_right = enemy.x_velocity > 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            return Some(if moving_right {
+                DRAGON_FLYING_COLID_RIGHTWALL
+            } else {
+                DRAGON_FLYING_COLID_LEFTWALL
+            });
+        }
+    }
+
+    if enemy.y_velocity > 0 {
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground {
+            return Some(match floor.cell.collision {
+                terrain::CollisionKind::SlopeUp => DRAGON_FLYING_COLID_SLOPEUP,
+                terrain::CollisionKind::SlopeDown => DRAGON_FLYING_COLID_SLOPEDOWN,
+                _ => DRAGON_FLYING_COLID_FLOOR,
+            });
+        }
+    }
+
+    if enemy.y_velocity < 0 {
+        let ceiling =
+            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        if ceiling.hit {
+            return Some(DRAGON_FLYING_COLID_CEILING);
+        }
+    }
+
+    None
+}
+
+fn dragon_enter_terrain_response(enemy: &mut ActiveEnemy, collision_type: u16) {
+    match dragon_terrain_dispatch_loc_349DE(collision_type) {
+        DragonTerrainDispatchLoc349DE::DeathExplosion { .. } => {
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+        }
+        DragonTerrainDispatchLoc349DE::RestartDescentScript { .. } => {
+            dragon_restart_script(enemy);
+        }
+        DragonTerrainDispatchLoc349DE::ResponseTable { byte_offset, .. } => {
+            match byte_offset {
+                // ASM Dragon_Flying.asm off_349C6: collision `$04` dispatches
+                // to loc_34A24 and `$08` to loc_34A00.
+                0x0000 => {
+                    let start = dragon_left_slide_start_loc_34a24(enemy.x_velocity);
+                    enemy.x_velocity = start.x_velocity;
+                    enemy.y_velocity = start.y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::TerrainSlideLeft;
+                }
+                0x0004 => {
+                    let start = dragon_right_slide_start_loc_34a00(enemy.x_velocity);
+                    enemy.x_velocity = start.x_velocity;
+                    enemy.y_velocity = start.y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::TerrainSlideRight;
+                }
+                0x0008 => {
+                    let start = dragon_up_slide_start_loc_34a48(enemy.y_velocity);
+                    enemy.y_velocity = start.y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::TerrainSlideUp;
+                }
+                0x000C => {
+                    let start = dragon_down_slide_start_loc_34a68(enemy.y_velocity);
+                    enemy.y_velocity = start.y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::TerrainSlideDown;
+                }
+                0x0010 => {
+                    let start = dragon_flying_rebound_start_loc_34A88(
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                    enemy.x_pos = start.snap_x_pos;
+                    enemy.y_pos = start.snap_y_pos;
+                    enemy.x_velocity = start.x_velocity_during_snap;
+                    enemy.y_velocity = start.y_velocity_during_snap;
+                    enemy.dragon_phase = DragonFlyingState::TerrainReboundLeft;
+                    enemy.dragon_phase_frames = DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES;
+                }
+                0x0014 => {
+                    let start = dragon_flying_right_rebound_start_loc_34ADC(
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                    enemy.x_pos = start.snap_x_pos;
+                    enemy.y_pos = start.snap_y_pos;
+                    enemy.x_velocity = start.x_velocity_during_snap;
+                    enemy.y_velocity = start.y_velocity_during_snap;
+                    enemy.dragon_phase = DragonFlyingState::TerrainReboundRight;
+                    enemy.dragon_phase_frames = DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES;
+                }
+                _ => dragon_restart_script(enemy),
+            }
+        }
+    }
+}
+
+fn step_dragon_terrain_response(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    if matches!(
+        enemy.dragon_phase,
+        DragonFlyingState::TerrainReboundLeft | DragonFlyingState::TerrainReboundRight
+    ) && enemy.dragon_phase_frames > 0
+    {
+        enemy.dragon_phase_frames -= 1;
+        if enemy.dragon_phase_frames == 0 {
+            if enemy.dragon_phase == DragonFlyingState::TerrainReboundRight {
+                let start = dragon_flying_right_rebound_start_loc_34ADC(
+                    enemy.x_pos,
+                    enemy.y_pos,
+                    enemy.x_velocity,
+                    enemy.y_velocity,
+                );
+                enemy.x_velocity = start.rebound_x_velocity;
+                enemy.y_velocity = start.rebound_y_velocity;
+            } else {
+                let start = dragon_flying_rebound_start_loc_34A88(
+                    enemy.x_pos,
+                    enemy.y_pos,
+                    enemy.x_velocity,
+                    enemy.y_velocity,
+                );
+                enemy.x_velocity = start.rebound_x_velocity;
+                enemy.y_velocity = start.rebound_y_velocity;
+            }
+        }
+        return;
+    }
+
+    dragon_apply_velocity(enemy);
+
+    if let Some(grid) = block_grid
+        && let Some(collision_type) = dragon_flying_terrain_collision_type(enemy, grid)
+    {
+        match dragon_flying_rebound_collision_route_loc_34B30(collision_type) {
+            DragonFlyingReboundCollisionRouteLoc34B30::DeathExplosion => {
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+            }
+            DragonFlyingReboundCollisionRouteLoc34B30::RestartScript => {
+                dragon_restart_script(enemy);
+            }
+        }
+        return;
+    }
+
+    match enemy.dragon_phase {
+        DragonFlyingState::TerrainSlideRight => {
+            match dragon_right_slide_frame_loc_34a0a(enemy.x_velocity, 0) {
+                DragonRightSlideFrameLoc34A0A::BeginReturnToAnchor { x_velocity } => {
+                    enemy.x_velocity = x_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonRightSlideFrameLoc34A0A::Continue { x_velocity } => {
+                    enemy.x_velocity = x_velocity;
+                }
+                DragonRightSlideFrameLoc34A0A::CollisionRoute { .. } => {}
+            }
+        }
+        DragonFlyingState::TerrainSlideLeft => {
+            match dragon_left_slide_frame_loc_34a2e(enemy.x_velocity, 0) {
+                DragonLeftSlideFrameLoc34A2E::BeginReturnToAnchor { x_velocity } => {
+                    enemy.x_velocity = x_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonLeftSlideFrameLoc34A2E::Continue { x_velocity } => {
+                    enemy.x_velocity = x_velocity;
+                }
+                DragonLeftSlideFrameLoc34A2E::CollisionRoute { .. } => {}
+            }
+        }
+        DragonFlyingState::TerrainSlideUp => {
+            match dragon_up_slide_frame_loc_34a4e(enemy.y_velocity, 0) {
+                DragonUpSlideFrameLoc34A4E::BeginReturnToAnchor { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonUpSlideFrameLoc34A4E::Continue { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                }
+                DragonUpSlideFrameLoc34A4E::CollisionRoute { .. } => {}
+            }
+        }
+        DragonFlyingState::TerrainSlideDown => {
+            match dragon_down_slide_frame_loc_34A6E(enemy.y_velocity, 0) {
+                DragonDownSlideFrameLoc34A6E::BeginReturnToAnchor { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonDownSlideFrameLoc34A6E::Continue { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                }
+                DragonDownSlideFrameLoc34A6E::CollisionRoute { .. } => {}
+            }
+        }
+        DragonFlyingState::TerrainReboundLeft | DragonFlyingState::TerrainReboundRight => {
+            match dragon_flying_rebound_frame_loc_34AC2(enemy.y_velocity, 0) {
+                DragonFlyingReboundFrameLoc34AC2::BeginReturnToAnchor { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonFlyingReboundFrameLoc34AC2::Continue { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                }
+                DragonFlyingReboundFrameLoc34AC2::CollisionRoute { .. } => {}
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Advance to the next command in the dragon's flight script.

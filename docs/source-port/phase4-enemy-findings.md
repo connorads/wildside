@@ -89,7 +89,10 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Fixed: fire mouth X offset**: ASM `loc_34BAC/loc_34BE6` applies ±10px from the dragon mouth. Native applies the signed offset and `dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc` covers the live spawn path.
 - **Fixed: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Native flips facing and negates x_velocity in Drifting state.
 - **Fixed: death child spawn**: ASM `loc_3492C` spawns a walking-dragon child 16px below the flying parent before deleting the parent. Native now queues that child from the runtime death boundary while retaining the generic death-effect shell.
-- **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
+- **Fixed: Collision-recovery during Descent**: ASM `Dragon_Flying.asm loc_349DE`
+  dispatches the six terrain responses from `off_349C6`; native descent now
+  enters the matching left/right slide, up/down slide, and slope rebound recovery
+  phases before returning to the main flight script.
 - **Partially fixed: Death animation timing/status route**: ASM `loc_3492C` hibernates for two frames before allocating the walking-dragon child, waits for `stru_345E4`, and runs the EnemyStatus_Table route. Native now delays the walking-child spawn by the two-frame hibernate; the live animation-finish wait and status-table side effects remain approximated.
 
 ### Tornado — Acceleration scaling fixed, Cyclone interaction implemented
@@ -149,5 +152,5 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 7. **FIXED**: Probe half-width per-family customisation
 
 ### Low impact (edge cases or rare scenarios)
-8. Dragon Flying collision-recovery during Descent
+8. **FIXED**: Dragon Flying collision-recovery during Descent
 9. Dragon Flying death animation timing/status route
