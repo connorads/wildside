@@ -17352,6 +17352,35 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be78_driller_drills_front_smash_block_before_pacer_turnaround() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 84, 80);
+        enemy.facing = Direction::Right;
+        let grid = grid_with_cells(
+            8,
+            8,
+            &[
+                // ASM loc_3BE8E probes the front child x and y-16px.
+                (6, 4, 0xE0, 0x01),
+                (5, 5, 0x60, 0x00),
+                (6, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            vec![(6, 4)],
+            "ASM Driller.asm loc_3BE78 should destroy the front Smash block before the shared walker wall turnaround can reverse direction",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "after drilling the front block, loc_3BF66 resumes the rightward walker loop instead of turning around on the removed block",
+        );
+    }
+
+    #[test]
     fn loc_3bf02_driller_collision_dispatch_routes_stomp_hp_and_death() {
         assert_eq!(
             driller_collision_dispatch_loc_3bf02(0, 3),

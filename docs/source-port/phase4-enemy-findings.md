@@ -44,11 +44,10 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Tracking callback**: implemented (walk_speed_override + scorpion_tracking_lock)
 - Speed escalation: $38000 at HP≥5 within 170px — implemented
 
-### Driller — Speed cap + missing mechanics
+### Driller — Drilling verified, stuck-death gap remains
 - HP: `enemy_level + 2` — correct
-- Speed: base $8000, step $8000 — correct for HP 2-4
-- **Speed cap mismatch**: ASM caps at $18000 for HP≥4. Native linear formula gives $28000+ at HP≥5.
-- **Missing: Block drilling**: ASM drills through smashable/ice blocks during walk animation. Not in native.
+- Speed: base $8000, step $8000, capped at $18000 for HP≥4 — correct
+- **Fixed: Block drilling**: ASM `loc_3BE78 -> loc_3BEDE/loc_3BEF2` drills Smash/Prize/Ice blocks from the front child probe before resuming the shared walker loop. Native emits drilled cells and clears them from the block grid; `loc_3be78_driller_drills_front_smash_block_before_pacer_turnaround` covers the front-block path.
 - **Missing: Stuck-enemy death**: ASM kills enemy after ~64 direction reversals via $5A overflow counter.
 - Timers: $48=12, $4A=16 (sub-pixel alignment thresholds, not timers)
 
@@ -125,7 +124,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ASM per-enemy $48(a5) values: Crab=12, Driller=12, Armadillo=9, Scorpion=9, Goat=9. Native uses `ENEMY_PROBE_HALF_WIDTH = 8` for all pacers. This affects wall/edge reversal timing by up to 4px.
 
 ### Speed formula linear extrapolation beyond ROM data
-Crab and Driller ASM cap speed at $18000 for high HP. Native `pacer_walk_speed` uses a linear formula that extrapolates beyond the 2-3 tiers the ASM actually handles. Only affects enemies with `enemy_level ≥ 2-3` which may be rare in ROM data.
+Crab ASM is binary ($8000 at HP=2, $18000 at HP≥3), while native still extrapolates at HP≥4. Driller's capped speed table is already mirrored by `driller_walk_speed_loc_3bd74`.
 
 ### Slope deflection missing from step_bouncer
 Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHoppingSkull has slope handling in native. Could be ported from `step_big_hopping_skull` to `step_bouncer`.
@@ -142,10 +141,10 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### Medium impact (affects specific interactions)
 5. **FIXED**: Sphere/Fireball slope deflection
-6. Driller block drilling
+6. **FIXED**: Driller block drilling
 7. Probe half-width per-family customisation
 
 ### Low impact (edge cases or rare scenarios)
-8. Crab/Driller speed cap at high HP (rare enemy levels)
+8. Crab speed cap at high HP (rare enemy levels)
 9. Dragon Flying collision-recovery during Descent
 10. Dragon Flying death-on-stomp sequence
