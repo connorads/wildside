@@ -1194,23 +1194,44 @@ fn build_game_scene_filtered(
         }
     }
     if filter.player {
-        // Player: blink every 4 frames during invulnerability
-        let player_visible =
-            trace.invulnerable_frames == 0 || (trace.frame_index / 4).is_multiple_of(2);
-        if player_visible {
-            for object in trace
-                .active_objects
-                .iter()
-                .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
-            {
-                // ASM loc_B7FA/loc_B80C: the death tumble is driven by the
-                // engine's `advance_death_windup_motion` (combat.rs:8801),
-                // which applies the ROM's x_vel=$8000, initial y_vel=-$40000,
-                // and per-frame +$3000 gravity directly to the player
-                // position. The renderer must NOT add its own offset on top
-                // — doing so doubled the tumble during user-reported playtest
-                // bug #148 (incorrect dying animation).
-                push_player_sprite(&mut commands, object, trace, level_visuals);
+        // ASM `loc_BC34` damage-flash thread (kid.asm:15181-15215): during
+        // the 66-frame `Just_received_damage` window, the ROM alternates
+        // between the white palette (sub_80BC) for 2 frames and the normal
+        // palette (sub_80D0) for 4 frames, repeating 11 times. Kid stays
+        // visible the whole time. Native previously blinked Kid invisible
+        // every 4 frames as a placeholder, which was visually distracting
+        // and contradicted the ROM. Until the renderer wires the full
+        // palette swap, draw a white overlay rect during the 2-frame white
+        // phase so the player still sees a flash cue without disappearing.
+        for object in trace
+            .active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
+        {
+            // ASM loc_B7FA/loc_B80C: the death tumble is driven by the
+            // engine's `advance_death_windup_motion` (combat.rs:8801).
+            // The renderer must NOT add its own offset on top — that was
+            // user-reported playtest bug #148 (incorrect dying animation).
+            push_player_sprite(&mut commands, object, trace, level_visuals);
+
+            if trace.invulnerable_frames > 0 {
+                // PLAYER_DAMAGE_INVULNERABLE_FRAMES = 66; elapsed counts up
+                // from 0 to 65 across the cycle. Every six-frame slot is
+                // 2 frames of white + 4 frames of normal, matching ASM
+                // `loc_BC56` (d2=1 → 2 hibernate frames white) and
+                // `loc_BC6E` (d2=3 → 4 hibernate frames normal).
+                let elapsed = 66usize.saturating_sub(trace.invulnerable_frames);
+                let white_phase = (elapsed % 6) < 2;
+                if white_phase {
+                    let (sx, sy) = player_screen_position(object, trace);
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 8,
+                        y: sy - 24,
+                        width: 16,
+                        height: 24,
+                        colour: [240, 240, 240],
+                    });
+                }
             }
         }
     }

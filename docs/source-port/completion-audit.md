@@ -36,6 +36,7 @@ These are the current blockers to a completion claim:
 | #147 | P1 playability | Agent-proposed fix landed (head-clearance gate at ASM `loc_ABA4`); awaiting human validation that the cheat is gone on Level 2 |
 | #148 | P2 fidelity | Agent-proposed fix landed (removed duplicate renderer tumble offset; engine `advance_death_windup_motion` is the only motion source); awaiting human validation |
 | #149 | P2 fidelity | Agent-proposed fix landed (ASM `sub_1007A` 31-frame wobble drives block y_offset, renderer applies it to the block draw); awaiting human validation |
+| #150 | P2 fidelity | Agent-proposed fix landed (removed the placeholder blink, added a 6-frame white-flash overlay matching ASM `loc_BC34` cadence); awaiting human validation |
 
 `human-validation-checklist.md` currently has no open rows.
 
