@@ -2691,6 +2691,36 @@ mod chunk_04 {
     }
 
     #[test]
+    fn pacer_probe_half_width_matches_family_specific_48_words() {
+        assert_eq!(
+            pacer_probe_half_width(EnemyFamily::Crab),
+            12,
+            "ASM Crab.asm loc_3B00A seeds `$48(a5)=$C` before the shared walker loop",
+        );
+        assert_eq!(
+            pacer_probe_half_width(EnemyFamily::Driller),
+            12,
+            "ASM Driller.asm loc_3BD74 seeds `$48(a5)=$C` before the shared walker loop",
+        );
+        for family in [
+            EnemyFamily::Armadillo,
+            EnemyFamily::Goat,
+            EnemyFamily::Scorpion,
+        ] {
+            assert_eq!(
+                pacer_probe_half_width(family),
+                9,
+                "ASM Armadillo/Goat/Scorpion init seeds `$48(a5)=9` for the shared walker loop",
+            );
+        }
+        assert_eq!(
+            pacer_probe_half_width(EnemyFamily::Robot),
+            ENEMY_PROBE_HALF_WIDTH,
+            "families without an audited `$48(a5)` override keep the generic 8px probe",
+        );
+    }
+
+    #[test]
     fn armadillo_spawned_child_resume_matches_loc_3c91a() {
         assert_eq!(
             armadillo_spawned_child_resume_loc_3c91a(true, Direction::Left),
@@ -3646,6 +3676,30 @@ mod chunk_04 {
             enemy.facing,
             Direction::Right,
             "goat should reverse on hitting wall"
+        );
+    }
+
+    #[test]
+    fn crab_wall_turnaround_uses_twelve_pixel_probe_width() {
+        let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+        for row in 10..13 {
+            solid.push((6, row));
+        }
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Crab, 3, 83, 208);
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Crab.asm loc_3B00A `$48(a5)=$C` should reach the wall at x=96; the old 8px generic probe would still miss it",
+        );
+        assert_eq!(
+            enemy.x_pos,
+            84 << 16,
+            "wall pushback should use the same 12px edge that detected the collision",
         );
     }
 

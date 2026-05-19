@@ -137,8 +137,8 @@ themselves, prove `human-play-stable`.
 
 ### Enemy behaviour gaps (tracked in `asm-coverage.yaml`)
 These items are now tracked systematically via `kidcli asm-coverage --uncovered --subsystem enemy`.
-High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), Tornado Cyclone-flying interaction, Crab proximity freeze, Dragon Flying wall-reversal.
-Medium impact: Sphere/Fireball slope deflection, probe half-width per-family.
+High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), ~~Tornado Cyclone-flying interaction~~ (FIXED), ~~Crab proximity freeze~~ (FIXED), ~~Dragon Flying wall-reversal~~ (FIXED).
+Medium impact: ~~Sphere/Fireball slope deflection~~ (FIXED).
 Low impact: Dragon Flying collision-recovery during Descent, Dragon Flying death-on-stomp sequence.
 
 ### Oracle sweep hardening

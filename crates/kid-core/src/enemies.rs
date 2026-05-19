@@ -3448,6 +3448,18 @@ pub(crate) const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
 pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
 
+pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
+    match family {
+        // ASM Crab.asm loc_3B00A and Driller.asm loc_3BD74 seed `$48(a5)=$C`
+        // before entering the shared walker loops.
+        EnemyFamily::Crab | EnemyFamily::Driller => 12,
+        // ASM Armadillo.asm loc_3C766, Goat.asm loc_3CA7E, and Scorpion.asm
+        // loc_3DBD8 seed `$48(a5)=9`.
+        EnemyFamily::Armadillo | EnemyFamily::Goat | EnemyFamily::Scorpion => 9,
+        _ => ENEMY_PROBE_HALF_WIDTH,
+    }
+}
+
 /// Compute pacer walk speed from the enemy family and HP.
 ///
 /// The ASM init routines all follow the same pattern: start at $8000 and
@@ -14376,13 +14388,14 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
+    let probe_half_width = pacer_probe_half_width(enemy.family);
 
     // Wall probe: reverse if we hit a wall.
     let wall = terrain::probe_wall(
         grid,
         cx,
         cy,
-        ENEMY_PROBE_HALF_WIDTH,
+        probe_half_width,
         ENEMY_PROBE_HEIGHT,
         moving_right,
     );
@@ -14395,7 +14408,7 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         // handles deactivation via the retain/cull check each frame instead.
         // Push out of wall.
         let wall_fp = (wall.wall_x_px as u32) << 16;
-        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        let edge_fp = (probe_half_width as u32) << 16;
         if moving_right {
             if enemy.x_pos + edge_fp > wall_fp {
                 enemy.x_pos = wall_fp.saturating_sub(edge_fp);
@@ -14496,9 +14509,9 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // (potentially capped) y_vel and loops back to the falling walker
     // loop top. Native: unreachable — walkers never enter fall state.
     let look_ahead_x = if moving_right {
-        cx + ENEMY_PROBE_HALF_WIDTH
+        cx + probe_half_width
     } else {
-        cx - ENEMY_PROBE_HALF_WIDTH
+        cx - probe_half_width
     };
     if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
         reverse_enemy_direction(enemy);
@@ -14612,17 +14625,31 @@ pub(crate) fn step_driller(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
 ) -> Vec<(u16, u16)> {
-    let mut drilled = Vec::new();
     let Some(grid) = block_grid else {
-        return drilled;
+        return Vec::new();
     };
 
-    // Pace first
-    step_pacer(enemy, block_grid);
+    // ASM Driller.asm loc_3BE78 checks the drill child before `loc_3BF66`
+    // dispatches back into the shared walker loop, so a front drillable block
+    // is removed before the pacer wall probe can turn the Driller around.
+    let drilled = driller_drilled_cells_loc_3be78(enemy, grid);
+    if drilled.is_empty() {
+        step_pacer(enemy, Some(grid));
+    } else {
+        let mut grid_after_drill = grid.clone();
+        for &(col, row) in &drilled {
+            grid_after_drill.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+        }
+        step_pacer(enemy, Some(&grid_after_drill));
+    }
 
-    // Now check for drillable blocks in the walking direction.
-    // ASM loc_3BE8E: get sprite position, check timer, probe cell 16px above.
-    // Simplified: drill every frame when walking into Smash/Ice blocks.
+    drilled
+}
+
+fn driller_drilled_cells_loc_3be78(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+) -> Vec<(u16, u16)> {
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let probe_x = if enemy.facing == Direction::Right {
@@ -14637,14 +14664,14 @@ pub(crate) fn step_driller(
     let row = terrain::pixel_to_cell(probe_y).max(0) as u16;
     let cell = grid.cell_at(col, row);
 
-    if !matches!(
+    if matches!(
         driller_block_drill_action_loc_3bede(cell),
         DrillerBlockDrillActionLoc3BEDE::None
     ) {
-        drilled.push((col, row));
+        Vec::new()
+    } else {
+        vec![(col, row)]
     }
-
-    drilled
 }
 
 /// Ninja detection cone: player must be 0x20–0x50 pixels above and in the

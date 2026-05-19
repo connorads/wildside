@@ -32,8 +32,8 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 
 ### Crab — Multiple mismatches
 - HP: `enemy_level + 2` — correct
-- **Speed cap mismatch**: ASM is binary ($8000 at HP=2, $18000 at HP≥3). Native uses linear formula which overestimates at HP≥4: $28000 instead of $18000.
-- **Probe half-width**: ASM uses $C (12px) via $48(a5). Native uses hardcoded 8px (`ENEMY_PROBE_HALF_WIDTH`). Affects wall/edge reversal timing by 4px.
+- **Fixed: Speed cap**: ASM is binary ($8000 at HP=2, $18000 at HP≥3). Native now routes Crab speed through `crab_motion_profile_loc_3b00a`.
+- **Fixed: Probe half-width**: ASM uses $C (12px) via $48(a5). Native now uses `pacer_probe_half_width`, with boundary coverage in `crab_wall_turnaround_uses_twelve_pixel_probe_width`.
 - **Missing: Player proximity freeze**: ASM `loc_3B0BE` implements freeze within 64px when player faces Crab, unfreeze beyond 224px. Not in native.
 - **Missing: Hit animation pause**: ASM pauses movement during hurt animation. Native continues pacing.
 - **Missing: Berzerker-charge launch**: ASM launches Crab at 2x player velocity with deceleration physics.
@@ -121,8 +121,8 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 
 ## Systematic issues across families
 
-### Probe half-width hardcoded at 8px
-ASM per-enemy $48(a5) values: Crab=12, Driller=12, Armadillo=9, Scorpion=9, Goat=9. Native uses `ENEMY_PROBE_HALF_WIDTH = 8` for all pacers. This affects wall/edge reversal timing by up to 4px.
+### Probe half-width no longer hardcoded for pacers
+ASM per-enemy $48(a5) values are mirrored for the audited shared-walker families: Crab=12, Driller=12, Armadillo=9, Scorpion=9, Goat=9.
 
 ### Speed formula linear extrapolation beyond ROM data
 Crab and Driller capped speed tables are now mirrored by `crab_motion_profile_loc_3b00a` and `driller_walk_speed_loc_3bd74`.
@@ -143,7 +143,7 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 ### Medium impact (affects specific interactions)
 5. **FIXED**: Sphere/Fireball slope deflection
 6. **FIXED**: Driller block drilling
-7. Probe half-width per-family customisation
+7. **FIXED**: Probe half-width per-family customisation
 
 ### Low impact (edge cases or rare scenarios)
 8. Dragon Flying collision-recovery during Descent
