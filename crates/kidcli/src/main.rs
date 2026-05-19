@@ -2786,6 +2786,7 @@ AddrTbl_LevelNames:
             number_hitpoints: 2,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
+            red_stealth_airborne_slash_counter: 0,
             paused: false,
             kid_x_pos: Some(0x0020_0000),
             kid_y_pos: Some(0x0010_0000),

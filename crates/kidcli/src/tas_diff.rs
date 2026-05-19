@@ -804,6 +804,7 @@ mod tests {
             number_hitpoints: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
+            red_stealth_airborne_slash_counter: 0,
             paused: false,
             kid_x_pos: None,
             kid_y_pos: None,

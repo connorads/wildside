@@ -1060,6 +1060,12 @@ pub struct NativeTraceFrame {
     /// ROM `Red_Stealth_sword_swing` mirror for native-player rendering.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub red_stealth_sword_timer: u8,
+    /// ROM `Red_Stealth_sword_swing` (airborne path) — ASM `sub_B270`
+    /// loc_B350/loc_B380 counter (0→$7F) that selects one of four downward
+    /// slash sprite phases via `(counter>>5)`. Separate from the ground
+    /// `red_stealth_sword_timer` so the renderer can distinguish.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub red_stealth_airborne_slash_counter: u8,
     pub paused: bool,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
@@ -1182,6 +1188,7 @@ impl Default for NativeTraceFrame {
             number_hitpoints: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
+            red_stealth_airborne_slash_counter: 0,
             paused: false,
             kid_x_pos: None,
             kid_y_pos: None,

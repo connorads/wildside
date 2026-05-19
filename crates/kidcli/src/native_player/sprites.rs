@@ -366,6 +366,20 @@ pub(super) fn select_player_frame<'a>(
     let x_velocity = trace.kid_x_velocity.unwrap_or(0);
     let y_velocity = trace.kid_y_velocity.unwrap_or(0);
 
+    // ASM sub_B270 loc_B350/loc_B380 (kid.asm:14220-14248): the airborne
+    // attack-down counter (`red_stealth_airborne_slash_counter`, 0→$7F)
+    // selects one of four downward-slash phases via `counter >> 5`. Native
+    // wired the counter through the runtime step in commit `bcfb47f6`; this
+    // branch now consumes it so the visual sword actually points down during
+    // a fast-fall hold instead of falling through to the generic jump-fall
+    // pose. Takes precedence over the ground swing timer because the airborne
+    // path is what the user reported broken (#153).
+    if trace.red_stealth_airborne_slash_counter > 0 && !player_visuals.slash_air.is_empty() {
+        let phase = usize::from(trace.red_stealth_airborne_slash_counter >> 5);
+        let frame_index = phase.min(player_visuals.slash_air.len() - 1);
+        return &player_visuals.slash_air[frame_index];
+    }
+
     if trace.red_stealth_sword_timer > 0 {
         let slash_frames = if on_ground {
             &player_visuals.slash_ground

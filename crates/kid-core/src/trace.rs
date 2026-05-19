@@ -924,6 +924,11 @@ impl NativeRuntime {
             } else {
                 self.helmet.red_stealth_sword_timer
             },
+            red_stealth_airborne_slash_counter: if hidden_boot_progression {
+                0
+            } else {
+                self.helmet.red_stealth_airborne_slash_counter
+            },
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
