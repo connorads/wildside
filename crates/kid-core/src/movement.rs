@@ -2591,6 +2591,66 @@ impl OpeningSliceState {
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
+        self.step_with_order_inner(
+            input,
+            jump_pressed,
+            form,
+            block_grid,
+            block_list,
+            custom_gravity,
+            y_look_offset,
+            false,
+            physics_order,
+            allow_asm_faithful_solid_touch_snap,
+            deferred_prize_ceiling_cells,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn step_with_order_and_maniaxe_axe(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        custom_gravity: bool,
+        y_look_offset: i16,
+        maniaxe_throwing_axe_active: bool,
+        physics_order: PhysicsOrder,
+        allow_asm_faithful_solid_touch_snap: bool,
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+    ) {
+        self.step_with_order_inner(
+            input,
+            jump_pressed,
+            form,
+            block_grid,
+            block_list,
+            custom_gravity,
+            y_look_offset,
+            maniaxe_throwing_axe_active,
+            physics_order,
+            allow_asm_faithful_solid_touch_snap,
+            deferred_prize_ceiling_cells,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn step_with_order_inner(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        custom_gravity: bool,
+        y_look_offset: i16,
+        maniaxe_throwing_axe_active: bool,
+        physics_order: PhysicsOrder,
+        allow_asm_faithful_solid_touch_snap: bool,
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+    ) {
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
         // 21 frames after ledge snap, suppressing all physics.
         // Camera follow resumes on the final frame (ASM exits animation,
@@ -2622,8 +2682,13 @@ impl OpeningSliceState {
                 }
 
                 // Current native order: horizontal, vertical (gravity+position), collisions
-                let horizontal_step_applied =
-                    self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
+                let horizontal_step_applied = self.update_horizontal_motion(
+                    input,
+                    jump_pressed,
+                    form,
+                    block_grid.as_deref(),
+                    maniaxe_throwing_axe_active,
+                );
 
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
@@ -2711,8 +2776,13 @@ impl OpeningSliceState {
                 }
                 // ASM order: horizontal motion + position, apply y_pos from y_velocity
                 // (without gravity first), collisions, then gravity
-                let horizontal_step_applied =
-                    self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
+                let horizontal_step_applied = self.update_horizontal_motion(
+                    input,
+                    jump_pressed,
+                    form,
+                    block_grid.as_deref(),
+                    maniaxe_throwing_axe_active,
+                );
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
                     t.horizontal_step_applied = horizontal_step_applied;
@@ -2933,6 +3003,7 @@ impl OpeningSliceState {
                         jump_pressed,
                         form,
                         block_grid.as_deref(),
+                        maniaxe_throwing_axe_active,
                     )
                 };
 
@@ -3661,10 +3732,14 @@ impl OpeningSliceState {
         &mut self,
         input: FrameInput,
         block_grid: Option<&terrain::BlockGrid>,
-        collision_hw: i32,
+        form: PlayerForm,
+        maniaxe_throwing_axe_active: bool,
     ) -> bool {
         if !self.player.on_ground || self.player.x_velocity != 0 {
             return false;
+        }
+        if form == PlayerForm::Maniaxe && maniaxe_throwing_axe_active {
+            return true;
         }
         let Some(direction) = Self::held_horizontal_direction(input) else {
             return false;
@@ -3684,7 +3759,7 @@ impl OpeningSliceState {
             grid,
             x_px,
             y_px,
-            collision_hw,
+            form.half_width(),
             PLAYER_HEIGHT,
             direction == Direction::Right,
         )
@@ -4103,8 +4178,9 @@ impl OpeningSliceState {
         jump_pressed: bool,
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
+        maniaxe_throwing_axe_active: bool,
     ) -> bool {
-        if self.should_hold_standing_still(input, block_grid, form.half_width()) {
+        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
             return false;
         }
         if self.player.on_ground && !input.b {
@@ -4377,8 +4453,9 @@ impl OpeningSliceState {
         jump_pressed: bool,
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
+        maniaxe_throwing_axe_active: bool,
     ) -> bool {
-        if self.should_hold_standing_still(input, block_grid, form.half_width()) {
+        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
             return false;
         }
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {

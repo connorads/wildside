@@ -2378,7 +2378,7 @@ impl NativeRuntime {
                     jump_pressed,
                     custom_gravity,
                 );
-                slice.step_with_order(
+                slice.step_with_order_and_maniaxe_axe(
                     input,
                     jump_pressed,
                     self.progression.current_form,
@@ -2386,6 +2386,7 @@ impl NativeRuntime {
                     self.block_list.as_ref(),
                     custom_gravity,
                     self.y_look_offset,
+                    self.helmet.maniaxe_axe_active,
                     self.physics_order,
                     allow_asm_faithful_solid_touch_snap,
                     &deferred_prize_ceiling_cells,

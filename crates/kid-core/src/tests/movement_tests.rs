@@ -4414,6 +4414,7 @@ mod chunk_11 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -14671,6 +14672,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             Some(&grid),
+            false,
         );
 
         assert!(
@@ -14685,6 +14687,45 @@ mod chunk_12 {
             slice.player.facing,
             Direction::Right,
             "loc_779C should still face the blocked right input",
+        );
+    }
+
+    /// ASM loc_779C (kid.asm:7842): Maniaxe's live thrown axe is checked before
+    /// either held direction.  When `Maniaxe_throwing_axe` is nonzero, the ROM
+    /// branches straight to loc_7828 and keeps standing without changing facing.
+    #[test]
+    fn asm_faithful_loc_779c_maniaxe_live_axe_holds_standing_before_input() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Maniaxe,
+            None,
+            true,
+        );
+
+        assert!(
+            !stepped,
+            "loc_779C should keep Maniaxe standing while a thrown axe is active",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "loc_779C should branch before walking acceleration while Maniaxe_throwing_axe is set",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_779C should branch before the right-input facing store",
         );
     }
 
@@ -14724,6 +14765,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             Some(&grid),
+            false,
         );
 
         assert!(
@@ -14811,6 +14853,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -14850,6 +14893,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -14891,6 +14935,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -14935,6 +14980,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -14979,6 +15025,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -15019,6 +15066,7 @@ mod chunk_12 {
             false,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -15065,6 +15113,7 @@ mod chunk_12 {
             true,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(
@@ -15104,6 +15153,7 @@ mod chunk_12 {
             true,
             PlayerForm::TheKid,
             None,
+            false,
         );
 
         assert!(

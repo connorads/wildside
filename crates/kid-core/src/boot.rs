@@ -5993,7 +5993,13 @@ impl NativeRuntime {
         // Demo playback keeps the actor grounded on an invisible hand-off path
         // after the bootstrap hold, then regular physics resumes once the
         // recorded jump lifts off from that pinned floor.
-        slice.update_horizontal_motion(input, false, self.progression.current_form, Some(grid));
+        slice.update_horizontal_motion(
+            input,
+            false,
+            self.progression.current_form,
+            Some(grid),
+            false,
+        );
         slice.apply_wall_collision(Some(grid), hw);
         slice.player.y_pos = slice.terrain.floor_y_pos;
         slice.player.y_velocity = 0;
