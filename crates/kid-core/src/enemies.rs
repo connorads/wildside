@@ -8915,6 +8915,13 @@ pub(crate) fn step_active_enemies_with_rng(
                     // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
                     // Check freeze before stepping; if frozen, skip movement.
                     if matches!(enemy.family, EnemyFamily::Crab) {
+                        if enemy.damage_flash_frames > 0 {
+                            // ASM Crab.asm loc_3B0A6 initialises the hurt
+                            // animation and hibernates until it finishes before
+                            // restoring `stru_3AF62`; do not keep pacing while
+                            // the native damage-flash window represents that hold.
+                            continue;
+                        }
                         step_crab_freeze(enemy, player_x_pos, player_facing, player_x_velocity);
                         if enemy.crab_frozen {
                             continue; // skip pacer walk while frozen
@@ -25429,6 +25436,44 @@ mod tests {
         assert!(
             !crab_freeze_direction_gate_loc_3b0fe(Direction::Left, Direction::Left),
             "ASM Crab.asm loc_3B0E4 should skip freeze when Kid's set x_direction sees a clear-x_direction crab"
+        );
+    }
+
+    #[test]
+    fn crab_hurt_animation_hibernates_instead_of_pacing_loc_3b0a6() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.x_pos = 100 << 16;
+        enemy.y_pos = 96 << 16;
+        enemy.hit_points = 2;
+        enemy.facing = Direction::Right;
+        enemy.damage_flash_frames = 3;
+
+        let w = 20u16;
+        let h = 15u16;
+        let data = vec![0u8; (w * h * 2) as usize];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let start_x = enemy.x_pos;
+
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            enemy.x_pos, start_x,
+            "ASM Crab.asm loc_3B0A6 hibernates until the hurt animation finishes, so the crab should not pace during damage flash"
+        );
+        assert_eq!(
+            enemy.damage_flash_frames, 2,
+            "the native damage-flash window still advances while the hurt animation hibernates"
         );
     }
 

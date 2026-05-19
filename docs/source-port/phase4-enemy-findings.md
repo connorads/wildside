@@ -35,7 +35,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Fixed: Speed cap**: ASM is binary ($8000 at HP=2, $18000 at HP≥3). Native now routes Crab speed through `crab_motion_profile_loc_3b00a`.
 - **Fixed: Probe half-width**: ASM uses $C (12px) via $48(a5). Native now uses `pacer_probe_half_width`, with boundary coverage in `crab_wall_turnaround_uses_twelve_pixel_probe_width`.
 - **Fixed: Player proximity freeze**: ASM `loc_3B0BE` implements freeze within 64px when player faces Crab, unfreeze beyond 224px. Native wires this through `step_crab_freeze`, including the `loc_3B0FE` facing gate and movement skip while frozen.
-- **Missing: Hit animation pause**: ASM pauses movement during hurt animation. Native continues pacing.
+- **Fixed: Hit animation pause**: ASM `loc_3B0A6` hibernates until the hurt animation finishes; native now skips Crab pacing while `damage_flash_frames` represents that hurt-animation hold.
 - **Missing: Berzerker-charge launch**: ASM launches Crab at 2x player velocity with deceleration physics.
 - **Fixed: high-HP speed cap**: ASM `loc_3AFD0/loc_3B00A` gives HP 2 `$8000` and HP≥3 `$18000`; `crab_motion_profile_matches_loc_3b00a` now covers HP 5 through `pacer_walk_speed`.
 
