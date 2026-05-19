@@ -1,6 +1,6 @@
 use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
 /// Controls the order of physics sub-steps within each frame.
@@ -1134,7 +1134,8 @@ pub struct NativeTraceFrame {
     pub active_projectile_details: Vec<ActiveProjectileSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
-    /// Metal block bounce animations: (cell_x, cell_y, remaining_frames).
+    /// Metal block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
+    #[serde(default, deserialize_with = "deserialize_block_bounces")]
     pub block_bounces: Vec<(u16, u16, u8, i16)>,
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
     pub block_destroy_effects: Vec<(u16, u16, u8)>,
@@ -1160,6 +1161,34 @@ pub struct NativeTraceFrame {
     /// Sub-frame physics trace (populated when `trace_physics` is enabled).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub physics_trace: Option<PhysicsTrace>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum BlockBounceTraceEntry {
+    Current(BlockBounceTraceTuple),
+    Legacy((u16, u16, u8)),
+}
+
+type BlockBounceTraceTuple = (u16, u16, u8, i16);
+
+fn deserialize_block_bounces<'de, D>(
+    deserializer: D,
+) -> Result<Vec<BlockBounceTraceTuple>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Vec::<BlockBounceTraceEntry>::deserialize(deserializer).map(|entries| {
+        entries
+            .into_iter()
+            .map(|entry| match entry {
+                BlockBounceTraceEntry::Current(entry) => entry,
+                BlockBounceTraceEntry::Legacy((cell_x, cell_y, remaining)) => {
+                    (cell_x, cell_y, remaining, 0)
+                }
+            })
+            .collect()
+    })
 }
 
 impl Default for NativeTraceFrame {
@@ -2172,5 +2201,31 @@ mod tests {
     #[test]
     fn frame_input_to_mask_empty() {
         assert_eq!(FrameInput::default().to_mask(), 0);
+    }
+
+    #[test]
+    fn native_trace_frame_reads_legacy_three_field_block_bounce_entries() {
+        let json = r#"{
+            "block_bounces": [[8, 12, 8]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("legacy trace frame");
+
+        assert_eq!(
+            frame.block_bounces,
+            vec![(8, 12, 8, 0)],
+            "legacy recording traces predate ASM sub_1007A y_offset_px; load them as zero-offset"
+        );
+    }
+
+    #[test]
+    fn native_trace_frame_reads_current_four_field_block_bounce_entries() {
+        let json = r#"{
+            "block_bounces": [[8, 12, 8, -2]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("current trace frame");
+
+        assert_eq!(frame.block_bounces, vec![(8, 12, 8, -2)]);
     }
 }
