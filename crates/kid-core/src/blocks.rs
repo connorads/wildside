@@ -1557,6 +1557,7 @@ impl NativeRuntime {
             x_px: (x_pos >> 16) as u16,
             y_px: ((y_pos >> 16) as u16).saturating_sub(8),
             remaining: 8,
+            direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
         })
     }
 
@@ -1881,6 +1882,7 @@ impl NativeRuntime {
             x_px,
             y_px,
             remaining: 2,
+            direction,
         });
     }
 
@@ -1899,6 +1901,7 @@ impl NativeRuntime {
             x_px,
             y_px,
             remaining: 3,
+            direction,
         });
     }
 

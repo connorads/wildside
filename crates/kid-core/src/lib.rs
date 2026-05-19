@@ -2483,6 +2483,7 @@ impl NativeRuntime {
                                     x_px: block_x,
                                     y_px: block_y.saturating_sub(4),
                                     remaining: 2,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 });
                             }
                             // ASM off_B058 block type 1 (Prize) jumps through
@@ -2497,6 +2498,7 @@ impl NativeRuntime {
                                     x_px: block_x,
                                     y_px: block_y,
                                     remaining: 8,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 });
                             }
                             // ASM off_B058 block type 2 (Ice) jumps through
@@ -2514,6 +2516,7 @@ impl NativeRuntime {
                                     x_px: block_x,
                                     y_px: block_y.saturating_sub(4),
                                     remaining: 3,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 });
                             }
                             // ASM off_B058 block types 3/4 return directly to
@@ -2585,6 +2588,7 @@ impl NativeRuntime {
                                     x_px: probe.cell_x * 16,
                                     y_px: probe.cell_y * 16,
                                     remaining: 8,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
                                 });
                                 slice.player.y_velocity =
                                     collision.next_y_velocity.unwrap_or(-0x8000);

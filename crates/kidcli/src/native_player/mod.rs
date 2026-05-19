@@ -3567,6 +3567,30 @@ mod tests {
     }
 
     #[test]
+    fn block_destroy_effect_uses_sub_292e_rom_debris_tiles() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.block_destroy_effects = vec![(0x0030, 0x0020, 2, 2)];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let expected_positions = [(31, 20), (31, 29), (41, 29), (41, 20), (37, 23)];
+        for (x, y) in expected_positions {
+            let (_, tile, _) =
+                indexed_tile_at_with_sheet_len(&scene, x, y, 0x200).expect("debris tile");
+            assert_eq!(
+                tile.tile_index, 8,
+                "ASM sub_2A4C emits VRAM tile $8228, i.e. block-tile sheet index 8"
+            );
+            assert!(tile.priority);
+        }
+        assert!(
+            !has_rect(&scene, 37, 29, 6, 6, [180, 150, 110]),
+            "block debris should use ASM sub_292E/sub_2A4C tile sprites when level art is loaded"
+        );
+    }
+
+    #[test]
     fn title_scene_stays_text_only() {
         let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None, None);
         assert!(contains_text(&scene, "KID CHAMELEON"));

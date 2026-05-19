@@ -368,8 +368,10 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
             "floating_item#{content_id:02X}@{x_px:03},{y_px:03} rem={remaining}"
         ));
     }
-    for &(x_px, y_px, remaining) in &frame.block_destroy_effects {
-        entries.push(format!("block_fx@{x_px:03},{y_px:03} rem={remaining}"));
+    for &(x_px, y_px, remaining, direction) in &frame.block_destroy_effects {
+        entries.push(format!(
+            "block_fx@{x_px:03},{y_px:03} rem={remaining} dir={direction}"
+        ));
     }
 
     summarize_entries(entries)

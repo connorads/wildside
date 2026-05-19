@@ -11,6 +11,17 @@ const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
+const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
+const BLOCK_DEBRIS_BASE_X_SUB_292E: [i16; 5] = [0, 0, 8, 8, 4];
+const BLOCK_DEBRIS_BASE_Y_SUB_292E: [i16; 5] = [0, 8, 8, 0, 4];
+const BLOCK_DEBRIS_VEL_D6_2_SUB_292E: [(i16, i16); 5] =
+    [(-1, -4), (-1, -3), (1, -3), (1, -4), (1, -5)];
+const BLOCK_DEBRIS_VEL_D6_0_SUB_292E: [(i16, i16); 5] =
+    [(-1, -2), (-2, 0), (1, 0), (1, -1), (-1, -2)];
+const BLOCK_DEBRIS_VEL_D6_1_SUB_292E: [(i16, i16); 5] =
+    [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)];
+const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
+    [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
 
 const FIRE_DEMON_DEATH_TRAIL_FRAMES: [kid_render::SpriteFrame; 6] = [
     fire_demon_trail_frame(0x0B0, 0x07, 0x00, 0x0E, 0x08),
@@ -52,6 +63,55 @@ fn drips_drop_child_frame(
         tile_base_index: 0x082,
         tile_sheet,
     })
+}
+
+fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
+    match direction {
+        // ASM sub_292E loc_2988: d6=2 uses `unk_29FC`/`unk_2A06`.
+        2 => &BLOCK_DEBRIS_VEL_D6_2_SUB_292E,
+        // ASM sub_292E loc_297A: d6=0 uses `unk_2A10`/`unk_2A1A`.
+        0 => &BLOCK_DEBRIS_VEL_D6_0_SUB_292E,
+        // ASM sub_292E loc_296C: d6=1 uses `unk_2A38`/`unk_2A42`.
+        1 => &BLOCK_DEBRIS_VEL_D6_1_SUB_292E,
+        // ASM sub_292E fallthrough loc_2994: d6=3/right/default uses
+        // `unk_2A24`/`unk_2A2E`.
+        _ => &BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E,
+    }
+}
+
+fn push_block_destroy_debris_sub_292e(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x_px: u16,
+    y_px: u16,
+    direction: u16,
+    camera_x_px: i32,
+    camera_y_px: i32,
+) -> bool {
+    let Some(tile) = resolve_ingame_vram_tile(
+        level_visuals,
+        TileRef::from_attr_word(BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C),
+    ) else {
+        return false;
+    };
+
+    let velocities = block_debris_velocity_sub_292e(direction);
+    for index in 0..5 {
+        // ASM `sub_292E` seeds five sprite-worker rows from `unk_29E8`/
+        // `unk_29F2`, then `sub_2A4C` immediately advances by the row's
+        // direction-selected velocity before writing sprite tile `$8228`.
+        let x = i32::from(x_px)
+            + i32::from(BLOCK_DEBRIS_BASE_X_SUB_292E[index])
+            + i32::from(velocities[index].0)
+            - camera_x_px;
+        let y = i32::from(y_px)
+            + i32::from(BLOCK_DEBRIS_BASE_Y_SUB_292E[index])
+            + i32::from(velocities[index].1)
+            - camera_y_px;
+        push_resolved_tile(commands, x, y, tile.clone());
+    }
+
+    true
 }
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
@@ -1651,23 +1711,26 @@ fn build_game_scene_filtered(
             // Block-pass handles the offset draw; nothing to do here.
         }
 
-        // Block destruction fragments. ASM `sub_292E` (kid.asm:4881) emits
-        // FIVE direction-keyed sprite slots whose per-row X/Y deltas come
-        // from `unk_29E8`/`unk_29F2` (base table) plus the direction-selected
-        // `unk_29FC`/`unk_2A06`/`unk_2A10`/`unk_2A1A`/`unk_2A24`/`unk_2A2E`/
-        // `unk_2A38`/`unk_2A42` pairs (d6=0..3 routes via loc_297A/loc_296C/
-        // loc_2988 and default loc_2994). The previous 4-corner brown
-        // gradient with hand-tuned alpha was an invention — the ROM uses
-        // theme-specific block tile art and a 5-sprite spread, not coloured
-        // rectangles. TODO(fidelity): plumb the spawn-time direction byte
-        // through `block_destroy_effects` and replace the rect cluster with
-        // ROM tile sprites emitted from the unk_29E8 family of offset
-        // tables. Until then, draw a single small placeholder rect at the
-        // smash centre so the destruction is visible without inventing the
-        // 4-corner gradient.
-        for &(x_px, y_px, _remaining) in &trace.block_destroy_effects {
-            let cx = i32::from(x_px) + 8 - (trace.camera_x_pos >> 16) as i32;
-            let cy = i32::from(y_px) + 8 - (trace.camera_y_pos >> 16) as i32;
+        // ASM `sub_292E` (kid.asm:4881) emits five direction-keyed debris
+        // workers, and `sub_2A4C` (kid.asm:5025) draws each with tile `$8228`.
+        // Keep the old centre marker only as an asset-missing fallback.
+        for &(x_px, y_px, _remaining, direction) in &trace.block_destroy_effects {
+            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            if push_block_destroy_debris_sub_292e(
+                &mut commands,
+                level_visuals,
+                x_px,
+                y_px,
+                direction,
+                camera_x_px,
+                camera_y_px,
+            ) {
+                continue;
+            }
+
+            let cx = i32::from(x_px) + 8 - camera_x_px;
+            let cy = i32::from(y_px) + 8 - camera_y_px;
             commands.push(DrawCommand::Rect {
                 x: cx - 3,
                 y: cy - 3,

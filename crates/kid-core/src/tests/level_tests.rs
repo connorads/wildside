@@ -110,6 +110,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         x_px: 80,
         y_px: 96,
         remaining: 6,
+        direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
     });
     runtime.floating_items.push(FloatingItem {
         x_pos: 0x0050_0000,

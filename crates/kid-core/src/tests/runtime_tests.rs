@@ -6280,6 +6280,10 @@ mod chunk_09 {
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT
+        );
     }
 
     #[test]
@@ -6299,6 +6303,10 @@ mod chunk_09 {
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT
+        );
     }
 
     #[test]
@@ -6321,6 +6329,10 @@ mod chunk_09 {
             "ASM sub_10F9C takes the default `addq.w #4,y_pos(a3)` path when `d6` is neither 1, 2, nor 3, so the ice effect should nudge 4px downward before the 3-frame hibernate",
         );
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW
+        );
     }
 
     #[test]
@@ -6340,6 +6352,10 @@ mod chunk_09 {
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT
+        );
     }
 
     #[test]
@@ -6359,6 +6375,10 @@ mod chunk_09 {
             "ASM sub_10EDA falls through to the default `addq.w #4,y_pos(a3)` path before loc_10F2A when `d6 == 0`, so the smash effect should nudge 4px downward before the 2-frame hibernate"
         );
         assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW
+        );
     }
 
     #[test]
@@ -6378,6 +6398,10 @@ mod chunk_09 {
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT
+        );
     }
 
     #[test]
@@ -8033,6 +8057,7 @@ mod chunk_09 {
             x_px: 80,
             y_px: 48,
             remaining: 1,
+            direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
         });
 
         rt.step_visual_effects();

@@ -1070,7 +1070,7 @@ impl NativeRuntime {
             block_destroy_effects: self
                 .block_destroy_effects
                 .iter()
-                .map(|e| (e.x_px, e.y_px, e.remaining))
+                .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
                 .collect(),
             floating_items: self
                 .floating_items

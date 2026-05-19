@@ -1137,8 +1137,9 @@ pub struct NativeTraceFrame {
     /// Metal block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     #[serde(default, deserialize_with = "deserialize_block_bounces")]
     pub block_bounces: Vec<(u16, u16, u8, i16)>,
-    /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
-    pub block_destroy_effects: Vec<(u16, u16, u8)>,
+    /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
+    #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
+    pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
@@ -1185,6 +1186,37 @@ where
                 BlockBounceTraceEntry::Current(entry) => entry,
                 BlockBounceTraceEntry::Legacy((cell_x, cell_y, remaining)) => {
                     (cell_x, cell_y, remaining, 0)
+                }
+            })
+            .collect()
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum BlockDestroyTraceEntry {
+    Current(BlockDestroyTraceTuple),
+    Legacy((u16, u16, u8)),
+}
+
+type BlockDestroyTraceTuple = (u16, u16, u8, u16);
+
+fn deserialize_block_destroy_effects<'de, D>(
+    deserializer: D,
+) -> Result<Vec<BlockDestroyTraceTuple>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Vec::<BlockDestroyTraceEntry>::deserialize(deserializer).map(|entries| {
+        entries
+            .into_iter()
+            .map(|entry| match entry {
+                BlockDestroyTraceEntry::Current(entry) => entry,
+                // Legacy native-player recordings predate the ASM `sub_292E`
+                // direction byte. Use the upward branch (`d6=2`) because the
+                // earliest traced effects came from floor-smash paths.
+                BlockDestroyTraceEntry::Legacy((x_px, y_px, remaining)) => {
+                    (x_px, y_px, remaining, 2)
                 }
             })
             .collect()
@@ -1363,6 +1395,9 @@ pub(crate) struct BlockDestroyEffect {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,
     pub(crate) remaining: u8,
+    /// ASM `sub_292E` (kid.asm:4881) selects debris velocity tables from
+    /// `d6`: 0=below, 1=left, 2=above, otherwise right/default.
+    pub(crate) direction: u16,
 }
 
 /// A floating prize item spawned from a prize block hit.
@@ -2227,5 +2262,31 @@ mod tests {
         let frame: NativeTraceFrame = serde_json::from_str(json).expect("current trace frame");
 
         assert_eq!(frame.block_bounces, vec![(8, 12, 8, -2)]);
+    }
+
+    #[test]
+    fn native_trace_frame_reads_legacy_three_field_block_destroy_entries() {
+        let json = r#"{
+            "block_destroy_effects": [[80, 52, 2]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("legacy trace frame");
+
+        assert_eq!(
+            frame.block_destroy_effects,
+            vec![(80, 52, 2, 2)],
+            "legacy traces predate ASM sub_292E direction; load as the upward floor-smash branch"
+        );
+    }
+
+    #[test]
+    fn native_trace_frame_reads_current_four_field_block_destroy_entries() {
+        let json = r#"{
+            "block_destroy_effects": [[80, 52, 2, 1]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("current trace frame");
+
+        assert_eq!(frame.block_destroy_effects, vec![(80, 52, 2, 1)]);
     }
 }
