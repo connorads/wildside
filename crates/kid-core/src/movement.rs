@@ -2087,12 +2087,13 @@ impl NativeRuntime {
         }
 
         if level_entry_title_spawns_two_player_waiter_loc_1AC10(self.two_player) {
-            // TODO(fidelity): ASM loc_1AC10 (kid.asm:28849-28856) allocates
-            // loc_1AD80 when `Two_player_flag` is set, and loc_1AD80 then
-            // builds the alternating-player head sprites during the level
-            // entry. The current title-worker reconstruction only models the
-            // loc_1AB26 / loc_1AD48 script shell, so keep the 2P waiter branch
-            // explicit until we add a two-player oracle case for that lineage.
+            let next_gfx_slot_index = self.starting_level_title_workers.len();
+            self.starting_level_title_workers.extend(
+                level_entry_title_two_player_waiter_workers_loc_1AD80(
+                    self.current_player_index,
+                    next_gfx_slot_index,
+                ),
+            );
         }
     }
 
@@ -2329,6 +2330,52 @@ fn level_entry_title_spawns_two_player_waiter_loc_1AC10(two_player: bool) -> boo
     // falls through to `loc_1AC26` in 1P, but allocates `loc_1AD80` before
     // the shared delete tail when alternating 2P mode is active.
     two_player
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_two_player_waiter_workers_loc_1AD80(
+    current_player_index: u8,
+    next_gfx_slot_index: usize,
+) -> [LevelEntryTitleWorker; 2] {
+    let current_player_glyph = if current_player_index == 0 {
+        0x81
+    } else {
+        0x82
+    };
+    [
+        LevelEntryTitleWorker {
+            // ASM loc_1AD80 (kid.asm:29005): after `j_Hibernate_Object #$40`,
+            // load the left player-title sprite at x=$FFD0/y=$C0, then loc_1AE10
+            // moves it +4px/frame until x=$60.
+            gfx_slot_index: next_gfx_slot_index,
+            glyph: 0x80,
+            activation_frame: 0x40,
+            target_x_pos: 0x0060_0000,
+            target_y_pos: 0x00C0_0000,
+            motion: Some(LevelEntryTitleWorkerMotion {
+                start_x_pos: 0xFFD0_0000,
+                start_y_pos: 0x00C0_0000,
+                x_step_fp: 0x0004_0000,
+                y_step_fp: 0,
+            }),
+        },
+        LevelEntryTitleWorker {
+            // ASM loc_1ADEA (kid.asm:29034): current player 0 selects glyph
+            // `$81`; any non-zero `Current_player` increments to `$82`.
+            // loc_1AE20 moves the right sprite -4px/frame from x=$160 to x=$D0.
+            gfx_slot_index: next_gfx_slot_index + 1,
+            glyph: current_player_glyph,
+            activation_frame: 0x40,
+            target_x_pos: 0x00D0_0000,
+            target_y_pos: 0x00C8_0000,
+            motion: Some(LevelEntryTitleWorkerMotion {
+                start_x_pos: 0x0160_0000,
+                start_y_pos: 0x00C8_0000,
+                x_step_fp: -0x0004_0000,
+                y_step_fp: 0,
+            }),
+        },
+    ]
 }
 
 fn level_entry_title_letter_gfx_slot_index(

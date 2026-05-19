@@ -2843,6 +2843,58 @@ mod chunk_02 {
     }
 
     #[test]
+    fn two_player_level_entry_allocates_loc_1ad80_waiter_sprites() {
+        let mut runtime = cached_generated_runtime();
+        runtime.two_player = true;
+        runtime.current_player_index = 1;
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            runtime.starting_level_title_workers.len(),
+            16,
+            "ASM loc_1AC10 should add the two loc_1AD80 player-title gfx workers after the 14 standard Level 1 title workers",
+        );
+        let player_label = runtime
+            .starting_level_title_workers
+            .iter()
+            .find(|worker| worker.glyph == 0x80)
+            .expect("loc_1AD80 should allocate the left player-label sprite");
+        assert_eq!(player_label.activation_frame, 0x40);
+        assert_eq!(player_label.target_x_pos, 0x0060_0000);
+        assert_eq!(player_label.target_y_pos, 0x00C0_0000);
+        assert_eq!(
+            player_label.motion.as_ref().map(|motion| (
+                motion.start_x_pos,
+                motion.start_y_pos,
+                motion.x_step_fp,
+                motion.y_step_fp,
+            )),
+            Some((0xFFD0_0000, 0x00C0_0000, 0x0004_0000, 0)),
+            "ASM loc_1AD80 seeds the left sprite at x=$FFD0, y=$C0 and loc_1AE10 moves it +4px/frame toward x=$60",
+        );
+
+        let current_player_marker = runtime
+            .starting_level_title_workers
+            .iter()
+            .find(|worker| worker.glyph == 0x82)
+            .expect("loc_1ADEA should select glyph $82 when Current_player is non-zero");
+        assert_eq!(current_player_marker.activation_frame, 0x40);
+        assert_eq!(current_player_marker.target_x_pos, 0x00D0_0000);
+        assert_eq!(current_player_marker.target_y_pos, 0x00C8_0000);
+        assert_eq!(
+            current_player_marker.motion.as_ref().map(|motion| (
+                motion.start_x_pos,
+                motion.start_y_pos,
+                motion.x_step_fp,
+                motion.y_step_fp,
+            )),
+            Some((0x0160_0000, 0x00C8_0000, -0x0004_0000, 0)),
+            "ASM loc_1ADEA/loc_1AE20 seeds the right sprite at x=$160 and moves it -4px/frame toward x=$D0",
+        );
+    }
+
+    #[test]
     fn level_entry_level_1_exposes_letters_on_local_frame_43_and_number_on_44() {
         let mut runtime = cached_generated_runtime();
         runtime.begin_level_entry(LevelId(0));
