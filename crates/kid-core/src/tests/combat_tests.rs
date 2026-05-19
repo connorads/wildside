@@ -1792,6 +1792,57 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_object_initialize_sub_3f596_seeds_ten_free_slots_and_clears_active_heads() {
+        let lists = helmets::diamond_power_object_initialize_sub_3F596(
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: vec![0xF500],
+                free_slots: vec![0xF700],
+                last_active_slot: Some(0xF500),
+                diamond_power_active: true,
+                five_way_shot_ready: true,
+                samurai_haze_active: false,
+                kid_is_invulnerable: true,
+            },
+        );
+
+        assert_eq!(
+            lists.free_slots,
+            vec![
+                0xF2AC, 0xF2F8, 0xF344, 0xF390, 0xF3DC, 0xF428, 0xF474, 0xF4C0, 0xF50C, 0xF558,
+            ],
+            "ASM sub_3F596: free list starts at $FFFFF2AC and advances by $4C for ten slots"
+        );
+        assert!(
+            lists.active_slots.is_empty(),
+            "ASM sub_3F596: clr.l Addr_FirstDPObjectSlot"
+        );
+        assert_eq!(
+            lists.last_active_slot, None,
+            "ASM sub_3F596: clr.l Addr_LastDPObjectSlot"
+        );
+    }
+
+    #[test]
+    fn diamond_power_object_initialize_sub_3f596_preserves_shared_flags() {
+        let lists = helmets::diamond_power_object_initialize_sub_3F596(
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: Vec::new(),
+                free_slots: Vec::new(),
+                last_active_slot: None,
+                diamond_power_active: true,
+                five_way_shot_ready: false,
+                samurai_haze_active: true,
+                kid_is_invulnerable: false,
+            },
+        );
+
+        assert!(lists.diamond_power_active);
+        assert!(!lists.five_way_shot_ready);
+        assert!(lists.samurai_haze_active);
+        assert!(!lists.kid_is_invulnerable);
+    }
+
+    #[test]
     fn diamond_power_object_allocate_sub_3f5bc_promotes_first_free_slot_to_active_head() {
         let (lists, allocated) = helmets::diamond_power_object_allocate_sub_3F5BC(
             helmets::DiamondPowerObjectListsSub3F5E8 {

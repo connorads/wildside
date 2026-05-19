@@ -990,6 +990,25 @@ pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_initialize_sub_3F596(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F596: Addr_NextFreeDPObjectSlot starts at $FFFFF2AC, then
+    // nine DBF iterations link each slot's 4(a0) to the next $4C-byte slot.
+    const FIRST_SLOT: u16 = 0xF2AC;
+    const SLOT_STRIDE: u16 = 0x004C;
+    const SLOT_COUNT: u16 = 10;
+
+    lists.free_slots = (0..SLOT_COUNT)
+        .map(|index| FIRST_SLOT + SLOT_STRIDE * index)
+        .collect();
+    lists.active_slots.clear();
+    lists.last_active_slot = None;
+    lists
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> (
