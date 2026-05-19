@@ -1,6 +1,6 @@
 # Source-Port Completion Audit
 
-Last audited: 2026-05-19
+Last audited: 2026-05-19 (re-opened — see Open Blockers)
 
 ## Objective
 
@@ -23,7 +23,7 @@ true:
 | Oracle-backed accuracy stays green | `project-status` reports `1p-accurate: passed`, backed by release-gate/sweep evidence | 2026-05-19 audit: passed | Pass |
 | Published TAS frontier is closed | `project-status` reports `any-percent-published [complete]` through its end frame | 2026-05-19 audit: clean through frame 37759 | Pass |
 | Source-port frontier has no agent-actionable task | `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` reports no ready implementation task, and `cargo run -q -p kidcli -- autonomous-loop --goal case-queue` has no reduced authoritative case | 2026-05-19 audit: source-port frontier reports verification lanes exhausted; case-queue is blocked with no reduced authoritative case after the `issue-143-level27-ik-smash-probe{,-2,-3,-4}` settled recordings were classified as oracle-bootstrap limitations and the `issue-143-published-route-probe` Sega-screen hitpoint false positive was fixed | Pass |
-| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | No unresolved P1 phase blockers remain after #143 and #146 validation | Pass |
+| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | 2026-05-19 user playtest opened #147 (P1) wall-grab cheat; #148 (P2) death animation; #149 (P2) block shake | Fail |
 | Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | No human-only validation rows remain | Pass |
 | Human-only repro blockers have been resolved | Blocked rows have a human repro bundle or an explicit out-of-scope decision | #146 now has deterministic Level 2 death evidence proving recovery; no `[b]` repro blocker remains | Pass |
 
@@ -33,7 +33,9 @@ These are the current blockers to a completion claim:
 
 | Backlog row | Type | Required next evidence |
 |---|---|---|
-| _none_ | | |
+| #147 | P1 playability | Deterministic repro recording of Level 2 wall-grab cheat; frame compare against oracle; ASM-cited fix and regression test |
+| #148 | P2 fidelity | Frame-by-frame oracle comparison of Kid death sequence; ASM read of `Kid_Death` / `DeathWindup` |
+| #149 | P2 fidelity | Native trace of non-prize block hit confirming whether `sub_1007A` wobble plays; ASM-cited fix if missing |
 
 `human-validation-checklist.md` currently has no open rows.
 
@@ -49,7 +51,9 @@ rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 
 ## Conclusion
 
-The port is complete for the current source-port objective as of this audit:
-the native/playability and oracle-backed gates pass, the published TAS frontier
-is replay-matched, the autonomous queues report no ready implementation task,
-and the canonical backlog has no unresolved phase blockers.
+Re-opened on 2026-05-19. The automated gates (1p-playable, 1p-accurate, TAS
+published) remain green, but a user playtest surfaced three fidelity bugs the
+gates do not catch (#147 wall-grab cheat is P1 playability; #148 and #149 are
+P2 fidelity). Completion claim is paused until #147 has a deterministic repro,
+an ASM-cited fix, and a regression test; #148 and #149 may be deferred to a
+follow-up fidelity phase but must each have an explicit decision logged.
