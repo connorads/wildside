@@ -163,13 +163,26 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         )?,
         "background tile sheet",
     )?;
-    let block_tiles = load_tile_sheet(
+    let mut block_tiles = load_tile_sheet(
         manifest,
         "ingame",
         find_ingame_asset(manifest, BLOCKS_ART_PATH)
             .ok_or_else(|| anyhow!("missing block art asset ingame/{BLOCKS_ART_PATH}"))?,
         "block tile sheet",
     )?;
+    // ASM `sub_144DA` (kid.asm:27355-27420): at level load the ROM
+    // procedurally generates eight "indoor rubber block" tiles into VRAM
+    // at `$5E60` (= tile $2F3), compositing the four theme-specific
+    // foreground tiles from `unk_14576[theme]*8` over the eight base
+    // block tiles at `$26E..$275`. Native does not yet implement the
+    // `loc_1453E` nibble-composition pass (the indoor theme overlay).
+    // As an interim step, expose the eight base block tiles as
+    // VRAM tiles $2F3..$2FA so the rubber-block cells render at all —
+    // without this, `theme/block_mappings.bin` skin 0x0E (rubber on
+    // Level 1) references tile indices 0x2F3..0x2F6 that fall past the
+    // existing block-tile range and `push_tile_quad` drops them
+    // silently. Backlog #154 tracks the indoor-overlay completion.
+    append_base_rubber_block_tiles_sub_144da(&mut block_tiles);
     let hud_digits = load_tile_sheet(
         manifest,
         "ingame",
@@ -3190,6 +3203,32 @@ fn parse_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
 fn parse_layered_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
     let suffix = relative_path.strip_prefix(prefix)?.strip_suffix(".bin")?;
     u16::from_str_radix(suffix, 16).ok()
+}
+
+/// Relative indices into `block_tiles` of the eight base rubber-block
+/// tiles `$26E..$275` (VRAM offset minus `BLOCK_TILE_VRAM_BASE` = `$220`).
+const BASE_RUBBER_BLOCK_RELATIVE_RANGE: std::ops::Range<usize> = 0x4E..0x56;
+
+/// Number of generated rubber-block tiles (`$2F3..$2FA`, eight tiles).
+const RUBBER_BLOCK_TILE_COUNT: usize = 8;
+
+/// Append placeholder rubber-block tiles to `block_tiles` so VRAM
+/// indices `$2F3..$2FA` resolve. ASM `sub_144DA` (kid.asm:27355-27420)
+/// composites the eight base block tiles at `$26E..$275` with four
+/// theme-specific foreground tiles (selected by `unk_14576[theme]*8`)
+/// through the `loc_1453E` per-nibble priority pass; the theme overlay
+/// is not yet ported. Interim behaviour: clone the eight base tiles so
+/// the rubber-block cells render with the generic base pattern instead
+/// of staying invisible (backlog #154).
+fn append_base_rubber_block_tiles_sub_144da(block_tiles: &mut TileSheet) {
+    let Some(base_slice) = block_tiles.tiles.get(BASE_RUBBER_BLOCK_RELATIVE_RANGE) else {
+        return;
+    };
+    if base_slice.len() != RUBBER_BLOCK_TILE_COUNT {
+        return;
+    }
+    let cloned: Vec<_> = base_slice.to_vec();
+    block_tiles.tiles.extend(cloned);
 }
 
 fn load_tile_sheet(
