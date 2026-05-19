@@ -2046,6 +2046,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) shooter_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
+    /// ASM `Telepad_timer` ($FFFFFA84): countdown before a telepad floor activates.
+    pub(crate) telepad_timer: u16,
     /// Prize block ceiling hit: queue the sub_1007A lifecycle for this cell.
     pub(crate) ceiling_prize_clear: Option<(u16, u16, terrain::Cell)>,
     /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.

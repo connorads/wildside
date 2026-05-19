@@ -2532,6 +2532,7 @@ impl OpeningSliceState {
             smash_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
+            telepad_timer: 0x5A,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -2592,6 +2593,7 @@ impl OpeningSliceState {
             smash_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
+            telepad_timer: 0x5A,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -4725,8 +4727,8 @@ impl OpeningSliceState {
     ///
     /// Non-crawling callers enter at loc_B4A0 directly with `d1 = ($FFFFFA78).w`
     /// (the stored half-width from sub_B41C / unk_B408 table).
-    fn walking_floor_support_exists_at_current_position(
-        &self,
+    pub(crate) fn walking_floor_support_exists_at_current_position(
+        &mut self,
         grid: &terrain::BlockGrid,
         collision_hw: i32,
     ) -> bool {
@@ -4742,32 +4744,51 @@ impl OpeningSliceState {
         // count for dbf), row lookup via (y_pos + 1 + d7) >> 4 into row-pointer
         // table at $FFFF4A04, index to left_col.  moveq #0,d7 clears found flag.
         let probe_row = ((y_int + 1) >> 4).max(0) as u16;
-        // ASM loc_B4E0 (kid.asm:14410): scan loop body — move.w (a0)+,d0;
-        // andi.w #$7000,d0; cmpi.w #$6000,d0 (Solid); cmpi.w #$7000,d0 (Spikes).
-        // ASM loc_B4FA (kid.asm:14419): floor found — moveq #1,d7; then checks
-        // bit 15 + block type $400 for telepad.  Telepad countdown not yet native.
-        // ASM loc_B522 (kid.asm:14437): telepad countdown —
-        // `subi.w #1,(Telepad_timer).w; bne.s loc_B51E` decrements the timer
-        // and returns early (d7 still 1, floor found) while timer > 0.
-        // When timer reaches 0: `moveq #-1,d7; subq.w #2,a0` backs up a0 to
-        // the telepad cell, `move.w a0,($FFFFFA86).w` stores the level-layout
-        // address of the telepad block, then returns (d7=-1, NZ = true).
-        // The stored address is later consumed by loc_BC80 (kid.asm:15219)
-        // which reads $FFFFFA86 to locate the telepad destination.
-        // Native: telepad_countdown_loc_B522 models the exact countdown and
-        // address backup, but live telepad timer/address state is not yet
-        // threaded into this floor probe path. TODO(fidelity): integrate it
-        // when telepad levels are promoted.
-        // ASM loc_B514 (kid.asm:14428): loop tail — dbf d2,loc_B4E0; after loop
-        // resets Telepad_timer to $5A (90).
+        let mut floor_found = false;
+        for col in left_col..=right_col {
+            // ASM loc_B4E0 (kid.asm:14410): scan loop body — move.w (a0)+,d0;
+            // andi.w #$7000,d0; cmpi.w #$6000,d0 (Solid); cmpi.w #$7000,d0 (Spikes).
+            let cell = grid.cell_at(col, probe_row);
+            if !matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            ) {
+                continue;
+            }
+
+            floor_found = true;
+            // ASM loc_B4FA (kid.asm:14419): after `moveq #1,d7`, the ROM tests
+            // bit 15 and then block type $400 before dispatching to loc_B522.
+            if !cell.has_block || cell.block_type != terrain::BlockType::Teleporter {
+                continue;
+            }
+
+            let cell_index = u32::from(probe_row) * u32::from(grid.width_cells) + u32::from(col);
+            let a0_after_cell_read = ((cell_index + 1) * 2) as u16;
+            match telepad_countdown_loc_B522(self.telepad_timer, a0_after_cell_read) {
+                TelepadCountdownLocB522::FloorStillFound { next_timer } => {
+                    self.telepad_timer = next_timer;
+                    return true;
+                }
+                TelepadCountdownLocB522::Activated { layout_addr } => {
+                    self.telepad_timer = 0;
+                    let activated_index = u32::from(layout_addr / 2);
+                    let activated_col = (activated_index % u32::from(grid.width_cells)) as u16;
+                    let activated_row = (activated_index / u32::from(grid.width_cells)) as u16;
+                    // ASM loc_B522 stores $FFFFFA86 for loc_BC80. Native's
+                    // teleporter adapter keys by the equivalent layout cell.
+                    self.teleporter_contact = Some((activated_col, activated_row));
+                    return true;
+                }
+            }
+        }
+
+        // ASM loc_B514 (kid.asm:14428): after the dbf scan exhausts without
+        // taking loc_B522, `move.w #$5A,(Telepad_timer).w` resets the timer.
+        self.telepad_timer = 0x5A;
         // ASM loc_B51E (kid.asm:14432): tst.w d7; rts — return NZ if any Solid
         // or Spikes cell found, Z if none.
-        (left_col..=right_col).any(|col| {
-            matches!(
-                grid.cell_at(col, probe_row).collision,
-                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
-            )
-        })
+        floor_found
     }
 
     /// Physics-driven vertical movement: jump initiation and gravity.

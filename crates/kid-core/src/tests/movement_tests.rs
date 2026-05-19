@@ -4587,6 +4587,7 @@ mod chunk_11 {
             smash_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
+            telepad_timer: 0x5A,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -19363,6 +19364,48 @@ mod chunk_12 {
                 layout_addr: cell_address
             },
             "loc_B522: subq.w #2 restores a0 to the telepad cell address"
+        );
+    }
+
+    /// ASM sub_B43A loc_B4FA -> loc_B522: a Solid telepad floor cell keeps
+    /// returning floor support while `Telepad_timer` is nonzero, and only queues
+    /// the later loc_BC80 teleporter lookup when the countdown reaches zero.
+    #[test]
+    fn sub_b43a_live_telepad_floor_support_counts_down_before_contact() {
+        let grid = grid_with_cells(8, 8, &[(2, 4, 0xE4, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.x_pos = 39 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.telepad_timer = 2;
+
+        assert!(
+            slice.walking_floor_support_exists_at_current_position(&grid, PLAYER_HALF_WIDTH),
+            "sub_B43A loc_B522: nonzero countdown still returns d7=1 floor support",
+        );
+        assert_eq!(
+            slice.telepad_timer, 1,
+            "sub_B43A loc_B522: `subi.w #1,(Telepad_timer).w` decrements once",
+        );
+        assert_eq!(
+            slice.teleporter_contact, None,
+            "sub_B43A loc_B522: loc_BC80 contact is not queued until the timer reaches zero",
+        );
+
+        assert!(
+            slice.walking_floor_support_exists_at_current_position(&grid, PLAYER_HALF_WIDTH),
+            "sub_B43A loc_B522: activation also returns NZ via d7=-1",
+        );
+        assert_eq!(
+            slice.telepad_timer, 0,
+            "sub_B43A loc_B522: countdown reaches zero on activation",
+        );
+        assert_eq!(
+            slice.teleporter_contact,
+            Some((2, 4)),
+            "sub_B43A loc_B522: stored telepad layout address maps back to the scanned cell",
         );
     }
 
