@@ -2148,9 +2148,9 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_86EC consumes the sword worker's collision result. Native's
-    /// rectangle approximation keeps the horizontal overlap inclusive at
-    /// RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH.
+    /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
+    /// `unk_31D84` with horizontal bounds -6..+6. Native keeps the horizontal
+    /// overlap inclusive at RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
     #[test]
     fn red_stealth_sword_hits_at_horizontal_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2158,7 +2158,7 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let max_dx = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let max_dx = RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2176,7 +2176,7 @@ mod chunk_06 {
     }
 
     /// ASM loc_86EC only fires after the sword object has collided; native must
-    /// reject enemies just outside the approximated horizontal overlap.
+    /// reject enemies just outside the ROM-backed horizontal overlap.
     #[test]
     fn red_stealth_sword_misses_just_beyond_horizontal_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2184,7 +2184,7 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let miss_dx = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let miss_dx = RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2201,9 +2201,9 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_86EC consumes the sword worker's collision result. Native's
-    /// rectangle approximation keeps the vertical overlap inclusive at
-    /// RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT.
+    /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
+    /// `unk_31D84` with vertical bounds -8..+8. Native keeps the vertical
+    /// overlap inclusive at RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT.
     #[test]
     fn red_stealth_sword_hits_at_vertical_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2211,7 +2211,7 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let max_dy = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32;
+        let max_dy = RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2229,7 +2229,7 @@ mod chunk_06 {
     }
 
     /// ASM loc_86EC only fires after the sword object has collided; native must
-    /// reject enemies just outside the approximated vertical overlap.
+    /// reject enemies just outside the ROM-backed vertical overlap.
     #[test]
     fn red_stealth_sword_misses_just_beyond_vertical_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2237,7 +2237,7 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let miss_dy = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+        let miss_dy = RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,

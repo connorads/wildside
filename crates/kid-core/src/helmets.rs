@@ -4981,8 +4981,8 @@ impl NativeRuntime {
             let ey = (enemy.y_pos >> 16) as i32;
             let dx = (sword_x - ex).abs();
             let dy = (sword_y - ey).abs();
-            if dx <= RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
-                && dy <= RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+            if dx <= RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
+                && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
             {
                 enemy.hit_points = enemy.hit_points.saturating_sub(1);
                 if enemy.hit_points == 0 {
