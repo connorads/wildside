@@ -495,6 +495,10 @@ impl NativeRuntime {
     pub(crate) fn step_projectiles(&mut self) {
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
+        let player_x_velocity = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |s| s.player.x_velocity);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let grid = self.block_grid.as_ref();
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
@@ -606,7 +610,17 @@ impl NativeRuntime {
                 p.diamond_power_rain_tracking = true;
             }
 
-            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+            let x_velocity = if is_diamond_power_rain && !p.diamond_power_rain_tracking {
+                // ASM loc_3FE62 (kid.asm:45210): a5 = Kid x_vel * 3/4.
+                // ASM loc_3FF70: non-tracking rain adds that drift after the
+                // slot's own `$26(a0)` x velocity.
+                let kid_drift = player_x_velocity - (player_x_velocity >> 2);
+                p.x_velocity.wrapping_add(kid_drift)
+            } else {
+                p.x_velocity
+            };
+
+            p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
 
             if is_diamond_power_rain && let Some(camera) = camera {

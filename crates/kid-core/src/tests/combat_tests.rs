@@ -387,6 +387,47 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_3FE62 -> loc_3FF70: non-tracking rain drifts by Kid x_vel*3/4
+    /// before the screen-cull compile path. This is live projectile state, not
+    /// only the pure `diamond_power_rain_non_tracking_move` helper.
+    #[test]
+    fn diamond_power_rain_live_non_tracking_slot_drifts_with_kid_loc_3ff70() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        slice.player.x_velocity = 0x0004_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_0000,
+            y_velocity: 0x2_0000,
+            lifetime: 1,
+            friendly: true,
+            kind: EnemyProjectileKind::DiamondPowerRain,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        let projectile = runtime
+            .projectiles
+            .first()
+            .expect("visible rain slot should remain live");
+        assert_eq!(
+            projectile.x_pos, 0x0083_0000,
+            "ASM loc_3FE62/loc_3FF70: Kid x_vel $40000 contributes $30000 drift"
+        );
+        assert_eq!(
+            projectile.y_pos, 0x0082_0000,
+            "ASM loc_3FF70: non-tracking rain still falls by its slot y velocity"
+        );
+        assert!(
+            !projectile.diamond_power_rain_tracking,
+            "loc_3FF70 drift should not mark the slot as tracking"
+        );
+    }
+
     /// ASM loc_3FEBC -> loc_3FF3C: Tracking Rain scans on the `(Time_Frames&7)==1`
     /// cadence, finds an on-screen enemy in the [8,$40) distance window, and
     /// turns the rain slot into a tracking slot by writing `$26/$2A` velocity.
