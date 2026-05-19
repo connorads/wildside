@@ -5786,12 +5786,11 @@ mod chunk_02 {
     }
 
     #[test]
-    fn loses_life_and_respawns_after_opening_hazard() {
+    fn opening_route_right_boundary_clamps_instead_of_runoff_death() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
-        let mut gameplay_frames = 0usize;
-        while !matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+        for gameplay_frames in 0..1_400 {
             let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
             runtime.step_frame(FrameInput {
                 right: true,
@@ -5799,49 +5798,20 @@ mod chunk_02 {
                 b: jumping,
                 ..FrameInput::default()
             });
-            gameplay_frames += 1;
-            assert!(gameplay_frames < 1_400);
         }
 
-        let death_tail = runtime.trace_frame();
-        assert_eq!(death_tail.number_lives, 2);
-        // ASM `Death -> lose_life -> Teleport` preserves the live gameplay camera
-        // while the hidden death shell is still active; only the later respawn
-        // transition clears Camera_X/Y again.
-        assert!(death_tail.camera_x_pos > 0);
-        assert!(death_tail.kid_x_pos.is_some());
-
-        while !matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
-            let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
-            runtime.step_frame(FrameInput {
-                right: true,
-                a: true,
-                b: jumping,
-                ..FrameInput::default()
-            });
-            gameplay_frames += 1;
-        }
-
-        let respawn_entry = runtime.trace_frame();
-        let (bootstrap_x, bootstrap_y) = expected_level0_respawn_bootstrap_pose();
-        assert_eq!(respawn_entry.number_lives, 2);
-        assert_eq!(respawn_entry.camera_x_pos, 0);
-        assert_eq!(respawn_entry.camera_y_pos, 0);
-        assert_eq!(respawn_entry.kid_x_pos, Some(bootstrap_x));
-        assert_eq!(respawn_entry.kid_y_pos, Some(bootstrap_y));
-
-        // Idle through the settle window — the hidden respawn bootstrap runs
-        // physics (gravity, floor-snap) so the player lands at the level's
-        // grounded spawn position, not the initial bootstrap coordinates.
-        for _ in 0..(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES - 1) {
-            runtime.step_frame(FrameInput::default());
-        }
-
-        let respawn_tail = runtime.trace_frame();
-        assert_eq!(respawn_tail.number_lives, 2);
+        let trace = runtime.trace_frame();
+        let bounds = runtime.level_bounds(LevelId(0));
+        let max_x_px = u32::from(bounds.width_pixels)
+            .saturating_sub(1 + PlayerForm::TheKid.half_width() as u32);
+        assert_eq!(trace.number_lives, 3);
         assert!(
-            respawn_tail.kid_x_pos.is_some(),
-            "player should be visible after respawn settle"
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "ASM loc_8F86 should clamp the right edge instead of letting the old opening route run off-level into death",
+        );
+        assert!(
+            trace.kid_x_pos.is_some_and(|x| (x >> 16) <= max_x_px),
+            "ASM loc_8F86 should keep Kid inside Level_width_pixels after the right-boundary route",
         );
     }
 

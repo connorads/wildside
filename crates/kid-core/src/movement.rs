@@ -4823,18 +4823,9 @@ impl OpeningSliceState {
         // sub_922C wall probe, snap + bounce via loc_900A. Native collapses
         // both directions into moving_right/moving_left branches below.
         //
-        // TODO(fidelity): ASM loc_8F86 (kid.asm:10359) clamps x_pos when
-        // right edge >= Level_width_pixels: `clr.l x_vel; sub.w d0,d4;
-        // sub.w d4,x_pos; clr.w $1C; moveq #0,d7; rts`. Native relies on
-        // grid probe returning no-hit past level bounds instead of explicit
-        // clamping, and apply_x_velocity_to_position clamps to u32::MAX
-        // rather than Level_width_pixels.
-        //
-        // TODO(fidelity): ASM loc_8FF8 (kid.asm:10404) clamps x_pos when
-        // left edge < 0: `clr.l x_vel; sub.w d0,d4; add.w d4,x_pos;
-        // clr.w $1C; moveq #0,d6; rts`. Native apply_x_velocity_to_position
-        // clamps to 0 (matching left boundary) but does not also zero x_vel
-        // the way the ASM does inside sub_8F26.
+        // ASM loc_8F86/loc_8FF8 (kid.asm:10359/10404): after the tile-boundary
+        // guard, level-edge overflow clamps Kid back inside the playfield,
+        // clears x_vel/sub-pixel, and returns EQ without entering wall-cling.
         let wall_stuck = (moving_right && self.player.right_wall_sticky)
             || (moving_left && self.player.left_wall_sticky);
         if !wall_stuck {
@@ -4854,6 +4845,15 @@ impl OpeningSliceState {
                 if displacement <= distance_to_tile {
                     return;
                 }
+                let level_width = i32::from(self.level_bounds.width_pixels);
+                if new_px + collision_hw >= level_width {
+                    let clamped_center = level_width.saturating_sub(1 + collision_hw);
+                    self.player.x_pos = (clamped_center.max(0) as u32) << 16;
+                    self.player.x_velocity = 0;
+                    self.player.right_wall_sticky = false;
+                    self.player.wall_cling_direction = None;
+                    return;
+                }
             } else {
                 // ASM loc_8FAC (kid.asm:10376): left-moving mirror of above.
                 // `cmp.w d0,d4; ble.w loc_9022` — same loc_9022 clean exit.
@@ -4861,6 +4861,13 @@ impl OpeningSliceState {
                 let left_edge = old_px - collision_hw;
                 let distance_to_tile = left_edge & 0xF;
                 if displacement <= distance_to_tile {
+                    return;
+                }
+                if new_px - collision_hw < 0 {
+                    self.player.x_pos = (collision_hw.max(0) as u32) << 16;
+                    self.player.x_velocity = 0;
+                    self.player.left_wall_sticky = false;
+                    self.player.wall_cling_direction = None;
                     return;
                 }
             }

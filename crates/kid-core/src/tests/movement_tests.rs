@@ -6579,9 +6579,7 @@ mod chunk_11 {
 
     /// ASM loc_8F86 (kid.asm:10359): when moving right and the projected right
     /// edge >= Level_width_pixels, sub_8F26 clears x_vel, snaps x_pos back,
-    /// and returns EQ (no wall hit). Native: grid probe returns no-hit past
-    /// level bounds, so apply_wall_collision leaves x_vel and wall-cling
-    /// unchanged. The x_pos clamp to level width is a TODO(fidelity).
+    /// and returns EQ (no wall hit).
     #[test]
     fn loc_8f86_right_boundary_no_wall_cling() {
         let w: u16 = 5;
@@ -6606,7 +6604,15 @@ mod chunk_11 {
         slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
-        // No wall exists, so no wall-cling should be entered.
+        assert_eq!(
+            slice.player.x_pos,
+            74 << 16,
+            "ASM loc_8F86: right boundary should snap centre to Level_width_pixels-1-half_width",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM loc_8F86: right boundary should clear x_vel",
+        );
         assert_eq!(
             slice.player.wall_cling_direction, None,
             "ASM loc_8F86: right boundary should not enter wall-cling"
@@ -6619,7 +6625,7 @@ mod chunk_11 {
 
     /// ASM loc_8FF8 (kid.asm:10404): when moving left and the projected left
     /// edge < 0, sub_8F26 clears x_vel, snaps x_pos back, and returns with
-    /// d6=0 (EQ). Native: apply_x_velocity_to_position clamps x_pos to 0.
+    /// d6=0 (EQ).
     #[test]
     fn loc_8ff8_left_boundary_no_wall_cling() {
         let w: u16 = 5;
@@ -6632,20 +6638,25 @@ mod chunk_11 {
         };
         let mut slice = OpeningSliceState::new(bounds);
         slice.player.on_ground = false;
-        // Player near the left edge, moving left fast enough to cross 0.
-        slice.player.x_pos = 2 << 16;
+        // Player near the left edge, moving left far enough to cross the tile
+        // boundary and put the projected left edge below zero.
+        slice.player.x_pos = 10 << 16;
         slice.player.y_pos = 40 << 16;
-        slice.player.x_velocity = -0x0003_0000;
+        slice.player.x_velocity = -0x0010_0000;
 
         // Simulate apply_x_velocity_to_position (private) inline.
         let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
         slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
-        // x_pos should be clamped to 0 (apply_x_velocity_to_position clamp).
         assert_eq!(
-            slice.player.x_pos, 0,
-            "ASM loc_8FF8: left boundary should clamp x_pos to 0"
+            slice.player.x_pos,
+            PLAYER_HALF_WIDTH as u32 * 0x0001_0000,
+            "ASM loc_8FF8: left boundary should snap centre to half_width"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM loc_8FF8: left boundary should clear x_vel",
         );
         assert_eq!(
             slice.player.wall_cling_direction, None,
