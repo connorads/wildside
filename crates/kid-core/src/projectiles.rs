@@ -5,7 +5,10 @@ use crate::enemies::{
     TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
     tank_bullet_loop_route_loc_3b7ba,
 };
-use crate::helmets::{RainSlotSpriteAction, diamond_power_rain_screen_cull_and_compile};
+use crate::helmets::{
+    RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
+    diamond_power_rain_find_nearest_enemy, diamond_power_rain_screen_cull_and_compile,
+};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -494,6 +497,17 @@ impl NativeRuntime {
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let grid = self.block_grid.as_ref();
+        let tracking_rain_scan_enabled = self.progression.diamond_power_type
+            == crate::helmets::DiamondPowerType::TrackingRain
+            && (self.frame_index & 7) == 1;
+        let rain_target_candidates: Vec<SnakeTargetCandidate> = self
+            .active_enemies
+            .iter()
+            .map(|enemy| SnakeTargetCandidate {
+                x_pos: (enemy.x_pos >> 16) as u16 as i16,
+                y_pos: (enemy.y_pos >> 16) as u16 as i16,
+            })
+            .collect();
         let mut released_owners = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
@@ -563,6 +577,33 @@ impl NativeRuntime {
             }
             if Self::is_juggernaut_skull_projectile(p) {
                 return Self::step_juggernaut_skull_sub_87B0(p, grid);
+            }
+
+            if is_diamond_power_rain
+                && !p.diamond_power_rain_tracking
+                && tracking_rain_scan_enabled
+                && let Some(camera) = camera
+                && let Some(target) = diamond_power_rain_find_nearest_enemy(
+                    (p.x_pos >> 16) as u16 as i16,
+                    (p.y_pos >> 16) as u16 as i16,
+                    (camera.x_pos >> 16) as u16 as i16,
+                    (camera.y_pos >> 16) as u16 as i16,
+                    &rain_target_candidates,
+                )
+                && let Some(tracking) = diamond_power_rain_compute_tracking_velocity(
+                    target.distance,
+                    (target.x as i32 as u32) << 16,
+                    (target.y as i32 as u32) << 16,
+                    p.x_pos,
+                    p.y_pos,
+                )
+            {
+                // ASM loc_3FF3C: once a valid target in [8,$40) is found, the
+                // rain slot stores `$26/$2A` tracking velocities and increments
+                // `$3E(a0)`, causing future frames to skip the scan path.
+                p.x_velocity = tracking.x_vel;
+                p.y_velocity = tracking.y_vel;
+                p.diamond_power_rain_tracking = true;
             }
 
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;

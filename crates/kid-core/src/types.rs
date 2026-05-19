@@ -1992,6 +1992,9 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
+    /// DiamondPower_Main_SlashingRain `$3E(a0)`: nonzero after Tracking Rain
+    /// has locked onto an enemy and written `$26/$2A` slot velocity.
+    pub(crate) diamond_power_rain_tracking: bool,
 }
 
 /// Murder wall: an advancing wall that kills the player on contact.

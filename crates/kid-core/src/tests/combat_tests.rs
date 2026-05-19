@@ -387,6 +387,45 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_3FEBC -> loc_3FF3C: Tracking Rain scans on the `(Time_Frames&7)==1`
+    /// cadence, finds an on-screen enemy in the [8,$40) distance window, and
+    /// turns the rain slot into a tracking slot by writing `$26/$2A` velocity.
+    #[test]
+    fn tracking_rain_aims_visible_slot_at_near_enemy_loc_3ff3c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::TrackingRain;
+        runtime.frame_index = 1;
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0098_0000, 0x0088_0000, 1)];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_0000,
+            y_velocity: 0x2_0000,
+            lifetime: 1,
+            friendly: true,
+            kind: EnemyProjectileKind::DiamondPowerRain,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        let projectile = runtime
+            .projectiles
+            .first()
+            .expect("tracking rain slot should remain visible");
+        assert_eq!(
+            projectile.x_velocity, 0x0006_0000,
+            "ASM loc_3FF3C: distance $18 gives shift 2, so x velocity is (+$18px)<<16 >> 2"
+        );
+        assert_eq!(
+            projectile.y_velocity, 0,
+            "ASM loc_3FF3C: target y is enemy_y-$80000, equal to the rain y in this setup"
+        );
+    }
+
     /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds five shot
     /// vectors in word_40124. Native emits the capped four-projectile spread
     /// on the first active frame.
