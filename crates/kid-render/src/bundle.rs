@@ -31,6 +31,8 @@ const FLOATING_DIAMOND_ART_PATHS: [&str; 4] = [
     "artunc/diamond_3.bin",
     "artunc/diamond_4.bin",
 ];
+const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
+const BLOCK_TILE_VRAM_BASE: u16 = 0x0220;
 const FLAG_ART_PATH: &str = "artunc/End_of_level_Flag_(6_frames).bin";
 const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 // Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
@@ -184,19 +186,20 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             .ok_or_else(|| anyhow!("missing block art asset ingame/{BLOCKS_ART_PATH}"))?,
         "block tile sheet",
     )?;
-    // ASM `sub_144DA` (kid.asm:27355-27420): at level load the ROM
-    // procedurally generates eight "indoor rubber block" tiles into VRAM
-    // at `$5E60` (= tile $2F3), compositing the four theme-specific
-    // foreground tiles from `unk_14576[theme]*8` over the eight base
-    // block tiles at `$26E..$275`. Native does not yet implement the
-    // `loc_1453E` nibble-composition pass (the indoor theme overlay).
-    // As an interim step, expose the eight base block tiles as
-    // VRAM tiles $2F3..$2FA so the rubber-block cells render at all —
-    // without this, `theme/block_mappings.bin` skin 0x0E (rubber on
-    // Level 1) references tile indices 0x2F3..0x2F6 that fall past the
-    // existing block-tile range and `push_tile_quad` drops them
-    // silently. Backlog #154 tracks the indoor-overlay completion.
-    append_base_rubber_block_tiles_sub_144da(&mut block_tiles);
+    let terrain_quads = parse_tile_quads(&read_root_asset(
+        manifest,
+        "theme",
+        find_theme_asset(manifest, &format!("mappings/{foreground_theme}.bin")).ok_or_else(
+            || anyhow!("missing terrain mapping asset theme/mappings/{foreground_theme}.bin"),
+        )?,
+        "terrain mapping",
+    )?)?;
+    append_indoor_rubber_block_tiles_sub_144da(
+        &mut block_tiles,
+        &foreground_tiles,
+        &terrain_quads,
+        header.level_theme,
+    );
     let hud_digits = load_tile_sheet(
         manifest,
         "ingame",
@@ -250,14 +253,6 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         background: bg_palette,
     };
 
-    let terrain_quads = parse_tile_quads(&read_root_asset(
-        manifest,
-        "theme",
-        find_theme_asset(manifest, &format!("mappings/{foreground_theme}.bin")).ok_or_else(
-            || anyhow!("missing terrain mapping asset theme/mappings/{foreground_theme}.bin"),
-        )?,
-        "terrain mapping",
-    )?)?;
     let block_quads = parse_tile_quads(&read_root_asset(
         manifest,
         "theme",
@@ -3268,30 +3263,98 @@ fn parse_layered_background_chunk_id(relative_path: &str, prefix: &str) -> Optio
     u16::from_str_radix(suffix, 16).ok()
 }
 
-/// Relative indices into `block_tiles` of the eight base rubber-block
-/// tiles `$26E..$275` (VRAM offset minus `BLOCK_TILE_VRAM_BASE` = `$220`).
-const BASE_RUBBER_BLOCK_RELATIVE_RANGE: std::ops::Range<usize> = 0x4E..0x56;
+const BASE_RUBBER_BLOCK_VRAM_START: u16 = 0x026E;
+const BASE_RUBBER_BLOCK_RELATIVE_START: usize =
+    (BASE_RUBBER_BLOCK_VRAM_START - BLOCK_TILE_VRAM_BASE) as usize;
+const BASE_RUBBER_BLOCK_RELATIVE_END: usize =
+    BASE_RUBBER_BLOCK_RELATIVE_START + RUBBER_BLOCK_TILE_COUNT;
 
 /// Number of generated rubber-block tiles (`$2F3..$2FA`, eight tiles).
 const RUBBER_BLOCK_TILE_COUNT: usize = 8;
 
-/// Append placeholder rubber-block tiles to `block_tiles` so VRAM
-/// indices `$2F3..$2FA` resolve. ASM `sub_144DA` (kid.asm:27355-27420)
-/// composites the eight base block tiles at `$26E..$275` with four
-/// theme-specific foreground tiles (selected by `unk_14576[theme]*8`)
-/// through the `loc_1453E` per-nibble priority pass; the theme overlay
-/// is not yet ported. Interim behaviour: clone the eight base tiles so
-/// the rubber-block cells render with the generic base pattern instead
-/// of staying invisible (backlog #154).
-fn append_base_rubber_block_tiles_sub_144da(block_tiles: &mut TileSheet) {
-    let Some(base_slice) = block_tiles.tiles.get(BASE_RUBBER_BLOCK_RELATIVE_RANGE) else {
+/// ASM `unk_14576` (kid.asm:27425) selects the terrain-mapping quad whose
+/// four foreground tiles are duplicated and merged into indoor rubber blocks.
+const INDOOR_RUBBER_BLOCK_THEME_MAPPING_INDICES: [usize; THEME_NAMES.len()] = [
+    0x10, 0x0A, 0x7D, 0x60, 0xE5, 0x67, 0x73, 0x5F, 0x01, 0xC5, 0x9A,
+];
+
+/// Append the generated indoor rubber-block tiles so VRAM indices
+/// `$2F3..$2FA` resolve. ASM `sub_144DA` (kid.asm:27355-27420) reads four
+/// theme-specific foreground tiles from `unk_14576[theme]*8`, duplicates that
+/// four-tile buffer, then merges it with the eight base block tiles at
+/// `$26E..$275` through `loc_1453E`.
+fn append_indoor_rubber_block_tiles_sub_144da(
+    block_tiles: &mut TileSheet,
+    foreground_tiles: &TileSheet,
+    terrain_quads: &[crate::tiles::TileQuad],
+    foreground_theme_id: u8,
+) {
+    let Some(base_slice) = block_tiles
+        .tiles
+        .get(BASE_RUBBER_BLOCK_RELATIVE_START..BASE_RUBBER_BLOCK_RELATIVE_END)
+    else {
         return;
     };
     if base_slice.len() != RUBBER_BLOCK_TILE_COUNT {
         return;
     }
-    let cloned: Vec<_> = base_slice.to_vec();
-    block_tiles.tiles.extend(cloned);
+    let base_tiles = base_slice.to_vec();
+    let Some(mapping_quad_index) =
+        INDOOR_RUBBER_BLOCK_THEME_MAPPING_INDICES.get(usize::from(foreground_theme_id))
+    else {
+        block_tiles.tiles.extend(base_tiles);
+        return;
+    };
+    let Some(source_quad) = terrain_quads.get(*mapping_quad_index) else {
+        block_tiles.tiles.extend(base_tiles);
+        return;
+    };
+
+    let mut generated_tiles = Vec::with_capacity(RUBBER_BLOCK_TILE_COUNT);
+    for (rubber_tile_index, base_tile) in base_tiles.iter().enumerate() {
+        let source_ref = source_quad.tiles[rubber_tile_index % source_quad.tiles.len()];
+        let Some(relative_foreground_index) = source_ref
+            .tile_index
+            .checked_sub(FOREGROUND_TILE_VRAM_BASE)
+            .map(usize::from)
+        else {
+            block_tiles.tiles.extend(base_tiles.clone());
+            return;
+        };
+        let Some(overlay_tile) = foreground_tiles.tiles.get(relative_foreground_index) else {
+            block_tiles.tiles.extend(base_tiles.clone());
+            return;
+        };
+        generated_tiles.push(compose_indoor_rubber_block_tile_sub_144da(
+            base_tile,
+            overlay_tile,
+        ));
+    }
+
+    block_tiles.tiles.extend(generated_tiles);
+}
+
+fn compose_indoor_rubber_block_tile_sub_144da(
+    base_tile: &crate::tiles::Tile,
+    overlay_tile: &crate::tiles::Tile,
+) -> crate::tiles::Tile {
+    // ASM loc_1453E (kid.asm:27397-27405): keep each non-zero nibble from the
+    // existing base rubber-block VRAM tile; only zero holes receive the
+    // duplicated foreground tile nibble from the decompression buffer.
+    let mut pixels = [0_u8; 64];
+    for (pixel_index, (&base_pixel, &overlay_pixel)) in base_tile
+        .pixels
+        .iter()
+        .zip(overlay_tile.pixels.iter())
+        .enumerate()
+    {
+        pixels[pixel_index] = if base_pixel != 0 {
+            base_pixel
+        } else {
+            overlay_pixel
+        };
+    }
+    crate::tiles::Tile { pixels }
 }
 
 fn load_tile_sheet(
@@ -3406,8 +3469,27 @@ fn sha1_hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_layered_background_palette_fallback, compose_player_frame};
-    use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileRef, TileSheet};
+    use super::{
+        append_indoor_rubber_block_tiles_sub_144da, apply_layered_background_palette_fallback,
+        compose_player_frame,
+    };
+    use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileQuad, TileRef, TileSheet};
+
+    fn tile_ref(tile_index: u16) -> TileRef {
+        TileRef {
+            tile_index,
+            palette_line: 0,
+            priority: false,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+
+    fn solid_tile(pixel: u8) -> Tile {
+        Tile {
+            pixels: [pixel; 64],
+        }
+    }
 
     #[test]
     fn forest_plane_fallback_promotes_zero_palette_line_to_plane_line() {
@@ -3471,5 +3553,56 @@ mod tests {
         assert_eq!(composite.width_px, 9);
         assert_eq!(composite.height_px, 13);
         assert!(!composite.tile_sheet.tiles.is_empty());
+    }
+
+    #[test]
+    fn sub_144da_appends_theme_composed_indoor_rubber_block_tiles() {
+        let mut block_tiles = TileSheet {
+            tiles: vec![solid_tile(0); super::BASE_RUBBER_BLOCK_RELATIVE_END],
+        };
+        for tile in &mut block_tiles.tiles
+            [super::BASE_RUBBER_BLOCK_RELATIVE_START..super::BASE_RUBBER_BLOCK_RELATIVE_END]
+        {
+            for (pixel_index, pixel) in tile.pixels.iter_mut().enumerate() {
+                *pixel = if pixel_index % 2 == 0 { 2 } else { 0 };
+            }
+        }
+        let foreground_tiles = TileSheet {
+            tiles: (0..8).map(solid_tile).collect(),
+        };
+        let terrain_quads = vec![
+            TileQuad {
+                tiles: [tile_ref(0); 4],
+            },
+            TileQuad {
+                tiles: [
+                    tile_ref(super::FOREGROUND_TILE_VRAM_BASE + 4),
+                    tile_ref(super::FOREGROUND_TILE_VRAM_BASE + 5),
+                    tile_ref(super::FOREGROUND_TILE_VRAM_BASE + 6),
+                    tile_ref(super::FOREGROUND_TILE_VRAM_BASE + 7),
+                ],
+            },
+        ];
+
+        append_indoor_rubber_block_tiles_sub_144da(
+            &mut block_tiles,
+            &foreground_tiles,
+            &terrain_quads,
+            0x08,
+        );
+
+        assert_eq!(
+            block_tiles.tiles.len(),
+            super::BASE_RUBBER_BLOCK_RELATIVE_END + super::RUBBER_BLOCK_TILE_COUNT,
+            "ASM sub_144DA should append the generated $2F3..$2FA tiles after the static block art"
+        );
+        let generated = &block_tiles.tiles[super::BASE_RUBBER_BLOCK_RELATIVE_END..];
+        assert_eq!(generated[0].pixels[0], 2);
+        assert_eq!(generated[0].pixels[1], 4);
+        assert_eq!(generated[1].pixels[1], 5);
+        assert_eq!(
+            generated[4].pixels[1], 4,
+            "ASM loc_14512 duplicates the four source foreground tiles before the eight-tile merge"
+        );
     }
 }
