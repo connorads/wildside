@@ -19353,18 +19353,31 @@ pub(crate) fn spawn_tar_monster_retaliation(
 }
 
 /// Fire Demon death trail: one visual trail object at the death position.
+pub(crate) fn fire_demon_death_trail_child_loc_3a63c(x: u32, y: u32) -> FireDemonTrailChild {
+    // ASM Fire_Demon loc_3A63C copies the parent x/y, then `addi.w #$F,y_pos`
+    // and `andi.w #$FFF0,y_pos` before initialising `stru_3A622`. The child
+    // waits with d3=$96 and has no velocity.
+    let y_px = ((y >> 16) as u16).wrapping_add(0x000F) & 0xFFF0;
+    FireDemonTrailChild {
+        x_pos: x,
+        y_pos: u32::from(y_px) << 16,
+        remaining_frames: 0x96,
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
     // ASM Fire_Demon loc_3A63C copies the parent x/y, then `addi.w #$F,y_pos`
     // and `andi.w #$FFF0,y_pos` before initialising `stru_3A622`.  The object
     // waits with d3=$96 and has no velocity; native keeps it in the projectile
     // list only so the renderer can draw the ROM fire-trail footprint.
-    let y_px = ((y >> 16) as u16).wrapping_add(0x000F) & 0xFFF0;
+    let child = fire_demon_death_trail_child_loc_3a63c(x, y);
     projectiles.push(EnemyProjectile {
-        x_pos: x,
-        y_pos: u32::from(y_px) << 16,
+        x_pos: child.x_pos,
+        y_pos: child.y_pos,
         x_velocity: 0,
         y_velocity: 0,
-        lifetime: 0x96,
+        lifetime: child.remaining_frames,
         gravity: 0,
         friendly: false,
         homing_accel: 0,

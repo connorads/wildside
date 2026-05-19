@@ -1204,11 +1204,12 @@ Regression `fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca
 The remaining gap is narrower now: the carrier is still a projectile snapshot rather than a typed
 Fire Demon child object with the exact three-cell floor-support deletion check from `loc_3A63C`.
 
-Follow-up (2026-05-19): the native Fire Demon trail carrier now applies the `loc_3A63C`
+Follow-up (2026-05-19): the native Fire Demon trail now uses a typed child list instead of the
+generic projectile carrier. The child projects to the existing trace/render projectile snapshot
+for compatibility, still damages Kid without being consumed, and applies the `loc_3A63C`
 three-cell support gate before its timer loop: d5/d6/d7 must all mask to `$6000`, and centre
-d6 must not have bit 15 set. Regressions cover centre-block deletion and three plain-solid-cell
-survival. Remaining gap: represent the trail as a typed child object instead of a projectile
-snapshot carrier.
+d6 must not have bit 15 set. Regressions cover typed child spawning, trace projection, Kid-contact
+survival, centre-block deletion, and three plain-solid-cell survival.
 
 ### 011 — Bricks half-broken (FIXED)
 Resolved by palette permutation fix (#004). Verified via capture-frames comparison —

@@ -994,6 +994,11 @@ impl NativeRuntime {
                 .projectiles
                 .iter()
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
+                .chain(
+                    self.fire_demon_trails
+                        .iter()
+                        .map(|trail| (trail.x_pos, trail.y_pos, false)),
+                )
                 .collect(),
             active_projectile_details: self
                 .projectiles
@@ -1005,6 +1010,17 @@ impl NativeRuntime {
                     remaining_frames: p.lifetime,
                     kind: active_projectile_kind(p),
                 })
+                .chain(
+                    self.fire_demon_trails
+                        .iter()
+                        .map(|trail| ActiveProjectileSnapshot {
+                            x_pos: trail.x_pos,
+                            y_pos: trail.y_pos,
+                            friendly: false,
+                            remaining_frames: trail.remaining_frames,
+                            kind: ActiveProjectileKind::FireDemonDeathTrail,
+                        }),
+                )
                 .collect(),
             active_geysers: self
                 .weather

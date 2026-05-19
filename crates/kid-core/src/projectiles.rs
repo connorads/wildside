@@ -513,11 +513,29 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn step_fire_demon_trails(&mut self) {
+        let grid = self.block_grid.as_ref();
+        self.fire_demon_trails.retain_mut(|trail| {
+            if let Some(g) = grid
+                && !fire_demon_trail_has_floor_support_loc_3a63c(g, trail.x_pos, trail.y_pos)
+            {
+                return false;
+            }
+            // ASM Fire_Demon loc_3A6CA: after one hibernated frame,
+            // `subq.w #1,d3; bne.s loc_3A6CA`; falling through deletes only
+            // when the post-decrement word becomes zero.
+            trail.remaining_frames = trail.remaining_frames.wrapping_sub(1);
+            trail.remaining_frames != 0
+        });
+    }
+
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     /// Homing projectiles accelerate toward `player_pos` each frame.
     /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
     /// Wall-bounce projectiles (Lion) reverse velocity on terrain collision (Lion.asm loc_3E260).
     pub(crate) fn step_projectiles(&mut self) {
+        self.step_fire_demon_trails();
+
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
         let player_x_velocity = self
@@ -890,6 +908,11 @@ impl NativeRuntime {
             } else {
                 true
             }
+        });
+        hit |= self.fire_demon_trails.iter().any(|trail| {
+            let prx = (trail.x_pos >> 16) as i32;
+            let pry = (trail.y_pos >> 16) as i32;
+            (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16
         });
         self.release_lion_projectile_owners(released_owners);
         hit

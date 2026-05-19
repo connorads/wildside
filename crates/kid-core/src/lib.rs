@@ -84,6 +84,7 @@ pub struct NativeRuntime {
     game_complete: bool,
     block_state: BlockInteractionState,
     projectiles: Vec<EnemyProjectile>,
+    fire_demon_trails: Vec<FireDemonTrailChild>,
     weather: WeatherState,
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
@@ -1096,6 +1097,7 @@ impl NativeRuntime {
             game_complete: false,
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
+            fire_demon_trails: Vec::new(),
             weather: WeatherState::default(),
             murder_wall: None,
             block_bounces: Vec::new(),

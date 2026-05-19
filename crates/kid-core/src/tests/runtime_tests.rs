@@ -8819,8 +8819,16 @@ mod chunk_09 {
 
     #[test]
     fn fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca() {
-        let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
-        rt.projectiles[0].kind = EnemyProjectileKind::FireDemonDeathTrail;
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            remaining_frames: 0x96,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
         let slice = rt.opening_slice.unwrap();
 
         assert!(
@@ -8828,10 +8836,58 @@ mod chunk_09 {
             "ASM Fire_Demon loc_3A63C trail still has hostile collision"
         );
         assert_eq!(
-            rt.projectiles.len(),
+            rt.fire_demon_trails.len(),
             1,
             "ASM Fire_Demon loc_3A6CA loops until `$19(a3)` or d3 expiry; Kid collision must not delete the trail child"
         );
+    }
+
+    #[test]
+    fn fire_demon_death_spawns_typed_child_not_projectile_carrier_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::FireDemon,
+            0x0064_0000,
+            0x00C8_0000,
+            0,
+        ));
+
+        rt.remove_dead_enemy(0);
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Fire_Demon loc_3A63C allocates a child object, not a generic projectile"
+        );
+        assert_eq!(rt.fire_demon_trails.len(), 1);
+        assert_eq!(rt.fire_demon_trails[0].x_pos, 0x0064_0000);
+        assert_eq!(
+            rt.fire_demon_trails[0].y_pos, 0x00D0_0000,
+            "ASM loc_3A63C: y_pos += $F, then align down with $FFF0"
+        );
+        assert_eq!(rt.fire_demon_trails[0].remaining_frames, 0x96);
+    }
+
+    #[test]
+    fn fire_demon_typed_child_projects_to_trace_fire_trail_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 0x0064_0000,
+            y_pos: 0x00D0_0000,
+            remaining_frames: 0x95,
+        });
+
+        let trace = rt.trace_frame();
+
+        assert_eq!(
+            trace.active_projectiles,
+            vec![(0x0064_0000, 0x00D0_0000, false)]
+        );
+        assert_eq!(trace.active_projectile_details.len(), 1);
+        assert_eq!(
+            trace.active_projectile_details[0].kind,
+            ActiveProjectileKind::FireDemonDeathTrail
+        );
+        assert_eq!(trace.active_projectile_details[0].remaining_frames, 0x95);
     }
 
     #[test]
@@ -8843,18 +8899,16 @@ mod chunk_09 {
             data[offset] = if col == 2 { 0xE0 } else { 0x60 };
         }
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
-        rt.projectiles.push(EnemyProjectile {
+        rt.fire_demon_trails.push(FireDemonTrailChild {
             x_pos: 0x0020_0000,
             y_pos: 0x0020_0000,
-            lifetime: 0x96,
-            kind: EnemyProjectileKind::FireDemonDeathTrail,
-            ..Default::default()
+            remaining_frames: 0x96,
         });
 
         rt.step_projectiles();
 
         assert!(
-            rt.projectiles.is_empty(),
+            rt.fire_demon_trails.is_empty(),
             "ASM Fire_Demon loc_3A63C: `bclr #$F,d6; bne loc_3A6DA` deletes when the centre support word has bit 15 set"
         );
     }
@@ -8867,18 +8921,16 @@ mod chunk_09 {
             data[(2 * 5 + col) * 2] = 0x60;
         }
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
-        rt.projectiles.push(EnemyProjectile {
+        rt.fire_demon_trails.push(FireDemonTrailChild {
             x_pos: 0x0020_0000,
             y_pos: 0x0020_0000,
-            lifetime: 0x96,
-            kind: EnemyProjectileKind::FireDemonDeathTrail,
-            ..Default::default()
+            remaining_frames: 0x96,
         });
 
         rt.step_projectiles();
 
         assert_eq!(
-            rt.projectiles.len(),
+            rt.fire_demon_trails.len(),
             1,
             "ASM Fire_Demon loc_3A63C keeps the trail only when d5/d6/d7 all mask to `$6000` and centre d6 has no block flag"
         );

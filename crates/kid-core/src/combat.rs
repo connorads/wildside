@@ -7503,7 +7503,8 @@ impl NativeRuntime {
             .insert((enemy.segment_index, enemy.layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::FireDemon) {
-            spawn_fire_demon_death_trail(&mut self.projectiles, x_pos, y_pos);
+            self.fire_demon_trails
+                .push(fire_demon_death_trail_child_loc_3a63c(x_pos, y_pos));
         }
         self.active_enemies.remove(idx);
         if let Some(child) = death_child {

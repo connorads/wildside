@@ -87,6 +87,13 @@ pub struct ActiveProjectileSnapshot {
     pub kind: ActiveProjectileKind,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireDemonTrailChild {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) remaining_frames: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidFrameMotionBranch {
     #[default]
