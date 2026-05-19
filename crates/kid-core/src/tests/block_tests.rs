@@ -4357,6 +4357,113 @@ mod chunk_04 {
         assert_eq!(enemy.facing, Direction::Right);
     }
 
+    fn cloud_enemy_for_attack() -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            enemy_level: 0,
+            family: EnemyFamily::Cloud,
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
+
+    #[test]
+    fn cloud_runtime_loc_35cd8_latches_then_spawns_diagonal_lightning() {
+        let mut active = vec![cloud_enemy_for_attack()];
+        let mut projectiles = Vec::new();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            None,
+            Some(60 << 16),
+            Some(89 << 16),
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert!(
+            projectiles.is_empty(),
+            "ASM loc_35D9E should latch `$45(a5)` before loc_35DB8 allocates the attack worker",
+        );
+        assert_eq!(active[0].ufo_beam_segments, 1);
+        assert_eq!(active[0].target_x_velocity, -0x3_0000);
+        assert_eq!(active[0].target_y_velocity, 0x3_0000);
+
+        step_active_enemies(
+            &mut active,
+            None,
+            Some(60 << 16),
+            Some(89 << 16),
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM loc_35DB8 should allocate one loc_35DF0 lightning worker after the attack animation latch",
+        );
+        assert_eq!(active[0].ufo_beam_segments, 0);
+        let projectile = projectiles[0];
+        assert_eq!(projectile.x_velocity, -0x3_0000);
+        assert_eq!(projectile.y_velocity, 0x3_0000);
+        assert_eq!(projectile.y_pos, 39 << 16);
+        assert_eq!(projectile.lifetime, 31);
+        assert!(!projectile.friendly);
+        assert!(projectile.terrain_kill);
+    }
+
     #[test]
     fn cloud_spawn_hit_points() {
         // Cloud base HP = 1

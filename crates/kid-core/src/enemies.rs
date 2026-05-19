@@ -8752,6 +8752,11 @@ pub(crate) fn step_active_enemies_with_rng(
                     );
                 } else {
                     step_flyer_with_rng(enemy, block_grid, rng);
+                    if matches!(enemy.family, EnemyFamily::Cloud)
+                        && let Some(ref mut projs) = projectiles
+                    {
+                        step_cloud_attack(enemy, projs, player_x_pos, player_y_pos);
+                    }
                     if matches!(enemy.family, EnemyFamily::UFO)
                         && let Some(ref mut projs) = projectiles
                     {
@@ -9386,6 +9391,124 @@ pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
             enemy.x_velocity = -enemy.x_velocity;
             enemy.facing = opposite_direction(enemy.facing);
         }
+    }
+}
+
+fn cloud_x_direction_byte(facing: Direction) -> u8 {
+    match facing {
+        // ASM Cloud.asm loc_35CD8: clear x_direction means the attack bands
+        // are in front of a left-moving cloud; non-zero mirrors them right.
+        Direction::Left => 0x00,
+        Direction::Right => 0xFF,
+    }
+}
+
+fn cloud_projectile_spawn_loc_35df0(
+    enemy: &ActiveEnemy,
+    x_word: i16,
+    y_word: i16,
+    projectile_x_direction: u8,
+) -> EnemyProjectile {
+    // ASM Cloud.asm loc_35DF0: the projectile copies Cloud's x/y words,
+    // subtracts 11px from Y, stores $44/$46 as x/y velocity words, and nudges
+    // diagonal sprites by +4px or -4px depending on the copied direction.
+    let mut x_px = (enemy.x_pos >> 16) as i32;
+    let y_px = ((enemy.y_pos >> 16) as i32 - 0x0B).max(0);
+    if x_word != 0 && y_word != 0 {
+        x_px += 4;
+        if projectile_x_direction != 0 {
+            x_px -= 8;
+        }
+    }
+
+    EnemyProjectile {
+        x_pos: (x_px.max(0) as u32) << 16,
+        y_pos: (y_px as u32) << 16,
+        x_velocity: i32::from(x_word) << 16,
+        y_velocity: i32::from(y_word) << 16,
+        // ASM loc_35E8A deletes on collision or the projectile animation's
+        // `$19` flag. Native has no child animation flag, so this bounded
+        // lifetime represents the lightning attack window.
+        lifetime: 31,
+        friendly: false,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        reaim_interval: 0,
+        reaim_countdown: 0,
+        current_angle: 0,
+        terrain_kill: true,
+        owner: None,
+        kind: EnemyProjectileKind::Generic,
+    }
+}
+
+pub(crate) fn step_cloud_attack(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    // Cloud uses the otherwise-UFO-only fields as the small native state for
+    // ASM `$45(a5)` plus the latched `$44/$46(a0)` projectile vector.
+    let x_direction = cloud_x_direction_byte(enemy.facing);
+    if enemy.ufo_beam_segments != 0 {
+        let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+            object_45: 0xFF,
+            animation_done_flag_18: true,
+            x_direction,
+            cloud_x: (enemy.x_pos >> 16) as i16,
+            cloud_y: (enemy.y_pos >> 16) as i16,
+            kid_x: 0,
+            kid_y: 0,
+            attack_x_word: (enemy.target_x_velocity >> 16) as i16,
+            attack_y_word: (enemy.target_y_velocity >> 16) as i16,
+        });
+        if let CloudDiagonalAttackRouteLoc35CD8::SpawnAttackSprite {
+            x_word,
+            y_word,
+            projectile_x_direction,
+            ..
+        } = setup.route
+        {
+            if projectiles.len() < MAX_PROJECTILES {
+                projectiles.push(cloud_projectile_spawn_loc_35df0(
+                    enemy,
+                    x_word,
+                    y_word,
+                    projectile_x_direction,
+                ));
+            }
+            enemy.ufo_beam_segments = 0;
+            enemy.target_x_velocity = 0;
+            enemy.target_y_velocity = 0;
+        }
+        return;
+    }
+
+    let (Some(player_x_pos), Some(player_y_pos)) = (player_x_pos, player_y_pos) else {
+        return;
+    };
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+        object_45: 0,
+        animation_done_flag_18: false,
+        x_direction,
+        cloud_x: (enemy.x_pos >> 16) as i16,
+        cloud_y: (enemy.y_pos >> 16) as i16,
+        kid_x: (player_x_pos >> 16) as i16,
+        kid_y: (player_y_pos >> 16) as i16,
+        attack_x_word: 0,
+        attack_y_word: 0,
+    });
+    if let CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word } = setup.route {
+        enemy.ufo_beam_segments = 1;
+        enemy.target_x_velocity = i32::from(x_word) << 16;
+        enemy.target_y_velocity = i32::from(y_word) << 16;
     }
 }
 
