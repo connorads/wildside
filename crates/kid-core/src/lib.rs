@@ -2269,6 +2269,27 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
+            let crawl_standup_platform_blocked = !input.down
+                && self.previous_input.down
+                && slice.player.on_ground
+                && crawl_standup_platform_overhead_sub_DAA6(
+                    &self.active_platforms,
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    self.progression.current_form,
+                );
+            let movement_input = if crawl_standup_platform_blocked {
+                // ASM loc_8270 -> sub_DAA6: NE returns to loc_82D8, so the
+                // frame remains on the crawling movement path even after Down
+                // is released. Native has no explicit movement ID, so keep the
+                // physics input in crawl mode for this frame only.
+                FrameInput {
+                    down: true,
+                    ..input
+                }
+            } else {
+                input
+            };
 
             // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
             // pull-back adjustments run once per frame inside sub_71E4, before
@@ -2357,7 +2378,7 @@ impl NativeRuntime {
                     custom_gravity,
                 );
                 slice.step_iron_knight_climb_resume(
-                    input,
+                    movement_input,
                     jump_pressed,
                     self.progression.current_form,
                     self.block_grid.as_mut(),
@@ -2378,12 +2399,12 @@ impl NativeRuntime {
                     self.physics_order != PhysicsOrder::AsmFaithful;
                 self.begin_kid_grounded_release_probe(
                     slice.player,
-                    input,
+                    movement_input,
                     jump_pressed,
                     custom_gravity,
                 );
                 slice.step_with_order_and_maniaxe_axe(
-                    input,
+                    movement_input,
                     jump_pressed,
                     self.progression.current_form,
                     self.block_grid.as_mut(),
@@ -2637,8 +2658,8 @@ impl NativeRuntime {
         // `moveq #-$11,d7; bsr.w sub_B43A` floor probe, Skycutter gate,
         // then `bsr.w sub_81B4` wall escape. Native: physics handles floor
         // probe implicitly; sub_81B4 is crawl_wall_escape_sub_81B4;
-        // sub_DAA6 is ceiling_probe_height (platform-overhead not yet
-        // modelled as a separate stand-up gate — TODO(fidelity)).
+        // sub_DAA6 is crawl_standup_platform_overhead_sub_DAA6, which keeps
+        // the physics input on the crawl path for the blocked stand-up frame.
         //
         // ASM loc_8298 (kid.asm:9038): when sub_B43A finds floor (EQ),
         // `bsr.w sub_B41C` restores the standing half_width from unk_B408

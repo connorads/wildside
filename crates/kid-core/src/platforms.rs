@@ -879,6 +879,37 @@ pub(crate) fn platform_support_check_sub_8ED0(
         || player_x_px - support_half_width_px > platform_right_px
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn crawl_standup_platform_overhead_sub_DAA6(
+    platforms: &[ActivePlatform],
+    player_x_pos: u32,
+    player_y_pos: u32,
+    current_form: PlayerForm,
+) -> bool {
+    // ASM sub_DAA6 (kid.asm:17113): loc_8270 calls this before the crawl
+    // stand-up floor probe.  The routine restores standing half-width from
+    // `unk_B408`, uses d5=$0F for Juggernaut/Micromax and $1F otherwise, and
+    // returns NE when any platform rectangle overlaps Kid's standing box.
+    let player_x_px = (player_x_pos >> 16) as i32;
+    let player_y_px = (player_y_pos >> 16) as i32;
+    let player_left = player_x_px - current_form.half_width();
+    let player_right = player_x_px + current_form.half_width();
+    let player_top = player_y_px - current_form.ceiling_probe_height();
+    let player_bottom = player_y_px;
+
+    platforms.iter().any(|platform| {
+        let platform_left = (platform.x_pos >> 16) as i32;
+        let platform_top = (platform.y_pos >> 16) as i32;
+        let platform_right = platform_left + i32::from(platform.width_px);
+        let platform_bottom = platform_top + i32::from(platform.height_px);
+
+        platform_left <= player_right
+            && platform_right >= player_left
+            && platform_top <= player_bottom
+            && platform_bottom >= player_top
+    })
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformSpriteDispatchInputLoc244C {

@@ -4040,6 +4040,96 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_DAA6: loc_8270 blocks crawl stand-up when any platform overlaps
+    /// the restored standing-width box from x±unk_B408 and y-$1F..y.
+    #[test]
+    fn sub_daa6_platform_overlap_blocks_crawl_standup() {
+        use crate::platforms::crawl_standup_platform_overhead_sub_DAA6;
+
+        let platform = make_test_platform(40, 69, 2, 0);
+
+        assert!(
+            crawl_standup_platform_overhead_sub_DAA6(
+                &[platform],
+                60u32 << 16,
+                96u32 << 16,
+                PlayerForm::TheKid,
+            ),
+            "ASM sub_DAA6: platform spanning x=40..87 and y=69..84 overlaps Kid's standing box x=55..65, y=65..96",
+        );
+    }
+
+    /// ASM sub_DAA6: Micromax/Juggernaut use the short d5=$0F vertical probe, so
+    /// a platform above y-$0F does not block their crawl stand-up.
+    #[test]
+    fn sub_daa6_short_forms_use_short_vertical_probe() {
+        use crate::platforms::crawl_standup_platform_overhead_sub_DAA6;
+
+        let platform = make_test_platform(40, 65, 2, 0);
+
+        assert!(
+            !crawl_standup_platform_overhead_sub_DAA6(
+                &[platform],
+                60u32 << 16,
+                96u32 << 16,
+                PlayerForm::Micromax,
+            ),
+            "ASM sub_DAA6: Micromax d5=$0F checks y=81..96, so a platform ending at y=80 is clear",
+        );
+        assert!(
+            crawl_standup_platform_overhead_sub_DAA6(
+                &[platform],
+                60u32 << 16,
+                96u32 << 16,
+                PlayerForm::TheKid,
+            ),
+            "ASM sub_DAA6: TheKid d5=$1F checks y=65..96, so the same platform blocks stand-up",
+        );
+    }
+
+    /// ASM loc_8270 -> sub_DAA6: when Down was held last frame but is released
+    /// under an overlapping platform, NE branches back to loc_82D8 so this frame
+    /// still uses the crawling velocity path.
+    #[test]
+    fn loc_8270_sub_daa6_keeps_release_frame_on_crawl_velocity_path() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+        runtime.active_platforms = vec![make_test_platform(40, 69, 2, 0)];
+        runtime.previous_input = FrameInput {
+            down: true,
+            ..FrameInput::default()
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 60 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.x_velocity = 1;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        let player = runtime
+            .opening_slice
+            .expect("refresh should keep the level slice active")
+            .player;
+        assert_eq!(
+            player.x_velocity, 0x0000_1001,
+            "ASM loc_8270 -> sub_DAA6: blocked stand-up release should keep crawl/sub_8506 velocity and ignore run"
+        );
+    }
+
     /// ASM loc_8270 (kid.asm:9025): `cmpi.w #Skycutter,(Current_Helmet).w;
     /// beq.w loc_82D8` — Skycutter cannot stand up from crawl even when the
     /// ceiling is clear and floor is present. It stays in the crawling loop.
