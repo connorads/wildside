@@ -8504,20 +8504,23 @@ mod chunk_09 {
         );
     }
 
-    // --- Process block effects: prize block hit creates destroy effect ---
-
+    /// ASM loc_1002E (kid.asm:21317) plays `sfx_Block_hit` and spawns the
+    /// sub_1007A wobble worker but never calls `Block_LoadSmashBits`; only
+    /// type-0 smash blocks emit destroy fragments. The prize-block path
+    /// must therefore only bump `blocks_hit_this_frame` — pushing a
+    /// BlockDestroyEffect here drew debris over an intact wobbling block.
     #[test]
-    fn process_block_effects_prize_creates_destroy_effect() {
+    fn process_block_effects_prize_does_not_spawn_destroy_fragments() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.prize_block_hit = Some((terrain::PrizeContent::Diamond, 48, 32));
 
         rt.process_block_effects(&mut slice);
 
-        assert_eq!(rt.block_destroy_effects.len(), 1);
-        assert_eq!(rt.block_destroy_effects[0].x_px, 48);
-        assert_eq!(rt.block_destroy_effects[0].y_px, 32);
-        assert_eq!(rt.block_destroy_effects[0].remaining, 8);
+        assert!(
+            rt.block_destroy_effects.is_empty(),
+            "ASM loc_1002E does not call Block_LoadSmashBits; prize-block hits must not emit debris"
+        );
         assert_eq!(rt.blocks_hit_this_frame, 1);
     }
 

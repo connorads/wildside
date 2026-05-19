@@ -2798,15 +2798,15 @@ impl NativeRuntime {
     /// Process block hit effects from the current frame's slice (prizes, bounces,
     /// lifts, drills, teleporter warps).
     pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
-        // Prize block hit: spawn the immediate debris effect. The actual prize
-        // object is created later by the queued sub_1007A lifecycle.
-        if let Some((_content, x_px, y_px)) = slice.prize_block_hit {
+        // ASM loc_1002E (kid.asm:21317): the prize-block headbutt plays
+        // `sfx_Block_hit` and spawns the sub_1007A wobble worker. It does
+        // NOT spawn `Block_LoadSmashBits` debris — smash bits are reserved
+        // for type-0 smash blocks via the `slice.smash_block_hit` branch
+        // below. Spawning destroy fragments here was an invented placeholder
+        // that produced visible debris over an intact (still wobbling)
+        // prize block.
+        if slice.prize_block_hit.is_some() {
             self.blocks_hit_this_frame += 1;
-            self.block_destroy_effects.push(BlockDestroyEffect {
-                x_px,
-                y_px,
-                remaining: 8,
-            });
         }
 
         // Metal block bounce animation
