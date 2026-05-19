@@ -5440,33 +5440,42 @@ impl NativeRuntime {
                     }
                 }
                 DiamondPowerType::FiveWayShot => {
-                    // 5-way spread on first frame only
+                    // ASM DiamondPower_Init_FiveWayShot loc_400DE/loc_400F4:
+                    // `moveq #4,d1` allocates five Diamond Power object slots
+                    // at Kid's position plus the facing-dependent `$20` X
+                    // offset, then seeds velocities from word_40124.
                     if self.progression.diamond_power_frames
                         == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1
                     {
                         let slice = self.opening_slice.as_ref();
-                        let (px, py) = slice.map_or((0, 0), |s| (s.player.x_pos, s.player.y_pos));
-                        // ASM word_40124 defines five shots, but native projectiles
-                        // are currently capped at four; keep only the emitted spread.
-                        let spreads: [(i32, i32); MAX_PROJECTILES] = [
-                            (0x4_0000, -0x2_0000),  // far right, up
-                            (0x2_0000, -0x3_0000),  // right, steep up
-                            (0, -0x4_0000),         // straight up
-                            (-0x2_0000, -0x3_0000), // left, steep up
-                        ];
-                        for (xv, yv) in spreads {
-                            if self.projectiles.len() < MAX_PROJECTILES {
-                                self.projectiles.push(EnemyProjectile {
-                                    x_pos: px,
-                                    y_pos: py,
-                                    x_velocity: xv,
-                                    y_velocity: yv,
-                                    lifetime: 60,
-                                    gravity: 0x2000,
-                                    friendly: true,
-                                    ..Default::default()
-                                });
-                            }
+                        let (px, py, x_direction_nonzero) = slice.map_or((0, 0, false), |s| {
+                            (
+                                s.player.x_pos,
+                                s.player.y_pos,
+                                s.player.facing == Direction::Left,
+                            )
+                        });
+                        let x_offset = if x_direction_nonzero {
+                            -0x20_0000
+                        } else {
+                            0x20_0000
+                        };
+                        let projectile_x = px.wrapping_add_signed(x_offset);
+                        for &(raw_x_vel, y_vel) in &FIVE_WAY_SHOT_VELOCITY_TABLE {
+                            let x_vel = if x_direction_nonzero {
+                                raw_x_vel.wrapping_neg()
+                            } else {
+                                raw_x_vel
+                            };
+                            self.projectiles.push(EnemyProjectile {
+                                x_pos: projectile_x,
+                                y_pos: py,
+                                x_velocity: i32::from(x_vel) << 16,
+                                y_velocity: i32::from(y_vel) << 16,
+                                lifetime: diamond_power_duration(DiamondPowerType::FiveWayShot),
+                                friendly: true,
+                                ..Default::default()
+                            });
                         }
                     }
                 }

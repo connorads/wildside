@@ -468,8 +468,7 @@ mod chunk_03 {
     }
 
     /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds five shot
-    /// vectors in word_40124. Native emits the capped four-projectile spread
-    /// on the first active frame.
+    /// vectors in word_40124 and allocates all five via `moveq #4,d1`/`dbf`.
     #[test]
     fn diamond_power_five_way_spawns_startup_spread_loc_400de() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -484,25 +483,35 @@ mod chunk_03 {
         runtime.step_diamond_power(FrameInput::default());
 
         let expected_spreads = [
-            (0x4_0000, -0x2_0000),
-            (0x2_0000, -0x3_0000),
-            (0, -0x4_0000),
-            (-0x2_0000, -0x3_0000),
+            (0x0006_0000, -0x0004_0000),
+            (0x0007_0000, -0x0002_0000),
+            (0x0008_0000, 0),
+            (0x0007_0000, 0x0002_0000),
+            (0x0006_0000, 0x0004_0000),
         ];
         assert_eq!(
             runtime.projectiles.len(),
             expected_spreads.len(),
-            "ASM DiamondPower_Init_FiveWayShot: native spread is capped by the projectile list"
+            "ASM loc_400F4: dbf with d1=4 allocates five FiveWayShot slots"
         );
         for (projectile, (expected_xv, expected_yv)) in
             runtime.projectiles.iter().zip(expected_spreads)
         {
-            assert_eq!(projectile.x_pos, 0x0040_0000);
+            assert_eq!(
+                projectile.x_pos, 0x0060_0000,
+                "ASM loc_400DE: clear x_direction adds $20 to Kid screen X"
+            );
             assert_eq!(projectile.y_pos, 0x0050_0000);
             assert_eq!(projectile.x_velocity, expected_xv);
             assert_eq!(projectile.y_velocity, expected_yv);
-            assert_eq!(projectile.lifetime, 60);
-            assert_eq!(projectile.gravity, 0x2000);
+            assert_eq!(
+                projectile.lifetime, 0x50,
+                "ASM loc_40110: Diamond_power_timer is seeded to $50"
+            );
+            assert_eq!(
+                projectile.gravity, 0,
+                "ASM loc_4014C/loc_40176: FiveWayShot slots advance by table velocity without gravity"
+            );
             assert!(projectile.friendly);
         }
     }
@@ -524,10 +533,50 @@ mod chunk_03 {
         );
     }
 
-    /// Native FiveWayShot uses the same projectile cap as the other Diamond
-    /// Power approximations.
+    /// ASM loc_400DE/loc_400F4 mirrors the spawn X offset and X velocities when
+    /// Kid's `x_direction` byte is nonzero.
     #[test]
-    fn diamond_power_five_way_respects_projectile_cap_loc_400de() {
+    fn diamond_power_five_way_mirrors_left_facing_spread_loc_400de() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
+        runtime.progression.diamond_power_frames =
+            helmets::diamond_power_duration(helmets::DiamondPowerType::FiveWayShot);
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0050_0000;
+        slice.player.facing = Direction::Left;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        let x_velocities: Vec<i32> = runtime
+            .projectiles
+            .iter()
+            .map(|projectile| {
+                assert_eq!(
+                    projectile.x_pos, 0x0020_0000,
+                    "ASM loc_400DE: nonzero x_direction negates `$20` spawn offset"
+                );
+                projectile.x_velocity
+            })
+            .collect();
+        assert_eq!(
+            x_velocities,
+            vec![
+                -0x0006_0000,
+                -0x0007_0000,
+                -0x0008_0000,
+                -0x0007_0000,
+                -0x0006_0000
+            ],
+            "ASM loc_400F4: nonzero x_direction negates each word_40124 x velocity"
+        );
+    }
+
+    /// ASM FiveWayShot uses the Diamond Power object slots, not the generic
+    /// native projectile cap.
+    #[test]
+    fn diamond_power_five_way_bypasses_generic_projectile_cap_loc_400f4() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
         runtime.progression.diamond_power_frames =
@@ -540,8 +589,8 @@ mod chunk_03 {
 
         assert_eq!(
             runtime.projectiles.len(),
-            MAX_PROJECTILES,
-            "ASM DiamondPower_Init_FiveWayShot: native spread must not exceed projectile cap"
+            MAX_PROJECTILES + 5,
+            "ASM loc_400F4: Allocate_DiamondPowerObjectSlot emits five DP slots even when generic projectiles already occupy four native entries"
         );
     }
 
