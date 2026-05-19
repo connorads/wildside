@@ -9822,12 +9822,24 @@ mod chunk_04 {
     fn fire_demon_death_spawns_trail() {
         let mut projectiles = Vec::new();
         spawn_fire_demon_death_trail(&mut projectiles, 100 << 16, 200 << 16);
-        assert_eq!(projectiles.len(), 3, "should spawn 3 fire fragments");
-        for p in &projectiles {
-            assert!(p.y_velocity < 0, "fragments launch upward");
-            assert!(!p.friendly);
-            assert!(p.gravity > 0, "fragments have gravity");
-        }
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Fire_Demon loc_3A63C allocates one fire-trail object"
+        );
+        let trail = projectiles[0];
+        assert_eq!(trail.x_pos, 100 << 16);
+        assert_eq!(
+            trail.y_pos,
+            208 << 16,
+            "ASM loc_3A63C: y_pos += $F, then align down with $FFF0"
+        );
+        assert_eq!(trail.x_velocity, 0);
+        assert_eq!(trail.y_velocity, 0);
+        assert_eq!(trail.gravity, 0);
+        assert_eq!(trail.lifetime, 0x96);
+        assert_eq!(trail.kind, EnemyProjectileKind::FireDemonDeathTrail);
+        assert!(!trail.friendly);
     }
 
     // --- Drips ---

@@ -109,7 +109,9 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - Beam child-object system implemented (#024)
 
 ### Fire Demon — Previously verified
-- Death trail visual is TODO(fidelity) (rendering only)
+- Death trail visual is fixed: native now emits one typed `FireDemonDeathTrail`
+  slot matching `Fire_Demon.asm` `loc_3A63C` / `stru_3A622` timing and
+  alignment, and the player renders the ROM flame footprint.
 
 ---
 

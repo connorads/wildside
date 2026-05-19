@@ -8,11 +8,14 @@ const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
 
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
+    if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
+        return ActiveProjectileKind::FireDemonDeathTrail;
+    }
+
     // ASM Fire_Demon loc_3A63C initialises a separate fire-trail object that
-    // cycles `stru_3A622`'s six flame frames. Native currently approximates
-    // that object with three arcing projectiles spawned by
-    // `spawn_fire_demon_death_trail`, so tag only that exact signature for the
-    // renderer instead of breaking trace compatibility for every projectile.
+    // cycles `stru_3A622`'s six flame frames. Older native traces represented
+    // this as arcing generic projectiles, so keep the signature fallback for
+    // compatibility while live code now tags the typed projectile kind.
     if !projectile.friendly
         && projectile.gravity == 0x1800
         && projectile.lifetime <= 45

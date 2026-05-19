@@ -19342,31 +19342,27 @@ pub(crate) fn spawn_tar_monster_retaliation(
     }
 }
 
-/// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
+/// Fire Demon death trail: one visual trail object at the death position.
 pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
-    // ASM Fire_Demon loc_3A63C uses a separate fire-trail object cycling
-    // `stru_3A622`'s ROM tiles. Native keeps this as three arcing projectile
-    // snapshots; the player renderer maps that signature to the ROM frames.
-    let fragments: [(i32, i32); 3] = [
-        (0x1_8000, -0x2_0000),  // right arc
-        (-0x1_8000, -0x2_0000), // left arc
-        (0, -0x2_8000),         // straight up
-    ];
-    for (xv, yv) in fragments {
-        projectiles.push(EnemyProjectile {
-            x_pos: x,
-            y_pos: y,
-            x_velocity: xv,
-            y_velocity: yv,
-            lifetime: 45,
-            gravity: 0x1800,
-            friendly: false,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
-            ..Default::default()
-        });
-    }
+    // ASM Fire_Demon loc_3A63C copies the parent x/y, then `addi.w #$F,y_pos`
+    // and `andi.w #$FFF0,y_pos` before initialising `stru_3A622`.  The object
+    // waits with d3=$96 and has no velocity; native keeps it in the projectile
+    // list only so the renderer can draw the ROM fire-trail footprint.
+    let y_px = ((y >> 16) as u16).wrapping_add(0x000F) & 0xFFF0;
+    projectiles.push(EnemyProjectile {
+        x_pos: x,
+        y_pos: u32::from(y_px) << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        lifetime: 0x96,
+        gravity: 0,
+        friendly: false,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        kind: EnemyProjectileKind::FireDemonDeathTrail,
+        ..Default::default()
+    });
 }
 
 // --- DragonWalking constants ---
