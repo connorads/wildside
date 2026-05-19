@@ -5,6 +5,7 @@ use crate::enemies::{
     TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
     tank_bullet_loop_route_loc_3b7ba,
 };
+use crate::helmets::{RainSlotSpriteAction, diamond_power_rain_screen_cull_and_compile};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -497,13 +498,14 @@ impl NativeRuntime {
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
-            if !is_tank_bullet && !is_hail && p.lifetime == 0 {
+            let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
+            if !is_tank_bullet && !is_hail && !is_diamond_power_rain && p.lifetime == 0 {
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 return false;
             }
-            if !is_tank_bullet && !is_hail {
+            if !is_tank_bullet && !is_hail && !is_diamond_power_rain {
                 p.lifetime -= 1;
             }
             p.y_velocity += p.gravity;
@@ -565,6 +567,23 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+            if is_diamond_power_rain && let Some(camera) = camera {
+                let screen_x = ((p.x_pos >> 16) as i32)
+                    .wrapping_add(0x7F)
+                    .wrapping_sub((camera.x_pos >> 16) as i32);
+                let screen_y = ((p.y_pos >> 16) as i32)
+                    .wrapping_add(0x7F)
+                    .wrapping_sub((camera.y_pos >> 16) as i32);
+                // ASM loc_3FF90/loc_3FFC0: DiamondPower_Main_SlashingRain
+                // removes rain slots only when the compiled diamond sprite
+                // leaves the ROM's camera-relative screen bounds.
+                let (_, action) =
+                    diamond_power_rain_screen_cull_and_compile(screen_x as i16, screen_y as i16, 4);
+                if action == RainSlotSpriteAction::Removed {
+                    return false;
+                }
+            }
 
             if is_hail && let Some(camera) = camera {
                 let delete_bottom_px = (camera.y_pos >> 16) as i32 + 0x00E0;

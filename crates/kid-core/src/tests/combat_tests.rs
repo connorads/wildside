@@ -356,6 +356,37 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_3FF90/loc_3FFC0: rain slots are culled by camera-relative
+    /// screen bounds, not by a fixed DBF lifetime. A visible rain object should
+    /// survive well past the old native 60-frame approximation.
+    #[test]
+    fn diamond_power_rain_survives_while_visible_loc_3ff90() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0x0020_0000;
+        slice.camera.y_pos = 0x0030_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x00A0_0000,
+            y_pos: 0x0030_0000,
+            y_velocity: 0x2_0000,
+            lifetime: 1,
+            friendly: true,
+            kind: EnemyProjectileKind::DiamondPowerRain,
+            ..Default::default()
+        });
+
+        for _ in 0..70 {
+            runtime.step_projectiles();
+        }
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM loc_3FF90: visible DiamondPowerRain slots should not expire from projectile lifetime"
+        );
+    }
+
     /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds five shot
     /// vectors in word_40124. Native emits the capped four-projectile spread
     /// on the first active frame.
