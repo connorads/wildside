@@ -139,7 +139,7 @@ themselves, prove `human-play-stable`.
 These items are now tracked systematically via `kidcli asm-coverage --uncovered --subsystem enemy`.
 High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), Tornado Cyclone-flying interaction, Crab proximity freeze, Dragon Flying wall-reversal.
 Medium impact: Sphere/Fireball slope deflection, probe half-width per-family.
-Low impact: Crab speed cap at high HP, Dragon Flying collision-recovery during Descent, Dragon Flying death-on-stomp sequence.
+Low impact: Dragon Flying collision-recovery during Descent, Dragon Flying death-on-stomp sequence.
 
 ### Oracle sweep hardening
 - **Advisory field promotion**: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.

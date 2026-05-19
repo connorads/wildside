@@ -24428,6 +24428,11 @@ mod tests {
             "ASM Crab.asm loc_3B00A has no extra HP 4 speed tier"
         );
         assert_eq!(pacer_walk_speed(EnemyFamily::Crab, 4), 0x0001_8000);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Crab, 5),
+            0x0001_8000,
+            "ASM Crab.asm loc_3AFD0/loc_3B00A keep HP above 3 on the same `$18000` tier"
+        );
     }
 
     #[test]
