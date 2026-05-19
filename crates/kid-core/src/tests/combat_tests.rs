@@ -520,6 +520,36 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Main_SlashingRain keeps rain slots in the DP object
+    /// list until loc_3FFC0 screen-culls them. Unlike Maniaxe's loc_8ABC
+    /// worker, the rain path has no collision-type delete branch.
+    #[test]
+    fn diamond_power_rain_hit_damages_enemy_without_consuming_slot_loc_3ff90() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0080_0000, 0x0080_0000, 2)];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_0000,
+            lifetime: 1,
+            friendly: true,
+            kind: EnemyProjectileKind::DiamondPowerRain,
+            diamond_power_rain_size_word_24: 4,
+            ..Default::default()
+        });
+
+        runtime.process_friendly_projectile_hits();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM collision helper marks enemies hurt by friendly DP sprites"
+        );
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM loc_3FF90/loc_3FFC0: rain slots survive enemy contact and are culled only by screen bounds"
+        );
+    }
+
     /// ASM loc_3FE62 -> loc_3FF70: non-tracking rain drifts by Kid x_vel*3/4
     /// before the screen-cull compile path. This is live projectile state, not
     /// only the pure `diamond_power_rain_non_tracking_move` helper.

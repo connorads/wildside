@@ -5060,7 +5060,13 @@ impl NativeRuntime {
                     } else {
                         enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                     }
-                    projectile_consumed.push(pi);
+                    // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
+                    // rain slots are removed by screen cull, not by enemy
+                    // collision. Generic helmet attacks such as Maniaxe
+                    // still follow their worker delete path on contact.
+                    if proj.kind != EnemyProjectileKind::DiamondPowerRain {
+                        projectile_consumed.push(pi);
+                    }
                     break; // one enemy per projectile per frame
                 }
             }
