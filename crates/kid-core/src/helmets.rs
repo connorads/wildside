@@ -980,6 +980,46 @@ pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
     pub(crate) kid_is_invulnerable: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
+    pub(crate) slot: u16,
+    pub(crate) active_word_8: u16,
+    pub(crate) status_word_38: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> (
+    DiamondPowerObjectListsSub3F5E8,
+    DiamondPowerAllocatedSlotSub3F5BC,
+) {
+    // ASM sub_3F5BC: pop Addr_NextFreeDPObjectSlot, link the previous active
+    // head as 4(a0), and install the allocated slot as the new active head.
+    let slot = lists
+        .free_slots
+        .first()
+        .copied()
+        .expect("ASM sub_3F5BC expects an available diamond-power slot");
+    lists.free_slots.remove(0);
+    if lists.active_slots.is_empty() {
+        // ASM: if Addr_FirstDPObjectSlot was empty, also seed Addr_LastDPObjectSlot.
+        lists.last_active_slot = Some(slot);
+    }
+    lists.active_slots.insert(0, slot);
+
+    (
+        lists,
+        DiamondPowerAllocatedSlotSub3F5BC {
+            slot,
+            active_word_8: 1,
+            status_word_38: 0,
+        },
+    )
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_remove_sub_3F5E8(

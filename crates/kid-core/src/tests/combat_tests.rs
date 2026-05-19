@@ -1792,6 +1792,74 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_object_allocate_sub_3f5bc_promotes_first_free_slot_to_active_head() {
+        let (lists, allocated) = helmets::diamond_power_object_allocate_sub_3F5BC(
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: Vec::new(),
+                free_slots: vec![0xF2AC, 0xF2F8, 0xF344],
+                last_active_slot: None,
+                diamond_power_active: true,
+                five_way_shot_ready: false,
+                samurai_haze_active: false,
+                kid_is_invulnerable: false,
+            },
+        );
+
+        assert_eq!(allocated.slot, 0xF2AC);
+        assert_eq!(
+            allocated.active_word_8, 1,
+            "ASM sub_3F5BC: move.w #1,8(a0) marks the allocated DP slot active"
+        );
+        assert_eq!(
+            allocated.status_word_38, 0,
+            "ASM sub_3F5BC: move.w #0,$38(a0) clears the per-slot status"
+        );
+        assert_eq!(
+            lists,
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: vec![0xF2AC],
+                free_slots: vec![0xF2F8, 0xF344],
+                last_active_slot: Some(0xF2AC),
+                diamond_power_active: true,
+                five_way_shot_ready: false,
+                samurai_haze_active: false,
+                kid_is_invulnerable: false,
+            },
+            "ASM sub_3F5BC: empty active list makes the allocated head also Addr_LastDPObjectSlot"
+        );
+    }
+
+    #[test]
+    fn diamond_power_object_allocate_sub_3f5bc_keeps_existing_tail_when_prepending() {
+        let (lists, allocated) = helmets::diamond_power_object_allocate_sub_3F5BC(
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: vec![0xF2F8, 0xF344],
+                free_slots: vec![0xF390, 0xF3DC],
+                last_active_slot: Some(0xF344),
+                diamond_power_active: true,
+                five_way_shot_ready: false,
+                samurai_haze_active: true,
+                kid_is_invulnerable: false,
+            },
+        );
+
+        assert_eq!(allocated.slot, 0xF390);
+        assert_eq!(
+            lists,
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: vec![0xF390, 0xF2F8, 0xF344],
+                free_slots: vec![0xF3DC],
+                last_active_slot: Some(0xF344),
+                diamond_power_active: true,
+                five_way_shot_ready: false,
+                samurai_haze_active: true,
+                kid_is_invulnerable: false,
+            },
+            "ASM sub_3F5BC: non-empty active list prepends the new slot and leaves Addr_LastDPObjectSlot unchanged"
+        );
+    }
+
+    #[test]
     fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain()
     {
         let result = helmets::diamond_power_object_remove_sub_3F5E8(
