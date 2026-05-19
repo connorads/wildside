@@ -15589,6 +15589,33 @@ mod chunk_02 {
         }
     }
 
+    /// ASM sub_11120 / loc_11196 (kid.asm:23050-23097): the Iron-Knight-hit
+    /// metal block runs four `subq.w #2,y_pos(a3)` hibernated frames then
+    /// four `addq.w #2,y_pos(a3)` frames. The engine `BlockBounceAnim` for
+    /// metal/rubber bounces must follow that table so the renderer offset
+    /// is a 0 → -8 → 0 arc, not a softer ±4 triangle.
+    #[test]
+    fn metal_block_bounce_y_deltas_loc_11196_match_asm_four_up_four_down() {
+        assert_eq!(
+            blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196,
+            [-2, -2, -2, -2, 2, 2, 2, 2],
+            "ASM loc_11196 ascending path is four -2 steps then four +2 steps"
+        );
+        let mut cumulative = 0i16;
+        let cumulative_steps: Vec<i16> = blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+            .iter()
+            .map(|d| {
+                cumulative += d;
+                cumulative
+            })
+            .collect();
+        assert_eq!(
+            cumulative_steps,
+            vec![-2, -4, -6, -8, -6, -4, -2, 0],
+            "cumulative metal-block y_offset must reach -8 at the apex and return to 0"
+        );
+    }
+
     #[test]
     fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
         let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();

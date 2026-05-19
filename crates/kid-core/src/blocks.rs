@@ -345,6 +345,10 @@ pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
 ];
+/// ASM sub_11120 / loc_11196 (kid.asm:23090-23098): the Iron-Knight-hit
+/// metal block runs four `subq.w #2,y_pos(a3)` hibernated frames then four
+/// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 → -8 → 0 arc.
+pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196: [i16; 8] = [-2, -2, -2, -2, 2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
@@ -3237,27 +3241,21 @@ impl NativeRuntime {
             )
         };
 
-        // ASM sub_1007A (kid.asm:21345-21599): each hibernate cycle in the
-        // prize-block wobble applies one entry from the delta table to
-        // y_pos(a3). Native walks the same 31-entry table for 31-frame
-        // bounces. Shorter bounces (metal/rubber at 8 frames) use a simple
-        // triangular arc rising to -4px at the midpoint until each enemy's
-        // ASM coroutine is individually pinned.
+        // ASM sub_1007A (kid.asm:21345-21599) and sub_11120 (kid.asm:23050):
+        // each hibernate cycle in the block wobble applies one entry from the
+        // delta table to `y_pos(a3)`. Native walks the 31-entry prize-block
+        // table for prize bounces and the 8-entry metal-block table
+        // (loc_11196 ascending path: four -2 steps then four +2 steps,
+        // producing a 0 → -8 → 0 arc) for metal/rubber bounces.
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
-            if b.initial_duration == 31 {
-                if let Some(delta) = PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A.get(usize::from(elapsed))
-                {
-                    b.y_offset_px = b.y_offset_px.saturating_add(*delta);
-                }
+            let delta_table: &[i16] = if b.initial_duration == 31 {
+                &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
             } else {
-                let half = i16::from(b.initial_duration / 2);
-                let elapsed_i = i16::from(elapsed);
-                b.y_offset_px = if elapsed_i < half {
-                    -elapsed_i
-                } else {
-                    -(i16::from(b.initial_duration) - elapsed_i)
-                };
+                &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+            };
+            if let Some(delta) = delta_table.get(usize::from(elapsed)) {
+                b.y_offset_px = b.y_offset_px.saturating_add(*delta);
             }
             b.remaining = b.remaining.saturating_sub(1);
         }
