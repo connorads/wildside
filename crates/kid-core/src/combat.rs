@@ -9255,24 +9255,42 @@ pub(crate) struct SolidOverlapResolutionSub1FA2 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-#[allow(non_snake_case)]
-pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
-    kid_hitbox: CollisionRectSub1F52,
-    solid_tiles: &[CollisionRectSub1F52],
-) -> Option<SolidOverlapResolutionSub1FA2> {
-    // ASM sub_1FA2 (kid.asm:3784) scans the overlapped level cells, finds the
-    // first ordinary solid tile region, then compares horizontal vs vertical
-    // escape distances. This helper mirrors that core push-out choice and the
-    // ROM tie-breaks (`horizontal` on axis ties, then `left` / `up` on equal
-    // edge distances). TODO(fidelity): the special-tile hurt branch at
-    // `loc_211C..loc_216A` is intentionally not modelled here yet.
-    let solid = solid_tiles.iter().copied().find(|solid| {
-        solid.left_px <= kid_hitbox.right_px
-            && solid.right_px >= kid_hitbox.left_px
-            && solid.top_px <= kid_hitbox.bottom_px
-            && solid.bottom_px >= kid_hitbox.top_px
-    })?;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SolidOverlapTileSub1FA2 {
+    pub(crate) rect: CollisionRectSub1F52,
+    pub(crate) tile_word: u16,
+    pub(crate) right_tile_word: u16,
+    pub(crate) left_tile_word: u16,
+    pub(crate) upper_tile_word: u16,
+    pub(crate) character_movement: u16,
+}
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SolidOverlapActionSub1FA2 {
+    Resolve(SolidOverlapResolutionSub1FA2),
+    HurtCollision,
+    SkipSpecialHurt,
+}
+
+fn palette_to_vram0_blocks_solid_scan_sub_2198(tile_word: u16) -> bool {
+    // ASM j_Palette_to_VRAM0 (kid.asm:3978): returns zero only when bit 15 was
+    // set and clearing it leaves palette nibble `$300`.
+    (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300
+}
+
+fn special_hurt_marker_loc_211c(tile_word: u16) -> bool {
+    // ASM loc_211C (kid.asm:3940-3956): neighbouring `$4000`/`$5000`
+    // collision-nibble cells route to loc_216A before the hurt writeback.
+    matches!(tile_word & 0x7000, 0x4000 | 0x5000)
+}
+
+fn solid_overlap_resolution_sub_201c(
+    kid_hitbox: CollisionRectSub1F52,
+    solid: CollisionRectSub1F52,
+) -> SolidOverlapResolutionSub1FA2 {
+    // ASM loc_2074..loc_2106 compares horizontal and vertical escape distances.
+    // Ties fall through to the horizontal branch, then to the left/up paths.
     let push_down = solid
         .bottom_px
         .saturating_sub(kid_hitbox.top_px)
@@ -9299,23 +9317,78 @@ pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
         } else {
             push_right
         };
-        Some(SolidOverlapResolutionSub1FA2 {
+        SolidOverlapResolutionSub1FA2 {
             axis: SolidOverlapAxisSub1FA2::Horizontal,
             x_delta_px,
             y_delta_px: 0,
-        })
+        }
     } else {
         let y_delta_px = if push_up <= push_down {
             -push_up
         } else {
             push_down
         };
-        Some(SolidOverlapResolutionSub1FA2 {
+        SolidOverlapResolutionSub1FA2 {
             axis: SolidOverlapAxisSub1FA2::Vertical,
             x_delta_px: 0,
             y_delta_px,
-        })
+        }
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn first_solid_overlap_action_sub_1FA2(
+    kid_hitbox: CollisionRectSub1F52,
+    solid_tiles: &[SolidOverlapTileSub1FA2],
+) -> Option<SolidOverlapActionSub1FA2> {
+    let solid = solid_tiles.iter().copied().find(|solid| {
+        solid.rect.left_px <= kid_hitbox.right_px
+            && solid.rect.right_px >= kid_hitbox.left_px
+            && solid.rect.top_px <= kid_hitbox.bottom_px
+            && solid.rect.bottom_px >= kid_hitbox.top_px
+    })?;
+
+    if palette_to_vram0_blocks_solid_scan_sub_2198(solid.tile_word) {
+        return Some(SolidOverlapActionSub1FA2::Resolve(
+            solid_overlap_resolution_sub_201c(kid_hitbox, solid.rect),
+        ));
+    }
+
+    let adjacent_special = special_hurt_marker_loc_211c(solid.right_tile_word)
+        || special_hurt_marker_loc_211c(solid.left_tile_word)
+        || special_hurt_marker_loc_211c(solid.upper_tile_word);
+    if adjacent_special && matches!(solid.character_movement, 4 | 6) {
+        // ASM loc_216A (kid.asm:3966): MoveID_Jump or movement 6 skip the
+        // damage restore path and unwind through loc_200C.
+        return Some(SolidOverlapActionSub1FA2::SkipSpecialHurt);
+    }
+
+    // ASM loc_2156 (kid.asm:3958): write collision type 4, then restore the
+    // saved Kid position words from the stack before returning.
+    Some(SolidOverlapActionSub1FA2::HurtCollision)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
+    kid_hitbox: CollisionRectSub1F52,
+    solid_tiles: &[CollisionRectSub1F52],
+) -> Option<SolidOverlapResolutionSub1FA2> {
+    // ASM sub_1FA2 (kid.asm:3784) scans the overlapped level cells, finds the
+    // first ordinary solid tile region, then compares horizontal vs vertical
+    // escape distances. This helper mirrors that core push-out choice and the
+    // ROM tie-breaks (`horizontal` on axis ties, then `left` / `up` on equal
+    // edge distances). Use `first_solid_overlap_action_sub_1FA2` when the
+    // caller also has the layout words needed for loc_211C's special hurt path.
+    let solid = solid_tiles.iter().copied().find(|solid| {
+        solid.left_px <= kid_hitbox.right_px
+            && solid.right_px >= kid_hitbox.left_px
+            && solid.top_px <= kid_hitbox.bottom_px
+            && solid.bottom_px >= kid_hitbox.top_px
+    })?;
+
+    Some(solid_overlap_resolution_sub_201c(kid_hitbox, solid))
 }
 
 #[cfg_attr(not(test), allow(dead_code))]

@@ -2014,6 +2014,57 @@ mod chunk_02 {
     }
 
     #[test]
+    fn first_solid_overlap_action_sub_1fa2_hurts_on_non_ordinary_solid_tiles() {
+        assert_eq!(
+            first_solid_overlap_action_sub_1FA2(
+                collision_rect_sub_1f52(100, 120, 40, 80),
+                &[SolidOverlapTileSub1FA2 {
+                    rect: collision_rect_sub_1f52(110, 130, 50, 70),
+                    tile_word: 0x6000,
+                    right_tile_word: 0,
+                    left_tile_word: 0,
+                    upper_tile_word: 0,
+                    character_movement: 0,
+                }],
+            ),
+            Some(SolidOverlapActionSub1FA2::HurtCollision),
+            "ASM loc_2010 -> loc_211C -> loc_2156 should restore Kid's saved position and write collision type 4 for a non-ordinary `$6000+` solid with no adjacent `$4000/$5000` exemption marker",
+        );
+    }
+
+    #[test]
+    fn first_solid_overlap_action_sub_1fa2_skips_special_hurt_while_jumping_or_on_slope() {
+        let tile = SolidOverlapTileSub1FA2 {
+            rect: collision_rect_sub_1f52(110, 130, 50, 70),
+            tile_word: 0x6000,
+            right_tile_word: 0x5000,
+            left_tile_word: 0,
+            upper_tile_word: 0,
+            character_movement: 4,
+        };
+
+        assert_eq!(
+            first_solid_overlap_action_sub_1FA2(collision_rect_sub_1f52(100, 120, 40, 80), &[tile],),
+            Some(SolidOverlapActionSub1FA2::SkipSpecialHurt),
+            "ASM loc_216A should branch to loc_200C instead of loc_2156 when an adjacent `$5000` marker is present and Character_Movement is MoveID_Jump",
+        );
+
+        assert_eq!(
+            first_solid_overlap_action_sub_1FA2(
+                collision_rect_sub_1f52(100, 120, 40, 80),
+                &[SolidOverlapTileSub1FA2 {
+                    right_tile_word: 0,
+                    left_tile_word: 0x4000,
+                    character_movement: 6,
+                    ..tile
+                }],
+            ),
+            Some(SolidOverlapActionSub1FA2::SkipSpecialHurt),
+            "ASM loc_216A should also skip the damage restore branch for Character_Movement 6 when a neighbouring `$4000` marker is found",
+        );
+    }
+
+    #[test]
     fn sub_129ae_swaps_forest_palette_words_only() {
         let forest_header = LevelHeader {
             width_screens: 1,
