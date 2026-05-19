@@ -1951,6 +1951,7 @@ pub(crate) enum EnemyProjectileKind {
     Hail,
     TankBullet,
     ManiaxeAxe,
+    DiamondPowerRain,
 }
 
 /// Projectile fired by enemies and player helmet attacks.

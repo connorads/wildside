@@ -533,6 +533,7 @@ pub(crate) const CREDITS_SCREEN_TOTAL: usize = CREDITS_SCROLL_FRAMES + CREDITS_D
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
 /// for Tank bullets sharing the pool).
 pub(crate) const MAX_PROJECTILES: usize = 4;
+pub(crate) const DIAMOND_POWER_RAIN_MAX_OBJECTS: usize = 6;
 /// Projectile hitbox half-width for player collision (pixels).
 pub(crate) const PROJECTILE_HITBOX_HALF: i32 = 6;
 

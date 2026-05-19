@@ -44,6 +44,7 @@ fn test_dragon(variant: u8, x: u32, y: u32) -> ActiveEnemy {
 
 mod chunk_03 {
     use super::*;
+    use crate::helmets::DiamondPowerType;
 
     #[test]
     fn diamond_power_maniaxe_tier2_grants_life() {
@@ -88,6 +89,40 @@ mod chunk_03 {
         assert!(
             !runtime.projectiles.is_empty(),
             "SlashingRain should spawn projectiles"
+        );
+    }
+
+    #[test]
+    fn loc_3fdfe_slashing_rain_uses_rom_spawn_gate_and_six_object_cap() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.frame_index = 0x10;
+        runtime.progression.diamond_power_type = DiamondPowerType::SlashingRain;
+        runtime.progression.diamond_power_frames = 0x02D1;
+        runtime
+            .projectiles
+            .resize(MAX_PROJECTILES, EnemyProjectile::default());
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.camera.x_pos = 0x0040_0000;
+        slice.camera.y_pos = 0x0020_0000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            MAX_PROJECTILES + 1,
+            "ASM DiamondPower_Main_SlashingRain loc_3FE62 caps rain at six DP objects, so four generic native projectiles must not block another rain spawn",
+        );
+        let rain = runtime
+            .projectiles
+            .last()
+            .expect("rain object should spawn");
+        assert_eq!(
+            rain.y_pos, 0x0018_0000,
+            "ASM loc_3FDFE spawns rain at Camera_Y_pos-8 before the main loop moves it",
         );
     }
 
@@ -204,11 +239,11 @@ mod chunk_03 {
         // Non-tracking objects drift with Kid velocity and fall; tracking objects
         // home toward nearest enemy.
         //
-        // Native approximation: projectile-based spawning without linked-list
-        // objects. This test verifies that rain objects accumulate over time and
-        // that the timer counts down, exercising the equivalent of the ASM's
-        // per-frame spawn (DiamondPower_Main_SlashingRain) and per-object
-        // iteration (loc_3FE62 → loc_3FE90 loop).
+        // Native approximation: projectile-backed rain slots without the full
+        // linked-list tracking object pool. This test verifies that rain objects
+        // accumulate on the ROM Time_Frames&$F cadence and that the timer counts
+        // down, exercising the equivalent of DiamondPower_Main_SlashingRain and
+        // the loc_3FE62 -> loc_3FE90 loop.
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
@@ -222,13 +257,14 @@ mod chunk_03 {
         let initial_frames = runtime.progression.diamond_power_frames;
         assert_eq!(initial_frames, 720);
 
-        // Step 8 frames — timer should decrement, projectiles should appear
-        for _ in 0..8 {
+        // Step 16 frames — timer should decrement, and Time_Frames&$F reaches
+        // the ROM spawn cadence once.
+        for _ in 0..16 {
             runtime.step_frame(FrameInput::default());
         }
         assert_eq!(
             runtime.progression.diamond_power_frames,
-            initial_frames - 8,
+            initial_frames - 16,
             "ASM loc_3FE62: timer decrements each frame"
         );
         assert!(
@@ -244,67 +280,73 @@ mod chunk_03 {
         }
     }
 
-    /// ASM loc_3FE62/loc_3FE90: native rain approximation spawns on the
-    /// 4-frame cadence with camera-relative position and a downward projectile.
+    /// ASM loc_3FE62/loc_3FE90: native rain approximation spawns on
+    /// `Time_Frames&$F == 0` with camera-relative position and a downward slot.
     #[test]
     fn diamond_power_rain_spawn_fields_use_camera_and_timer_loc_3fe62() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
-        // step_diamond_power decrements first: 9 -> 8, and 8 is the spawn cadence.
+        runtime.frame_index = 0x10;
         runtime.progression.diamond_power_frames = 9;
         let mut slice = combat_slice();
         slice.camera.x_pos = 0x0020_0000;
         slice.camera.y_pos = 0x0030_0000;
         runtime.opening_slice = Some(slice);
+        let mut expected_rng = runtime.rom_random.clone();
+        let expected_offset = u32::from(expected_rng.next_byte()).wrapping_mul(4) % 0x140;
 
         runtime.step_diamond_power(FrameInput::default());
 
         assert_eq!(runtime.projectiles.len(), 1);
         let projectile = &runtime.projectiles[0];
-        let expected_offset = (8u32 * 137) % 320;
         assert_eq!(
             projectile.x_pos,
             0x0020_0000 + (expected_offset << 16),
-            "ASM loc_3FE62: native rain x is camera_x plus timer-derived screen offset"
+            "ASM loc_3FE62: native rain x is camera_x plus the RNG-derived screen offset"
         );
         assert_eq!(
-            projectile.y_pos, 0x0030_0000,
-            "ASM loc_3FE62: native rain starts at the camera y origin"
+            projectile.y_pos, 0x0028_0000,
+            "ASM loc_3FDFE: native rain starts at Camera_Y_pos-8"
         );
         assert_eq!(projectile.x_velocity, 0);
-        assert_eq!(projectile.y_velocity, 0x3_0000);
+        assert_eq!(projectile.y_velocity, 0x2_0000);
         assert_eq!(projectile.lifetime, 60);
         assert!(projectile.friendly);
+        assert_eq!(projectile.kind, EnemyProjectileKind::DiamondPowerRain);
     }
 
-    /// ASM loc_3FE90 loops over a bounded object list. Native rain uses the
-    /// shared projectile cap; a cadence frame must not exceed it.
+    /// ASM loc_3FE90 loops over a bounded object list. Native rain uses a
+    /// dedicated six-object rain cap.
     #[test]
     fn diamond_power_rain_respects_projectile_cap_loc_3fe90() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
+        runtime.frame_index = 0x10;
         runtime.progression.diamond_power_frames = 9;
-        runtime
-            .projectiles
-            .resize(MAX_PROJECTILES, EnemyProjectile::default());
+        runtime.projectiles.resize(
+            DIAMOND_POWER_RAIN_MAX_OBJECTS,
+            EnemyProjectile {
+                kind: EnemyProjectileKind::DiamondPowerRain,
+                ..Default::default()
+            },
+        );
 
         runtime.step_diamond_power(FrameInput::default());
 
         assert_eq!(
             runtime.projectiles.len(),
-            MAX_PROJECTILES,
-            "ASM loc_3FE90: native rain must not exceed the projectile list cap"
+            DIAMOND_POWER_RAIN_MAX_OBJECTS,
+            "ASM loc_3FE90: native rain must not exceed the six-object rain cap"
         );
     }
 
-    /// ASM loc_3FE90 only allocates on its cadence. Native uses
-    /// `diamond_power_frames % 4 == 0` after the per-frame decrement.
+    /// ASM loc_3FE90 only allocates on its `Time_Frames&$F == 0` cadence.
     #[test]
     fn diamond_power_rain_does_not_spawn_off_cadence_loc_3fe90() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
-        // 10 -> 9 after decrement; 9 is not a spawn cadence.
-        runtime.progression.diamond_power_frames = 10;
+        runtime.frame_index = 0x11;
+        runtime.progression.diamond_power_frames = 9;
 
         runtime.step_diamond_power(FrameInput::default());
 

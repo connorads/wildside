@@ -5365,26 +5365,32 @@ impl NativeRuntime {
                     // velocities), zero → loc_3FEBC (not yet tracking: check
                     // frame timing, search enemies, possibly start tracking).
                     //
-                    // TODO(fidelity): native uses simplified projectile spawning;
-                    // ASM uses linked-list DP object pool with tracking state.
-                    // Rain projectiles from top of screen every 4 frames
-                    if self.progression.diamond_power_frames.is_multiple_of(4)
-                        && self.projectiles.len() < MAX_PROJECTILES
+                    // TODO(fidelity): native still represents rain slots as
+                    // friendly projectiles rather than the ROM linked-list DP
+                    // object pool with per-slot tracking state.
+                    let rain_count = self
+                        .projectiles
+                        .iter()
+                        .filter(|projectile| {
+                            projectile.kind == EnemyProjectileKind::DiamondPowerRain
+                        })
+                        .count();
+                    if self.frame_index.is_multiple_of(16)
+                        && rain_count < DIAMOND_POWER_RAIN_MAX_OBJECTS
                     {
                         let slice = self.opening_slice.as_ref();
                         let cam_x = slice.map_or(0, |s| s.camera.x_pos);
-                        // Random-ish X across screen width (320px)
-                        let offset = ((self.progression.diamond_power_frames as u32)
-                            .wrapping_mul(137))
-                            % 320;
+                        let random_byte = u32::from(self.rom_random.next_byte());
+                        let offset = random_byte.wrapping_mul(4) % 0x140;
                         let rain_x = (cam_x as i64 + ((offset as i64) << 16)) as u32;
-                        let rain_y = slice.map_or(0, |s| s.camera.y_pos);
+                        let rain_y = slice.map_or(0, |s| s.camera.y_pos.wrapping_sub(8 << 16));
                         self.projectiles.push(EnemyProjectile {
                             x_pos: rain_x,
                             y_pos: rain_y,
-                            y_velocity: 0x3_0000, // fast downward
+                            y_velocity: 0x2_0000,
                             lifetime: 60,
                             friendly: true, // damages enemies, not player
+                            kind: EnemyProjectileKind::DiamondPowerRain,
                             ..Default::default()
                         });
                     }
