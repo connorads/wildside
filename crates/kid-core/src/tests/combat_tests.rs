@@ -335,6 +335,44 @@ mod chunk_03 {
         }
     }
 
+    #[test]
+    fn diamond_power_rain_spawn_gate_loc_3fdfe_requires_timer_cap_and_cadence() {
+        assert!(
+            helmets::diamond_power_rain_spawn_gate_loc_3FDFE(0, 5, 0x20),
+            "ASM DiamondPower_Main_SlashingRain: non-negative timer, count < 6, and Time_Frames&$F==0 allocates"
+        );
+        assert!(
+            !helmets::diamond_power_rain_spawn_gate_loc_3FDFE(-1, 5, 0x20),
+            "ASM loc_3FE04: bmi.w loc_3FE62 skips allocation after timer expires"
+        );
+        assert!(
+            !helmets::diamond_power_rain_spawn_gate_loc_3FDFE(0, 6, 0x20),
+            "ASM loc_3FE0E: cmp.w ($FFFFF5C0),#6 / ble skips when six rain slots are active"
+        );
+        assert!(
+            !helmets::diamond_power_rain_spawn_gate_loc_3FDFE(0, 5, 0x21),
+            "ASM loc_3FE14: Time_Frames&$F must be zero"
+        );
+    }
+
+    #[test]
+    fn diamond_power_rain_spawn_slot_loc_3fdfe_uses_random_remainder_and_initial_fields() {
+        let slot = helmets::diamond_power_rain_spawn_slot_loc_3FDFE(0x0020_0000, 0x0030_0000, 0xFF);
+
+        assert_eq!(
+            slot.x_pos, 0x005C_0000,
+            "ASM loc_3FE20: (random_byte<<2) divu #$140 uses the remainder as screen X"
+        );
+        assert_eq!(
+            slot.y_pos, 0x0028_0000,
+            "ASM loc_3FE42: y_pos = Camera_Y_pos - 8"
+        );
+        assert_eq!(slot.tracking_word_3e, 0);
+        assert_eq!(slot.size_word_24, 4);
+        assert_eq!(slot.x_velocity, 0);
+        assert_eq!(slot.y_velocity, 0x2_0000);
+    }
+
     /// ASM loc_3FE62/loc_3FE90: native rain approximation spawns on
     /// `Time_Frames&$F == 0` with camera-relative position and a downward slot.
     #[test]

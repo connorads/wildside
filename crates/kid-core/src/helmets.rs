@@ -1600,6 +1600,53 @@ pub(crate) struct RainNearestEnemy {
     pub(crate) y: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerRainSpawnSlotLoc3FDFE {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) tracking_word_3e: u16,
+    pub(crate) size_word_24: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
+    diamond_power_timer: i16,
+    active_rain_count: usize,
+    time_frames: u16,
+) -> bool {
+    // ASM DiamondPower_Main_SlashingRain: after `subq.w #1,(Diamond_power_timer)`,
+    // `bmi.w loc_3FE62` skips allocation, `cmp.w ($FFFFF5C0),#6; ble.w`
+    // enforces the six-object rain cap, and `Time_Frames&$F` gates cadence.
+    diamond_power_timer >= 0
+        && active_rain_count < DIAMOND_POWER_RAIN_MAX_OBJECTS
+        && time_frames.is_multiple_of(16)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_spawn_slot_loc_3FDFE(
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    random_byte: u8,
+) -> DiamondPowerRainSpawnSlotLoc3FDFE {
+    // ASM loc_3FE20: random byte is shifted left twice, divided by $140,
+    // then the swapped remainder becomes the camera-relative X offset.
+    let offset = u32::from(random_byte).wrapping_mul(4) % 0x140;
+    DiamondPowerRainSpawnSlotLoc3FDFE {
+        x_pos: camera_x_pos.wrapping_add(offset << 16),
+        // ASM loc_3FE42: move.w Camera_Y_pos,d1; subq.w #8,d1; move.w d1,$1E(a0).
+        y_pos: camera_y_pos.wrapping_sub(8 << 16),
+        tracking_word_3e: 0,
+        size_word_24: 4,
+        x_velocity: 0,
+        y_velocity: 0x2_0000,
+    }
+}
+
 /// ASM loc_3FEE2 (kid.asm:45253): rain tracking enemy scan.
 ///
 /// Called from loc_3FEBC when a non-tracking rain object's timer expires
@@ -5498,19 +5545,24 @@ impl NativeRuntime {
                             projectile.kind == EnemyProjectileKind::DiamondPowerRain
                         })
                         .count();
-                    if self.frame_index.is_multiple_of(16)
-                        && rain_count < DIAMOND_POWER_RAIN_MAX_OBJECTS
-                    {
+                    if diamond_power_rain_spawn_gate_loc_3FDFE(
+                        self.progression.diamond_power_frames as i16,
+                        rain_count,
+                        self.frame_index as u16,
+                    ) {
                         let slice = self.opening_slice.as_ref();
                         let cam_x = slice.map_or(0, |s| s.camera.x_pos);
-                        let random_byte = u32::from(self.rom_random.next_byte());
-                        let offset = random_byte.wrapping_mul(4) % 0x140;
-                        let rain_x = (cam_x as i64 + ((offset as i64) << 16)) as u32;
-                        let rain_y = slice.map_or(0, |s| s.camera.y_pos.wrapping_sub(8 << 16));
+                        let cam_y = slice.map_or(0, |s| s.camera.y_pos);
+                        let rain_slot = diamond_power_rain_spawn_slot_loc_3FDFE(
+                            cam_x,
+                            cam_y,
+                            self.rom_random.next_byte(),
+                        );
                         self.projectiles.push(EnemyProjectile {
-                            x_pos: rain_x,
-                            y_pos: rain_y,
-                            y_velocity: 0x2_0000,
+                            x_pos: rain_slot.x_pos,
+                            y_pos: rain_slot.y_pos,
+                            x_velocity: rain_slot.x_velocity,
+                            y_velocity: rain_slot.y_velocity,
                             lifetime: 60,
                             friendly: true, // damages enemies, not player
                             kind: EnemyProjectileKind::DiamondPowerRain,
