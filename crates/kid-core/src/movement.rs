@@ -3655,8 +3655,7 @@ impl OpeningSliceState {
     /// loc_7820 (kid.asm:7896): `clr.w ($FFFFF8F0) / bra.w loc_8D72` — clears
     /// walk accumulator and enters walking state.
     ///
-    /// TODO(fidelity): native uses `probe_wall` (3-point) instead of `sub_922C`
-    /// (full column scan). The Maniaxe axe-throwing gate and the loc_77C2/77FC
+    /// TODO(fidelity): the Maniaxe axe-throwing gate and the loc_77C2/77FC
     /// `sub_B55C` ledge probe for non-bitmask helmets are not yet modelled.
     fn should_hold_standing_still(
         &mut self,
@@ -3680,8 +3679,8 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
-        // player's leading edge.  Native approximates with 3-point probe_wall.
-        terrain::probe_wall(
+        // player's leading edge.
+        terrain::probe_wall_column(
             grid,
             x_px,
             y_px,

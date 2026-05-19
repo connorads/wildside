@@ -8078,9 +8078,8 @@ mod chunk_11 {
     /// (`bgt.w loc_9380`), jumps to `moveq #1,d7; addq.w #2,sp; rts` —
     /// returning NE (hit=true, treat as impassable wall).
     ///
-    /// TODO(fidelity): native returns `hit: false` for OOB columns via the
-    /// `edge_x < 0 || edge_x >= grid.width_pixels()` guard. The ROM treats
-    /// level edges as solid walls while native treats them as open space.
+    /// Native intentionally preserves the shell-level boundary skip documented
+    /// on `probe_wall_column`, so this helper returns no hit for OOB columns.
     #[test]
     fn loc_9380_oob_column_returns_no_hit_in_native() {
         let w: u16 = 4;
@@ -14636,6 +14635,56 @@ mod chunk_12 {
         assert_eq!(
             slice.player.x_velocity, 0,
             "loc_77E6 wall hit should keep standing still instead of applying left acceleration",
+        );
+    }
+
+    /// ASM loc_779C -> sub_922C (kid.asm:7846, 10699): standing-still wall
+    /// probing treats `$7000` Spikes the same as a solid wall hit before the
+    /// walking transition can start.
+    #[test]
+    fn asm_faithful_loc_779c_spike_wall_column_holds_standing_still() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_spikes = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x70;
+        };
+        set_spikes(&mut data, 2, 2);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+        );
+
+        assert!(
+            !stepped,
+            "loc_779C/sub_922C should block the standing-still horizontal step on a spike wall column",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "loc_779C/sub_922C should treat a spike wall column as blocked and keep standing still",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Right,
+            "loc_779C should still face the blocked right input",
         );
     }
 
