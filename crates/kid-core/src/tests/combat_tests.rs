@@ -91,6 +91,49 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn loc_35986_cyclone_tornado_bounce_writes_kid_collision_type_not_flight_accel() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = true;
+        runtime.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::Tornado,
+            0x0108_0000,
+            0x00C0_0000,
+            1,
+        )];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        assert!(
+            runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Tornado.asm loc_35986 should consume the frame when Cyclone flight touches a live Tornado",
+        );
+        assert_eq!(
+            runtime.helmet.cyclone_y_accel, CYCLONE_ACCEL_INITIAL,
+            "ASM Tornado.asm loc_35986 writes `$28` to Kid `collision_type(a4)`, not to the Cyclone flight acceleration word",
+        );
+        assert_eq!(
+            runtime.last_kid_collision_type, 0x0028,
+            "ASM Tornado.asm loc_35986 should leave `colid_kidbelow` in Kid's collision slot after the bounce",
+        );
+    }
+
     // -----------------------------------------------------------------------
     // DiamondPower_Init / Main rain (loc_3FDFE, loc_3FE62, loc_3FE90)
     // -----------------------------------------------------------------------

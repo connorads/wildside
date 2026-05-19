@@ -9787,11 +9787,9 @@ impl NativeRuntime {
                 let bounce = tornado_cyclone_bounce_for_positions_loc_35986(player_x, tornado_x);
                 slice.player.x_velocity = bounce.player_x_velocity;
                 enemy.x_velocity = bounce.tornado_x_velocity;
-                // TODO(fidelity): ASM writes `$28` to Kid `collision_type(a4)`.
-                // Native has no player collision_type field here, so preserve
-                // the existing Cyclone accumulator surrogate until that boundary
-                // is modelled directly.
-                self.helmet.cyclone_y_accel = bounce.player_collision_type as i16;
+                // ASM Tornado.asm loc_35986: after the velocity swap, write
+                // `$28` (`colid_kidbelow`) to Kid `collision_type(a4)`.
+                self.last_kid_collision_type = bounce.player_collision_type;
                 self.opening_slice = Some(*slice);
                 self.last_kid_frame_post_motion_mutator =
                     KidFramePostMotionMutator::CycloneTornadoBounce;

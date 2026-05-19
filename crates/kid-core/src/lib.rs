@@ -377,6 +377,8 @@ pub struct NativeRuntime {
     last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
     /// Debug label for the prior frame's first post-motion system that touched Kid.
     previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Native mirror of Kid object `collision_type(a4)` for frame-local handoffs.
+    last_kid_collision_type: u16,
     /// Debug snapshot of Kid before any pre-physics mutator runs this frame.
     last_kid_frame_pre_physics_start: Option<PlayerState>,
     /// Debug snapshot of Kid immediately before `step_with_order(...)`.
@@ -1184,6 +1186,7 @@ impl NativeRuntime {
             last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
             last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
             previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            last_kid_collision_type: 0,
             last_kid_frame_pre_physics_start: None,
             last_kid_frame_pre_physics_before_physics: None,
             last_kid_frame_pre_physics_mutators: Vec::new(),
@@ -1312,6 +1315,7 @@ impl NativeRuntime {
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        self.last_kid_collision_type = 0;
         self.last_kid_frame_pre_physics_start = None;
         self.last_kid_frame_pre_physics_before_physics = None;
         self.last_kid_frame_pre_physics_mutators.clear();
