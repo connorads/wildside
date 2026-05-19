@@ -6340,7 +6340,7 @@ mod chunk_11 {
     // ---------------------------------------------------------------------------
     // ASM loc_8E98 (kid.asm:10259): negative slope result helmet bitmask gate.
     // `move.w #$2C5,d6; btst d7,d6`: bitmask $2C5 = bits 0,2,6,7,9
-    // (TheKid, IronKnight, RedStealth, Berzerker, Micromax).
+    // (TheKid, Cyclone, IronKnight, Berzerker, Micromax).
     // If bit set → loc_9D22 (slope walking).  Otherwise:
     // `clr.w $1C(a3)` (visual sub-pixel accumulator);
     // `andi.w #$FFF0,x_pos; subq.w #1` tile-snap leftward;
@@ -6354,22 +6354,36 @@ mod chunk_11 {
     #[test]
     fn loc_8e98_slope_helmet_bitmask_selects_correct_helmets() {
         // ASM: `move.w #$2C5,d6; btst d7,d6; bne.w loc_9D22`
-        // $2C5 = 0b0000_0010_1100_0101
-        let bitmask: u16 = 0x2C5;
-        let slope_helmets: &[u16] = &[0, 2, 6, 7, 9]; // TheKid, IronKnight, RedStealth, Berzerker, Micromax
-        let non_slope_helmets: &[u16] = &[1, 3, 4, 5, 8]; // Skycutter, Maniaxe, Cyclone, Juggernaut, Eyeclops
-        for &h in slope_helmets {
-            assert_ne!(
-                bitmask & (1 << h),
-                0,
-                "ASM loc_8E98: helmet {h} should have bit set in $2C5 → loc_9D22 (slope walking)"
+        let slope_helmets = [
+            PlayerForm::TheKid,
+            PlayerForm::Cyclone,
+            PlayerForm::IronKnight,
+            PlayerForm::Berzerker,
+            PlayerForm::Micromax,
+        ];
+        let non_slope_helmets = [
+            PlayerForm::Skycutter,
+            PlayerForm::RedStealth,
+            PlayerForm::Eyeclops,
+            PlayerForm::Juggernaut,
+            PlayerForm::Maniaxe,
+        ];
+        for form in slope_helmets {
+            assert_eq!(
+                crate::movement::negative_slope_dispatch_loc_8E98(form, 0x37_0000, 0x1_0000),
+                crate::movement::NegativeSlopeDispatchLoc8E98::SlopeWalk,
+                "ASM loc_8E98: helmet {} should have bit set in $2C5 → loc_9D22 (slope walking)",
+                form.helmet_id()
             );
         }
-        for &h in non_slope_helmets {
-            assert_eq!(
-                bitmask & (1 << h),
-                0,
-                "ASM loc_8E98: helmet {h} should NOT have bit set → tile snap + loc_8EC8 (standing)"
+        for form in non_slope_helmets {
+            assert!(
+                matches!(
+                    crate::movement::negative_slope_dispatch_loc_8E98(form, 0x37_0000, 0x1_0000),
+                    crate::movement::NegativeSlopeDispatchLoc8E98::TileSnapToStanding { .. }
+                ),
+                "ASM loc_8E98: helmet {} should NOT have bit set → tile snap + loc_8EC8 (standing)",
+                form.helmet_id()
             );
         }
     }
@@ -6379,10 +6393,13 @@ mod chunk_11 {
     fn loc_8e98_tile_snap_aligns_x_pos_leftward() {
         // ASM: `andi.w #$FFF0,d7; subq.w #1,d7`
         // For x_pos = 0x37 (55): 0x37 & 0xFFF0 = 0x30, - 1 = 0x2F (47)
-        let x_pos: u16 = 0x37;
-        let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
         assert_eq!(
-            snapped, 0x2F,
+            crate::movement::negative_slope_dispatch_loc_8E98(
+                PlayerForm::Skycutter,
+                0x37_0000,
+                0x1_0000,
+            ),
+            crate::movement::NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos: 0x2F_0000 },
             "ASM loc_8E98: x_pos $37 snaps to ($37 & $FFF0) - 1 = $2F"
         );
     }
@@ -6391,17 +6408,14 @@ mod chunk_11 {
     #[test]
     fn loc_8e98_negative_velocity_adjusts_to_right_tile_edge() {
         // ASM: `bpl.w loc_8EC8` skips; if negative: `addi.w #$11,d7`
-        let x_pos: u16 = 0x37;
-        let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
-        let x_vel: i32 = -0x1_0000; // negative → moving left
-        let final_x = if x_vel < 0 {
-            snapped.wrapping_add(0x11)
-        } else {
-            snapped
-        };
         // 0x2F + 0x11 = 0x40 (64) — right edge of the adjacent tile
         assert_eq!(
-            final_x, 0x40,
+            crate::movement::negative_slope_dispatch_loc_8E98(
+                PlayerForm::Skycutter,
+                0x37_0000,
+                -0x1_0000,
+            ),
+            crate::movement::NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos: 0x40_0000 },
             "ASM loc_8E98: negative vel shifts snap from $2F to $2F+$11=$40"
         );
     }
@@ -6410,16 +6424,13 @@ mod chunk_11 {
     #[test]
     fn loc_8e98_positive_velocity_keeps_left_snap() {
         // ASM: `bpl.w loc_8EC8` — positive vel branches directly
-        let x_pos: u16 = 0x37;
-        let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
-        let x_vel: i32 = 0x1_0000; // positive → moving right
-        let final_x = if x_vel < 0 {
-            snapped.wrapping_add(0x11)
-        } else {
-            snapped
-        };
         assert_eq!(
-            final_x, 0x2F,
+            crate::movement::negative_slope_dispatch_loc_8E98(
+                PlayerForm::Skycutter,
+                0x37_0000,
+                0x1_0000,
+            ),
+            crate::movement::NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos: 0x2F_0000 },
             "ASM loc_8E98: positive vel keeps left-edge snap at $2F"
         );
     }

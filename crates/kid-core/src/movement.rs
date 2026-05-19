@@ -3442,15 +3442,16 @@ impl OpeningSliceState {
                 //
                 // ASM loc_8E98 (kid.asm:10259): negative slope result path.
                 // `move.w #$2C5,d6; btst d7,d6`: helmet bitmask $2C5 = bits
-                // 0,2,6,7,9 (TheKid, IronKnight, RedStealth, Berzerker, Micromax).
-                // If set → loc_9D22 (slope walking).  Others (Skycutter, Maniaxe,
-                // Cyclone, Juggernaut, Eyeclops): `clr.w $1C(a3)` (visual sub-pixel
+                // 0,2,6,7,9 (TheKid, Cyclone, IronKnight, Berzerker, Micromax).
+                // If set → loc_9D22 (slope walking).  Others (Skycutter,
+                // RedStealth, Eyeclops, Juggernaut, Maniaxe): `clr.w $1C(a3)` (visual sub-pixel
                 // accumulator), tile-snap x_pos to `(x_pos & $FFF0) - 1`, then
                 // adjust by `+$11` if x_vel was negative (rightward tile edge).
                 // Falls through to loc_8EC8.
-                // TODO(fidelity): native applies slope velocity mirroring
-                // unconditionally to all helmets; the ASM's per-helmet bitmask
-                // gate ($2C5) and tile-snap fallback are not modelled.
+                // TODO(fidelity): native has a typed model in
+                // negative_slope_dispatch_loc_8E98, but the walking path still
+                // applies slope velocity mirroring unconditionally until the
+                // negative sub_9386 dispatch is threaded into movement state.
                 //
                 // ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4`
                 // — refresh grounded helmet state and transition to standing still.
@@ -5693,6 +5694,39 @@ fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {
     // ASM loc_9F32 (kid.asm:12232): negate the cap and clamp negative values
     // below `$FFFC0000` before storing `x_vel` again at loc_9F3A.
     x_vel.clamp(-KID_SLOPE_MAX_SPEED_FP, KID_SLOPE_MAX_SPEED_FP)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) enum NegativeSlopeDispatchLoc8E98 {
+    SlopeWalk,
+    TileSnapToStanding { x_pos: u32 },
+}
+
+#[allow(dead_code, non_snake_case)]
+pub(crate) fn negative_slope_dispatch_loc_8E98(
+    form: PlayerForm,
+    x_pos: u32,
+    x_vel: i32,
+) -> NegativeSlopeDispatchLoc8E98 {
+    // ASM loc_8E98 (kid.asm:10259): `move.w #$2C5,d6; btst d7,d6`
+    // branches to loc_9D22 when Current_Helmet's bit is set. Bits 0,2,6,7,9
+    // are TheKid, Cyclone, IronKnight, Berzerker, and Micromax.
+    let helmet_id = form.helmet_id();
+    if 0x02C5u16 & (1u16 << helmet_id) != 0 {
+        return NegativeSlopeDispatchLoc8E98::SlopeWalk;
+    }
+
+    // ASM loc_8EA8-loc_8EC4: clear the visual sub-pixel accumulator, snap
+    // `x_pos(a3)` to `(x_pos & $FFF0)-1`, and add `$11` when x_vel is negative.
+    let pixel_x = (x_pos >> 16) as u16;
+    let mut snapped_pixel_x = (pixel_x & 0xFFF0).wrapping_sub(1);
+    if x_vel < 0 {
+        snapped_pixel_x = snapped_pixel_x.wrapping_add(0x11);
+    }
+    NegativeSlopeDispatchLoc8E98::TileSnapToStanding {
+        x_pos: u32::from(snapped_pixel_x) << 16,
+    }
 }
 
 pub(crate) fn update_level_one_slope_ground_velocity(
