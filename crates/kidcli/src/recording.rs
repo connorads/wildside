@@ -11,6 +11,7 @@ use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
 use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
@@ -78,6 +79,8 @@ pub(crate) struct NativeRecordingManifest {
 pub(crate) struct NativeRecording {
     pub(crate) manifest: NativeRecordingManifest,
     pub(crate) trace: Vec<NativeTraceFrame>,
+    #[serde(default, skip)]
+    pub(crate) legacy_block_destroy_direction_frames: BTreeSet<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -170,6 +173,7 @@ pub(crate) fn build_recording(
             },
         },
         trace,
+        legacy_block_destroy_direction_frames: BTreeSet::new(),
     })
 }
 
@@ -253,6 +257,7 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
     })?;
     let trace = fs::read(record_dir.join("trace.json"))
         .with_context(|| format!("failed to read {}", record_dir.join("trace.json").display()))?;
+    let legacy_block_destroy_direction_frames = legacy_block_destroy_direction_frames(&trace)?;
     let mut recording = NativeRecording {
         manifest: serde_json::from_slice(&manifest).with_context(|| {
             format!(
@@ -266,9 +271,30 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
                 record_dir.join("trace.json").display()
             )
         })?,
+        legacy_block_destroy_direction_frames,
     };
     normalise_loaded_recording(&mut recording)?;
     Ok(recording)
+}
+
+fn legacy_block_destroy_direction_frames(trace: &[u8]) -> Result<BTreeSet<usize>> {
+    let value: serde_json::Value =
+        serde_json::from_slice(trace).context("failed to inspect trace.json schema")?;
+    let Some(frames) = value.as_array() else {
+        return Ok(BTreeSet::new());
+    };
+
+    Ok(frames
+        .iter()
+        .enumerate()
+        .filter_map(|(frame_index, frame)| {
+            let effects = frame.get("block_destroy_effects")?.as_array()?;
+            effects
+                .iter()
+                .any(|effect| effect.as_array().is_some_and(|fields| fields.len() == 3))
+                .then_some(frame_index)
+        })
+        .collect())
 }
 
 pub(crate) fn run_recorded_trace(
@@ -370,7 +396,11 @@ pub(crate) fn verify_recording(
         )
     })?;
 
-    let first_trace_drift = first_trace_drift(&recording.trace, &replay_trace);
+    let first_trace_drift = first_trace_drift(
+        &recording.trace,
+        &replay_trace,
+        &recording.legacy_block_destroy_direction_frames,
+    );
     let trace_match = first_trace_drift.is_none();
 
     let native_states =
@@ -726,9 +756,15 @@ fn compare_recording_frames(
 fn first_trace_drift(
     recorded: &[NativeTraceFrame],
     replay: &[NativeTraceFrame],
+    legacy_block_destroy_direction_frames: &BTreeSet<usize>,
 ) -> Option<TraceDriftReport> {
     for (index, (expected, actual)) in recorded.iter().zip(replay).enumerate() {
-        if expected != actual {
+        let matches = if legacy_block_destroy_direction_frames.contains(&index) {
+            trace_frames_match_with_legacy_block_destroy_direction(expected, actual)
+        } else {
+            expected == actual
+        };
+        if !matches {
             return Some(TraceDriftReport {
                 frame_index: index,
                 reason: "native trace frame mismatch".to_owned(),
@@ -746,6 +782,40 @@ fn first_trace_drift(
         });
     }
     None
+}
+
+fn trace_frames_match_with_legacy_block_destroy_direction(
+    expected: &NativeTraceFrame,
+    actual: &NativeTraceFrame,
+) -> bool {
+    if expected == actual {
+        return true;
+    }
+    if expected.block_destroy_effects.len() != actual.block_destroy_effects.len() {
+        return false;
+    }
+    if expected
+        .block_destroy_effects
+        .iter()
+        .zip(&actual.block_destroy_effects)
+        .any(
+            |(
+                &(expected_x, expected_y, expected_remaining, _),
+                &(actual_x, actual_y, actual_remaining, _),
+            )| {
+                (expected_x, expected_y, expected_remaining)
+                    != (actual_x, actual_y, actual_remaining)
+            },
+        )
+    {
+        return false;
+    }
+
+    let mut normalised_expected = expected.clone();
+    normalised_expected
+        .block_destroy_effects
+        .clone_from(&actual.block_destroy_effects);
+    &normalised_expected == actual
 }
 
 fn unix_timestamp() -> String {
@@ -1207,8 +1277,23 @@ mod tests {
         let recorded = vec![sample_trace_frame(0), sample_trace_frame(1)];
         let mut replay = recorded.clone();
         replay[1].number_hitpoints = 1;
-        let drift = first_trace_drift(&recorded, &replay).expect("drift");
+        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new()).expect("drift");
         assert_eq!(drift.frame_index, 1);
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_block_destroy_entries_without_direction() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.block_destroy_effects = vec![(144, 196, 2, 2)];
+        let mut replay = sample_trace_frame(0);
+        replay.block_destroy_effects = vec![(144, 196, 2, 0)];
+
+        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::from([0]));
+
+        assert_eq!(
+            drift, None,
+            "legacy recordings stored ASM sub_292E debris as (x,y,remaining), so replay verification must not fail only because current traces add d6 direction"
+        );
     }
 
     #[test]
