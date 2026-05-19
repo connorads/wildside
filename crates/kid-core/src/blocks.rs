@@ -2822,18 +2822,15 @@ impl NativeRuntime {
             });
         }
 
-        // ASM loc_10DA4: rubber contact spawns a temporary jiggle object and
-        // plays sfx_Rubber_block without changing the collision response.
+        // ASM loc_10DA4 (kid.asm:22692): rubber contact plays sfx_Rubber_block
+        // and spawns the `sub_10DE4` skin-swap coroutine. The ASM rubber
+        // animation is a tile-skin cycle (`sub_11530` writes `$E60C` /
+        // `$E60D` / `$E60E` over 9 hibernate-bracketed writes); the ROM never
+        // touches `y_pos(a3)` for rubber, so native must NOT also push a
+        // BlockBounceAnim — that was an invented vertical wobble.
         if let Some((cx, cy)) = slice.rubber_block_hit {
             self.blocks_hit_this_frame += 1;
             self.start_rubber_block_animation_sub_10de4(cx, cy);
-            self.block_bounces.push(BlockBounceAnim {
-                cell_x: cx,
-                cell_y: cy,
-                remaining: 8,
-                initial_duration: 8,
-                y_offset_px: 0,
-            });
         }
 
         // Smash block destruction effect

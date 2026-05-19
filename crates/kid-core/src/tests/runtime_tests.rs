@@ -5800,8 +5800,12 @@ mod chunk_09 {
         assert_eq!(projectile.lifetime, 120);
     }
 
+    /// ASM `loc_110D0` (kid.asm:23019) drives the metal-block ±8 y_pos arc via
+    /// `BlockBounceAnim`; ASM `sub_10DE4` (kid.asm:22717) drives the rubber
+    /// block through a skin-swap coroutine without ever touching `y_pos(a3)`,
+    /// so native must NOT also push a BlockBounceAnim entry for rubber.
     #[test]
-    fn process_block_effects_metal_and_rubber_create_bounce_anims() {
+    fn process_block_effects_metal_pushes_bounce_rubber_does_not_push_bounce() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.metal_block_hit = Some((5, 3));
@@ -5809,11 +5813,13 @@ mod chunk_09 {
 
         rt.process_block_effects(&mut slice);
 
-        assert_eq!(rt.block_bounces.len(), 2, "metal + rubber = 2 bounces");
+        assert_eq!(
+            rt.block_bounces.len(),
+            1,
+            "only the metal block contributes a y_pos bounce; rubber must not duplicate it"
+        );
         assert_eq!(rt.block_bounces[0].cell_x, 5);
         assert_eq!(rt.block_bounces[0].cell_y, 3);
-        assert_eq!(rt.block_bounces[1].cell_x, 7);
-        assert_eq!(rt.block_bounces[1].cell_y, 4);
         assert_eq!(rt.blocks_hit_this_frame, 2);
     }
 

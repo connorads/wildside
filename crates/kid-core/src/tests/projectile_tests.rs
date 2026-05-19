@@ -982,6 +982,7 @@ mod chunk_06 {
         data[idx] = 0xE6;
         data[idx + 1] = 0x00;
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        runtime.set_block_grid(grid.clone());
 
         let bounds = LevelBounds {
             width_pixels: w * 16,
@@ -1009,12 +1010,16 @@ mod chunk_06 {
             "rubber should negate the incoming landing velocity"
         );
         assert_eq!(
-            runtime.block_bounces.len(),
+            runtime.block_state.rubber_block_animations.len(),
             1,
-            "ASM loc_10DA4 should queue the rubber jiggle effect on landing"
+            "ASM loc_10DA4 / sub_10DE4 should queue the rubber skin-swap on landing"
         );
-        assert_eq!(runtime.block_bounces[0].cell_x, 2);
-        assert_eq!(runtime.block_bounces[0].cell_y, 4);
+        assert_eq!(runtime.block_state.rubber_block_animations[0].col, 2);
+        assert_eq!(runtime.block_state.rubber_block_animations[0].row, 4);
+        assert!(
+            runtime.block_bounces.is_empty(),
+            "rubber bounce must not also push a BlockBounceAnim — ROM never touches y_pos"
+        );
     }
 
     #[test]
@@ -1562,6 +1567,7 @@ mod chunk_06 {
         data[idx] = 0xE6;
         data[idx + 1] = 0x00;
         let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        runtime.set_block_grid(grid.clone());
 
         let bounds = LevelBounds {
             width_pixels: w * 16,
@@ -1587,9 +1593,13 @@ mod chunk_06 {
             "ASM loc_9130: rubber ceiling hit should reverse upward motion"
         );
         assert_eq!(
-            runtime.block_bounces.len(),
+            runtime.block_state.rubber_block_animations.len(),
             1,
-            "ASM loc_10DA4 should queue the rubber jiggle effect on ceiling contact"
+            "ASM loc_10DA4 / sub_10DE4 should queue the rubber skin-swap on ceiling contact"
+        );
+        assert!(
+            runtime.block_bounces.is_empty(),
+            "rubber bounce must not also push a BlockBounceAnim — ROM never touches y_pos"
         );
         let cell_after = grid.cell_at(2, 2);
         assert!(cell_after.has_block, "rubber cell should stay intact");
@@ -1607,6 +1617,7 @@ mod chunk_06 {
         data[idx] = 0xE6;
         data[idx + 1] = 0x00;
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        runtime.set_block_grid(grid.clone());
 
         let bounds = LevelBounds {
             width_pixels: w * 16,
@@ -1632,12 +1643,16 @@ mod chunk_06 {
             "airborne rubber wall hits should not enter native wall-cling"
         );
         assert_eq!(
-            runtime.block_bounces.len(),
+            runtime.block_state.rubber_block_animations.len(),
             1,
-            "ASM sub_8F26/sub_922C should queue the rubber jiggle effect on wall contact"
+            "ASM sub_8F26/sub_922C -> sub_10DE4 should queue the rubber skin-swap on wall contact"
         );
-        assert_eq!(runtime.block_bounces[0].cell_x, 2);
-        assert_eq!(runtime.block_bounces[0].cell_y, 1);
+        assert_eq!(runtime.block_state.rubber_block_animations[0].col, 2);
+        assert_eq!(runtime.block_state.rubber_block_animations[0].row, 1);
+        assert!(
+            runtime.block_bounces.is_empty(),
+            "rubber bounce must not also push a BlockBounceAnim — ROM never touches y_pos"
+        );
     }
 
     #[test]
