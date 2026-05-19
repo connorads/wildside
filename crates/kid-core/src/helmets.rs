@@ -5052,13 +5052,26 @@ impl NativeRuntime {
     /// Native consumes the swing timer on first contact to mirror the sword
     /// worker deletion path.
     pub(crate) fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
-        if !self.sword_is_active() {
+        let ground_active = self.sword_is_active();
+        let airborne_active = self.helmet.red_stealth_airborne_slash_counter > 0;
+        if !ground_active && !airborne_active {
             return;
         }
 
-        let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let sword_x = (sword_x_fp >> 16) as i32;
-        let sword_y = (sword_y_fp >> 16) as i32;
+        // ASM sub_868E (kid.asm:9522) anchors the ground swing 28px ahead of
+        // Kid and 10px above the foot. The airborne attack-down (sub_B270
+        // loc_B350) sweeps the sword DOWN from the kid's body; the visible
+        // sprite extends below the foot. Use a hitbox centred below the
+        // player's feet for the airborne path so falling onto an enemy with C
+        // held actually damages it.
+        let (sword_x, sword_y) = if airborne_active {
+            let kid_x = (slice.player.x_pos >> 16) as i32;
+            let kid_foot_y = (slice.player.y_pos >> 16) as i32;
+            (kid_x, kid_foot_y + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX)
+        } else {
+            let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
+            ((sword_x_fp >> 16) as i32, (sword_y_fp >> 16) as i32)
+        };
 
         let mut kill_indices = Vec::new();
         for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
@@ -5079,10 +5092,15 @@ impl NativeRuntime {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                 }
                 // ASM loc_86EC (kid.asm:9556): on non-zero sword collision,
-                // play `sfx_Red_Stealth_hitting_a_target`, then delete.
+                // play `sfx_Red_Stealth_hitting_a_target`, then delete. For
+                // the airborne path the ROM keeps the slash sustained (no
+                // GfxObject to delete) but the hit SFX still plays — only the
+                // ground swing timer is consumed here.
                 self.played_sound_effects
                     .push(QueuedSoundEffect::RedStealthHittingTarget);
-                self.helmet.red_stealth_sword_timer = 0;
+                if ground_active {
+                    self.helmet.red_stealth_sword_timer = 0;
+                }
                 break;
             }
         }

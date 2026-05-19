@@ -575,6 +575,13 @@ pub(crate) const RED_STEALTH_OFFSET_Y: i32 = -10;
 /// `unk_31D84`: left=-6, width=12, top=-8, height=16.
 pub(crate) const RED_STEALTH_HIT_HALF_WIDTH: i32 = 6;
 pub(crate) const RED_STEALTH_HIT_HALF_HEIGHT: i32 = 8;
+/// ASM sub_B270 loc_B350/loc_B380 (kid.asm:14220-14248): airborne attack-down
+/// slash extends the sword sprite below Kid's feet. The ROM doesn't allocate
+/// a separate hitbox GfxObject for this path — the slash sprite's reach is
+/// captured by the player object's own collision check. Native uses a small
+/// downward reach so the airborne slash hitbox sits centred on the visible
+/// sword tip rather than at Kid's foot row.
+pub(crate) const RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX: i32 = 12;
 
 // === Maniaxe ===
 

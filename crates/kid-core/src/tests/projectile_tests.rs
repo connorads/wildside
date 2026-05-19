@@ -2103,6 +2103,61 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_airborne_slash_damages_enemy_below_kid() {
+        // ASM sub_B270 loc_B350 visibly extends the sword sprite below Kid's
+        // foot during the airborne attack-down. Native models this with a
+        // hitbox centred at `(kid_x, kid_foot_y + 12)` and the same width as
+        // the ground swing, so fast-falling onto an enemy with C held deals
+        // damage even though `red_stealth_sword_timer` is zero.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
+        let slice = combat_slice();
+        // Place the enemy directly below the player's feet at the airborne
+        // hitbox centre (kid foot = 256, reach = +12 -> y = 268).
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            slice.player.x_pos,
+            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
+                * 0x1_0000,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        // Airborne counter stays live because the ROM does not delete the
+        // sword GfxObject — the slash sustains as long as C is held.
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x40);
+        assert!(
+            rt.played_sound_effects
+                .contains(&QueuedSoundEffect::RedStealthHittingTarget),
+            "sfx_Red_Stealth_hitting_a_target should play on airborne slash contact",
+        );
+    }
+
+    #[test]
+    fn red_stealth_airborne_slash_does_not_hit_when_counter_zero() {
+        // Without the airborne counter set, `process_sword_hits` should fall
+        // back to the ground swing path. Ground timer is also zero here, so
+        // no enemies should take damage even when one is below the player.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        let slice = combat_slice();
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            slice.player.x_pos,
+            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
+                * 0x1_0000,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
+    }
+
+    #[test]
     fn red_stealth_airborne_slash_counter_clears_for_non_red_stealth_forms() {
         // Sanity guard: only Red Stealth should ever hold a non-zero airborne
         // slash counter. Other forms must early-out so the counter stays at 0
