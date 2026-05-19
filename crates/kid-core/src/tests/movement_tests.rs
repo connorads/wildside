@@ -4393,6 +4393,40 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_83b4_grounded_crawl_uses_sub_8506_air_table_in_slice() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                a: true,
+                down: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            stepped,
+            "loc_83B4 grounded crawl should still run a horizontal velocity step",
+        );
+        assert_eq!(
+            slice.player.x_velocity,
+            physics::AIR_NORMAL.air_accel,
+            "ASM loc_83B4/sub_8506: grounded non-Skycutter crawl should use the air-table $1000 acceleration and ignore run, not ground running acceleration",
+        );
+    }
+
     /// ASM loc_83B4 (kid.asm:9139): sub_8506 air tables have lower max speed
     /// ($10000) than ground walking tables ($18000 for TheKid). This means
     /// crawling is slower than walking in the ASM. Verify the table values.

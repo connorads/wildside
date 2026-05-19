@@ -4173,6 +4173,21 @@ impl OpeningSliceState {
                     self.player.facing,
                     h_input,
                 )
+            } else if input.down {
+                let air_table = match self.terrain.floor_terrain_type {
+                    TerrainType::Normal => &physics::AIR_NORMAL,
+                    TerrainType::Ice => &physics::AIR_ICE,
+                    TerrainType::Rubber => &physics::AIR_RUBBER,
+                };
+                // ASM loc_83B4 (kid.asm:9139): grounded non-Skycutter crawl
+                // uses sub_8506, the same air-control table used by airborne
+                // movement. Ctrl_A/run is ignored by sub_8506.
+                physics::update_air_horizontal_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    air_table,
+                )
             } else {
                 // ASM loc_8456 (kid.asm:9212): the non-Skycutter sub_8446
                 // path consumes x_vel only to advance the visual walk-sprite
@@ -4184,13 +4199,6 @@ impl OpeningSliceState {
                 // ASM loc_8470 (kid.asm:9226): stores the wrapped phase in
                 // $FFFFF8F0 and indexes off_84A2 for addroffset_sprite(a3);
                 // native leaves that sprite-table write unmodelled.
-                // ASM loc_83B4 (kid.asm:9139): non-Skycutter crawl uses
-                // `bsr.w sub_8506` (airborne horizontal tables), NOT the
-                // ground walking tables. Native uses ground tables for all
-                // grounded movement uniformly.
-                // TODO(fidelity): crawling should use sub_8506 air tables
-                // (physics::update_air_horizontal_velocity) instead of
-                // ground speed tables when the player is crawling.
                 physics::update_horizontal_velocity(
                     self.player.x_velocity,
                     self.player.facing,
