@@ -524,7 +524,7 @@ mod chunk_03 {
 
         runtime.step_diamond_power(FrameInput::default());
 
-        assert_eq!(runtime.active_enemies.len(), 2);
+        assert_eq!(runtime.active_enemies.len(), 3);
         assert_eq!(
             runtime.active_enemies[0].family,
             EnemyFamily::Diamond,
@@ -536,6 +536,11 @@ mod chunk_03 {
         assert_eq!(
             runtime.active_enemies[1].damage_flash_frames,
             ENEMY_DAMAGE_FLASH_FRAMES
+        );
+        assert_eq!(
+            runtime.active_enemies[2].family,
+            EnemyFamily::DragonWalking,
+            "ASM Dragon_Flying.asm loc_3492C death removes the flying parent but leaves a walking-dragon child at the shared death boundary"
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
@@ -7329,6 +7334,47 @@ mod chunk_03 {
             DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly,
             "ASM Dragon_Flying.asm loc_3492C falls straight to loc_349A6 when bit 7 is set and bit 6 is clear"
         );
+    }
+
+    #[test]
+    fn dragon_flying_death_spawns_walking_dragon_child_loc_3492c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut dragon = test_dragon(0, 0x0123_8000, 0x0045_0000);
+        dragon.facing = Direction::Right;
+        dragon.palette_variant = 2;
+        dragon.wait_timer = 0xCAFE;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+
+        runtime.remove_dead_enemy(0);
+
+        assert!(
+            runtime.killed_enemies.contains(&killed_identity),
+            "ASM Dragon_Flying.asm loc_3492C deletes the flying parent after spawning the child, so activate_enemies must not respawn that parent identity"
+        );
+        assert_eq!(
+            runtime.enemy_death_effects.len(),
+            1,
+            "Native runtime still uses the generic death-effect shell while the loc_3492C child spawn is represented explicitly"
+        );
+        assert_eq!(runtime.active_enemies.len(), 1);
+        let child = &runtime.active_enemies[0];
+        assert_eq!(child.family, EnemyFamily::DragonWalking);
+        assert_eq!(
+            child.x_pos, 0x0123_0000,
+            "ASM Dragon_Flying.asm loc_3492C copies the parent's integer x_pos word into the loc_3CD16 child"
+        );
+        assert_eq!(
+            child.y_pos, 0x0055_0000,
+            "ASM Dragon_Flying.asm loc_3492C writes parent integer y_pos + $10 into the loc_3CD16 child"
+        );
+        assert_eq!(child.facing, Direction::Right);
+        assert_eq!(child.palette_variant, 2);
+        assert_eq!(
+            child.hit_points,
+            spawn_hit_points(EnemyFamily::DragonWalking, 0)
+        );
+        assert_eq!(child.wait_timer, DRAGON_WALKING_BREATH_INITIAL);
     }
 
     #[test]

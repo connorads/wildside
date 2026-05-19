@@ -82,14 +82,15 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ### Dragon Walking — Fixed this session
 - Breath interval: initial $12C (300f), reset $1F4 (500f) — dual constant implemented
 
-### Dragon Flying — Fire velocity/offset fixed, collision gaps remain
+### Dragon Flying — Fire/death child fixed, collision gaps remain
 - All script constants verified correct (drift speeds, accelerations, caps, dive script entries)
 - All 3 variant scripts verified correct
 - **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
 - **Fixed: fire mouth X offset**: ASM `loc_34BAC/loc_34BE6` applies ±10px from the dragon mouth. Native applies the signed offset and `dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc` covers the live spawn path.
-- **Missing: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Not in native.
+- **Fixed: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Native flips facing and negates x_velocity in Drifting state.
+- **Fixed: death child spawn**: ASM `loc_3492C` spawns a walking-dragon child 16px below the flying parent before deleting the parent. Native now spawns the child at the runtime death boundary while retaining the generic death-effect shell.
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
-- **Missing: Death-on-stomp sequence**: ASM has specific death animation + explosion spawn.
+- **Missing: Death animation timing/status route**: ASM `loc_3492C` hibernates for two frames, waits for `stru_345E4`, and runs the EnemyStatus_Table route. Native still approximates that animation/status timing.
 
 ### Tornado — Acceleration scaling fixed, Cyclone interaction implemented
 - Cycle timers: 60/40/30 by level — correct
@@ -147,4 +148,4 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### Low impact (edge cases or rare scenarios)
 8. Dragon Flying collision-recovery during Descent
-9. Dragon Flying death-on-stomp sequence
+9. Dragon Flying death animation timing/status route

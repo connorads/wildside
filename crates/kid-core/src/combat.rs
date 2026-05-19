@@ -7492,6 +7492,11 @@ impl NativeRuntime {
         let family = enemy.family;
         let x_pos = enemy.x_pos;
         let y_pos = enemy.y_pos;
+        let death_child = if matches!(family, EnemyFamily::Dragon) {
+            Some(dragon_flying_death_child_loc_3492C(enemy))
+        } else {
+            None
+        };
         self.killed_enemies
             .insert((enemy.segment_index, enemy.layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
@@ -7499,6 +7504,9 @@ impl NativeRuntime {
             spawn_fire_demon_death_trail(&mut self.projectiles, x_pos, y_pos);
         }
         self.active_enemies.remove(idx);
+        if let Some(child) = death_child {
+            self.active_enemies.push(child);
+        }
         self.add_score(1000);
     }
 

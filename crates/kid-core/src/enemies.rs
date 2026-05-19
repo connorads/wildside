@@ -8013,6 +8013,69 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
     }
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> ActiveEnemy {
+    let sequence = dragon_flying_death_sequence_loc_3492C(
+        parent.x_pos,
+        parent.y_pos,
+        parent.facing,
+        parent.wait_timer,
+        0x80,
+    );
+    let family = EnemyFamily::DragonWalking;
+    ActiveEnemy {
+        segment_index: parent.segment_index,
+        layout_index: parent.layout_index,
+        enemy_level: 0,
+        family,
+        x_pos: u32::from(sequence.child_x_word) << 16,
+        y_pos: u32::from(sequence.child_y_word) << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: sequence.child_facing,
+        on_ground: true,
+        hit_points: spawn_hit_points(family, 0),
+        grounded_frames: 1,
+        damage_flash_frames: 0,
+        palette_variant: parent.palette_variant,
+        wait_timer: DRAGON_WALKING_BREATH_INITIAL,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        crab_frozen: false,
+        shared_walker_state: spawn_shared_walker_state(family),
+        shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+        shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
