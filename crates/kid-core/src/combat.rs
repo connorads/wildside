@@ -7494,15 +7494,21 @@ impl NativeRuntime {
     }
 
     pub(crate) fn spawn_enemy_death_effect(&mut self, family: EnemyFamily, x_pos: u32, y_pos: u32) {
-        let remaining = if matches!(family, EnemyFamily::HeadyMetal) {
-            HEADYMETAL_DEATH_EFFECT_FRAMES
-        } else {
-            GENERIC_ENEMY_DEATH_EFFECT_FRAMES
-        };
+        // ASM Enemy20_HeadyMetal_Init seeds $40(a1)=$01C2 and the boss death
+        // routine drives the sub_37708/sub_3787C/sub_378A2 wobble worker for
+        // that countdown. No other enemy family spawns a generic "quiver then
+        // flatten" sprite on stomp/kill — `Jump_On_Enemy` (kid.asm:14607)
+        // plays sfx_Jump_on_enemy and deletes the GfxObject without any
+        // extra death-animation effect. Family-specific death children
+        // (FireDemon `loc_3A63C` trail, Dragon `loc_3492C` walking child)
+        // are spawned through their own paths, not via this shell.
+        if !matches!(family, EnemyFamily::HeadyMetal) {
+            return;
+        }
         self.enemy_death_effects.push(EnemyDeathEffect {
             x_pos,
             y_pos,
-            remaining,
+            remaining: HEADYMETAL_DEATH_EFFECT_FRAMES,
         });
     }
 

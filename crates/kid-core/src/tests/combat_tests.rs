@@ -7965,10 +7965,9 @@ mod chunk_03 {
             runtime.killed_enemies.contains(&killed_identity),
             "ASM Dragon_Flying.asm loc_3492C deletes the flying parent after spawning the child, so activate_enemies must not respawn that parent identity"
         );
-        assert_eq!(
-            runtime.enemy_death_effects.len(),
-            1,
-            "Native runtime still uses the generic death-effect shell while the loc_3492C child spawn is represented explicitly"
+        assert!(
+            runtime.enemy_death_effects.is_empty(),
+            "ASM Dragon_Flying.asm loc_3492C does not spawn a generic death-effect sprite; only the loc_3CD16 walking child is allocated"
         );
         assert!(
             runtime.active_enemies.is_empty(),

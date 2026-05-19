@@ -1,5 +1,4 @@
 use super::*;
-use kid_core::GENERIC_ENEMY_DEATH_EFFECT_FRAMES;
 
 const HEADYMETAL_WOBBLE_STAGE_1: u16 = 0x015E;
 const HEADYMETAL_WOBBLE_STAGE_2: u16 = 0x00FA;
@@ -1537,52 +1536,13 @@ fn build_game_scene_filtered(
             }
         }
 
-        // Enemy death effect: quiver → flatten approximation.
-        // HeadyMetal uses a long wobble countdown from the original boss-death routine.
-        // Generic enemies: shake horizontally then collapse to a flat pile.
+        // Enemy death effect: only HeadyMetal spawns one. ASM
+        // Enemy20_HeadyMetal_Init seeds the $01C2-frame wobble worker
+        // (sub_37708/sub_3787C/sub_378A2); `Jump_On_Enemy` (kid.asm:14607)
+        // plays sfx_Jump_on_enemy and deletes the GfxObject without
+        // emitting any per-stomp death sprite.
         for &(ex, ey, remaining) in &trace.enemy_death_effects {
-            if remaining > GENERIC_ENEMY_DEATH_EFFECT_FRAMES {
-                push_heady_metal_death_wobble(
-                    &mut commands,
-                    trace,
-                    level_visuals,
-                    ex,
-                    ey,
-                    remaining,
-                );
-            } else {
-                let sx = (ex >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-                let sy = (ey >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
-                let total = GENERIC_ENEMY_DEATH_EFFECT_FRAMES;
-                let elapsed = total - remaining;
-                let quiver_end = total / 2;
-                if elapsed < quiver_end {
-                    // Quiver phase: shake the corpse rect horizontally
-                    let shake = if elapsed.is_multiple_of(2) { 2i32 } else { -2 };
-                    let brightness = 180u8.saturating_sub((elapsed as u8) * 10);
-                    commands.push(DrawCommand::Rect {
-                        x: sx + shake - 6,
-                        y: sy - 12,
-                        width: 12,
-                        height: 16,
-                        colour: [brightness, brightness / 2, brightness / 3],
-                    });
-                } else {
-                    // Flatten phase: squash into a flat pile
-                    let flatten_progress = elapsed - quiver_end;
-                    let height = 16i32.saturating_sub(i32::from(flatten_progress) * 2).max(2);
-                    let width = 12 + i32::from(flatten_progress);
-                    let brightness =
-                        120u8.saturating_sub(((elapsed - quiver_end) as u8).saturating_mul(12));
-                    commands.push(DrawCommand::Rect {
-                        x: sx - width / 2,
-                        y: sy - height,
-                        width,
-                        height,
-                        colour: [brightness, brightness / 3, brightness / 4],
-                    });
-                }
-            }
+            push_heady_metal_death_wobble(&mut commands, trace, level_visuals, ex, ey, remaining);
         }
     }
 

@@ -515,7 +515,6 @@ impl KidGroundedReleaseVelocityBranch {
     }
 }
 
-pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
