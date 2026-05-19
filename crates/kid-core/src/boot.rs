@@ -5850,6 +5850,8 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.level_damage_taken = false;
         self.level_prize_collected = false;
+        self.level_speed_bonus_awarded = false;
+        self.level_path_bonus_amount = 0;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
@@ -5881,6 +5883,8 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.level_damage_taken = false;
         self.level_prize_collected = false;
+        self.level_speed_bonus_awarded = false;
+        self.level_path_bonus_amount = 0;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
@@ -7086,6 +7090,8 @@ impl NativeRuntime {
         self.block_state.ghost_groups.clear();
         self.level_timer = LevelTimer::new();
         self.level_prize_collected = false;
+        self.level_speed_bonus_awarded = false;
+        self.level_path_bonus_amount = 0;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.paused = false;

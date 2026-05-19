@@ -8057,7 +8057,9 @@ impl NativeRuntime {
             if level_idx < PATH_BONUS_TABLE.len() {
                 let path_mult = PATH_BONUS_TABLE[level_idx] as u32;
                 if path_mult > 0 {
-                    self.add_score(path_mult * 1000);
+                    let path_bonus = path_mult * 1000;
+                    self.add_score(path_bonus);
+                    self.level_path_bonus_amount = path_bonus;
                 }
             }
 
@@ -8083,6 +8085,7 @@ impl NativeRuntime {
                     let completion_time = elapsed_secs.min(255) as u8;
                     if completion_time <= threshold {
                         self.add_score(10_000);
+                        self.level_speed_bonus_awarded = true;
                     }
                 }
             }

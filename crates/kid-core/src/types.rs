@@ -1085,6 +1085,24 @@ pub struct NativeTraceFrame {
     pub score: u32,
     pub level_timer_seconds: u16,
     pub level_damage_taken: bool,
+    /// Whether the player collected the level's prize block. Determines
+    /// whether the ASM loc_D5D2 NO-PRIZE bonus is awarded at level
+    /// complete (5000 points when this is `false`).
+    #[serde(default)]
+    pub level_prize_collected: bool,
+    /// Whether `apply_level_completion_bonuses` awarded the ASM loc_D660
+    /// speed bonus (10,000 points) for the current level-complete
+    /// sequence. The renderer uses this to decide whether to show the
+    /// SPEED BONUS line in the level-complete overlay; the previous
+    /// overlay used a hand-tuned `elapsed < 60` threshold that did not
+    /// match the engine's per-level `SPEED_BONUS_TABLE` condition.
+    #[serde(default)]
+    pub level_speed_bonus_awarded: bool,
+    /// Amount added by `apply_level_completion_bonuses` for the ASM
+    /// loc_D60E path bonus (`PathBonus_Values[level] × 1000`). Zero
+    /// when the level has no path bonus.
+    #[serde(default)]
+    pub level_path_bonus_amount: u32,
     pub murder_wall_x: Option<i64>,
     /// Active projectiles: (x_pos, y_pos, friendly).
     pub active_projectiles: Vec<(u32, u32, bool)>,
@@ -1182,6 +1200,9 @@ impl Default for NativeTraceFrame {
             score: 0,
             level_timer_seconds: 0,
             level_damage_taken: false,
+            level_prize_collected: false,
+            level_speed_bonus_awarded: false,
+            level_path_bonus_amount: 0,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),

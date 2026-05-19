@@ -1476,14 +1476,42 @@ fn build_game_scene_filtered(
         let bonus_x = (FRAME_WIDTH as i32 - bonus_line.len() as i32 * 8) / 2;
         commands.push(text(bonus_x, line_y, &bonus_line, [200, 255, 200], 1));
         line_y += 12;
+        // ASM loc_D5BC (kid.asm:16715): NO-HIT bonus awarded when
+        // NoHit_Bonus_Flag clear, i.e. no damage taken during the level.
         if !trace.level_damage_taken {
             let nohit = "NO-HIT BONUS: 5000";
             let nohit_x = (FRAME_WIDTH as i32 - nohit.len() as i32 * 8) / 2;
             commands.push(text(nohit_x, line_y, nohit, [255, 255, 100], 1));
             line_y += 12;
         }
-        let elapsed = 180u16.saturating_sub(trace.level_timer_seconds);
-        if elapsed < 60 {
+        // ASM loc_D5D2 (kid.asm:16732): NO-PRIZE bonus awarded when
+        // NoPrize_Bonus_Flag clear, i.e. no prize-block was struck during
+        // the level. The previous overlay omitted this 5000-point bonus
+        // even though the engine awards it through `add_score(5000)`, so
+        // displayed totals lagged the score by 5000 on no-prize runs.
+        if !trace.level_prize_collected {
+            let noprize = "NO-PRIZE BONUS: 5000";
+            let noprize_x = (FRAME_WIDTH as i32 - noprize.len() as i32 * 8) / 2;
+            commands.push(text(noprize_x, line_y, noprize, [255, 200, 255], 1));
+            line_y += 12;
+        }
+        // ASM loc_D60E (kid.asm:16750): PATH BONUS = `PathBonus_Values[level]
+        // × 1000`. Only awarded on non-Elsewhere levels with a non-zero
+        // table entry; the renderer reflects the engine's awarded amount
+        // directly rather than recomputing the per-level table.
+        if trace.level_path_bonus_amount > 0 {
+            let path_line = format!("PATH BONUS: {}", trace.level_path_bonus_amount);
+            let path_x = (FRAME_WIDTH as i32 - path_line.len() as i32 * 8) / 2;
+            commands.push(text(path_x, line_y, &path_line, [200, 200, 255], 1));
+            line_y += 12;
+        }
+        // ASM loc_D660 (kid.asm:16775): SPEED BONUS = 10,000 points,
+        // awarded only when `Level_completion_time <= SpeedBonus_Values[level]`
+        // (per-level threshold table, accounting for clocks collected).
+        // The previous overlay used a hand-tuned `elapsed < 60` gate that
+        // did not match the engine's per-level condition; surface the
+        // engine-driven `level_speed_bonus_awarded` flag instead.
+        if trace.level_speed_bonus_awarded {
             let speed = "SPEED BONUS: 10000";
             let speed_x = (FRAME_WIDTH as i32 - speed.len() as i32 * 8) / 2;
             commands.push(text(speed_x, line_y, speed, [100, 200, 255], 1));

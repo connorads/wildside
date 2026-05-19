@@ -989,6 +989,9 @@ impl NativeRuntime {
             score: self.progression.score,
             level_timer_seconds: self.level_timer.seconds,
             level_damage_taken: self.level_damage_taken,
+            level_prize_collected: self.level_prize_collected,
+            level_speed_bonus_awarded: self.level_speed_bonus_awarded,
+            level_path_bonus_amount: self.level_path_bonus_amount,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
             active_projectiles: self
                 .projectiles
