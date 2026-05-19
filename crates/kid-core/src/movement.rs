@@ -2523,6 +2523,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -2582,6 +2583,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -3799,8 +3801,6 @@ impl OpeningSliceState {
     /// loc_7820 (kid.asm:7896): `clr.w ($FFFFF8F0) / bra.w loc_8D72` — clears
     /// walk accumulator and enters walking state.
     ///
-    /// TODO(fidelity): visual walk-accumulator state at `$FFFFF8F0` is not
-    /// modelled when loc_7820 enters walking.
     fn should_hold_standing_still(
         &mut self,
         input: FrameInput,
@@ -3855,6 +3855,8 @@ impl OpeningSliceState {
                 | PlayerForm::Micromax
         );
         if skips_ledge_probe {
+            // ASM loc_7820: clear `$FFFFF8F0` before entering walking.
+            self.walk_visual_accumulator = 0;
             return false;
         }
 
@@ -3862,8 +3864,15 @@ impl OpeningSliceState {
             Direction::Right => (1, terrain::CollisionKind::SlopeUp),
             Direction::Left => (-1, terrain::CollisionKind::SlopeDown),
         };
-        terrain::probe_relative_collision_sub_B55C(grid, x_px, y_px, x_offset, -1)
-            == expected_collision
+        let ledge_blocks_walk =
+            terrain::probe_relative_collision_sub_B55C(grid, x_px, y_px, x_offset, -1)
+                == expected_collision;
+        if !ledge_blocks_walk {
+            // ASM loc_7820: non-bitmask helmets also clear the visual phase
+            // when the extra ledge probe does not keep them standing.
+            self.walk_visual_accumulator = 0;
+        }
+        ledge_blocks_walk
     }
 
     fn try_release_wall_cling_overhang(

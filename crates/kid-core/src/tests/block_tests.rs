@@ -786,6 +786,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -851,6 +852,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -917,6 +919,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -987,6 +990,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1053,6 +1057,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1126,6 +1131,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1208,6 +1214,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1269,6 +1276,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1346,6 +1354,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1402,6 +1411,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1458,6 +1468,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1511,6 +1522,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -1564,6 +1576,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -10617,6 +10630,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
@@ -10673,6 +10687,7 @@ mod chunk_04 {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,

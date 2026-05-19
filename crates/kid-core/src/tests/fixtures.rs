@@ -420,6 +420,7 @@ pub(super) fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         objects: ObjectSystemState {
             platform_loader: PlatformLoaderState::default(),
         },
+        walk_visual_accumulator: 0,
         prize_block_hit: None,
         lift_block_hit: None,
         drill_projectile_hit: None,
@@ -515,6 +516,7 @@ pub(super) fn shooter_test_slice(camera_x_px: u32, camera_y_px: u32) -> OpeningS
         objects: ObjectSystemState {
             platform_loader: PlatformLoaderState::default(),
         },
+        walk_visual_accumulator: 0,
         prize_block_hit: None,
         lift_block_hit: None,
         drill_projectile_hit: None,

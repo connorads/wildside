@@ -2028,6 +2028,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) terrain: TerrainState,
     pub(crate) level_bounds: LevelBounds,
     pub(crate) objects: ObjectSystemState,
+    /// ASM `$FFFFF8F0`: visual walk/crawl/slope animation phase.
+    pub(crate) walk_visual_accumulator: u16,
     /// Prize block headbutted this frame — (content, x_px, y_px) or None.
     pub(crate) prize_block_hit: Option<(terrain::PrizeContent, u16, u16)>,
     /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.

@@ -6414,6 +6414,48 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_7820 (kid.asm:7896): entering the walking loop clears the shared
+    /// visual walk accumulator at `$FFFFF8F0`.
+    #[test]
+    fn loc_7820_walk_entry_clears_visual_accumulator() {
+        let mut data = vec![0u8; 8 * 6 * 2];
+        for col in 2..=3 {
+            let offset = (4 * 8 + col) * 2;
+            data[offset] = 0x60;
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 6);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 6 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.walk_visual_accumulator = 0x0280;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.walk_visual_accumulator, 0,
+            "ASM loc_7820: clear $FFFFF8F0 before entering MoveID_Walking"
+        );
+    }
+
     // --- loc_787E–loc_78C0: standing-still platform departure / support / crush ---
 
     /// ASM loc_787E (kid.asm:7924): when the standing-still platform block
