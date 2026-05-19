@@ -8005,6 +8005,8 @@ mod chunk_09 {
             cell_x: 3,
             cell_y: 5,
             remaining: 2,
+            initial_duration: 8,
+            y_offset_px: 0,
         });
 
         rt.step_visual_effects();

@@ -103,6 +103,8 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         cell_x: 3,
         cell_y: 4,
         remaining: 7,
+        initial_duration: 8,
+        y_offset_px: 0,
     });
     runtime.block_destroy_effects.push(BlockDestroyEffect {
         x_px: 80,
@@ -15523,6 +15525,68 @@ mod chunk_02 {
             result.animation_script_addr, 0x0001_02DE,
             "ASM loc_102B8 should load `stru_102DE` into `d7` and wait for that flash script to finish before deleting the worker",
         );
+    }
+
+    /// ASM sub_1007A (kid.asm:21345-21599): the prize-block headbutt
+    /// wobble runs for 31 hibernated frames with the delta pattern from
+    /// `PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A`. The engine must drive the
+    /// renderer-facing `y_offset_px` through the cumulative sum of those
+    /// deltas, not the previous placeholder 8-frame triangular arc.
+    ///
+    /// User-reported playtest bug #149 (2026-05-19): hit blocks did not
+    /// visibly shake before breaking. Root cause was a `remaining: 8`
+    /// placeholder set when the prize block was queued, plus a grey-rect
+    /// overlay in `scene.rs`. Both have been replaced with the ASM-correct
+    /// 31-frame wobble.
+    #[test]
+    fn prize_block_bounce_y_offset_follows_asm_sub_1007a_cumulative_pattern() {
+        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
+        runtime.set_block_grid(grid_with_blocks());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(0))));
+
+        let slice = runtime.opening_slice.as_mut().unwrap();
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        slice.terrain.floor_y_pos = 64 << 16;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        // Frame 1: headbutt registers, bounce is queued with 31-frame
+        // duration. The first tick has not yet applied a delta.
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.block_bounces.len(),
+            1,
+            "prize block hit must queue exactly one bounce"
+        );
+        assert_eq!(
+            runtime.block_bounces[0].initial_duration, 31,
+            "ASM sub_1007A spans 31 hibernated frames"
+        );
+
+        // Walk the bounce through every frame and accumulate the deltas
+        // from the ASM table; assert the engine matches at each step.
+        let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
+        let mut expected_offset: i16 = 0;
+        for (frame_index, delta) in deltas.iter().enumerate() {
+            expected_offset = expected_offset.saturating_add(*delta);
+            runtime.step_frame(FrameInput::default());
+            if frame_index < 30 {
+                assert_eq!(
+                    runtime.block_bounces.len(),
+                    1,
+                    "bounce must still be live at frame {frame_index}"
+                );
+                assert_eq!(
+                    runtime.block_bounces[0].y_offset_px, expected_offset,
+                    "y_offset at delta-frame {frame_index} should equal cumulative sum {expected_offset}"
+                );
+            }
+        }
     }
 
     #[test]

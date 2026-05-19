@@ -35,7 +35,7 @@ These are the current blockers to a completion claim:
 |---|---|---|
 | #147 | P1 playability | Agent-proposed fix landed (head-clearance gate at ASM `loc_ABA4`); awaiting human validation that the cheat is gone on Level 2 |
 | #148 | P2 fidelity | Frame-by-frame oracle comparison of Kid death sequence; ASM read of `Kid_Death` / `DeathWindup` |
-| #149 | P2 fidelity | Native trace of non-prize block hit confirming whether `sub_1007A` wobble plays; ASM-cited fix if missing |
+| #149 | P2 fidelity | Agent-proposed fix landed (ASM `sub_1007A` 31-frame wobble drives block y_offset, renderer applies it to the block draw); awaiting human validation |
 
 `human-validation-checklist.md` currently has no open rows.
 

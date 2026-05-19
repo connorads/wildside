@@ -1054,7 +1054,7 @@ impl NativeRuntime {
             block_bounces: self
                 .block_bounces
                 .iter()
-                .map(|b| (b.cell_x, b.cell_y, b.remaining))
+                .map(|b| (b.cell_x, b.cell_y, b.remaining, b.y_offset_px))
                 .collect(),
             block_destroy_effects: self
                 .block_destroy_effects

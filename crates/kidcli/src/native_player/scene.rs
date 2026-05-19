@@ -1095,11 +1095,19 @@ pub(super) fn push_block_grid_overrides(
             else {
                 continue;
             };
+            // ASM sub_1007A wobble: if the cell is in `block_bounces`,
+            // offset the draw y_pos by the engine-supplied value so the
+            // block visibly shakes up/down before settling.
+            let y_offset = trace
+                .block_bounces
+                .iter()
+                .find(|(cx, cy, _, _)| *cx == col && *cy == row)
+                .map_or(0, |(_, _, _, y)| i32::from(*y));
             push_tile_quad(
                 commands,
                 level_visuals,
                 i32::from(col) * 16 - camera_x_px,
-                i32::from(row) * 16 - camera_y_px,
+                i32::from(row) * 16 - camera_y_px + y_offset,
                 resolved.quad,
             );
         }
@@ -1353,22 +1361,14 @@ fn build_game_scene_filtered(
             }
         }
 
-        // Metal block bounce animation: block shifts up then back
-        for &(cx, cy, remaining) in &trace.block_bounces {
-            let bx = i32::from(cx) * 16 - (trace.camera_x_pos >> 16) as i32;
-            let bounce_offset = if remaining > 4 {
-                -i32::from(8 - remaining) // rise phase
-            } else {
-                -i32::from(remaining) // fall phase
-            };
-            let by = i32::from(cy) * 16 - (trace.camera_y_pos >> 16) as i32 + bounce_offset;
-            commands.push(DrawCommand::Rect {
-                x: bx,
-                y: by,
-                width: 16,
-                height: 16,
-                colour: [160, 160, 180],
-            });
+        // ASM sub_1007A bounce coroutine: the block itself moves with the
+        // engine-supplied y_offset (replaces the previous grey-rect
+        // overlay). The level-pass `push_block_grid_overrides` is
+        // responsible for drawing the actual block art at the offset
+        // position; this loop is intentionally empty so the original cell
+        // is not double-drawn at the un-offset position.
+        for &(_cx, _cy, _remaining, _y_offset) in &trace.block_bounces {
+            // Block-pass handles the offset draw; nothing to do here.
         }
 
         // Block destruction fragments: 4 small pieces moving outward

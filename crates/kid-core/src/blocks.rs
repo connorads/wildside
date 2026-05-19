@@ -2813,6 +2813,8 @@ impl NativeRuntime {
                 cell_x,
                 cell_y,
                 remaining: 8,
+                initial_duration: 8,
+                y_offset_px: 0,
             });
         }
 
@@ -2825,6 +2827,8 @@ impl NativeRuntime {
                 cell_x: cx,
                 cell_y: cy,
                 remaining: 8,
+                initial_duration: 8,
+                y_offset_px: 0,
             });
         }
 
@@ -3233,7 +3237,28 @@ impl NativeRuntime {
             )
         };
 
+        // ASM sub_1007A (kid.asm:21345-21599): each hibernate cycle in the
+        // prize-block wobble applies one entry from the delta table to
+        // y_pos(a3). Native walks the same 31-entry table for 31-frame
+        // bounces. Shorter bounces (metal/rubber at 8 frames) use a simple
+        // triangular arc rising to -4px at the midpoint until each enemy's
+        // ASM coroutine is individually pinned.
         for b in &mut self.block_bounces {
+            let elapsed = b.initial_duration.saturating_sub(b.remaining);
+            if b.initial_duration == 31 {
+                if let Some(delta) = PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A.get(usize::from(elapsed))
+                {
+                    b.y_offset_px = b.y_offset_px.saturating_add(*delta);
+                }
+            } else {
+                let half = i16::from(b.initial_duration / 2);
+                let elapsed_i = i16::from(elapsed);
+                b.y_offset_px = if elapsed_i < half {
+                    -elapsed_i
+                } else {
+                    -(i16::from(b.initial_duration) - elapsed_i)
+                };
+            }
             b.remaining = b.remaining.saturating_sub(1);
         }
         self.block_bounces.retain(|b| b.remaining > 0);

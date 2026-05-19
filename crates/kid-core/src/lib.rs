@@ -2824,12 +2824,17 @@ impl NativeRuntime {
                     deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
                     phase: DeferredPrizeBlockPhase::Deleted,
                 });
-            // Visual: shake the prize block (same as Metal block bounce).
-            // ASM sub_1007A bounce coroutine wiggles the block for ~31 frames.
+            // ASM sub_1007A (kid.asm:21345-21599) drives the prize-block
+            // headbutt wobble for 31 frames with the delta pattern in
+            // PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A. The engine computes the
+            // cumulative y_offset each frame and the renderer applies it to
+            // the block draw, replacing the earlier 8-frame placeholder arc.
             self.block_bounces.push(BlockBounceAnim {
                 cell_x: col,
                 cell_y: row,
-                remaining: 8,
+                remaining: 31,
+                initial_duration: 31,
+                y_offset_px: 0,
             });
         }
 

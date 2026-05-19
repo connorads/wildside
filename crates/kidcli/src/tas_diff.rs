@@ -358,9 +358,9 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
             )),
         }
     }
-    for &(cell_x, cell_y, remaining) in &frame.block_bounces {
+    for &(cell_x, cell_y, remaining, y_offset) in &frame.block_bounces {
         entries.push(format!(
-            "block_bounce@{cell_x:02X},{cell_y:02X} rem={remaining}"
+            "block_bounce@{cell_x:02X},{cell_y:02X} rem={remaining} y_off={y_offset}"
         ));
     }
     for &(x_px, y_px, remaining, content_id) in &frame.floating_items {

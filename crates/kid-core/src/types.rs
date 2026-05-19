@@ -1097,7 +1097,7 @@ pub struct NativeTraceFrame {
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
     /// Metal block bounce animations: (cell_x, cell_y, remaining_frames).
-    pub block_bounces: Vec<(u16, u16, u8)>,
+    pub block_bounces: Vec<(u16, u16, u8, i16)>,
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
     pub block_destroy_effects: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
@@ -1278,6 +1278,13 @@ pub(crate) struct BlockBounceAnim {
     pub(crate) cell_x: u16,
     pub(crate) cell_y: u16,
     pub(crate) remaining: u8,
+    /// Total duration when the bounce was spawned. Drives the wobble lookup
+    /// per ASM `sub_1007A` (31 frames for prize blocks, shorter arc for
+    /// metal/rubber until their ASM coroutines are individually pinned).
+    pub(crate) initial_duration: u8,
+    /// Current y-pixel offset for visual rendering. Negative = rising (block
+    /// moves up after a head-bonk). Maintained by `process_block_effects`.
+    pub(crate) y_offset_px: i16,
 }
 
 #[derive(Debug, Clone)]
