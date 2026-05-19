@@ -19950,10 +19950,9 @@ pub(crate) const DRIPS_DROP_INTERVAL: u16 = 67;
 pub(crate) const DRIPS_DROP_INITIAL_Y_SPEED: i32 = 0;
 /// Gravity accumulation: ASM loc_3345C `addi.l #$2000,$2A(a1)`.
 pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;
-/// Native fallback lifetime for the falling drop. The ROM deletes on terrain
-/// contact after the splash sequence; native keeps a generous timer in case the
-/// projectile never reaches solid terrain.
-pub(crate) const DRIPS_DROP_LIFETIME: u16 = 120;
+/// Sentinel lifetime for the falling drop. ASM loc_3345C has no short timer:
+/// terrain/contact ends the drop before the splash/reset sequence.
+pub(crate) const DRIPS_DROP_LIFETIME: u16 = u16::MAX;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRIPS_COLID_CEILING: u16 = 0x0010;
 

@@ -9860,6 +9860,11 @@ mod chunk_04 {
             projectiles[0].gravity, DRIPS_DROP_GRAVITY,
             "ASM loc_3345C accelerates the drop by `$2000` each frame"
         );
+        assert_eq!(
+            projectiles[0].lifetime,
+            u16::MAX,
+            "ASM loc_3345C has no short DBF lifetime; collision ends the falling drop"
+        );
         assert!(
             projectiles[0].terrain_kill,
             "native drop should expire on terrain contact instead of only a short timer"
