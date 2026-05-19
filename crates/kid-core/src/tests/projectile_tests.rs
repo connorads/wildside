@@ -7180,6 +7180,38 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_92DE (kid.asm:10732): `cmpi.w #MoveID_Jump,(Character_Movement);
+    /// beq.s loc_92AA` skips the block handler dispatch while jumping, but the
+    /// later loc_9326 wall-hit return still clears `Berzerker_charging`.
+    #[test]
+    fn berzerker_charge_airborne_wall_hit_clears_charge_without_breaking_block_loc_92de() {
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.helmet.berzerker_charging = true;
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            smash,
+        ));
+        let mut slice = berzerker_wall_slice(0x2_0000, Direction::Right);
+        slice.player.on_ground = false;
+
+        rt.berzerker_break_wall_block(&slice);
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            grid.cell_at(5, 3),
+            smash,
+            "ASM loc_92DE should not dispatch the Smash handler while Character_Movement is MoveID_Jump",
+        );
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9326 should still clear Berzerker_charging after the wall hit",
+        );
+    }
+
     // --- 105-level soak test ---
 
     #[test]

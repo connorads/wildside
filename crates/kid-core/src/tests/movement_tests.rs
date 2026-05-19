@@ -7901,9 +7901,7 @@ mod chunk_11 {
     ///
     /// Native: probe_wall_column always returns hit + cell info regardless of
     /// Berzerker state. The block interaction gate is handled separately at the
-    /// caller level (`berzerker_break_wall_block`).
-    /// TODO(fidelity): native allows any helmet to trigger block interactions on
-    /// wall contact; the ROM restricts non-Rubber interactions to Berzerker charge.
+    /// caller level (`berzerker_break_wall_block`), including the non-jump gate.
     #[test]
     fn loc_92de_berzerker_gate_non_rubber_block_preserved_in_probe() {
         let w: u16 = 6;

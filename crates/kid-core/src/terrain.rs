@@ -1299,9 +1299,8 @@ pub fn probe_wall(
 /// NOT Rubber ($18), `tst.b (Berzerker_charging); beq.s loc_92AA` skips if
 /// not charging. `cmpi.w #MoveID_Jump,(Character_Movement); beq.s loc_92AA`
 /// skips if jumping. Only a charging, non-jumping Berzerker reaches loc_92EC.
-/// TODO(fidelity): native dispatches block interactions at the caller level
-/// without this gate — any helmet can trigger Smash/Ice block effects on wall
-/// contact.
+/// Native dispatches this block interaction at the caller level and preserves
+/// the same Berzerker-charge / non-jump gate in `berzerker_break_wall_block`.
 ///
 /// ASM loc_92EC (kid.asm:10735): block interaction dispatch. Saves registers,
 /// loads handler from `off_933E[block_type*4]` (`lea off_933E(pc),a2;

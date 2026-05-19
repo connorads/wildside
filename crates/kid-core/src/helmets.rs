@@ -5245,7 +5245,15 @@ impl NativeRuntime {
             // skipped the block dispatch because the solid cell has no block.
             self.helmet.berzerker_charging = false;
         }
-        if probe.hit && probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Smash {
+        if probe.hit
+            && slice.player.on_ground
+            && probe.cell.has_block
+            && probe.cell.block_type == terrain::BlockType::Smash
+        {
+            // ASM loc_92DE (kid.asm:10729): non-Rubber block handlers are
+            // gated behind Berzerker charge and `Character_Movement !=
+            // MoveID_Jump`; native approximates that movement gate with
+            // grounded state while keeping loc_9326's charge-clear above.
             grid.set_cell_at(
                 probe.cell_x,
                 probe.cell_y,
