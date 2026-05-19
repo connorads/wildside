@@ -6,8 +6,7 @@ const HEADYMETAL_WOBBLE_STAGE_3: u16 = 0x0096;
 const HEADYMETAL_WOBBLE_STAGE_4: u16 = 0x0064;
 const FRIENDLY_PROJECTILE_COLOUR: [u8; 3] = [100, 255, 100];
 const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
-const FIRE_TRAIL_OUTER_COLOUR: [u8; 3] = [255, 120, 32];
-const FIRE_TRAIL_CORE_COLOUR: [u8; 3] = [255, 224, 128];
+const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
@@ -94,40 +93,29 @@ impl LayerFilter {
     }
 }
 
-fn push_fire_demon_trail(commands: &mut Vec<DrawCommand>, sx: i32, sy: i32, remaining_frames: u16) {
-    let phase = usize::from(remaining_frames % 6);
-    let outer_rects: &[(i32, i32, i32, i32)] = match phase {
-        0 => &[(-2, -4, 4, 2), (-3, -2, 6, 3), (-2, 1, 4, 1)],
-        1 => &[(-1, -5, 2, 2), (-3, -3, 6, 3), (-2, 0, 4, 2)],
-        2 => &[(-2, -5, 4, 2), (-2, -3, 4, 3), (-3, 0, 6, 2)],
-        3 => &[(-1, -4, 2, 2), (-3, -2, 6, 3), (-1, 1, 2, 1)],
-        4 => &[(-2, -4, 4, 2), (-3, -2, 6, 2), (-2, 0, 4, 2)],
-        _ => &[(-1, -5, 2, 2), (-2, -3, 4, 3), (-2, 0, 4, 1)],
-    };
-    for &(dx, dy, width, height) in outer_rects {
-        commands.push(DrawCommand::Rect {
-            x: sx + dx,
-            y: sy + dy,
-            width,
-            height,
-            colour: FIRE_TRAIL_OUTER_COLOUR,
-        });
-    }
-
-    let core_rects: &[(i32, i32, i32, i32)] = match phase {
-        0 | 4 => &[(-1, -2, 2, 2)],
-        1 | 5 => &[(-1, -3, 2, 3)],
-        _ => &[(-1, -2, 2, 3)],
-    };
-    for &(dx, dy, width, height) in core_rects {
-        commands.push(DrawCommand::Rect {
-            x: sx + dx,
-            y: sy + dy,
-            width,
-            height,
-            colour: FIRE_TRAIL_CORE_COLOUR,
-        });
-    }
+fn push_fire_demon_trail(
+    commands: &mut Vec<DrawCommand>,
+    sx: i32,
+    sy: i32,
+    _remaining_frames: u16,
+) {
+    // Degraded-asset fallback. ASM Fire_Demon loc_3A63C cycles
+    // `stru_3A622`'s six frames `unk_C7776..unk_C779E`
+    // (`sprite_frame_vram $0B0..$0BA`); when the Fire Demon visual bundle
+    // is present the renderer uses those tiles directly through
+    // `push_fire_demon_trail_sprite`. The previous six-phase rect
+    // choreography assigned hand-invented outer/core rect compositions to
+    // each ROM phase even though the ASM only dictates which sprite tile
+    // to swap to. Collapse to a single warm-orange placeholder rect so
+    // missing-asset states stay visible without inventing per-phase
+    // geometry the ROM does not specify.
+    commands.push(DrawCommand::Rect {
+        x: sx - 2,
+        y: sy - 3,
+        width: 4,
+        height: 5,
+        colour: FIRE_TRAIL_PLACEHOLDER_COLOUR,
+    });
 }
 
 fn push_fire_demon_trail_sprite(
@@ -1311,11 +1299,11 @@ fn build_game_scene_filtered(
             });
         }
 
-        // Projectiles: generic shots stay coloured dots, while the Fire Demon
-        // death trail gets its own flame-like footprint. ASM Fire_Demon
-        // `loc_3A63C` cycles `stru_3A622`'s six frames; the native player uses
-        // a small six-phase rect approximation until those ROM tiles are wired
-        // into the scene renderer.
+        // Projectiles: generic shots stay coloured dots; the Fire Demon
+        // death trail renders ROM sprite frames via
+        // `push_fire_demon_trail_sprite` (ASM Fire_Demon `loc_3A63C` cycling
+        // `stru_3A622` -> `unk_C7776..unk_C779E`). Missing-asset states fall
+        // back to a single placeholder rect in `push_fire_demon_trail`.
         let projectile_details: Vec<ActiveProjectileSnapshot> =
             if trace.active_projectile_details.is_empty() {
                 trace

@@ -1500,7 +1500,11 @@ mod tests {
     }
 
     #[test]
-    fn fire_demon_death_trail_falls_back_to_flame_footprint_without_rom_visuals() {
+    fn fire_demon_death_trail_falls_back_to_placeholder_without_rom_visuals() {
+        // Removing the Fire Demon visuals forces the degraded-asset path.
+        // The previous flame-footprint approximation invented per-phase rect
+        // geometry; the simplified fallback emits a single placeholder so
+        // missing-asset states stay visible without claiming ROM shapes.
         let mut visuals = sample_level_visuals();
         visuals.enemies.families.remove(&0x00);
         let mut trace = sample_trace(GameMode::InGame);
@@ -1515,12 +1519,16 @@ mod tests {
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
-        assert!(has_rect(&scene, 31, 20, 2, 2, [255, 120, 32]));
-        assert!(has_rect(&scene, 29, 22, 6, 3, [255, 120, 32]));
-        assert!(has_rect(&scene, 31, 22, 2, 3, [255, 224, 128]));
+        // Trace at world (48, 32); sample_trace camera at (16, 8), so the
+        // projectile lands at screen (32, 24). The fallback placeholder draws
+        // a 4×5 rect anchored at (sx-2, sy-3) = (30, 21).
+        assert!(
+            has_rect(&scene, 30, 21, 4, 5, [255, 120, 32]),
+            "missing-asset fallback should emit a single warm-orange placeholder rect at the trail position",
+        );
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
-            "fire trail should render its flame footprint instead of the generic projectile dot",
+            "fire trail should never collapse to the generic projectile dot",
         );
     }
 
