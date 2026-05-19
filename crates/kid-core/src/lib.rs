@@ -2247,6 +2247,11 @@ impl NativeRuntime {
         // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 + Eyeclops hard beam.
         // Native runs all three every frame, not only in the walking state.
         self.step_red_stealth_sword(input);
+        // ASM sub_B270 loc_B350 (kid.asm:14220-14248) drives the Red Stealth
+        // airborne attack-down slash counter independently of the ground swing
+        // timer. Wired here so the counter advances even though the renderer
+        // hasn't yet consumed the returned sprite mapping (#153 first layer).
+        self.step_red_stealth_airborne_slash(&slice, input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
         self.step_berzerker_charge(&slice);

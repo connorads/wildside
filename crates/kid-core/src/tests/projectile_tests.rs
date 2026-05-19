@@ -2044,6 +2044,89 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_airborne_slash_counter_advances_each_fast_fall_frame_with_c_held() {
+        // ASM loc_B350/loc_B380 (kid.asm:14220-14248): Red Stealth airborne
+        // fast-fall (y_vel<<2 > $FFFFFAAA) with Ctrl_C_Held increments the
+        // sword counter by $10 per frame, caps at $7F, and plays
+        // sfx_Red_Stealth_attack_down when the counter first becomes $10.
+        // The runtime call `step_red_stealth_airborne_slash` (helmets.rs:4990)
+        // wires the engine-side counter through the already-tested helper.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0000_5000;
+        rt.opening_slice = Some(slice);
+
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+        let opening = rt.opening_slice.expect("slice was just set");
+
+        rt.step_red_stealth_airborne_slash(&opening, input);
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x10);
+        assert!(
+            rt.played_sound_effects
+                .contains(&QueuedSoundEffect::RedStealthAttackDown),
+            "ASM loc_B390 plays sfx_Red_Stealth_attack_down when the counter first becomes $10",
+        );
+
+        rt.played_sound_effects.clear();
+        rt.step_red_stealth_airborne_slash(&opening, input);
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x20);
+        assert!(rt.played_sound_effects.is_empty());
+    }
+
+    #[test]
+    fn red_stealth_airborne_slash_counter_resets_when_c_released() {
+        // ASM loc_B3A8 (kid.asm:14254): the C-released branch jumps to
+        // `sf (Red_Stealth_sword_swing).w`. Native `kid_airborne_visual_sub_B270`
+        // returns `next_red_stealth_sword_swing: 0` for the non-slash branches,
+        // so the wiring through `step_red_stealth_airborne_slash` clears the
+        // counter as soon as C is released.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0000_5000;
+        rt.opening_slice = Some(slice);
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
+
+        let release_input = FrameInput::default();
+        let opening = rt.opening_slice.expect("slice was just set");
+        rt.step_red_stealth_airborne_slash(&opening, release_input);
+
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0);
+    }
+
+    #[test]
+    fn red_stealth_airborne_slash_counter_clears_for_non_red_stealth_forms() {
+        // Sanity guard: only Red Stealth should ever hold a non-zero airborne
+        // slash counter. Other forms must early-out so the counter stays at 0
+        // even if state is left over from a prior transform.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::TheKid;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x30;
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0000_5000;
+        rt.opening_slice = Some(slice);
+
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+        let opening = rt.opening_slice.expect("slice was just set");
+        rt.step_red_stealth_airborne_slash(&opening, input);
+
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0);
+    }
+
+    #[test]
     /// ASM loc_76B0: `tst.b (Red_Stealth_sword_swing) / bne.w loc_76E4` —
     /// if the sword swing flag is already set, a new C press is ignored.
     fn red_stealth_loc_76b0_already_swinging_blocks_new_swing() {

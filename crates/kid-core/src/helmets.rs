@@ -4972,6 +4972,67 @@ impl NativeRuntime {
         }
     }
 
+    /// Step the Red Stealth airborne attack-down slash counter.
+    ///
+    /// ASM loc_B350 -> loc_B380 (kid.asm:14220-14248): while airborne and
+    /// fast-falling (`y_vel<<2 > $FFFFFAAA`) with `Ctrl_C_Held`, the ROM
+    /// increments `Red_Stealth_sword_swing` by `$10` per frame, caps at `$7F`,
+    /// and selects one of four downward-slash sprite phases. Releasing C or
+    /// transitioning out of the fast-fall state clears the counter via the
+    /// `next_red_stealth_sword_swing: 0` branch.
+    ///
+    /// Delegates the per-frame phase computation to the already-tested helper
+    /// `kid_airborne_visual_sub_B270` (`crates/kid-core/src/helmets.rs:571`)
+    /// rather than duplicating its branch table. The returned sprite mapping
+    /// is currently dropped — renderer plumbing is a follow-up — but the
+    /// counter state is correct, which is what `process_sword_hits` will need
+    /// once the airborne hitbox is wired through.
+    pub(crate) fn step_red_stealth_airborne_slash(
+        &mut self,
+        slice: &OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.progression.current_form != PlayerForm::RedStealth {
+            self.helmet.red_stealth_airborne_slash_counter = 0;
+            return;
+        }
+
+        // ASM `$FFFFFAAA` is the stored launch y-velocity used as the
+        // fast-fall threshold. Native physics treats it as a constant pending
+        // proper jump-velocity capture; the unit tests at
+        // `crates/kid-core/src/tests/projectile_tests.rs:2657` confirm
+        // `0x0001_0000` is the canonical value driving the state-3 slash
+        // branch. Centralising it here keeps the wiring honest about the
+        // pending refinement.
+        const RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FP: i32 = 0x0001_0000;
+
+        let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            helmet_id: self.progression.current_form.helmet_id(),
+            // Red Stealth has no is_animated/airborne_latch/cyclone/juggernaut
+            // state machinery — feed defaults so only the shared loc_B304
+            // mapping dispatch and the Red Stealth loc_B350/B380 branch are
+            // reachable for this form.
+            is_animated: false,
+            on_ground: slice.player.on_ground,
+            global_lock_active: false,
+            airborne_latch_active: false,
+            cyclone_flying: false,
+            cyclone_y_accel: 0,
+            cyclone_frame_accum: 0,
+            juggernaut_companion_animation_active: false,
+            maniaxe_throwing_axe: false,
+            y_velocity: slice.player.y_velocity,
+            jump_threshold: RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FP,
+            c_held: input.c,
+            red_stealth_sword_swing: self.helmet.red_stealth_airborne_slash_counter,
+        });
+
+        self.helmet.red_stealth_airborne_slash_counter = step.next_red_stealth_sword_swing;
+        if let Some(sound) = step.queued_sound {
+            self.played_sound_effects.push(sound);
+        }
+    }
+
     /// Returns true if the sword hitbox is active (past startup, within active frames).
     /// ASM loc_86D8 (kid.asm:9546): each iteration of the `dbf d0,loc_86D8` loop
     /// hibernates one frame and checks `collision_type(a3)`. Native models this

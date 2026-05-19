@@ -626,6 +626,15 @@ pub(crate) struct HelmetState {
     pub(crate) cyclone_flying: bool,
     pub(crate) cyclone_y_accel: i16,
     pub(crate) red_stealth_sword_timer: u8,
+    /// ASM loc_B350/loc_B380 (kid.asm:14220-14248) per-frame counter for the
+    /// Red Stealth airborne attack-down slash. Increments by `$10` each frame
+    /// while airborne+fast-falling+C-held, caps at `$7F`. Selects one of four
+    /// sprite phases via `(counter>>5)<<2` indexing `LnkTo_unk_B40DE`. The
+    /// ROM stores this in the same word as `red_stealth_sword_timer` but
+    /// disambiguates via state transitions (sub_DB22 clears on jumps);
+    /// native keeps a dedicated field so the ground swing timer's
+    /// 12→0 semantics never overlap with this counter's 0→$7F semantics.
+    pub(crate) red_stealth_airborne_slash_counter: u8,
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,
