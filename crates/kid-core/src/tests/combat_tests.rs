@@ -1792,6 +1792,38 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_object_clear_ram_sub_3f586_clears_lists_and_shared_flags() {
+        let lists = helmets::diamond_power_object_clear_ram_sub_3F586(
+            helmets::DiamondPowerObjectListsSub3F5E8 {
+                active_slots: vec![0xF2AC, 0xF2F8],
+                free_slots: vec![0xF344],
+                last_active_slot: Some(0xF2F8),
+                diamond_power_active: true,
+                five_way_shot_ready: true,
+                samurai_haze_active: true,
+                kid_is_invulnerable: true,
+            },
+        );
+
+        assert!(
+            lists.active_slots.is_empty(),
+            "ASM sub_3F586 starts clearing at Addr_FirstDPObjectSlot ($F5A4)"
+        );
+        assert!(
+            lists.free_slots.is_empty(),
+            "ASM sub_3F586 clears Addr_NextFreeDPObjectSlot ($F5A8)"
+        );
+        assert_eq!(
+            lists.last_active_slot, None,
+            "ASM sub_3F586 clears Addr_LastDPObjectSlot ($F5AC)"
+        );
+        assert!(!lists.diamond_power_active);
+        assert!(!lists.five_way_shot_ready);
+        assert!(!lists.samurai_haze_active);
+        assert!(!lists.kid_is_invulnerable);
+    }
+
+    #[test]
     fn diamond_power_object_initialize_sub_3f596_seeds_ten_free_slots_and_clears_active_heads() {
         let lists = helmets::diamond_power_object_initialize_sub_3F596(
             helmets::DiamondPowerObjectListsSub3F5E8 {

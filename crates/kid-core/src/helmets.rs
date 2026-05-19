@@ -990,6 +990,23 @@ pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F586: clear words from Addr_FirstDPObjectSlot ($F5A4)
+    // through $F610, covering the DP object list heads and shared flags.
+    lists.active_slots.clear();
+    lists.free_slots.clear();
+    lists.last_active_slot = None;
+    lists.diamond_power_active = false;
+    lists.five_way_shot_ready = false;
+    lists.samurai_haze_active = false;
+    lists.kid_is_invulnerable = false;
+    lists
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_initialize_sub_3F596(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
