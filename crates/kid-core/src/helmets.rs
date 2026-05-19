@@ -554,6 +554,19 @@ pub(crate) struct KidAirborneVisualStepSubB270 {
 }
 
 #[allow(non_snake_case)]
+fn red_stealth_downward_slash_swing_loc_B380(current_swing: u8) -> u8 {
+    // ASM loc_B350 -> loc_B380 (kid.asm:14230): load the byte sword counter,
+    // add `$10` as a word, then clamp values above `$7F` to `$7F` before
+    // selecting the downward-slash mapping.
+    let next_swing = u16::from(current_swing) + 0x10;
+    if next_swing <= 0x7F {
+        u8::try_from(next_swing).unwrap_or(0x7F)
+    } else {
+        0x7F
+    }
+}
+
+#[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn kid_airborne_visual_sub_B270(
     input: KidAirborneVisualInputSubB270,
@@ -696,7 +709,7 @@ pub(crate) fn kid_airborne_visual_sub_B270(
     };
 
     if input.helmet_id == PlayerForm::RedStealth.helmet_id() && state_index == 3 && input.c_held {
-        let next_sword = input.red_stealth_sword_swing.saturating_add(0x10).min(0x7F);
+        let next_sword = red_stealth_downward_slash_swing_loc_B380(input.red_stealth_sword_swing);
         let mapping = kid_data::red_stealth_downward_slash_sprite_mapping_sub_B270(next_sword)
             .expect("ASM sub_B270 Red Stealth slash should stay within 0..=3");
         return KidAirborneVisualStepSubB270 {

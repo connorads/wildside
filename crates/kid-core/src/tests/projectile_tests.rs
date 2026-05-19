@@ -2657,6 +2657,66 @@ mod chunk_06 {
     }
 
     #[test]
+    fn kid_airborne_visual_loc_b380_continues_red_stealth_downward_slash_without_restarting_sound()
+    {
+        let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            helmet_id: PlayerForm::RedStealth.helmet_id(),
+            is_animated: false,
+            on_ground: false,
+            global_lock_active: false,
+            airborne_latch_active: false,
+            cyclone_flying: false,
+            cyclone_y_accel: 0,
+            cyclone_frame_accum: 0,
+            juggernaut_companion_animation_active: false,
+            maniaxe_throwing_axe: false,
+            y_velocity: 0x0000_5000,
+            jump_threshold: 0x0001_0000,
+            c_held: true,
+            red_stealth_sword_swing: 0x10,
+        });
+
+        assert_eq!(
+            step.visual,
+            KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_B42C4-Data_Index"),
+            "ASM loc_B380 should advance the Red Stealth downward slash to the second ROM frame while C is still held",
+        );
+        assert_eq!(step.next_red_stealth_sword_swing, 0x20);
+        assert_eq!(
+            step.queued_sound, None,
+            "ASM loc_B390 only plays sfx_Red_Stealth_attack_down when the counter first becomes `$10`",
+        );
+    }
+
+    #[test]
+    fn kid_airborne_visual_loc_b380_clamps_red_stealth_downward_slash_at_7f() {
+        let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            helmet_id: PlayerForm::RedStealth.helmet_id(),
+            is_animated: false,
+            on_ground: false,
+            global_lock_active: false,
+            airborne_latch_active: false,
+            cyclone_flying: false,
+            cyclone_y_accel: 0,
+            cyclone_frame_accum: 0,
+            juggernaut_companion_animation_active: false,
+            maniaxe_throwing_axe: false,
+            y_velocity: 0x0000_5000,
+            jump_threshold: 0x0001_0000,
+            c_held: true,
+            red_stealth_sword_swing: 0x78,
+        });
+
+        assert_eq!(
+            step.visual,
+            KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_B4870-Data_Index"),
+            "ASM loc_B380 clamps counters above `$7F`, and `$7F >> 5` selects the fourth downward slash frame",
+        );
+        assert_eq!(step.next_red_stealth_sword_swing, 0x7F);
+        assert_eq!(step.queued_sound, None);
+    }
+
+    #[test]
     fn kid_airborne_visual_sub_b270_advances_cyclone_spin_phase_from_accumulator() {
         let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
             helmet_id: PlayerForm::Cyclone.helmet_id(),
