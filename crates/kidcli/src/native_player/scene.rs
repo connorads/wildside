@@ -177,14 +177,17 @@ pub(crate) fn build_scene_filtered(
             block_grid,
             filter,
         ),
-        GameMode::LevelTransition => build_transition_scene(trace),
+        GameMode::LevelTransition => build_transition_scene(trace, level_visuals),
         GameMode::OptionsMenu => build_options_scene(trace),
         GameMode::EndingSequence => build_ending_scene(trace),
         _ => build_status_scene(trace, debug_overlay_visible),
     }
 }
 
-pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
+pub(super) fn build_transition_scene(
+    trace: &NativeTraceFrame,
+    level_visuals: Option<&NativeLevelVisuals>,
+) -> Scene {
     let mut commands = Vec::new();
     commands.push(DrawCommand::Rect {
         x: 0,
@@ -204,6 +207,7 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
     // is surfaced through `active_objects` with `Enemy{object_type:0}` and
     // debug fields `gfx_slot_index` + `glyph`. Render each visible glyph at
     // its current interpolated (x_pos, y_pos).
+    let title_card_art = level_visuals.and_then(|lv| lv.title_card_letters.as_ref());
     let mut drew_any_glyph = false;
     for object in &trace.active_objects {
         let NativeObjectKind::Enemy { object_type: 0 } = object.kind else {
@@ -213,21 +217,26 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
             continue;
         };
         let glyph = parse_title_glyph(glyph_str);
-        let Some(ch) = title_glyph_to_ascii(glyph) else {
-            continue;
-        };
         // ASM loc_1AC70 stores worker positions as 16.16 fixed-point signed
         // ints; entry poses include `$FFE0`/`$FFD0` (left of screen) and
         // `$160` (right of screen). Interpret as i32 to keep off-screen
         // start positions correct.
         let sx = (object.x_pos as i32) >> 16;
         let sy = (object.y_pos as i32) >> 16;
-        // TODO(fidelity): substitute ROM letter art decompressed from
-        // `ArtComp_19C68_TtlCardLetters` (see `off_1AC2A` sprite mapping
-        // table). Using the placeholder font here still drives accurate
-        // per-glyph fly-in motion from the simulated worker pose.
-        commands.push(text(sx, sy, &ch.to_string(), [255, 240, 200], 2));
-        drew_any_glyph = true;
+        if let Some(art) = title_card_art
+            && push_title_card_glyph_tiles(&mut commands, art, glyph, sx, sy)
+        {
+            drew_any_glyph = true;
+            continue;
+        }
+        // Fallback: when the title-card letter art isn't loaded, render the
+        // glyph as ASCII via the placeholder font. The per-glyph motion is
+        // still ASM-faithful via the worker pose; only the letter art is
+        // approximate.
+        if let Some(ch) = title_glyph_to_ascii(glyph) {
+            commands.push(text(sx, sy, &ch.to_string(), [255, 240, 200], 2));
+            drew_any_glyph = true;
+        }
     }
 
     // Fallback: death/respawn transitions never seed title workers, and the
@@ -285,6 +294,124 @@ fn title_glyph_to_ascii(glyph: u8) -> Option<char> {
         0x80..=0x83 => Some('!'),
         _ => None,
     }
+}
+
+/// Per-glyph sprite descriptor from ASM `unk_C86E8`..`unk_C87F8`
+/// (kid.asm:49238-49272). Each `off_1AC2A` entry points to a
+/// `sprite_frame_vram tile_offset, ox, oy, width, height` macro; the
+/// title-card letter sheet uses `tile_offset` as a byte offset into the
+/// uploaded VRAM region. For native rendering the offset is the tile
+/// index within the loaded letter `TileSheet`, and dimensions are the
+/// sprite extent in pixels.
+struct TitleCardGlyphFrame {
+    tile_offset: u16,
+    width_px: u16,
+    height_px: u16,
+}
+
+fn title_card_glyph_frame(glyph: u8) -> Option<TitleCardGlyphFrame> {
+    // ASM `unk_C86E8` onwards: most letters are 2×2 tiles (16×16 px);
+    // `i` (`$69`) is 1×2 (8×16), `$83` is 1×1 (8×8), and the wide
+    // glyphs `$7B`..`$80` use non-square tile counts. Hard-code the
+    // table verbatim from kid.asm:49238-49272 so the tile offsets and
+    // extents match the ROM exactly.
+    let (tile_offset, width_px, height_px) = match glyph {
+        b'a' => (0x000, 0x10, 0x10),
+        b'b' => (0x004, 0x10, 0x10),
+        b'c' => (0x008, 0x10, 0x10),
+        b'd' => (0x00C, 0x10, 0x10),
+        b'e' => (0x010, 0x10, 0x10),
+        b'f' => (0x014, 0x10, 0x10),
+        b'g' => (0x018, 0x10, 0x10),
+        b'h' => (0x01C, 0x10, 0x10),
+        b'i' => (0x020, 0x08, 0x10),
+        b'j' => (0x022, 0x10, 0x10),
+        b'k' => (0x026, 0x10, 0x10),
+        b'l' => (0x02A, 0x10, 0x10),
+        b'm' => (0x02E, 0x10, 0x10),
+        b'n' => (0x032, 0x10, 0x10),
+        b'o' => (0x036, 0x10, 0x10),
+        b'p' => (0x03A, 0x10, 0x10),
+        b'q' => (0x03E, 0x10, 0x10),
+        b'r' => (0x042, 0x10, 0x10),
+        b's' => (0x046, 0x10, 0x10),
+        b't' => (0x04A, 0x10, 0x10),
+        b'u' => (0x04E, 0x10, 0x10),
+        b'v' => (0x052, 0x10, 0x10),
+        b'w' => (0x056, 0x10, 0x10),
+        b'x' => (0x05A, 0x10, 0x10),
+        b'y' => (0x05E, 0x10, 0x10),
+        b'z' => (0x062, 0x10, 0x10),
+        0x7B => (0x066, 0x10, 0x20),
+        0x7C => (0x06E, 0x28, 0x10),
+        0x7D => (0x078, 0x20, 0x10),
+        0x7E => (0x080, 0x18, 0x10),
+        0x7F => (0x086, 0x18, 0x10),
+        0x80 => (0x08C, 0x60, 0x10),
+        0x81 => (0x0A4, 0x08, 0x18),
+        0x82 => (0x0A7, 0x10, 0x18),
+        0x83 => (0x0AD, 0x08, 0x08),
+        _ => return None,
+    };
+    Some(TitleCardGlyphFrame {
+        tile_offset,
+        width_px,
+        height_px,
+    })
+}
+
+/// Emit `IndexedTile` commands for every 8×8 tile in the glyph's sprite,
+/// laid out column-major as the MD sprite system does. Returns true when
+/// the glyph mapping resolves AND the tile sheet contains the
+/// referenced tiles. ASM `loc_1AC70` writes `move.w #$409,vram_tile`,
+/// which puts the letters on palette line 1.
+fn push_title_card_glyph_tiles(
+    commands: &mut Vec<DrawCommand>,
+    art: &kid_render::TitleCardLettersVisuals,
+    glyph: u8,
+    sx: i32,
+    sy: i32,
+) -> bool {
+    let Some(frame) = title_card_glyph_frame(glyph) else {
+        return false;
+    };
+    let cols = frame.width_px / 8;
+    let rows = frame.height_px / 8;
+    let palette = Arc::new(art.palette.clone());
+    let tile_sheet = Arc::new(art.tile_sheet.clone());
+    let mut emitted = 0u32;
+    for col in 0..cols {
+        for row in 0..rows {
+            // ASM sprite VRAM layout is column-major: tile_offset advances by
+            // (rows) when moving to the next column. Mirroring the ROM's
+            // column-first tile order keeps the rendered letter pixel-for-
+            // pixel aligned with `sprite_frame_vram`.
+            let tile_index = frame.tile_offset + (col * rows) + row;
+            if usize::from(tile_index) >= tile_sheet.tiles.len() {
+                continue;
+            }
+            commands.push(DrawCommand::IndexedTile {
+                x: sx + i32::from(col) * 8,
+                y: sy + i32::from(row) * 8,
+                tile_sheet: tile_sheet.clone(),
+                tile: kid_render::TileRef {
+                    tile_index,
+                    // The loaded `Title_card_letters.bin` palette holds only
+                    // the 16 colours destined for VRAM palette line 1. Native
+                    // stores those colours starting at slot 0 of the Palette
+                    // struct, so resolve via `palette_line: 0` — using line 1
+                    // would offset past the end of the loaded data.
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                palette: palette.clone(),
+            });
+            emitted += 1;
+        }
+    }
+    emitted > 0
 }
 
 pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {

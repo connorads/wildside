@@ -13,7 +13,7 @@ pub use background::{
     parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
     parse_layered_background_plane,
 };
-pub use bundle::{NativeLevelVisuals, load_level_visuals};
+pub use bundle::{NativeLevelVisuals, TitleCardLettersVisuals, load_level_visuals};
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{
     BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,

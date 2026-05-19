@@ -2106,6 +2106,7 @@ mod tests {
             floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),
             platforms: sample_platform_visuals(),
+            title_card_letters: None,
         }
     }
 

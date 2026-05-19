@@ -94,6 +94,20 @@ pub struct NativeLevelVisuals {
     pub floating_prizes: FloatingPrizeVisuals,
     pub flag: FlagVisuals,
     pub platforms: PlatformVisuals,
+    /// ASM `Load_TitleCard` `loc_1AB26` (kid.asm:28750) decompresses
+    /// `ArtComp_19C68_TtlCardLetters` to VRAM tile `$8120` and copies
+    /// `Pal_19C48` (16 colours, palette line 1) before the per-glyph
+    /// worker shell at `loc_1AC70` emits sprites. Native exposes this as
+    /// an optional tile sheet + palette so the `build_transition_scene`
+    /// renderer can draw real letter art instead of the ASCII fallback
+    /// font when the asset is available.
+    pub title_card_letters: Option<TitleCardLettersVisuals>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitleCardLettersVisuals {
+    pub tile_sheet: TileSheet,
+    pub palette: Palette,
 }
 
 pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<NativeLevelVisuals> {
@@ -295,7 +309,56 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         floating_prizes,
         flag,
         platforms,
+        title_card_letters: load_title_card_letters_visuals(manifest).unwrap_or_else(|err| {
+            if !cfg!(test) {
+                eprintln!("warning: title card letter art unavailable: {err}");
+            }
+            None
+        }),
     })
+}
+
+/// Load the Title Card letter sprite sheet + palette extracted from the
+/// `scenes/` asset tree. ASM `Load_TitleCard` `loc_1AB26` decompresses
+/// `ArtComp_19C68_TtlCardLetters` to VRAM tile `$8120` and copies
+/// `Pal_19C48` (16 colours, palette line 1). The 35 letter sprites
+/// (a..z plus 5 wide `$7B`..`$7F` plus 4 markers `$80`..`$83`) are
+/// mapped through `off_1AC2A` (kid.asm:28859-28893), each `glyph - $61`
+/// indexes into the tile sheet.
+fn load_title_card_letters_visuals(
+    manifest: &AssetManifest,
+) -> Result<Option<TitleCardLettersVisuals>> {
+    let scenes_root = manifest.output_root.join("scenes");
+    let art_path = scenes_root.join("artcomp/Title_card_letters.bin");
+    if !art_path.is_file() {
+        return Ok(None);
+    }
+    let palette_path = scenes_root.join("palette/Title_card_letters.bin");
+    if !palette_path.is_file() {
+        return Ok(None);
+    }
+    let art_compressed = fs::read(&art_path).with_context(|| {
+        format!(
+            "failed to read title card letters art: {}",
+            art_path.display()
+        )
+    })?;
+    let art_bytes =
+        decode_saxman(&art_compressed).context("failed to decompress title card letters art")?;
+    let tile_sheet = TileSheet::from_4bpp_bytes(&art_bytes)
+        .context("failed to parse title card letters tile sheet")?;
+    let palette_raw = fs::read(&palette_path).with_context(|| {
+        format!(
+            "failed to read title card letters palette: {}",
+            palette_path.display()
+        )
+    })?;
+    let palette =
+        Palette::from_bytes(&palette_raw).context("failed to parse title card letters palette")?;
+    Ok(Some(TitleCardLettersVisuals {
+        tile_sheet,
+        palette,
+    }))
 }
 
 fn resolve_theme_name(theme_id: u8) -> Option<&'static str> {
