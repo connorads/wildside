@@ -2823,7 +2823,7 @@ mod chunk_04 {
         use enemies::step_scorpion_tracking;
         let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
         let player_x = Some(150u32 << 16); // 50px away (within 170px range)
-        step_scorpion_tracking(&mut enemy, player_x, None);
+        step_scorpion_tracking(&mut enemy, player_x, None, None);
         assert_eq!(
             enemy.walk_speed_override, 0x3_8000,
             "HP>=5 within range should boost"
@@ -2838,7 +2838,7 @@ mod chunk_04 {
         let mut enemy = make_pacer(EnemyFamily::Scorpion, 4, 100, 224);
         enemy.facing = Direction::Left;
 
-        step_scorpion_tracking(&mut enemy, Some(150u32 << 16), None);
+        step_scorpion_tracking(&mut enemy, Some(150u32 << 16), None, None);
 
         assert_eq!(
             enemy.facing,
@@ -2853,7 +2853,7 @@ mod chunk_04 {
         use enemies::step_scorpion_tracking;
         let mut enemy = make_pacer(EnemyFamily::Scorpion, 4, 100, 224);
         let player_x = Some(150u32 << 16);
-        step_scorpion_tracking(&mut enemy, player_x, None);
+        step_scorpion_tracking(&mut enemy, player_x, None, None);
         assert_eq!(enemy.walk_speed_override, 0, "HP<5 should not boost");
     }
 
@@ -2864,10 +2864,32 @@ mod chunk_04 {
         let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
         enemy.walk_speed_override = 0x3_8000; // previously boosted
         let player_x = Some(500u32 << 16); // 400px away (outside 170px)
-        step_scorpion_tracking(&mut enemy, player_x, None);
+        step_scorpion_tracking(&mut enemy, player_x, None, None);
         assert_eq!(
             enemy.walk_speed_override, 0x1_8000,
             "outside range should reset"
+        );
+    }
+
+    #[test]
+    fn scorpion_tracking_loc_3de7e_clears_lock_only_when_kid_y_velocity_nonzero() {
+        use enemies::step_scorpion_tracking;
+
+        let player_x = Some(500u32 << 16); // outside +/-$AA range
+        let mut grounded_kid = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        grounded_kid.scorpion_tracking_lock = true;
+        step_scorpion_tracking(&mut grounded_kid, player_x, None, Some(0));
+        assert!(
+            grounded_kid.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DE7E leaves `$4E(a5)` set when Kid y_vel is zero"
+        );
+
+        let mut airborne_kid = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        airborne_kid.scorpion_tracking_lock = true;
+        step_scorpion_tracking(&mut airborne_kid, player_x, None, Some(0x0001_0000));
+        assert!(
+            !airborne_kid.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DE7E clears `$4E(a5)` only after `tst.l y_vel(a4)` is non-zero"
         );
     }
 
@@ -2879,7 +2901,7 @@ mod chunk_04 {
         enemy.facing = Direction::Left;
         enemy.walk_speed_override = 0x3_8000;
 
-        step_scorpion_tracking(&mut enemy, Some(500u32 << 16), None);
+        step_scorpion_tracking(&mut enemy, Some(500u32 << 16), None, None);
 
         assert_eq!(
             enemy.facing,

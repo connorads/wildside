@@ -8793,6 +8793,7 @@ pub(crate) fn step_active_enemies(
         None,
         player_facing,
         player_x_velocity,
+        None,
         player_form,
         0,
         false,
@@ -8811,6 +8812,7 @@ pub(crate) fn step_active_enemies_with_rng(
     camera_x_px: Option<u32>,
     player_facing: Option<Direction>,
     player_x_velocity: Option<i32>,
+    player_y_velocity: Option<i32>,
     player_form: PlayerForm,
     time_frames: u16,
     samurai_haze_active: bool,
@@ -8925,7 +8927,12 @@ pub(crate) fn step_active_enemies_with_rng(
                     // Outside 170px: reset speed to base $18000, clear tracking lock
                     // if player is airborne.
                     if matches!(enemy.family, EnemyFamily::Scorpion) {
-                        step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
+                        step_scorpion_tracking(
+                            enemy,
+                            player_x_pos,
+                            player_y_pos,
+                            player_y_velocity,
+                        );
                     }
                     // ASM Tank_Shooting.asm loc_3C50E/loc_3B730: only the
                     // shooting tank variant emits bullets, and only on the
@@ -22722,6 +22729,7 @@ pub(crate) fn step_scorpion_tracking(
     enemy: &mut ActiveEnemy,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    player_y_velocity: Option<i32>,
 ) {
     let Some(px) = player_x_pos else { return };
     let dx = (i64::from(enemy.x_pos) - i64::from(px)) >> 16; // scorpion_x - player_x
@@ -22743,9 +22751,11 @@ pub(crate) fn step_scorpion_tracking(
     // d4 against +/-$AA; outside the window exits to loc_3DE7E for base speed.
     if dx.abs() > SCORPION_TRACK_RANGE {
         enemy.walk_speed_override = SCORPION_BASE_SPEED;
-        // ASM checks player y_vel ($26(a4)) to clear tracking lock.
-        // We approximate: clear lock when out of range (conservative).
-        enemy.scorpion_tracking_lock = false;
+        // ASM Scorpion.asm loc_3DE7E: out of range resets `$50(a5)`, then
+        // checks Kid `y_vel(a4)` and clears `$4E(a5)` only when it is non-zero.
+        if player_y_velocity.is_some_and(|velocity| velocity != 0) {
+            enemy.scorpion_tracking_lock = false;
+        }
         return;
     }
 
@@ -23658,6 +23668,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             PlayerForm::TheKid,
             1,
             true,
@@ -23674,6 +23685,7 @@ mod tests {
 
         step_active_enemies_with_rng(
             &mut enemies,
+            None,
             None,
             None,
             None,
@@ -36958,6 +36970,7 @@ impl NativeRuntime {
                     Some(camera_x_px),
                     Some(slice.player.facing),
                     Some(slice.player.x_velocity),
+                    Some(slice.player.y_velocity),
                     self.progression.current_form,
                     self.frame_index as u16,
                     self.progression.diamond_power_type
