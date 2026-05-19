@@ -246,26 +246,19 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         return build_victory_scene(trace);
     }
 
-    // Sega screen — white text on blue
+    // Sega screen: ASM Load_SegaScreen (kid.asm:25444) decompresses
+    // ArtComp_12F30_Sega into VRAM at $1780, loads Pal_12EEC (background
+    // word $0000 = black) into CRAM, and writes the 4×12-tile logo at
+    // nametable rows $061C/$069C/$071C/$079C. The interactive player
+    // renders this through `kid_md::render_vdp_into` (native_player::run);
+    // this fallback path only fires in sweep / recording / TAS-viewer
+    // contexts where the VDP snapshot is unavailable. The previous blue
+    // background and 4×-scaled "SEGA" text were invented placeholders —
+    // the ROM never renders a typed string, and palette index 0 is black,
+    // not blue.
     if trace.game_mode == GameMode::SegaScreen {
-        commands.push(DrawCommand::Rect {
-            x: 0,
-            y: 0,
-            width: FRAME_WIDTH as i32,
-            height: FRAME_HEIGHT as i32,
-            colour: [0, 0, 128],
-        });
-        let sega = "SEGA";
-        let sega_w = sega.len() as i32 * 8 * 4;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - sega_w) / 2,
-            80,
-            sega,
-            [255, 255, 255],
-            4,
-        ));
         return Scene {
-            background: [0, 0, 128],
+            background: [0, 0, 0],
             commands,
         };
     }
