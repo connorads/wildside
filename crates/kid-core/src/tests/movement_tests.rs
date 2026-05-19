@@ -7467,8 +7467,8 @@ mod chunk_11 {
     /// `move.w (a4)+,d7; andi.w #$7000,d7; cmpi.w #$6000,d7; beq.w loc_91AC`
     /// — each tile's collision bits are extracted; $6000 (Solid) routes to
     /// the hit handler at loc_91AC.
-    /// Native: probe_ceiling checks `Solid | HiddenBlock` at both horizontal
-    /// edges and returns on the first hit.
+    /// Native: probe_ceiling checks `Solid | HiddenBlock | Spikes` across the
+    /// crossed tile columns and returns on the first hit.
     #[test]
     fn loc_9188_sub_914a_ceiling_scan_detects_solid_tile() {
         let w: u16 = 10;
@@ -7500,8 +7500,8 @@ mod chunk_11 {
     /// `dbf d5,loc_9188; bra.w loc_9204` — when no tile in the scan has Solid
     /// or Spikes collision, the counter exhausts and falls through to loc_9204
     /// which returns d7=0 (no hit).
-    /// Native: probe_ceiling returns CeilingProbe { hit: false } when neither
-    /// edge has a Solid/HiddenBlock cell.
+    /// Native: probe_ceiling returns CeilingProbe { hit: false } when no
+    /// crossed tile column has a Solid/HiddenBlock/Spikes cell.
     #[test]
     fn loc_919e_sub_914a_ceiling_scan_no_hit_returns_clean() {
         let w: u16 = 10;

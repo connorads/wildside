@@ -2218,10 +2218,8 @@ pub fn vertical_collision_scan_up_sub_36CB8(
 /// the rubber jiggle effect via `j_loc_10DA4`, setting the Rubber flag
 /// (`_st 0(sp)`) so sub_914A returns d7=-1 (bounce) instead of d7=1 (stop).
 ///
-/// Native simplification: probes only the two horizontal edges (not the
-/// full tile span), checks `Solid | HiddenBlock` (not Spikes), and returns
-/// on the first hit. The full-width scan and Spikes detection are
-/// TODO(fidelity).
+/// Native scans the tile columns crossed by the ceiling span and returns on
+/// the first hit.
 pub fn probe_ceiling(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -2243,8 +2241,16 @@ pub fn probe_ceiling(
         };
     }
 
-    for &px in &[center_x_px - half_width, center_x_px + half_width] {
-        let probe = probe_at(grid, px, top_y);
+    let left_col = pixel_to_cell(center_x_px - half_width).max(0);
+    let right_col = pixel_to_cell(center_x_px + half_width).max(0);
+    let row = pixel_to_cell(top_y).max(0) as u16;
+    for col in left_col..=right_col {
+        let cell_x = col as u16;
+        let probe = TerrainProbe {
+            cell: grid.cell_at(cell_x, row),
+            cell_x,
+            cell_y: row,
+        };
         if matches!(
             probe.cell.collision,
             CollisionKind::Solid | CollisionKind::HiddenBlock | CollisionKind::Spikes
@@ -4308,6 +4314,27 @@ mod tests {
         // right edge = 28 + 5 = 33 → col 2 (solid ceiling)
         let probe = probe_ceiling(&grid, 28, 31, 5, 31);
         assert!(probe.hit);
+    }
+
+    #[test]
+    fn probe_ceiling_scans_columns_between_edges() {
+        // ASM sub_914A scans every tile column crossed by the player's ceiling
+        // span. A solid tile in the middle of a wide hitbox must still stop Kid.
+        let w = 5u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Ceiling only in middle col 2, row 0. Edge columns 1 and 3 stay empty.
+        data[2 * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // center=40, half_width=20, feet=31, height=31 -> top row 0.
+        // left=20 -> col 1, right=60 -> col 3, middle col 2 is Solid.
+        let probe = probe_ceiling(&grid, 40, 31, 20, 31);
+
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 2);
+        assert_eq!(probe.cell_y, 0);
+        assert_eq!(probe.cell.collision, CollisionKind::Solid);
     }
 
     #[test]
