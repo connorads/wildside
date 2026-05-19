@@ -3726,8 +3726,8 @@ impl OpeningSliceState {
     /// loc_7820 (kid.asm:7896): `clr.w ($FFFFF8F0) / bra.w loc_8D72` — clears
     /// walk accumulator and enters walking state.
     ///
-    /// TODO(fidelity): the Maniaxe axe-throwing gate and the loc_77C2/77FC
-    /// `sub_B55C` ledge probe for non-bitmask helmets are not yet modelled.
+    /// TODO(fidelity): visual walk-accumulator state at `$FFFFF8F0` is not
+    /// modelled when loc_7820 enters walking.
     fn should_hold_standing_still(
         &mut self,
         input: FrameInput,
@@ -3755,7 +3755,7 @@ impl OpeningSliceState {
         let y_px = (self.player.y_pos >> 16) as i32;
         // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
         // player's leading edge.
-        terrain::probe_wall_column(
+        if terrain::probe_wall_column(
             grid,
             x_px,
             y_px,
@@ -3764,6 +3764,33 @@ impl OpeningSliceState {
             direction == Direction::Right,
         )
         .hit
+        {
+            return true;
+        }
+
+        // ASM loc_77C2/loc_77FC: helmets outside bitmask `%1011000101`
+        // run one extra `sub_B55C` ledge probe before entering walking.
+        // Right checks `(1,-1)` for `$4000` SlopeUp; left checks `(-1,-1)`
+        // for `$5000` SlopeDown.  On match the ROM has already stored facing
+        // above, then returns to loc_7828 and keeps standing.
+        let skips_ledge_probe = matches!(
+            form,
+            PlayerForm::TheKid
+                | PlayerForm::Cyclone
+                | PlayerForm::IronKnight
+                | PlayerForm::Berzerker
+                | PlayerForm::Micromax
+        );
+        if skips_ledge_probe {
+            return false;
+        }
+
+        let (x_offset, expected_collision) = match direction {
+            Direction::Right => (1, terrain::CollisionKind::SlopeUp),
+            Direction::Left => (-1, terrain::CollisionKind::SlopeDown),
+        };
+        terrain::probe_relative_collision_sub_B55C(grid, x_px, y_px, x_offset, -1)
+            == expected_collision
     }
 
     fn try_release_wall_cling_overhang(

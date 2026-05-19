@@ -14729,6 +14729,104 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_77C2 (kid.asm:7864): helmets outside the `%1011000101` bitmask
+    /// run `sub_B55C(1,-1)` after a clear right wall probe.  Finding `$4000`
+    /// SlopeUp faces right and returns to loc_7828 instead of entering walking.
+    #[test]
+    fn asm_faithful_loc_77c2_non_bitmask_slope_up_holds_standing_right() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..w {
+            let offset = (4usize * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let slope_offset = (3usize * usize::from(w) + 4) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 63 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            !stepped,
+            "loc_77C2 should keep non-bitmask helmets standing when sub_B55C finds adjacent SlopeUp",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_eq!(
+            slice.player.facing,
+            Direction::Right,
+            "loc_77C2 should `sf x_direction` before returning to loc_7828",
+        );
+    }
+
+    /// ASM loc_77FC (kid.asm:7889): left-press mirror of loc_77C2.  For
+    /// non-bitmask helmets, `sub_B55C(-1,-1)` finding `$5000` SlopeDown faces
+    /// left and keeps the standing-still loop.
+    #[test]
+    fn asm_faithful_loc_77fc_non_bitmask_slope_down_holds_standing_left() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..w {
+            let offset = (4usize * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let slope_offset = (3usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Eyeclops,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            !stepped,
+            "loc_77FC should keep non-bitmask helmets standing when sub_B55C finds adjacent SlopeDown",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_77FC should `st x_direction` before returning to loc_7828",
+        );
+    }
+
     /// ASM loc_779C/loc_77E6 (kid.asm:7846): the blocked standing wall probes
     /// belong to the standing-still path only. Airborne zero-x velocity must
     /// continue into the air-control path instead of latching a wall-blocked
