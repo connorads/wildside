@@ -7941,7 +7941,8 @@ impl NativeRuntime {
         // `move.l x_vel(a3),d7; neg.l d7; move.l d7,x_vel(a3); rts` — bounce.
         // Bit 15 clear → return_B690 (rts, no velocity change).
         // Native: berzerker_charging and Cyclone_flying/Tornado immunity are
-        // handled here; the velocity-negation sub-path is not yet implemented.
+        // handled here; process_berzerker_charge_hits mirrors loc_B692's
+        // velocity negation before contact-damage resolution reaches this gate.
         //
         // ASM loc_B672 (kid.asm:14576): unexpected collision type dispatch.
         // Character_CheckCollision's off_B640 jump table maps leftwall, floor,

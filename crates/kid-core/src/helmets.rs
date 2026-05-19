@@ -5139,7 +5139,7 @@ impl NativeRuntime {
     }
 
     /// When Berzerker is charging, side contact with enemies damages them.
-    pub(crate) fn process_berzerker_charge_hits(&mut self, slice: &OpeningSliceState) {
+    pub(crate) fn process_berzerker_charge_hits(&mut self, slice: &mut OpeningSliceState) {
         if !self.helmet.berzerker_charging {
             return;
         }
@@ -5147,6 +5147,7 @@ impl NativeRuntime {
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
 
+        let mut reflected_player_velocity = false;
         let mut kill_indices = Vec::new();
         for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
             if matches!(enemy.family, EnemyFamily::Diamond) {
@@ -5159,6 +5160,12 @@ impl NativeRuntime {
             if dx <= PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
                 && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
             {
+                if !reflected_player_velocity {
+                    // ASM loc_B692: charging Berzerker side contact with
+                    // object_meta bit 15 set performs `neg.l x_vel(a3)`.
+                    slice.player.x_velocity = slice.player.x_velocity.wrapping_neg();
+                    reflected_player_velocity = true;
+                }
                 enemy.hit_points = enemy.hit_points.saturating_sub(1);
                 if enemy.hit_points == 0 {
                     kill_indices.push(i);

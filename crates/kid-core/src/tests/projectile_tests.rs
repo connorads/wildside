@@ -6987,7 +6987,7 @@ mod chunk_06 {
         rt.active_enemies
             .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 1));
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert!(
             rt.active_enemies.is_empty(),
@@ -7015,12 +7015,44 @@ mod chunk_06 {
             2,
         ));
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(
             rt.active_enemies[0].hit_points, 1,
             "ASM Berzerker_charging contact: enemy exactly at horizontal extent should be hit"
         );
+    }
+
+    /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
+    /// side contact tests object_meta bit 15, then `neg.l x_vel(a3)` before
+    /// returning without contact damage to Kid.
+    #[test]
+    fn berzerker_charge_loc_b692_reflects_player_x_velocity_once() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 2));
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::BigHoppingSkull,
+            0x0041_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "ASM loc_B692 negates Kid x_vel once even if multiple enemies overlap"
+        );
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(rt.active_enemies[1].hit_points, 1);
     }
 
     /// ASM Berzerker charging contact only fires when the contact boxes overlap;
@@ -7042,7 +7074,7 @@ mod chunk_06 {
             2,
         ));
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
@@ -7069,7 +7101,7 @@ mod chunk_06 {
             2,
         ));
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
@@ -7096,7 +7128,7 @@ mod chunk_06 {
             .map(ActiveEnemy::snapshot)
             .collect();
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert!(rt.active_enemies.is_empty());
         assert!(
@@ -7119,7 +7151,7 @@ mod chunk_06 {
         rt.active_enemies
             .push(test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 2));
 
-        rt.process_berzerker_charge_hits(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
 
         assert!(
             rt.active_enemy_roster.is_empty(),
