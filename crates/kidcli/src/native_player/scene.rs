@@ -311,7 +311,17 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         };
     }
 
-    // Intro sequences — distinct visuals per segment
+    // Intro sequences: ASM `Load_IntroSequence1..5` / `Load_IntroSequence6`
+    // (kid.asm:29207-29464) build tile-based VRAM compositions for each
+    // segment — none of the slogans ("The Wild Side", "Heady Metal's
+    // Challenge", "Enter the Game") exist as ROM-renderable ASCII text;
+    // they're 4bpp tile art uploaded via `sub_1B850` / its per-segment
+    // siblings. The interactive player routes through `kid_md::render_vdp_into`
+    // when `runtime.vdp_state()` is populated; this fallback only fires in
+    // sweep/recording/TAS-viewer contexts where the VDP snapshot is absent.
+    // The previous English slogan + "Press Start to skip" text was invented
+    // to fill the screen — collapse to honest black until the tile art is
+    // wired through the asset bundle, matching the Sega-screen treatment.
     if matches!(
         trace.game_mode,
         GameMode::IntroSequence1
@@ -321,47 +331,6 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
             | GameMode::IntroSequence5
             | GameMode::IntroSequence6
     ) {
-        commands.push(DrawCommand::Rect {
-            x: 0,
-            y: 0,
-            width: FRAME_WIDTH as i32,
-            height: FRAME_HEIGHT as i32,
-            colour: [0, 0, 0],
-        });
-        let (line1, line2, colour) = match trace.game_mode {
-            GameMode::IntroSequence1 => (
-                "The Wild Side",
-                "A strange arcade machine appeared...",
-                [200, 160, 80],
-            ),
-            GameMode::IntroSequence2 => (
-                "Heady Metal's Challenge",
-                "Kids go in... but they don't come out.",
-                [180, 80, 80],
-            ),
-            _ => (
-                "Enter the Game",
-                "One kid decides to play.",
-                [120, 180, 255],
-            ),
-        };
-        let w1 = line1.len() as i32 * 8 * 2;
-        commands.push(text((FRAME_WIDTH as i32 - w1) / 2, 70, line1, colour, 2));
-        let w2 = line2.len() as i32 * 8;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - w2) / 2,
-            110,
-            line2,
-            [160, 160, 160],
-            1,
-        ));
-        commands.push(text(
-            (FRAME_WIDTH as i32 - 18 * 8) / 2,
-            180,
-            "Press Start to skip",
-            [80, 80, 80],
-            1,
-        ));
         return Scene {
             background: [0, 0, 0],
             commands,
