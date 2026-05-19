@@ -3875,6 +3875,13 @@ impl OpeningSliceState {
         // Right checks `(1,-1)` for `$4000` SlopeUp; left checks `(-1,-1)`
         // for `$5000` SlopeDown.  On match the ROM has already stored facing
         // above, then returns to loc_7828 and keeps standing.
+        // ORIGINAL_QUIRK: Skycutter/RedStealth/Eyeclops/Juggernaut/Maniaxe
+        // cannot start walking from standstill when a slope is the next cell.
+        // Surfaced by user playtest 2026-05-19 (#152) — preserved per the
+        // "bugs are features" rule; jumping over the leading edge is the
+        // intended workaround. Once already moving, the slope-walk path
+        // (`update_level_one_slope_ground_velocity` loc_9E6C branch) drives
+        // these forms at the correct ±$1000 step.
         let skips_ledge_probe = matches!(
             form,
             PlayerForm::TheKid
