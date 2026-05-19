@@ -2406,6 +2406,82 @@ impl NativeRuntime {
                 let py = (slice.player.y_pos >> 16) as i32;
                 let hw = self.progression.current_form.half_width();
                 if let Some(ref mut grid) = self.block_grid {
+                    let red_stealth_impact = helmets::red_stealth_floor_impact_sub_B000(
+                        self.progression.current_form,
+                        self.helmet.red_stealth_sword_timer > 0,
+                        grid,
+                        px,
+                        py,
+                    );
+                    if red_stealth_impact.kind != helmets::RedStealthFloorImpactKindSubB000::None {
+                        let block_x = red_stealth_impact.block_col * 16;
+                        let block_y = red_stealth_impact.block_row * 16;
+                        match red_stealth_impact.kind {
+                            // ASM loc_B070 (kid.asm:13904): off_B058 block
+                            // type 0 (Smash) handler — `moveq #2,d6; jmp
+                            // (j_Block_LoadSmashBits).l`.
+                            helmets::RedStealthFloorImpactKindSubB000::Smash => {
+                                grid.set_cell_at(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    // ASM loc_10F1A/loc_10F2A: d6=2 nudges
+                                    // smash debris 4 px upward, then the
+                                    // worker hibernates for 2 frames.
+                                    x_px: block_x,
+                                    y_px: block_y.saturating_sub(4),
+                                    remaining: 2,
+                                });
+                            }
+                            // ASM off_B058 block type 1 (Prize) jumps through
+                            // j_loc_1002E before the common rebound tail.
+                            helmets::RedStealthFloorImpactKindSubB000::Prize => {
+                                grid.set_cell_at(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    x_px: block_x,
+                                    y_px: block_y,
+                                    remaining: 8,
+                                });
+                            }
+                            // ASM off_B058 block type 2 (Ice) jumps through
+                            // IceBlock_SmashAndLoadBullets before rebounding.
+                            helmets::RedStealthFloorImpactKindSubB000::Ice => {
+                                grid.set_cell_at(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    // ASM loc_10FDC/loc_10FEC: d6=2 nudges
+                                    // ice debris 4 px upward, then the worker
+                                    // hibernates for 3 frames.
+                                    x_px: block_x,
+                                    y_px: block_y.saturating_sub(4),
+                                    remaining: 3,
+                                });
+                            }
+                            // ASM off_B058 block types 3/4 return directly to
+                            // the common `y_vel=-$38000` rebound tail.
+                            helmets::RedStealthFloorImpactKindSubB000::BounceOnly => {}
+                            // ASM off_B058 block type 5 jumps to loc_110D0:
+                            // metal hit effect plus block restoration.
+                            helmets::RedStealthFloorImpactKindSubB000::MetalBounce => {
+                                slice.metal_block_hit = Some((
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                ));
+                            }
+                            helmets::RedStealthFloorImpactKindSubB000::None => {}
+                        }
+                        slice.player.y_velocity = red_stealth_impact.bounce_y_velocity;
+                        slice.player.on_ground = false;
+                    }
                     let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
                     // ASM loc_AF96 (kid.asm:13808): active break path — `st
                     // (Iron_Knight_block_breaker).w`, save regs, `bsr.w

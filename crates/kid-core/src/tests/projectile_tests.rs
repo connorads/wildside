@@ -302,6 +302,59 @@ mod chunk_06 {
     }
 
     /// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
+    /// After `sub_B55C` finds a smash block, `off_B058 -> loc_B070` loads
+    /// smash bits and `sub_B000` rebounds Kid with `move.l #$FFFC8000,y_vel`.
+    #[test]
+    fn loc_b01e_red_stealth_live_floor_smash_bounces_and_clears_block() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        runtime.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+        runtime.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES + 1;
+
+        let mut grid = grid_with_floor_at_row(14);
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+        assert!(
+            !cell_after.has_block,
+            "ASM loc_B070 should clear smash block"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects.len(),
+            1,
+            "ASM loc_B070: `moveq #2,d6; jmp Block_LoadSmashBits` should spawn one smash effect"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects[0].y_px, 220,
+            "ASM loc_B070: d6=2 (above) → sub_10EDA subtracts 4 from y_pos"
+        );
+
+        let slice_after = runtime
+            .opening_slice
+            .expect("opening slice should remain active");
+        assert_eq!(
+            slice_after.player.y_velocity, -0x0003_8000,
+            "ASM sub_B000: Red Stealth floor slash rebound is -$38000"
+        );
+        assert!(
+            !slice_after.player.on_ground,
+            "ASM sub_B000 returns non-zero so the landing sequence resumes airborne"
+        );
+    }
+
+    /// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
     /// `moveq #1,d6; bsr.w sub_B55C` — probes one pixel below foot with
     /// x_offset=0, y_offset=1.  If tile bit 15 set and block ID ≤ 5,
     /// dispatches via off_B058, sets `y_vel(a3)=-$38000`.
