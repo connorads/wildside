@@ -1220,16 +1220,16 @@ fn build_game_scene_filtered(
         if !trace.level_complete
             && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
         {
+            // ASM Flagpole_Boss (kid.asm:15592) allocates exactly two
+            // GfxObjects at the same anchor: `LnkTo_unk_E0FDE` (pole_bottom,
+            // `sprite_frame_vram $696,$08,$10,$10,$10`) and `LnkTo_unk_E0FFE`
+            // (waving flag, `sprite_frame_vram $69A,$06,$00,$28,$20`).
+            // The ROM ships no third "pole shaft" sprite asset — the only
+            // flag-related extracted art is `End_of_level_Flag_(6_frames).bin`
+            // and `Flag_bottom.bin`. The previous 2×32 grey rect above the
+            // anchor invented a tall pole extension that the ROM never draws.
             let sx = i32::from(flag_x) - (trace.camera_x_pos >> 16) as i32;
             let pole_base_y = i32::from(flag_y) - (trace.camera_y_pos >> 16) as i32;
-            let pole_top = pole_base_y - 32;
-            commands.push(DrawCommand::Rect {
-                x: sx - 1,
-                y: pole_top,
-                width: 2,
-                height: 32,
-                colour: [210, 210, 220],
-            });
             let frame_index = (trace.frame_index / level_visuals.flag.frame_duration)
                 % level_visuals.flag.waving.len().max(1);
             if let Some(frame) = level_visuals.flag.waving.get(frame_index) {
