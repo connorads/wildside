@@ -80,19 +80,15 @@ impl ForegroundLayout {
         // For large mismatches, try to infer dimensions from the data length.
         // The width must be a multiple of FOREGROUND_CELLS_PER_SCREEN_X (20).
         let cells_per_x = usize::from(FOREGROUND_CELLS_PER_SCREEN_X);
-        let cells_per_y = usize::from(FOREGROUND_CELLS_PER_SCREEN_Y);
         if bytes.len().is_multiple_of(cells_per_x) {
-            let total_rows = bytes.len() / cells_per_x;
-            if total_rows.is_multiple_of(cells_per_y) || total_rows > 0 {
-                let inferred_width = width_cells;
-                let inferred_height = (bytes.len() / usize::from(inferred_width)).max(1) as u16;
-                if usize::from(inferred_width) * usize::from(inferred_height) == bytes.len() {
-                    return Ok(Self {
-                        width_cells: inferred_width,
-                        height_cells: inferred_height,
-                        cells: bytes.to_vec(),
-                    });
-                }
+            let inferred_width = width_cells;
+            let inferred_height = (bytes.len() / usize::from(inferred_width)).max(1) as u16;
+            if usize::from(inferred_width) * usize::from(inferred_height) == bytes.len() {
+                return Ok(Self {
+                    width_cells: inferred_width,
+                    height_cells: inferred_height,
+                    cells: bytes.to_vec(),
+                });
             }
         }
         bail!(
@@ -165,15 +161,30 @@ mod tests {
 
     #[test]
     fn parse_foreground_layout_uses_level_screen_dimensions() {
-        let bytes = vec![0x2A; 20 * 14 * 2];
+        let bytes = patterned_bytes(20 * 14 * 2);
 
         let layout = ForegroundLayout::parse(&bytes, 2, 1).expect("foreground layout");
 
         assert_eq!(layout.width_cells, 40);
         assert_eq!(layout.height_cells, 14);
-        assert_eq!(layout.skin_at(0, 0), 0x2A);
-        assert_eq!(layout.skin_at(39, 13), 0x2A);
+        assert_eq!(layout.skin_at(0, 0), 0);
+        assert_eq!(layout.skin_at(1, 0), 1);
+        assert_eq!(layout.skin_at(0, 1), 40);
+        assert_eq!(layout.skin_at(3, 2), 83);
+        assert_eq!(layout.skin_at(39, 13), 57);
         assert_eq!(layout.skin_at(40, 0), 0);
+    }
+
+    #[test]
+    fn parse_foreground_layout_infers_height_for_coherent_large_mismatch() {
+        let bytes = patterned_bytes(20 * 28);
+
+        let layout = ForegroundLayout::parse(&bytes, 1, 1).expect("foreground layout");
+
+        assert_eq!(layout.width_cells, 20);
+        assert_eq!(layout.height_cells, 28);
+        assert_eq!(layout.skin_at(0, 14), 29);
+        assert_eq!(layout.skin_at(19, 27), 57);
     }
 
     #[test]
@@ -185,5 +196,20 @@ mod tests {
                 .to_string()
                 .contains("foreground layout length 10 does not match expected 280")
         );
+    }
+
+    #[test]
+    fn parse_foreground_layout_rejects_non_cell_aligned_large_mismatch() {
+        let error = ForegroundLayout::parse(&[0x00; 306], 1, 1).expect_err("misaligned layout");
+
+        assert!(
+            error
+                .to_string()
+                .contains("foreground layout length 306 does not match expected 280")
+        );
+    }
+
+    fn patterned_bytes(len: usize) -> Vec<u8> {
+        (0..len).map(|index| (index % 251) as u8).collect()
     }
 }
