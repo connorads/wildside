@@ -71,6 +71,15 @@ pub struct MurderWallVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LavaVisuals {
+    pub palette: Palette,
+    pub tile_sheet: TileSheet,
+    /// ASM Init_SpecialEffect_Lava loc_14C6A uploads `Lava.bin` to the same
+    /// `$5F60` VRAM destination used by murder wall, i.e. tile `$2FB`.
+    pub vram_base_tile_index: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EolScoreVisuals {
     pub palette: Palette,
     pub bonus: SpriteFrame,

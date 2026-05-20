@@ -2220,6 +2220,7 @@ mod tests {
             floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),
             murder_wall: None,
+            lava: None,
             platforms: sample_platform_visuals(),
             eol_score: Some(sample_eol_score_visuals()),
             title_card_letters: None,
@@ -3085,6 +3086,62 @@ mod tests {
                 matches!(command, DrawCommand::Rect { colour, .. } if *colour == [200, 30, 10])
             }),
             "loaded Murder_wall.bin art should replace the native-player placeholder rect"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_draws_lava_geyser_from_loc_14be8_sprite_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x0080, 0x0040, 0x0030)];
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(kid_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                hud: false,
+            },
+        );
+
+        let lava_sprites = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                )
+            })
+            .count();
+        assert!(
+            lava_sprites >= 4,
+            "ASM loc_14BE8 should render active lava geysers from Lava.bin sprite chunks"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
+            }),
+            "loaded Lava.bin art should replace the native-player placeholder column"
         );
     }
 

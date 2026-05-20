@@ -8,8 +8,8 @@ use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
-    MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals,
-    SpriteFrame,
+    LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+    PlayerVisuals, SpriteFrame,
 };
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -39,6 +39,9 @@ const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 const MURDER_WALL_ART_PATH: &str = "artcomp/Murder_wall.bin";
 const MURDER_WALL_PALETTE_PATH: &str = "palette/Murder_wall.bin";
 const MURDER_WALL_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
+const LAVA_ART_PATH: &str = "artcomp/Lava.bin";
+const LAVA_PALETTE_PATH: &str = "palette/lava.bin";
+const LAVA_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
 // Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
 const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
@@ -102,6 +105,9 @@ pub struct NativeLevelVisuals {
     /// ASM Murderwall loc_140D2/loc_140EE loads `Murder_wall.bin` art to
     /// VRAM `$5F60` and copies its eight-colour palette to CRAM line 1.
     pub murder_wall: Option<MurderWallVisuals>,
+    /// ASM Init_SpecialEffect_Lava loc_14C6A loads `Lava.bin` art to VRAM
+    /// `$5F60` and copies `ingame/palette/lava.bin` to CRAM line 1.
+    pub lava: Option<LavaVisuals>,
     pub platforms: PlatformVisuals,
     /// ASM `loc_D55E` / `Load_Object_EOL_Text` / `Load_Object_EOL_Number`
     /// draw score-screen labels and digits from `End_level_stats_text`.
@@ -262,6 +268,12 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         }
         None
     });
+    let lava = load_lava_visuals(manifest).unwrap_or_else(|err| {
+        if !cfg!(test) {
+            eprintln!("warning: lava art unavailable: {err}");
+        }
+        None
+    });
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
     let palettes = PaletteSet {
@@ -321,6 +333,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         floating_prizes,
         flag,
         murder_wall,
+        lava,
         platforms,
         eol_score: load_eol_score_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
@@ -399,6 +412,25 @@ fn load_murder_wall_visuals(manifest: &AssetManifest) -> Result<Option<MurderWal
         palette,
         tile_sheet,
         vram_base_tile_index: MURDER_WALL_VRAM_BASE_TILE_INDEX,
+    }))
+}
+
+fn load_lava_visuals(manifest: &AssetManifest) -> Result<Option<LavaVisuals>> {
+    let Some(art) = find_ingame_asset(manifest, LAVA_ART_PATH) else {
+        return Ok(None);
+    };
+    let palette_path = manifest.source_root.join("ingame").join(LAVA_PALETTE_PATH);
+    if !palette_path.is_file() {
+        return Ok(None);
+    }
+    let tile_sheet = load_tile_sheet(manifest, "ingame", art, "lava tile sheet")?;
+    let palette_raw = fs::read(&palette_path)
+        .with_context(|| format!("failed to read lava palette: {}", palette_path.display()))?;
+    let palette = Palette::from_bytes(&palette_raw).context("failed to parse lava palette")?;
+    Ok(Some(LavaVisuals {
+        palette,
+        tile_sheet,
+        vram_base_tile_index: LAVA_VRAM_BASE_TILE_INDEX,
     }))
 }
 

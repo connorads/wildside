@@ -40,8 +40,9 @@ use std::fs;
 pub(crate) use trace::opening_level_one_object_counts;
 pub use types::*;
 pub use weather::{
-    MurderWallWarningInputSub5E02, MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
-    compile_murder_wall_warning_sprites_sub_5E02,
+    LavaGeyserSpriteChunkLoc14BE8, LavaGeyserSpriteTemplateLoc14BE8, MurderWallWarningInputSub5E02,
+    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
+    compile_murder_wall_warning_sprites_sub_5E02, lava_geyser_sprite_chunks_loc_14BE8,
 };
 
 #[derive(Debug, Clone)]

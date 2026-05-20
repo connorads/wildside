@@ -22,6 +22,34 @@ const BLOCK_DEBRIS_VEL_D6_1_SUB_292E: [(i16, i16); 5] =
     [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)];
 const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
     [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
+const LAVA_GEYSER_TOP_TEMPLATE_UNK_14624: [kid_core::LavaGeyserSpriteTemplateLoc14BE8; 2] = [
+    kid_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0008,
+        tile_base_word: 0xA33F,
+        size_word: 0x0C00,
+    },
+    kid_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0020,
+        tile_base_word: 0xA399,
+        size_word: 0x0F00,
+    },
+];
+const LAVA_GEYSER_MIDDLE_TEMPLATE_UNK_1465A: [kid_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
+    [kid_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA36E,
+        size_word: 0x0D00,
+    }];
+const LAVA_GEYSER_BOTTOM_TEMPLATE_UNK_14650: [kid_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
+    [kid_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0002,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA3B1,
+        size_word: 0x0D00,
+    }];
 
 const FIRE_DEMON_DEATH_TRAIL_FRAMES: [kid_render::SpriteFrame; 6] = [
     fire_demon_trail_frame(0x0B0, 0x07, 0x00, 0x0E, 0x08),
@@ -1211,6 +1239,109 @@ fn push_murder_wall_warning_sprite_sub_5e02(
     true
 }
 
+fn push_lava_geyser_chunk_loc_14be8(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &kid_render::LavaVisuals,
+    chunk: kid_core::LavaGeyserSpriteChunkLoc14BE8,
+) -> bool {
+    let tile_ref = TileRef::from_attr_word(chunk.tile_word);
+    let Some(tile_base_index) = tile_ref
+        .tile_index
+        .checked_sub(visuals.vram_base_tile_index)
+    else {
+        return false;
+    };
+    let size_code = (chunk.size_word >> 8) & 0x0F;
+    let width_px = ((size_code & 0x03) + 1) * 8;
+    let height_px = (((size_code >> 2) & 0x03) + 1) * 8;
+    let frame = kid_render::SpriteFrame {
+        origin_x: 0,
+        origin_y: 0,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet: visuals.tile_sheet.clone(),
+    };
+    let mut tiles = build_sprite_tiles(&frame, Direction::Right, tile_ref.palette_line);
+    for tile in &mut tiles {
+        tile.tile.priority = tile_ref.priority;
+        tile.tile.flip_x = tile_ref.flip_x;
+        tile.tile.flip_y = tile_ref.flip_y;
+    }
+    commands.push(DrawCommand::Sprite {
+        x: i32::from(chunk.screen_x_px) - 0x80,
+        y: i32::from(chunk.screen_y_with_bias) - 0x80,
+        tile_sheet: Arc::new(visuals.tile_sheet.clone()),
+        palette: Arc::new(visuals.palette.clone()),
+        tiles,
+    });
+    true
+}
+
+fn push_lava_geyser_template_loc_14be8(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &kid_render::LavaVisuals,
+    geyser_x_px: u16,
+    camera_x_px: u16,
+    screen_y_px: i32,
+    templates: &[kid_core::LavaGeyserSpriteTemplateLoc14BE8],
+) {
+    let initial_screen_y_with_bias = (screen_y_px + 0x90).clamp(0, i32::from(u16::MAX)) as u16;
+    for chunk in kid_core::lava_geyser_sprite_chunks_loc_14BE8(
+        geyser_x_px,
+        camera_x_px,
+        initial_screen_y_with_bias,
+        0,
+        templates,
+    ) {
+        push_lava_geyser_chunk_loc_14be8(commands, visuals, chunk);
+    }
+}
+
+fn push_lava_geyser_rom_sprites_loc_14be8(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &kid_render::LavaVisuals,
+    geyser_x_px: u16,
+    geyser_top_y_px: u16,
+    height_px: u16,
+    camera_x_px: u16,
+    camera_y_px: u16,
+) {
+    let top_screen_y = i32::from(geyser_top_y_px) - i32::from(camera_y_px);
+    push_lava_geyser_template_loc_14be8(
+        commands,
+        visuals,
+        geyser_x_px,
+        camera_x_px,
+        top_screen_y,
+        &LAVA_GEYSER_TOP_TEMPLATE_UNK_14624,
+    );
+
+    let middle_top = top_screen_y + 16;
+    let middle_bottom = top_screen_y + i32::from(height_px).saturating_sub(16);
+    let mut row_y = middle_top;
+    while row_y < middle_bottom {
+        push_lava_geyser_template_loc_14be8(
+            commands,
+            visuals,
+            geyser_x_px,
+            camera_x_px,
+            row_y,
+            &LAVA_GEYSER_MIDDLE_TEMPLATE_UNK_1465A,
+        );
+        row_y += 16;
+    }
+
+    push_lava_geyser_template_loc_14be8(
+        commands,
+        visuals,
+        geyser_x_px,
+        camera_x_px,
+        top_screen_y + i32::from(height_px).saturating_sub(16),
+        &LAVA_GEYSER_BOTTOM_TEMPLATE_UNK_14650,
+    );
+}
+
 fn push_eol_number_sprites(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
@@ -1664,27 +1795,33 @@ fn build_game_scene_filtered(
             }
         }
 
-        // Lava geyser placeholder. ASM `sub_14BD8` -> `loc_14BE8`
-        // (kid.asm:28255-28278) emits per-row sprite slots driven by 8-byte
-        // template entries at `unk_14624`, `dword_14636`, `unk_14650`,
-        // `unk_1465A`, `unk_14664`, `unk_1466E`. The companion helper
-        // `lava_geyser_sprite_chunks_loc_14BE8` in kid-core already implements
-        // the row walk but is marked `#[allow(dead_code)]` because the
-        // template tables are not yet extracted from ROM. Until the
-        // templates are wired, render a single warm-orange column at the
-        // geyser's position so the eruption is visible without inventing
-        // the previous "core + hot centre" two-band gradient that the ROM
-        // does not draw.
+        // ASM `sub_14BD8 -> loc_14BE8` (kid.asm:28255-28278) emits lava
+        // geyser sprite chunks from 8-byte template entries. NativeTraceFrame
+        // exposes the live eruption column but not the full worker script
+        // phase, so this renderer uses the ROM top/middle/bottom templates
+        // (`unk_14624`, `unk_1465A`, `unk_14650`) over the active height.
         for &(gx, gy_top, height) in &trace.active_geysers {
-            let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
-            let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
-            commands.push(DrawCommand::Rect {
-                x: sx - 4,
-                y: sy,
-                width: 8,
-                height: i32::from(height),
-                colour: [255, 120, 20],
-            });
+            if let Some(lava_visuals) = &level_visuals.lava {
+                push_lava_geyser_rom_sprites_loc_14be8(
+                    &mut commands,
+                    lava_visuals,
+                    gx,
+                    gy_top,
+                    height,
+                    (trace.camera_x_pos >> 16) as u16,
+                    (trace.camera_y_pos >> 16) as u16,
+                );
+            } else {
+                let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
+                let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
+                commands.push(DrawCommand::Rect {
+                    x: sx - 4,
+                    y: sy,
+                    width: 8,
+                    height: i32::from(height),
+                    colour: [255, 120, 20],
+                });
+            }
         }
 
         // Projectiles: generic shots stay coloured dots; the Fire Demon

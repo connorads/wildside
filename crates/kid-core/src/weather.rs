@@ -1374,27 +1374,24 @@ fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState
         && kid_bottom >= hitbox_window.top_px
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LavaGeyserSpriteTemplateLoc14BE8 {
-    pub(crate) x_offset_px: u16,
-    pub(crate) y_step_px: u16,
-    pub(crate) size_word: u16,
-    pub(crate) tile_base_word: u16,
+pub struct LavaGeyserSpriteTemplateLoc14BE8 {
+    pub x_offset_px: u16,
+    pub y_step_px: u16,
+    pub size_word: u16,
+    pub tile_base_word: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LavaGeyserSpriteChunkLoc14BE8 {
-    pub(crate) screen_y_with_bias: u16,
-    pub(crate) tile_word: u16,
-    pub(crate) size_word: u16,
-    pub(crate) screen_x_px: u16,
+pub struct LavaGeyserSpriteChunkLoc14BE8 {
+    pub screen_y_with_bias: u16,
+    pub tile_word: u16,
+    pub size_word: u16,
+    pub screen_x_px: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn lava_geyser_sprite_chunks_loc_14BE8(
+pub fn lava_geyser_sprite_chunks_loc_14BE8(
     base_x_world_px: u16,
     camera_x_px: u16,
     initial_screen_y_with_bias: u16,

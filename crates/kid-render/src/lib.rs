@@ -21,8 +21,8 @@ pub use level::{
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
-    MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals,
-    SpriteFrame,
+    LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+    PlayerVisuals, SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -61,6 +61,12 @@ mod tests {
             .expect("ASM Murderwall loc_140D2 art should load");
         assert_eq!(murder_wall.vram_base_tile_index, 0x02FB);
         assert_eq!(murder_wall.palette.colours.len(), 8);
+        let lava = visuals
+            .lava
+            .as_ref()
+            .expect("ASM Init_SpecialEffect_Lava loc_14C6A art should load");
+        assert_eq!(lava.vram_base_tile_index, 0x02FB);
+        assert_eq!(lava.palette.colours.len(), 8);
     }
 
     #[test]
@@ -442,6 +448,23 @@ mod tests {
                 "ingame/palette/Murder_wall.bin",
                 &(0..8)
                     .map(|value| 0x0400_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Lava.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0xC0))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/lava.bin",
+                &(0..8)
+                    .map(|value| 0x0500_u16 + value)
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>(),
             )?;
@@ -891,6 +914,7 @@ mod tests {
                 ingame_assets: vec![
                     asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
                     asset_file(root.path(), "ingame/artcomp/Murder_wall.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Lava.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
