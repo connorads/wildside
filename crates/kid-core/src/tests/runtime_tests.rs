@@ -9240,6 +9240,31 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_deletes_when_side_column_current_row_is_empty_loc_33650() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x002A_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Drips.asm loc_33650 only loops when loc_331F6 d5/current-row reports `$6000`"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_deletes_when_left_probe_crosses_zero_loc_335aa() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

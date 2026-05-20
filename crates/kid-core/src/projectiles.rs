@@ -11,7 +11,10 @@ use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
     diamond_power_rain_find_nearest_enemy, diamond_power_rain_screen_cull_and_compile,
 };
-use crate::terrain::{relative_collision_mask_loc_331D2, relative_collision_row_loc_33286};
+use crate::terrain::{
+    relative_collision_column_loc_331F6, relative_collision_mask_loc_331D2,
+    relative_collision_row_loc_33286,
+};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,6 +143,28 @@ fn drips_surface_crawler_supported_below_loc_33650(
     // cmpi.w #$6000,d0; bne.w loc_338F8`. The crawler only stays on the
     // horizontal path while the cell 8px below the object reports solid.
     relative_collision_mask_loc_331D2(grid, i32::from(x_pos_word), i32::from(y_pos_word), 0, 8)
+        == 0x6000
+}
+
+fn drips_surface_crawler_side_column_continues_loc_33650(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+) -> bool {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    let x_offset = if projectile.x_velocity < 0 { -6 } else { 6 };
+    // ASM Drips.asm loc_33650/loc_336AA: after the support and bounds gates,
+    // `loc_331F6` samples the side column. Native does not yet run the turn
+    // scripts for the non-loop branches, so only the `$6000` current-row loop
+    // stays alive on the straight horizontal path.
+    relative_collision_column_loc_331F6(
+        grid,
+        i32::from(x_pos_word),
+        i32::from(y_pos_word),
+        x_offset,
+        0,
+    )
+    .current_row
         == 0x6000
 }
 
@@ -820,6 +845,17 @@ impl NativeRuntime {
                 // ASM Drips.asm loc_33588/loc_335B0 route out-of-level edge
                 // probes through loc_338EA/loc_338F8, then loc_3392C deletes
                 // the crawler after its finish animation.
+                return false;
+            }
+
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && let Some(g) = grid
+                && !drips_surface_crawler_side_column_continues_loc_33650(g, p)
+            {
+                // ASM Drips.asm loc_33650/loc_336AA only loops on the
+                // straight horizontal path when `loc_331F6` returns `$6000`
+                // in d5. Other flags enter turn scripts; native approximates
+                // those non-loop branches by ending the simplified crawler.
                 return false;
             }
 
