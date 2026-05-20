@@ -1171,6 +1171,46 @@ fn push_sprite_frame_top_left(
     push_sprite_frame(commands, frame, palette, screen_x, screen_y);
 }
 
+fn push_murder_wall_warning_sprite_sub_5e02(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &kid_render::MurderWallVisuals,
+    sprite: kid_core::MurderWallWarningSpriteSub5E02,
+) -> bool {
+    let tile_ref = TileRef::from_attr_word(sprite.tile_word);
+    let Some(tile_base_index) = tile_ref
+        .tile_index
+        .checked_sub(visuals.vram_base_tile_index)
+    else {
+        return false;
+    };
+    let frame = kid_render::SpriteFrame {
+        origin_x: 0,
+        origin_y: 0,
+        width_px: 24,
+        height_px: 24,
+        tile_base_index,
+        tile_sheet: visuals.tile_sheet.clone(),
+    };
+    let facing = if tile_ref.flip_x {
+        Direction::Left
+    } else {
+        Direction::Right
+    };
+    let mut tiles = build_sprite_tiles(&frame, facing, tile_ref.palette_line);
+    for tile in &mut tiles {
+        tile.tile.priority = tile_ref.priority;
+        tile.tile.flip_y = tile_ref.flip_y;
+    }
+    commands.push(DrawCommand::Sprite {
+        x: i32::from(sprite.x) - 0x80,
+        y: i32::from(sprite.y) - 0x80,
+        tile_sheet: Arc::new(visuals.tile_sheet.clone()),
+        palette: Arc::new(visuals.palette.clone()),
+        tiles,
+    });
+    true
+}
+
 fn push_eol_number_sprites(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
@@ -1581,24 +1621,47 @@ fn build_game_scene_filtered(
             );
         }
 
-        // Murder wall placeholder. ASM `sub_5E02` (kid.asm:5840-5965) emits
-        // the wall as 24 hardware sprites in a 4×6 grid using compressed
-        // tile art at `$13AA4..$1408A` (`Murder_wall.bin`) with the dedicated
-        // `$1408A..$1409A` palette (`Murder_wall.bin` palette entry), animated
-        // through a 4-frame cycle on timer `$FFFFFAC0` / `$FFFFFABF`. The
-        // tile/palette wiring is not yet wired into `level_visuals` — until
-        // it is, render a single solid rect at the wall's leading edge so
-        // the wall remains visible without inventing a multi-band red
-        // gradient that the ROM does not draw.
+        // ASM `sub_5E02` (kid.asm:5840-5965) emits the visible murder-wall
+        // warning strip as 24 hardware sprites using `Murder_wall.bin`, which
+        // Murderwall loc_140D2 uploads to VRAM tile `$2FB`.
         if let Some(wall_x_fp) = trace.murder_wall_x {
-            let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-            commands.push(DrawCommand::Rect {
-                x: wall_x_screen - 64,
-                y: 0,
-                width: 64,
-                height: FRAME_HEIGHT as i32,
-                colour: [200, 30, 10],
-            });
+            if let Some(murder_wall_visuals) = &level_visuals.murder_wall {
+                // NativeTraceFrame does not yet expose `$FFFFFAC0/$FFFFFABF`;
+                // this keeps the ASM sprite geometry and four ROM tile pages,
+                // with the phase derived from frame time for native-player
+                // presentation only.
+                let animation_frame = ((trace.frame_index / 5) & 3) as u8;
+                let render = kid_core::compile_murder_wall_warning_sprites_sub_5E02(
+                    kid_core::MurderWallWarningInputSub5E02 {
+                        murder_wall_enabled: true,
+                        murder_wall_x_px: (wall_x_fp >> 16) as i16,
+                        murder_wall_reversed: level_visuals.level.murder_wall_flags & 1 != 0,
+                        kid_hitbox_left_px: 0,
+                        kid_hitbox_right_px: 0,
+                        camera_x_px: (trace.camera_x_pos >> 16) as i16,
+                        camera_y_px: (trace.camera_y_pos >> 16) as u16,
+                        animation_timer: 2,
+                        animation_frame,
+                        starting_number_sprites: 0,
+                    },
+                );
+                for sprite in render.sprites {
+                    push_murder_wall_warning_sprite_sub_5e02(
+                        &mut commands,
+                        murder_wall_visuals,
+                        sprite,
+                    );
+                }
+            } else {
+                let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                commands.push(DrawCommand::Rect {
+                    x: wall_x_screen - 64,
+                    y: 0,
+                    width: 64,
+                    height: FRAME_HEIGHT as i32,
+                    colour: [200, 30, 10],
+                });
+            }
         }
 
         // Lava geyser placeholder. ASM `sub_14BD8` -> `loc_14BE8`

@@ -15,44 +15,40 @@ pub(crate) fn copy_murder_wall_palette_loc_140EE(
     palette_buffer[0x10..0x18].copy_from_slice(source_palette);
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct MurderWallWarningInputSub5E02 {
-    pub(crate) murder_wall_enabled: bool,
-    pub(crate) murder_wall_x_px: i16,
-    pub(crate) murder_wall_reversed: bool,
-    pub(crate) kid_hitbox_left_px: i16,
-    pub(crate) kid_hitbox_right_px: i16,
-    pub(crate) camera_x_px: i16,
-    pub(crate) camera_y_px: u16,
-    pub(crate) animation_timer: u8,
-    pub(crate) animation_frame: u8,
-    pub(crate) starting_number_sprites: u8,
+pub struct MurderWallWarningInputSub5E02 {
+    pub murder_wall_enabled: bool,
+    pub murder_wall_x_px: i16,
+    pub murder_wall_reversed: bool,
+    pub kid_hitbox_left_px: i16,
+    pub kid_hitbox_right_px: i16,
+    pub camera_x_px: i16,
+    pub camera_y_px: u16,
+    pub animation_timer: u8,
+    pub animation_frame: u8,
+    pub starting_number_sprites: u8,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct MurderWallWarningSpriteSub5E02 {
-    pub(crate) y: u16,
-    pub(crate) link: u16,
-    pub(crate) tile_word: u16,
-    pub(crate) x: u16,
+pub struct MurderWallWarningSpriteSub5E02 {
+    pub y: u16,
+    pub link: u16,
+    pub tile_word: u16,
+    pub x: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct MurderWallWarningRenderSub5E02 {
-    pub(crate) push_animation_timer: Option<u16>,
-    pub(crate) push_animation_offset: Option<u16>,
-    pub(crate) animation_timer: u8,
-    pub(crate) animation_frame: u8,
-    pub(crate) number_sprites: u8,
-    pub(crate) sprites: Vec<MurderWallWarningSpriteSub5E02>,
+pub struct MurderWallWarningRenderSub5E02 {
+    pub push_animation_timer: Option<u16>,
+    pub push_animation_offset: Option<u16>,
+    pub animation_timer: u8,
+    pub animation_frame: u8,
+    pub number_sprites: u8,
+    pub sprites: Vec<MurderWallWarningSpriteSub5E02>,
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
+pub fn compile_murder_wall_warning_sprites_sub_5E02(
     input: MurderWallWarningInputSub5E02,
 ) -> MurderWallWarningRenderSub5E02 {
     // ASM sub_5E02 (kid.asm:5840): when the murder wall is active and within

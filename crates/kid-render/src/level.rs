@@ -18,6 +18,7 @@ pub struct LevelVisuals {
     pub level_id: u8,
     pub foreground_theme_id: u8,
     pub background_theme_id: u8,
+    pub murder_wall_flags: u8,
     pub background_scroll: Option<BgscrollProfile>,
     pub foreground_layout: ForegroundLayout,
     pub foreground_layout_bytes: Vec<u8>,

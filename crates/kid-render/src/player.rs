@@ -60,6 +60,17 @@ pub struct FlagVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MurderWallVisuals {
+    pub palette: Palette,
+    pub tile_sheet: TileSheet,
+    /// ASM Murderwall loc_140D2 uploads `Murder_wall.bin` to VRAM byte
+    /// offset `$5F60`, which is tile `$2FB`. Sprite words from `sub_5E02`
+    /// are absolute VRAM tile indices, so native subtracts this before
+    /// indexing the extracted sheet.
+    pub vram_base_tile_index: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EolScoreVisuals {
     pub palette: Palette,
     pub bonus: SpriteFrame,

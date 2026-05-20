@@ -39,6 +39,10 @@ use std::fs;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
 pub use types::*;
+pub use weather::{
+    MurderWallWarningInputSub5E02, MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
+    compile_murder_wall_warning_sprites_sub_5E02,
+};
 
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {

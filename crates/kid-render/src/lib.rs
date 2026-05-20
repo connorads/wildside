@@ -21,7 +21,8 @@ pub use level::{
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
-    PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals,
+    SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -54,6 +55,12 @@ mod tests {
         assert_eq!(visuals.palettes.background.colours.len(), 8);
         assert_eq!(visuals.foreground_tiles.tile_size(), (8, 8));
         assert_eq!(visuals.background_tiles.tile_size(), (8, 8));
+        let murder_wall = visuals
+            .murder_wall
+            .as_ref()
+            .expect("ASM Murderwall loc_140D2 art should load");
+        assert_eq!(murder_wall.vram_base_tile_index, 0x02FB);
+        assert_eq!(murder_wall.palette.colours.len(), 8);
     }
 
     #[test]
@@ -420,6 +427,23 @@ mod tests {
                 root.path(),
                 "ingame/artcomp/Blocks.bin",
                 &direct_copy_saxman(&(96u8..160).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Murder_wall.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x90))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/Murder_wall.bin",
+                &(0..8)
+                    .map(|value| 0x0400_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
             )?;
             write_file(
                 root.path(),
@@ -866,6 +890,7 @@ mod tests {
                 sound_assets: Vec::new(),
                 ingame_assets: vec![
                     asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Murder_wall.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
@@ -884,6 +909,7 @@ mod tests {
                         "ingame/artunc/End_of_level_Flag_(6_frames).bin",
                     ),
                     asset_file(root.path(), "ingame/artunc/Flag_bottom.bin"),
+                    asset_file(root.path(), "ingame/palette/Murder_wall.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),

@@ -2190,6 +2190,7 @@ mod tests {
                 level_id: 0x00,
                 foreground_theme_id: 0x08,
                 background_theme_id: 0x08,
+                murder_wall_flags: 0,
                 background_scroll: None,
                 foreground_layout,
                 foreground_layout_bytes,
@@ -2218,6 +2219,7 @@ mod tests {
             enemies: sample_enemy_visuals(),
             floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),
+            murder_wall: None,
             platforms: sample_platform_visuals(),
             eol_score: Some(sample_eol_score_visuals()),
             title_card_letters: None,
@@ -3025,6 +3027,65 @@ mod tests {
                 } if *width == FRAME_WIDTH as i32 && *height == FRAME_HEIGHT as i32
             )
         }));
+    }
+
+    #[test]
+    fn build_game_scene_draws_murder_wall_from_sub_5e02_sprite_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 10;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.murder_wall_x = Some(0);
+        let mut visuals = sample_level_visuals();
+        visuals.level.murder_wall_flags = 2;
+        visuals.murder_wall = Some(kid_render::MurderWallVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x90],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                hud: false,
+            },
+        );
+
+        let wall_sprites = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == 0x90 && tiles.len() == 9
+                )
+            })
+            .count();
+        assert_eq!(
+            wall_sprites, 24,
+            "ASM sub_5E02 should emit 24 murder-wall hardware sprites from ROM tile art"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(command, DrawCommand::Rect { colour, .. } if *colour == [200, 30, 10])
+            }),
+            "loaded Murder_wall.bin art should replace the native-player placeholder rect"
+        );
     }
 
     #[test]
