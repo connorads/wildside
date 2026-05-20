@@ -507,6 +507,22 @@ mod tests {
     }
 
     #[test]
+    fn load_level_visuals_decodes_compressed_foreground_resource() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .enable_compressed_foreground_resource()
+            .expect("compressed foreground fixture");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(
+            visuals.level.foreground_layout_bytes,
+            foreground_layout_fixture_bytes(),
+            "ASM level foreground resources are Saxman-compressed before native parses the layout"
+        );
+    }
+
+    #[test]
     fn load_level_visuals_decodes_layered_forest_background_planes() {
         let mut fixture = TestBundle::new().expect("test bundle");
         fixture
@@ -533,13 +549,10 @@ mod tests {
     impl TestBundle {
         fn new() -> anyhow::Result<Self> {
             let root = TempDir::new()?;
-            let foreground_bytes = (0..(6 * 4 * 20 * 14))
-                .map(|value| (value % 16) as u8)
-                .collect::<Vec<_>>();
             write_file(
                 root.path(),
                 "decoded/level/00/foreground.bin",
-                &foreground_bytes,
+                &foreground_layout_fixture_bytes(),
             )?;
             write_file(
                 root.path(),
@@ -1284,6 +1297,16 @@ mod tests {
             Ok(Self { root, manifest })
         }
 
+        fn enable_compressed_foreground_resource(&mut self) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "level/00/foreground.sax",
+                &direct_copy_saxman(&foreground_layout_fixture_bytes()),
+            )?;
+            self.manifest.levels[0].resources.foreground = Some("00/foreground.sax".to_owned());
+            Ok(())
+        }
+
         fn enable_layered_forest_background(&mut self) -> anyhow::Result<()> {
             write_file(
                 self.root.path(),
@@ -1339,6 +1362,12 @@ mod tests {
         }
         fs::write(path, bytes)?;
         Ok(())
+    }
+
+    fn foreground_layout_fixture_bytes() -> Vec<u8> {
+        (0..(6 * 4 * 20 * 14))
+            .map(|value| (value % 16) as u8)
+            .collect::<Vec<_>>()
     }
 
     fn asset_file(root: &Path, relative_path: &str) -> AssetFile {
