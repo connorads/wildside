@@ -5632,7 +5632,7 @@ mod chunk_09 {
             .push(DeferredCeilingClear {
                 col: 3,
                 row: 2,
-                content: terrain::PrizeContent::Diamond,
+                content: terrain::PrizeContent::Cyclone,
                 restore_cell,
                 deleted_frames_remaining: 2, // shortened for test
                 phase: DeferredPrizeBlockPhase::Deleted,
@@ -5686,7 +5686,7 @@ mod chunk_09 {
         assert_eq!(rt.floating_items.len(), 1, "should spawn floating item");
         assert_eq!(
             rt.floating_items[0].remaining,
-            NativeRuntime::PRIZE_DIAMOND_LIFETIME_FRAMES
+            NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES
         );
         // Grid should now have Smash block ($E001)
         let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 2);
@@ -5698,6 +5698,47 @@ mod chunk_09 {
         assert!(
             rt.block_state.deferred_ceiling_clears.is_empty(),
             "FreshSmash should be cleaned up"
+        );
+    }
+
+    #[test]
+    fn deferred_diamond_ceiling_clear_spawns_on_restored_wake_prizediamond_init() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_blocks());
+        rt.block_state
+            .deferred_ceiling_clears
+            .push(DeferredCeilingClear {
+                col: 3,
+                row: 2,
+                content: terrain::PrizeContent::Diamond,
+                restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x00),
+                deleted_frames_remaining: 0,
+                phase: DeferredPrizeBlockPhase::Deleted,
+            });
+
+        rt.step_deferred_ceiling_clears();
+
+        assert_eq!(
+            rt.block_state.deferred_ceiling_clears[0].phase,
+            DeferredPrizeBlockPhase::PendingClearPrizeSpawned,
+            "ASM PrizeDiamond_Init uses `sf is_moved(a3)`, so the diamond enters the live object roster on the restored-cell wake"
+        );
+        assert_eq!(rt.floating_items.len(), 1);
+        assert_eq!(
+            rt.floating_items[0].remaining,
+            NativeRuntime::PRIZE_DIAMOND_LIFETIME_FRAMES
+        );
+
+        rt.finish_deferred_ceiling_clears();
+
+        assert_eq!(
+            rt.floating_items.len(),
+            1,
+            "finish_deferred_ceiling_clears should write the Smash cell without spawning a duplicate diamond"
+        );
+        assert_eq!(
+            rt.block_state.deferred_ceiling_clears[0].phase,
+            DeferredPrizeBlockPhase::FreshSmash
         );
     }
 
@@ -8133,6 +8174,7 @@ mod chunk_09 {
             cell_y: 5,
             remaining: 2,
             initial_duration: 8,
+            prize_content: None,
             y_offset_px: 0,
         });
 

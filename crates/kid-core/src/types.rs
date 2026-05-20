@@ -1385,6 +1385,10 @@ pub(crate) struct BlockBounceAnim {
     /// per ASM `sub_1007A` (31 frames for prize blocks, shorter arc for
     /// metal/rubber until their ASM coroutines are individually pinned).
     pub(crate) initial_duration: u8,
+    /// Prize content for ASM `sub_1007A` bounces. Diamond prize objects use
+    /// `sf is_moved(a3)` in `PrizeDiamond_Init`, making their scheduler timing
+    /// differ from helmet/shared prize initialisers that set `is_moved`.
+    pub(crate) prize_content: Option<terrain::PrizeContent>,
     /// Current y-pixel offset for visual rendering. Negative = rising (block
     /// moves up after a head-bonk). Maintained by `process_block_effects`.
     pub(crate) y_offset_px: i16,
@@ -2028,6 +2032,7 @@ pub(crate) enum DeferredPrizeBlockPhase {
     Deleted,
     Restored,
     PendingClear,
+    PendingClearPrizeSpawned,
     FreshSmash,
 }
 

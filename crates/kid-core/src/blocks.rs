@@ -2267,6 +2267,7 @@ impl NativeRuntime {
     /// restores the original prize cell, then writes `$E001` and creates the
     /// prize object.
     pub(crate) fn step_deferred_ceiling_clears(&mut self) {
+        let mut early_spawned_prizes = Vec::new();
         if let Some(grid) = &mut self.block_grid {
             self.block_state
                 .deferred_ceiling_clears
@@ -2274,7 +2275,19 @@ impl NativeRuntime {
                     DeferredPrizeBlockPhase::Deleted => {
                         if entry.deleted_frames_remaining == 0 {
                             grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
-                            entry.phase = DeferredPrizeBlockPhase::Restored;
+                            if entry.content == terrain::PrizeContent::Diamond {
+                                // ASM PrizeDiamond_Init (kid.asm:21604) uses
+                                // `sf is_moved(a3)`, unlike the helmet/shared
+                                // prize initialisers that `st is_moved(a3)`.
+                                // The diamond therefore enters the object
+                                // roster on the same wake that restores the
+                                // prize cell, before the later `$E001` write.
+                                early_spawned_prizes
+                                    .push(Self::floating_item_from_prize_clear(entry));
+                                entry.phase = DeferredPrizeBlockPhase::PendingClearPrizeSpawned;
+                            } else {
+                                entry.phase = DeferredPrizeBlockPhase::Restored;
+                            }
                         } else {
                             entry.deleted_frames_remaining -= 1;
                             if entry.deleted_frames_remaining == 0 {
@@ -2288,13 +2301,34 @@ impl NativeRuntime {
                         true
                     }
                     DeferredPrizeBlockPhase::Restored => {
-                        entry.phase = DeferredPrizeBlockPhase::PendingClear;
+                        if entry.content == terrain::PrizeContent::Diamond {
+                            early_spawned_prizes.push(Self::floating_item_from_prize_clear(entry));
+                            entry.phase = DeferredPrizeBlockPhase::PendingClearPrizeSpawned;
+                        } else {
+                            entry.phase = DeferredPrizeBlockPhase::PendingClear;
+                        }
                         true
                     }
-                    DeferredPrizeBlockPhase::PendingClear | DeferredPrizeBlockPhase::FreshSmash => {
-                        true
-                    }
+                    DeferredPrizeBlockPhase::PendingClear
+                    | DeferredPrizeBlockPhase::PendingClearPrizeSpawned
+                    | DeferredPrizeBlockPhase::FreshSmash => true,
                 });
+        }
+        self.floating_items.extend(early_spawned_prizes);
+    }
+
+    fn floating_item_from_prize_clear(entry: &DeferredCeilingClear) -> FloatingItem {
+        FloatingItem {
+            x_pos: (u32::from(entry.col) * 16 + 8) << 16,
+            y_pos: i64::from(u32::from(entry.row) * 16) << 16,
+            y_velocity: 0,
+            remaining: Self::floating_item_lifetime(entry.content),
+            spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
+            level_col: entry.col,
+            level_row: entry.row,
+            first_row_grace: true,
+            content: entry.content,
+            collected: false,
         }
     }
 
@@ -2310,7 +2344,8 @@ impl NativeRuntime {
                 DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => {
                     retained_entries.push(entry);
                 }
-                DeferredPrizeBlockPhase::PendingClear => {
+                DeferredPrizeBlockPhase::PendingClear
+                | DeferredPrizeBlockPhase::PendingClearPrizeSpawned => {
                     // ASM sub_1007A line 21411: after prize spawns, restore
                     // cell to $E001 (Smash block, skin=1). The player can
                     // then smash this block on a second headbutt.
@@ -2324,18 +2359,9 @@ impl NativeRuntime {
                     if Self::is_helmet_prize(entry.content) {
                         self.clear_existing_helmet_prizes_for_sub_10cec();
                     }
-                    spawned_items.push(FloatingItem {
-                        x_pos: (u32::from(entry.col) * 16 + 8) << 16,
-                        y_pos: i64::from(u32::from(entry.row) * 16) << 16,
-                        y_velocity: 0,
-                        remaining: Self::floating_item_lifetime(entry.content),
-                        spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
-                        level_col: entry.col,
-                        level_row: entry.row,
-                        first_row_grace: true,
-                        content: entry.content,
-                        collected: false,
-                    });
+                    if entry.phase == DeferredPrizeBlockPhase::PendingClear {
+                        spawned_items.push(Self::floating_item_from_prize_clear(&entry));
+                    }
                     // ASM sub_7196 creates Kid with priority #1, while
                     // sub_1007A runs as object #$2001 and spawns Prize_Init
                     // at #$1FFF. Kid therefore finishes this frame before the
@@ -2830,6 +2856,7 @@ impl NativeRuntime {
                 cell_y,
                 remaining: 8,
                 initial_duration: 8,
+                prize_content: None,
                 y_offset_px: 0,
             });
         }
@@ -3273,21 +3300,28 @@ impl NativeRuntime {
         }
         self.prize_block_worker_tails.retain(|tail| *tail > 0);
 
-        let mut finished_prize_bounce_count = 0u8;
+        let mut finished_prize_bounce_tail_frames = Vec::new();
         self.block_bounces.retain(|b| {
             if b.remaining > 0 {
                 true
             } else {
                 if b.initial_duration == 31 {
-                    finished_prize_bounce_count = finished_prize_bounce_count.saturating_add(1);
+                    let tail_frames = if b.prize_content == Some(terrain::PrizeContent::Diamond) {
+                        // ASM PrizeDiamond_Init's `sf is_moved(a3)` makes the
+                        // original sub_1007A object/gfx allocation overlap the
+                        // diamond's first live frame. Helmet/shared prize
+                        // paths set `is_moved` and keep the shorter overlap.
+                        Self::PRIZE_BLOCK_WORKER_TAIL_FRAMES.saturating_add(1)
+                    } else {
+                        Self::PRIZE_BLOCK_WORKER_TAIL_FRAMES
+                    };
+                    finished_prize_bounce_tail_frames.push(tail_frames);
                 }
                 false
             }
         });
-        self.prize_block_worker_tails.extend(std::iter::repeat_n(
-            Self::PRIZE_BLOCK_WORKER_TAIL_FRAMES,
-            usize::from(finished_prize_bounce_count),
-        ));
+        self.prize_block_worker_tails
+            .extend(finished_prize_bounce_tail_frames);
 
         for flash in &mut self.prize_block_spawn_flashes {
             *flash = flash.saturating_sub(1);

@@ -2934,6 +2934,7 @@ impl NativeRuntime {
                 cell_y: row,
                 remaining: 31,
                 initial_duration: 31,
+                prize_content: Some(content),
                 y_offset_px: 0,
             });
         }

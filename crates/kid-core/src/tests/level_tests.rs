@@ -104,6 +104,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         cell_y: 4,
         remaining: 7,
         initial_duration: 8,
+        prize_content: None,
         y_offset_px: 0,
     });
     runtime.block_destroy_effects.push(BlockDestroyEffect {
@@ -15537,7 +15538,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
+    fn diamond_prize_block_lifecycle_spawns_item_on_restored_wake_prizediamond_init() {
         let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
         runtime.set_block_grid(grid_with_blocks());
         runtime.boot_state = BootState::InGame;
@@ -15561,16 +15562,6 @@ mod chunk_02 {
             runtime.step_frame(FrameInput::default());
         }
 
-        let restored_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
-        assert_eq!(restored_cell.collision, terrain::CollisionKind::Solid);
-        assert!(restored_cell.has_block);
-        assert!(
-            runtime.floating_items.is_empty(),
-            "the prize object should not exist during the one-frame restore state"
-        );
-
-        runtime.step_frame(FrameInput::default());
-
         // ASM sub_1007A line 21411: prize block becomes Smash block ($E001)
         // after prize spawns, NOT empty. Player can smash it on a second headbutt.
         let post_prize_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
@@ -15578,6 +15569,10 @@ mod chunk_02 {
         assert!(post_prize_cell.has_block);
         assert_eq!(post_prize_cell.block_type, terrain::BlockType::Smash);
         assert_eq!(runtime.floating_items.len(), 1);
+        assert_eq!(
+            runtime.floating_items[0].content,
+            terrain::PrizeContent::Diamond
+        );
         assert_eq!(
             runtime.floating_items[0].spawn_delay,
             NativeRuntime::PRIZE_ITEM_INITIAL_DORMANT_FRAMES

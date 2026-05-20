@@ -6879,7 +6879,10 @@ mod chunk_08 {
         let mut frame_1347 = None;
         let mut frame_1348 = None;
         let mut frame_1349 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_350) {
+        let mut frame_1398 = None;
+        let mut frame_1399 = None;
+        let mut frame_1400 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_401) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6899,8 +6902,11 @@ mod chunk_08 {
                 1_148 => frame_1148 = Some(trace),
                 1_347 => frame_1347 = Some(trace),
                 1_348 => frame_1348 = Some(trace),
-                1_349 => {
-                    frame_1349 = Some(trace);
+                1_349 => frame_1349 = Some(trace),
+                1_398 => frame_1398 = Some(trace),
+                1_399 => frame_1399 = Some(trace),
+                1_400 => {
+                    frame_1400 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -7006,6 +7012,20 @@ mod chunk_08 {
         assert_eq!(frame_1349.block_destroy_effects, vec![(368, 244, 1, 0)]);
         assert_eq!(frame_1349.number_objects, 5);
         assert_eq!(frame_1349.number_gfx_objects, 5);
+
+        let frame_1398 = frame_1398.expect("frame 1398 trace");
+        let frame_1399 = frame_1399.expect("frame 1399 trace");
+        let frame_1400 = frame_1400.expect("frame 1400 trace");
+        // ASM PrizeDiamond_Init (kid.asm:21604) clears `is_moved(a3)`, so the
+        // diamond's object/gfx slot is already count-visible on the same wake
+        // where sub_1007A restores the prize cell. Helmet/shared prize
+        // initialisers set `is_moved(a3)` and remain on the later path above.
+        assert!(frame_1398.floating_items.is_empty());
+        assert_eq!(frame_1398.number_objects, 6);
+        assert_eq!(frame_1399.floating_items, vec![(360, 224, 244, 0)]);
+        assert_eq!(frame_1399.number_objects, 7);
+        assert_eq!(frame_1400.floating_items, vec![(360, 224, 243, 0)]);
+        assert_eq!(frame_1400.number_objects, 7);
     }
 
     #[test]
