@@ -6600,6 +6600,9 @@ impl NativeRuntime {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
+                        self.title_menu_arm_frame = self
+                            .frame_index
+                            .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;
@@ -6629,19 +6632,21 @@ impl NativeRuntime {
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
                     // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
-                    // is non-zero, then decrements the row, calls sub_1BC26,
-                    // and resets the title idle countdown.
-                    self.title_idle_frames = 0;
+                    // is non-zero, then decrements the row and calls
+                    // sub_1BC26. Oracle TAS traces keep the shared
+                    // loc_1BAEA/Title_InputLoop demo countdown running across
+                    // cursor moves, so native must not restart the attract
+                    // timer here.
                     *cursor -= 1;
                     play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
                     // ASM Obj_TitleMenu loc_1BBF6: Down only moves while
                     // `d1 != 2`, then calls sub_1BC26 before refreshing the
-                    // cursor row from word_1BC20.
-                    self.title_idle_frames = 0;
+                    // cursor row from word_1BC20. Keep the attract countdown
+                    // live for parity with the oracle's frame-835 demo handoff.
                     *cursor += 1;
                     play_navigate_jingle = true;
-                } else {
+                } else if !self.title_menu_cursor_pending {
                     let mut title_idle_frames = demo::TITLE_IDLE_FRAMES;
                     if !*carry_timeout_restart_hidden_camera_wrap {
                         // ASM Obj_TitleMenu `loc_1BAEE` keeps the later
@@ -6723,6 +6728,9 @@ impl NativeRuntime {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
+                        self.title_menu_arm_frame = self
+                            .frame_index
+                            .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;
@@ -6741,19 +6749,21 @@ impl NativeRuntime {
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
                     // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
-                    // is non-zero, then decrements the row, calls sub_1BC26,
-                    // and resets the title idle countdown.
-                    self.title_idle_frames = 0;
+                    // is non-zero, then decrements the row and calls
+                    // sub_1BC26. Oracle TAS traces keep the shared
+                    // loc_1BAEA/Title_InputLoop demo countdown running across
+                    // cursor moves, so native must not restart the attract
+                    // timer here.
                     *cursor -= 1;
                     play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
                     // ASM Obj_TitleMenu loc_1BBF6: Down only moves while
                     // `d1 != 2`, then calls sub_1BC26 before refreshing the
-                    // cursor row from word_1BC20.
-                    self.title_idle_frames = 0;
+                    // cursor row from word_1BC20. Keep the attract countdown
+                    // live for parity with the oracle's frame-835 demo handoff.
                     *cursor += 1;
                     play_navigate_jingle = true;
-                } else {
+                } else if !self.title_menu_cursor_pending {
                     self.title_idle_frames += 1;
                     if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
                         self.title_idle_frames = 0;

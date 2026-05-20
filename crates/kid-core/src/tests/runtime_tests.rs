@@ -22,6 +22,38 @@ fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
     cached_tas_runtime_and_script("kc_any_percent_2024")
 }
 
+#[test]
+fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_834 = None;
+    let mut frame_835 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(836) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            834 => {
+                frame_834 = Some((trace.game_mode, trace.current_level, trace.options_cursor));
+            }
+            835 => {
+                frame_835 = Some((trace.game_mode, trace.current_level, trace.options_cursor));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_834,
+        Some((GameMode::TitleScreen, LevelId(0), Some(2))),
+        "ASM Obj_TitleMenu Title_InputLoop should keep the moved cursor visible until the attract countdown expires",
+    );
+    assert_eq!(
+        frame_835,
+        Some((GameMode::DemoPlay, LevelId(0), None)),
+        "ASM loc_1BB02 should enter demo play on the oracle-backed TAS frame even after cursor moves",
+    );
+}
+
 fn runtime_with_projectile_and_player(
     proj_x: u16,
     proj_y: u16,

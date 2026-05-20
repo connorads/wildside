@@ -16,6 +16,11 @@ pub(crate) const TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME: usize = 178;
 /// frame after Start is latched; native queues the selection on the press
 /// frame, then consumes it on the next outer frame.
 pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 0;
+/// ASM Obj_TitleMenu `loc_1BB52` builds the interactive menu cursor before
+/// entering `Title_InputLoop`; oracle TAS traces keep the attract countdown
+/// inactive for this short setup window after the first Start press arms the
+/// menu.
+pub(crate) const TITLE_MENU_ACTIVATION_DELAY_FRAMES: usize = 15;
 /// ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` then `dbf d0,loc_1BAB4`,
 /// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
 /// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
