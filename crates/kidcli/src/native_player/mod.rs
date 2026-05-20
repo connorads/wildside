@@ -5046,6 +5046,99 @@ mod tests {
     }
 
     #[test]
+    fn game_hud_single_digit_counters_use_blank_tens_tile() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_lives = 3;
+        trace.diamond_count = 7;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, lives_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0x90 - 128, 12)
+                .expect("lives tens tile");
+        let (_, lives_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0x90 - 128, 12)
+                .expect("lives ones tile");
+        let (_, diamond_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0xA4 - 128, 12)
+                .expect("diamond tens tile");
+        let (_, diamond_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0xA4 - 128, 12)
+                .expect("diamond ones tile");
+
+        assert_eq!(
+            lives_tens.tile_index, 11,
+            "ASM calc_display_number (kid.asm:15568) uses $86C5 as the blank tens tile for single-digit lives"
+        );
+        assert_eq!(lives_ones.tile_index, 3);
+        assert_eq!(
+            diamond_tens.tile_index, 11,
+            "ASM calc_display_number (kid.asm:15568) uses $86C5 as the blank tens tile for single-digit diamonds"
+        );
+        assert_eq!(diamond_ones.tile_index, 7);
+    }
+
+    #[test]
+    fn game_hud_double_digit_counters_clamp_and_split_like_calc_display_number() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_lives = 100;
+        trace.diamond_count = 42;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, lives_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0x90 - 128, 12)
+                .expect("lives tens tile");
+        let (_, lives_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0x90 - 128, 12)
+                .expect("lives ones tile");
+        let (_, diamond_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0xA4 - 128, 12)
+                .expect("diamond tens tile");
+        let (_, diamond_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0xA4 - 128, 12)
+                .expect("diamond ones tile");
+
+        assert_eq!(
+            (lives_tens.tile_index, lives_ones.tile_index),
+            (9, 9),
+            "ASM loc_BF2A clamps 100 lives to 99 before calc_display_number"
+        );
+        assert_eq!(
+            (diamond_tens.tile_index, diamond_ones.tile_index),
+            (4, 2),
+            "ASM calc_display_number splits two-digit counters through divu.w #$A"
+        );
+    }
+
+    #[test]
+    fn game_hud_timer_uses_digit_tiles_and_colon_slot_positions() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_timer_seconds = 179;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x88 - 128, 0x90 - 128, 12)
+            .expect("minutes tile");
+        let (_, colon, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0x90 - 128, 12).expect("colon tile");
+        let (_, seconds_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x95 - 128, 0x90 - 128, 12)
+                .expect("seconds tens tile");
+        let (_, seconds_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
+                .expect("seconds ones tile");
+
+        assert_eq!(
+            (
+                minutes.tile_index,
+                colon.tile_index,
+                seconds_tens.tile_index,
+                seconds_ones.tile_index
+            ),
+            (2, 10, 5, 9),
+            "ASM loc_BEE8 writes timer digits from $86BA+d and the prebuilt sprite table places the colon at $90,$90"
+        );
+    }
+
+    #[test]
     fn game_hud_reflects_damage() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.number_hitpoints = 1; // Took damage

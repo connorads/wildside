@@ -17,17 +17,17 @@ const HUD_HITPOINT_START_X: i32 = 0;
 const HUD_HITPOINT_Y: i32 = 0xA4 - 128;
 const HUD_HITPOINT_SPACING_X: i32 = 0x10;
 
-fn push_hud_fixed_digit(
+fn push_hud_tile_offset(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
-    digit: u16,
+    tile_offset: u16,
     x: i32,
     y: i32,
 ) {
     let Some(tile) = resolve_ingame_vram_tile(
         level_visuals,
         TileRef {
-            tile_index: level_visuals.hud.digit_base_tile_index + digit.min(9),
+            tile_index: level_visuals.hud.digit_base_tile_index + tile_offset,
             palette_line: 0,
             priority: false,
             flip_x: false,
@@ -39,6 +39,16 @@ fn push_hud_fixed_digit(
     push_resolved_tile(commands, x, y, tile);
 }
 
+fn push_hud_fixed_digit(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    digit: u16,
+    x: i32,
+    y: i32,
+) {
+    push_hud_tile_offset(commands, level_visuals, digit.min(9), x, y);
+}
+
 fn push_hud_two_digit_counter(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -47,7 +57,10 @@ fn push_hud_two_digit_counter(
     y: i32,
 ) {
     let clamped = value.min(99);
-    push_hud_fixed_digit(commands, level_visuals, clamped / 10, x, y);
+    // ASM calc_display_number (kid.asm:15568): values below 10 use tile
+    // $86C5 (HUD number index 11) as a blank tens digit, not a leading zero.
+    let tens = if clamped < 10 { 11 } else { clamped / 10 };
+    push_hud_tile_offset(commands, level_visuals, tens, x, y);
     push_hud_fixed_digit(commands, level_visuals, clamped % 10, x + 8, y);
 }
 
@@ -100,7 +113,10 @@ pub(super) fn push_game_hud(
     if let Some(tile) = resolve_ingame_vram_tile(
         level_visuals,
         TileRef {
-            tile_index: level_visuals.hud.digit_base_tile_index + 11,
+            // ASM sprite table entry (kid.asm:27111): timer colon uses $86C4,
+            // which is HUD number tile index 10. Index 11 is the blank tens
+            // tile used by calc_display_number for single-digit counters.
+            tile_index: level_visuals.hud.digit_base_tile_index + 10,
             palette_line: 0,
             priority: false,
             flip_x: false,
