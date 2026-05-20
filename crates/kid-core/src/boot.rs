@@ -5434,6 +5434,7 @@ impl NativeRuntime {
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay = false;
         self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff = false;
+        self.demo_title_snapshot_object_counts = None;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -5703,15 +5704,24 @@ impl NativeRuntime {
     pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
+        let frozen_counts = self.object_counts_from_roster(
+            &self.active_objects(),
+            self.current_camera_state().x_pos,
+            self.current_camera_state().y_pos,
+        );
         self.enter_title_screen();
         self.current_level = LevelId(0);
-        // Demo abort returns to an inert title rebuild path rather than the
-        // already-ready cold-boot title state. Oracle traces keep Kid hidden
-        // until that attract-lock window elapses.
-        self.title_screen_ready_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
-        self.paused = true;
+        // ASM loc_119D8 jumps to loc_6E2 after writing Game_Mode=$2C. Oracle
+        // exposes that manual demo-return frame as an already-ready title
+        // snapshot even though later title object rebuild timing is still
+        // carried by title_menu_arm_frame.
+        self.title_screen_ready_frame = self.frame_index;
+        // ASM loc_119D8 sets Game_Mode=$2C and clears Demo_Mode_flag, but
+        // does not write Game_Paused. Keep the preserved snapshot unpaused.
+        self.paused = false;
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
+        self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.next_demo_uses_demo_title_return_camera_wrap = true;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore =
@@ -5740,6 +5750,11 @@ impl NativeRuntime {
             self.demo_uses_intro_sequence_6_early_title_restore;
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
+        let frozen_counts = self.object_counts_from_roster(
+            &self.active_objects(),
+            self.current_camera_state().x_pos,
+            self.current_camera_state().y_pos,
+        );
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;
@@ -5757,6 +5772,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_5_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
+        self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore =
@@ -5828,6 +5844,7 @@ impl NativeRuntime {
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
         self.preserve_demo_title_snapshot = false;
+        self.demo_title_snapshot_object_counts = None;
         self.opening_slice = None;
         self.active_enemies.clear();
         self.killed_enemies.clear();

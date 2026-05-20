@@ -532,7 +532,8 @@ impl NativeRuntime {
                 | BootState::OptionsMenu { .. }
                 | BootState::SoundTest { .. }
                 | BootState::EndingSequence { .. }
-        ) {
+        ) && !self.title_uses_full_demo_snapshot()
+        {
             // ASM Obj_TitleMenu loc_1BBDE/loc_1BBF6 consumes Up/Down into the
             // title cursor's local `d1` row; it does not write
             // Character_Movement at $FFFFFA56 while Game_Mode remains $2C.
@@ -2356,6 +2357,9 @@ impl NativeRuntime {
             };
         }
         if self.title_uses_full_demo_snapshot() {
+            if let Some(counts) = self.demo_title_snapshot_object_counts {
+                return counts;
+            }
             let roster_count = active_objects.len() as u16;
             // ORIGINAL_QUIRK: the timeout/abort title rebuild keeps four fixed
             // title objects live alongside the preserved gameplay roster while

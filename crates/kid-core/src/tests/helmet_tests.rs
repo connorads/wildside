@@ -4501,6 +4501,33 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_demo_1_start_abort_preserves_live_title_snapshot_on_frame_1837() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_1837 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_838) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 1_837 {
+                frame_1837 = Some((
+                    trace.game_mode,
+                    trace.paused,
+                    trace.character_movement,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                    trace.title_screen_ready,
+                ));
+                break;
+            }
+        }
+
+        assert_eq!(
+            frame_1837,
+            Some((GameMode::TitleScreen, false, Some(2), 12, 12, true)),
+            "ASM loc_119D8 returns to Game_Mode=$2C without pausing or clearing the live demo object-count snapshot",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

@@ -303,6 +303,7 @@ pub struct NativeRuntime {
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
     preserve_demo_title_snapshot: bool,
+    demo_title_snapshot_object_counts: Option<(u16, u16)>,
     /// The timeout-restart intro-sequence-3 return reaches title mode before
     /// the standard title pose appears; oracle traces keep the last intro pose
     /// alive for the first title frames, then hide Kid again.
@@ -1204,6 +1205,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_4_return_pending: false,
             timeout_restart_title_intro_sequence_5_return_pending: false,
             preserve_demo_title_snapshot: false,
+            demo_title_snapshot_object_counts: None,
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
             timeout_restart_title_intro_sequence_5_pose: false,
