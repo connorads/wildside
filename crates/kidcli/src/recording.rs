@@ -604,7 +604,10 @@ pub(crate) fn oracle_scenario_for_recording(
 
     (
         DynamicScenario {
-            slug: format!("{}-oracle", recording.manifest.scenario.slug),
+            slug: format!(
+                "{}_settled_recording_oracle",
+                recording.manifest.scenario.slug
+            ),
             frame_count: script.len(),
             script,
             checkpoints,
@@ -1358,6 +1361,10 @@ mod tests {
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
         assert_eq!(prefix, RECORDING_SETTLED_ORACLE_PREFIX_FRAMES);
+        assert_eq!(
+            oracle_scenario.slug, "level1-tree-bug_settled_recording_oracle",
+            "settled recording oracle scenarios must opt into the helper's live/unpaused target-level settle path",
+        );
         assert_eq!(oracle_scenario.warp_to_level, Some(0));
         assert_eq!(oracle_scenario.frame_count, 63);
         assert_eq!(oracle_scenario.script.len(), 63);

@@ -1530,7 +1530,7 @@ fn compare_opt_field<T: ToString + PartialEq>(
     native: Option<T>,
     oracle: Option<T>,
 ) -> Option<CaseFailure> {
-    if native == oracle {
+    if native.is_none() || oracle.is_none() || native == oracle {
         None
     } else {
         Some(CaseFailure {
@@ -2043,6 +2043,64 @@ mod tests {
         assert_eq!(
             report.likely_subsystems,
             vec!["player physics", "collision"]
+        );
+    }
+
+    #[test]
+    fn compare_semantic_states_skips_unknown_optional_fields() {
+        let native = SemanticGameState {
+            frame_index: 12,
+            player: SemanticPlayerState {
+                x_pos: Some(10),
+                y_pos: Some(20),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: None,
+                on_ground: Some(true),
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(2),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 5, y_pos: 7 },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: 1,
+                player_1_level_id: 1,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: None,
+            },
+            entities: vec![SemanticEntity {
+                identity: String::from("enemy:0a:1:00a90000:00e00000"),
+                category: String::from("enemy"),
+                object_type: Some(0x0a),
+                x_pos: 0x00a9_0000,
+                y_pos: 0x00e0_0000,
+                x_velocity: Some(-0x8000),
+                y_velocity: Some(0),
+                facing: Some(String::from("left")),
+                on_ground: Some(true),
+                hit_points: Some(2),
+            }],
+            events: vec![],
+        };
+        let mut oracle = native.clone();
+        oracle.player.on_ground = None;
+        oracle.entities[0].x_pos = 0x00cb_0000;
+
+        let report =
+            compare_semantic_states(String::from("sample"), &[native], &[oracle]).expect("report");
+
+        let failure = report.first_failure.expect("first failure");
+        assert_eq!(failure.field, "entities");
+        assert_eq!(
+            report.likely_subsystems,
+            vec!["spawn order", "entity lifecycle"]
         );
     }
 

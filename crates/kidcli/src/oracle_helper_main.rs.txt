@@ -511,7 +511,8 @@ fn resolve_scenario(
                     frame_index: cp.frame_index,
                 }
             }).collect();
-            let settle_oracle_warp = sf.slug.starts_with("idle_level_full_frames_");
+            let settle_oracle_warp = sf.slug.starts_with("idle_level_full_frames_")
+                || sf.slug.ends_with("_settled_recording_oracle");
             Ok(ResolvedScenario {
                 slug: sf.slug,
                 script: sf.script,
@@ -903,7 +904,7 @@ fn capture_state(
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_TYPE_OFFSET);
     let kid_collision_source =
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_SOURCE_OFFSET);
-    if matches!(game_mode, 0x0008 | 0x0010) {
+    if matches!(game_mode, 0x0008 | 0x000C | 0x0010) {
         gameplay_debug_fields.insert(
             "kid_collision_type".into(),
             format_collision_type(kid_collision_type),
@@ -944,21 +945,23 @@ fn capture_state(
         } else {
             None
         },
-        kid_x_vel: if matches!(game_mode, 0x0008 | 0x0010) {
+        kid_x_vel: if matches!(game_mode, 0x0008 | 0x000C | 0x0010) {
             Some(read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_X_VEL_OFFSET))
         } else {
             None
         },
-        kid_y_vel: if matches!(game_mode, 0x0008 | 0x0010) {
+        kid_y_vel: if matches!(game_mode, 0x0008 | 0x000C | 0x0010) {
             Some(read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_Y_VEL_OFFSET))
         } else {
             None
         },
         character_movement: Some(read_wram_u16(&work_ram, CHARACTER_MOVEMENT_ADDR)),
         just_received_damage: Some(read_wram_u8(&work_ram, JUST_RECEIVED_DAMAGE_ADDR) != 0),
-        kid_collision_type: matches!(game_mode, 0x0008 | 0x0010).then_some(kid_collision_type),
-        kid_collision_source: matches!(game_mode, 0x0008 | 0x0010).then_some(kid_collision_source),
-        kid_x_direction: matches!(game_mode, 0x0008 | 0x0010)
+        kid_collision_type: matches!(game_mode, 0x0008 | 0x000C | 0x0010)
+            .then_some(kid_collision_type),
+        kid_collision_source: matches!(game_mode, 0x0008 | 0x000C | 0x0010)
+            .then_some(kid_collision_source),
+        kid_x_direction: matches!(game_mode, 0x0008 | 0x000C | 0x0010)
             .then_some(read_wram_u8(&work_ram, KID_X_DIRECTION_ADDR)),
         invulnerable_frames: Some(read_wram_u8(&work_ram, INVULNERABLE_FRAMES_ADDR)),
         currently_transforming: Some(currently_transforming),
