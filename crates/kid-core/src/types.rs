@@ -2082,6 +2082,7 @@ pub(crate) enum EnemyProjectileKind {
 pub(crate) enum DripsSurfaceCrawlerState {
     #[default]
     HorizontalLoc33650,
+    VerticalLoc336D0,
     VerticalLoc33730,
     VerticalLoc337A0,
 }
@@ -2134,6 +2135,10 @@ pub(crate) struct EnemyProjectile {
     /// `loc_33AF6` dispatch through `off_33ADA`; native persists the subset of
     /// labels wired into the simplified projectile carrier.
     pub(crate) drips_surface_crawler_state: DripsSurfaceCrawlerState,
+    /// Drips surface-crawler `x_direction(a3)` byte. `loc_33AF6` toggles this
+    /// with `not.b` on script flip bytes, and labels such as `loc_336D0` branch
+    /// on whether the byte is zero.
+    pub(crate) drips_surface_crawler_x_direction_flipped: bool,
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.

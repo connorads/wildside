@@ -9727,6 +9727,7 @@ fn cloud_projectile_spawn_loc_35df0(
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+        drips_surface_crawler_x_direction_flipped: false,
     }
 }
 
@@ -21599,6 +21600,17 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3395a() -> DripsSurfaceCrawl
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33950() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33950: select `unk_33BC0`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x0C, 0x00, 0xFF, 0xFB, 0x00, 0x00, 0xD0, 0x00, 0x14,
+        0x0C,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33946() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33946: select `unk_33C30`, then branch to the shared
@@ -21617,6 +21629,17 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33964() -> DripsSurfaceCrawl
     drips_surface_crawler_turn_script_loc_33af6([
         0x1E, 0x00, 0x00, 0xFF, 0x00, 0x01, 0x24, 0x00, 0x05, 0x00, 0x30, 0x00, 0x00, 0x00, 0x1C,
         0x04,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_3396e() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_3396E: select `unk_33C40`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x00, 0x00, 0xFF, 0x01, 0x00, 0x20, 0xFF, 0x00, 0x05, 0x00, 0x00, 0x30, 0x00, 0x10,
+        0x08,
     ])
 }
 
@@ -21650,6 +21673,28 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339a0() -> DripsSurfaceCrawl
     drips_surface_crawler_turn_script_loc_33af6([
         0x1E, 0x08, 0x01, 0x00, 0xFF, 0x00, 0x08, 0x00, 0xFB, 0x00, 0xD0, 0x00, 0x00, 0x00, 0x1C,
         0x04,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_339aa() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_339AA: select `unk_33C10`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x08, 0x00, 0xFF, 0x00, 0x00, 0x0C, 0x00, 0x01, 0xFB, 0x00, 0x00, 0xD0, 0x00, 0x14,
+        0x08,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_339b4() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_339B4: select `unk_33C60`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x08, 0x00, 0xFF, 0xFF, 0x00, 0x20, 0xFF, 0x00, 0x05, 0x00, 0x00, 0x30, 0x00, 0x10,
+        0x0C,
     ])
 }
 
@@ -23481,6 +23526,7 @@ pub(crate) fn step_archer(
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+        drips_surface_crawler_x_direction_flipped: false,
     });
 }
 
