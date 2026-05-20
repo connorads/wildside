@@ -6778,6 +6778,42 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_demo_wall_jump_stall_keeps_loc_a6f8_jump_movement_until_settle() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+
+        let mut frame_957 = None;
+        let mut frame_977 = None;
+        let mut frame_978 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(979) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                957 => frame_957 = Some(trace),
+                977 => frame_977 = Some(trace),
+                978 => {
+                    frame_978 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_957 = frame_957.expect("frame 957 trace");
+        let frame_977 = frame_977.expect("frame 977 trace");
+        let frame_978 = frame_978.expect("frame 978 trace");
+
+        // ASM loc_A6F8 writes MoveID_Jump before the Kid object hibernates;
+        // the published demo keeps $FFFFFA56 on that value through the
+        // wall-jump landing stall, then loc_A94E's settle path restores idle.
+        assert_eq!(frame_957.kid_on_ground, Some(true));
+        assert_eq!(frame_957.kid_x_velocity, Some(0));
+        assert_eq!(frame_957.character_movement, Some(3));
+        assert_eq!(frame_977.kid_on_ground, Some(true));
+        assert_eq!(frame_977.character_movement, Some(3));
+        assert_eq!(frame_978.kid_on_ground, Some(true));
+        assert_eq!(frame_978.character_movement, Some(0));
+    }
+
+    #[test]
     fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();

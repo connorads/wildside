@@ -150,6 +150,12 @@ pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAM
 /// `loc_C22` updates the demo input stream outside the gameplay object body;
 /// native keeps this as a trace-only hold so the simulation can still advance.
 pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 76;
+/// Oracle-backed published TAS traces keep Character_Movement at
+/// `MoveID_Jump` through the demo-1 wall-jump landing stall, then restore
+/// `MoveID_Standingstill` one startup frame before the velocity trace hold
+/// expires.
+pub(crate) const DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME: u16 =
+    DEMO_TRACE_GROUNDED_HOLD_END_FRAME - 1;
 
 pub(crate) fn gameplay_start_frame(use_demo_2: bool) -> u16 {
     if use_demo_2 {

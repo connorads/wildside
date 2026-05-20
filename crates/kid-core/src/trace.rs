@@ -522,6 +522,9 @@ impl NativeRuntime {
         if self.helmet.iron_knight_climbing {
             return MOVE_WALL_CLIMBING;
         }
+        if self.demo_trace_wall_jump_movement_hold_active(player) {
+            return MOVE_JUMP;
+        }
         if !player.on_ground || player.just_jumped {
             return MOVE_JUMP;
         }
@@ -570,6 +573,29 @@ impl NativeRuntime {
             return MOVE_WALKING;
         }
         MOVE_STANDINGSTILL
+    }
+
+    fn demo_trace_wall_jump_movement_hold_active(&self, player: PlayerState) -> bool {
+        if !self.demo_startup_frame().is_some_and(|frame_counter| {
+            frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
+                && frame_counter <= demo::DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME
+        }) || !player.on_ground
+            || player.x_velocity != 0
+        {
+            return false;
+        }
+
+        self.last_kid_frame_jump_gravity_probe.is_some_and(|probe| {
+            // ASM loc_A6F8 writes `MoveID_Jump` before hibernating the Kid
+            // object. During the published demo wall-jump landing stall,
+            // oracle WRAM keeps $FFFFFA56 on that jump value until loc_A94E's
+            // grounded settle path runs, even though the sampled pose is
+            // already clamped to the floor.
+            probe.branch == KidJumpGravityBranch::AirborneHeldJumpGravity
+                && !probe.on_ground_before
+                && !probe.on_ground_after
+                && probe.y_velocity_after < 0
+        })
     }
 
     fn title_uses_demo_snapshot(&self) -> bool {
