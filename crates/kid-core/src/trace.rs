@@ -2314,7 +2314,13 @@ impl NativeRuntime {
                         + self.prize_block_worker_tails.len()
                         + self.prize_block_spawn_flashes.len()
                         + self.block_destroy_effects.len()
-                        + live_floating_prize_objects)
+                        + live_floating_prize_objects
+                        // ASM PrizeDiamondCollected_Init (kid.asm:21100)
+                        // allocates an object/gfx pair, then hibernates
+                        // through the `$3E/$42` HUD-flight loop before
+                        // incrementing Number_Diamonds. Native models that
+                        // worker as the delayed award queue.
+                        + self.pending_prize_diamond_awards.len())
                         as u16;
                     (
                         4u16.saturating_add(transient_gfx_workers),

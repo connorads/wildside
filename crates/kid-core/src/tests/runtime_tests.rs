@@ -1702,8 +1702,8 @@ mod chunk_09 {
 
         assert_eq!(
             pending_debug.as_deref(),
-            Some("[32]"),
-            "by frame 1407 the published TAS should already be one frame into the queued diamond award countdown",
+            Some("[33]"),
+            "ASM PrizeDiamondCollected_Init should be queued on frame 1407, before its HUD-flight hibernate loop has counted down",
         );
     }
 
@@ -4625,7 +4625,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn demo_diamond_prize_queues_collection_on_frame_1404_without_awarding_score() {
+    fn demo_diamond_prize_has_not_queued_collection_on_frame_1404() {
         let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
         let mut frame_1404 = None;
 
@@ -4646,13 +4646,13 @@ mod chunk_09 {
 
         assert_eq!(
             frame_1404,
-            Some((0, 0, Some("[33]".into()))),
-            "oracle frame 1404 has already entered PrizeDiamondCollected_Init, but the HUD award has not landed yet",
+            Some((0, 0, Some("[]".into()))),
+            "ASM PrizeDiamondCollected_Init should not be queued before the diamond collision frame",
         );
     }
 
     #[test]
-    fn demo_diamond_prize_queue_counts_down_on_frame_1405() {
+    fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
         let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
         let mut frame_1405 = None;
 
@@ -4673,8 +4673,8 @@ mod chunk_09 {
 
         assert_eq!(
             frame_1405,
-            Some((0, 0, Some("[32]".into()))),
-            "one frame after contact, the queued diamond award should have counted down once without scoring yet",
+            Some((0, 0, Some("[33]".into()))),
+            "ASM PrizeDiamondCollected_Init should be queued on the diamond collision frame before its HUD-flight hibernate loop has counted down",
         );
     }
 

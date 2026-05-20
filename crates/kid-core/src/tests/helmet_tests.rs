@@ -6882,7 +6882,10 @@ mod chunk_08 {
         let mut frame_1398 = None;
         let mut frame_1399 = None;
         let mut frame_1400 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_401) {
+        let mut frame_1407 = None;
+        let mut frame_1408 = None;
+        let mut frame_1409 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_410) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6905,8 +6908,11 @@ mod chunk_08 {
                 1_349 => frame_1349 = Some(trace),
                 1_398 => frame_1398 = Some(trace),
                 1_399 => frame_1399 = Some(trace),
-                1_400 => {
-                    frame_1400 = Some(trace);
+                1_400 => frame_1400 = Some(trace),
+                1_407 => frame_1407 = Some(trace),
+                1_408 => frame_1408 = Some(trace),
+                1_409 => {
+                    frame_1409 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -7026,6 +7032,16 @@ mod chunk_08 {
         assert_eq!(frame_1399.number_objects, 7);
         assert_eq!(frame_1400.floating_items, vec![(360, 224, 243, 0)]);
         assert_eq!(frame_1400.number_objects, 7);
+
+        let frame_1407 = frame_1407.expect("frame 1407 trace");
+        let frame_1408 = frame_1408.expect("frame 1408 trace");
+        let frame_1409 = frame_1409.expect("frame 1409 trace");
+        // ASM PrizeDiamondCollected_Init (kid.asm:21100) allocates a fresh
+        // object/gfx pair after the diamond collision, then hibernates through
+        // the HUD-flight loop before incrementing Number_Diamonds.
+        assert_eq!(frame_1407.number_objects, 6);
+        assert_eq!(frame_1408.number_objects, 7);
+        assert_eq!(frame_1409.number_objects, 8);
     }
 
     #[test]
