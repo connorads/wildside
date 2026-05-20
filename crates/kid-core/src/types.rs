@@ -2085,6 +2085,9 @@ pub(crate) enum DripsSurfaceCrawlerState {
     VerticalLoc336D0,
     VerticalLoc33730,
     VerticalLoc337A0,
+    IdleLoc33A7C,
+    DiagonalLoc33810,
+    DiagonalLoc33892,
 }
 
 /// Projectile fired by enemies and player helmet attacks.

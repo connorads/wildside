@@ -21809,6 +21809,28 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a18() -> DripsSurfaceCrawl
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33a22() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33A22: select `unk_33CD0`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1E, 0x08, 0x00, 0x00, 0x05, 0x00, 0x40, 0xFF, 0x05, 0x00, 0x30, 0x00, 0x00, 0x00, 0x18,
+        0x00,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33a36() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33A36: select `unk_33D00`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1E, 0x08, 0x01, 0x00, 0xFC, 0xFF, 0x40, 0xFF, 0xFD, 0x00, 0xD0, 0x00, 0x00, 0x00, 0x18,
+        0x00,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339e6() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339E6: select `unk_33CB0`, then branch to the shared
@@ -21816,6 +21838,28 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339e6() -> DripsSurfaceCrawl
     drips_surface_crawler_turn_script_loc_33af6([
         0x1E, 0x00, 0x00, 0x00, 0x03, 0x01, 0x38, 0x00, 0x03, 0xFF, 0x30, 0x00, 0x00, 0x00, 0x18,
         0x00,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_339f0() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_339F0: select `unk_33D70`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x08, 0x00, 0x00, 0x01, 0x03, 0x50, 0xFF, 0x00, 0x02, 0x00, 0x00, 0x30, 0x00, 0x10,
+        0x08,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33a0e() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33A0E: select `unk_33D90`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x00, 0x00, 0x00, 0xFF, 0x03, 0x50, 0x0F, 0x00, 0x02, 0x00, 0x00, 0x30, 0x00, 0x10,
+        0x0C,
     ])
 }
 

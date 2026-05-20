@@ -6,20 +6,22 @@ use crate::enemies::{
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
     DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA, archer_angle_to_player,
     archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
-    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
-    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
-    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
-    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
-    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
-    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
-    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
-    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
-    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
-    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
-    drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
-    tank_bullet_loop_route_loc_3b7ba,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
+    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
+    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
+    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
+    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
+    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
+    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
+    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
+    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
+    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
+    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
+    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -27,7 +29,7 @@ use crate::helmets::{
 };
 use crate::terrain::{
     relative_collision_column_loc_331F6, relative_collision_mask_loc_331D2,
-    relative_collision_row_loc_33286,
+    relative_collision_mask_loc_3330E, relative_collision_row_loc_33286,
 };
 
 #[cfg(test)]
@@ -96,6 +98,13 @@ enum DripsSurfaceCrawlerVerticalStepLoc33730 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DripsSurfaceCrawlerVerticalStepLoc336D0 {
+    Loop,
+    Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
+    Exit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DripsSurfaceCrawlerDiagonalStepLoc33810 {
     Loop,
     Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
     Exit,
@@ -354,6 +363,116 @@ fn drips_surface_crawler_vertical_step_loc_337a0(
     }
 }
 
+fn drips_surface_crawler_diagonal_step_loc_33810(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+    level_bounds: LevelBounds,
+) -> DripsSurfaceCrawlerDiagonalStepLoc33810 {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    // ASM Drips.asm loc_33810: the diagonal crawler leaves this label through
+    // loc_338F8 on level-edge contact, otherwise it waits until the low nibbles
+    // of X/Y sum to `$F` before running the `loc_3330E` corner probe.
+    if drips_surface_crawler_out_of_level_bounds_loc_33588(
+        projectile,
+        level_bounds.width_pixels,
+        level_bounds.height_pixels,
+    ) {
+        return DripsSurfaceCrawlerDiagonalStepLoc33810::Exit;
+    }
+
+    if (((projectile.x_pos >> 16) as u16) & 0x000F) + (((projectile.y_pos >> 16) as u16) & 0x000F)
+        != 0x000F
+    {
+        return DripsSurfaceCrawlerDiagonalStepLoc33810::Loop;
+    }
+
+    let (x_offset, y_offset) = if projectile.y_velocity < 0 {
+        (5, -5)
+    } else {
+        (-5, 5)
+    };
+    let tile_flags = relative_collision_mask_loc_3330E(
+        grid,
+        i32::from(x_pos_word),
+        i32::from(y_pos_word),
+        x_offset,
+        y_offset,
+    );
+
+    if projectile.y_velocity < 0 {
+        if tile_flags == 0x4000 {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
+        } else if tile_flags == 0x6000 {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                drips_surface_crawler_turn_script_loc_33a54(),
+            )
+        } else {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                drips_surface_crawler_turn_script_loc_339e6(),
+            )
+        }
+    } else if tile_flags == 0x4000 {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
+    } else if tile_flags == 0x6000 {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_33a36())
+    } else {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_33a0e())
+    }
+}
+
+fn drips_surface_crawler_diagonal_step_loc_33892(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+    level_bounds: LevelBounds,
+) -> DripsSurfaceCrawlerDiagonalStepLoc33810 {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    // ASM Drips.asm loc_33892/loc_338CE: after the same level-edge guard, the
+    // diagonal crawler probes `loc_3330E` with mirrored offsets and loops only
+    // while d7 is `$5000`.
+    if drips_surface_crawler_out_of_level_bounds_loc_33588(
+        projectile,
+        level_bounds.width_pixels,
+        level_bounds.height_pixels,
+    ) {
+        return DripsSurfaceCrawlerDiagonalStepLoc33810::Exit;
+    }
+
+    let (x_offset, y_offset) = if projectile.y_velocity < 0 {
+        (-5, -5)
+    } else {
+        (5, 5)
+    };
+    let tile_flags = relative_collision_mask_loc_3330E(
+        grid,
+        i32::from(x_pos_word),
+        i32::from(y_pos_word),
+        x_offset,
+        y_offset,
+    );
+
+    if projectile.y_velocity < 0 {
+        if tile_flags == 0x5000 {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
+        } else if tile_flags == 0x6000 {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                drips_surface_crawler_turn_script_loc_33a68(),
+            )
+        } else {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                drips_surface_crawler_turn_script_loc_33a4a(),
+            )
+        }
+    } else if tile_flags == 0x5000 {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
+    } else if tile_flags == 0x6000 {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_33a22())
+    } else {
+        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_339f0())
+    }
+}
+
 fn drips_surface_crawler_side_column_step_loc_33650(
     grid: &terrain::BlockGrid,
     projectile: &EnemyProjectile,
@@ -474,13 +593,11 @@ fn drips_surface_crawler_apply_turn_script_loc_33af6(
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc336D0 => DripsSurfaceCrawlerState::VerticalLoc336D0,
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33730 => DripsSurfaceCrawlerState::VerticalLoc33730,
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0 => DripsSurfaceCrawlerState::VerticalLoc337A0,
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33A7C => DripsSurfaceCrawlerState::IdleLoc33A7C,
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33810 => DripsSurfaceCrawlerState::DiagonalLoc33810,
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33892 => DripsSurfaceCrawlerState::DiagonalLoc33892,
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650
-        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33A7C
-        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33810
-        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33892
         | DripsSurfaceCrawlerTurnNextLoc33AF6::Unknown(_) => {
-            // TODO(fidelity): persist and execute the rest of `off_33ADA`; until
-            // those labels are live, return to the simplified horizontal carrier.
             DripsSurfaceCrawlerState::HorizontalLoc33650
         }
     };
@@ -1193,6 +1310,50 @@ impl NativeRuntime {
                     }
                     DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
                 }
+            } else {
+                drips_movement_state_handled
+            };
+
+            let drips_movement_state_handled = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::DiagonalLoc33810
+                && let Some(g) = grid
+            {
+                match drips_surface_crawler_diagonal_step_loc_33810(g, p, level_bounds) {
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Loop => true,
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(script) => {
+                        // ASM Drips.asm loc_33810/loc_33878 dispatch diagonal
+                        // probe outcomes through loc_33AF6.
+                        drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
+                        return true;
+                    }
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => return false,
+                }
+            } else {
+                drips_movement_state_handled
+            };
+
+            let drips_movement_state_handled = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::DiagonalLoc33892
+                && let Some(g) = grid
+            {
+                match drips_surface_crawler_diagonal_step_loc_33892(g, p, level_bounds) {
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Loop => true,
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(script) => {
+                        // ASM Drips.asm loc_33892/loc_338CE dispatch diagonal
+                        // probe outcomes through loc_33AF6.
+                        drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
+                        return true;
+                    }
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => return false,
+                }
+            } else {
+                drips_movement_state_handled
+            };
+
+            let drips_movement_state_handled = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::IdleLoc33A7C
+            {
+                true
             } else {
                 drips_movement_state_handled
             };
