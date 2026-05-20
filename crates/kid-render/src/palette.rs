@@ -113,6 +113,17 @@ mod tests {
     }
 
     #[test]
+    fn masks_unused_md_colour_word_bits() {
+        // MD CRAM only uses bits 1..3, 5..7, and 9..11; native masks like the VDP.
+        let colour = MdColour::from_word(0xF000);
+
+        assert_eq!(colour.red, 0x00);
+        assert_eq!(colour.green, 0x00);
+        assert_eq!(colour.blue, 0x00);
+        assert_eq!(colour.raw_word, 0xF000);
+    }
+
+    #[test]
     fn applies_permutation_to_visible_only_palette_slots() {
         let make_colour = |raw_word| MdColour {
             red: 0,
@@ -138,6 +149,42 @@ mod tests {
     }
 
     #[test]
+    fn applies_visible_only_permutation_through_slot_fifteen() {
+        let make_colour = |raw_word| MdColour {
+            red: 0,
+            green: 0,
+            blue: 0,
+            raw_word,
+        };
+        let mut palette = Palette {
+            colours: (1..=15).map(make_colour).collect(),
+        };
+        let table = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1];
+
+        palette.apply_permutation(&table);
+
+        assert_eq!(palette.colours[14].raw_word, 1);
+    }
+
+    #[test]
+    fn visible_only_permutation_ignores_source_slot_beyond_palette() {
+        let make_colour = |raw_word| MdColour {
+            red: 0,
+            green: 0,
+            blue: 0,
+            raw_word,
+        };
+        let mut palette = Palette {
+            colours: (1..=15).map(make_colour).collect(),
+        };
+        let table = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16];
+
+        palette.apply_permutation(&table);
+
+        assert_eq!(palette.colours[14].raw_word, 15);
+    }
+
+    #[test]
     fn applies_permutation_directly_when_palette_includes_slot_zero() {
         let make_colour = |raw_word| MdColour {
             red: 0,
@@ -158,5 +205,23 @@ mod tests {
             .map(|colour| colour.raw_word)
             .collect();
         assert_eq!(reordered[..4], [0, 2, 1, 3]);
+    }
+
+    #[test]
+    fn direct_permutation_ignores_source_slot_beyond_palette() {
+        let make_colour = |raw_word| MdColour {
+            red: 0,
+            green: 0,
+            blue: 0,
+            raw_word,
+        };
+        let mut palette = Palette {
+            colours: (0..8).map(make_colour).collect(),
+        };
+        let table = [0, 8, 1, 3, 4, 5, 6, 7, 2, 9, 10, 11, 12, 13, 14, 15];
+
+        palette.apply_permutation(&table);
+
+        assert_eq!(palette.colours[1].raw_word, 1);
     }
 }
