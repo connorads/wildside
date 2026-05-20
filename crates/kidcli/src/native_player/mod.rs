@@ -283,6 +283,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             vsram: vdp.vsram.clone(),
         };
         kid_md::render_vdp_into(&snapshot, &mut frame);
+        render_vdp_trace_overlay(&trace, &session_assets.level_visuals, &mut frame);
     } else {
         let scene = build_scene(
             &trace,
@@ -524,6 +525,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 vsram: vdp.vsram.clone(),
             };
             kid_md::render_vdp_into(&snapshot, &mut frame);
+            render_vdp_trace_overlay(&render_trace, &session_assets.level_visuals, &mut frame);
         } else {
             let scene = build_scene(
                 &render_trace,
@@ -595,6 +597,29 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     )?;
 
     Ok(())
+}
+
+fn render_vdp_trace_overlay(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    frame: &mut [u8],
+) {
+    if trace.boot_phase.as_deref() != Some("starting_level") {
+        return;
+    }
+    if trace.game_mode != GameMode::LevelTransition {
+        return;
+    }
+
+    // ASM Load_TitleCard has two independent pieces: `Load_TitleCard` builds
+    // the static VDP shell, then `loc_1AB26` / `loc_1AC70` animate
+    // Title_Letter gfx workers over it. The VDP path owns the shell; this
+    // overlay keeps the ROM-derived letter workers visible without restoring
+    // the old invented static level-card text.
+    let overlay = build_title_card_worker_overlay_scene(trace, Some(level_visuals));
+    if !overlay.commands.is_empty() {
+        render_scene_overlay(&overlay, frame);
+    }
 }
 
 fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
@@ -2782,6 +2807,48 @@ mod tests {
         assert!(
             !contains_text(&scene, "Blue Lake Woods 1"),
             "Load_TitleCard bootstrap should not use the static transition fallback before loc_1AB26 workers are visible",
+        );
+    }
+
+    #[test]
+    fn vdp_title_card_bootstrap_composites_title_letter_workers() {
+        // ASM Load_TitleCard draws the background through VDP, while
+        // loc_1AB26/loc_1AC70 keep the animated Title_Letter workers in gfx
+        // object slots. Native's VDP path must overlay those workers rather
+        // than replacing the whole frame with the static shell.
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        trace.boot_phase = Some(String::from("starting_level"));
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0 },
+            x_pos: 0x0010_0000,
+            y_pos: 0x0010_0000,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::from([(
+                String::from("glyph"),
+                String::from("0x68"),
+            )]),
+        }];
+        let visuals = sample_level_visuals();
+        let mut frame = vec![12; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_vdp_trace_overlay(&trace, &visuals, &mut frame);
+
+        assert!(
+            frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
+            "VDP title-card shell should retain the animated title-letter overlay",
         );
     }
 

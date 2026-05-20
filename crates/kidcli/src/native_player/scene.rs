@@ -302,47 +302,9 @@ pub(super) fn build_transition_scene(
         colour: [0, 0, 0],
     });
 
-    // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
-    // builds a Title_Letter object per glyph in the level's title-card script.
-    // Each worker decompresses its sprite from `ArtComp_19C68_TtlCardLetters`
-    // into VRAM at tile `$8120`, picks one of four random off-screen entry
-    // poses via `loc_1ACB0`..`loc_1ACFE`, then glides toward the script-side
-    // target through `loc_1AD2A`/`loc_1AD3A` (axis-independent step add).
-    // The engine simulates this in `starting_level_title_workers`; each worker
-    // is surfaced through `active_objects` with `Enemy{object_type:0}` and
-    // debug fields `gfx_slot_index` + `glyph`. Render each visible glyph at
-    // its current interpolated (x_pos, y_pos).
-    let title_card_art = level_visuals.and_then(|lv| lv.title_card_letters.as_ref());
-    let mut drew_any_glyph = false;
-    for object in &trace.active_objects {
-        let NativeObjectKind::Enemy { object_type: 0 } = object.kind else {
-            continue;
-        };
-        let Some(glyph_str) = object.debug_fields.get("glyph") else {
-            continue;
-        };
-        let glyph = parse_title_glyph(glyph_str);
-        // ASM loc_1AC70 stores worker positions as 16.16 fixed-point signed
-        // ints; entry poses include `$FFE0`/`$FFD0` (left of screen) and
-        // `$160` (right of screen). Interpret as i32 to keep off-screen
-        // start positions correct.
-        let sx = (object.x_pos as i32) >> 16;
-        let sy = (object.y_pos as i32) >> 16;
-        if let Some(art) = title_card_art
-            && push_title_card_glyph_tiles(&mut commands, art, glyph, sx, sy)
-        {
-            drew_any_glyph = true;
-            continue;
-        }
-        // Fallback: when the title-card letter art isn't loaded, render the
-        // glyph as ASCII via the placeholder font. The per-glyph motion is
-        // still ASM-faithful via the worker pose; only the letter art is
-        // approximate.
-        if let Some(ch) = title_glyph_to_ascii(glyph) {
-            commands.push(text(sx, sy, &ch.to_string(), [255, 240, 200], 2));
-            drew_any_glyph = true;
-        }
-    }
+    let overlay = build_title_card_worker_overlay_scene(trace, level_visuals);
+    let drew_any_glyph = !overlay.commands.is_empty();
+    commands.extend(overlay.commands);
 
     // Fallback: death/respawn transitions never seed title workers. Keep the
     // lightweight name/ID/score readout for those windows only. During
@@ -378,6 +340,57 @@ pub(super) fn build_transition_scene(
             [100, 140, 180],
             1,
         ));
+    }
+
+    Scene {
+        background: [0, 0, 0],
+        commands,
+    }
+}
+
+pub(super) fn build_title_card_worker_overlay_scene(
+    trace: &NativeTraceFrame,
+    level_visuals: Option<&NativeLevelVisuals>,
+) -> Scene {
+    let mut commands = Vec::new();
+
+    // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
+    // builds a Title_Letter object per glyph in the level's title-card script.
+    // Each worker decompresses its sprite from `ArtComp_19C68_TtlCardLetters`
+    // into VRAM at tile `$8120`, picks one of four random off-screen entry
+    // poses via `loc_1ACB0`..`loc_1ACFE`, then glides toward the script-side
+    // target through `loc_1AD2A`/`loc_1AD3A` (axis-independent step add).
+    // The engine simulates this in `starting_level_title_workers`; each worker
+    // is surfaced through `active_objects` with `Enemy{object_type:0}` and
+    // debug fields `gfx_slot_index` + `glyph`. Render each visible glyph at
+    // its current interpolated (x_pos, y_pos).
+    let title_card_art = level_visuals.and_then(|lv| lv.title_card_letters.as_ref());
+    for object in &trace.active_objects {
+        let NativeObjectKind::Enemy { object_type: 0 } = object.kind else {
+            continue;
+        };
+        let Some(glyph_str) = object.debug_fields.get("glyph") else {
+            continue;
+        };
+        let glyph = parse_title_glyph(glyph_str);
+        // ASM loc_1AC70 stores worker positions as 16.16 fixed-point signed
+        // ints; entry poses include `$FFE0`/`$FFD0` (left of screen) and
+        // `$160` (right of screen). Interpret as i32 to keep off-screen
+        // start positions correct.
+        let sx = (object.x_pos as i32) >> 16;
+        let sy = (object.y_pos as i32) >> 16;
+        if let Some(art) = title_card_art
+            && push_title_card_glyph_tiles(&mut commands, art, glyph, sx, sy)
+        {
+            continue;
+        }
+        // Fallback: when the title-card letter art isn't loaded, render the
+        // glyph as ASCII via the placeholder font. The per-glyph motion is
+        // still ASM-faithful via the worker pose; only the letter art is
+        // approximate.
+        if let Some(ch) = title_glyph_to_ascii(glyph) {
+            commands.push(text(sx, sy, &ch.to_string(), [255, 240, 200], 2));
+        }
     }
 
     Scene {

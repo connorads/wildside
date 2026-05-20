@@ -2,6 +2,10 @@ use super::*;
 
 pub(crate) fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     clear_frame(rgb, scene.background);
+    render_scene_overlay(scene, rgb);
+}
+
+pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
     let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
     for command in &scene.commands {
         match command {
