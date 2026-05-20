@@ -6,9 +6,10 @@ use crate::enemies::{
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
     TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
     drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a18,
-    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_339c8,
-    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_3393c,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
+    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339dc,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33982,
     drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
     tank_bullet_loop_route_loc_3b7ba,
 };
@@ -186,6 +187,16 @@ fn drips_surface_crawler_side_column_step_loc_33650(
         if column.one_row_up == 0x5000 {
             return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
                 drips_surface_crawler_turn_script_loc_33a40(),
+            );
+        }
+        if column.current_row == 0x4000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33a2c(),
+            );
+        }
+        if column.current_row != 0x6000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33982(),
             );
         }
     } else {
