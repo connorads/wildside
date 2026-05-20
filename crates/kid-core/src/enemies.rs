@@ -6409,6 +6409,8 @@ pub(crate) struct ActiveEnemy {
     /// Crab: frozen state flag ($6E(a5)). ASM loc_3B104 sets this when player
     /// within 64px and facing the crab; loc_3B170 clears it when distance >224px.
     pub(crate) crab_frozen: bool,
+    /// Crab: charging-Berzerker side-contact loop from `Crab.asm loc_3B180`.
+    pub(crate) crab_berzerker_knockback: bool,
     /// Shared Dragon/Lion grounded-state word ($42(a3)).
     pub(crate) shared_walker_state: i16,
     /// Shared Dragon/Lion patrol cadence countdown ($54(a5)).
@@ -8102,6 +8104,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         flight_double_terminal_speed: false,
         walk_speed_override: 0,
         crab_frozen: false,
+        crab_berzerker_knockback: false,
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
@@ -8771,6 +8774,7 @@ pub(crate) fn activate_enemies_with_rng(
                 },
                 scorpion_tracking_lock: false,
                 crab_frozen: false,
+                crab_berzerker_knockback: false,
                 flight_double_acceleration: matches!(
                     family,
                     EnemyFamily::UFO | EnemyFamily::Tornado
@@ -8915,6 +8919,10 @@ pub(crate) fn step_active_enemies_with_rng(
                     // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
                     // Check freeze before stepping; if frozen, skip movement.
                     if matches!(enemy.family, EnemyFamily::Crab) {
+                        if enemy.crab_berzerker_knockback {
+                            step_crab_berzerker_knockback(enemy, block_grid);
+                            continue;
+                        }
                         if enemy.damage_flash_frames > 0 {
                             // ASM Crab.asm loc_3B0A6 initialises the hurt
                             // animation and hibernates until it finishes before
@@ -23226,6 +23234,57 @@ pub(crate) fn step_crab_freeze(
     // (already frozen stays frozen, already unfrozen stays unfrozen)
 }
 
+fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // ASM Crab.asm loc_3B1A6-loc_3B254: the Berzerker side-contact launch
+    // owns movement until x_vel decelerates into the settle window, then
+    // clears movement/level-collision flags and resumes loc_3B0BE.
+    let deceleration = crab_airborne_deceleration_frame_loc_3b1a6(enemy.x_velocity);
+    enemy.x_velocity = match deceleration.route {
+        CrabAirborneDecelerationRouteLoc3B1A6::NonNegativeXVelocity { x_velocity } => x_velocity,
+        CrabAirborneDecelerationRouteLoc3B1A6::NegativeXVelocityTail => {
+            crab_negative_airborne_deceleration_loc_3b1be(enemy.x_velocity).x_velocity
+        }
+    };
+
+    if matches!(
+        crab_airborne_threshold_route_loc_3b1c6(enemy.x_velocity),
+        CrabAirborneThresholdRouteLoc3B1C6::Settle
+    ) {
+        let settle = crab_airborne_settle_tail_loc_3b254();
+        enemy.x_velocity = settle.x_velocity;
+        enemy.y_velocity = settle.y_velocity;
+        enemy.on_ground = true;
+        enemy.crab_berzerker_knockback = false;
+        return;
+    }
+
+    let gravity = crab_gravity_tail_loc_3b218(enemy.x_velocity, enemy.y_velocity);
+    enemy.x_velocity = gravity.x_velocity;
+    enemy.y_velocity = gravity.y_velocity;
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.on_ground = false;
+
+    let Some(grid) = block_grid else {
+        return;
+    };
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
+    }
+}
+
 fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
     // ASM Tank_Shooting.asm loc_3B682: `cmpi.w #4,d7; bne.s loc_3B682`
     // installs the slow turret animation for every value except exact 4.
@@ -23973,6 +24032,7 @@ mod tests {
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
             crab_frozen: false,
+            crab_berzerker_knockback: false,
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
             shared_walker_patrol_short_next: false,
@@ -25013,6 +25073,46 @@ mod tests {
                 y_velocity: 0,
             }),
             "ASM Crab.asm loc_3B180 should double Kid x_vel into the crab and clear y_vel before the airborne loop"
+        );
+    }
+
+    #[test]
+    fn crab_berzerker_knockback_runtime_skips_pacer_loc_3b1a6() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.facing = Direction::Left;
+        enemy.x_velocity = 0x0003_0000;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        enemy.crab_berzerker_knockback = true;
+        let mut enemies = [enemy];
+        let grid = mini_hopping_skull_test_grid();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut enemies,
+            Some(&grid),
+            None,
+            None,
+            None,
+            Some(0),
+            PlayerForm::Berzerker,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert!(
+            enemies[0].crab_berzerker_knockback,
+            "ASM Crab.asm loc_3B1A6 remains in the airborne loop while x_vel is outside the settle window"
+        );
+        assert_ne!(
+            enemies[0].x_velocity,
+            horizontal_velocity(Direction::Left, pacer_walk_speed(EnemyFamily::Crab, 1)),
+            "Berzerker knockback must not fall through to the normal pacer walker"
+        );
+        assert!(
+            enemies[0].y_velocity > 0,
+            "ASM Crab.asm loc_3B218 seeds downward recovery velocity from zero y_vel"
         );
     }
 

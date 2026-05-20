@@ -6565,6 +6565,7 @@ mod chunk_03 {
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
             crab_frozen: false,
+            crab_berzerker_knockback: false,
             shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
             shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(
                 EnemyFamily::DragonWalking,
@@ -7154,6 +7155,7 @@ mod chunk_03 {
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
             crab_frozen: false,
+            crab_berzerker_knockback: false,
             shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
             shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(
                 EnemyFamily::DragonWalking,

@@ -5227,7 +5227,9 @@ impl NativeRuntime {
         let py = (slice.player.y_pos >> 16) as i32;
 
         let mut reflected_player_velocity = false;
+        let incoming_player_x_velocity = slice.player.x_velocity;
         let mut kill_indices = Vec::new();
+        let mut changed_enemy_state = false;
         for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
             if matches!(enemy.family, EnemyFamily::Diamond) {
                 continue;
@@ -5245,11 +5247,28 @@ impl NativeRuntime {
                     slice.player.x_velocity = slice.player.x_velocity.wrapping_neg();
                     reflected_player_velocity = true;
                 }
+                if matches!(enemy.family, EnemyFamily::Crab)
+                    && let CrabBerzerkerSideGateLoc3B180::Knockback(knockback) =
+                        crab_berzerker_side_gate_loc_3b180(true, incoming_player_x_velocity)
+                {
+                    // ASM Crab.asm loc_3B180: charging Berzerker side contact
+                    // launches the crab from Kid's incoming x_vel instead of
+                    // taking the generic hurt/death path.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.crab_frozen = false;
+                    enemy.crab_berzerker_knockback = true;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 enemy.hit_points = enemy.hit_points.saturating_sub(1);
                 if enemy.hit_points == 0 {
                     kill_indices.push(i);
                 } else {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    changed_enemy_state = true;
                 }
             }
         }
@@ -5257,7 +5276,7 @@ impl NativeRuntime {
         for &idx in kill_indices.iter().rev() {
             self.remove_dead_enemy(idx);
         }
-        if !kill_indices.is_empty() {
+        if changed_enemy_state || !kill_indices.is_empty() {
             self.active_enemy_roster = self
                 .active_enemies
                 .iter()

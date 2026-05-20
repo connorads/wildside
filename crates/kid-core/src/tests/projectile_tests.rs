@@ -7148,6 +7148,39 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Crab.asm loc_3B180: charging Berzerker side contact doubles Kid's
+    /// incoming x_vel into Crab and enters the airborne deceleration loop
+    /// instead of consuming HP through the generic hurt/death path.
+    #[test]
+    fn berzerker_charge_launches_crab_instead_of_damaging_loc_3b180() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Crab, 0x0040_0000, 0x0040_0000, 2));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let crab = rt.active_enemies[0];
+        assert_eq!(crab.hit_points, 2);
+        assert_eq!(
+            crab.x_velocity, 0x0003_0000,
+            "ASM loc_3B180 doubles Kid's incoming x_vel into Crab x_vel"
+        );
+        assert_eq!(crab.y_velocity, 0);
+        assert!(crab.crab_berzerker_knockback);
+        assert!(!crab.crab_frozen);
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_8000,
+            "ASM loc_B692 reflection still applies once for the player contact"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
