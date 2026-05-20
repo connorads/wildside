@@ -6876,7 +6876,10 @@ mod chunk_08 {
         let mut frame_1146 = None;
         let mut frame_1147 = None;
         let mut frame_1148 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_149) {
+        let mut frame_1347 = None;
+        let mut frame_1348 = None;
+        let mut frame_1349 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_350) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6893,8 +6896,11 @@ mod chunk_08 {
                 1_145 => frame_1145 = Some(trace),
                 1_146 => frame_1146 = Some(trace),
                 1_147 => frame_1147 = Some(trace),
-                1_148 => {
-                    frame_1148 = Some(trace);
+                1_148 => frame_1148 = Some(trace),
+                1_347 => frame_1347 = Some(trace),
+                1_348 => frame_1348 = Some(trace),
+                1_349 => {
+                    frame_1349 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -6980,6 +6986,26 @@ mod chunk_08 {
             Some(0),
             "post-transform trace velocity hold should expire before the next gameplay frontier"
         );
+
+        let frame_1347 = frame_1347.expect("frame 1347 trace");
+        let frame_1348 = frame_1348.expect("frame 1348 trace");
+        let frame_1349 = frame_1349.expect("frame 1349 trace");
+        // ASM sub_10EDA (kid.asm:22836) keeps each smash-block effect object
+        // alive for a two-frame hibernate before dispatching sub_292E debris.
+        // The TAS demo count baseline must include those object/gfx workers
+        // while native exposes them as block_destroy_effects.
+        assert_eq!(frame_1347.block_destroy_effects, vec![(352, 244, 2, 0)]);
+        assert_eq!(frame_1347.number_objects, 5);
+        assert_eq!(frame_1347.number_gfx_objects, 5);
+        assert_eq!(
+            frame_1348.block_destroy_effects,
+            vec![(352, 244, 1, 0), (368, 244, 2, 0)]
+        );
+        assert_eq!(frame_1348.number_objects, 6);
+        assert_eq!(frame_1348.number_gfx_objects, 6);
+        assert_eq!(frame_1349.block_destroy_effects, vec![(368, 244, 1, 0)]);
+        assert_eq!(frame_1349.number_objects, 5);
+        assert_eq!(frame_1349.number_gfx_objects, 5);
     }
 
     #[test]

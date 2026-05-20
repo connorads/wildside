@@ -2301,9 +2301,10 @@ impl NativeRuntime {
                     // shared Load_InGame tail. Native does not model that
                     // controller as a roster entry. Runtime block/prize
                     // transient workers, such as ASM loc_1002E/sub_1007A
-                    // prize-block bounces and loc_102B8 spawn flashes, still
-                    // allocate object+gfx slots during demo playback and must
-                    // be counted above that four-object baseline.
+                    // prize-block bounces, loc_102B8 spawn flashes, and
+                    // sub_10EDA/sub_292E block debris workers, still allocate
+                    // object+gfx slots during demo playback and must be
+                    // counted above that four-object baseline.
                     let live_floating_prize_objects = self
                         .floating_items
                         .iter()
@@ -2312,6 +2313,7 @@ impl NativeRuntime {
                     let transient_gfx_workers = (self.block_bounces.len()
                         + self.prize_block_worker_tails.len()
                         + self.prize_block_spawn_flashes.len()
+                        + self.block_destroy_effects.len()
                         + live_floating_prize_objects)
                         as u16;
                     (
