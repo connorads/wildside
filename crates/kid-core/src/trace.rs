@@ -861,7 +861,7 @@ impl NativeRuntime {
             .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
             .count();
         let mut gameplay_debug_fields = BTreeMap::new();
-        if self.progression.form_change_flash_frames > 0 {
+        if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
         }
         if self.gameplay_hibernating_for_transform() {
@@ -1992,6 +1992,13 @@ impl NativeRuntime {
     }
 
     fn demo_trace_velocity_hold_active(&self) -> bool {
+        if self.demo_post_transform_trace_velocity_hold_frames > 0 {
+            // ASM Kid_Transform loc_7E90 has already cleared the ROM
+            // `Currently_transforming` flag, but demo playback still samples
+            // player WRAM velocity as zero while the visible `kid_gfx` object
+            // carries the post-transform movement for this hand-off window.
+            return true;
+        }
         self.demo_startup_frame().is_some_and(|frame_counter| {
             frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
                 && frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME

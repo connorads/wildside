@@ -1058,7 +1058,12 @@ pub(crate) fn native_trace_to_oracle_state(
             None => 0u8,
         }),
         invulnerable_frames: Some(frame.invulnerable_frames as u8),
-        currently_transforming: Some(frame.form_change_flash_frames > 0),
+        // ASM Kid_Transform loc_7E90 clears `Currently_transforming` during
+        // the final cleanup frame, while the gameplay loop is still hibernated
+        // until the coroutine returns. Native keeps that cleanup frame in
+        // `form_change_flash_frames`, so only frames above 1 map to the ROM
+        // RAM flag.
+        currently_transforming: Some(frame.form_change_flash_frames > 1),
         rng_offset: frame.rng_offset,
         level_special_effects: None,
         gameplay_debug_fields: frame.gameplay_debug_fields.clone(),

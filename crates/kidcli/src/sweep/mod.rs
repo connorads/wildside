@@ -1149,7 +1149,12 @@ pub(crate) fn extract_checkpoint_states(
                     None => 0u8,
                 }),
                 invulnerable_frames: Some(frame.invulnerable_frames as u8),
-                currently_transforming: Some(frame.form_change_flash_frames > 0),
+                // ASM Kid_Transform loc_7E90 clears `Currently_transforming`
+                // on the final cleanup frame before the coroutine returns.
+                // Native still uses `form_change_flash_frames == 1` to keep
+                // gameplay hibernated for that frame, so the ROM RAM flag is
+                // true only while more than one native flash frame remains.
+                currently_transforming: Some(frame.form_change_flash_frames > 1),
                 rng_offset: None,            // native uses different RNG system
                 level_special_effects: None, // native doesn't track this separately
                 gameplay_debug_fields: frame.gameplay_debug_fields.clone(),

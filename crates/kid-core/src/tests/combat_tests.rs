@@ -4685,7 +4685,7 @@ mod chunk_03 {
     /// ASM loc_7C76 (kid.asm:8387): `move.w (Current_Helmet).w,d7; beq.w loc_7CD0`
     /// — when the old form is TheKid (d7==0), Kid_Transform skips the reverse
     /// animation phase entirely and branches to loc_7CD0 (put-on-new). The total
-    /// flash duration is only the forward phase + 1 entry frame.
+    /// flash duration is the forward phase plus the final cleanup frame.
     #[test]
     fn loc_7c76_thekid_to_helmet_skips_reverse_animation() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -4697,10 +4697,10 @@ mod chunk_03 {
 
         // TheKid has 0 animation frames (no table entry at off_7EE2[0]).
         // loc_7C76 branches directly to loc_7CD0 which runs only the forward
-        // Skycutter table (47 frames) + 1 entry frame.
+        // Skycutter table (47 frames) + 1 cleanup frame.
         assert_eq!(
             runtime.progression.form_change_flash_frames,
-            47 + 1, // 0 (TheKid reverse) + 47 (Skycutter forward) + 1 (entry)
+            47 + 1, // 0 (TheKid reverse) + 47 (Skycutter forward) + 1 cleanup
             "ASM loc_7C76: TheKid→Skycutter should have no reverse phase (old_frames=0)"
         );
     }
@@ -4723,7 +4723,7 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::IronKnight);
         runtime.resolve_pending_form_change();
 
-        // Cyclone reverse (72) + IronKnight forward (81) + 1 entry frame
+        // Cyclone reverse (72) + IronKnight forward (81) + 1 cleanup frame
         assert_eq!(
             runtime.progression.form_change_flash_frames,
             (72 + 81 + 1) as u8,
@@ -4773,7 +4773,7 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::Eyeclops);
         runtime.resolve_pending_form_change();
 
-        // RedStealth reverse (54 from stru_7F5A) + Eyeclops forward (93) + 1
+        // RedStealth reverse (54 from stru_7F5A) + Eyeclops forward (93) + 1 cleanup
         assert_eq!(
             runtime.progression.form_change_flash_frames,
             (54 + 93 + 1) as u8,
@@ -4814,7 +4814,7 @@ mod chunk_03 {
             runtime.resolve_pending_form_change();
 
             let actual = runtime.progression.form_change_flash_frames;
-            // total = 0 (TheKid reverse) + expected_frames (forward) + 1 (entry)
+            // total = 0 (TheKid reverse) + expected_frames (forward) + 1 cleanup
             assert_eq!(
                 actual,
                 expected_frames.saturating_add(1),
@@ -4857,7 +4857,7 @@ mod chunk_03 {
     /// ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
     /// (Current_Helmet).w; beq.w loc_7E14` — sets Current_Helmet to the target.
     /// When transforming from a helmet to TheKid (damage path), the forward phase
-    /// has 0 frames (TheKid has no table), so only reverse + 1 entry frame.
+    /// has 0 frames (TheKid has no table), so only reverse + 1 cleanup frame.
     #[test]
     fn loc_7cd0_helmet_to_thekid_only_reverse_phase() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -4877,7 +4877,7 @@ mod chunk_03 {
             PlayerForm::TheKid,
             "ASM loc_7CD0: Current_Helmet should be set to target (TheKid)"
         );
-        // Maniaxe reverse (45) + TheKid forward (0, beq.w loc_7E14 skips) + 1 entry = 46
+        // Maniaxe reverse (45) + TheKid forward (0, beq.w loc_7E14 skips) + 1 cleanup = 46
         assert_eq!(
             runtime.progression.form_change_flash_frames, 46,
             "ASM loc_7CD0: helmet→TheKid should have only reverse phase"
@@ -4916,7 +4916,7 @@ mod chunk_03 {
     /// entry contributes its mode byte (repeat count) to the total duration.
     /// Native pre-sums these into form_change_flash_frames. Verify that a
     /// TheKid→Skycutter transform includes exactly Skycutter's forward frames
-    /// (47 from stru_7EFA) plus the +1 entry frame.
+    /// (47 from stru_7EFA) plus the final cleanup frame.
     #[test]
     fn loc_7cfe_forward_animation_indexes_off_7ee2_for_new_helmet() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -4926,7 +4926,7 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::Skycutter);
         runtime.resolve_pending_form_change();
 
-        // TheKid has 0 reverse frames; Skycutter forward = 47 (stru_7EFA); +1 entry = 48
+        // TheKid has 0 reverse frames; Skycutter forward = 47 (stru_7EFA); +1 cleanup = 48
         assert_eq!(
             runtime.progression.form_change_flash_frames, 48,
             "ASM loc_7CFE: off_7EE2[Skycutter] forward phase should contribute 47 frames"
@@ -4943,7 +4943,7 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
-        // Transform TheKid → Cyclone: 0 reverse + 72 forward (stru_7F30) + 1 = 73
+        // Transform TheKid → Cyclone: 0 reverse + 72 forward (stru_7F30) + 1 cleanup = 73.
         runtime.queue_form_change(PlayerForm::Cyclone);
         runtime.resolve_pending_form_change();
 
@@ -4999,10 +4999,10 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::Cyclone);
         runtime.resolve_pending_form_change();
 
-        // 0 reverse + 72 forward + 1 entry = 73
+        // 0 reverse + 72 forward + 1 cleanup = 73.
         assert_eq!(
             runtime.progression.form_change_flash_frames, 73,
-            "ASM loc_7D5A: Cyclone forward frames (including index-8 entries) = 72 + 1"
+            "ASM loc_7D5A: Cyclone forward frames (including index-8 entries) = 72 + 1 cleanup"
         );
     }
 
@@ -5025,7 +5025,7 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::Skycutter);
         runtime.resolve_pending_form_change();
 
-        // 0 reverse + 47 forward + 1 = 48
+        // 0 reverse + 47 forward + 1 cleanup = 48.
         assert_eq!(
             runtime.progression.form_change_flash_frames, 48,
             "ASM loc_7D7C/$C dispatch entries should be included in Skycutter's 47 forward frames"

@@ -397,6 +397,8 @@ pub struct NativeRuntime {
     /// Tracks whether demo playback is currently inside Kid_Transform so the
     /// post-transform demo counter parity can be restored on the exit frame.
     demo_transform_active: bool,
+    /// Trace-only velocity export hold after demo Kid_Transform exits.
+    demo_post_transform_trace_velocity_hold_frames: u8,
     /// Two-player alternating mode enabled.
     two_player: bool,
     /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
@@ -1225,6 +1227,7 @@ impl NativeRuntime {
             active_intro_sequence_3_roster_index: 0,
             demo_toggle: false,
             demo_transform_active: false,
+            demo_post_transform_trace_velocity_hold_frames: 0,
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
@@ -1642,6 +1645,9 @@ impl NativeRuntime {
         }
 
         let trace = self.trace_frame();
+        if self.demo_post_transform_trace_velocity_hold_frames > 0 {
+            self.demo_post_transform_trace_velocity_hold_frames -= 1;
+        }
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.prior_input = self.previous_input;
         // ASM loc_C4E (kid.asm:1410): `move.b (Ctrl_1).w,(Ctrl_1_Held).w` —
@@ -2010,10 +2016,13 @@ impl NativeRuntime {
                 *data_index += 1;
                 let byte = demo::demo_byte(*use_demo_2, *data_index);
                 self.demo_buffered_input = Some(demo::decode_demo_byte(byte));
+                self.demo_post_transform_trace_velocity_hold_frames =
+                    demo::DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES;
             }
             self.demo_transform_active = transform_active;
         } else {
             self.demo_transform_active = false;
+            self.demo_post_transform_trace_velocity_hold_frames = 0;
         }
     }
 

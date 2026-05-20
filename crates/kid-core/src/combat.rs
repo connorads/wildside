@@ -8237,13 +8237,17 @@ impl NativeRuntime {
             // Native sets current_form above; frame counting below covers both phases.
             let old_frames = transform_anim_frames(old_form);
             let new_frames = transform_anim_frames(form);
-            // +1 for the Kid_Transform entry frame (sub_7C1C + palette save +
-            // condition checks + initial Hibernate) before the animation loop starts.
             // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
             // move.l d7,a0; move.l $C(a0),a0; jsr Delete_Object_a0; bra.s loc_7C24`
             // — sub_7C1C walks the linked object list at $FFFFF862, deleting each
             // child's GFX object ($C(a0)) before transform. Native doesn't model
             // linked GFX child objects, so this is a no-op here.
+            // +1 for Kid_Transform's cleanup frame after the table loops.
+            // ASM loc_7E90 (kid.asm:8597) clears `Currently_transforming`
+            // during that final frame, but the regular gameplay loop is still
+            // hibernated until the coroutine returns. Native keeps this in the
+            // same countdown as the table hibernates and lets trace reporting
+            // suppress `currently_transforming` on the last frame.
             self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
         }
         // ASM loc_7E26 (kid.asm:8564): `move.b (a4,d0.w),d0; jsr (sub_E1330).l;
