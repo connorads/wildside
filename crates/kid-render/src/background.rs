@@ -60,30 +60,30 @@ const LAYERED_BACKGROUND_PLANE_WIDTH_TILES: usize = 32;
 
 pub fn parse_chunked_background_layout(bytes: &[u8]) -> Result<Vec<BackgroundPlacement>> {
     let mut placements = Vec::new();
-    let mut cursor = 0usize;
+    let mut remaining = bytes;
 
     loop {
-        if cursor + 2 > bytes.len() {
+        if remaining.len() < 2 {
             bail!("background layout is missing the 0xFFFF terminator");
         }
 
-        let chunk_id = u16::from_be_bytes([bytes[cursor], bytes[cursor + 1]]);
+        let chunk_id = u16::from_be_bytes([remaining[0], remaining[1]]);
         if chunk_id == 0xFFFF {
             return Ok(placements);
         }
         if chunk_id == 0x8000 {
             bail!("shared background layout pointers are not supported");
         }
-        if cursor + 6 > bytes.len() {
+        if remaining.len() < 6 {
             bail!("background layout entry for chunk 0x{chunk_id:04X} is truncated");
         }
 
         placements.push(BackgroundPlacement {
             chunk_id,
-            x_tiles: u16::from_be_bytes([bytes[cursor + 2], bytes[cursor + 3]]),
-            y_tiles: u16::from_be_bytes([bytes[cursor + 4], bytes[cursor + 5]]),
+            x_tiles: u16::from_be_bytes([remaining[2], remaining[3]]),
+            y_tiles: u16::from_be_bytes([remaining[4], remaining[5]]),
         });
-        cursor += 6;
+        remaining = &remaining[6..];
     }
 }
 
@@ -245,10 +245,113 @@ fn layered_background_prefix_len(theme_name: &str) -> Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::{
-        LayeredBackgroundLayout, LayeredBackgroundPlane, compose_layered_background,
+        BackgroundPlacement, LayeredBackgroundLayout, LayeredBackgroundPlane,
+        compose_layered_background, parse_background_chunk, parse_chunked_background_layout,
         parse_layered_background_layout, parse_layered_background_plane,
     };
     use crate::tiles::TileRef;
+
+    #[test]
+    fn load_background_mappings_parses_chunked_entries_until_terminator() {
+        // ASM Load_BackgroundMappings loc_12830 reads chunk, x, y words until a negative word.
+        let placements = parse_chunked_background_layout(&[
+            0x00, 0x02, 0x00, 0x14, 0x00, 0x21, 0x00, 0x07, 0x00, 0x2A, 0x00, 0x38, 0xFF, 0xFF,
+        ])
+        .expect("chunked layout");
+
+        assert_eq!(
+            placements,
+            vec![
+                BackgroundPlacement {
+                    chunk_id: 0x0002,
+                    x_tiles: 0x0014,
+                    y_tiles: 0x0021,
+                },
+                BackgroundPlacement {
+                    chunk_id: 0x0007,
+                    x_tiles: 0x002A,
+                    y_tiles: 0x0038,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn load_background_mappings_rejects_unsupported_shared_pointer_entry() {
+        // ASM loc_12824 supports $8000 indirection; native keeps that unsupported explicitly.
+        let error = parse_chunked_background_layout(&[
+            0x80, 0x00, 0x00, 0x02, 0x00, 0x03, 0x12, 0x34, 0x56, 0x78,
+        ])
+        .expect_err("shared layout pointer should be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("shared background layout pointers are not supported")
+        );
+    }
+
+    #[test]
+    fn load_background_mappings_rejects_truncated_entries_and_missing_terminator() {
+        // ASM loc_12830 consumes complete 6-byte entries; native rejects malformed extracts.
+        let truncated = parse_chunked_background_layout(&[0x00, 0x04, 0x00, 0x10, 0x00])
+            .expect_err("entry needs chunk, x, and y words");
+        assert!(truncated.to_string().contains("is truncated"));
+
+        let unterminated = parse_chunked_background_layout(&[0x00])
+            .expect_err("layout needs a full terminator word");
+        assert!(unterminated.to_string().contains("0xFFFF terminator"));
+
+        let complete_entry_without_terminator =
+            parse_chunked_background_layout(&[0x00, 0x04, 0x00, 0x10, 0x00, 0x20])
+                .expect_err("a full entry still needs a following terminator");
+        assert!(
+            complete_entry_without_terminator
+                .to_string()
+                .contains("0xFFFF terminator")
+        );
+    }
+
+    #[test]
+    fn load_background_chunk_parses_dimensions_tile_ids_and_flip_bits() {
+        // ASM Load_BackgroundChunk reads width/height words, then tile bytes with bit 7 as flip_x.
+        let chunk = parse_background_chunk(&[0x00, 0x02, 0x00, 0x02, 0x01, 0x82, 0x7F, 0x80])
+            .expect("chunk");
+
+        assert_eq!(chunk.width_tiles, 2);
+        assert_eq!(chunk.height_tiles, 2);
+        assert_eq!(chunk.tiles[0].tile_index, 0x01);
+        assert!(!chunk.tiles[0].flip_x);
+        assert_eq!(chunk.tiles[1].tile_index, 0x02);
+        assert!(chunk.tiles[1].flip_x);
+        assert_eq!(chunk.tiles[2].tile_index, 0x7F);
+        assert!(!chunk.tiles[2].flip_x);
+        assert_eq!(chunk.tiles[3].tile_index, 0x00);
+        assert!(chunk.tiles[3].flip_x);
+    }
+
+    #[test]
+    fn load_background_chunk_accepts_exact_empty_payload_after_header() {
+        // ASM Load_BackgroundChunk reads dimensions first; native's parser accepts exact payloads.
+        let chunk =
+            parse_background_chunk(&[0x00, 0x00, 0x00, 0x00]).expect("zero-sized fixture chunk");
+
+        assert_eq!(chunk.width_tiles, 0);
+        assert_eq!(chunk.height_tiles, 0);
+        assert!(chunk.tiles.is_empty());
+    }
+
+    #[test]
+    fn load_background_chunk_rejects_short_header_and_payload_mismatch() {
+        // ASM Load_BackgroundChunk expects two size words followed by width*height bytes.
+        let short_header =
+            parse_background_chunk(&[0x00, 0x02, 0x00]).expect_err("header needs two words");
+        assert!(short_header.to_string().contains("too short"));
+
+        let mismatch = parse_background_chunk(&[0x00, 0x02, 0x00, 0x02, 0x01, 0x02, 0x03])
+            .expect_err("payload must match width*height");
+        assert!(mismatch.to_string().contains("payload length mismatch"));
+    }
 
     #[test]
     fn parses_forest_layered_background_layout() {
@@ -266,6 +369,32 @@ mod tests {
 
         assert_eq!(layout.effect_start_row_selector, Some(0x09));
         assert_eq!(layout.row_selectors, vec![0x1C, 0x1D]);
+    }
+
+    #[test]
+    fn parses_layered_background_layout_with_exact_prefix_only() {
+        // ASM Load_BackgroundMappings_Layered treats the prefix separately from row selectors.
+        let forest =
+            parse_layered_background_layout(&[0x11], "forest").expect("effect-only forest layout");
+        assert_eq!(forest.effect_start_row_selector, Some(0x11));
+        assert!(forest.row_selectors.is_empty());
+
+        let desert = parse_layered_background_layout(&[0x09, 0x00], "desert")
+            .expect("effect plus unused-byte desert layout");
+        assert_eq!(desert.effect_start_row_selector, Some(0x09));
+        assert!(desert.row_selectors.is_empty());
+    }
+
+    #[test]
+    fn rejects_layered_background_layouts_shorter_than_theme_prefix() {
+        // ASM Load_BackgroundMappings_Layered treats desert as having a two-byte layout prefix.
+        let desert = parse_layered_background_layout(&[0x09], "desert")
+            .expect_err("desert needs effect byte plus unused byte");
+        assert!(desert.to_string().contains("expected at least 2 bytes"));
+
+        let hill =
+            parse_layered_background_layout(&[], "hill").expect_err("hill needs one prefix byte");
+        assert!(hill.to_string().contains("expected at least 1 bytes"));
     }
 
     #[test]
@@ -315,5 +444,46 @@ mod tests {
         assert_eq!(visuals.rows[0].tiles[32].tile_index, 17);
         assert_eq!(visuals.rows[2].tiles[0].tile_index, 33);
         assert_eq!(visuals.rows[2].tiles[32].tile_index, 33);
+    }
+
+    #[test]
+    fn composes_layered_background_overflow_across_extra_planes_and_clamps_tail() {
+        // ASM Load_BackgroundMappings_Layered decodes sequential 64-tile planes; native maps
+        // overflow selectors across extra planes, then clamps selectors beyond decoded rows.
+        let layout = LayeredBackgroundLayout {
+            effect_start_row_selector: None,
+            row_selectors: vec![0x02, 0x03, 0x04, 0x06],
+        };
+        let planes = vec![
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0001); 32],
+                    vec![TileRef::from_attr_word(0x0002); 32],
+                ],
+            },
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0011); 32],
+                    vec![TileRef::from_attr_word(0x0012); 32],
+                ],
+            },
+            LayeredBackgroundPlane {
+                rows: vec![vec![TileRef::from_attr_word(0x0021); 32]],
+            },
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0031); 32],
+                    vec![TileRef::from_attr_word(0x0032); 32],
+                ],
+            },
+        ];
+
+        let visuals = compose_layered_background(&layout, &planes).expect("layered background");
+
+        assert_eq!(visuals.rows[0].tiles[0].tile_index, 0x21);
+        assert_eq!(visuals.rows[1].tiles[0].tile_index, 0x31);
+        assert_eq!(visuals.rows[2].tiles[0].tile_index, 0x32);
+        assert_eq!(visuals.rows[3].tiles[0].tile_index, 0x32);
+        assert_eq!(visuals.rows[3].tiles[32].tile_index, 0x32);
     }
 }
