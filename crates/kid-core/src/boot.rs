@@ -5653,6 +5653,8 @@ impl NativeRuntime {
         self.level_start_frame = None;
         self.opening_slice = None;
         self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
         self.killed_enemies.clear();
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
@@ -5834,6 +5836,8 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.pending_prize_diamond_awards.clear();
         self.enemy_death_effects.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
         self.block_bounces.clear();
         self.block_destroy_effects.clear();
         self.floating_items.clear();
@@ -5869,6 +5873,8 @@ impl NativeRuntime {
         self.opening_slice = Some(opening_slice);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
         self.killed_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
@@ -7082,6 +7088,8 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_respawn_slice(self.current_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
         self.killed_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();

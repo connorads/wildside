@@ -6435,6 +6435,43 @@ pub(crate) struct PendingDragonDeathChild {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PendingDragonDeathAnimation {
+    pub(crate) remaining_frames: u16,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) facing: Direction,
+    pub(crate) palette_variant: u8,
+    pub(crate) layout_index: usize,
+}
+
+impl PendingDragonDeathAnimation {
+    pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: EnemyFamily::Dragon.object_type(),
+            },
+            x_pos: self.x_pos,
+            y_pos: self.y_pos,
+            layout_index: Some(self.layout_index),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(self.facing),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: self.palette_variant,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EnemyArchetype {
     Bouncer,
     Collectible,
@@ -6455,6 +6492,9 @@ const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// ASM Dragon_Flying.asm loc_3492C: `move.w #2,-(sp); jsr Hibernate_Object`
 /// before the walking-dragon child is allocated at loc_3CD16.
 pub(crate) const DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES: u16 = 2;
+/// ASM `stru_345E4`: four `anim_frame 1, 2, ...` entries before the zero
+/// terminator. GfxObject animation keeps advancing while the object hibernates.
+pub(crate) const DRAGON_FLYING_DEATH_ANIMATION_FRAMES: u16 = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -8000,6 +8040,7 @@ pub(crate) enum DragonFlyingDeathStatusRouteLoc3492C {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingDeathSequenceLoc3492C {
     pub(crate) animation_label: &'static str,
+    pub(crate) animation_hibernate_frames: u16,
     pub(crate) is_moved: bool,
     pub(crate) vram_tile: u16,
     pub(crate) pre_child_hibernate_frames: u16,
@@ -8039,6 +8080,7 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
 
     DragonFlyingDeathSequenceLoc3492C {
         animation_label: "stru_345E4",
+        animation_hibernate_frames: DRAGON_FLYING_DEATH_ANIMATION_FRAMES,
         is_moved: false,
         vram_tile: 0,
         pre_child_hibernate_frames: DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES,
@@ -8049,6 +8091,20 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
         hibernate_until_animation_finished: true,
         status_route,
         delete_tail: dragon_flying_delete_tail_loc_349A6(),
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn dragon_flying_death_animation_loc_3492C(
+    parent: &ActiveEnemy,
+) -> PendingDragonDeathAnimation {
+    PendingDragonDeathAnimation {
+        remaining_frames: DRAGON_FLYING_DEATH_ANIMATION_FRAMES,
+        x_pos: parent.x_pos,
+        y_pos: parent.y_pos,
+        facing: parent.facing,
+        palette_variant: parent.palette_variant,
+        layout_index: parent.layout_index,
     }
 }
 
@@ -37496,6 +37552,8 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
+            self.pending_dragon_death_children.clear();
+            self.pending_dragon_death_animations.clear();
             self.block_state.evanescent_blocks.clear();
             self.block_state.reset_shooter_state_sub_F06A();
             self.block_state.ghost_groups.clear();
@@ -37579,15 +37637,13 @@ impl NativeRuntime {
                     }
                 }
                 self.drilled_blocks.clear();
-                self.active_enemy_roster = self
-                    .active_enemies
-                    .iter()
-                    .map(ActiveEnemy::snapshot)
-                    .collect();
+                self.rebuild_active_enemy_roster();
             } else {
                 // ORIGINAL_QUIRK: during title-screen demo playback, the game
                 // suppresses enemy loading for every level except Knights Isle.
                 self.active_enemies.clear();
+                self.pending_dragon_death_children.clear();
+                self.pending_dragon_death_animations.clear();
                 self.active_enemy_roster.clear();
             }
         }

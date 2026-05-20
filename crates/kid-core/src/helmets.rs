@@ -5109,11 +5109,7 @@ impl NativeRuntime {
             self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() {
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            self.rebuild_active_enemy_roster();
         }
     }
 
@@ -5209,11 +5205,7 @@ impl NativeRuntime {
             self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            self.rebuild_active_enemy_roster();
         }
     }
 
@@ -5277,11 +5269,7 @@ impl NativeRuntime {
             self.remove_dead_enemy(idx);
         }
         if changed_enemy_state || !kill_indices.is_empty() {
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            self.rebuild_active_enemy_roster();
         }
     }
 
@@ -5900,11 +5888,7 @@ impl NativeRuntime {
             self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() {
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            self.rebuild_active_enemy_roster();
         }
     }
 }

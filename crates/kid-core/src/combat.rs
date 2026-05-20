@@ -7517,8 +7517,11 @@ impl NativeRuntime {
         let family = enemy.family;
         let x_pos = enemy.x_pos;
         let y_pos = enemy.y_pos;
-        let death_child = if matches!(family, EnemyFamily::Dragon) {
-            Some(dragon_flying_death_child_loc_3492C(enemy))
+        let dragon_death = if matches!(family, EnemyFamily::Dragon) {
+            Some((
+                dragon_flying_death_child_loc_3492C(enemy),
+                dragon_flying_death_animation_loc_3492C(enemy),
+            ))
         } else {
             None
         };
@@ -7530,18 +7533,34 @@ impl NativeRuntime {
                 .push(fire_demon_death_trail_child_loc_3a63c(x_pos, y_pos));
         }
         self.active_enemies.remove(idx);
-        if let Some(child) = death_child {
+        if let Some((child, animation)) = dragon_death {
             self.pending_dragon_death_children
                 .push(PendingDragonDeathChild {
                     remaining_frames: DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES,
                     child,
                 });
+            self.pending_dragon_death_animations.push(animation);
         }
+        self.rebuild_active_enemy_roster();
         self.add_score(1000);
+    }
+
+    pub(crate) fn rebuild_active_enemy_roster(&mut self) {
+        self.active_enemy_roster = self
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .chain(
+                self.pending_dragon_death_animations
+                    .iter()
+                    .map(PendingDragonDeathAnimation::snapshot),
+            )
+            .collect();
     }
 
     pub(crate) fn step_pending_dragon_death_children(&mut self) {
         let mut ready_children = Vec::new();
+        let had_pending_animation = !self.pending_dragon_death_animations.is_empty();
         self.pending_dragon_death_children.retain_mut(|pending| {
             pending.remaining_frames = pending.remaining_frames.saturating_sub(1);
             if pending.remaining_frames == 0 {
@@ -7551,13 +7570,19 @@ impl NativeRuntime {
                 true
             }
         });
-        if !ready_children.is_empty() {
+        let spawned_ready_children = !ready_children.is_empty();
+        if spawned_ready_children {
             self.active_enemies.extend(ready_children);
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+        }
+        self.pending_dragon_death_animations.retain_mut(|pending| {
+            pending.remaining_frames = pending.remaining_frames.saturating_sub(1);
+            pending.remaining_frames > 0
+        });
+        if spawned_ready_children
+            || had_pending_animation
+            || !self.pending_dragon_death_animations.is_empty()
+        {
+            self.rebuild_active_enemy_roster();
         }
     }
 
@@ -7577,6 +7602,9 @@ impl NativeRuntime {
 
         let mut stomped_indices = Vec::new();
         for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
+            if i >= self.active_enemies.len() {
+                continue;
+            }
             let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
             if is_diamond {
                 continue;
@@ -7677,11 +7705,7 @@ impl NativeRuntime {
         }
 
         // Rebuild roster after changes
-        self.active_enemy_roster = self
-            .active_enemies
-            .iter()
-            .map(ActiveEnemy::snapshot)
-            .collect();
+        self.rebuild_active_enemy_roster();
 
         self.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: frame_start_x_pos,
@@ -7701,6 +7725,9 @@ impl NativeRuntime {
         }
 
         for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
+            if i >= self.active_enemies.len() {
+                continue;
+            }
             let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
             if is_diamond {
                 continue;
@@ -7772,11 +7799,7 @@ impl NativeRuntime {
 
         if !collected_indices.is_empty() {
             // Rebuild roster after removal
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            self.rebuild_active_enemy_roster();
         }
     }
 
@@ -8879,6 +8902,8 @@ impl NativeRuntime {
         self.progression.number_lives = self.progression.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();

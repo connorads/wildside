@@ -946,8 +946,8 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len(),
-            "native AoE kill path must refresh the trace roster after removing enemies"
+            runtime.active_enemies.len() + 1,
+            "native AoE kill path must refresh the trace roster with the visual Dragon_Flying.asm loc_3492C death object"
         );
 
         runtime.step_pending_dragon_death_children();
@@ -962,8 +962,8 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len(),
-            "native pending child spawn must refresh the trace roster when the child becomes active"
+            runtime.active_enemies.len() + 1,
+            "native pending child spawn must keep the visual Dragon_Flying.asm loc_3492C death object until stru_345E4 finishes"
         );
     }
 
@@ -8000,6 +8000,7 @@ mod chunk_03 {
             positive,
             DragonFlyingDeathSequenceLoc3492C {
                 animation_label: "stru_345E4",
+                animation_hibernate_frames: DRAGON_FLYING_DEATH_ANIMATION_FRAMES,
                 is_moved: false,
                 vram_tile: 0,
                 pre_child_hibernate_frames: 2,
@@ -8058,7 +8059,21 @@ mod chunk_03 {
         );
         assert!(
             runtime.active_enemies.is_empty(),
-            "ASM Dragon_Flying.asm loc_3492C hibernates for two frames before allocating the loc_3CD16 walking child"
+            "ASM Dragon_Flying.asm loc_3492C removes the object from the interactive enemy list while it hibernates before allocating the loc_3CD16 walking child"
+        );
+        assert_eq!(
+            runtime.pending_dragon_death_animations.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_3492C keeps the dying flying-dragon GfxObject alive while stru_345E4 animates"
+        );
+        assert_eq!(
+            runtime.pending_dragon_death_animations[0].remaining_frames,
+            DRAGON_FLYING_DEATH_ANIMATION_FRAMES
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_3492C should still expose the visual dying dragon before the child allocation"
         );
 
         runtime.step_pending_dragon_death_children();
@@ -8066,9 +8081,19 @@ mod chunk_03 {
             runtime.active_enemies.is_empty(),
             "ASM Dragon_Flying.asm loc_3492C should still be inside the two-frame pre-child hibernate after one pending tick"
         );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_3492C death visual stays visible during the pre-child hibernate"
+        );
 
         runtime.step_pending_dragon_death_children();
         assert_eq!(runtime.active_enemies.len(), 1);
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            2,
+            "ASM Dragon_Flying.asm loc_3492C leaves both the walking child and the finishing death animation live after child allocation"
+        );
         let child = &runtime.active_enemies[0];
         assert_eq!(child.family, EnemyFamily::DragonWalking);
         assert_eq!(
@@ -8086,6 +8111,21 @@ mod chunk_03 {
             spawn_hit_points(EnemyFamily::DragonWalking, 0)
         );
         assert_eq!(child.wait_timer, DRAGON_WALKING_BREATH_INITIAL);
+
+        for _ in 0..DRAGON_FLYING_DEATH_ANIMATION_FRAMES
+            .saturating_sub(DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES)
+        {
+            runtime.step_pending_dragon_death_children();
+        }
+        assert!(
+            runtime.pending_dragon_death_animations.is_empty(),
+            "ASM Dragon_Flying.asm loc_3492C deletes the original flying-dragon object after stru_345E4 finishes"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_3492C leaves only the walking child after the death animation delete tail"
+        );
     }
 
     #[test]

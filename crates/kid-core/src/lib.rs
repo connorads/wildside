@@ -113,6 +113,9 @@ pub struct NativeRuntime {
     /// ASM Dragon_Flying.asm loc_3492C hibernates before allocating the
     /// walking-dragon child; keep that delayed child outside the active roster.
     pending_dragon_death_children: Vec<PendingDragonDeathChild>,
+    /// Visual-only dying flying-dragon GfxObject kept alive until `stru_345E4`
+    /// completes. It is appended to the trace roster but is not interactive.
+    pending_dragon_death_animations: Vec<PendingDragonDeathAnimation>,
     /// Set each frame if a stomp occurred.
     stomped_this_frame: bool,
     /// `kidabove` collisions resolve on the next frame, not immediately on the
@@ -1120,6 +1123,7 @@ impl NativeRuntime {
             played_sound_effects: Vec::new(),
             enemy_death_effects: Vec::new(),
             pending_dragon_death_children: Vec::new(),
+            pending_dragon_death_animations: Vec::new(),
             stomped_this_frame: false,
             pending_stomp_bounce: None,
             rom_random: RomRandomState::default(),
