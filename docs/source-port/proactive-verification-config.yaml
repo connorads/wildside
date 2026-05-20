@@ -69,7 +69,7 @@ strategies:
       - bundle.rs
       - lib.rs
       - background.rs
-      - level.rs
+      - kid-render:level.rs
       - player.rs
       - palette.rs
       - tiles.rs

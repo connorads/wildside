@@ -4052,6 +4052,7 @@ fn try_mutation_testing_strategy(
     let ledger_path = repo_root.join(MUTATION_LEDGER_PATH);
     let mut ledger = load_mutation_ledger(&ledger_path);
     let current_commit = current_short_commit(repo_root);
+    let duplicate_stems = duplicate_mutation_module_stems(targets);
 
     // Build the candidate ordering. When a rotation list is provided the
     // cascade prefers the current rotation entry first so every cycle works
@@ -4059,7 +4060,7 @@ fn try_mutation_testing_strategy(
     // original tier order. Without rotation the behaviour matches the
     // previous tier-sorted pass.
     let mut ordered: Vec<&MutationTarget> = Vec::new();
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
 
     if !rotation.is_empty() {
         let pointer_path = repo_root.join(MUTATION_POINTER_PATH);
@@ -4070,13 +4071,16 @@ fn try_mutation_testing_strategy(
         // rotation naturally advances at the end of each successful cycle
         // instead of cycling back to finished files.
         for _ in 0..rotation.len() {
-            let module = &rotation[start_index];
-            let Some(target) = targets.iter().find(|t| &t.module == module) else {
+            let rotation_entry = &rotation[start_index];
+            let Some(target) = targets
+                .iter()
+                .find(|target| mutation_rotation_entry_matches_target(rotation_entry, target))
+            else {
                 start_index = (start_index + 1) % rotation.len();
                 continue;
             };
-            let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
-            let output_root_abs = repo_root.join(output_dir).join(module_stem);
+            let output_stem = mutation_output_stem(target, &duplicate_stems);
+            let output_root_abs = repo_root.join(output_dir).join(output_stem);
             if matches!(
                 inspect_mutation_run(&output_root_abs).status,
                 MutationRunStatus::Complete
@@ -4094,9 +4098,11 @@ fn try_mutation_testing_strategy(
 
         for offset in 0..rotation.len() {
             let idx = (start_index + offset) % rotation.len();
-            let module = &rotation[idx];
-            if let Some(target) = targets.iter().find(|t| &t.module == module)
-                && seen.insert(target.module.as_str())
+            let rotation_entry = &rotation[idx];
+            if let Some(target) = targets
+                .iter()
+                .find(|target| mutation_rotation_entry_matches_target(rotation_entry, target))
+                && seen.insert(mutation_target_key(target))
             {
                 ordered.push(target);
             }
@@ -4106,14 +4112,14 @@ fn try_mutation_testing_strategy(
     let mut tier_sorted: Vec<&MutationTarget> = targets.iter().collect();
     tier_sorted.sort_by_key(|t| t.tier);
     for target in tier_sorted {
-        if seen.insert(target.module.as_str()) {
+        if seen.insert(mutation_target_key(target)) {
             ordered.push(target);
         }
     }
 
     for target in ordered {
-        let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
-        let base_output_root = PathBuf::from(output_dir).join(module_stem);
+        let output_stem = mutation_output_stem(target, &duplicate_stems);
+        let base_output_root = PathBuf::from(output_dir).join(&output_stem);
         let base_output_root_abs = repo_root.join(&base_output_root);
         let base_run = inspect_mutation_run(&base_output_root_abs);
 
@@ -4133,7 +4139,7 @@ fn try_mutation_testing_strategy(
                 index: shard_index,
                 total: shard_count,
             };
-            let output_root = mutation_shard_output_root(output_dir, module_stem, shard);
+            let output_root = mutation_shard_output_root(output_dir, &output_stem, shard);
             let output_root_abs = repo_root.join(&output_root);
             let run = inspect_mutation_run(&output_root_abs);
             let ledger_key = mutation_ledger_key(target, shard);
@@ -4148,7 +4154,7 @@ fn try_mutation_testing_strategy(
                 source_hash.as_deref(),
             );
 
-            if skip_mutation_shards.contains(&mutation_shard_skip_key(module_stem, shard)) {
+            if skip_mutation_shards.contains(&mutation_shard_skip_key(&output_stem, shard)) {
                 mark_mutation_ledger_attempt(
                     &mut ledger,
                     target,
@@ -4163,7 +4169,7 @@ fn try_mutation_testing_strategy(
                 mutation_source_drifted(previous_entry.as_ref(), source_hash.as_deref());
             match &run.status {
                 MutationRunStatus::NotRun => {
-                    let candidate_target = format!("{module_stem}:run{}", shard.suffix());
+                    let candidate_target = format!("{output_stem}:run{}", shard.suffix());
                     let candidate_fingerprint = proactive_verification_full_fingerprint(
                         "mutation-testing",
                         &candidate_target,
@@ -4222,7 +4228,7 @@ fn try_mutation_testing_strategy(
                 MutationRunStatus::Incomplete { detail } => {
                     let detail_hash = stable_short_hash(detail);
                     let candidate_target =
-                        format!("{module_stem}:rerun:{detail_hash}{}", shard.suffix());
+                        format!("{output_stem}:rerun:{detail_hash}{}", shard.suffix());
                     let candidate_fingerprint = proactive_verification_full_fingerprint(
                         "mutation-testing",
                         &candidate_target,
@@ -4279,7 +4285,7 @@ fn try_mutation_testing_strategy(
 
                     let detail_hash = stable_short_hash(detail);
                     let candidate_target =
-                        format!("{module_stem}:triage:{detail_hash}{}", shard.suffix());
+                        format!("{output_stem}:triage:{detail_hash}{}", shard.suffix());
                     let candidate_fingerprint = proactive_verification_full_fingerprint(
                         "mutation-testing",
                         &candidate_target,
@@ -4678,6 +4684,41 @@ fn mutation_ledger_key(target: &MutationTarget, shard: MutationShard) -> String 
         shard.index + 1,
         shard.total
     )
+}
+
+fn mutation_target_key(target: &MutationTarget) -> String {
+    format!("{}:{}", target.package, target.module)
+}
+
+fn mutation_rotation_entry_matches_target(entry: &str, target: &MutationTarget) -> bool {
+    entry == target.module
+        || entry == mutation_target_key(target)
+        || entry == format!("{}/{}", target.package, target.module)
+}
+
+fn duplicate_mutation_module_stems(targets: &[MutationTarget]) -> BTreeSet<String> {
+    let mut seen = BTreeSet::new();
+    let mut duplicates = BTreeSet::new();
+    for target in targets {
+        let module_stem = target
+            .module
+            .strip_suffix(".rs")
+            .unwrap_or(&target.module)
+            .to_owned();
+        if !seen.insert(module_stem.clone()) {
+            duplicates.insert(module_stem);
+        }
+    }
+    duplicates
+}
+
+fn mutation_output_stem(target: &MutationTarget, duplicate_stems: &BTreeSet<String>) -> String {
+    let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
+    if duplicate_stems.contains(module_stem) && target.package != "kid-core" {
+        format!("{}-{module_stem}", target.package)
+    } else {
+        module_stem.to_owned()
+    }
 }
 
 fn mutation_shard_skip_key(module_stem: &str, shard: MutationShard) -> String {
@@ -11659,9 +11700,13 @@ mod tests {
     }
 
     fn mutation_target(module: &str, tier: u8) -> super::MutationTarget {
+        mutation_target_in_package("kid-core", module, tier)
+    }
+
+    fn mutation_target_in_package(package: &str, module: &str, tier: u8) -> super::MutationTarget {
         super::MutationTarget {
             module: module.to_owned(),
-            package: "kid-core".to_owned(),
+            package: package.to_owned(),
             tier,
         }
     }
@@ -14151,6 +14196,42 @@ mod tests {
         assert!(
             task.title.contains("combat.rs"),
             "complete modules with no survivors should be skipped"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_disambiguates_duplicate_module_names_by_package() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "level", 1, 1, "", "", "");
+        let targets = vec![
+            mutation_target_in_package("kid-core", "level.rs", 2),
+            mutation_target_in_package("kid-render", "level.rs", 2),
+        ];
+        let rotation = vec!["level.rs".to_owned(), "kid-render:level.rs".to_owned()];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &rotation,
+            None,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+        )
+        .expect("renderer level task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:kid-render-level:run",
+            "kid-core level.rs results must not satisfy kid-render level.rs",
+        );
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("--output .cache/mutants/kid-render-level")),
+            "renderer level.rs should use a package-qualified mutation output directory",
         );
     }
 
