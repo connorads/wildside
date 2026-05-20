@@ -280,6 +280,29 @@ fn run_one_player_playable_gate(
         run_release_step(report, name, || run_cargo_step(repo_root, args))?;
     }
 
+    let gameplay_levels = sweep::parse_level_range("0-104")?;
+    run_release_step(report, "gameplay_sweep:0-104", || {
+        let gameplay_report = sweep::run_sweep_with_options(
+            repo_root,
+            rom_path,
+            manifest,
+            &gameplay_levels,
+            sweep::SweepTier::Gameplay,
+            &sweep::SweepOptions::default(),
+        )?;
+        if gameplay_report.failed > 0 || gameplay_report.errors > 0 {
+            bail!(
+                "gameplay sweep reported {} failed levels and {} errors",
+                gameplay_report.failed,
+                gameplay_report.errors
+            );
+        }
+        Ok(format!(
+            "native gameplay self-consistency sweep passed on {} levels",
+            gameplay_report.passed
+        ))
+    })?;
+
     Ok(())
 }
 

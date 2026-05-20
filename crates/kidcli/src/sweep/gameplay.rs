@@ -135,8 +135,16 @@ pub(super) fn check_walk_right_assertions(
     // Check X position increases between settle and end
     let settle_x = trace.get(settle_idx).and_then(|f| f.kid_x_pos);
     let end_x = trace.get(end_idx).and_then(|f| f.kid_x_pos);
+    let saw_moving_frame = (settle_idx..=end_idx).any(|i| {
+        trace
+            .get(i)
+            .is_some_and(|f| f.character_movement.unwrap_or(0) != 0)
+    });
 
-    if let (Some(sx), Some(ex)) = (settle_x, end_x)
+    // Generic all-level scripts do not know whether the spawn faces a wall,
+    // so a fully blocked standingstill window is not a playability failure.
+    if saw_moving_frame
+        && let (Some(sx), Some(ex)) = (settle_x, end_x)
         && ex <= sx
     {
         diffs.push(StateDiff {
@@ -368,6 +376,55 @@ mod tests {
         assert!(
             diffs.iter().all(|d| d.field != "kid_facing_matches_input"),
             "non-moving frames must not produce facing diffs: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_assertions_skip_monotonic_check_when_spawn_is_blocked() {
+        // The all-level gameplay sweep uses a generic "hold Right" script.
+        // Some levels start against a wall, so no moving frames means the
+        // script never exercised walking and should not fail monotonic-X.
+        let scenario = walk_right_scenario(0x09, 300);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                kid_x_pos: Some(0x0010_0000),
+                kid_y_pos: Some(0x0010_0000),
+                character_movement: Some(0),
+                kid_facing: Some(Direction::Right),
+                number_hitpoints: 3,
+                ..NativeTraceFrame::default()
+            })
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_x_pos_monotonic"),
+            "blocked generic starts must not fail the monotonic-X check: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_assertions_still_flag_moving_without_progress() {
+        let scenario = walk_right_scenario(0x00, 300);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                kid_x_pos: Some(0x0010_0000),
+                kid_y_pos: Some(0x0010_0000),
+                character_movement: Some(2),
+                kid_facing: Some(Direction::Right),
+                number_hitpoints: 3,
+                ..NativeTraceFrame::default()
+            })
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.iter().any(|d| d.field == "kid_x_pos_monotonic"),
+            "moving frames that fail to advance X should stay actionable"
         );
     }
 }

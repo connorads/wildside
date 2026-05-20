@@ -30,7 +30,7 @@ These are not active blockers for the current 1P completion phase after the
 2026-05-18 audit. They are the places to look first when a new report, broader
 verification lane, or post-1P fidelity push opens fresh work:
 
-- Native 1P playability beyond the current smoke gate
+- Native 1P playability beyond the current smoke gate plus 69-level gameplay sweep
 - Block lifecycle visuals and interaction correctness beyond the current bundles
 - Slopes, bounce surfaces, and other movement edge cases beyond current coverage
 - Visual fidelity not covered by existing frame checks
@@ -43,7 +43,7 @@ The current phase has no open blocker in `completion-audit.md`,
 `human-validation-checklist.md`, or the canonical backlog. Post-phase candidates
 remain:
 
-- Wider `1p-playable` gate beyond the current smoke contract
+- Further 1P playable breadth beyond the current smoke scenarios plus 69-level gameplay sweep
 - Full-frame visual parity sweep and other broader verification hardening
 
 Password-system investigation is no longer open: backlog #133 records the ASM audit and native

@@ -154,7 +154,7 @@ Low impact: Dragon Flying collision-recovery during Descent and death status-tab
 - **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p kid-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
 - **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.
 - **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
-- **1P playable gate**: add a separate native-playability smoke gate covering Level 1 completion, Level 2 entry, death/respawn, slopes, bounce surfaces, and common block interactions. The current `1p-accurate` gate remains valuable but too narrow to stand in for "game works".
+- **1P playable gate**: `release-gate --target 1p-playable` is the native-playability headline. It covers the focused native smoke scenarios for Level 1/2 progression, death/respawn, slopes, bounce surfaces, common block interactions, and the all-level native gameplay self-consistency sweep over the 69 currently runnable levels. The current `1p-accurate` gate remains supporting oracle evidence, not the sole "game works" signal.
 
 ### Known deviations
 - The old five parked `DEVIATION:` items were burned down by backlog #131:

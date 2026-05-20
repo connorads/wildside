@@ -2338,7 +2338,7 @@ mod tests {
                 kid_y_pos: Some(0x00E0_0000),
                 kid_x_velocity: Some(0),
                 kid_y_velocity: Some(0),
-                character_movement: None,
+                character_movement: Some(2),
                 kid_facing: None,
                 kid_on_ground: Some(true),
                 kid_on_slope: 0,
