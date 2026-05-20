@@ -9147,6 +9147,69 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_deletes_when_left_probe_crosses_zero_loc_335aa() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0007_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: -0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Drips.asm loc_335AA treats `x_pos(a3)-8` becoming negative as contact and routes the crawler to deletion"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_deletes_when_vertical_probe_leaves_level_loc_335b0() {
+        let mut upward = NativeRuntime::new(manifest());
+        upward.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0007_0000,
+            x_velocity: 0,
+            y_velocity: -0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        upward.step_projectiles();
+
+        assert!(
+            upward.projectiles.is_empty(),
+            "ASM Drips.asm loc_335B0/loc_335CA treats `y_pos(a3)-8` becoming negative as contact"
+        );
+
+        let mut downward = NativeRuntime::new(manifest());
+        let level_height = downward.level_bounds(downward.current_level).height_pixels;
+        downward.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: u32::from(level_height.saturating_sub(8)) << 16,
+            x_velocity: 0,
+            y_velocity: 0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        downward.step_projectiles();
+
+        assert!(
+            downward.projectiles.is_empty(),
+            "ASM Drips.asm loc_335B0 treats `y_pos(a3)+8 >= Level_height_pixels` as contact"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.
