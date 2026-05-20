@@ -629,6 +629,9 @@ impl PlatformLoaderState {
 
 /// Check if a platform is within the activation window.
 pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) -> bool {
+    if platform_is_nothing_sentinel(platform) {
+        return false;
+    }
     // ASM loc_2762 (kid.asm:4684): after loading Kid's X/Y into `d6`, the ROM
     // rejects only strict out-of-range placements via `bgt`/`blt` against the
     // buffered left/right/top/bottom edges. Equality stays in range, so the
@@ -644,6 +647,24 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
         .y_max
         .saturating_add(u32::from(platform.buffer_bottom));
     (x_min..=x_max).contains(&object_x) && (y_min..=y_max).contains(&object_y)
+}
+
+fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {
+    // ASM loc_2744/loc_2762 loads platform records through the normal activation
+    // window, but the generated `platform/00.asm` contains an all-zero
+    // `PlatformScript_Nothing` placeholder before the `$FFFF` terminator.
+    // Oracle Level 0x01 WRAM confirms that placeholder is not a live platform.
+    platform.x == 0
+        && platform.y == 0
+        && platform.buffer_left == 0
+        && platform.buffer_right == 0
+        && platform.buffer_top == 0
+        && platform.buffer_bottom == 0
+        && platform.kind == 0
+        && platform.subtype == 0
+        && platform.h_variant == 0
+        && platform.v_variant == 0
+        && platform.script.relative_offset.is_none()
 }
 
 /// Check if the player should land on top of any active platform.

@@ -170,6 +170,42 @@ mod chunk_04 {
             ),
             None
         );
+        assert_eq!(
+            opening_level_one_object_counts(LevelId(1), 3, 0, 0x0014_0000),
+            Some((4, 4)),
+            "ASM loc_74E0 level-skip resume / oracle full-frame Level 0x01: player + first RockTank pair reports Number_Objects=4 at the settled opening camera",
+        );
+    }
+
+    #[test]
+    fn platform_script_nothing_all_zero_record_is_not_active() {
+        let platform = PlatformPlacement {
+            x: 0,
+            y: 0,
+            buffer_left: 0,
+            buffer_right: 0,
+            buffer_top: 0,
+            buffer_bottom: 0,
+            kind: 0,
+            subtype: 0,
+            h_variant: 0,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 320,
+            y_min: 0,
+            y_max: 224,
+        };
+
+        assert!(
+            !platform_is_active(&platform, window),
+            "Generated platform/00.asm's all-zero PlatformScript_Nothing record is a no-op sentinel before `$FFFF`, not an allocated Level 0x01 platform object",
+        );
     }
 
     #[test]

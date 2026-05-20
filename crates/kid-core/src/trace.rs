@@ -2649,6 +2649,13 @@ pub(crate) fn opening_level_one_object_counts(
     camera_x_pos: u32,
     camera_y_pos: u32,
 ) -> Option<(u16, u16)> {
+    if level_id == LevelId(1) && camera_x_pos == 0 {
+        // ASM loc_74E0 level-skip resume reaches Blue Lake Woods 2 with only
+        // the player plus RockTank pair live in object RAM; oracle frame-0 WRAM
+        // reports `Number_Objects=4` rather than the generic live-gameplay
+        // `roster + system + palette` count.
+        return Some((roster_count + 1, roster_count + 1));
+    }
     if level_id != LevelId(0) || camera_x_pos > 0x0200_0000 {
         return None;
     }
