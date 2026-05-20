@@ -3463,6 +3463,15 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
     }
 }
 
+pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
+    match family {
+        // ASM Tank.asm loc_3B31E and Tank_Shooting.asm loc_3B5A6 seed
+        // `$4A(a5)=$20` before entering the shared walker loops.
+        EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        _ => ENEMY_PROBE_HEIGHT,
+    }
+}
+
 /// Compute pacer walk speed from the enemy family and HP.
 ///
 /// The ASM init routines all follow the same pattern: start at $8000 and
@@ -14875,16 +14884,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
     let probe_half_width = pacer_probe_half_width(enemy.family);
+    let probe_height = pacer_probe_height(enemy.family);
 
     // Wall probe: reverse if we hit a wall.
-    let wall = terrain::probe_wall(
-        grid,
-        cx,
-        cy,
-        probe_half_width,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    );
+    let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
     if wall.hit {
         // ASM loc_3C026 (rightward walkers) / loc_3C0D2 (leftward walkers):
         // clr.l x_vel(a3); clr.l y_vel(a3); st/sf x_direction(a3) — stop
@@ -15001,6 +15004,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         cx - probe_half_width
     };
     if terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground {
+            enemy.y_pos = (floor.floor_y_px as u32) << 16;
+        }
         // ASM loc_3C0C6 clears `$5A(a5)` after a successful shared-walker
         // horizontal advance. Native collapses the mirrored left/right loops,
         // so any non-turning frame clears the stuck-turn counter.

@@ -17799,6 +17799,26 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3c17a_grounded_walker_snaps_to_floor_after_addq_y() {
+        // ASM loc_3C17A (kid.asm:43638-43643): grounded shared walkers clear
+        // y_vel, restore x_vel from `$50(a5)`, then `addq.w #1,y_pos(a3)`
+        // before the floor scan holds them on the surface. Level 0x01's first
+        // Tank spawns at layout y=223 and the oracle parent is held at y=224.
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 14)).collect();
+        let grid = grid_with_solid_cells(20, 16, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Tank, 2, 200, 223);
+        enemy.facing = Direction::Left;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_pos,
+            224 << 16,
+            "ASM loc_3C17A/loc_3C19C should hold the Tank on the floor row rather than preserving the layout y",
+        );
+    }
+
+    #[test]
     fn loc_3c18a_leftward_walking_loop_attachment_check() {
         // ASM loc_3C18A (kid.asm:43648-43651): tst.w $3A(a5); beq.s loc_3C194;
         // bsr.w sub_3BF72 — identical attachment check to loc_3C03A but in the

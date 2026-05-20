@@ -2772,6 +2772,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn pacer_probe_height_matches_family_specific_4a_words() {
+        assert_eq!(
+            pacer_probe_height(EnemyFamily::Tank),
+            32,
+            "ASM Tank.asm loc_3B31E seeds `$4A(a5)=$20` before the shared walker loop",
+        );
+        assert_eq!(
+            pacer_probe_height(EnemyFamily::TankShooting),
+            32,
+            "ASM Tank_Shooting.asm loc_3B5A6 seeds `$4A(a5)=$20` before the shared walker loop",
+        );
+        assert_eq!(
+            pacer_probe_height(EnemyFamily::Driller),
+            ENEMY_PROBE_HEIGHT,
+            "Driller keeps the generic native height until its `$4A(a5)` path is audited for shared walkers",
+        );
+    }
+
+    #[test]
     fn armadillo_spawned_child_resume_matches_loc_3c91a() {
         assert_eq!(
             armadillo_spawned_child_resume_loc_3c91a(true, Direction::Left),
