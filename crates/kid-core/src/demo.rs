@@ -144,6 +144,11 @@ pub(crate) const DEMO_BOOTSTRAP_GROUNDED_FRAME: u16 = DEMO_BOOTSTRAP_INIT_FRAME 
 /// first visible demo bootstrap frames, even after regular gameplay physics
 /// takes over from the hidden settle path.
 pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 16;
+/// Demo 1 keeps the grounded hand-off pinned through startup frame 130 before
+/// the first visible floor-release step. ASM `loc_8E16 -> sub_8F26 ->
+/// sub_902A` moves horizontally first, but oracle WRAM still reports the
+/// Load_InGame floor Y at published TAS frame 2665.
+pub(crate) const DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME: u16 = DEMO_OBJECT_BOOTSTRAP_END_FRAME + 49;
 /// Published TAS trace sampling keeps the demo player's velocity field on the
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
@@ -224,6 +229,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_INIT_FRAME, 66);
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
+        assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
         assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 167);
         assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }

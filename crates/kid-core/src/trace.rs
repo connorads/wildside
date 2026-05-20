@@ -2392,14 +2392,12 @@ impl NativeRuntime {
                     // gfx object through startup frame 88 before the first
                     // hidden worker drops on the following frame.
                     (7, 5)
-                } else if !use_demo_2
-                    && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME.saturating_add(49)
-                {
+                } else if !use_demo_2 && frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME {
                     // ASM Load_DemoPlay -> Load_InGame (kid.asm:23596) keeps
                     // one hidden demo-1 worker and the extra gfx object alive
-                    // beyond the visible bootstrap. Oracle WRAM holds this
-                    // 6/5 count through the last count-only TAS checkpoint
-                    // before the next movement divergence at startup frame 131.
+                    // beyond the visible bootstrap. Oracle WRAM holds this 6/5
+                    // count through the grounded hand-off window also used by
+                    // the loc_C22 trace velocity hold.
                     (6, 5)
                 } else {
                     // ASM Load_DemoPlay (kid.asm:23585) allocates the hidden

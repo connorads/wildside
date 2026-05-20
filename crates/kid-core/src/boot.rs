@@ -5981,6 +5981,8 @@ impl NativeRuntime {
             return false;
         }
 
+        let force_demo_1_handoff_pin = self.demo_uses_second_recording() == Some(false)
+            && frame_counter <= demo::DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME;
         let Some(slice) = self.opening_slice.as_mut() else {
             return false;
         };
@@ -5995,7 +5997,9 @@ impl NativeRuntime {
         let y_px = (slice.player.y_pos >> 16) as i32;
         let hw = self.progression.current_form.half_width();
         let support_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, hw);
-        if support_probe.on_ground || support_probe.cell.is_solid_floor() {
+        if !force_demo_1_handoff_pin
+            && (support_probe.on_ground || support_probe.cell.is_solid_floor())
+        {
             return false;
         }
 
@@ -6022,9 +6026,11 @@ impl NativeRuntime {
             return false;
         }
 
-        // Demo playback keeps the actor grounded on an invisible hand-off path
-        // after the bootstrap hold, then regular physics resumes once the
-        // recorded jump lifts off from that pinned floor.
+        // ASM loc_8E16 -> sub_8F26 -> sub_902A: demo playback keeps the actor
+        // grounded on an invisible hand-off path after the bootstrap hold, then
+        // regular physics resumes once the recorded jump lifts off from that
+        // pinned floor. Demo 1's published TAS path holds this one frame longer
+        // than the start-of-frame support probe alone would imply.
         slice.update_horizontal_motion(
             input,
             false,

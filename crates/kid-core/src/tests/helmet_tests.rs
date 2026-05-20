@@ -4621,7 +4621,7 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frames = std::collections::BTreeMap::new();
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(2_666) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_694) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if matches!(
                 frame_index,
@@ -4636,6 +4636,8 @@ mod chunk_08 {
                     | 2_624
                     | 2_625
                     | 2_665
+                    | 2_692
+                    | 2_693
             ) {
                 frames.insert(
                     frame_index,
@@ -4702,7 +4704,57 @@ mod chunk_08 {
         assert_eq!(
             frames.get(&2_665),
             Some(&(GameMode::DemoPlay, Some(130), 6, 5)),
-            "the 6/5 demo-1 worker count should last through the final count-only published TAS checkpoint",
+            "the 6/5 demo-1 worker count should still be live when the grounded hand-off reaches startup frame 130",
+        );
+        assert_eq!(
+            frames.get(&2_692),
+            Some(&(GameMode::DemoPlay, Some(157), 6, 5)),
+            "the hidden demo-1 worker count should last through the final count-only published TAS checkpoint",
+        );
+        assert_eq!(
+            frames.get(&2_693),
+            Some(&(GameMode::DemoPlay, Some(158), 6, 5)),
+            "the hidden demo-1 worker count should still match when the next movement blocker appears",
+        );
+    }
+
+    #[test]
+    fn published_tas_second_demo_grounded_run_holds_y_through_frame_2665() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2665 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_666) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 2_665 {
+                frame_2665 = Some(trace);
+                break;
+            }
+        }
+
+        let frame_2665 = frame_2665.expect("frame 2665 trace");
+        let path_debug = frame_2665
+            .gameplay_debug_fields
+            .get("kid_gameplay_path_probe")
+            .expect("frame 2665 should emit Kid gameplay path diagnostics");
+
+        assert_eq!(
+            frame_2665.boot_phase_elapsed,
+            Some(130),
+            "frame 2665 should be demo-1 startup frame 130",
+        );
+        assert_eq!(
+            frame_2665.kid_y_pos,
+            Some(0x00FF_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps the demo-1 grounded hand-off pinned for one more frame before the floor release",
+        );
+        assert_eq!(
+            frame_2665.kid_on_ground,
+            Some(true),
+            "frame 2665 should still be grounded during the oracle-backed demo-1 hand-off",
+        );
+        assert!(
+            path_debug.contains("motion=demo_bootstrap_grounded_run"),
+            "frame 2665 should still use the demo bootstrap grounded-run hand-off, got {path_debug}",
         );
     }
 
