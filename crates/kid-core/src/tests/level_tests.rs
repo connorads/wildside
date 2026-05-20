@@ -2827,6 +2827,29 @@ mod chunk_02 {
     }
 
     #[test]
+    fn boot_title_start_level_1_exposes_load_title_card_vdp_shell() {
+        let mut runtime = cached_generated_runtime();
+        runtime.begin_level_entry(LevelId(0));
+
+        runtime.step_frame(FrameInput::default());
+
+        let vdp = runtime
+            .vdp_state()
+            .expect("ASM Load_TitleCard should expose a title-card VDP shell");
+        assert_eq!(vdp.registers[2], 0x18, "ASM sub_914 Scroll A base");
+        assert_eq!(vdp.registers[4], 0x00, "ASM sub_914 Scroll B base");
+        assert_eq!(
+            u16::from_be_bytes([vdp.vram[0], vdp.vram[1]]),
+            0x02FB,
+            "ASM loc_19BC2 pads the top-left of the title-card plane",
+        );
+        assert!(
+            vdp.vram[0x5F60..0x6000].iter().any(|&byte| byte != 0),
+            "ASM Load_TitleCard decompresses theme art to VRAM $5F60",
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
         let mut runtime = cached_generated_runtime();
         runtime.begin_level_entry(LevelId(0));

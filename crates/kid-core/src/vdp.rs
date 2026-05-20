@@ -642,6 +642,50 @@ pub(crate) struct TitleScreenData {
     palette_words: Vec<u16>,
 }
 
+#[derive(Debug, Clone)]
+struct TitleCardThemeData {
+    art_bytes: Vec<u8>,
+    tilemap_words: Vec<u16>,
+    palette_words: Vec<u16>,
+    width_tiles: u16,
+    height_tiles: u16,
+}
+
+/// Cached title-card art, map, palette, and dimensions by low theme nibble.
+#[derive(Debug, Clone)]
+pub(crate) struct TitleCardData {
+    themes: Vec<Option<TitleCardThemeData>>,
+}
+
+const TITLE_CARD_THEME_NAMES: [Option<&str>; 11] = [
+    None,
+    Some("sky"),
+    Some("ice"),
+    Some("hill"),
+    Some("island"),
+    Some("desert"),
+    Some("swamp"),
+    Some("mountain"),
+    Some("cave"),
+    Some("forest"),
+    Some("city"),
+];
+
+/// ASM TitleCardSize_Index (kid.asm:28722): width, height in tiles by theme.
+const TITLE_CARD_THEME_SIZES: [(u16, u16); 11] = [
+    (0, 0),
+    (0x0E, 0x12),
+    (0x11, 0x12),
+    (0x12, 0x11),
+    (0x10, 0x12),
+    (0x13, 0x0F),
+    (0x10, 0x0D),
+    (0x11, 0x11),
+    (0x12, 0x0C),
+    (0x0F, 0x17),
+    (0x13, 0x11),
+];
+
 /// Load and cache title screen assets from the asset bundle.
 ///
 /// ASM sub_1B2A4 (kid.asm:29472): 4 art uploads, Enigma tilemap at $20C1,
@@ -703,6 +747,38 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     })
 }
 
+pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCardData> {
+    let root = manifest.output_root.join("theme/titlecard");
+    let mut themes = vec![None; TITLE_CARD_THEME_NAMES.len()];
+
+    for (theme_index, maybe_name) in TITLE_CARD_THEME_NAMES.iter().enumerate() {
+        let Some(name) = maybe_name else {
+            continue;
+        };
+        let art_path = root.join("artcomp").join(format!("{name}.bin"));
+        let map_path = root.join("mapeni").join(format!("{name}.bin"));
+        let palette_path = root.join("palette").join(format!("{name}.bin"));
+        let art_bytes = load_saxman_art(&art_path)
+            .with_context(|| format!("failed to load title-card art for {name}"))?;
+        let map_raw = std::fs::read(&map_path)
+            .with_context(|| format!("failed to read title-card map: {}", map_path.display()))?;
+        let tilemap_words = kid_data::decode_enigma(&map_raw, 0x02FB)
+            .with_context(|| format!("failed to decode title-card map for {name}"))?;
+        let palette_words = load_palette_words(&palette_path)
+            .with_context(|| format!("failed to load title-card palette for {name}"))?;
+        let (width_tiles, height_tiles) = TITLE_CARD_THEME_SIZES[theme_index];
+        themes[theme_index] = Some(TitleCardThemeData {
+            art_bytes,
+            tilemap_words,
+            palette_words,
+            width_tiles,
+            height_tiles,
+        });
+    }
+
+    Ok(TitleCardData { themes })
+}
+
 /// Build VdpState for the title screen / IntroSequence6.
 ///
 /// ASM sub_1B2A4: 4 art uploads, Enigma tilemap to plane A at word $20C1,
@@ -756,6 +832,85 @@ pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
     vdp.write_cram_words(0, &data.palette_words);
 
     vdp
+}
+
+/// Build VdpState for the level title-card shell.
+///
+/// ASM `Load_TitleCard` (kid.asm:28588) runs `sub_914`, decompresses the
+/// selected theme art to VRAM `$5F60`, decodes the theme Enigma map with base
+/// word `$02FB`, copies the theme palette, and centres the decoded map in a
+/// 64×28 plane with `$02FB` padding.
+pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Option<VdpState> {
+    let theme = data
+        .themes
+        .get(usize::from(theme_index))
+        .and_then(Option::as_ref)?;
+    let mut vdp = VdpState::new();
+
+    for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
+        vdp.registers[i] = value;
+    }
+    vdp.registers[1] = 0x74;
+    // ASM sub_914: foreground/Scroll A at $6000, background/Scroll B at $0000.
+    vdp.registers[2] = 0x18;
+    vdp.registers[4] = 0x00;
+
+    vdp.write_vram(0x5F60, &theme.art_bytes);
+    for i in 0..0x01C0 {
+        vdp.write_vram_word(0x1400 + i * 2, 0);
+    }
+    for i in 0..0x0800 {
+        vdp.write_vram_word(0xE000 + i * 2, 0x0094);
+    }
+    for i in 0..0x0010 {
+        vdp.write_vram_word(0x1280 + i * 2, 0);
+    }
+    vdp.write_cram_words(0, &theme.palette_words);
+
+    let width = usize::from(theme.width_tiles);
+    let height = usize::from(theme.height_tiles);
+    let top_rows = usize::from((0x001Cu16.saturating_sub(theme.height_tiles)) >> 1);
+    let left_words = usize::from((0x0028u16.saturating_sub(theme.width_tiles)) >> 1);
+    let bottom_rows = 0x001Cusize.saturating_sub(top_rows + height);
+    let right_words = 64usize.saturating_sub(left_words + width);
+    let mut dst_word_index = 0usize;
+
+    for _ in 0..top_rows {
+        for _ in 0..64 {
+            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
+            dst_word_index += 1;
+        }
+    }
+
+    for row in 0..height {
+        for _ in 0..left_words {
+            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
+            dst_word_index += 1;
+        }
+        for col in 0..width {
+            let src_index = row * width + col;
+            let word = theme
+                .tilemap_words
+                .get(src_index)
+                .copied()
+                .unwrap_or(0x02FB);
+            vdp.write_vram_word(dst_word_index * 2, word);
+            dst_word_index += 1;
+        }
+        for _ in 0..right_words {
+            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
+            dst_word_index += 1;
+        }
+    }
+
+    for _ in 0..bottom_rows {
+        for _ in 0..64 {
+            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
+            dst_word_index += 1;
+        }
+    }
+
+    Some(vdp)
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -1551,6 +1706,68 @@ mod tests {
         assert_eq!(w0, 0x1111, "tile patch first word at $F000");
         let w31 = u16::from_be_bytes([vdp.vram[0xF000 + 62], vdp.vram[0xF000 + 63]]);
         assert_eq!(w31, 0x2222, "tile patch last word at $F03E");
+    }
+
+    #[test]
+    fn title_card_vdp_centres_decoded_map_with_02fb_padding() {
+        let mut tilemap = Vec::new();
+        for row in 0..2u16 {
+            for col in 0..4u16 {
+                tilemap.push(0x8000 | (row << 8) | col);
+            }
+        }
+        let mut themes = vec![None; 11];
+        themes[9] = Some(TitleCardThemeData {
+            art_bytes: vec![0x12, 0x34, 0x56],
+            tilemap_words: tilemap,
+            palette_words: vec![0x0000, 0x0EEE],
+            width_tiles: 4,
+            height_tiles: 2,
+        });
+        let data = TitleCardData { themes };
+
+        let vdp = build_title_card_vdp(&data, 9).expect("forest title-card VDP");
+        let word_at = |addr: usize| u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+
+        // ASM loc_19BC2 emits 13 full 64-word padding rows for a 2-tile-high card.
+        assert_eq!(word_at(12 * 64 * 2), 0x02FB);
+        // ASM loc_19BD4 emits `(0x28 - width) / 2 = 18` left-padding words.
+        let first_art_word = (13 * 64 + 18) * 2;
+        assert_eq!(word_at(first_art_word - 2), 0x02FB);
+        // ASM loc_19BDE copies decoded map words row-major.
+        assert_eq!(word_at(first_art_word), 0x8000);
+        assert_eq!(word_at(first_art_word + 3 * 2), 0x8003);
+        // ASM loc_19BEE pads the right side of the same 64-word row.
+        assert_eq!(word_at(first_art_word + 4 * 2), 0x02FB);
+        // Next art row lands exactly one 64-word plane row later.
+        assert_eq!(word_at(first_art_word + 64 * 2), 0x8100);
+        // ASM loc_19C04 pads the bottom rows after the copied art.
+        assert_eq!(word_at((15 * 64) * 2), 0x02FB);
+    }
+
+    #[test]
+    fn title_card_vdp_uploads_art_palette_and_load_title_card_registers() {
+        let mut themes = vec![None; 11];
+        themes[1] = Some(TitleCardThemeData {
+            art_bytes: vec![0xAA, 0xBB, 0xCC, 0xDD],
+            tilemap_words: vec![],
+            palette_words: vec![0x0000, 0x0222, 0x0444],
+            width_tiles: 0,
+            height_tiles: 0,
+        });
+        let data = TitleCardData { themes };
+
+        let vdp = build_title_card_vdp(&data, 1).expect("sky title-card VDP");
+
+        assert_eq!(&vdp.vram[0x5F60..0x5F64], &[0xAA, 0xBB, 0xCC, 0xDD]);
+        assert_eq!(u16::from_be_bytes([vdp.cram[2], vdp.cram[3]]), 0x0222);
+        assert_eq!(vdp.registers[2], 0x18, "ASM sub_914 sets Scroll A to $6000");
+        assert_eq!(vdp.registers[4], 0x00, "ASM sub_914 sets Scroll B to $0000");
+        assert_eq!(
+            u16::from_be_bytes([vdp.vram[0xE000], vdp.vram[0xE001]]),
+            0x0094,
+            "ASM loc_19B58 fills title-card tilemap work area with $0094",
+        );
     }
 
     #[test]

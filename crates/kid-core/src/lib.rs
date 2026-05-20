@@ -23,7 +23,7 @@ use constants::*;
 use enemies::*;
 use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
-    resource_level_record,
+    load_level_asset_bundle, resource_level_record,
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
@@ -142,6 +142,8 @@ pub struct NativeRuntime {
     intro_sub_1b850_data: Option<vdp::IntroSub1B850Data>,
     /// Cached title screen art/tilemap/palette for sub_1B2A4.
     title_screen_data: Option<vdp::TitleScreenData>,
+    /// Cached Load_TitleCard art/tilemap/palette by low theme nibble.
+    title_card_data: Option<vdp::TitleCardData>,
     /// Software VDP state for non-gameplay screens (Sega logo, intro, title).
     /// Populated each frame during boot modes so the VDP renderer can produce
     /// accurate frames; `None` during gameplay where the pre-extracted asset
@@ -1081,6 +1083,7 @@ impl NativeRuntime {
         let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
         let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(&assets).ok();
         let title_screen_data = vdp::load_title_screen_data(&assets).ok();
+        let title_card_data = vdp::load_title_card_data(&assets).ok();
         let mut runtime = Self {
             assets,
             frame_index: 0,
@@ -1142,6 +1145,7 @@ impl NativeRuntime {
             sega_screen_data,
             intro_sub_1b850_data,
             title_screen_data,
+            title_card_data,
             vdp_state: None,
             z80_stop_request_depth: 0,
             z80_guard_sr: 0x2500,
@@ -1326,8 +1330,21 @@ impl NativeRuntime {
                 .title_screen_data
                 .as_ref()
                 .map(vdp::build_title_screen_vdp),
+            BootState::StartingLevel { .. } => {
+                let theme_index = self.current_level_title_card_theme_index();
+                self.title_card_data
+                    .as_ref()
+                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+            }
             _ => None,
         };
+    }
+
+    fn current_level_title_card_theme_index(&self) -> u8 {
+        load_level_asset_bundle(&self.assets, self.current_level.0)
+            .ok()
+            .and_then(|bundle| bundle.parsed_header.map(|header| header.level_theme & 0x0F))
+            .unwrap_or(0)
     }
 
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
