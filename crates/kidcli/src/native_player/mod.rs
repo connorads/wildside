@@ -2753,6 +2753,26 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_keeps_title_card_bootstrap_blank_until_title_workers_surface() {
+        // ASM `loc_6E2` dispatches title selection through `Load_TitleCard`,
+        // then `loc_1AB26` seeds the animated Title_Letter workers. Native can
+        // trace the early shell as LevelTransition before those workers are
+        // projected; do not render the old invented static "Blue Lake Woods 1"
+        // card for that ROM title-card bootstrap window.
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        trace.boot_phase = Some(String::from("starting_level"));
+        assert!(trace.active_objects.is_empty());
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            !contains_text(&scene, "Blue Lake Woods 1"),
+            "Load_TitleCard bootstrap should not use the static transition fallback before loc_1AB26 workers are visible",
+        );
+    }
+
+    #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.floating_items = vec![(48, 64, u8::MAX, 0x01)];
