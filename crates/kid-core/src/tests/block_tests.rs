@@ -8447,7 +8447,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn ninja_ignores_player_with_red_stealth() {
+    fn ninja_red_stealth_still_triggers_overhead_jump_loc_3d706() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Stealth;
         let player_x = Some(100 << 16);
@@ -8455,8 +8455,8 @@ mod chunk_04 {
         step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
         assert_eq!(
             enemy.ninja_state,
-            NinjaState::Stealth,
-            "should stay stealthy when player wears Red Stealth"
+            NinjaState::JumpAttack,
+            "ASM Ninja.asm loc_3D706 checks the overhead attack window before the later Red Stealth guard-pose branch"
         );
     }
 

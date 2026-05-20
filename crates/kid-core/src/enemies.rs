@@ -16360,24 +16360,22 @@ pub(crate) fn step_ninja(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
-    player_form: PlayerForm,
+    _player_form: PlayerForm,
 ) {
     match enemy.ninja_state {
         NinjaState::Stealth => {
             // Pace like normal
             step_pacer(enemy, block_grid);
 
-            // Check detection cone (skip if player wears Red Stealth)
-            if player_form == PlayerForm::RedStealth {
-                return;
-            }
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
                 return;
             };
             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
             let dy = (enemy.y_pos as i64 - py as i64) >> 16;
 
-            // Player must be 0x20–0x50 px above ninja and in [-0x10, +0x10).
+            // ASM Ninja.asm loc_3D706 checks the overhead attack window before
+            // loc_3D734's later Red Stealth guard-pose branch, so Red Stealth
+            // is still a valid trigger here.
             if ninja_detects_player_while_stealthed(dx, dy) {
                 // Face the player
                 enemy.facing = if dx >= 0 {
