@@ -8479,6 +8479,59 @@ impl ActiveEnemy {
             debug_fields,
         }
     }
+
+    pub(crate) fn child_attachment_snapshot(&self) -> Option<NativeObjectSnapshot> {
+        if !matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+            return None;
+        }
+
+        // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
+        // linked turret gfx object at `$3A(a5)`, then the shared walker
+        // `sub_3BF72` keeps it synced at parent_y - 8px.
+        let parent_x_direction = match self.facing {
+            Direction::Left => 0x00,
+            Direction::Right => 0xFF,
+        };
+        let attachment = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+            family: self.family,
+            parent_x_pos: (self.x_pos >> 16) as i16,
+            parent_y_pos: (self.y_pos >> 16) as i16,
+            parent_x_direction,
+            child_y_offset: 8,
+            robot_parent_state: 0,
+            robot_child_mapping: 0,
+            child_x_direction: parent_x_direction,
+        })
+        .primary;
+        Some(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: self.family.object_type(),
+            },
+            x_pos: u32::from(attachment.x_pos as u16) << 16,
+            y_pos: u32::from(attachment.y_pos as u16) << 16,
+            layout_index: Some(self.layout_index),
+            x_velocity: Some(attachment.x_velocity),
+            y_velocity: Some(0),
+            facing: attachment.x_direction.map(|x_direction| {
+                if x_direction == 0 {
+                    Direction::Left
+                } else {
+                    Direction::Right
+                }
+            }),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: self.palette_variant,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        })
+    }
 }
 
 fn format_shared_walker_floor_probe(probe: terrain::FloorProbe) -> String {
@@ -32774,6 +32827,84 @@ mod tests {
             }
         );
         assert_eq!(layout.secondary, None);
+    }
+
+    #[test]
+    fn tank_active_snapshot_exposes_turret_child_from_loc_3b372() {
+        let tank = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 1,
+            enemy_level: 0,
+            family: EnemyFamily::Tank,
+            x_pos: 0x00C2_8000,
+            y_pos: 0x00E0_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            hit_points: 2,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: false,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        };
+
+        let child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B372 allocates a linked turret child");
+
+        assert_eq!(
+            child.kind,
+            NativeObjectKind::Enemy {
+                object_type: EnemyFamily::Tank.object_type()
+            },
+        );
+        assert_eq!(child.layout_index, Some(1));
+        assert_eq!(child.x_pos, 0x00C2_0000);
+        assert_eq!(child.y_pos, 0x00D8_0000);
+        assert_eq!(child.x_velocity, Some(0));
+        assert_eq!(child.facing, Some(Direction::Right));
+        assert_eq!(
+            child.hit_points, None,
+            "ASM loc_3B372 creates a gfx child, not a second damageable enemy object",
+        );
     }
 
     #[test]

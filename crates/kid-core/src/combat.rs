@@ -7549,7 +7549,9 @@ impl NativeRuntime {
         self.active_enemy_roster = self
             .active_enemies
             .iter()
-            .map(ActiveEnemy::snapshot)
+            .flat_map(|enemy| {
+                std::iter::once(enemy.snapshot()).chain(enemy.child_attachment_snapshot())
+            })
             .chain(
                 self.pending_dragon_death_animations
                     .iter()

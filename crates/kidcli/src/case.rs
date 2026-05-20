@@ -1221,6 +1221,10 @@ fn semantic_entity_from_native(snapshot: &NativeObjectSnapshot) -> Option<Semant
             on_ground: snapshot.on_ground,
             hit_points: snapshot.hit_points.map(u16::from),
         }),
+        NativeObjectKind::Platform {
+            kind: 0,
+            subtype: 0,
+        } if snapshot.layout_index.is_none() && snapshot.x_pos == 0 && snapshot.y_pos == 0 => None,
         NativeObjectKind::Platform { kind, subtype } => Some(SemanticEntity {
             identity: format!(
                 "platform:{kind:02x}:{subtype:02x}:{}:{:08x}:{:08x}",
@@ -2568,5 +2572,44 @@ mod tests {
         assert_eq!(semantic.player.current_form, Some(0));
         assert_eq!(semantic.player.hitpoints, Some(0));
         assert_eq!(semantic.world.number_lives, Some(0));
+    }
+
+    #[test]
+    fn semantic_from_native_ignores_zero_platform_placeholder() {
+        let trace = NativeTraceFrame {
+            game_mode_value: 0x000c,
+            current_level: kid_core::LevelId(1),
+            active_objects: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Platform {
+                    kind: 0,
+                    subtype: 0,
+                },
+                x_pos: 0,
+                y_pos: 0,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: BTreeMap::new(),
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let semantic = semantic_from_native(&trace, None);
+
+        assert!(
+            semantic.entities.is_empty(),
+            "PlatformScript_Nothing at (0,0) is native loader bookkeeping, not an oracle-visible entity",
+        );
     }
 }
