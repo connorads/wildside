@@ -629,6 +629,12 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
 
 // ─── Title screen ───────────────────────────────────────────────────────────
 
+fn asset_label_mapeni_filename(label: &str) -> String {
+    label
+        .strip_prefix("unk_")
+        .map_or_else(|| format!("{label}.bin"), |hex| format!("{hex}.bin"))
+}
+
 /// Cached decompressed assets for the title screen (sub_1B2A4).
 #[derive(Debug, Clone)]
 pub(crate) struct TitleScreenData {
@@ -636,10 +642,20 @@ pub(crate) struct TitleScreenData {
     art_chunks: [(usize, Vec<u8>); 4],
     /// Decoded Enigma tilemap for plane A (written starting at word $20C1).
     plane_a_tilemap: Vec<u16>,
+    /// Decoded title character frames from ASM `sub_1BF24`.
+    character_frames: Vec<TitleScreenCharacterFrameData>,
     /// 32-word tile patch for VRAM $F000.
     tile_patch_words: [u16; 32],
     /// Palette words from Pal_1C400 (title.bin — 0x33 words).
     palette_words: Vec<u16>,
+}
+
+#[derive(Debug, Clone)]
+struct TitleScreenCharacterFrameData {
+    frame_index: u8,
+    region_byte: u8,
+    width_words: u16,
+    tilemap_words: Vec<u16>,
 }
 
 #[derive(Debug, Clone)]
@@ -723,6 +739,27 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         .with_context(|| format!("failed to read title tilemap: {}", tilemap_path.display()))?;
     let plane_a_tilemap =
         kid_data::decode_enigma(&tilemap_raw, 0x20C1).context("failed to decode title tilemap")?;
+    let mut character_frames = Vec::new();
+    for region_byte in 0..=2u8 {
+        for frame_index in 0..=7u8 {
+            let plan = kid_data::title_screen_character_load_plan_sub_1BF24(
+                frame_index.into(),
+                region_byte,
+            )
+            .context("failed to build title character load plan")?;
+            let filename = asset_label_mapeni_filename(plan.tilemap_load.asset_label);
+            let raw = std::fs::read(scenes.join("mapeni").join(&filename))
+                .with_context(|| format!("failed to read title character tilemap: {filename}"))?;
+            let tilemap_words = kid_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
+                .with_context(|| format!("failed to decode title character tilemap: {filename}"))?;
+            character_frames.push(TitleScreenCharacterFrameData {
+                frame_index,
+                region_byte,
+                width_words: plan.tilemap_load.width_words,
+                tilemap_words,
+            });
+        }
+    }
 
     // Get tile patch words from the load plan.
     // ASM loc_1C4E0 (kid.asm:31213): region byte 1 seeds the optional
@@ -742,6 +779,7 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     Ok(TitleScreenData {
         art_chunks,
         plane_a_tilemap,
+        character_frames,
         tile_patch_words,
         palette_words,
     })
@@ -783,7 +821,11 @@ pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCard
 ///
 /// ASM sub_1B2A4: 4 art uploads, Enigma tilemap to plane A at word $20C1,
 /// 32-word tile patch to VRAM $F000, palette to CRAM.
-pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
+pub(crate) fn build_title_screen_vdp_with_character_frame(
+    data: &TitleScreenData,
+    frame_index: u8,
+    region_byte: u8,
+) -> VdpState {
     let mut vdp = VdpState::new();
 
     for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
@@ -796,31 +838,7 @@ pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
         vdp.write_vram(*vram_byte_addr, art_bytes);
     }
 
-    // Write Enigma tilemap to plane A via sub_1C5D0 at cell (21, 1), 18×20.
-    // ASM: after sub_1B2A4, the caller does `moveq #$15,d4; moveq #1,d5;
-    // moveq #$12,d6; moveq #$14,d7; bsr.w sub_1C5D0`.
-    // sub_1C5D0 computes: byte_addr = row*128 + col*2 within the nametable.
-    // Plane A nametable at $0000 (register 2 = $00). The maximum byte address
-    // produced for an 18×20 tilemap at cell (21,1) is 20*128 + 38*2 = $0A4C
-    // (≪ VRAM_SIZE), and write_vram_word already gates on the VRAM bound, so
-    // we let it own that check rather than wrapping it in a redundant outer
-    // guard whose `byte_addr + 1 < VRAM_SIZE` never fires for any reachable
-    // (row, col) pair.
-    let tilemap_width: usize = 18;
-    let tilemap_height: usize = 20;
-    let cell_x: usize = 0x15; // 21
-    let cell_y: usize = 1;
-    let plane_a_base: usize = 0x0000;
-    for row in 0..tilemap_height {
-        for col in 0..tilemap_width {
-            let word_index = row * tilemap_width + col;
-            if let Some(&word) = data.plane_a_tilemap.get(word_index) {
-                let byte_addr =
-                    plane_a_base + (cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (cell_x + col) * 2;
-                vdp.write_vram_word(byte_addr, word);
-            }
-        }
-    }
+    write_title_character_frame_sub_1bf24(&mut vdp, data, frame_index, region_byte);
 
     // Write 32-word tile patch to VRAM $F000.
     // These are raw tile data words (not nametable entries).
@@ -832,6 +850,55 @@ pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
     vdp.write_cram_words(0, &data.palette_words);
 
     vdp
+}
+
+fn write_title_character_frame_sub_1bf24(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    frame_index: u8,
+    region_byte: u8,
+) {
+    let Some(frame) = data
+        .character_frames
+        .iter()
+        .find(|frame| frame.frame_index == frame_index && frame.region_byte == region_byte.min(2))
+    else {
+        write_title_character_tilemap_rect(vdp, &data.plane_a_tilemap, 18, 0x20BC);
+        return;
+    };
+
+    write_title_character_tilemap_rect(vdp, &frame.tilemap_words, frame.width_words, 0x20BC);
+}
+
+fn write_title_character_tilemap_rect(
+    vdp: &mut VdpState,
+    tilemap_words: &[u16],
+    source_width_words: u16,
+    fill_word: u16,
+) {
+    // ASM sub_1BF24 (kid.asm:30740): decode the selected Enigma mappings,
+    // fill an 18x20 staging rectangle with `$20BC`, copy `off_1BFB0`'s
+    // per-frame width into each row, then blit it through sub_1C5D0 at
+    // cell `(x,y)=(#$15,#1)`.
+    const TILEMAP_WIDTH: usize = 18;
+    const TILEMAP_HEIGHT: usize = 20;
+    const CELL_X: usize = 0x15;
+    const CELL_Y: usize = 1;
+    let source_width = usize::from(source_width_words).min(TILEMAP_WIDTH);
+    for row in 0..TILEMAP_HEIGHT {
+        for col in 0..TILEMAP_WIDTH {
+            let word = if col < source_width {
+                tilemap_words
+                    .get(row * source_width + col)
+                    .copied()
+                    .unwrap_or(fill_word)
+            } else {
+                fill_word
+            };
+            let byte_addr = (CELL_Y + row) * NAMETABLE_ROW_STRIDE_BYTES + (CELL_X + col) * 2;
+            vdp.write_vram_word(byte_addr, word);
+        }
+    }
 }
 
 /// Build VdpState for the level title-card shell.
@@ -1530,10 +1597,11 @@ mod tests {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: tilemap,
+            character_frames: Vec::new(),
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };
-        let vdp = build_title_screen_vdp(&data);
+        let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
 
         // Sample row-major source-vs-target pairs across every edge so any
         // arithmetic mutation on `(cell_y + row) * 128 + (cell_x + col) * 2`
@@ -1697,15 +1765,56 @@ mod tests {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
+            character_frames: Vec::new(),
             tile_patch_words: patch,
             palette_words: vec![],
         };
-        let vdp = build_title_screen_vdp(&data);
+        let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
 
         let w0 = u16::from_be_bytes([vdp.vram[0xF000], vdp.vram[0xF001]]);
         assert_eq!(w0, 0x1111, "tile patch first word at $F000");
         let w31 = u16::from_be_bytes([vdp.vram[0xF000 + 62], vdp.vram[0xF000 + 63]]);
         assert_eq!(w31, 0x2222, "tile patch last word at $F03E");
+    }
+
+    #[test]
+    fn title_screen_vdp_sub_1bf24_fills_narrow_character_frame_edges() {
+        let mut frame_words = vec![0u16; 16 * 20];
+        for row in 0..20u16 {
+            for col in 0..16u16 {
+                frame_words[(row as usize) * 16 + col as usize] = 0x9000 | (row << 8) | col;
+            }
+        }
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            character_frames: vec![TitleScreenCharacterFrameData {
+                frame_index: 7,
+                region_byte: 2,
+                width_words: 16,
+                tilemap_words: frame_words,
+            }],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let vdp = build_title_screen_vdp_with_character_frame(&data, 7, 2);
+
+        let row_3_col_15_addr = (1 + 3) * 128 + (0x15 + 15) * 2;
+        let row_3_col_15 =
+            u16::from_be_bytes([vdp.vram[row_3_col_15_addr], vdp.vram[row_3_col_15_addr + 1]]);
+        assert_eq!(
+            row_3_col_15, 0x930F,
+            "ASM sub_1BF24 copies the selected frame width into the staging rectangle"
+        );
+
+        let row_3_col_16_addr = (1 + 3) * 128 + (0x15 + 16) * 2;
+        let row_3_col_16 =
+            u16::from_be_bytes([vdp.vram[row_3_col_16_addr], vdp.vram[row_3_col_16_addr + 1]]);
+        assert_eq!(
+            row_3_col_16, 0x20BC,
+            "ASM sub_1BF24 keeps columns beyond the frame width filled with `$20BC`"
+        );
     }
 
     #[test]

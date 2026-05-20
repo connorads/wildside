@@ -1326,10 +1326,15 @@ impl NativeRuntime {
                     )
                 })
             }
-            BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => self
-                .title_screen_data
-                .as_ref()
-                .map(vdp::build_title_screen_vdp),
+            BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
+                self.title_screen_data.as_ref().map(|data| {
+                    vdp::build_title_screen_vdp_with_character_frame(
+                        data,
+                        self.title_screen_character_frame_index_sub_1bf24(),
+                        self.title_screen_region_byte,
+                    )
+                })
+            }
             BootState::StartingLevel { .. } => {
                 let theme_index = self.current_level_title_card_theme_index();
                 self.title_card_data
@@ -1338,6 +1343,29 @@ impl NativeRuntime {
             }
             _ => None,
         };
+    }
+
+    fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
+        if !self.title_screen_uses_intro_return_hidden_shell || self.title_screen_ready() {
+            return 0;
+        }
+
+        let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
+        let elapsed = self.title_screen_elapsed_frames;
+        let initial = usize::from(script.initial_hibernate_frames);
+        if elapsed < initial {
+            return 0;
+        }
+        let local = elapsed - initial;
+        let step = usize::from(script.loop_hibernate_frames).max(1);
+        let frame_index = local / step;
+        script
+            .title_frames
+            .get(frame_index)
+            .copied()
+            .unwrap_or_else(|| {
+                crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame
+            })
     }
 
     fn current_level_title_card_theme_index(&self) -> u8 {

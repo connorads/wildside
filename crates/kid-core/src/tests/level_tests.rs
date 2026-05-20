@@ -3935,6 +3935,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_return_hidden_title_shell_selects_sub_1bf24_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.enter_title_screen();
+        runtime.title_screen_uses_intro_return_hidden_shell = true;
+        runtime.title_screen_ready_frame = usize::MAX;
+
+        runtime.title_screen_elapsed_frames = 41;
+        assert_eq!(
+            runtime.title_screen_character_frame_index_sub_1bf24(),
+            0,
+            "ASM loc_1B446 waits `$2A` frames before dispatching hidden title-shell sub_1BF24 frames",
+        );
+
+        runtime.title_screen_elapsed_frames = 42;
+        assert_eq!(runtime.title_screen_character_frame_index_sub_1bf24(), 0);
+
+        runtime.title_screen_elapsed_frames = 45;
+        assert_eq!(
+            runtime.title_screen_character_frame_index_sub_1bf24(),
+            1,
+            "ASM loc_1B446 advances one byte from `unk_1B4D6` after each 3-frame hibernate",
+        );
+    }
+
+    #[test]
     fn boot_with_start_presses_keep_title_visible_until_frame_460_selection() {
         let mut runtime = cached_generated_runtime();
         let mut frame_178 = None;
