@@ -7,12 +7,15 @@ use crate::enemies::{
     DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA, archer_angle_to_player,
     archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
     drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
+    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
     drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
     drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
-    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
-    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339fa,
-    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33946,
-    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33982,
+    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
+    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
+    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
+    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3398c,
+    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33964,
+    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
     drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
     tank_bullet_loop_route_loc_3b7ba,
 };
@@ -228,6 +231,64 @@ fn drips_surface_crawler_vertical_step_loc_33730(
     }
 }
 
+fn drips_surface_crawler_vertical_step_loc_337a0(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+    level_bounds: LevelBounds,
+) -> DripsSurfaceCrawlerVerticalStepLoc33730 {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    // ASM Drips.asm loc_337A0: this mirrored vertical crawl label probes 8px
+    // below through loc_331D2, then routes loc_33286 d5/d6 outcomes.
+    if relative_collision_mask_loc_331D2(grid, i32::from(x_pos_word), i32::from(y_pos_word), 0, 8)
+        != 0x6000
+    {
+        return DripsSurfaceCrawlerVerticalStepLoc33730::Exit;
+    }
+    if drips_surface_crawler_out_of_level_bounds_loc_33588(
+        projectile,
+        level_bounds.width_pixels,
+        level_bounds.height_pixels,
+    ) {
+        return DripsSurfaceCrawlerVerticalStepLoc33730::Exit;
+    }
+
+    let y_offset = if projectile.y_velocity < 0 { -6 } else { 6 };
+    let row = relative_collision_row_loc_33286(
+        grid,
+        i32::from(x_pos_word),
+        i32::from(y_pos_word),
+        y_offset,
+        0,
+    );
+
+    if projectile.y_velocity < 0 {
+        if row.left == 0x6000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_339be(),
+            )
+        } else if row.centre == 0x6000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+        } else if row.centre == 0x4000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_33a04(),
+            )
+        } else {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_33978(),
+            )
+        }
+    } else if row.left == 0x6000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_3398c())
+    } else if row.left == 0x4000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_33a5e())
+    } else if row.centre == 0x6000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+    } else {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_3395a())
+    }
+}
+
 fn drips_surface_crawler_side_column_step_loc_33650(
     grid: &terrain::BlockGrid,
     projectile: &EnemyProjectile,
@@ -338,9 +399,9 @@ fn drips_surface_crawler_apply_turn_script_loc_33af6(
     projectile.y_velocity = projectile.y_velocity.wrapping_add(script.y_velocity_delta);
     projectile.drips_surface_crawler_state = match script.next {
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33730 => DripsSurfaceCrawlerState::VerticalLoc33730,
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0 => DripsSurfaceCrawlerState::VerticalLoc337A0,
         DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650
         | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc336D0
-        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0
         | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33A7C
         | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33810
         | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33892
@@ -1025,6 +1086,24 @@ impl NativeRuntime {
                 }
             } else {
                 false
+            };
+
+            let drips_movement_state_handled = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::VerticalLoc337A0
+                && let Some(g) = grid
+            {
+                match drips_surface_crawler_vertical_step_loc_337a0(g, p, level_bounds) {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Loop => true,
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Turn(script) => {
+                        // ASM Drips.asm loc_337A0/loc_337F2 dispatch row-probe
+                        // outcomes through loc_33AF6 just like loc_33730.
+                        drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
+                        return true;
+                    }
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
+                }
+            } else {
+                drips_movement_state_handled
             };
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
