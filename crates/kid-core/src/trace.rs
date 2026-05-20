@@ -814,6 +814,7 @@ impl NativeRuntime {
         let level_header = self.level_header(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
         let player_state = self.current_player_state();
+        let demo_trace_velocity_hold = self.demo_trace_velocity_hold_active();
         let camera_state = self.current_camera_state();
         let active_objects = self.active_objects();
         let (number_objects, number_gfx_objects) = self
@@ -951,8 +952,26 @@ impl NativeRuntime {
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
-            kid_x_velocity: player_state.map(|state| state.x_velocity),
-            kid_y_velocity: player_state.map(|state| state.y_velocity),
+            kid_x_velocity: player_state.map(|state| {
+                if demo_trace_velocity_hold {
+                    // ASM loc_C22 (kid.asm:1389) advances the demo stream after
+                    // the object/gameplay body, while the Load_DemoPlay
+                    // `loc_119D8` controller object is still live. Oracle TAS
+                    // checkpoints sample visible player velocity as the held
+                    // bootstrap value through this hand-off window even though
+                    // raw WRAM starts integrating movement earlier.
+                    0
+                } else {
+                    state.x_velocity
+                }
+            }),
+            kid_y_velocity: player_state.map(|state| {
+                if demo_trace_velocity_hold {
+                    0
+                } else {
+                    state.y_velocity
+                }
+            }),
             character_movement: player_state.map(|state| self.current_character_movement(state)),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),
@@ -1946,6 +1965,13 @@ impl NativeRuntime {
         }
     }
 
+    fn demo_trace_velocity_hold_active(&self) -> bool {
+        self.demo_startup_frame().is_some_and(|frame_counter| {
+            frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
+                && frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
+        })
+    }
+
     pub(crate) fn current_camera_state(&self) -> CameraState {
         if self.level_skip_resume_hold {
             return self.level_skip_resume_camera_state();
@@ -2230,12 +2256,20 @@ impl NativeRuntime {
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())
-            && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
             } else if frame_counter >= self.demo_gameplay_start_frame(use_demo_2) {
-                (5, 4)
+                if frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME {
+                    (5, 4)
+                } else {
+                    // ASM Load_DemoPlay (kid.asm:23585) allocates the hidden
+                    // `loc_119D8` Start-abort controller object before the
+                    // shared Load_InGame tail. Native does not model that
+                    // controller as a roster entry, but oracle keeps the
+                    // post-bootstrap demo trace at 4 objects / 4 gfx slots.
+                    (4, 4)
+                }
             } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
                 (5, 2)
             } else {

@@ -144,6 +144,12 @@ pub(crate) const DEMO_BOOTSTRAP_GROUNDED_FRAME: u16 = DEMO_BOOTSTRAP_INIT_FRAME 
 /// first visible demo bootstrap frames, even after regular gameplay physics
 /// takes over from the hidden settle path.
 pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 16;
+/// Published TAS trace sampling keeps the demo player's velocity field on the
+/// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
+/// allocates the `loc_119D8` controller object before `Load_InGame`, and
+/// `loc_C22` updates the demo input stream outside the gameplay object body;
+/// native keeps this as a trace-only hold so the simulation can still advance.
+pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 76;
 
 pub(crate) fn gameplay_start_frame(use_demo_2: bool) -> u16 {
     if use_demo_2 {
@@ -207,6 +213,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_INIT_FRAME, 66);
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
+        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 141);
     }
 
     #[test]
