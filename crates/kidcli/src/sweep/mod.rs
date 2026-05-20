@@ -819,19 +819,26 @@ fn sweep_single_level(
         })
         .map(|(n, _)| n.label.as_str())
         .collect();
-    // Detect oracle pause: oracle game is paused (in-game pause menu) or
-    // stuck on title card (game_mode=0x0008). Position/mode diffs are
-    // meaningless because the oracle never ran gameplay.
-    let oracle_paused_checkpoints: std::collections::HashSet<&str> = oracle
+    // Detect oracle checkpoints that never reached the requested gameplay
+    // context: paused, stuck on title card (game_mode=0x0008), or still on
+    // the wrong warped level. Position/mode/pixel diffs there are about
+    // oracle bootstrap timing, not native fidelity.
+    let oracle_unreliable_checkpoints: std::collections::HashSet<&str> = oracle
         .states
         .iter()
-        .filter(|s| s.game_paused || s.game_mode == 0x0008)
+        .filter(|s| {
+            s.game_paused
+                || s.game_mode == 0x0008
+                || scenario
+                    .warp_to_level
+                    .is_some_and(|level_id| s.current_level_id != u16::from(level_id))
+        })
         .map(|s| s.label.as_str())
         .collect();
     reclassify_state_diffs(
         &mut state_diffs,
         &death_gap_checkpoints,
-        &oracle_paused_checkpoints,
+        &oracle_unreliable_checkpoints,
     );
     let divergence_summary = summarise_state_diffs(&state_diffs);
     let state_passed = !has_blocking_divergences(&divergence_summary);
@@ -856,7 +863,7 @@ fn sweep_single_level(
             &oracle,
             &level_dir,
             level_id,
-            &oracle_paused_checkpoints,
+            &oracle_unreliable_checkpoints,
         )?;
         mae_val = best_mae;
         pixel_mismatches_val = best_pixel_mismatches;
@@ -904,10 +911,11 @@ fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> Dyna
 fn reclassify_state_diffs(
     diffs: &mut [StateDiff],
     death_gap_checkpoints: &std::collections::HashSet<&str>,
-    oracle_paused_checkpoints: &std::collections::HashSet<&str>,
+    oracle_unreliable_checkpoints: &std::collections::HashSet<&str>,
 ) {
     for diff in diffs {
-        diff.category = classify_state_diff(diff, death_gap_checkpoints, oracle_paused_checkpoints);
+        diff.category =
+            classify_state_diff(diff, death_gap_checkpoints, oracle_unreliable_checkpoints);
     }
 }
 
@@ -922,20 +930,21 @@ pub(crate) fn summarise_state_diffs(diffs: &[StateDiff]) -> DivergenceSummary {
 fn classify_state_diff(
     diff: &StateDiff,
     death_gap_checkpoints: &std::collections::HashSet<&str>,
-    oracle_paused_checkpoints: &std::collections::HashSet<&str>,
+    oracle_unreliable_checkpoints: &std::collections::HashSet<&str>,
 ) -> DivergenceCategory {
     if ADVISORY_FIELDS.contains(&diff.field.as_str()) {
         return DivergenceCategory::Advisory;
     }
 
-    // Oracle-paused supersedes death-gap: when the oracle is stuck on title
-    // (game_mode=0x0008) or in a pause menu, ALL fields are unreliable —
-    // including position fields that would otherwise hit the death-gap
-    // advisory path. Without this precedence, native deaths landing on an
-    // oracle-paused checkpoint produce spurious "advisory" position diffs
-    // that the autonomy advisory-promotion strategy then flags as candidates,
-    // even though the oracle never reached gameplay to report a real value.
-    if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
+    // Oracle-unreliable supersedes death-gap: when the oracle is stuck on title
+    // (game_mode=0x0008), paused, or still reporting the wrong warped level,
+    // ALL fields are unreliable — including position fields that would
+    // otherwise hit the death-gap advisory path. Without this precedence,
+    // native deaths landing on an oracle-limited checkpoint produce spurious
+    // "advisory" position diffs that the autonomy advisory-promotion strategy
+    // then flags as candidates, even though the oracle never reached gameplay
+    // to report a real value.
+    if oracle_unreliable_checkpoints.contains(diff.checkpoint.as_str()) {
         return DivergenceCategory::OracleLimitation;
     }
 
@@ -2756,6 +2765,31 @@ mod tests {
                 "field '{field}' should be oracle limitation when oracle is paused"
             );
         }
+    }
+
+    #[test]
+    fn wrong_warped_level_diff_is_oracle_limitation() {
+        // Full-frame level sweeps can observe the oracle before its warp
+        // bootstrap reaches the requested level. Until `current_level_id`
+        // matches the scenario target, pixel and state diffs compare two
+        // different levels and must not block visual parity triage.
+        let diff = StateDiff {
+            checkpoint: "frame_000".into(),
+            field: "current_level_id".into(),
+            native_value: "0x0001".into(),
+            oracle_value: "0x0000".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_unreliable_checkpoints = std::collections::HashSet::from(["frame_000"]);
+
+        let category = classify_state_diff(
+            &diff,
+            &death_gap_checkpoints,
+            &oracle_unreliable_checkpoints,
+        );
+
+        assert_eq!(category, DivergenceCategory::OracleLimitation);
     }
 
     #[test]
