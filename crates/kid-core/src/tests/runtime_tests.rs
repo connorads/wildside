@@ -5306,6 +5306,24 @@ mod chunk_09 {
         }
     }
 
+    #[test]
+    fn settled_warp_runner_starts_after_stable_ingame_window() {
+        let manifest = manifest_with_levels(3);
+        let script = vec![0u8; 2];
+
+        let fresh = run_script_with_warp(manifest.clone(), &script, 1, Some(1));
+        let settled = run_script_with_settled_warp(manifest, &script, 1, Some(1));
+
+        assert_eq!(
+            settled[0].frame_index,
+            fresh[0].frame_index + 60,
+            "full-frame oracle helper waits for 60 stable unpaused target-level frames before scenario frame 0; native must use the same pre-run contract",
+        );
+        assert_eq!(settled[0].game_mode, GameMode::InGame);
+        assert_eq!(settled[0].current_level, LevelId(1));
+        assert!(!settled[0].paused);
+    }
+
     /// Determinism with active gameplay inputs (walk + jump).
     #[test]
     fn determinism_active_gameplay_identical_traces() {

@@ -54,8 +54,16 @@ pub fn run_tas_diff(
 
     // Run native (with physics trace if requested)
     println!("  running native ({end} frames)...");
+    let use_settled_warp = scenario.slug.starts_with("idle_level_full_frames_");
     let native_trace = if include_physics_trace {
         kid_core::run_script_with_trace(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        )
+    } else if use_settled_warp {
+        kid_core::run_script_with_settled_warp(
             manifest.clone(),
             &scenario.script,
             scenario.frame_count,

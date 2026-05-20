@@ -750,12 +750,21 @@ fn sweep_single_level(
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
     // Run native (with warp if specified)
-    let native_trace = kid_core::run_script_with_warp(
-        manifest.clone(),
-        &scenario.script,
-        scenario.frame_count,
-        scenario.warp_to_level,
-    );
+    let native_trace = if requested_tier == SweepTier::Full {
+        kid_core::run_script_with_settled_warp(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        )
+    } else {
+        kid_core::run_script_with_warp(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        )
+    };
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);

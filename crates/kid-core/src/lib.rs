@@ -28,8 +28,8 @@ use kid_data::{
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
 pub use scenario::{
-    ScriptRunner, run_script, run_script_with_physics_order, run_script_with_trace,
-    run_script_with_warp,
+    ScriptRunner, run_script, run_script_with_physics_order, run_script_with_settled_warp,
+    run_script_with_trace, run_script_with_warp,
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};

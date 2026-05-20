@@ -70,6 +70,7 @@ impl NativeRuntime {
 pub struct ScriptRunner {
     assets: AssetManifest,
     warp_to_level: Option<u8>,
+    settle_warp: bool,
     physics_order: Option<PhysicsOrder>,
     trace_physics: bool,
 }
@@ -79,6 +80,7 @@ impl ScriptRunner {
         Self {
             assets,
             warp_to_level: None,
+            settle_warp: false,
             physics_order: None,
             trace_physics: false,
         }
@@ -87,6 +89,12 @@ impl ScriptRunner {
     #[must_use]
     pub fn warp_to_level(mut self, level: u8) -> Self {
         self.warp_to_level = Some(level);
+        self
+    }
+
+    #[must_use]
+    pub fn settle_warp(mut self) -> Self {
+        self.settle_warp = true;
         self
     }
 
@@ -112,6 +120,21 @@ impl ScriptRunner {
         }
         if let Some(level_id) = self.warp_to_level {
             runtime.boot_to_level(LevelId(level_id));
+            if self.settle_warp {
+                let idle = FrameInput::default();
+                let mut stable_target_frames = 0usize;
+                while stable_target_frames < 60 {
+                    if matches!(runtime.boot_state, BootState::InGame)
+                        && runtime.current_level == LevelId(level_id)
+                        && !runtime.paused
+                    {
+                        stable_target_frames += 1;
+                    } else {
+                        stable_target_frames = 0;
+                    }
+                    runtime.step_frame(idle);
+                }
+            }
         }
         let mut trace = Vec::with_capacity(frame_count);
         for frame_index in 0..frame_count {
@@ -143,6 +166,19 @@ pub fn run_script_with_warp(
     warp_to_level: Option<u8>,
 ) -> Vec<NativeTraceFrame> {
     let mut runner = ScriptRunner::new(assets);
+    if let Some(level) = warp_to_level {
+        runner = runner.warp_to_level(level);
+    }
+    runner.run(script, frame_count)
+}
+
+pub fn run_script_with_settled_warp(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+    warp_to_level: Option<u8>,
+) -> Vec<NativeTraceFrame> {
+    let mut runner = ScriptRunner::new(assets).settle_warp();
     if let Some(level) = warp_to_level {
         runner = runner.warp_to_level(level);
     }
