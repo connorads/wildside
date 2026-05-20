@@ -6814,6 +6814,33 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_demo_grounded_run_resumes_with_loc_9b62_normal_acceleration() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+
+        let mut frame_979 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(980) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 979 {
+                frame_979 = Some(trace);
+                break;
+            }
+        }
+
+        let frame_979 = frame_979.expect("frame 979 trace");
+        // ASM loc_8E16 refreshes the grounded surface before loc_9B62 applies
+        // Ctrl_A_Held run acceleration.  The published demo has right+A held
+        // here, so the first post-stall x step is normal Kid run accel $1C00,
+        // not the rubber-table $0380 step.
+        assert_eq!(frame_979.kid_on_ground, Some(true));
+        assert_eq!(frame_979.kid_x_pos, Some(0x0044_1C00));
+        assert_eq!(
+            frame_979.kid_x_velocity,
+            Some(0),
+            "published TAS trace export still masks visible velocity while raw WRAM advances",
+        );
+    }
+
+    #[test]
     fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();

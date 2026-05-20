@@ -148,14 +148,14 @@ pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAM
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
 /// `loc_C22` updates the demo input stream outside the gameplay object body;
-/// native keeps this as a trace-only hold so the simulation can still advance.
-pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 76;
+/// native keeps this as a trace-only hold through the first post-stall
+/// wall-contact hand-off so the simulation can still advance.
+pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 87;
 /// Oracle-backed published TAS traces keep Character_Movement at
 /// `MoveID_Jump` through the demo-1 wall-jump landing stall, then restore
 /// `MoveID_Standingstill` one startup frame before the velocity trace hold
 /// expires.
-pub(crate) const DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME: u16 =
-    DEMO_TRACE_GROUNDED_HOLD_END_FRAME - 1;
+pub(crate) const DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 75;
 
 pub(crate) fn gameplay_start_frame(use_demo_2: bool) -> u16 {
     if use_demo_2 {
@@ -219,7 +219,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_INIT_FRAME, 66);
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
-        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 141);
+        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 152);
     }
 
     #[test]

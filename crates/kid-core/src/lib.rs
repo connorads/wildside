@@ -1611,6 +1611,7 @@ impl NativeRuntime {
                             self.last_kid_frame_motion_branch =
                                 KidFrameMotionBranch::DemoBootstrapGroundedRun;
                         } else {
+                            self.refresh_demo_grounded_run_surface_type();
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                         }
                     }

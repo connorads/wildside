@@ -6022,6 +6022,39 @@ impl NativeRuntime {
         true
     }
 
+    pub(crate) fn refresh_demo_grounded_run_surface_type(&mut self) {
+        let Some(frame_counter) = self.demo_startup_frame() else {
+            return;
+        };
+        if frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        if !slice.player.on_ground || slice.player.y_velocity != 0 {
+            return;
+        }
+
+        let Some(grid) = self.block_grid.as_ref() else {
+            return;
+        };
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        // ASM loc_8E16 (kid.asm:10180) calls sub_8600 before sub_9A0A selects
+        // the ground speed table.  The published demo reaches this after the
+        // wall-jump settle with stale bootstrap terrain, so refresh it at the
+        // demo hand-off without changing normal gameplay's existing quirk
+        // coverage.
+        slice.terrain.floor_terrain_type = movement::grounded_surface_type_sub_8600(
+            grid,
+            x_px,
+            y_px,
+            self.progression.current_form.half_width(),
+        );
+    }
+
     pub(crate) fn apply_demo_bootstrap_camera_handoff(&mut self) {
         let Some(slice) = self.opening_slice.as_mut() else {
             return;
