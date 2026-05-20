@@ -1017,10 +1017,12 @@ Fix landed:
 1. Native player now emits a second RockTank sprite for the turret child GfxObject instead of collapsing everything into the body sprite.
 2. Plain tanks use `stru_3B27E`; shooting tanks use `stru_3B4D8` at HP 4 and `stru_3B4F6` at HP 2-3, reusing the ROM frame descriptors `unk_C7EC8`, `unk_C7F00`, `unk_C7F08`, `unk_C7F10`, `unk_C7F20`, and `unk_C7F28`.
 3. The turret render keeps the ROM's y-8px child attachment from `Enemy0A_RockTank_Init` / `Enemy0B_RockTank_shooting_Init`.
+4. Follow-up 2026-05-20: the runtime trace already contains both body and child snapshots, so native rendering now draws the body from the HP-bearing parent snapshot and the turret from the HP-less child snapshot instead of synthesising a duplicate turret for both objects. This reduced Level 0x01 full-frame worst mismatch from 7,177 pixels / MAE 4.4 to 6,695 pixels / MAE 3.9 in `cargo run -q -p kidcli -- sweep --levels 1 --tier full --max-failures 1`.
 
 Regression coverage:
 - `rock_tank_renderer_emits_body_and_turret_sprites_per_stru_3b27e`
 - `rock_tank_shooting_renderer_uses_stru_3b4d8_turret_frames`
+- `rock_tank_renderer_uses_child_snapshot_instead_of_duplicate_synthetic_turret`
 
 ### 146 — Dying in Level 2 can leave the game stuck on the level-loading screen (VALIDATED)
 **Status: closed by deterministic replay evidence** — downgraded P0→P1 on 2026-04-05, reclassified from blocked repro on 2026-05-18, then promoted after the long probe proved recovery.

@@ -1461,6 +1461,13 @@ mod tests {
         )
     }
 
+    fn sprite_tiles(command: &DrawCommand) -> &[SpriteTile] {
+        match command {
+            DrawCommand::Sprite { tiles, .. } => tiles,
+            other => panic!("expected sprite draw command, got {other:?}"),
+        }
+    }
+
     #[test]
     fn generic_enemy_projectile_uses_legacy_dot_render() {
         let mut trace = sample_trace(GameMode::InGame);
@@ -4202,6 +4209,60 @@ mod tests {
             }
             other => panic!("expected body + turret sprite commands, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn rock_tank_renderer_uses_child_snapshot_instead_of_duplicate_synthetic_turret() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 30;
+        let visuals = sample_level_visuals();
+        let body = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x00B3_8000,
+            y_pos: 0x00E0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(0x0000_8000),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let child = NativeObjectSnapshot {
+            y_pos: 0x00D8_0000,
+            hit_points: None,
+            on_ground: None,
+            ..body.clone()
+        };
+        trace.active_objects = vec![body.clone(), child.clone()];
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &body, &trace, &visuals, 0x0A);
+        sprites::push_enemy_sprite(&mut commands, &child, &trace, &visuals, 0x0A);
+
+        assert_eq!(
+            commands.len(),
+            2,
+            "ASM Tank.asm loc_3B372 allocates the turret as a child GfxObject; when the trace already contains that child, native rendering must not also synthesise another turret from the body"
+        );
+        assert_eq!(
+            sprite_tiles(&commands[0])[0].tile.tile_index,
+            0x034,
+            "ASM `stru_3B270` body snapshot renders the RockTank body frame"
+        );
+        assert_eq!(
+            sprite_tiles(&commands[1])[0].tile.tile_index,
+            0x020,
+            "ASM `stru_3B27E` child snapshot renders the RockTank turret frame"
+        );
     }
 
     #[test]

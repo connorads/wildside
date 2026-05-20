@@ -569,7 +569,6 @@ pub(super) fn push_enemy_sprite(
         return;
     };
 
-    let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let facing = object.facing.unwrap_or(Direction::Right);
     // Enemy VRAM art is stored facing left (the ROM uses the H-flip bit to
@@ -579,6 +578,27 @@ pub(super) fn push_enemy_sprite(
         Direction::Right => Direction::Left,
         Direction::Left => Direction::Right,
     };
+
+    if is_rock_tank_child_snapshot(object_type, object) {
+        if let Some(turret_frame) =
+            rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
+        {
+            let (turret_x, turret_y) =
+                sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
+            commands.push(DrawCommand::Sprite {
+                x: turret_x,
+                y: turret_y,
+                tile_sheet: Arc::new(turret_frame.tile_sheet.clone()),
+                palette: Arc::new(
+                    select_enemy_palette(enemy_visuals, object.palette_variant).clone(),
+                ),
+                tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
+            });
+        }
+        return;
+    }
+
+    let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     commands.push(DrawCommand::Sprite {
         x: draw_x,
@@ -588,10 +608,13 @@ pub(super) fn push_enemy_sprite(
         tiles: build_sprite_tiles(frame, render_facing, 0),
     });
 
-    if let Some(turret_frame) = rock_tank_turret_frame(object, trace, enemy_visuals, object_type) {
-        let turret_screen_y = screen_y - 8;
+    if is_rock_tank_parent_without_child_snapshot(object_type, object, trace)
+        && let Some(turret_frame) =
+            rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
+    {
+        let fallback_screen_y = screen_y - 8;
         let (turret_x, turret_y) =
-            sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
+            sprite_draw_position(&turret_frame, screen_x, fallback_screen_y, render_facing);
         commands.push(DrawCommand::Sprite {
             x: turret_x,
             y: turret_y,
@@ -602,12 +625,46 @@ pub(super) fn push_enemy_sprite(
     }
 }
 
+fn is_rock_tank_type(object_type: u8) -> bool {
+    matches!(object_type, 0x0A | 0x0B)
+}
+
+fn is_rock_tank_child_snapshot(object_type: u8, object: &NativeObjectSnapshot) -> bool {
+    is_rock_tank_type(object_type) && object.hit_points.is_none()
+}
+
+fn is_rock_tank_parent_without_child_snapshot(
+    object_type: u8,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+) -> bool {
+    if !is_rock_tank_type(object_type) || object.hit_points.is_none() {
+        return false;
+    }
+    !trace.active_objects.iter().any(|candidate| {
+        matches!(candidate.kind, NativeObjectKind::Enemy { object_type: candidate_type } if candidate_type == object_type)
+            && candidate.layout_index == object.layout_index
+            && candidate.hit_points.is_none()
+    })
+}
+
 fn rock_tank_turret_frame(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
     enemy_visuals: &kid_render::AnimatedSpriteVisual,
     object_type: u8,
 ) -> Option<kid_render::SpriteFrame> {
+    let hit_points = object.hit_points.or_else(|| {
+        trace
+            .active_objects
+            .iter()
+            .find(|candidate| {
+                matches!(candidate.kind, NativeObjectKind::Enemy { object_type: candidate_type } if candidate_type == object_type)
+                    && candidate.layout_index == object.layout_index
+                    && candidate.hit_points.is_some()
+            })
+            .and_then(|candidate| candidate.hit_points)
+    });
     let specs = match object_type {
         // ASM Tank.asm loc_3B372 + `stru_3B27E`: plain RockTank allocates a
         // second GfxObject at `$3A(a5)` for the turret and keeps it 8px above
@@ -615,7 +672,7 @@ fn rock_tank_turret_frame(
         0x0A => &ROCK_TANK_TURRET_STRU_3B27E[..],
         // ASM Tank_Shooting.asm loc_3B5FA/loc_3B682: HP 4 uses `stru_3B4D8`,
         // HP 2-3 use `stru_3B4F6`, again on the child GfxObject at `$3A(a5)`.
-        0x0B if object.hit_points == Some(4) => &ROCK_TANK_SHOOTING_FAST_STRU_3B4D8[..],
+        0x0B if hit_points == Some(4) => &ROCK_TANK_SHOOTING_FAST_STRU_3B4D8[..],
         0x0B => &ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6[..],
         _ => return None,
     };
