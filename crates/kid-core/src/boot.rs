@@ -6776,7 +6776,14 @@ impl NativeRuntime {
                     play_navigate_jingle = true;
                 } else if !self.title_menu_cursor_pending {
                     self.title_idle_frames += 1;
-                    if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                    let title_elapsed_timeout = TITLE_ATTRACT_LOCK_FRAMES
+                        .saturating_add(usize::from(demo::TITLE_IDLE_FRAMES));
+                    if self.title_screen_elapsed_frames + 1 >= title_elapsed_timeout {
+                        // ASM Obj_TitleMenu loc_1BAEA/Title_InputLoop reaches
+                        // loc_1BB02 on the title object's local elapsed frame
+                        // 58 + $280; `title_idle_frames` can be one short on
+                        // imported TAS cursor-edge traces because Ctrl_1_Pressed
+                        // is consumed inside the ROM object loop.
                         self.title_idle_frames = 0;
                         self.demo_toggle = !self.demo_toggle;
                         self.begin_demo_play(self.demo_toggle);

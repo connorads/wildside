@@ -4198,7 +4198,7 @@ mod chunk_02 {
     fn title_menu_cursor_input_does_not_write_character_movement() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut trace = Vec::new();
-        for frame in 0..=836 {
+        for frame in 0..=837 {
             trace.push(runtime.step_frame(FrameInput::from_mask(
                 script.get(frame).copied().unwrap_or_default(),
             )));
@@ -4213,6 +4213,11 @@ mod chunk_02 {
             );
         }
         assert_eq!(trace[836].game_mode, GameMode::TitleScreen);
+        assert_eq!(
+            trace[837].game_mode,
+            GameMode::DemoPlay,
+            "ASM Obj_TitleMenu loc_1BB02 hands off to Game_Mode=$10 when Title_InputLoop's countdown expires"
+        );
     }
 
     #[test]
