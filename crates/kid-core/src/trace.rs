@@ -2297,10 +2297,15 @@ impl NativeRuntime {
                     // prize-block bounces and loc_102B8 spawn flashes, still
                     // allocate object+gfx slots during demo playback and must
                     // be counted above that four-object baseline.
+                    let live_floating_prize_objects = self
+                        .floating_items
+                        .iter()
+                        .filter(|item| !item.collected)
+                        .count();
                     let transient_gfx_workers = (self.block_bounces.len()
                         + self.prize_block_worker_tails.len()
                         + self.prize_block_spawn_flashes.len()
-                        + self.floating_items.len())
+                        + live_floating_prize_objects)
                         as u16;
                     (
                         4u16.saturating_add(transient_gfx_workers),

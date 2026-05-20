@@ -6867,7 +6867,9 @@ mod chunk_08 {
         let mut frame_1022 = None;
         let mut frame_1045 = None;
         let mut frame_1046 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_047) {
+        let mut frame_1057 = None;
+        let mut frame_1058 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_059) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6875,8 +6877,10 @@ mod chunk_08 {
                 1_021 => frame_1021 = Some(trace),
                 1_022 => frame_1022 = Some(trace),
                 1_045 => frame_1045 = Some(trace),
-                1_046 => {
-                    frame_1046 = Some(trace);
+                1_046 => frame_1046 = Some(trace),
+                1_057 => frame_1057 = Some(trace),
+                1_058 => {
+                    frame_1058 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -6905,6 +6909,16 @@ mod chunk_08 {
         assert_eq!(frame_1022.number_objects, 6);
         assert_eq!(frame_1045.number_objects, 6);
         assert_eq!(frame_1046.number_objects, 5);
+
+        let frame_1057 = frame_1057.expect("frame 1057 trace");
+        let frame_1058 = frame_1058.expect("frame 1058 trace");
+        // ASM PrizeHelmetCyclone_Init loc_104AE/loc_104C6 deletes the
+        // falling helmet object once `collision_type(a3)` becomes non-zero.
+        // The form-change coroutine hibernates gameplay immediately after
+        // contact, so native must stop counting the already-collected floating
+        // item instead of waiting for the visual-effect step to retain it out.
+        assert_eq!(frame_1057.number_objects, 5);
+        assert_eq!(frame_1058.number_objects, 4);
     }
 
     #[test]
