@@ -249,6 +249,10 @@ mod tests {
         assert_eq!(iron_knight.walk.len(), 6);
         assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
         assert_eq!(
+            iron_knight.jump_fall.origin_y, -0x02,
+            "ASM Iron Knight jump-fall sprite descriptor stores origin_y=-$02"
+        );
+        assert_eq!(
             iron_knight
                 .transform_palette
                 .as_ref()
@@ -271,6 +275,19 @@ mod tests {
         let fixture = TestBundle::new().expect("test bundle");
 
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.floating_prizes.diamond.frame_duration, 3);
+        assert_eq!(visuals.floating_prizes.diamond.frames.len(), 4);
+        for diamond in &visuals.floating_prizes.diamond.frames {
+            assert_eq!(
+                diamond.origin_y, -2,
+                "ASM PrizeDiamond_Init frame unk_E0E66 places diamond art two pixels above object origin"
+            );
+            assert_eq!(
+                diamond.tile_base_index, 0x08,
+                "ASM PrizeDiamond_Init uses tile $6F2 relative to HUD diamond DMA base $6EA"
+            );
+        }
 
         for (content_id, origin_x, origin_y, width_px, height_px, tile_count) in [
             // ASM PrizeAnkh_Init -> stru_10C08 -> unk_E0FE6.
@@ -399,6 +416,17 @@ mod tests {
         let skull = visuals.enemies.families.get(&0x1C).expect("skull visuals");
         assert_eq!(skull.frames.len(), 2);
         assert_eq!(skull.frames[0].tile_base_index, 0x002C);
+        let cloud = visuals.enemies.families.get(&0x0E).expect("cloud visuals");
+        assert_eq!(cloud.frame_duration, 11);
+        assert_eq!(
+            cloud
+                .frames
+                .iter()
+                .map(|frame| frame.origin_y)
+                .collect::<Vec<_>>(),
+            vec![0, -1, -1, -2, -1, -1],
+            "ASM Enemy0E Cloud frame table keeps the bobbing offsets in the sprite descriptors"
+        );
         assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
         assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
     }
@@ -608,6 +636,23 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artcomp/Enemy0E_Cloud.bin",
+                &direct_copy_saxman(
+                    &(0..4096)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Cloud_1.bin",
+                &(0..15)
+                    .map(|value| 0x01A0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artcomp/Horizontal_platform.bin",
                 &direct_copy_saxman(
                     &(0..1024)
@@ -629,6 +674,13 @@ mod tests {
                 "ingame/artunc/diamond_1.bin",
                 &(0..512).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
             )?;
+            for (path, fill) in [
+                ("ingame/artunc/diamond_2.bin", 0x2D),
+                ("ingame/artunc/diamond_3.bin", 0x3D),
+                ("ingame/artunc/diamond_4.bin", 0x4D),
+            ] {
+                write_file(root.path(), path, &vec![fill; 512])?;
+            }
             write_file(
                 root.path(),
                 "ingame/artunc/Life_icon_(3_frames).bin",
@@ -1066,10 +1118,14 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy0E_Cloud.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
                     asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
                     asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
                     asset_file(root.path(), "ingame/artunc/diamond_1.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_2.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_3.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_4.bin"),
                     asset_file(root.path(), "ingame/artunc/Life_icon_(3_frames).bin"),
                     asset_file(root.path(), "ingame/artunc/Clock_icon_(3_frames).bin"),
                     asset_file(
@@ -1084,6 +1140,7 @@ mod tests {
                     asset_file(root.path(), "ingame/palette/Murder_wall.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Cloud_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Iron_Knight.bin"),

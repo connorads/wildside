@@ -4065,4 +4065,29 @@ mod tests {
             "artunc_kid/red_stealth_slope_2.bin"
         );
     }
+
+    #[test]
+    fn player_visual_specs_include_rom_negative_y_offsets() {
+        assert_eq!(
+            super::IRON_KNIGHT_JUMP_FALL_FRAME.origin_y,
+            -0x02,
+            "ASM sprite frame `unk_C7850` stores Iron Knight jump-fall origin_y=-$02"
+        );
+        assert!(
+            super::JUGGERNAUT_HEAD_WALK_FRAMES
+                .iter()
+                .all(|frame| frame.origin_y == -0x0A),
+            "ASM Juggernaut split-head walk descriptors `unk_BEDF0`/`unk_BF976`/`unk_BFBDD`/`unk_BFE64`/`unk_C00EB` store origin_y=-$0A"
+        );
+
+        let maniaxe = super::PLAYER_FORM_SPECS
+            .iter()
+            .find(|spec| spec.form_id == super::PLAYER_FORM_MANIAXE)
+            .expect("Maniaxe player form spec");
+
+        assert_eq!(
+            maniaxe.jump_fall.origin_y, -0x02,
+            "ASM Maniaxe jump-fall sprite descriptor stores origin_y=-$02"
+        );
+    }
 }
