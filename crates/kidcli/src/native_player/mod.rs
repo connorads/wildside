@@ -3669,6 +3669,11 @@ mod tests {
     fn resolve_ingame_vram_tile_maps_hud_symbols_and_diamond_tiles() {
         let visuals = sample_level_visuals();
 
+        let ankh =
+            resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x8231)).expect("ankh tile");
+        assert_eq!(ankh.tile_sheet.tiles.len(), 0x200);
+        assert_eq!(ankh.tile.tile_index, 17);
+
         let colon = resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x86C4))
             .expect("colon tile");
         assert_eq!(colon.tile_sheet.tiles.len(), 12);
@@ -5139,6 +5144,28 @@ mod tests {
             (2, 10, 5, 9),
             "ASM loc_BEE8 writes timer digits from $86BA+d and the prebuilt sprite table places the colon at $90,$90"
         );
+    }
+
+    #[test]
+    fn game_hud_uses_asm_static_symbol_slots() {
+        let trace = sample_trace(GameMode::InGame);
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, ankh, _) = indexed_tile_at_with_sheet_len(&scene, 0x1A1 - 128, 0x8D - 128, 0x200)
+            .expect("ankh symbol tile");
+        let (_, diamond, _) = indexed_tile_at_with_sheet_len(&scene, 0x1A0 - 128, 0xA2 - 128, 16)
+            .expect("diamond symbol tile");
+
+        assert_eq!(
+            ankh.tile_index, 17,
+            "ASM HUD table unk_1427C uses VRAM tile $8231 for the ankh symbol at $1A1,$8D"
+        );
+        assert!(ankh.priority);
+        assert_eq!(
+            diamond.tile_index, 8,
+            "ASM HUD table unk_1427C uses VRAM tile $86F2 for the diamond symbol at $1A0,$A2"
+        );
+        assert!(diamond.priority);
     }
 
     #[test]
