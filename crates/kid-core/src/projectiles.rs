@@ -8,10 +8,11 @@ use crate::enemies::{
     archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
     drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
     drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339dc,
-    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33982,
-    drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
-    tank_bullet_loop_route_loc_3b7ba,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339fa,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33964,
+    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -82,6 +83,7 @@ enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DripsSurfaceCrawlerVerticalStepLoc33730 {
     Loop,
+    Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
     Exit,
 }
 
@@ -198,10 +200,20 @@ fn drips_surface_crawler_vertical_step_loc_33730(
     );
 
     if projectile.y_velocity < 0 {
-        if row.left == 0x6000 {
+        if row.centre == 0x6000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_33964(),
+            )
+        } else if row.left == 0x6000 {
             DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+        } else if row.left == 0x5000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_339fa(),
+            )
         } else {
-            DripsSurfaceCrawlerVerticalStepLoc33730::Exit
+            DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                drips_surface_crawler_turn_script_loc_339d2(),
+            )
         }
     } else if row.left == 0x6000 {
         DripsSurfaceCrawlerVerticalStepLoc33730::Loop
@@ -318,9 +330,20 @@ fn drips_surface_crawler_apply_turn_script_loc_33af6(
         drips_surface_crawler_add_word_delta_loc_33af6(projectile.y_pos, script.second_y_delta);
     projectile.x_velocity = projectile.x_velocity.wrapping_add(script.x_velocity_delta);
     projectile.y_velocity = projectile.y_velocity.wrapping_add(script.y_velocity_delta);
-    if script.next == DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33730 {
-        projectile.drips_surface_crawler_state = DripsSurfaceCrawlerState::VerticalLoc33730;
-    }
+    projectile.drips_surface_crawler_state = match script.next {
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33730 => DripsSurfaceCrawlerState::VerticalLoc33730,
+        DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc336D0
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33A7C
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33810
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33892
+        | DripsSurfaceCrawlerTurnNextLoc33AF6::Unknown(_) => {
+            // TODO(fidelity): persist and execute the rest of `off_33ADA`; until
+            // those labels are live, return to the simplified horizontal carrier.
+            DripsSurfaceCrawlerState::HorizontalLoc33650
+        }
+    };
 }
 
 #[cfg(test)]
@@ -986,6 +1009,12 @@ impl NativeRuntime {
             {
                 match drips_surface_crawler_vertical_step_loc_33730(g, p, level_bounds) {
                     DripsSurfaceCrawlerVerticalStepLoc33730::Loop => true,
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Turn(script) => {
+                        // ASM Drips.asm loc_33730 dispatches row-probe outcomes
+                        // through loc_33964/loc_339FA/loc_339D2 into loc_33AF6.
+                        drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
+                        return true;
+                    }
                     DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
                 }
             } else {
