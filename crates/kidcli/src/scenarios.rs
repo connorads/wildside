@@ -286,6 +286,43 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
     }
 }
 
+/// Idle on a level with visual key-frame checkpoints for full-frame sweeps.
+///
+/// The state tier keeps the compact settle/tail checkpoints. Full-frame visual
+/// diagnosis needs early and mid-window probes so renderer drift is visible
+/// before it accumulates into the final idle frame.
+pub fn idle_level_full_frame_scenario(level_id: u8) -> DynamicScenario {
+    let mut scenario = idle_level_scenario(level_id, None);
+    scenario.slug = format!("idle_level_full_frames_{level_id:02x}");
+    scenario.checkpoints = vec![
+        DynamicCheckpoint {
+            label: "frame_000".into(),
+            frame_index: 0,
+        },
+        DynamicCheckpoint {
+            label: "frame_030".into(),
+            frame_index: 30,
+        },
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: 60,
+        },
+        DynamicCheckpoint {
+            label: "frame_120".into(),
+            frame_index: 120,
+        },
+        DynamicCheckpoint {
+            label: "frame_300".into(),
+            frame_index: 300,
+        },
+        DynamicCheckpoint {
+            label: "idle_tail".into(),
+            frame_index: 359,
+        },
+    ];
+    scenario
+}
+
 /// Walk right for `walk_frames` with periodic jumps. Useful for verifying
 /// movement, enemy encounters, and basic traversal on any level.
 pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -785,7 +822,8 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario,
-        idle_level_scenario, prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario, prize_block_scenario,
+        stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -1047,6 +1085,33 @@ mod tests {
     fn idle_level_scenario_script_length_matches_frame_count() {
         let scenario = idle_level_scenario(0x03, Some(200));
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn idle_level_full_frame_scenario_adds_visual_keyframes() {
+        let scenario = idle_level_full_frame_scenario(0x02);
+        assert_eq!(scenario.slug, "idle_level_full_frames_02");
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+        assert_eq!(scenario.frame_count, 360);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert!(scenario.script.iter().all(|&b| b == 0));
+
+        let checkpoints: Vec<(&str, usize)> = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| (cp.label.as_str(), cp.frame_index))
+            .collect();
+        assert_eq!(
+            checkpoints,
+            vec![
+                ("frame_000", 0),
+                ("frame_030", 30),
+                ("level_settle", 60),
+                ("frame_120", 120),
+                ("frame_300", 300),
+                ("idle_tail", 359),
+            ]
+        );
     }
 
     #[test]

@@ -29,7 +29,9 @@ use oracle::{
 };
 use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
-use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
+use scenarios::{
+    DynamicCheckpoint, DynamicScenario, idle_level_full_frame_scenario, idle_level_scenario,
+};
 #[cfg(test)]
 use scenarios::{prize_block_scenario, walk_right_scenario};
 use sha1::{Digest, Sha1};
@@ -742,7 +744,7 @@ fn sweep_single_level(
     level_id: u8,
     requested_tier: SweepTier,
 ) -> Result<LevelSweepResult> {
-    let scenario = idle_level_scenario(level_id, None);
+    let scenario = idle_sweep_scenario_for_tier(level_id, requested_tier);
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
     fs::create_dir_all(&level_dir)
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
@@ -889,6 +891,14 @@ fn sweep_single_level(
         error: None,
         divergence_summary,
     })
+}
+
+fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> DynamicScenario {
+    if requested_tier == SweepTier::Full {
+        idle_level_full_frame_scenario(level_id)
+    } else {
+        idle_level_scenario(level_id, None)
+    }
 }
 
 fn reclassify_state_diffs(
@@ -2870,6 +2880,23 @@ mod tests {
         };
 
         assert!(is_oracle_limitation_only(&result));
+    }
+
+    #[test]
+    fn full_tier_uses_visual_keyframe_idle_scenario() {
+        let state = idle_sweep_scenario_for_tier(0x01, SweepTier::State);
+        let full = idle_sweep_scenario_for_tier(0x01, SweepTier::Full);
+
+        assert_eq!(state.slug, "idle_level_01");
+        assert_eq!(state.checkpoints.len(), 2);
+        assert_eq!(full.slug, "idle_level_full_frames_01");
+        assert_eq!(
+            full.checkpoints
+                .iter()
+                .map(|checkpoint| checkpoint.frame_index)
+                .collect::<Vec<_>>(),
+            vec![0, 30, 60, 120, 300, 359]
+        );
     }
 
     #[test]

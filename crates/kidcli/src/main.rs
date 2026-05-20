@@ -487,7 +487,7 @@ enum Commands {
         /// Level range: "0-104", "0,5,10", or "0-10"
         #[arg(long, default_value = "0-104")]
         levels: String,
-        /// Collection tier: state, frames, or full
+        /// Collection tier: state, frames, full, or gameplay
         #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
         tier: sweep::SweepTier,
         /// Only populate oracle cache — skip native runs and comparison.
