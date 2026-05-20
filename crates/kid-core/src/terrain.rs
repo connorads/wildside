@@ -223,6 +223,16 @@ pub struct HorizontalCollisionScan {
     pub lead_column_blocked: bool,
 }
 
+/// Result of the grounded shared-walker terrain scans (`sub_36972`/`sub_36A58`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GroundedWalkerTerrainScan {
+    /// The ROM's `d7` bitfield: bit 0 lead-column upper block, bit 1
+    /// following lead cell block, bit 2 hitbox/body block.
+    pub flags_d7: u8,
+    /// The ROM's `d6` following-row class: -1 clear, 0 blocked, 1 mixed.
+    pub floor_class_d6: i16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidBlockInteractionProbeSubBBE2 {
@@ -1943,6 +1953,147 @@ fn horizontal_collision_scan_left_hitbox_row_mask_loc_36C56(
         mask |= grid.cell_at(col as u16, row as u16).to_word();
     }
     mask
+}
+
+fn grounded_walker_scan_bounds(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> (i32, i32, i32, i32, i32) {
+    let top_row = pixel_to_cell(foot_y_px - height).max(0);
+    let following_row = pixel_to_cell(foot_y_px).max(0);
+    let body_bottom_row = following_row.saturating_sub(1);
+    let left_col = pixel_to_cell(center_x_px - half_width).max(0);
+    let right_col = pixel_to_cell(center_x_px + half_width - 1)
+        .max(0)
+        .min(i32::from(grid.width_cells).saturating_sub(1));
+    (top_row, body_bottom_row, following_row, left_col, right_col)
+}
+
+fn grounded_walker_following_row_words(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    row: i32,
+) -> Vec<u16> {
+    if row < 0 || row >= i32::from(grid.height_cells) || right_col < left_col {
+        return Vec::new();
+    }
+    (left_col..=right_col)
+        .map(|col| grid.cell_at(col as u16, row as u16).to_word())
+        .collect()
+}
+
+/// Mirror the rightward grounded shared-walker scan `sub_36972`.
+#[allow(non_snake_case)]
+pub fn grounded_walker_scan_right_sub_36972(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> GroundedWalkerTerrainScan {
+    let (top_row, body_bottom_row, following_row, left_col, right_col) =
+        grounded_walker_scan_bounds(grid, center_x_px, foot_y_px, half_width, height);
+
+    let mut flags_d7 = 0u8;
+    let lead_col = right_col + 1;
+    if lead_col >= i32::from(grid.width_cells) {
+        // ASM loc_369BC: out-of-bounds right lead column preloads bits 0 and 1.
+        flags_d7 = flags_d7.wrapping_add(3);
+    } else {
+        let lead_mask = horizontal_collision_scan_column_mask_loc_369CE(
+            grid,
+            lead_col,
+            top_row,
+            body_bottom_row,
+        );
+        if lead_mask & 0x4000 != 0 {
+            flags_d7 = flags_d7.wrapping_add(1);
+        }
+
+        let following_lead = grid
+            .cell_at(lead_col as u16, following_row as u16)
+            .to_word()
+            & 0x7000;
+        if following_lead == 0x5000 {
+            flags_d7 = flags_d7.wrapping_add(1);
+        } else if following_lead & 0x4000 != 0 {
+            flags_d7 = flags_d7.wrapping_add(2);
+        }
+    }
+
+    let hitbox_mask = horizontal_collision_scan_rect_mask_loc_369F8(
+        grid,
+        left_col,
+        right_col,
+        top_row,
+        body_bottom_row,
+    );
+    if hitbox_mask & 0x4000 != 0 {
+        flags_d7 = flags_d7.wrapping_add(4);
+    }
+
+    let floor_words = grounded_walker_following_row_words(grid, left_col, right_col, following_row);
+    GroundedWalkerTerrainScan {
+        flags_d7,
+        floor_class_d6: horizontal_collision_scan_following_row_class_loc_36A10(&floor_words),
+    }
+}
+
+/// Mirror the leftward grounded shared-walker scan `sub_36A58`.
+#[allow(non_snake_case)]
+pub fn grounded_walker_scan_left_sub_36A58(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> GroundedWalkerTerrainScan {
+    let (top_row, body_bottom_row, following_row, left_col, right_col) =
+        grounded_walker_scan_bounds(grid, center_x_px, foot_y_px, half_width, height);
+
+    let mut flags_d7 = 0u8;
+    if let Some(lead_col) = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col) {
+        let lead_mask = horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
+            grid,
+            lead_col,
+            top_row,
+            body_bottom_row,
+        );
+        if lead_mask & 0x4000 != 0 {
+            flags_d7 = flags_d7.wrapping_add(1);
+        }
+
+        let following_lead = grid
+            .cell_at(lead_col as u16, following_row as u16)
+            .to_word();
+        if horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(following_lead) {
+            flags_d7 = flags_d7.wrapping_add(1);
+        }
+    } else {
+        // ASM loc_36A9E: left boundary preloads bits 0 and 1.
+        flags_d7 = 3;
+    }
+
+    let hitbox_mask = horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
+        grid,
+        left_col,
+        right_col,
+        top_row,
+        body_bottom_row,
+    );
+    if hitbox_mask & 0x4000 != 0 {
+        flags_d7 = flags_d7.wrapping_add(4);
+    }
+
+    let floor_words = grounded_walker_following_row_words(grid, left_col, right_col, following_row);
+    GroundedWalkerTerrainScan {
+        flags_d7,
+        floor_class_d6: horizontal_collision_scan_left_following_row_class_loc_36AF0(&floor_words),
+    }
 }
 
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
@@ -5124,6 +5275,43 @@ mod tests {
                 lead_column_blocked: false,
             },
             "ASM sub_36BD6 should treat any bit-$4000 collision cell inside the body rectangle as a hit, including left-side slopes",
+        );
+    }
+
+    #[test]
+    fn grounded_walker_scan_right_sub_36972_combines_d7_and_d6_outputs() {
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(1 * 5 + 3) * 2] = 0x40; // right lead column, upper span: d7 bit 0
+        data[(1 * 5 + 2) * 2] = 0x40; // hitbox body span: d7 bit 2
+        data[(3 * 5 + 2) * 2] = 0x40; // following row: d6=0
+        data[(3 * 5 + 3) * 2] = 0x60; // following lead cell: d7 bit 1
+        let grid = BlockGrid::from_level_layout(&data, 5, 5);
+
+        let scan = grounded_walker_scan_right_sub_36972(&grid, 40, 48, 8, 32);
+
+        assert_eq!(
+            scan,
+            GroundedWalkerTerrainScan {
+                flags_d7: 0b111,
+                floor_class_d6: 0,
+            },
+            "ASM sub_36972 should preserve lead-column, following-lead, body-hit, and following-row classifications as separate d7/d6 outputs",
+        );
+    }
+
+    #[test]
+    fn grounded_walker_scan_left_sub_36a58_scans_following_row_from_right() {
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(3 * 5 + 1) * 2] = 0x40;
+        data[(3 * 5 + 2) * 2] = 0x00;
+        data[(3 * 5 + 3) * 2] = 0x00;
+        let grid = BlockGrid::from_level_layout(&data, 5, 5);
+
+        let scan = grounded_walker_scan_left_sub_36A58(&grid, 40, 48, 16, 32);
+
+        assert_eq!(
+            scan.floor_class_d6, 1,
+            "ASM sub_36A58 reaches loc_36AF0, so the following row is classified right-to-left and mixed floor support returns d6=1",
         );
     }
 
