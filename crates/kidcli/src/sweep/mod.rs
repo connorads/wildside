@@ -24,6 +24,8 @@ use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite, pixel_mismatch_count};
 use native_player::render_gameplay_frame_evidence_for_level;
+#[cfg(test)]
+use oracle::EnemyFacing;
 use oracle::{
     JgenesisBackend, OracleBackend, jgenesis_helper_cache_version, run_jgenesis_capture_dynamic,
 };
@@ -1390,7 +1392,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
             });
         }
         if matches!(frontier_kind, FrontierKind::Enemy)
-            && native.active_enemies != oracle.active_enemies
+            && !enemy_roster_frontier_matches(&native.active_enemies, &oracle.active_enemies)
         {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
@@ -1405,19 +1407,42 @@ pub(crate) fn compare_sweep_states_for_frontier(
     diffs
 }
 
+fn enemy_roster_frontier_matches(
+    native_enemies: &[OracleEnemyState],
+    oracle_enemies: &[OracleEnemyState],
+) -> bool {
+    const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
+
+    native_enemies.len() == oracle_enemies.len()
+        && native_enemies
+            .iter()
+            .zip(oracle_enemies)
+            .all(|(native, oracle)| {
+                native.object_type == oracle.object_type
+                    && native.x_pos == oracle.x_pos
+                    && native.y_pos == oracle.y_pos
+                    && (native.x_velocity - oracle.x_velocity).abs() <= ENEMY_VELOCITY_TOLERANCE
+                    && (native.y_velocity - oracle.y_velocity).abs() <= ENEMY_VELOCITY_TOLERANCE
+                    && native.facing == oracle.facing
+                    && native.layout_index == oracle.layout_index
+                    && native.current_hp.unwrap_or(0) == oracle.current_hp.unwrap_or(0)
+            })
+}
+
 fn summarise_enemy_states(enemies: &[OracleEnemyState]) -> String {
     enemies
         .iter()
         .map(|enemy| {
             format!(
-                "{:02X}:{:08X},{:08X}:{:?}:li={:?}:lp={:?}:g={:?}",
+                "{:02X}:{:08X},{:08X}:{:?}:li={:?}:lp={:?}:g={:?}:hp={:?}",
                 enemy.object_type,
                 enemy.x_pos,
                 enemy.y_pos,
                 enemy.facing,
                 enemy.layout_index,
                 enemy.layout_ptr,
-                enemy.on_ground
+                enemy.on_ground,
+                enemy.current_hp
             )
         })
         .collect::<Vec<_>>()
@@ -2210,6 +2235,88 @@ mod tests {
         let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
         assert_eq!(enemy_diffs.len(), 1);
         assert_eq!(enemy_diffs[0].field, "enemy_roster");
+    }
+
+    #[test]
+    fn enemy_frontier_ignores_oracle_only_roster_metadata() {
+        let native_enemy = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x00A4_0000,
+            y_pos: 0x00D8_0000,
+            x_velocity: 0x0000_8000,
+            y_velocity: 0,
+            facing: EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(1),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(1),
+            debug_fields: std::collections::BTreeMap::from([("segment_index".into(), "0".into())]),
+        };
+        let oracle_enemy = OracleEnemyState {
+            x_velocity: 0,
+            collision_type: Some(0),
+            collision_source: Some(0),
+            layout_ptr: Some(0x0007_9864),
+            parent_object_ptr: Some(0x00FF_91E0),
+            gfx_slot_index: Some(4),
+            on_ground: None,
+            debug_fields: std::collections::BTreeMap::new(),
+            ..native_enemy.clone()
+        };
+        let native = vec![OracleState {
+            label: "frame_000".into(),
+            frame_index: 0,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0,
+            camera_y_pos: 0x0014_0000,
+            kid_x_pos: 0x0020_0000,
+            kid_y_pos: 0x00A0_0000,
+            number_objects: 4,
+            number_gfx_objects: 4,
+            game_paused: false,
+            active_enemies: vec![native_enemy],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            active_enemies: vec![oracle_enemy],
+            ..native[0].clone()
+        }];
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert!(
+            enemy_diffs.is_empty(),
+            "ASM loc_3682C/loc_3691E frontier should ignore oracle-only layout pointers, slot pointers, and native debug hints once live enemy state agrees; got {enemy_diffs:?}"
+        );
     }
 
     /// Regression: when the only thing that diverges on an enemy is its
