@@ -6415,6 +6415,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) shared_walker_state: i16,
     /// Shared Dragon/Lion patrol cadence countdown ($54(a5)).
     pub(crate) shared_walker_patrol_timer: u16,
+    /// Shared walker stuck-turnaround byte `$5A(a5)`. `loc_3C026/loc_3C0D2`
+    /// add 4 on each forced turnaround and route to `loc_3C464` on overflow.
+    pub(crate) shared_walker_turnaround_counter: u8,
     /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
     pub(crate) shared_walker_patrol_short_next: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
@@ -8107,6 +8110,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         crab_berzerker_knockback: false,
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+        shared_walker_turnaround_counter: 0,
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,
@@ -8786,6 +8790,7 @@ pub(crate) fn activate_enemies_with_rng(
                 walk_speed_override: 0,
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+                shared_walker_turnaround_counter: 0,
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
@@ -14742,6 +14747,38 @@ pub(crate) fn hopper_should_reverse(
     !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SharedWalkerTurnaroundLoc3C026 {
+    pub(crate) next_counter: u8,
+    pub(crate) collision_type: Option<i16>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_walker_turnaround_loc_3c026(
+    turnaround_counter: u8,
+) -> SharedWalkerTurnaroundLoc3C026 {
+    // ASM loc_3C026/loc_3C0D2: `addq.b #4,$5A(a5); beq.w loc_3C464`.
+    // loc_3C464 writes `#$FFFF` to collision_type, which Driller.asm
+    // loc_3BF02 treats as the death-animation route.
+    let next_counter = turnaround_counter.wrapping_add(4);
+    SharedWalkerTurnaroundLoc3C026 {
+        next_counter,
+        collision_type: (next_counter == 0).then_some(-1),
+    }
+}
+
+fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
+    let result = shared_walker_turnaround_loc_3c026(enemy.shared_walker_turnaround_counter);
+    enemy.shared_walker_turnaround_counter = result.next_counter;
+    if result.collision_type.is_some() {
+        enemy.hit_points = 0;
+        true
+    } else {
+        false
+    }
+}
+
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
 /// floor edge. Matches the shared walker subroutines in the disassembly
 /// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
@@ -14799,6 +14836,7 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         }
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        register_shared_walker_turnaround(enemy);
         return;
     }
 
@@ -14894,9 +14932,15 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     } else {
         cx - probe_half_width
     };
-    if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+    if terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+        // ASM loc_3C0C6 clears `$5A(a5)` after a successful shared-walker
+        // horizontal advance. Native collapses the mirrored left/right loops,
+        // so any non-turning frame clears the stuck-turn counter.
+        enemy.shared_walker_turnaround_counter = 0;
+    } else {
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        register_shared_walker_turnaround(enemy);
     }
 }
 
@@ -24035,6 +24079,7 @@ mod tests {
             crab_berzerker_knockback: false,
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
             shared_walker_patrol_short_next: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
@@ -25114,6 +25159,45 @@ mod tests {
             enemies[0].y_velocity > 0,
             "ASM Crab.asm loc_3B218 seeds downward recovery velocity from zero y_vel"
         );
+    }
+
+    #[test]
+    fn shared_walker_turnaround_counter_matches_loc_3c026() {
+        assert_eq!(
+            shared_walker_turnaround_loc_3c026(0xF8),
+            SharedWalkerTurnaroundLoc3C026 {
+                next_counter: 0xFC,
+                collision_type: None,
+            },
+            "ASM loc_3C026 should add 4 to the shared walker stuck counter"
+        );
+        assert_eq!(
+            shared_walker_turnaround_loc_3c026(0xFC),
+            SharedWalkerTurnaroundLoc3C026 {
+                next_counter: 0,
+                collision_type: Some(-1),
+            },
+            "ASM loc_3C464 should write collision_type=$FFFF when $5A overflows"
+        );
+    }
+
+    #[test]
+    fn driller_turnaround_counter_overflow_marks_death_loc_3c464() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.facing = Direction::Right;
+        enemy.hit_points = 1;
+        enemy.shared_walker_turnaround_counter = 0xFC;
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0, 0));
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.hit_points, 0,
+            "ASM loc_3C464 -> Driller.asm loc_3BF02 routes $FFFF collision_type to the death path"
+        );
+        assert_eq!(enemy.shared_walker_turnaround_counter, 0);
     }
 
     #[test]
@@ -37478,6 +37562,15 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                 );
+                let dead_enemy_indices: Vec<usize> = self
+                    .active_enemies
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(idx, enemy)| (enemy.hit_points == 0).then_some(idx))
+                    .collect();
+                for idx in dead_enemy_indices.into_iter().rev() {
+                    self.remove_dead_enemy(idx);
+                }
                 // Apply drilled blocks to the block grid after enemy step.
                 // Driller.asm loc_3BE78 destroys Smash/Ice blocks during pacing.
                 if let Some(ref mut grid) = self.block_grid {

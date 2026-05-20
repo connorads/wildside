@@ -45,11 +45,11 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Tracking callback**: implemented (walk_speed_override + scorpion_tracking_lock)
 - Speed escalation: $38000 at HP≥5 within 170px — implemented
 
-### Driller — Drilling verified, stuck-death gap remains
+### Driller — Drilling and stuck-death fixed
 - HP: `enemy_level + 2` — correct
 - Speed: base $8000, step $8000, capped at $18000 for HP≥4 — correct
 - **Fixed: Block drilling**: ASM `loc_3BE78 -> loc_3BEDE/loc_3BEF2` drills Smash/Prize/Ice blocks from the front child probe before resuming the shared walker loop. Native emits drilled cells and clears them from the block grid; `loc_3be78_driller_drills_front_smash_block_before_pacer_turnaround` covers the front-block path.
-- **Missing: Stuck-enemy death**: ASM kills enemy after ~64 direction reversals via $5A overflow counter.
+- **Fixed: Stuck-enemy death**: ASM `loc_3C026/loc_3C0D2` add 4 to `$5A(a5)` on forced turnarounds and route overflow through `loc_3C464`; native now mirrors the shared counter and removes Driller when it reaches the Driller death route.
 - Timers: $48=12, $4A=16 (sub-pixel alignment thresholds, not timers)
 
 ---
