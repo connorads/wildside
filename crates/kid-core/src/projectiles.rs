@@ -2,8 +2,10 @@ use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
-    TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
-    drips_surface_crawler_init_loc_335d8, tank_bullet_loop_route_loc_3b7ba,
+    DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588, TankBulletLoopRouteLoc3B7BA,
+    archer_angle_to_player, archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa,
+    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
+    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -90,6 +92,44 @@ fn drips_surface_crawler_from_drop_loc_335d8(
         terrain_kill: false,
         ..Default::default()
     }
+}
+
+fn drips_surface_crawler_out_of_level_bounds_loc_33588(
+    projectile: &EnemyProjectile,
+    level_width_pixels: u16,
+    level_height_pixels: u16,
+) -> bool {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    let x_gate = drips_right_bounds_gate_loc_33588(
+        false,
+        x_pos_word,
+        projectile.x_velocity,
+        level_width_pixels as i16,
+    );
+    let vertical_contact = match x_gate {
+        DripsRightBoundsNextLoc33588::ContactLoc335D4 => return true,
+        DripsRightBoundsNextLoc33588::CheckLeftLoc335AA => {
+            match drips_left_bounds_gate_loc_335aa(x_pos_word) {
+                DripsLeftBoundsNextLoc335AA::ContactLoc335D4 => return true,
+                DripsLeftBoundsNextLoc335AA::CheckVerticalLoc335B0 => {
+                    drips_vertical_bounds_contact_flag_loc_335b0(
+                        y_pos_word,
+                        projectile.y_velocity,
+                        level_height_pixels as i16,
+                    )
+                }
+            }
+        }
+        DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0 => {
+            drips_vertical_bounds_contact_flag_loc_335b0(
+                y_pos_word,
+                projectile.y_velocity,
+                level_height_pixels as i16,
+            )
+        }
+    };
+    vertical_contact != 0
 }
 
 #[cfg(test)]
@@ -659,6 +699,7 @@ impl NativeRuntime {
             .map_or(0, |s| s.player.x_velocity);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let grid = self.block_grid.as_ref();
+        let level_bounds = self.level_bounds(self.current_level);
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
             == crate::helmets::DiamondPowerType::TrackingRain
             && (self.frame_index & 7) == 1;
@@ -746,6 +787,19 @@ impl NativeRuntime {
             }
             if Self::is_juggernaut_skull_projectile(p) {
                 return Self::step_juggernaut_skull_sub_87B0(p, grid);
+            }
+
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && drips_surface_crawler_out_of_level_bounds_loc_33588(
+                    p,
+                    level_bounds.width_pixels,
+                    level_bounds.height_pixels,
+                )
+            {
+                // ASM Drips.asm loc_33588/loc_335B0 route out-of-level edge
+                // probes through loc_338EA/loc_338F8, then loc_3392C deletes
+                // the crawler after its finish animation.
+                return false;
             }
 
             if is_diamond_power_rain

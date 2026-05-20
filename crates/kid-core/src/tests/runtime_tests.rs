@@ -9060,6 +9060,28 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_deletes_when_right_probe_reaches_level_width_loc_33588() {
+        let mut rt = NativeRuntime::new(manifest());
+        let level_width = rt.level_bounds(rt.current_level).width_pixels;
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: u32::from(level_width.saturating_sub(8)) << 16,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Drips.asm loc_33588 treats `x_pos(a3)+8 >= Level_width_pixels` as contact and routes the crawler to its delete animation"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.
