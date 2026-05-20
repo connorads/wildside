@@ -1860,7 +1860,7 @@ fn build_game_scene_filtered(
                         push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
                     }
                 }
-                ActiveProjectileKind::DripsDrop => {
+                ActiveProjectileKind::DripsDrop | ActiveProjectileKind::DripsSurfaceCrawler => {
                     let pushed_sprite = level_visuals
                         .enemies
                         .families

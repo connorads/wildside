@@ -75,11 +75,11 @@ pub enum ActiveProjectileKind {
     Generic,
     FireDemonDeathTrail,
     /// Drips slime drop: ASM `Drips.asm loc_33424`/`loc_3345C` spawn a falling
-    /// child object that accelerates under `$2000` gravity. The ROM draws it
-    /// as an animated slime-blob sprite; native currently renders a
-    /// placeholder rect tagged with this kind so the colour is closer to
-    /// slime green than the generic red enemy-projectile fallback.
+    /// child object that accelerates under `$2000` gravity.
     DripsDrop,
+    /// Drips surface crawler: ASM `Drips.asm loc_335D8` allocates a hostile
+    /// child after selected splash cycles.
+    DripsSurfaceCrawler,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -2069,6 +2069,8 @@ pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
     DripsDrop,
+    /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
+    DripsSurfaceCrawler,
     Hail,
     TankBullet,
     ManiaxeAxe,

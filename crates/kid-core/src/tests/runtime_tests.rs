@@ -8973,6 +8973,93 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_drop_terrain_hit_spawns_surface_crawler_loc_335d8() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0xE0;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            gravity: 0,
+            terrain_kill: true,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_3345C ends the falling child once terrain collision reaches the splash/reset path",
+        );
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_335D8 should allocate a hostile surface crawler after the drop splash");
+        assert_eq!(
+            crawler.x_pos, 0x0021_0000,
+            "ASM loc_335D8 queues `$44(a0)=drop_x+1` for the surface crawler"
+        );
+        assert_eq!(
+            crawler.y_pos, 0x0020_0000,
+            "ASM loc_335D8 queues `$46(a0)=(drop_y+$A)&$FFF0` for the surface crawler"
+        );
+        assert_eq!(
+            crawler.x_velocity.abs(),
+            0x0000_3000,
+            "ASM loc_335D8 seeds surface crawler x_vel to +/-$3000"
+        );
+        assert!(
+            !crawler.friendly,
+            "ASM loc_335D8 creates a hostile child object, not a friendly projectile"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_spawn_honours_five_child_cap_loc_33488() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0xE0;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        for index in 0..5u32 {
+            rt.projectiles.push(EnemyProjectile {
+                kind: EnemyProjectileKind::DripsSurfaceCrawler,
+                x_pos: (0x0010 + index) << 16,
+                y_pos: 0x0020_0000,
+                x_velocity: 0x3000,
+                lifetime: DRIPS_DROP_LIFETIME,
+                ..Default::default()
+            });
+        }
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            terrain_kill: true,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+                .count(),
+            5,
+            "ASM Drips.asm loc_33488 only allocates loc_335D8 crawlers while `$FFFFFB42 < 5`"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.

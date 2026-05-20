@@ -20426,14 +20426,17 @@ pub(crate) fn step_dragon_walking(
 // --- Drips constants (Drips.asm) ---
 // ASM Drips is a multi-object enemy: ceiling attachment, forming animation,
 // animation-driven drop, splash, and surface-crawl spawning.
-// Native approximation: periodic projectile drop with ASM-matched timing.
+// Native approximation: periodic projectile drop with ASM-matched timing; when
+// the falling child splashes on terrain, it can allocate a hostile
+// DripsSurfaceCrawler projectile through the ASM loc_335D8 spawn path.
 // Random dormant delay: Drips.asm loc_3340E uses `(RNG >> 2)`,
 // then XORs the low byte with Kid's integer X low byte.
 // Drop child starts with zero vertical speed, then gains $2000/frame gravity
 // until it hits the floor. ASM loc_33424 clears `$2A(a1)` before the fall and
 // loc_3345C adds `#$2000` every frame.
-// Surface-crawl spawning (max 5 crawlers, x_vel=$3000) not implemented —
-// would require multi-object child spawning system.
+// Full surface-crawler wall-following turn scripts remain modelled as pure
+// helpers below; the live projectile carrier currently implements the spawn,
+// hostile collision, cap, and initial horizontal crawl.
 /// ASM loc_33424 clears the drop child's y-velocity before the fall begins.
 pub(crate) const DRIPS_DROP_INITIAL_Y_SPEED: i32 = 0;
 /// Gravity accumulation: ASM loc_3345C `addi.l #$2000,$2A(a1)`.
@@ -21608,7 +21611,8 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawl
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
-/// Native approximation uses a dedicated physics projectile for the preallocated falling child.
+/// Native approximation uses a dedicated physics projectile for the preallocated falling child;
+/// terrain splash can then spawn a hostile surface crawler through loc_335D8.
 /// Initial rising velocity for the Drips ceiling-attach phase.
 /// ASM Enemy16_Drip_Init (Drips.asm:35): `move.l #-$10000,y_vel(a3)` seeds
 /// the slime with -1.0 fp/frame upward velocity before the loc_333F6 loop.

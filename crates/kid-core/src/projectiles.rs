@@ -3,7 +3,7 @@ use super::*;
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
     TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
-    tank_bullet_loop_route_loc_3b7ba,
+    drips_surface_crawler_init_loc_335d8, tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -58,6 +58,38 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
         && left.collision == terrain::CollisionKind::Solid
         && centre.collision == terrain::CollisionKind::Solid
         && right.collision == terrain::CollisionKind::Solid
+}
+
+const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
+const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
+
+fn drips_surface_crawler_from_drop_loc_335d8(
+    drop: &EnemyProjectile,
+    random_byte: u8,
+) -> EnemyProjectile {
+    let drop_x_word = (drop.x_pos >> 16) as u16;
+    let drop_y_word = (drop.y_pos >> 16) as u16;
+    let queued_x_word = drop_x_word.wrapping_add(1);
+    let queued_y_word = drop_y_word.wrapping_add(0x000A) & 0xFFF0;
+    // ASM loc_335D8 copies `$44/$45` from the parent Drips state into the
+    // crawler. Native does not yet persist those parent bytes on the simplified
+    // projectile carrier, so the initial loc_33526 velocity-doubling gate is
+    // neutral until the full crawler turn-script state is integrated.
+    let init =
+        drips_surface_crawler_init_loc_335d8(queued_x_word, queued_y_word, 0, 0, random_byte);
+
+    EnemyProjectile {
+        kind: EnemyProjectileKind::DripsSurfaceCrawler,
+        x_pos: u32::from(init.x_pos_word) << 16,
+        y_pos: u32::from(init.y_pos_word) << 16,
+        x_velocity: init.x_velocity,
+        y_velocity: 0,
+        lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
+        friendly: false,
+        gravity: 0,
+        terrain_kill: false,
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]
@@ -639,6 +671,13 @@ impl NativeRuntime {
             })
             .collect();
         let mut released_owners = Vec::new();
+        let mut drips_surface_crawler_count = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .count();
+        let mut spawned_projectiles = Vec::new();
+        let rom_random = &mut self.rom_random;
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
@@ -858,6 +897,21 @@ impl NativeRuntime {
                 let row = terrain::pixel_to_cell(py_i).max(0) as u16;
                 let cell = g.cell_at(col, row);
                 if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
+                    if p.kind == EnemyProjectileKind::DripsDrop {
+                        // ASM Drips.asm loc_33488 -> loc_335D8: after the
+                        // falling child splashes, the table sentinel path can
+                        // allocate a hostile surface crawler while
+                        // `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to +/-$3000
+                        // from `Get_RandomNumber_byte` bit 2.
+                        if drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488 {
+                            spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(
+                                p,
+                                rom_random.next_byte(),
+                            ));
+                            drips_surface_crawler_count += 1;
+                        }
+                        return false;
+                    }
                     if let Some(owner) = p.owner {
                         released_owners.push(owner);
                     }
@@ -957,6 +1011,7 @@ impl NativeRuntime {
             }
             true
         });
+        self.projectiles.extend(spawned_projectiles);
         self.release_lion_projectile_owners(released_owners);
     }
 
