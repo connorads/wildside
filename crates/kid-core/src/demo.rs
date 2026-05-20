@@ -190,3 +190,84 @@ pub(crate) fn demo_byte(use_demo_2: bool, data_index: usize) -> u8 {
             .unwrap_or(0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FrameInput;
+
+    #[test]
+    fn loc_c22_playback_bootstrap_frame_boundaries_are_oracle_backed() {
+        assert_eq!(DEMO_BOOTSTRAP_INIT_FRAME, DEMO_GAMEPLAY_START_FRAME + 1);
+        assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, DEMO_BOOTSTRAP_INIT_FRAME + 4);
+        assert_eq!(
+            DEMO_OBJECT_BOOTSTRAP_END_FRAME,
+            DEMO_GAMEPLAY_START_FRAME + 16
+        );
+        assert_eq!(DEMO_BOOTSTRAP_INIT_FRAME, 66);
+        assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
+        assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
+    }
+
+    #[test]
+    fn loc_c22_playback_start_and_enemy_warmup_frames_split_by_recording() {
+        assert_eq!(gameplay_start_frame(true), DEMO_GAMEPLAY_START_FRAME);
+        assert_eq!(gameplay_start_frame(false), DEMO_1_GAMEPLAY_START_FRAME);
+        assert_eq!(enemy_warmup_frame(true), DEMO_GAMEPLAY_START_FRAME);
+        assert_eq!(enemy_warmup_frame(false), DEMO_1_GAMEPLAY_START_FRAME + 1);
+        assert_eq!(gameplay_start_frame(true), 65);
+        assert_eq!(gameplay_start_frame(false), 72);
+        assert_eq!(enemy_warmup_frame(false), 73);
+    }
+
+    #[test]
+    fn loc_c22_knights_isle_hidden_camera_rows_keep_the_wrap_quirk() {
+        assert_eq!(demo_1_hidden_camera_y(56), None);
+        assert_eq!(demo_1_hidden_camera_y(57), Some(0));
+        assert_eq!(demo_1_hidden_camera_y(58), Some(0));
+        assert_eq!(demo_1_hidden_camera_y(59), Some(0x00E0_0000));
+        assert_eq!(demo_1_hidden_camera_y(60), Some(0xFF00_0000));
+        assert_eq!(demo_1_hidden_camera_y(61), Some(0x00E0_0000));
+        assert_eq!(demo_1_hidden_camera_y(71), Some(0x00E0_0000));
+        assert_eq!(demo_1_hidden_camera_y(72), None);
+    }
+
+    #[test]
+    fn loc_c22_input_bytes_strip_start_before_frame_input_decode() {
+        assert_eq!(
+            decode_demo_byte(0xFF),
+            FrameInput {
+                up: true,
+                down: true,
+                left: true,
+                right: true,
+                a: true,
+                b: true,
+                c: true,
+                start: false,
+            }
+        );
+        assert_eq!(
+            decode_demo_byte(0x80),
+            FrameInput::default(),
+            "ASM loc_C22 clears the recorded Start bit before normal button decode"
+        );
+    }
+
+    #[test]
+    fn loc_c22_reads_recorded_bytes_and_the_overflow_tail() {
+        assert_eq!(demo_byte(true, 7), 0x40);
+        assert_eq!(demo_byte(true, DEMO_INPUT_DATA_2.len()), 0);
+        assert_eq!(demo_byte(false, 0), 0x80);
+        assert_eq!(demo_byte(false, DEMO_INPUT_DATA_1.len()), 0x06);
+        assert_eq!(demo_byte(false, DEMO_INPUT_DATA_1.len() + 2), 0xC7);
+        assert_eq!(
+            demo_byte(
+                false,
+                DEMO_INPUT_DATA_1.len() + DEMO_INPUT_DATA_1_OVERFLOW.len()
+            ),
+            0,
+            "ORIGINAL_QUIRK loc_C22 only has the adjacent six ROM bytes before native clamps to zero"
+        );
+    }
+}
