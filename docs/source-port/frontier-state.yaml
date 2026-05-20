@@ -3,14 +3,14 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-prize-block-scan-timing-at-frame-1366",
+    "slug": "any-percent-published-prize-object-spawn-timing-at-frame-1399",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 1366,
-    "authoritative_clean_through": 1365,
+    "frontier_frame": 1399,
+    "authoritative_clean_through": 1398,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
@@ -18,7 +18,7 @@
         "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is CRC-clean and authoritative-clean across frames 0..1346 with per-frame checkpoints. The former frame-1146 post-transform drift is cleared by matching ASM `loc_8E16` / `sub_8600` walking floor-check order and suppressing only the premature post-horizontal support release during the demo post-transform hand-off. The remaining top-level `kid_x_vel` / `kid_y_vel` mismatches from frame 1148 onward are classified as oracle limitations when the oracle's live `0x30(kid_gfx)` object at the player position carries the same velocity as native; this reflects the ROM `Load_DemoPlay loc_119D8` controller/object split, not a gameplay state miss."
       }
     ],
-    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 1365 with per-frame checkpoints. `verify-tas --frame-start 0 --frame-end 1397 --checkpoint-interval 1` keeps CRC matched through 1397 but reports the first blocking state miss at frame 1366: native `number_objects=5`, oracle `number_objects=6`. The frame-1347 object-count blocker was only native trace accounting: ASM `sub_10EDA` allocates a two-frame block-smash effect worker before `sub_292E` debris dispatch, and native now counts `block_destroy_effects` alongside prize-block bounces, spawn flashes, worker tails, and live floating prizes during demo playback. The next miss is separate: `tas-diff --frame-start 1365 --frame-end 1367 --include-advisory --show-object-roster-on-match` shows native carrying `block_bounce@16,0E`, while oracle has the adjacent `0x17000e` worker first and then both `0x16000e` and `0x17000e`. Next investigation should inspect ASM `sub_914A` scan geometry/timing around Cyclone ceiling prize hits rather than adding another object-count exception. The old 35140..37759 tail window still fails with blocking state diffs plus CRC divergence at frame 35210.",
+    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 1398 with per-frame checkpoints. `verify-tas --frame-start 0 --frame-end 1397 --checkpoint-interval 1` is now clean of authoritative diffs, and `verify-tas --frame-start 0 --frame-end 1401 --checkpoint-interval 1` reports the first blocking state miss at frame 1399: native `number_objects=6`, oracle `number_objects=7`, with the first CRC divergence at frame 1400. The frame-1366 object-count blocker was fixed by mirroring ASM `sub_BB54/sub_BBE2`: after `sub_914A` caches the first ceiling tile in `$FFFFFB6C`, block dispatch may select the solid right-hand tile when Kid's centre column is past the cached cell, so native now dispatches the adjacent `$17` Prize block before `$16`. The next miss is prize-object spawn timing: `tas-diff --frame-start 1396 --frame-end 1401 --include-advisory --show-object-roster-on-match` shows frames 1396..1398 matching, then oracle has two block/prize workers plus a live prizediamond object at frame 1399 while native does not expose the floating item until frame 1400. Next investigation should read ASM `sub_1007A` / `Prize_Init` wake order and native `finish_deferred_ceiling_clears` spawn timing. The old 35140..37759 tail window still fails with blocking state diffs plus CRC divergence at frame 35210.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -47,8 +47,8 @@
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "Frame 1366 is the next prize-block scan timing mismatch",
-      "reason": "`verify-tas --frame-start 0 --frame-end 1397 --checkpoint-interval 1` is CRC-clean through 1397 and authoritative-clean through 1365, then reports frame 1366 on `number_objects` (`native=5`, `oracle=6`). The frame-1347 `block_fx@352,244` miss is cleared by counting ASM `sub_10EDA`/`sub_292E` block debris workers. `tas-diff --frame-start 1365 --frame-end 1367 --include-advisory --show-object-roster-on-match` shows the remaining miss is not a count baseline problem: native hits column `$16` first, while oracle has the adjacent `$17` prize-block worker first and then both `$16`/`$17`. Next step: read ASM `sub_914A` and the nearby opening/smash scan code for ceiling-hit column order and timing during Cyclone motion."
+      "name": "Frame 1399 is the next prize-object spawn timing mismatch",
+      "reason": "`verify-tas --frame-start 0 --frame-end 1397 --checkpoint-interval 1` is clean of authoritative diffs after mirroring ASM `sub_BB54/sub_BBE2` right-hand block dispatch, and `verify-tas --frame-start 0 --frame-end 1401 --checkpoint-interval 1` reports the next authoritative miss at frame 1399 (`number_objects`: native 6, oracle 7). `tas-diff --frame-start 1396 --frame-end 1401 --include-advisory --show-object-roster-on-match` shows frames 1396..1398 match, then oracle has a live prizediamond worker at frame 1399 while native's `floating_item#00@360,224` first appears at frame 1400. Next step: read ASM `sub_1007A` / `Prize_Init` hand-off ordering and compare it with native `step_deferred_ceiling_clears` / `finish_deferred_ceiling_clears`."
     },
     "rejected_hypotheses": [
       {

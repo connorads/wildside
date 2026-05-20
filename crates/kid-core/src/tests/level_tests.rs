@@ -16247,7 +16247,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn visible_prize_ceiling_clears_adjacent_smash_on_same_scan_row() {
+    fn visible_prize_ceiling_dispatches_right_adjacent_smash_after_sub_bbe2_selection() {
         let w = 6u16;
         let h = 5u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -16276,15 +16276,92 @@ mod chunk_02 {
         );
 
         assert_eq!(
-            slice.prize_block_hit,
-            Some((terrain::PrizeContent::Diamond, 32, 32)),
-            "ASM loc_9188/loc_91AC: left-edge Prize hit should still dispatch from the first ceiling scan cell",
+            slice.smash_block_hit,
+            Some((48, 32)),
+            "ASM sub_914A caches the left-edge Prize cell, then sub_BB54/sub_BBE2 selects the solid right-hand Smash block when Kid's centre tile is past the cached column",
         );
+        assert!(slice.prize_block_hit.is_none());
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
         assert_eq!(
             grid.cell_at(3, 2),
             terrain::Cell::from_be_bytes(0, 0),
-            "ASM sub_914A scans all tiles across Kid's width, so adjacent Smash on the same ceiling row must clear on the same frame",
+            "ASM off_BB80 index 0 dispatches the right-hand Smash block through j_Block_LoadSmashBits",
         );
+    }
+
+    #[test]
+    fn visible_prize_ceiling_dispatches_right_adjacent_prize_after_sub_bbe2_selection() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE1, 0x01);
+        set_cell(&mut data, 3, 2, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Diamond, 48, 32)),
+            "ASM sub_BB54/sub_BBE2 should dispatch the right-hand Prize block, matching the published TAS frame-1365 0x17000e worker before 0x16000e",
+        );
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
+        assert_eq!(grid.cell_at(3, 2), terrain::Cell::from_be_bytes(0x6F, 0x01));
+    }
+
+    #[test]
+    fn visible_prize_ceiling_suppresses_base_dispatch_when_sub_bbe2_selects_non_block() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE1, 0x01);
+        set_cell(&mut data, 3, 2, 0x60, 0x00);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert!(
+            slice.prize_block_hit.is_none(),
+            "ASM sub_BBE2/loc_BC1C clears the dispatch result when the selected right-hand Solid tile lacks bit 15, rather than falling back to the base Prize block",
+        );
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
+        assert_eq!(grid.cell_at(3, 2), terrain::Cell::from_be_bytes(0x60, 0x00));
     }
 
     #[test]

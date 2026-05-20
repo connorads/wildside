@@ -5345,24 +5345,59 @@ impl OpeningSliceState {
                 }
             }
 
+            let block_dispatch_probe =
+                if matches!(probe.cell.collision, terrain::CollisionKind::Solid) {
+                    let layout_addr = ((u32::from(probe.cell_y) * u32::from(grid.width_cells))
+                        + u32::from(probe.cell_x))
+                        * 2;
+                    terrain::kid_block_interaction_probe_sub_BBE2(
+                        grid,
+                        layout_addr as u16,
+                        x_px.max(0) as u16,
+                    )
+                    .map_or(
+                        terrain::TerrainProbe {
+                            cell: terrain::Cell::from_be_bytes(0, 0),
+                            cell_x: probe.cell_x,
+                            cell_y: probe.cell_y,
+                        },
+                        |selected| terrain::TerrainProbe {
+                            cell: grid.cell_at(selected.selected_col, selected.selected_row),
+                            cell_x: selected.selected_col,
+                            cell_y: selected.selected_row,
+                        },
+                    )
+                } else {
+                    terrain::TerrainProbe {
+                        cell: probe.cell,
+                        cell_x: probe.cell_x,
+                        cell_y: probe.cell_y,
+                    }
+                };
+
             // Prize/smash/lift block headbutt: hitting from below.
             // ASM loc_BB6E (kid.asm:15085): in sub_BB54 (floor-landing block
             // break), after sub_BBE2 probes for a block, `move.l
             // off_BB80(pc,d7.w),a4; jsr (a4)` dispatches to a per-block-type
-            // handler.  The ceiling path (sub_914A) uses its own dispatch, but
-            // both share the same block-type taxonomy.  The native match below
-            // covers both paths.
+            // handler. sub_914A caches the first ceiling tile in $FFFFFB6C;
+            // sub_BBE2 may then select the solid tile immediately to its right
+            // when Kid's centre column is already past the cached cell.
             if !deferred_prize_ceiling_cell
-                && probe.cell.collision == terrain::CollisionKind::Solid
-                && probe.cell.has_block
+                && block_dispatch_probe.cell.collision == terrain::CollisionKind::Solid
+                && block_dispatch_probe.cell.has_block
             {
-                match probe.cell.block_type {
+                match block_dispatch_probe.cell.block_type {
                     terrain::BlockType::Prize => {
                         let content = block_list
-                            .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
+                            .and_then(|bl| {
+                                bl.prize_content_at(
+                                    block_dispatch_probe.cell_x,
+                                    block_dispatch_probe.cell_y,
+                                )
+                            })
                             .unwrap_or(terrain::PrizeContent::Diamond);
-                        let block_x_px = probe.cell_x * 16;
-                        let block_y_px = probe.cell_y * 16;
+                        let block_x_px = block_dispatch_probe.cell_x * 16;
+                        let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
                         // ASM sub_1007A writes $6F to the cell: Solid collision,
                         // has_block=false, block_type=Deleted. The tile stays solid
@@ -5371,11 +5406,15 @@ impl OpeningSliceState {
                         // ceiling clears the tile to Empty immediately, letting
                         // the player fly through.
                         grid.set_cell_at(
-                            probe.cell_x,
-                            probe.cell_y,
-                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
+                            terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin),
                         );
-                        self.ceiling_prize_clear = Some((probe.cell_x, probe.cell_y, probe.cell));
+                        self.ceiling_prize_clear = Some((
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
+                            block_dispatch_probe.cell,
+                        ));
                         // ASM sub_914A scans ALL tiles across player width, so
                         // adjacent Smash blocks are cleared on the same frame.
                         // probe_ceiling returns on the first hit, missing the
@@ -5397,44 +5436,46 @@ impl OpeningSliceState {
                         }
                     }
                     terrain::BlockType::Smash => {
-                        let block_x_px = probe.cell_x * 16;
-                        let block_y_px = probe.cell_y * 16;
+                        let block_x_px = block_dispatch_probe.cell_x * 16;
+                        let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.smash_block_hit = Some((block_x_px, block_y_px));
                         // ASM j_Block_LoadSmashBits clears Smash blocks immediately
                         grid.set_cell_at(
-                            probe.cell_x,
-                            probe.cell_y,
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
                             terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Lift => {
-                        let block_x_px = probe.cell_x * 16;
-                        let block_y_px = probe.cell_y * 16;
+                        let block_x_px = block_dispatch_probe.cell_x * 16;
+                        let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.lift_block_hit = Some((block_x_px, block_y_px));
                         grid.set_cell_at(
-                            probe.cell_x,
-                            probe.cell_y,
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
                             terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Drill => {
-                        let drill_x_fp = (u32::from(probe.cell_x) * 16 + 8) << 16;
-                        let drill_y_fp = (u32::from(probe.cell_y) * 16 + 16) << 16;
+                        let drill_x_fp = (u32::from(block_dispatch_probe.cell_x) * 16 + 8) << 16;
+                        let drill_y_fp = (u32::from(block_dispatch_probe.cell_y) * 16 + 16) << 16;
                         self.drill_projectile_hit = Some((drill_x_fp, drill_y_fp));
                         grid.set_cell_at(
-                            probe.cell_x,
-                            probe.cell_y,
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
                             terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Metal => {
-                        self.metal_block_hit = Some((probe.cell_x, probe.cell_y));
+                        self.metal_block_hit =
+                            Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }
                     terrain::BlockType::Shooter => {
                         // ASM loc_BBC2 -> loc_11430 routes shooter ceiling
                         // hits into the deleted-tile worker coroutines instead
                         // of clearing the block immediately.
-                        self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
+                        self.shooter_block_hit =
+                            Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }
                     // ASM loc_BBD2 (kid.asm:15130): off_BB80 index 7 (Shifting).
                     // `tst.b ($FFFFFA6A); bne return_BBE0` — if $FA6A (on_board)
@@ -5451,7 +5492,8 @@ impl OpeningSliceState {
                         // flag `_st 0(sp)` and calls `j_loc_10DA4` to spawn
                         // the jiggle effect. sub_914A then returns d7=-1
                         // so sub_902A bounces via loc_9130.
-                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+                        self.rubber_block_hit =
+                            Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }
                     _ => {}
                 }
