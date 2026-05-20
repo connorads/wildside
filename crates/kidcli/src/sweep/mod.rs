@@ -67,10 +67,13 @@ use sha1::{Digest, Sha1};
 /// gameplay. The persistent sweep 1779256721 diffs were all on oracle-paused
 /// checkpoints where the oracle stayed on the title seed and reported
 /// `y_vel=0`, so they should reclassify as `OracleLimitation`. Future live
-/// gameplay Y-velocity mismatches should surface for triage).
-pub(crate) const ADVISORY_FIELDS: &[&str] = &[
-    "kid_x_vel", // capture-timing: native post-frame vs oracle VBlank
-];
+/// gameplay Y-velocity mismatches should surface for triage),
+/// kid_x_vel (ASM stores Kid's FP16.16 X velocity in object field `x_vel=$26`;
+/// `sub_B084` and the collision helpers update/clear it in live gameplay.
+/// Sweep 1779257233's remaining X-velocity diffs were all on oracle-paused
+/// `idle_tail` checkpoints, so they should also reclassify as
+/// `OracleLimitation` instead of staying field-level advisory).
+pub(crate) const ADVISORY_FIELDS: &[&str] = &[];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
@@ -3044,6 +3047,48 @@ mod tests {
             checkpoint: "level_settle".into(),
             field: "kid_y_vel".into(),
             native_value: "0x00010000".into(),
+            oracle_value: "0x00000000".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_paused_checkpoints = std::collections::HashSet::<&str>::new();
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
+    fn kid_x_vel_diff_against_paused_oracle_is_oracle_limitation() {
+        // ASM stores Kid's FP16.16 X velocity in GfxObject field `x_vel=$26`.
+        // Current persistent `kid_x_vel` sweep diffs sit on checkpoints where
+        // the oracle is already paused on title state, so the velocity value
+        // is not meaningful oracle gameplay evidence.
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "kid_x_vel".into(),
+            native_value: "0x00008000".into(),
+            oracle_value: "0x00000000".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn kid_x_vel_diff_with_live_oracle_is_authoritative() {
+        // Symmetric case: if both sides are in live gameplay, an x-velocity
+        // mismatch should now fail the sweep for movement triage.
+        let diff = StateDiff {
+            checkpoint: "level_settle".into(),
+            field: "kid_x_vel".into(),
+            native_value: "0x00008000".into(),
             oracle_value: "0x00000000".into(),
             category: DivergenceCategory::Authoritative,
         };
