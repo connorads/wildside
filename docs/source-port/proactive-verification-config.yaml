@@ -66,6 +66,7 @@ strategies:
       - projectiles.rs
       - weather.rs
       - vdp.rs
+      - gfx_animation.rs
       - bundle.rs
       - lib.rs
       - background.rs
@@ -87,6 +88,7 @@ strategies:
       - { module: projectiles.rs, package: kid-core, tier: 1 }
       - { module: weather.rs, package: kid-core, tier: 2 }
       - { module: vdp.rs, package: kid-core, tier: 3 }
+      - { module: gfx_animation.rs, package: kid-core, tier: 3 }
       - { module: bundle.rs, package: kid-render, tier: 1 }
       - { module: lib.rs, package: kid-render, tier: 1 }
       - { module: background.rs, package: kid-render, tier: 2 }
