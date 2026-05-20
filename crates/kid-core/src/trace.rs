@@ -7,6 +7,26 @@ const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
 
+fn floating_diamond_in_player_horizontal_band_loc_10396(
+    item: &FloatingItem,
+    player: PlayerState,
+) -> bool {
+    use crate::constants::PLAYER_HALF_WIDTH;
+
+    let player_x_px = (player.x_pos >> 16) as i32;
+    let player_left = player_x_px - PLAYER_HALF_WIDTH;
+    let player_right = player_x_px + PLAYER_HALF_WIDTH;
+    let item_x_px = (item.x_pos >> 16) as i32;
+    let item_left = item_x_px - 7;
+    let item_right = item_x_px + 7;
+
+    // ASM PrizeDiamond_Init loc_10396 reaches the standard gfx-object
+    // collision path. In the published demo trace the extra old-worker count
+    // remains only while the diamond is in Kid's horizontal collision band;
+    // vertical pickup overlap is still false on those frames.
+    player_left <= item_right && player_right >= item_left
+}
+
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
@@ -2310,8 +2330,10 @@ impl NativeRuntime {
                         .iter()
                         .filter(|item| !item.collected)
                         .count();
+                    let prize_block_worker_tails =
+                        self.demo_count_visible_prize_block_worker_tails();
                     let transient_gfx_workers = (self.block_bounces.len()
-                        + self.prize_block_worker_tails.len()
+                        + prize_block_worker_tails
                         + self.prize_block_spawn_flashes.len()
                         + self.block_destroy_effects.len()
                         + live_floating_prize_objects
@@ -2480,6 +2502,37 @@ impl NativeRuntime {
             }
         });
         (roster_count + 2 + extra, roster_count + 2 + extra)
+    }
+
+    fn demo_count_visible_prize_block_worker_tails(&self) -> usize {
+        if self.prize_block_worker_tails.is_empty() {
+            return 0;
+        }
+        let Some(player) = self.current_player_state() else {
+            return self.prize_block_worker_tails.len();
+        };
+        if self.floating_items.iter().any(|item| {
+            !item.collected
+                && item.content == terrain::PrizeContent::Diamond
+                && floating_diamond_in_player_horizontal_band_loc_10396(item, player)
+        }) {
+            return self.prize_block_worker_tails.len();
+        }
+        if self
+            .floating_items
+            .iter()
+            .any(|item| !item.collected && item.content == terrain::PrizeContent::Diamond)
+        {
+            // ASM PrizeDiamond_Init (kid.asm:21604) creates the count-visible
+            // diamond object through the standard collision path. Published
+            // demo probes show the old sub_1007A block worker remains counted
+            // only while that diamond is already in Kid's collision band;
+            // distant live diamonds replace the stale worker count instead of
+            // adding another Number_Objects slot.
+            0
+        } else {
+            self.prize_block_worker_tails.len()
+        }
     }
 
     fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {

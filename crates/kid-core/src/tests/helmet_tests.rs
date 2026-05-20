@@ -6885,7 +6885,12 @@ mod chunk_08 {
         let mut frame_1407 = None;
         let mut frame_1408 = None;
         let mut frame_1409 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_410) {
+        let mut frame_1490 = None;
+        let mut frame_1494 = None;
+        let mut frame_1495 = None;
+        let mut frame_1496 = None;
+        let mut frame_1497 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_498) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6911,8 +6916,13 @@ mod chunk_08 {
                 1_400 => frame_1400 = Some(trace),
                 1_407 => frame_1407 = Some(trace),
                 1_408 => frame_1408 = Some(trace),
-                1_409 => {
-                    frame_1409 = Some(trace);
+                1_409 => frame_1409 = Some(trace),
+                1_490 => frame_1490 = Some(trace),
+                1_494 => frame_1494 = Some(trace),
+                1_495 => frame_1495 = Some(trace),
+                1_496 => frame_1496 = Some(trace),
+                1_497 => {
+                    frame_1497 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -7042,6 +7052,26 @@ mod chunk_08 {
         assert_eq!(frame_1407.number_objects, 6);
         assert_eq!(frame_1408.number_objects, 7);
         assert_eq!(frame_1409.number_objects, 8);
+
+        let frame_1490 = frame_1490.expect("frame 1490 trace");
+        let frame_1494 = frame_1494.expect("frame 1494 trace");
+        let frame_1495 = frame_1495.expect("frame 1495 trace");
+        let frame_1496 = frame_1496.expect("frame 1496 trace");
+        let frame_1497 = frame_1497.expect("frame 1497 trace");
+        assert_eq!(frame_1490.block_bounces, vec![(25, 4, 3, -4)]);
+        assert_eq!(frame_1490.number_objects, 5);
+        assert!(frame_1494.floating_items.is_empty());
+        assert_eq!(frame_1494.number_objects, 6);
+        // ASM sub_1007A -> PrizeDiamond_Init (kid.asm:21604) has the old
+        // block worker count-visible before the diamond wakes. Once this
+        // distant diamond is live outside Kid's horizontal collision band, it
+        // replaces the stale worker count instead of adding another slot.
+        assert_eq!(frame_1495.floating_items, vec![(408, 64, 244, 0)]);
+        assert_eq!(frame_1495.number_objects, 6);
+        assert_eq!(frame_1496.floating_items, vec![(408, 64, 243, 0)]);
+        assert_eq!(frame_1496.number_objects, 6);
+        assert_eq!(frame_1497.floating_items, vec![(408, 64, 242, 0)]);
+        assert_eq!(frame_1497.number_objects, 6);
     }
 
     #[test]
