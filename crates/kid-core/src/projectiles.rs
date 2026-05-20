@@ -6,8 +6,10 @@ use crate::enemies::{
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
     TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
     drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_3393c, drips_vertical_bounds_contact_flag_loc_335b0,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a18,
+    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_339c8,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_3393c,
+    drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
     tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
@@ -164,9 +166,9 @@ fn drips_surface_crawler_side_column_step_loc_33650(
     let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
     let x_offset = if projectile.x_velocity < 0 { -6 } else { 6 };
     // ASM Drips.asm loc_33650/loc_336AA: after the support and bounds gates,
-    // `loc_331F6` samples the side column. Native now runs the first two
-    // leftward non-loop turn scripts; other turn targets still exit the
-    // simplified crawler until their state/animation loops are wired.
+    // `loc_331F6` samples the side column. Native runs the direct horizontal
+    // turn-script targets; later vertical/diagonal movement states still use
+    // the simplified carrier once the script jumps onward.
     let column = relative_collision_column_loc_331F6(
         grid,
         i32::from(x_pos_word),
@@ -186,10 +188,29 @@ fn drips_surface_crawler_side_column_step_loc_33650(
                 drips_surface_crawler_turn_script_loc_33a40(),
             );
         }
+    } else {
+        if column.one_row_up == 0x4000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_339dc(),
+            );
+        }
+        if column.one_row_up == 0x6000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33996(),
+            );
+        }
     }
 
     if column.current_row == 0x6000 {
         DripsSurfaceCrawlerSideColumnStepLoc33650::Loop
+    } else if projectile.x_velocity >= 0 && column.current_row == 0x5000 {
+        DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_33a18(),
+        )
+    } else if projectile.x_velocity >= 0 {
+        DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_339c8(),
+        )
     } else {
         DripsSurfaceCrawlerSideColumnStepLoc33650::Exit
     }

@@ -9240,31 +9240,6 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_surface_crawler_deletes_when_side_column_current_row_is_empty_loc_33650() {
-        let mut rt = NativeRuntime::new(manifest());
-        let mut data = vec![0u8; 5 * 5 * 2];
-        data[(2 * 5 + 2) * 2] = 0x60;
-        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
-        rt.projectiles.push(EnemyProjectile {
-            kind: EnemyProjectileKind::DripsSurfaceCrawler,
-            x_pos: 0x002A_0000,
-            y_pos: 0x0020_0000,
-            x_velocity: 0x3000,
-            y_velocity: 0,
-            lifetime: DRIPS_DROP_LIFETIME,
-            friendly: false,
-            ..Default::default()
-        });
-
-        rt.step_projectiles();
-
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_33650 only loops when loc_331F6 d5/current-row reports `$6000`"
-        );
-    }
-
-    #[test]
     fn drips_surface_crawler_leftward_side_column_uses_negative_probe_loc_33650() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
@@ -9373,6 +9348,129 @@ mod chunk_09 {
             crawler.y_velocity, -0x2000,
             "ASM loc_33A40/loc_33B5E seeds y_vel with -$2000"
         );
+    }
+
+    #[test]
+    fn drips_surface_crawler_rightward_upper_corner_runs_loc_339dc_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(5 + 2) * 2] = 0x40;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_336AA routes loc_331F6 d6 `$4000` through loc_339DC, not deletion");
+        assert_eq!(crawler.x_pos, 0x0024_0000);
+        assert_eq!(crawler.y_pos, 0x001D_0000);
+        assert_eq!(crawler.x_velocity, 0x2000);
+        assert_eq!(crawler.y_velocity, -0x2000);
+    }
+
+    #[test]
+    fn drips_surface_crawler_rightward_upper_solid_runs_loc_33996_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_336AA routes loc_331F6 d6 `$6000` through loc_33996, not deletion");
+        assert_eq!(crawler.x_pos, 0x0020_0000);
+        assert_eq!(crawler.y_pos, 0x001B_0000);
+        assert_eq!(crawler.x_velocity, 0);
+        assert_eq!(crawler.y_velocity, -0x3000);
+    }
+
+    #[test]
+    fn drips_surface_crawler_rightward_current_slope_runs_loc_33a18_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(2 * 5 + 3) * 2] = 0x50;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x002A_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_336AA routes loc_331F6 d5 `$5000` through loc_33A18, not deletion");
+        assert_eq!(crawler.x_pos, 0x0035_0000);
+        assert_eq!(crawler.y_pos, 0x0025_0000);
+        assert_eq!(crawler.x_velocity, 0x2000);
+        assert_eq!(crawler.y_velocity, 0x2000);
+    }
+
+    #[test]
+    fn drips_surface_crawler_rightward_empty_side_runs_loc_339c8_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x002A_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_336AA falls through to loc_339C8 when d6/d5 do not match the earlier turn cases");
+        assert_eq!(crawler.x_pos, 0x0031_0000);
+        assert_eq!(crawler.y_pos, 0x0025_0000);
+        assert_eq!(crawler.x_velocity, 0);
+        assert_eq!(crawler.y_velocity, 0x3000);
     }
 
     #[test]
