@@ -6890,7 +6890,11 @@ mod chunk_08 {
         let mut frame_1495 = None;
         let mut frame_1496 = None;
         let mut frame_1497 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_498) {
+        let mut frame_1678 = None;
+        let mut frame_1679 = None;
+        let mut frame_1703 = None;
+        let mut frame_1704 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_705) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6923,6 +6927,14 @@ mod chunk_08 {
                 1_496 => frame_1496 = Some(trace),
                 1_497 => {
                     frame_1497 = Some(trace);
+                }
+                1_678 => frame_1678 = Some(trace),
+                1_679 => {
+                    frame_1679 = Some(trace);
+                }
+                1_703 => frame_1703 = Some(trace),
+                1_704 => {
+                    frame_1704 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -7072,6 +7084,21 @@ mod chunk_08 {
         assert_eq!(frame_1496.number_objects, 6);
         assert_eq!(frame_1497.floating_items, vec![(408, 64, 242, 0)]);
         assert_eq!(frame_1497.number_objects, 6);
+
+        let frame_1678 = frame_1678.expect("frame 1678 trace");
+        let frame_1679 = frame_1679.expect("frame 1679 trace");
+        // ASM sub_1007A tails are per block object, not global. A distant
+        // live diamond suppresses only its own stale tail; later unrelated
+        // prize-block tails still count when their wobble finishes.
+        assert_eq!(frame_1678.block_bounces.len(), 5);
+        assert_eq!(frame_1678.number_objects, 10);
+        assert_eq!(frame_1679.block_bounces.len(), 4);
+        assert_eq!(frame_1679.number_objects, 10);
+
+        let frame_1703 = frame_1703.expect("frame 1703 trace");
+        let frame_1704 = frame_1704.expect("frame 1704 trace");
+        assert_eq!(frame_1703.number_objects, 17);
+        assert_eq!(frame_1704.number_objects, 17);
     }
 
     #[test]

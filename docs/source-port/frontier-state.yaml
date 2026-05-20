@@ -3,14 +3,14 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-object-count-at-frame-1679",
+    "slug": "any-percent-published-title-return-count-at-frame-1837",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 1679,
-    "authoritative_clean_through": 1678,
+    "frontier_frame": 1837,
+    "authoritative_clean_through": 1836,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
@@ -18,7 +18,7 @@
         "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is CRC-clean and authoritative-clean across frames 0..1346 with per-frame checkpoints. The former frame-1146 post-transform drift is cleared by matching ASM `loc_8E16` / `sub_8600` walking floor-check order and suppressing only the premature post-horizontal support release during the demo post-transform hand-off. The remaining top-level `kid_x_vel` / `kid_y_vel` mismatches from frame 1148 onward are classified as oracle limitations when the oracle's live `0x30(kid_gfx)` object at the player position carries the same velocity as native; this reflects the ROM `Load_DemoPlay loc_119D8` controller/object split, not a gameplay state miss."
       }
     ],
-    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 1678 with per-frame checkpoints. The frame-1495 prize-object blocker is cleared by suppressing the stale native `sub_1007A` block-worker tail once the second live diamond is outside Kid's horizontal collision band; the earlier frame-1399/1400 nearby diamond still keeps the old worker count-visible, matching the oracle. `verify-tas --frame-start 0 --frame-end 1679 --checkpoint-interval 1` passes; `verify-tas --frame-start 0 --frame-end 2200 --checkpoint-interval 1` first blocks at checkpoint frame_1679 with `number_objects` native `9`, oracle `10`, while CRC remains clean through frame 2200 and the route has already transitioned level `0x1B -> 0x00` at frame 1836 in the longer run. Next investigation should use `tas-diff --frame-start 1674 --frame-end 1684 --include-advisory --show-object-roster-on-match` to compare the live roster, then read the relevant ASM object lifecycle before changing counts. The old 35140..37759 tail window still fails with blocking state diffs plus CRC divergence at frame 35210.",
+    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 1836 with per-frame checkpoints. The frame-1679 and frame-1704 prize-block tail blockers are cleared by tracking `sub_1007A` worker tails per source cell/content: a distant live diamond suppresses only its own stale tail, while unrelated prize-block tails still count and the horizontal collision-band exception is applied per tail. `verify-tas --frame-start 0 --frame-end 1837 --checkpoint-interval 1` passes; `verify-tas --frame-start 0 --frame-end 2200 --checkpoint-interval 1` first blocks at checkpoint frame_1837 with `number_objects` native `5`, oracle `12`, after the frame-1836 transition from level `0x1B` demo play back to title mode (`Game_Mode=$2C`). CRC remains clean through frame 2200, so this is title-return/count state, not visible gameplay divergence yet. Next investigation should read the ASM timeout/demo return path around the frame-1836 `Game_Mode=$2C` hand-off and compare native title/demo snapshot object preservation at frames 1836..1840. The old 35140..37759 tail window still fails with blocking state diffs plus CRC divergence at frame 35210.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -47,8 +47,8 @@
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "Frame 1679 is the next object-count mismatch",
-      "reason": "After suppressing stale `sub_1007A` worker tails for distant live diamonds while preserving the horizontal collision-band count at frames 1399/1400, `verify-tas --frame-start 0 --frame-end 1679 --checkpoint-interval 1` passes and the next configured-gate miss is checkpoint frame_1679 (`number_objects`: native 9, oracle 10). CRC remains clean through frame 2200, so the immediate blocker is still trace/count fidelity rather than visible gameplay. Next step: inspect the frame-1679 oracle roster and read the ASM for whichever object lifecycle is missing from native's count model."
+      "name": "Frame 1837 title return object-count mismatch",
+      "reason": "After making `sub_1007A` worker-tail suppression per source cell/content, `verify-tas --frame-start 0 --frame-end 1837 --checkpoint-interval 1` passes and the next configured-gate miss is checkpoint frame_1837 (`number_objects`: native 5, oracle 12). CRC remains clean through frame 2200. The route transitions from level `0x1B` demo play to title mode at frame 1836, so the next blocker is likely preserved gameplay/demo snapshot object counts during the title return shell, not the prize-block lifecycle."
     },
     "rejected_hypotheses": [
       {

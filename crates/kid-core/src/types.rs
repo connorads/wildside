@@ -1394,6 +1394,14 @@ pub(crate) struct BlockBounceAnim {
     pub(crate) y_offset_px: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeBlockWorkerTail {
+    pub(crate) cell_x: u16,
+    pub(crate) cell_y: u16,
+    pub(crate) content: Option<terrain::PrizeContent>,
+    pub(crate) remaining: u8,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct BlockDestroyEffect {
     pub(crate) x_px: u16,

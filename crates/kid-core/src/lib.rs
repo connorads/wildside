@@ -103,7 +103,7 @@ pub struct NativeRuntime {
     /// ASM sub_1007A count-only prize-block worker tail after the visible
     /// wobble table has finished but before the coroutine's spawn hand-off
     /// deletes its object/gfx allocation.
-    prize_block_worker_tails: Vec<u8>,
+    prize_block_worker_tails: Vec<PrizeBlockWorkerTail>,
     /// ASM loc_102B8 count-only flash workers spawned by sub_1007A. Native
     /// does not render the flash yet, but the object/gfx allocation affects
     /// TAS trace counts during `stru_102DE`.

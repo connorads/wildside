@@ -3296,9 +3296,10 @@ impl NativeRuntime {
             b.remaining = b.remaining.saturating_sub(1);
         }
         for tail in &mut self.prize_block_worker_tails {
-            *tail = tail.saturating_sub(1);
+            tail.remaining = tail.remaining.saturating_sub(1);
         }
-        self.prize_block_worker_tails.retain(|tail| *tail > 0);
+        self.prize_block_worker_tails
+            .retain(|tail| tail.remaining > 0);
 
         let mut finished_prize_bounce_tail_frames = Vec::new();
         self.block_bounces.retain(|b| {
@@ -3315,7 +3316,12 @@ impl NativeRuntime {
                     } else {
                         Self::PRIZE_BLOCK_WORKER_TAIL_FRAMES
                     };
-                    finished_prize_bounce_tail_frames.push(tail_frames);
+                    finished_prize_bounce_tail_frames.push(PrizeBlockWorkerTail {
+                        cell_x: b.cell_x,
+                        cell_y: b.cell_y,
+                        content: b.prize_content,
+                        remaining: tail_frames,
+                    });
                 }
                 false
             }

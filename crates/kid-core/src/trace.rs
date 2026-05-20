@@ -2511,28 +2511,31 @@ impl NativeRuntime {
         let Some(player) = self.current_player_state() else {
             return self.prize_block_worker_tails.len();
         };
-        if self.floating_items.iter().any(|item| {
-            !item.collected
-                && item.content == terrain::PrizeContent::Diamond
-                && floating_diamond_in_player_horizontal_band_loc_10396(item, player)
-        }) {
-            return self.prize_block_worker_tails.len();
-        }
-        if self
-            .floating_items
+        self.prize_block_worker_tails
             .iter()
-            .any(|item| !item.collected && item.content == terrain::PrizeContent::Diamond)
-        {
-            // ASM PrizeDiamond_Init (kid.asm:21604) creates the count-visible
-            // diamond object through the standard collision path. Published
-            // demo probes show the old sub_1007A block worker remains counted
-            // only while that diamond is already in Kid's collision band;
-            // distant live diamonds replace the stale worker count instead of
-            // adding another Number_Objects slot.
-            0
-        } else {
-            self.prize_block_worker_tails.len()
-        }
+            .filter(|tail| {
+                let own_live_diamond = || {
+                    self.floating_items.iter().find(|item| {
+                        !item.collected
+                            && item.content == terrain::PrizeContent::Diamond
+                            && item.level_col == tail.cell_x
+                            && item.level_row == tail.cell_y
+                    })
+                };
+                let suppressed_by_own_distant_diamond = tail.content
+                    == Some(terrain::PrizeContent::Diamond)
+                    && own_live_diamond().is_some_and(|item| {
+                        !floating_diamond_in_player_horizontal_band_loc_10396(item, player)
+                    });
+                // ASM PrizeDiamond_Init (kid.asm:21604) creates the
+                // count-visible diamond object through the standard collision
+                // path. Published demo probes show the old sub_1007A block
+                // worker remains counted only while its own diamond is already
+                // in Kid's horizontal collision band; distant live diamonds
+                // replace only their matching stale worker count.
+                !suppressed_by_own_distant_diamond
+            })
+            .count()
     }
 
     fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {
