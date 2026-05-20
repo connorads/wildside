@@ -436,13 +436,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 fading_in = true;
             }
 
-            // Show level card when the engine first enters gameplay
-            // (title → StartingLevel maps to GameMode::InGame in trace)
-            let entered_gameplay = !matches!(prev_trace.game_mode, GameMode::InGame)
-                && matches!(trace.game_mode, GameMode::InGame)
-                && options.warp_level.is_none()
-                && !options.settled;
-            if entered_gameplay {
+            if should_start_native_level_card_overlay(
+                &prev_trace,
+                &trace,
+                options.warp_level,
+                options.settled,
+            ) {
                 level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
             }
         }
@@ -602,6 +601,20 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
     options
         .record_frames
         .is_some_and(|limit| recorded_frames >= limit)
+}
+
+fn should_start_native_level_card_overlay(
+    previous_trace: &NativeTraceFrame,
+    trace: &NativeTraceFrame,
+    warp_level: Option<u8>,
+    settled: bool,
+) -> bool {
+    let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
+        && matches!(trace.game_mode, GameMode::InGame);
+    entered_gameplay
+        && warp_level.is_none()
+        && !settled
+        && previous_trace.boot_phase.as_deref() != Some("starting_level")
 }
 
 fn save_native_recording_bundle(
@@ -4098,6 +4111,37 @@ mod tests {
             ..options
         };
         assert!(!recording_frame_limit_reached(&unbounded, usize::MAX));
+    }
+
+    #[test]
+    fn level_card_overlay_does_not_restart_after_title_card_bootstrap_handoff() {
+        let mut previous = sample_trace(GameMode::LevelTransition);
+        previous.boot_phase = Some(String::from("starting_level"));
+        let current = sample_trace(GameMode::InGame);
+
+        assert!(
+            !should_start_native_level_card_overlay(&previous, &current, None, false),
+            "ASM loc_1AE2E -> Load_InGame should not re-enter the native fake level-card overlay after the real Load_TitleCard shell",
+        );
+    }
+
+    #[test]
+    fn level_card_overlay_still_starts_for_non_title_gameplay_entry() {
+        let previous = sample_trace(GameMode::LevelTransition);
+        let current = sample_trace(GameMode::InGame);
+
+        assert!(should_start_native_level_card_overlay(
+            &previous, &current, None, false
+        ));
+        assert!(!should_start_native_level_card_overlay(
+            &previous,
+            &current,
+            Some(0),
+            false
+        ));
+        assert!(!should_start_native_level_card_overlay(
+            &previous, &current, None, true
+        ));
     }
 
     #[test]
