@@ -3616,9 +3616,14 @@ fn sha1_hex(bytes: &[u8]) -> String {
 mod tests {
     use super::{
         append_indoor_rubber_block_tiles_sub_144da, apply_layered_background_palette_fallback,
-        compose_player_frame,
+        bg_permutation_file, canvas_to_tiles, compose_player_frame, fg_permutation_file,
+        frame_to_pixels, load_palette_permutation,
     };
     use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileQuad, TileRef, TileSheet};
+    use kid_data::{AssetFile, AssetManifest};
+    use sha1::{Digest, Sha1};
+    use std::fs;
+    use tempfile::TempDir;
 
     fn tile_ref(tile_index: u16) -> TileRef {
         TileRef {
@@ -3636,6 +3641,125 @@ mod tests {
         }
     }
 
+    fn asset_file(relative_path: &str, bytes: &[u8]) -> AssetFile {
+        AssetFile {
+            relative_path: relative_path.to_owned(),
+            size_bytes: u64::try_from(bytes.len()).expect("asset size fits in u64"),
+            sha1: format!("{:x}", Sha1::digest(bytes)),
+        }
+    }
+
+    fn palette_manifest(relative_path: &str, bytes: &[u8]) -> (TempDir, AssetManifest) {
+        let temp_dir = TempDir::new().expect("temp generated bundle root");
+        let theme_root = temp_dir.path().join("theme");
+        let asset_path = theme_root.join(relative_path);
+        fs::create_dir_all(asset_path.parent().expect("asset has parent"))
+            .expect("create theme asset parent");
+        fs::write(&asset_path, bytes).expect("write theme asset");
+
+        (
+            temp_dir,
+            AssetManifest {
+                generated_bundle_version: 0,
+                rom_sha1: "test-rom".to_owned(),
+                upstream_commit: "test-upstream".to_owned(),
+                source_root: ".".into(),
+                output_root: theme_root
+                    .parent()
+                    .expect("theme root has parent")
+                    .to_owned(),
+                map_order: Vec::new(),
+                levels: Vec::new(),
+                constants: Vec::new(),
+                ram_variables: Vec::new(),
+                enemy_sources: Vec::new(),
+                theme_assets: vec![asset_file(relative_path, bytes)],
+                scene_assets: Vec::new(),
+                animation_assets: Vec::new(),
+                sound_assets: Vec::new(),
+                ingame_assets: Vec::new(),
+                decoded_levels: Vec::new(),
+            },
+        )
+    }
+
+    #[test]
+    fn palette_permutation_paths_match_rom_theme_switches() {
+        assert_eq!(
+            fg_permutation_file(10),
+            "palette_permutations/city_fg.bin",
+            "ASM loc_12A22 selects Palette_Permutation_FGCity for foreground theme $0A"
+        );
+        assert_eq!(
+            fg_permutation_file(9),
+            "palette_permutations/forest_fg.bin",
+            "ASM loc_12A27 selects Palette_Permutation_FGForest for foreground theme $09"
+        );
+        assert_eq!(
+            fg_permutation_file(7),
+            "palette_permutations/mountain_fg.bin",
+            "ASM loc_12A2C selects Palette_Permutation_FGMountain for foreground theme $07"
+        );
+        assert_eq!(
+            fg_permutation_file(0),
+            "palette_permutations/identity.bin",
+            "ASM loc_12A19 defaults foreground themes to Palette_Permutation_Identity"
+        );
+
+        assert_eq!(
+            bg_permutation_file(9),
+            "palette_permutations/forest_bg.bin",
+            "ASM loc_12A41 selects Palette_Permutation_BGForest for background theme $09"
+        );
+        assert_eq!(
+            bg_permutation_file(7),
+            "palette_permutations/mountain_bg.bin",
+            "ASM loc_12A46 selects Palette_Permutation_BGMountain for background theme $07"
+        );
+        assert_eq!(
+            bg_permutation_file(3),
+            "palette_permutations/hill_bg.bin",
+            "ASM loc_12A4B selects Palette_Permutation_BGHill for background theme $03"
+        );
+        assert_eq!(
+            bg_permutation_file(0),
+            "palette_permutations/identity.bin",
+            "ASM loc_12A3C defaults background themes to Palette_Permutation_Identity"
+        );
+    }
+
+    #[test]
+    fn palette_permutation_loader_requires_complete_sixteen_byte_table() {
+        let exact_bytes = [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+        let (_temp_dir, manifest) =
+            palette_manifest("palette_permutations/exact.bin", &exact_bytes);
+
+        assert_eq!(
+            load_palette_permutation(&manifest, "palette_permutations/exact.bin"),
+            Some(exact_bytes),
+            "ASM Palette_Permutation_* tables are valid at exactly sixteen entries"
+        );
+
+        let bytes = [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 99];
+        let (_temp_dir, manifest) = palette_manifest("palette_permutations/test.bin", &bytes);
+
+        assert_eq!(
+            load_palette_permutation(&manifest, "palette_permutations/test.bin"),
+            Some([15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
+            "ASM Palette_Permutation_* tables are 16 byte nibble lookup tables"
+        );
+
+        let short_bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        let (_temp_dir, manifest) =
+            palette_manifest("palette_permutations/short.bin", &short_bytes);
+
+        assert_eq!(
+            load_palette_permutation(&manifest, "palette_permutations/short.bin"),
+            None,
+            "ASM Palette_Permutation_* tables must contain all sixteen entries"
+        );
+    }
+
     #[test]
     fn forest_plane_fallback_promotes_zero_palette_line_to_plane_line() {
         let mut plane = LayeredBackgroundPlane {
@@ -3651,6 +3775,41 @@ mod tests {
         apply_layered_background_palette_fallback("forest", 0, &mut plane);
 
         assert_eq!(plane.rows[0][0].palette_line, 1);
+    }
+
+    #[test]
+    fn layered_background_palette_fallbacks_match_rom_plane_lines() {
+        for (theme_name, plane_id, expected_palette_line) in [
+            ("desert", 0, 2),
+            ("desert", 1, 2),
+            ("desert", 2, 2),
+            ("forest", 0, 1),
+            ("forest", 1, 1),
+            ("forest", 2, 2),
+            ("hill", 0, 2),
+            ("hill", 1, 2),
+        ] {
+            let mut plane = LayeredBackgroundPlane {
+                rows: vec![vec![tile_ref(1)]],
+            };
+
+            apply_layered_background_palette_fallback(theme_name, plane_id, &mut plane);
+
+            assert_eq!(
+                plane.rows[0][0].palette_line, expected_palette_line,
+                "ASM PlaneEd CRAM offsets for {theme_name} plane {plane_id} set the fallback palette line"
+            );
+        }
+
+        let mut mountain_plane = LayeredBackgroundPlane {
+            rows: vec![vec![tile_ref(1)]],
+        };
+        apply_layered_background_palette_fallback("mountain", 0, &mut mountain_plane);
+
+        assert_eq!(
+            mountain_plane.rows[0][0].palette_line, 0,
+            "ASM layered mountain planes already carry explicit palette lines"
+        );
     }
 
     #[test]
@@ -3682,6 +3841,9 @@ mod tests {
                 tiles: vec![Tile { pixels: [1; 64] }; 4],
             },
         };
+        let mut body_tile = Tile { pixels: [2; 64] };
+        body_tile.pixels[0] = 0;
+        body_tile.pixels[8] = 3;
         let body = SpriteFrame {
             origin_x: 0,
             origin_y: 4,
@@ -3689,7 +3851,7 @@ mod tests {
             height_px: 8,
             tile_base_index: 0,
             tile_sheet: TileSheet {
-                tiles: vec![Tile { pixels: [2; 64] }],
+                tiles: vec![body_tile],
             },
         };
 
@@ -3698,10 +3860,136 @@ mod tests {
         assert_eq!(composite.width_px, 9);
         assert_eq!(composite.height_px, 13);
         assert!(!composite.tile_sheet.tiles.is_empty());
+        let pixels = frame_to_pixels(&composite);
+        assert_eq!(
+            pixels[5 * 16],
+            1,
+            "ASM sprite_frame_unc treats palette index 0 as transparent during composite blits"
+        );
+        assert_eq!(
+            pixels[5 * 16 + 1],
+            2,
+            "ASM sprite_frame_unc non-zero pixels from later composite parts overwrite earlier art"
+        );
+        assert_eq!(
+            pixels[6 * 16],
+            3,
+            "ASM sprite_frame_unc blits each source tile row from its own 8-pixel row"
+        );
+    }
+
+    #[test]
+    fn composite_player_frame_preserves_rom_origin_geometry() {
+        let left_part = SpriteFrame {
+            origin_x: 3,
+            origin_y: 0,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![solid_tile(3)],
+            },
+        };
+        let right_part = SpriteFrame {
+            origin_x: -5,
+            origin_y: 2,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![solid_tile(4)],
+            },
+        };
+
+        let composite = compose_player_frame(&[left_part, right_part]).expect("composite frame");
+
+        assert_eq!(
+            composite.origin_x, 3,
+            "ASM sprite_frame_unc origin_x is the negated left extent of all composite parts"
+        );
+        assert_eq!(
+            composite.origin_y, 2,
+            "ASM sprite_frame_unc origin_y is the lower extent of all composite parts"
+        );
+        assert_eq!(composite.width_px, 16);
+        assert_eq!(composite.height_px, 10);
+    }
+
+    #[test]
+    fn frame_to_pixels_and_canvas_to_tiles_preserve_tile_grid_positions() {
+        let top_left = Tile {
+            pixels: core::array::from_fn(|pixel_index| {
+                u8::try_from(pixel_index).expect("pixel index fits in u8")
+            }),
+        };
+        let top_right = solid_tile(64);
+        let bottom_left = solid_tile(128);
+        let bottom_right = solid_tile(192);
+        let frame = SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 16,
+            height_px: 16,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![
+                    top_left.clone(),
+                    top_right.clone(),
+                    bottom_left.clone(),
+                    bottom_right.clone(),
+                ],
+            },
+        };
+
+        let pixels = frame_to_pixels(&frame);
+
+        assert_eq!(
+            pixels[0], 0,
+            "ASM sprite_frame_unc stores sprite art as row-major 8x8 tiles"
+        );
+        assert_eq!(
+            pixels[7], 7,
+            "ASM sprite_frame_unc stores sprite art as row-major 8x8 tiles"
+        );
+        assert_eq!(
+            pixels[16], 8,
+            "ASM sprite_frame_unc advances to the next tile row after eight pixels"
+        );
+        assert_eq!(
+            pixels[8], 64,
+            "ASM sprite_frame_unc places the second tile at x + 8"
+        );
+        assert_eq!(
+            pixels[16 * 8],
+            128,
+            "ASM sprite_frame_unc places the third tile at y + 8"
+        );
+        assert_eq!(
+            pixels[16 * 8 + 8],
+            192,
+            "ASM sprite_frame_unc places the fourth tile at x + 8, y + 8"
+        );
+
+        assert_eq!(
+            canvas_to_tiles(&pixels, 16, 16),
+            vec![top_left, top_right, bottom_left, bottom_right],
+            "ASM sprite_frame_unc tile order round-trips through the native canvas"
+        );
     }
 
     #[test]
     fn sub_144da_appends_theme_composed_indoor_rubber_block_tiles() {
+        assert_eq!(
+            super::BASE_RUBBER_BLOCK_RELATIVE_START,
+            0x4E,
+            "ASM sub_144DA starts generated rubber-block composition at VRAM tile $026E - block base $0220"
+        );
+        assert_eq!(
+            super::BASE_RUBBER_BLOCK_RELATIVE_END,
+            0x56,
+            "ASM sub_144DA consumes the eight source rubber-block tiles $026E..$0275"
+        );
+
         let mut block_tiles = TileSheet {
             tiles: vec![solid_tile(0); super::BASE_RUBBER_BLOCK_RELATIVE_END],
         };
