@@ -535,6 +535,23 @@ fn player_palette_for_damage_phase(palette: &Palette, white_phase: bool) -> Pale
     flash_palette
 }
 
+fn enemy_palette_for_damage_flash(palette: &Palette, damage_flash: bool) -> Palette {
+    if !damage_flash {
+        return palette.clone();
+    }
+
+    let mut flash_palette = palette.clone();
+    let white = MdColour::from_word(0x0FFF);
+    // ASM enemy hurt routes initialise a short hibernate/recoil animation;
+    // native's `damage_flash` trace flag is the observable rendering cue for
+    // that non-lethal hit. Palette index 0 still resolves as transparent in
+    // the renderer, so whitening the stored colours keeps sprite holes clear.
+    for colour in &mut flash_palette.colours {
+        *colour = white;
+    }
+    flash_palette
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -585,13 +602,15 @@ pub(super) fn push_enemy_sprite(
         {
             let (turret_x, turret_y) =
                 sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
+            let palette = enemy_palette_for_damage_flash(
+                select_enemy_palette(enemy_visuals, object.palette_variant),
+                rock_tank_damage_flash(object, trace, object_type),
+            );
             commands.push(DrawCommand::Sprite {
                 x: turret_x,
                 y: turret_y,
                 tile_sheet: Arc::new(turret_frame.tile_sheet.clone()),
-                palette: Arc::new(
-                    select_enemy_palette(enemy_visuals, object.palette_variant).clone(),
-                ),
+                palette: Arc::new(palette),
                 tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
             });
         }
@@ -600,11 +619,15 @@ pub(super) fn push_enemy_sprite(
 
     let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
+    let palette = enemy_palette_for_damage_flash(
+        select_enemy_palette(enemy_visuals, object.palette_variant),
+        object.damage_flash,
+    );
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
+        palette: Arc::new(palette),
         tiles: build_sprite_tiles(frame, render_facing, 0),
     });
 
@@ -615,11 +638,15 @@ pub(super) fn push_enemy_sprite(
         let fallback_screen_y = screen_y - 8;
         let (turret_x, turret_y) =
             sprite_draw_position(&turret_frame, screen_x, fallback_screen_y, render_facing);
+        let palette = enemy_palette_for_damage_flash(
+            select_enemy_palette(enemy_visuals, object.palette_variant),
+            object.damage_flash,
+        );
         commands.push(DrawCommand::Sprite {
             x: turret_x,
             y: turret_y,
             tile_sheet: Arc::new(turret_frame.tile_sheet.clone()),
-            palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
+            palette: Arc::new(palette),
             tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
         });
     }
@@ -631,6 +658,26 @@ fn is_rock_tank_type(object_type: u8) -> bool {
 
 fn is_rock_tank_child_snapshot(object_type: u8, object: &NativeObjectSnapshot) -> bool {
     is_rock_tank_type(object_type) && object.hit_points.is_none()
+}
+
+fn rock_tank_damage_flash(
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    object_type: u8,
+) -> bool {
+    if object.damage_flash {
+        return true;
+    }
+    if !is_rock_tank_child_snapshot(object_type, object) {
+        return false;
+    }
+
+    trace.active_objects.iter().any(|candidate| {
+        matches!(candidate.kind, NativeObjectKind::Enemy { object_type: candidate_type } if candidate_type == object_type)
+            && candidate.layout_index == object.layout_index
+            && candidate.hit_points.is_some()
+            && candidate.damage_flash
+    })
 }
 
 fn is_rock_tank_parent_without_child_snapshot(

@@ -1530,6 +1530,13 @@ mod tests {
         }
     }
 
+    fn sprite_palette(command: &DrawCommand) -> &Palette {
+        match command {
+            DrawCommand::Sprite { palette, .. } => palette,
+            other => panic!("expected sprite draw command, got {other:?}"),
+        }
+    }
+
     #[test]
     fn generic_enemy_projectile_uses_legacy_dot_render() {
         let mut trace = sample_trace(GameMode::InGame);
@@ -4469,6 +4476,92 @@ mod tests {
             sprite_tiles(&commands[1])[0].tile.tile_index,
             0x020,
             "ASM `stru_3B27E` child snapshot renders the RockTank turret frame"
+        );
+    }
+
+    #[test]
+    fn enemy_sprite_damage_flash_uses_white_palette() {
+        let trace = sample_trace(GameMode::InGame);
+        let visuals = sample_level_visuals();
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0B },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: true,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x0B);
+
+        let white = MdColour::from_word(0x0FFF);
+        assert!(
+            sprite_palette(&commands[0])
+                .colours
+                .iter()
+                .all(|colour| *colour == white),
+            "non-lethal enemy hits should visibly flash the sprite white instead of only changing invisible HP",
+        );
+    }
+
+    #[test]
+    fn rock_tank_child_turret_inherits_parent_damage_flash_palette() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 30;
+        let visuals = sample_level_visuals();
+        let body = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0B },
+            x_pos: 0x00B3_8000,
+            y_pos: 0x00E0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(0x0000_8000),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: true,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let child = NativeObjectSnapshot {
+            y_pos: 0x00D8_0000,
+            hit_points: None,
+            damage_flash: false,
+            on_ground: None,
+            ..body.clone()
+        };
+        trace.active_objects = vec![body.clone(), child.clone()];
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &body, &trace, &visuals, 0x0B);
+        sprites::push_enemy_sprite(&mut commands, &child, &trace, &visuals, 0x0B);
+
+        let white = MdColour::from_word(0x0FFF);
+        assert!(
+            sprite_palette(&commands[1])
+                .colours
+                .iter()
+                .all(|colour| *colour == white),
+            "ASM Tank_Shooting.asm loc_3B700 recoils the child turret on hurt, so the traced child sprite should share the parent's damage flash",
         );
     }
 
