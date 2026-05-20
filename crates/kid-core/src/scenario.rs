@@ -1,5 +1,11 @@
 use super::*;
 
+// Full-frame oracle warps do more than the explicit 60-frame stable-level poll:
+// the ROM level-skip path has a live title-card tail before the helper starts
+// counting stable target frames. Native's direct `boot_to_level` shortcut skips
+// that tail, so settled full-frame traces need the oracle-observed live age.
+const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
+
 impl NativeRuntime {
     /// Boot through menus to level 0, then advance to `target` using the
     /// level skip mechanism. Used by sweep infrastructure to reach any level
@@ -123,7 +129,7 @@ impl ScriptRunner {
             if self.settle_warp {
                 let idle = FrameInput::default();
                 let mut stable_target_frames = 0usize;
-                while stable_target_frames < 60 {
+                while stable_target_frames < ORACLE_SETTLED_WARP_LIVE_FRAMES {
                     if matches!(runtime.boot_state, BootState::InGame)
                         && runtime.current_level == LevelId(level_id)
                         && !runtime.paused

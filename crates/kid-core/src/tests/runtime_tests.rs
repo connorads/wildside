@@ -5308,7 +5308,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_warp_runner_starts_after_stable_ingame_window() {
-        let manifest = manifest_with_levels(3);
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
         let script = vec![0u8; 2];
 
         let fresh = run_script_with_warp(manifest.clone(), &script, 1, Some(1));
@@ -5316,12 +5318,30 @@ mod chunk_09 {
 
         assert_eq!(
             settled[0].frame_index,
-            fresh[0].frame_index + 60,
-            "full-frame oracle helper waits for 60 stable unpaused target-level frames before scenario frame 0; native must use the same pre-run contract",
+            fresh[0].frame_index + 108,
+            "full-frame oracle helper reaches Level 1's first RockTank after the ROM's live title-card tail plus the 60 stable target-level frames; native must use the same pre-run contract",
         );
         assert_eq!(settled[0].game_mode, GameMode::InGame);
         assert_eq!(settled[0].current_level, LevelId(1));
         assert!(!settled[0].paused);
+        let first_tank = settled[0]
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00D8_0000
+            })
+            .expect("Level 0x01 first RockTank parent should be active after settled warp");
+        assert_eq!(
+            first_tank.x_pos, 0x00A4_0000,
+            "ASM Tank.asm loc_3B2E4 into shared walker loc_3C0FA/loc_3C026: by oracle settled frame 0 the first RockTank has already turned at the left edge",
+        );
+        assert_eq!(
+            first_tank.facing,
+            Some(Direction::Right),
+            "ASM loc_3C152 -> loc_3C026 turns the leftward RockTank back to the set x_direction/rightward path before settled frame 0",
+        );
     }
 
     /// Determinism with active gameplay inputs (walk + jump).
