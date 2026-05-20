@@ -2743,6 +2743,16 @@ mod chunk_04 {
             12,
             "ASM Driller.asm loc_3BD74 seeds `$48(a5)=$C` before the shared walker loop",
         );
+        assert_eq!(
+            pacer_probe_half_width(EnemyFamily::Tank),
+            11,
+            "ASM Tank.asm loc_3B31E seeds `$48(a5)=$B` before the shared walker loop",
+        );
+        assert_eq!(
+            pacer_probe_half_width(EnemyFamily::TankShooting),
+            11,
+            "ASM Tank_Shooting.asm loc_3B5A6 seeds `$48(a5)=$B` before the shared walker loop",
+        );
         for family in [
             EnemyFamily::Armadillo,
             EnemyFamily::Goat,
