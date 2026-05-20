@@ -11,7 +11,7 @@ use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
     diamond_power_rain_find_nearest_enemy, diamond_power_rain_screen_cull_and_compile,
 };
-use crate::terrain::relative_collision_mask_loc_331D2;
+use crate::terrain::{relative_collision_mask_loc_331D2, relative_collision_row_loc_33286};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,21 +46,18 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
     // ASM Fire_Demon loc_3A63C calls loc_33286 with d7=#8 and d6=#$3E7.
     // loc_33286 samples three consecutive cells starting at x_pos-$E on
     // row (y_pos+8)>>4 and returns raw d5/d6/d7 words on the #$3E7 bypass.
-    let x_px = (x_pos >> 16) as i32;
-    let y_px = (y_pos >> 16) as i32;
-    let row = terrain::pixel_to_cell(y_px + 8).max(0) as u16;
-    let start_col = terrain::pixel_to_cell(x_px - 0x0E).max(0) as u16;
-    let left = grid.cell_at(start_col, row);
-    let centre = grid.cell_at(start_col.wrapping_add(1), row);
-    let right = grid.cell_at(start_col.wrapping_add(2), row);
+    let x_px = (x_pos >> 16) as u16 as i16;
+    let y_px = (y_pos >> 16) as u16 as i16;
+    let support =
+        relative_collision_row_loc_33286(grid, i32::from(x_px), i32::from(y_px), 8, 0x03E7);
 
     // ASM Fire_Demon loc_3A63C: `bclr #$F,d6; bne loc_3A6DA` deletes when
     // the centre support word has the block flag set, then all three sampled
     // collision nibbles must compare equal to `$6000`.
-    !centre.has_block
-        && left.collision == terrain::CollisionKind::Solid
-        && centre.collision == terrain::CollisionKind::Solid
-        && right.collision == terrain::CollisionKind::Solid
+    (support.centre & 0x8000) == 0
+        && (support.left & 0x7000) == 0x6000
+        && (support.centre & 0x7000) == 0x6000
+        && (support.right & 0x7000) == 0x6000
 }
 
 const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;

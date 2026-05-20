@@ -1601,6 +1601,55 @@ pub(crate) fn relative_collision_column_loc_331F6(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RelativeCollisionRowLoc33286 {
+    pub(crate) left: u16,
+    pub(crate) centre: u16,
+    pub(crate) right: u16,
+}
+
+/// Mirror the three-cell horizontal probe in `loc_33286`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_row_loc_33286(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    y_pos_px: i32,
+    y_offset_px: i32,
+    sentinel_d6: u16,
+) -> RelativeCollisionRowLoc33286 {
+    let sample_y = y_pos_px + y_offset_px;
+    let start_x = center_x_px - 0x0E;
+    if sample_y < 0 || start_x < 0 {
+        return RelativeCollisionRowLoc33286 {
+            left: 0,
+            centre: 0,
+            right: 0,
+        };
+    }
+
+    let probe = probe_at(grid, start_x, sample_y);
+    let cell_x = probe.cell_x;
+    let cell_y = probe.cell_y;
+    let left = probe.cell.to_word();
+    let centre = grid.cell_at(cell_x.wrapping_add(1), cell_y).to_word();
+    let right = grid.cell_at(cell_x.wrapping_add(2), cell_y).to_word();
+
+    if sentinel_d6 == 0x03E7 {
+        RelativeCollisionRowLoc33286 {
+            left,
+            centre,
+            right,
+        }
+    } else {
+        RelativeCollisionRowLoc33286 {
+            left: relative_collision_word_mask_loc_332D0(left),
+            centre: relative_collision_word_mask_loc_332EC(centre),
+            right: relative_collision_nibble_loc_33308(right),
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn probe_relative_collision_sub_B55C(
     grid: &BlockGrid,
@@ -4411,6 +4460,46 @@ mod tests {
                 current_row: 0x5044,
                 one_row_up: 0,
                 two_rows_up: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn relative_collision_row_loc_33286_reads_three_cells_from_x_minus_e() {
+        let mut grid = make_empty_grid(5, 4);
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x40, 0x11));
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x60, 0x22));
+        grid.set_cell_at(3, 2, Cell::from_be_bytes(0x70, 0x33));
+
+        // ASM loc_33286 (kid.asm:37694): add the caller's y offset to
+        // `y_pos(a3)`, then read three consecutive cells starting at
+        // `(x_pos(a3)-$E)>>4`.
+        assert_eq!(
+            relative_collision_row_loc_33286(&grid, 30, 24, 8, 0x03E7),
+            RelativeCollisionRowLoc33286 {
+                left: 0x4011,
+                centre: 0x6022,
+                right: 0x7033,
+            }
+        );
+    }
+
+    #[test]
+    fn relative_collision_row_loc_33286_masks_disguised_blocks_without_sentinel() {
+        let mut grid = make_empty_grid(5, 4);
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x83, 0x11));
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0xE0, 0x22));
+        grid.set_cell_at(3, 2, Cell::from_be_bytes(0x70, 0x33));
+
+        // ASM loc_33286/loc_332D0/loc_332EC/loc_33308 share the same
+        // disguised-block filtering as loc_331F6 unless the caller preserves
+        // raw words with sentinel `$3E7`.
+        assert_eq!(
+            relative_collision_row_loc_33286(&grid, 30, 24, 8, 0),
+            RelativeCollisionRowLoc33286 {
+                left: 0,
+                centre: 0x6000,
+                right: 0x7000,
             }
         );
     }
