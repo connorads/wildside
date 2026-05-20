@@ -2078,6 +2078,13 @@ pub(crate) enum EnemyProjectileKind {
     FireDemonDeathTrail,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DripsSurfaceCrawlerState {
+    #[default]
+    HorizontalLoc33650,
+    VerticalLoc33730,
+}
+
 /// Projectile fired by enemies and player helmet attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -2122,6 +2129,10 @@ pub(crate) struct EnemyProjectile {
     /// DiamondPower_Main_SlashingRain `$24(a0)`: diamond sprite size used by
     /// loc_3FF90 when centring and culling the compiled rain sprite.
     pub(crate) diamond_power_rain_size_word_24: u16,
+    /// Drips surface-crawler movement coroutine label. ASM turn scripts under
+    /// `loc_33AF6` dispatch through `off_33ADA`; native persists the subset of
+    /// labels wired into the simplified projectile carrier.
+    pub(crate) drips_surface_crawler_state: DripsSurfaceCrawlerState,
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.

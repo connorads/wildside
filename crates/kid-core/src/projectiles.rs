@@ -3,9 +3,9 @@ use super::*;
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
     DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
-    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
-    TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
-    drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
+    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA, archer_angle_to_player,
+    archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
     drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
     drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
     drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339dc,
@@ -79,6 +79,12 @@ enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
     Exit,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DripsSurfaceCrawlerVerticalStepLoc33730 {
+    Loop,
+    Exit,
+}
+
 fn drips_surface_crawler_from_drop_loc_335d8(
     drop: &EnemyProjectile,
     random_byte: u8,
@@ -104,6 +110,7 @@ fn drips_surface_crawler_from_drop_loc_335d8(
         friendly: false,
         gravity: 0,
         terrain_kill: false,
+        drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
         ..Default::default()
     }
 }
@@ -157,6 +164,50 @@ fn drips_surface_crawler_supported_below_loc_33650(
     // horizontal path while the cell 8px below the object reports solid.
     relative_collision_mask_loc_331D2(grid, i32::from(x_pos_word), i32::from(y_pos_word), 0, 8)
         == 0x6000
+}
+
+fn drips_surface_crawler_vertical_step_loc_33730(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+    level_bounds: LevelBounds,
+) -> DripsSurfaceCrawlerVerticalStepLoc33730 {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    // ASM Drips.asm loc_33730: the vertical crawl label probes 8px above the
+    // object through loc_331D2 before checking level bounds and loc_33286.
+    if relative_collision_mask_loc_331D2(grid, i32::from(x_pos_word), i32::from(y_pos_word), 0, -8)
+        != 0x6000
+    {
+        return DripsSurfaceCrawlerVerticalStepLoc33730::Exit;
+    }
+    if drips_surface_crawler_out_of_level_bounds_loc_33588(
+        projectile,
+        level_bounds.width_pixels,
+        level_bounds.height_pixels,
+    ) {
+        return DripsSurfaceCrawlerVerticalStepLoc33730::Exit;
+    }
+
+    let y_offset = if projectile.y_velocity < 0 { -6 } else { 6 };
+    let row = relative_collision_row_loc_33286(
+        grid,
+        i32::from(x_pos_word),
+        i32::from(y_pos_word),
+        y_offset,
+        0,
+    );
+
+    if projectile.y_velocity < 0 {
+        if row.left == 0x6000 {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+        } else {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Exit
+        }
+    } else if row.left == 0x6000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+    } else {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Exit
+    }
 }
 
 fn drips_surface_crawler_side_column_step_loc_33650(
@@ -267,6 +318,9 @@ fn drips_surface_crawler_apply_turn_script_loc_33af6(
         drips_surface_crawler_add_word_delta_loc_33af6(projectile.y_pos, script.second_y_delta);
     projectile.x_velocity = projectile.x_velocity.wrapping_add(script.x_velocity_delta);
     projectile.y_velocity = projectile.y_velocity.wrapping_add(script.y_velocity_delta);
+    if script.next == DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33730 {
+        projectile.drips_surface_crawler_state = DripsSurfaceCrawlerState::VerticalLoc33730;
+    }
 }
 
 #[cfg(test)]
@@ -926,7 +980,20 @@ impl NativeRuntime {
                 return Self::step_juggernaut_skull_sub_87B0(p, grid);
             }
 
+            let drips_movement_state_handled = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::VerticalLoc33730
+                && let Some(g) = grid
+            {
+                match drips_surface_crawler_vertical_step_loc_33730(g, p, level_bounds) {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Loop => true,
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
+                }
+            } else {
+                false
+            };
+
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && !drips_movement_state_handled
                 && let Some(g) = grid
                 && !drips_surface_crawler_supported_below_loc_33650(g, p)
             {
@@ -937,6 +1004,7 @@ impl NativeRuntime {
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && !drips_movement_state_handled
                 && drips_surface_crawler_out_of_level_bounds_loc_33588(
                     p,
                     level_bounds.width_pixels,
@@ -950,6 +1018,7 @@ impl NativeRuntime {
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && !drips_movement_state_handled
                 && let Some(g) = grid
             {
                 match drips_surface_crawler_side_column_step_loc_33650(g, p) {
