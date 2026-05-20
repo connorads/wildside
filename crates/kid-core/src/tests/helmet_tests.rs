@@ -4617,6 +4617,53 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_bootstrap_counts_hidden_rom_objects() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frames = std::collections::BTreeMap::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_608) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 2_593 | 2_594 | 2_605 | 2_606 | 2_607) {
+                frames.insert(
+                    frame_index,
+                    (
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ),
+                );
+            }
+        }
+
+        assert_eq!(
+            frames.get(&2_593),
+            Some(&(GameMode::DemoPlay, Some(58), 1, 0)),
+            "before the hidden demo-1 preload workers wake, the ROM still exposes only the loc_119D8 controller object",
+        );
+        assert_eq!(
+            frames.get(&2_594),
+            Some(&(GameMode::DemoPlay, Some(59), 2, 0)),
+            "ASM Load_DemoPlay -> Load_InGame keeps a second non-gfx worker live on demo-1 startup frame 59",
+        );
+        assert_eq!(
+            frames.get(&2_605),
+            Some(&(GameMode::DemoPlay, Some(70), 2, 0)),
+            "the hidden two-object demo-1 preload window should last through startup frame 70",
+        );
+        assert_eq!(
+            frames.get(&2_606),
+            Some(&(GameMode::DemoPlay, Some(71), 6, 4)),
+            "one frame before visible demo-1 gameplay, the ROM has allocated the four gameplay gfx objects plus both hidden workers",
+        );
+        assert_eq!(
+            frames.get(&2_607),
+            Some(&(GameMode::DemoPlay, Some(72), 7, 4)),
+            "the first visible demo-1 gameplay frame should add Kid's object count while the four gfx objects stay live",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

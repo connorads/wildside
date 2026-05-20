@@ -2352,9 +2352,37 @@ impl NativeRuntime {
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
+            } else if !use_demo_2
+                && frame_counter
+                    < self
+                        .demo_gameplay_start_frame(use_demo_2)
+                        .saturating_sub(13)
+            {
+                (1, 0)
+            } else if !use_demo_2
+                && frame_counter < self.demo_gameplay_start_frame(use_demo_2).saturating_sub(1)
+            {
+                // ASM Load_DemoPlay -> Load_InGame (kid.asm:23596) enters
+                // the Knights Isle demo with the loc_119D8 controller object
+                // live. Oracle-backed published TAS probes show one more
+                // non-gfx worker counted from demo-1 startup frames 59..70
+                // before the visible gameplay object/gfx allocation appears.
+                (2, 0)
+            } else if !use_demo_2 && frame_counter < self.demo_gameplay_start_frame(use_demo_2) {
+                // On the final hidden frame before demo-1 gameplay, Load_InGame
+                // has the four gameplay gfx slots live while the two hidden
+                // non-gfx workers still contribute to Number_Objects.
+                (6, 4)
             } else if frame_counter >= self.demo_gameplay_start_frame(use_demo_2) {
                 if frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME {
-                    (5, 4)
+                    if use_demo_2 {
+                        (5, 4)
+                    } else {
+                        // Demo 1 keeps the loc_119D8 controller and hidden
+                        // preload worker counted alongside Kid and the four
+                        // gameplay gfx objects during the bootstrap hold.
+                        (7, 4)
+                    }
                 } else {
                     // ASM Load_DemoPlay (kid.asm:23585) allocates the hidden
                     // `loc_119D8` Start-abort controller object before the
