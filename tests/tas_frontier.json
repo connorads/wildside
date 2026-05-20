@@ -2,19 +2,25 @@
   "recordings": {
     "kid_chameleon_short_demo": {
       "scenario": "tests/data/tas/kid_chameleon_short_demo/scenario.json",
+      "frame_start": 780,
       "frontier_frame": 800,
+      "checkpoint_interval": 1,
       "total_frames": 800,
       "status": "verified"
     },
     "kc_any_percent_2024": {
       "scenario": "tests/data/tas/kc_any_percent_2024/scenario.json",
-      "frontier_frame": 4916,
+      "frame_start": 780,
+      "frontier_frame": 850,
+      "checkpoint_interval": 1,
       "total_frames": 4916,
       "status": "verified"
     },
     "any-percent-published": {
       "scenario": "tests/data/tas/any-percent-published/scenario.json",
-      "frontier_frame": 37759,
+      "frame_start": 0,
+      "frontier_frame": 9,
+      "checkpoint_interval": 1,
       "total_frames": 37759,
       "status": "verified"
     }

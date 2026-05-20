@@ -3,22 +3,22 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-tail-clean-through-end",
+    "slug": "any-percent-published-full-run-regressed-at-frame-9",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
-    "area": "Published any-percent TAS tail clean through frame 37759 after the later intro-sequence-1 hand-off and demo-2 transform-abort repairs",
-    "status": "complete",
+    "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
+    "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 37759,
-    "authoritative_clean_through": 37759,
+    "frontier_frame": 9,
+    "authoritative_clean_through": 9,
     "pre_divergence_windows": [
       {
-        "frame_start": 27598,
-        "frame_end": 37759,
-        "reason": "The repaired later demo-2 preload-row split, bounded intro-sequence-4 title camera carry, early title-pose restore, one-frame-earlier later-lineage attract hand-off, later intro-sequence-1 title rebuild, and later demo-2 transform Start-abort suppression now keep authoritative state clean through the end of the published any-percent recording. Chunked CRC checks cover frames 34908..34940, 35140..36000, 36000..37000, and 37000..37759."
+        "frame_start": 0,
+        "frame_end": 9,
+        "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is clean only across frames 0..9 with per-frame checkpoints; frame 9 then diverges on pre-initialisation lives/HP state, and the old 35140..37759 tail claim fails with blocking state diffs plus a CRC mismatch at frame 35210."
       }
     ],
-    "current_blocker": "None. `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916` and `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` both pass, `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean, the later tail chunks 36000..37000 and 37000..37759 are also CRC-clean, and `mise run verify-slice-fast` passes.",
+    "current_blocker": "The previous closed-frontier claim was a false green: full `mise run verify-tas-frontier` printed authoritative diffs for `any-percent-published` and `kc_any_percent_2024` while exiting 0. After tightening the task, `any-percent-published` only verifies clean through frame 9 with per-frame checkpoints; frame 9 diverges on `number_hitpoints` / `number_lives`, and the old 35140..37759 tail window fails with 7304 authoritative diffs plus CRC divergence at frame 35210.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -47,8 +47,8 @@
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "No active authoritative frontier remains in the published any-percent tail",
-      "reason": "Frame 34916 needed the later intro-sequence-1 title idle seeded two frames ahead of the shared `Obj_TitleMenu loc_1BAEA -> loc_1BB02` hand-off, and frame 35148 needed demo Start-abort edges suppressed while Kid_Transform still hibernated the gameplay/object loop. With both fixes in place, chunked CRC checks keep the published tail clean through frame 37759."
+      "name": "The TAS frontier metadata was over-claiming completion",
+      "reason": "The verifier previously treated `verify_tas` exit status as success even when `report.json` contained blocking divergences and the console printed CRC mismatches. The immediate source-port task is now to advance `any-percent-published` from the strict, per-frame-clean frame 0..9 prefix and re-derive later clean windows only when the strict gate can prove them."
     },
     "rejected_hypotheses": [
       {

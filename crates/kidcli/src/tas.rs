@@ -385,7 +385,7 @@ pub fn verify_tas(
             println!("    frame {frame}: {from:?} -> {to:?}");
         }
         // Two-pass: merge transition checkpoints into scenario
-        merge_transition_checkpoints(&mut scenario, &transitions);
+        merge_transition_checkpoints(&mut scenario, &transitions, start, end);
         // Re-extract native states with the augmented checkpoints
         native_states =
             crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -417,12 +417,11 @@ pub fn verify_tas(
         .iter()
         .map(kid_core::NativeTraceFrame::authoritative_crc32)
         .collect();
-    if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
+    let first_crc_mismatch = if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && !oracle.frame_crcs.is_empty()
     {
-        if let Some(first_mismatch) =
-            first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start)
-        {
+        let mismatch = first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start);
+        if let Some(first_mismatch) = mismatch {
             println!("  CRC divergence at frame {first_mismatch}");
         } else {
             let compared_frames = native_crcs
@@ -431,7 +430,10 @@ pub fn verify_tas(
                 .saturating_sub(start);
             println!("  CRC: all {compared_frames} frames match in {start}..{end}",);
         }
-    }
+        mismatch
+    } else {
+        None
+    };
 
     // Compare
     let state_diffs = crate::sweep::compare_sweep_states_for_frontier(
@@ -512,6 +514,7 @@ pub fn verify_tas(
         "frame_range": [start, end],
         "checkpoints": scenario.checkpoints.len(),
         "transitions": transitions.len(),
+        "first_crc_mismatch": first_crc_mismatch,
         "total_diffs": state_diffs.len(),
         "divergence_summary": {
             "authoritative": divergence_summary.authoritative,
@@ -572,6 +575,8 @@ fn state_boot_summary(state: &OracleState) -> String {
 fn merge_transition_checkpoints(
     scenario: &mut DynamicScenario,
     transitions: &[(usize, kid_core::LevelId, kid_core::LevelId)],
+    start: usize,
+    end: usize,
 ) {
     let existing_frames: std::collections::HashSet<usize> = scenario
         .checkpoints
@@ -580,6 +585,9 @@ fn merge_transition_checkpoints(
         .collect();
 
     for &(frame, from, to) in transitions {
+        if frame < start || frame >= end {
+            continue;
+        }
         // Checkpoint just before transition (the last frame of the old level)
         if !existing_frames.contains(&frame) && frame < scenario.frame_count {
             scenario.checkpoints.push(DynamicCheckpoint {
@@ -1179,7 +1187,7 @@ mod tests {
             (500, kid_core::LevelId(0x00), kid_core::LevelId(0x01)),
             (800, kid_core::LevelId(0x01), kid_core::LevelId(0x02)),
         ];
-        super::merge_transition_checkpoints(&mut scenario, &transitions);
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 1000);
 
         let indices: Vec<usize> = scenario
             .checkpoints
@@ -1216,7 +1224,7 @@ mod tests {
         };
         // Transition at frame 200 — already a checkpoint
         let transitions = vec![(200, kid_core::LevelId(0x00), kid_core::LevelId(0x01))];
-        super::merge_transition_checkpoints(&mut scenario, &transitions);
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 500);
 
         let indices: Vec<usize> = scenario
             .checkpoints
@@ -1225,6 +1233,33 @@ mod tests {
             .collect();
         // frame 200 already existed, 201 is new
         assert_eq!(indices, vec![200, 201]);
+    }
+
+    #[test]
+    fn merge_transition_checkpoints_ignores_transitions_outside_slice() {
+        let mut scenario = DynamicScenario {
+            slug: "test".into(),
+            script: vec![0; 1000],
+            frame_count: 1000,
+            checkpoints: vec![DynamicCheckpoint {
+                label: "frame_780".into(),
+                frame_index: 780,
+            }],
+            warp_to_level: None,
+        };
+        let transitions = vec![
+            (500, kid_core::LevelId(0x00), kid_core::LevelId(0x01)),
+            (800, kid_core::LevelId(0x01), kid_core::LevelId(0x02)),
+            (900, kid_core::LevelId(0x02), kid_core::LevelId(0x03)),
+        ];
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 780, 850);
+
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .collect();
+        assert_eq!(indices, vec![780, 800, 801]);
     }
 
     #[test]

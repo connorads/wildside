@@ -217,10 +217,22 @@ if [ ! -f "$FRONTIER" ]; then echo "missing $FRONTIER"; exit 1; fi
 FAIL=0
 for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
   scenario=$(jq -r --arg slug "$slug" ".recordings[\\$slug].scenario" "$FRONTIER")
+  start=$(jq -r --arg slug "$slug" ".recordings[\\$slug].frame_start // 0" "$FRONTIER")
   frame=$(jq -r --arg slug "$slug" ".recordings[\\$slug].frontier_frame" "$FRONTIER")
-  echo "checking $slug up to frame $frame..."
-  if ! cargo run --release -q -p kidcli -- verify-tas --scenario "$scenario" --frame-end "$frame"; then
-    echo "FAIL: $slug regressed before frame $frame"
+  checkpoint_interval=$(jq -r --arg slug "$slug" ".recordings[\\$slug].checkpoint_interval // empty" "$FRONTIER")
+  echo "checking $slug frames $start..$frame..."
+  args="--scenario $scenario --frame-start $start --frame-end $frame"
+  if [ -n "$checkpoint_interval" ]; then args="$args --checkpoint-interval $checkpoint_interval"; fi
+  if ! cargo run --release -q -p kidcli -- verify-tas $args; then
+    echo "FAIL: $slug verifier errored for frames $start..$frame"
+    FAIL=1
+    continue
+  fi
+  report=".cache/tas-verify/$slug/report.json"
+  blocking=$(jq '"'"'.divergence_summary.authoritative + .divergence_summary.accumulation + .divergence_summary.rng'"'"' "$report")
+  crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
+  if [ "$blocking" -ne 0 ] || [ -n "$crc" ]; then
+    echo "FAIL: $slug regressed in frames $start..$frame (blocking=$blocking crc=${crc:-none})"
     FAIL=1
   fi
 done
