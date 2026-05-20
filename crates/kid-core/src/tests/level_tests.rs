@@ -4195,6 +4195,27 @@ mod chunk_02 {
     }
 
     #[test]
+    fn title_menu_cursor_input_does_not_write_character_movement() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut trace = Vec::new();
+        for frame in 0..=836 {
+            trace.push(runtime.step_frame(FrameInput::from_mask(
+                script.get(frame).copied().unwrap_or_default(),
+            )));
+        }
+
+        for (frame, trace_frame) in trace.iter().enumerate().take(816 + 1).skip(812) {
+            assert_eq!(trace_frame.game_mode, GameMode::TitleScreen);
+            assert_eq!(
+                trace_frame.character_movement,
+                Some(0),
+                "ASM Obj_TitleMenu loc_1BBDE/loc_1BBF6 keeps title cursor Up/Down local to d1 and does not write Character_Movement on frame {frame}"
+            );
+        }
+        assert_eq!(trace[836].game_mode, GameMode::TitleScreen);
+    }
+
+    #[test]
     fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
         let mut script = vec![0u8; 437];
         script[33] = 0x80;

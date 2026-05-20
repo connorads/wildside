@@ -505,6 +505,19 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
             return MOVE_STANDINGSTILL;
         }
+        if matches!(
+            self.boot_state,
+            BootState::TitleScreen { .. }
+                | BootState::IntroSequence6 { .. }
+                | BootState::OptionsMenu { .. }
+                | BootState::SoundTest { .. }
+                | BootState::EndingSequence { .. }
+        ) {
+            // ASM Obj_TitleMenu loc_1BBDE/loc_1BBF6 consumes Up/Down into the
+            // title cursor's local `d1` row; it does not write
+            // Character_Movement at $FFFFFA56 while Game_Mode remains $2C.
+            return MOVE_STANDINGSTILL;
+        }
 
         if self.helmet.iron_knight_climbing {
             return MOVE_WALL_CLIMBING;

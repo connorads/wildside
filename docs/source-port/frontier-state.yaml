@@ -3,22 +3,22 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-title-menu-cursor-at-frame-812",
+    "slug": "any-percent-published-title-demo-handoff-at-frame-837",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 812,
-    "authoritative_clean_through": 812,
+    "frontier_frame": 837,
+    "authoritative_clean_through": 837,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
-        "frame_end": 812,
-        "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is state-clean and CRC-clean across frames 0..812 with per-frame checkpoints after matching Sega-screen gameplay counter visibility, the Sega logo controller object count from `Load_SegaScreen loc_12E48`, the first-segment Start polling window in `sub_1B8F4`/`sub_1C204`/`sub_1C246`, the intro shell object allocations, and the cold-boot hidden title rebuild object-count windows."
+        "frame_end": 837,
+        "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is state-clean and CRC-clean across frames 0..837 with per-frame checkpoints after matching Sega-screen gameplay counter visibility, the Sega logo controller object count from `Load_SegaScreen loc_12E48`, the first-segment Start polling window in `sub_1B8F4`/`sub_1C204`/`sub_1C246`, the intro shell object allocations, the cold-boot hidden title rebuild object-count windows, and title-menu Character_Movement staying `$0000` while Up/Down is local to `Obj_TitleMenu`."
       }
     ],
-    "current_blocker": "The previous closed-frontier claim was a false green: full `mise run verify-tas-frontier` printed authoritative diffs for `any-percent-published` and `kc_any_percent_2024` while exiting 0. After tightening the task and matching the cold-boot intro/title shell, `any-percent-published` verifies clean through frame 812 with per-frame checkpoints. Frame 812 is now the next authoritative mismatch: native reports title menu/cursor movement state `1` while oracle remains `0`; the later title-to-level transition then drifts. The old 35140..37759 tail window still fails with 7304 authoritative diffs plus CRC divergence at frame 35210.",
+    "current_blocker": "The previous closed-frontier claim was a false green: full `mise run verify-tas-frontier` printed authoritative diffs for `any-percent-published` and `kc_any_percent_2024` while exiting 0. After tightening the task and matching the cold-boot intro/title shell, `any-percent-published` verifies clean through frame 837 with per-frame checkpoints. Frame 812's title menu/cursor movement mismatch is cleared: native now keeps `Character_Movement=$0000` while Up/Down only update Obj_TitleMenu's local row. The next authoritative blocker is frame 837: oracle enters `Game_Mode=$10` demo play while native remains on `Game_Mode=$2C` title. A naive active-menu countdown tick moves this to frame 919 for `any-percent-published` but regresses `kc_any_percent_2024` at frame 834, so the next fix must distinguish the title-loop timing source rather than globally counting cursor/button frames. The old 35140..37759 tail window still fails with 7304 authoritative diffs plus CRC divergence at frame 35210.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
