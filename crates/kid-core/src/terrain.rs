@@ -231,6 +231,8 @@ pub struct GroundedWalkerTerrainScan {
     pub flags_d7: u8,
     /// The ROM's `d6` following-row class: -1 clear, 0 blocked, 1 mixed.
     pub floor_class_d6: i16,
+    /// The ROM's `d3` column-span counter; DBF scans this plus one cells.
+    pub column_span_d3: u16,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1997,6 +1999,7 @@ pub fn grounded_walker_scan_right_sub_36972(
 ) -> GroundedWalkerTerrainScan {
     let (top_row, body_bottom_row, following_row, left_col, right_col) =
         grounded_walker_scan_bounds(grid, center_x_px, foot_y_px, half_width, height);
+    let column_span_d3 = right_col.saturating_sub(left_col) as u16;
 
     let mut flags_d7 = 0u8;
     let lead_col = right_col + 1;
@@ -2040,6 +2043,7 @@ pub fn grounded_walker_scan_right_sub_36972(
     GroundedWalkerTerrainScan {
         flags_d7,
         floor_class_d6: horizontal_collision_scan_following_row_class_loc_36A10(&floor_words),
+        column_span_d3,
     }
 }
 
@@ -2054,6 +2058,7 @@ pub fn grounded_walker_scan_left_sub_36A58(
 ) -> GroundedWalkerTerrainScan {
     let (top_row, body_bottom_row, following_row, left_col, right_col) =
         grounded_walker_scan_bounds(grid, center_x_px, foot_y_px, half_width, height);
+    let column_span_d3 = right_col.saturating_sub(left_col) as u16;
 
     let mut flags_d7 = 0u8;
     if let Some(lead_col) = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col) {
@@ -2093,6 +2098,7 @@ pub fn grounded_walker_scan_left_sub_36A58(
     GroundedWalkerTerrainScan {
         flags_d7,
         floor_class_d6: horizontal_collision_scan_left_following_row_class_loc_36AF0(&floor_words),
+        column_span_d3,
     }
 }
 
@@ -5294,6 +5300,7 @@ mod tests {
             GroundedWalkerTerrainScan {
                 flags_d7: 0b111,
                 floor_class_d6: 0,
+                column_span_d3: 0,
             },
             "ASM sub_36972 should preserve lead-column, following-lead, body-hit, and following-row classifications as separate d7/d6 outputs",
         );
@@ -5312,6 +5319,10 @@ mod tests {
         assert_eq!(
             scan.floor_class_d6, 1,
             "ASM sub_36A58 reaches loc_36AF0, so the following row is classified right-to-left and mixed floor support returns d6=1",
+        );
+        assert_eq!(
+            scan.column_span_d3, 2,
+            "ASM sub_36A58 preserves d3 as the inclusive hitbox column span minus one",
         );
     }
 
