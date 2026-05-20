@@ -332,6 +332,29 @@ mod tests {
     }
 
     #[test]
+    fn load_title_card_letters_returns_rom_letter_sheet_and_palette() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let letters = visuals
+            .title_card_letters
+            .expect("ASM Load_TitleCard loc_1AB26 letter visuals");
+
+        assert_eq!(
+            letters.tile_sheet.tiles.len(),
+            35,
+            "ASM off_1AC2A indexes 35 title-card letter/marker sprite frames"
+        );
+        assert_eq!(
+            letters.palette.colours.len(),
+            16,
+            "ASM loc_1AB26 copies Pal_19C48 as one complete 16-colour line"
+        );
+        assert_eq!(letters.tile_sheet.tiles[0].pixels[0], 0);
+        assert_eq!(letters.tile_sheet.tiles[34].pixels[63], 15);
+    }
+
+    #[test]
     fn missing_required_asset_reports_contextual_error() {
         let fixture = TestBundle::new().expect("test bundle");
         let missing_path = fixture
@@ -553,6 +576,23 @@ mod tests {
                 "scenes/palette/Score_screen.bin",
                 &(0..15)
                     .map(|value| 0x0340_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Title_card_letters.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 35))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/palette/Title_card_letters.bin",
+                &(0..16)
+                    .map(|value| 0x0380_u16 + value)
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>(),
             )?;
@@ -908,6 +948,8 @@ mod tests {
                 scene_assets: vec![
                     asset_file(root.path(), "scenes/artcomp/End_level_stats_text.bin"),
                     asset_file(root.path(), "scenes/palette/Score_screen.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Title_card_letters.bin"),
+                    asset_file(root.path(), "scenes/palette/Title_card_letters.bin"),
                 ],
                 animation_assets: Vec::new(),
                 sound_assets: Vec::new(),
