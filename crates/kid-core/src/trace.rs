@@ -629,6 +629,29 @@ impl NativeRuntime {
             && self.title_screen_elapsed_frames < self.demo_title_full_snapshot_frames()
     }
 
+    fn demo_title_return_hidden_object_counts(&self) -> Option<(u16, u16)> {
+        if !matches!(self.boot_state, BootState::TitleScreen { .. })
+            || self.preserve_demo_title_snapshot
+            || self.demo_auto_timeout_handoff_active
+            || !self.hide_demo_return_title_player
+        {
+            return None;
+        }
+
+        // ASM loc_119D8 -> loc_6E2 returns manual demo aborts to title
+        // without clearing object RAM immediately. Once the preserved gameplay
+        // snapshot drops, the hidden Load_TitleScreen / Obj_TitleMenu rebuild
+        // follows the same staged object-count shape as sub_1C246 title
+        // returns before the steady title shell takes over.
+        match self.title_screen_elapsed_frames {
+            32..=55 => Some((0, 0)),
+            56 => Some((3, 0)),
+            57 => Some((5, 1)),
+            58 => Some((5, 2)),
+            _ => None,
+        }
+    }
+
     fn title_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.timeout_restart_title_intro_sequence_3_pose
@@ -2365,6 +2388,15 @@ impl NativeRuntime {
             // title objects live alongside the preserved gameplay roster while
             // the demo snapshot is still being shown.
             return (roster_count + 4, roster_count + 4);
+        }
+        if self.title_uses_demo_snapshot()
+            && self.title_screen_elapsed_frames < self.demo_title_partial_snapshot_frames()
+            && let Some(counts) = self.demo_title_snapshot_object_counts
+        {
+            return counts;
+        }
+        if let Some(counts) = self.demo_title_return_hidden_object_counts() {
+            return counts;
         }
         if self.early_start_title_menu_shell_carry_active() {
             return (4, 3);

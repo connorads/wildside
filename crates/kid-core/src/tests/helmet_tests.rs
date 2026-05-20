@@ -4528,6 +4528,70 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_demo_1_title_return_keeps_snapshot_counts_until_hidden_rebuild() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frames = std::collections::BTreeMap::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_897) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                1_864 | 1_865 | 1_868 | 1_869 | 1_893 | 1_894 | 1_895 | 1_896
+            ) {
+                frames.insert(
+                    frame_index,
+                    (
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                        trace.title_screen_ready,
+                    ),
+                );
+            }
+        }
+
+        assert_eq!(
+            frames.get(&1_864),
+            Some(&(12, 12, true)),
+            "ASM loc_119D8's preserved demo-title snapshot should still report live demo counts before the hidden rebuild",
+        );
+        assert_eq!(
+            frames.get(&1_865),
+            Some(&(12, 12, true)),
+            "the preserved object-count snapshot should survive through the oracle-backed frame-1865 blocker",
+        );
+        assert_eq!(
+            frames.get(&1_868),
+            Some(&(12, 12, true)),
+            "the final preserved object-count frame should still carry the live demo counts",
+        );
+        assert_eq!(
+            frames.get(&1_869),
+            Some(&(0, 0, true)),
+            "after the preserved counts drop, the hidden title rebuild should expose the blank object window",
+        );
+        assert_eq!(
+            frames.get(&1_893),
+            Some(&(3, 0, true)),
+            "the hidden title rebuild should then expose the three-object pre-gfx stage",
+        );
+        assert_eq!(
+            frames.get(&1_894),
+            Some(&(5, 1, true)),
+            "the hidden title rebuild should expose the first five-object stage",
+        );
+        assert_eq!(
+            frames.get(&1_895),
+            Some(&(5, 2, true)),
+            "the hidden title rebuild should expose the second five-object stage",
+        );
+        assert_eq!(
+            frames.get(&1_896),
+            Some(&(4, 4, true)),
+            "the steady title shell should take over once Obj_TitleMenu has rebuilt",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;
