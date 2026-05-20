@@ -2518,6 +2518,7 @@ impl NativeRuntime {
                     self.helmet.maniaxe_axe_active,
                     self.physics_order,
                     allow_asm_faithful_solid_touch_snap,
+                    self.demo_post_transform_trace_velocity_hold_frames > 0,
                     &deferred_prize_ceiling_cells,
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;

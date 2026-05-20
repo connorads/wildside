@@ -6874,7 +6874,9 @@ mod chunk_08 {
         let mut frame_1131 = None;
         let mut frame_1145 = None;
         let mut frame_1146 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_147) {
+        let mut frame_1147 = None;
+        let mut frame_1148 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_149) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 989 => frame_989 = Some(trace),
@@ -6889,8 +6891,10 @@ mod chunk_08 {
                 1_130 => frame_1130 = Some(trace),
                 1_131 => frame_1131 = Some(trace),
                 1_145 => frame_1145 = Some(trace),
-                1_146 => {
-                    frame_1146 = Some(trace);
+                1_146 => frame_1146 = Some(trace),
+                1_147 => frame_1147 = Some(trace),
+                1_148 => {
+                    frame_1148 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -6955,9 +6959,11 @@ mod chunk_08 {
         let frame_1131 = frame_1131.expect("frame 1131 trace");
         let frame_1145 = frame_1145.expect("frame 1145 trace");
         let frame_1146 = frame_1146.expect("frame 1146 trace");
+        let frame_1147 = frame_1147.expect("frame 1147 trace");
+        let frame_1148 = frame_1148.expect("frame 1148 trace");
         // ASM Kid_Transform loc_7E90 exits the transform coroutine before the
         // demo controller hand-off has republished live player velocity. Oracle
-        // WRAM samples x_vel/y_vel as zero through frames 1131..1145 even while
+        // WRAM samples x_vel/y_vel as zero through frames 1131..1147 even while
         // the visible `kid_gfx` object keeps moving; native masks only trace
         // export here so the internal simulation still advances.
         assert_eq!(frame_1131.form_change_flash_frames, 0);
@@ -6965,8 +6971,12 @@ mod chunk_08 {
         assert_eq!(frame_1131.kid_y_velocity, Some(0));
         assert_eq!(frame_1145.kid_x_velocity, Some(0));
         assert_eq!(frame_1145.kid_y_velocity, Some(0));
+        assert_eq!(frame_1146.kid_x_velocity, Some(0));
+        assert_eq!(frame_1146.kid_y_velocity, Some(0));
+        assert_eq!(frame_1147.kid_x_velocity, Some(0));
+        assert_eq!(frame_1147.kid_y_velocity, Some(0));
         assert_ne!(
-            frame_1146.kid_x_velocity,
+            frame_1148.kid_x_velocity,
             Some(0),
             "post-transform trace velocity hold should expire before the next gameplay frontier"
         );

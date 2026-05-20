@@ -1318,7 +1318,11 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_x_vel".into(),
                 native_value: format!("{n_xv:#010x}"),
                 oracle_value: format!("{o_xv:#010x}"),
-                category: DivergenceCategory::Authoritative,
+                category: if oracle_demo_kid_gfx_velocity_matches(native, oracle) {
+                    DivergenceCategory::OracleLimitation
+                } else {
+                    DivergenceCategory::Authoritative
+                },
             });
         }
         if let (Some(n_yv), Some(o_yv)) = (native.kid_y_vel, oracle.kid_y_vel)
@@ -1329,7 +1333,11 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_y_vel".into(),
                 native_value: format!("{n_yv:#010x}"),
                 oracle_value: format!("{o_yv:#010x}"),
-                category: DivergenceCategory::Authoritative,
+                category: if oracle_demo_kid_gfx_velocity_matches(native, oracle) {
+                    DivergenceCategory::OracleLimitation
+                } else {
+                    DivergenceCategory::Authoritative
+                },
             });
         }
         if let (Some(n_inv), Some(o_inv)) = (native.invulnerable_frames, oracle.invulnerable_frames)
@@ -1418,6 +1426,23 @@ pub(crate) fn compare_sweep_states_for_frontier(
     }
 
     diffs
+}
+
+fn oracle_demo_kid_gfx_velocity_matches(native: &OracleState, oracle: &OracleState) -> bool {
+    const DEMO_PLAY_GAME_MODE: u16 = 0x0010;
+    const KID_GFX_OBJECT_TYPE: u8 = 0x30;
+
+    if native.game_mode != DEMO_PLAY_GAME_MODE || oracle.game_mode != DEMO_PLAY_GAME_MODE {
+        return false;
+    }
+
+    oracle.active_enemies.iter().any(|enemy| {
+        enemy.object_type == KID_GFX_OBJECT_TYPE
+            && enemy.x_pos == oracle.kid_x_pos
+            && enemy.y_pos == oracle.kid_y_pos
+            && Some(enemy.x_velocity) == native.kid_x_vel
+            && Some(enemy.y_velocity) == native.kid_y_vel
+    })
 }
 
 fn enemy_roster_frontier_matches(
@@ -3104,6 +3129,104 @@ mod tests {
             classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
 
         assert_eq!(category, DivergenceCategory::Authoritative);
+    }
+
+    fn demo_velocity_state(kid_x_vel: i32, kid_y_vel: i32) -> OracleState {
+        OracleState {
+            label: "frame_1148".into(),
+            frame_index: 1148,
+            game_mode: 0x0010,
+            boot_phase: Some("demo_play".into()),
+            boot_phase_elapsed: Some(237),
+            title_screen_ready: true,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 2,
+            current_level_id: 0x001B,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0x01ED_0000,
+            kid_x_pos: 0x0035_CB80,
+            kid_y_pos: 0x0290_4000,
+            number_objects: 4,
+            number_gfx_objects: 4,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: Some(kid_x_vel),
+            kid_y_vel: Some(kid_y_vel),
+            character_movement: Some(3),
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: Some(0x00A0),
+            kid_x_direction: Some(0xFF),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0xFFF4),
+            level_special_effects: Some(0),
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }
+    }
+
+    #[test]
+    fn demo_kid_gfx_velocity_mirror_reclassifies_top_level_velocity_as_oracle_limitation() {
+        // ASM Load_DemoPlay (kid.asm:23585) keeps the `loc_119D8`
+        // controller object alive while the visible player is the
+        // `0x30(kid_gfx)` GfxObject. TAS probes can therefore report stale
+        // top-level WRAM velocity zero while the live object carries motion.
+        let native = vec![demo_velocity_state(-0x0002_1480, 0x0000_4000)];
+        let mut oracle_state = demo_velocity_state(0, 0);
+        oracle_state.active_enemies = vec![OracleEnemyState {
+            object_type: 0x30,
+            x_pos: oracle_state.kid_x_pos,
+            y_pos: oracle_state.kid_y_pos,
+            x_velocity: -0x0002_1480,
+            y_velocity: 0x0000_4000,
+            facing: EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: None,
+            layout_ptr: Some(0x00FF_75FA),
+            parent_object_ptr: Some(0xFFFF_0DD4),
+            gfx_slot_index: Some(2),
+            on_ground: Some(false),
+            current_hp: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+        let oracle = vec![oracle_state];
+
+        let diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
+
+        assert_eq!(
+            diffs
+                .iter()
+                .map(|diff| diff.field.as_str())
+                .collect::<Vec<_>>(),
+            vec!["kid_x_vel", "kid_y_vel"]
+        );
+        assert!(
+            diffs
+                .iter()
+                .all(|diff| diff.category == DivergenceCategory::OracleLimitation)
+        );
+    }
+
+    #[test]
+    fn live_velocity_diff_without_demo_kid_gfx_mirror_stays_authoritative() {
+        let native = vec![demo_velocity_state(0x0000_8000, 0)];
+        let oracle = vec![demo_velocity_state(0, 0)];
+
+        let diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "kid_x_vel");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
     }
 
     #[test]

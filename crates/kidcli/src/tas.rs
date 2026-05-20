@@ -468,11 +468,9 @@ pub fn verify_tas(
 
         // Find first authoritative divergence frame
         if divergence_summary.authoritative > 0
-            && let Some(first_auth) = state_diffs.iter().find(|d| {
-                !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str())
-                    || matches!(frontier_kind, crate::sweep::FrontierKind::Enemy)
-                        && d.field == "enemy_roster"
-            })
+            && let Some(first_auth) = state_diffs
+                .iter()
+                .find(|diff| diff.category == crate::sweep::DivergenceCategory::Authoritative)
         {
             println!(
                 "  first authoritative divergence: checkpoint {}",
@@ -489,11 +487,7 @@ pub fn verify_tas(
 
     let first_authoritative_diff = state_diffs
         .iter()
-        .find(|d| {
-            !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str())
-                || matches!(frontier_kind, crate::sweep::FrontierKind::Enemy)
-                    && d.field == "enemy_roster"
-        })
+        .find(|diff| diff.category == crate::sweep::DivergenceCategory::Authoritative)
         .map(|diff| {
             let (native_state, oracle_state) =
                 checkpoint_pair(&diff.checkpoint, &native_states, &oracle.states)
@@ -677,11 +671,9 @@ fn probe_tas(
         &oracle.states,
         frontier_kind,
     );
-    let first_auth = state_diffs.iter().find(|d| {
-        !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str())
-            || matches!(frontier_kind, crate::sweep::FrontierKind::Enemy)
-                && d.field == "enemy_roster"
-    });
+    let first_auth = state_diffs
+        .iter()
+        .find(|diff| diff.category == crate::sweep::DivergenceCategory::Authoritative);
 
     match first_auth {
         Some(diff) => {

@@ -155,7 +155,7 @@ pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_F
 /// velocity fields at zero while the visible `kid_gfx` object continues moving
 /// for the short controller hand-off window. Native models that as trace-only
 /// export masking; physics still advances with the real player velocity.
-pub(crate) const DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES: u8 = 15;
+pub(crate) const DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES: u8 = 17;
 /// Oracle-backed published TAS traces keep Character_Movement at
 /// `MoveID_Jump` through the demo-1 wall-jump landing stall, then restore
 /// `MoveID_Standingstill` one startup frame before the velocity trace hold
@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
         assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 167);
-        assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 15);
+        assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }
 
     #[test]

@@ -2662,6 +2662,7 @@ impl OpeningSliceState {
             false,
             physics_order,
             allow_asm_faithful_solid_touch_snap,
+            false,
             deferred_prize_ceiling_cells,
         );
     }
@@ -2679,6 +2680,7 @@ impl OpeningSliceState {
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
+        suppress_post_horizontal_floor_release: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         self.step_with_order_inner(
@@ -2692,6 +2694,7 @@ impl OpeningSliceState {
             maniaxe_throwing_axe_active,
             physics_order,
             allow_asm_faithful_solid_touch_snap,
+            suppress_post_horizontal_floor_release,
             deferred_prize_ceiling_cells,
         );
     }
@@ -2709,6 +2712,7 @@ impl OpeningSliceState {
         maniaxe_throwing_axe_active: bool,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
+        suppress_post_horizontal_floor_release: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
@@ -3628,13 +3632,17 @@ impl OpeningSliceState {
                     if self.player.on_ground
                         && self.grounded_slope_collision(Some(grid)).is_none()
                         && !plain_airborne_floor_landing
+                        && !suppress_post_horizontal_floor_release
                         && !self
                             .walking_floor_support_exists_at_current_position(grid, collision_hw)
                     {
-                        // ASM sub_B43A/loc_B5F6: once the stepped walking
-                        // hitbox no longer overlaps any solid floor, the next
-                        // state is the airborne jump path rather than another
-                        // synthetic grounded hold.
+                        // ASM sub_B43A/loc_B5F6 normally drops the walking
+                        // path as soon as the stepped hitbox no longer
+                        // overlaps solid floor. Demo Kid_Transform has a
+                        // short WRAM/GFX hand-off where oracle sampling keeps
+                        // the visible Kid on the prior grounded row; the
+                        // runtime passes `suppress_post_horizontal_floor_release`
+                        // only for that post-transform export window.
                         self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
                         self.player.on_ground = false;
                         self.player.on_spikes = false;
