@@ -6862,11 +6862,24 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
 
         let mut frame_989 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(990) {
+        let mut frame_1020 = None;
+        let mut frame_1021 = None;
+        let mut frame_1022 = None;
+        let mut frame_1045 = None;
+        let mut frame_1046 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_047) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
-            if frame_index == 989 {
-                frame_989 = Some(trace);
-                break;
+            match frame_index {
+                989 => frame_989 = Some(trace),
+                1_020 => frame_1020 = Some(trace),
+                1_021 => frame_1021 = Some(trace),
+                1_022 => frame_1022 = Some(trace),
+                1_045 => frame_1045 = Some(trace),
+                1_046 => {
+                    frame_1046 = Some(trace);
+                    break;
+                }
+                _ => {}
             }
         }
 
@@ -6877,6 +6890,21 @@ mod chunk_08 {
         assert_eq!(frame_989.block_bounces, vec![(4, 0x24, 31, 0)]);
         assert_eq!(frame_989.number_objects, 5);
         assert_eq!(frame_989.number_gfx_objects, 5);
+
+        let frame_1020 = frame_1020.expect("frame 1020 trace");
+        let frame_1021 = frame_1021.expect("frame 1021 trace");
+        let frame_1022 = frame_1022.expect("frame 1022 trace");
+        let frame_1045 = frame_1045.expect("frame 1045 trace");
+        let frame_1046 = frame_1046.expect("frame 1046 trace");
+        // ASM sub_1007A deletes the wobble worker only after the post-wobble
+        // animation hand-off, and loc_102B8 keeps the spawn-flash worker alive
+        // for the 25-frame stru_102DE script. These are count-visible even
+        // though native does not yet render the flash as a separate effect.
+        assert_eq!(frame_1020.number_objects, 5);
+        assert_eq!(frame_1021.number_objects, 6);
+        assert_eq!(frame_1022.number_objects, 6);
+        assert_eq!(frame_1045.number_objects, 6);
+        assert_eq!(frame_1046.number_objects, 5);
     }
 
     #[test]

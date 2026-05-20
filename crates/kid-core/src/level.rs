@@ -16941,6 +16941,8 @@ impl NativeRuntime {
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
         self.block_bounces.clear();
+        self.prize_block_worker_tails.clear();
+        self.prize_block_spawn_flashes.clear();
         self.block_destroy_effects.clear();
         self.floating_items.clear();
         self.init_murder_wall(level_id, 0);

@@ -100,6 +100,14 @@ pub struct NativeRuntime {
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
     block_bounces: Vec<BlockBounceAnim>,
+    /// ASM sub_1007A count-only prize-block worker tail after the visible
+    /// wobble table has finished but before the coroutine's spawn hand-off
+    /// deletes its object/gfx allocation.
+    prize_block_worker_tails: Vec<u8>,
+    /// ASM loc_102B8 count-only flash workers spawned by sub_1007A. Native
+    /// does not render the flash yet, but the object/gfx allocation affects
+    /// TAS trace counts during `stru_102DE`.
+    prize_block_spawn_flashes: Vec<u8>,
     /// Block destruction fragment effects.
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// Floating prize items rising from blocks.
@@ -1128,6 +1136,8 @@ impl NativeRuntime {
             weather: WeatherState::default(),
             murder_wall: None,
             block_bounces: Vec::new(),
+            prize_block_worker_tails: Vec::new(),
+            prize_block_spawn_flashes: Vec::new(),
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
             iron_knight_block_breaker: false,

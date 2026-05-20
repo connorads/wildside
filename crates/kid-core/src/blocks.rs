@@ -1290,6 +1290,8 @@ impl NativeRuntime {
     // frame N+33:       restore original prize cell (E1xx)
     // frame N+34:       clear cell and spawn prize object
     pub(crate) const PRIZE_BLOCK_DELETED_FRAMES: u16 = 32;
+    pub(crate) const PRIZE_BLOCK_WORKER_TAIL_FRAMES: u8 = 3;
+    pub(crate) const PRIZE_BLOCK_SPAWN_FLASH_FRAMES: u8 = 25;
     pub(crate) const PRIZE_DIAMOND_LIFETIME_FRAMES: u16 = 0x01F4;
     pub(crate) const PRIZE_GENERIC_LIFETIME_FRAMES: u16 = 0x0320;
     // PrizeDiamond_Init starts moving on the frame after object creation, so a
@@ -2275,6 +2277,13 @@ impl NativeRuntime {
                             entry.phase = DeferredPrizeBlockPhase::Restored;
                         } else {
                             entry.deleted_frames_remaining -= 1;
+                            if entry.deleted_frames_remaining == 0 {
+                                // ASM sub_1007A reaches the post-wobble
+                                // animation/spawn hand-off while the original
+                                // #$2001 object/gfx allocation is still live.
+                                self.prize_block_spawn_flashes
+                                    .push(Self::PRIZE_BLOCK_SPAWN_FLASH_FRAMES);
+                            }
                         }
                         true
                     }
@@ -3259,7 +3268,31 @@ impl NativeRuntime {
             }
             b.remaining = b.remaining.saturating_sub(1);
         }
-        self.block_bounces.retain(|b| b.remaining > 0);
+        for tail in &mut self.prize_block_worker_tails {
+            *tail = tail.saturating_sub(1);
+        }
+        self.prize_block_worker_tails.retain(|tail| *tail > 0);
+
+        let mut finished_prize_bounce_count = 0u8;
+        self.block_bounces.retain(|b| {
+            if b.remaining > 0 {
+                true
+            } else {
+                if b.initial_duration == 31 {
+                    finished_prize_bounce_count = finished_prize_bounce_count.saturating_add(1);
+                }
+                false
+            }
+        });
+        self.prize_block_worker_tails.extend(std::iter::repeat_n(
+            Self::PRIZE_BLOCK_WORKER_TAIL_FRAMES,
+            usize::from(finished_prize_bounce_count),
+        ));
+
+        for flash in &mut self.prize_block_spawn_flashes {
+            *flash = flash.saturating_sub(1);
+        }
+        self.prize_block_spawn_flashes.retain(|flash| *flash > 0);
 
         for e in &mut self.block_destroy_effects {
             e.remaining = e.remaining.saturating_sub(1);
