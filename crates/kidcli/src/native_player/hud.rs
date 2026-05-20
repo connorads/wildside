@@ -13,7 +13,10 @@ const HUD_DIAMOND_X: i32 = 0x1A0 - 128;
 const HUD_DIAMOND_Y: i32 = 0xA2 - 128;
 const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
 const HUD_DIAMOND_COUNT_Y: i32 = 0xA4 - 128;
-const HUD_HITPOINT_START_X: i32 = 0;
+// ASM Make_SpriteAttr_HUD loc_BE0C (kid.asm:15407): d2 starts at $80 and
+// `addi.w #$10,d2` runs before the first hitpoint sprite write, so the first
+// visible HP pip lands at biased X $90, i.e. screen X 16.
+const HUD_HITPOINT_START_X: i32 = 0x90 - 128;
 const HUD_HITPOINT_Y: i32 = 0xA4 - 128;
 const HUD_HITPOINT_SPACING_X: i32 = 0x10;
 

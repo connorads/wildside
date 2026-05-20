@@ -5139,6 +5139,33 @@ mod tests {
     }
 
     #[test]
+    fn game_hud_hitpoint_pips_start_at_asm_sprite_table_x_position() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_hitpoints = 1;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, full_pip, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0xA4 - 128, 0x200)
+                .expect("first hitpoint pip");
+        let (_, empty_pip, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xA0 - 128, 0xA4 - 128, 0x200)
+                .expect("second hitpoint pip");
+
+        assert_eq!(
+            full_pip.tile_index, 13,
+            "ASM Make_SpriteAttr_HUD loc_BE0C writes the first full pip at biased X $90 with tile $822D"
+        );
+        assert_eq!(
+            empty_pip.tile_index, 15,
+            "ASM loc_BE5C writes the second empty pip at biased X $A0 with tile $822F"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 0, 0xA4 - 128, 0x200).is_none(),
+            "native must not draw the old left-edge HP pip approximation"
+        );
+    }
+
+    #[test]
     fn game_hud_reflects_damage() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.number_hitpoints = 1; // Took damage
