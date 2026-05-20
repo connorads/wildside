@@ -82,7 +82,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ### Dragon Walking — Fixed this session
 - Breath interval: initial $12C (300f), reset $1F4 (500f) — dual constant implemented
 
-### Dragon Flying — Fire/death child fixed, collision gaps remain
+### Dragon Flying — Fire/death child fixed, death timing remains
 - All script constants verified correct (drift speeds, accelerations, caps, dive script entries)
 - All 3 variant scripts verified correct
 - **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
@@ -102,7 +102,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Fixed: Acceleration doubling for levels 1-2**: native now persists the ROM's `$4E(a5)` init flag and doubles the signed per-axis acceleration after `loc_35444` resolves the drift row.
 - **Fixed: Target velocity doubling for level 2**: native now persists the ROM's `$4F(a5)` init flag, doubles the desired drift speeds, and reloads the 60/40/30 pattern timer from the raw layout level instead of live HP.
 - **Fixed: Cyclone-flying bounce interaction**: ASM `loc_35986` implements bounce when Cyclone-flying player contacts Tornado. Native now sets player x_velocity = ±$20000, Tornado x_velocity = opposite halved ∓$10000, and cyclone_y_accel = $28 (40). Other forms take normal contact damage.
-- RNG pattern selection: documented DEVIATION.
+- **Fixed: ROM pattern selection**: ASM `loc_359F2 -> loc_35A02 / unk_35A0C` is now mirrored by `reload_tornado_pattern_script`; regression coverage includes `tornado_loads_rom_pattern_on_timer_expiry`, script advance/wrap, and level-dependent doubling.
 
 ### Ninja, Hand, Lion, Robot, Orca, SpinningTwins, TarMonster, Drips
 - Previously verified and fixed in earlier sessions (#040-#061)
@@ -119,7 +119,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 
 ## Bosses
 
-### HeadyMetal — Phase-dependent fire + X gate done; death wobble render path wired, ASM timer-boundary sprite regressions added, full oracle visual verification still pending (#062)
+### HeadyMetal — Phase-dependent fire + X gate done; death wobble render path verified by #062 effects regressions
 ### Shishkaboss, BoomerangBosses, BagelBrothers — Multi-head system verified (#060)
 
 ---
