@@ -11,6 +11,7 @@ use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
     diamond_power_rain_find_nearest_enemy, diamond_power_rain_screen_cull_and_compile,
 };
+use crate::terrain::relative_collision_mask_loc_331D2;
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +131,19 @@ fn drips_surface_crawler_out_of_level_bounds_loc_33588(
         }
     };
     vertical_contact != 0
+}
+
+fn drips_surface_crawler_supported_below_loc_33650(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+) -> bool {
+    let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
+    let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
+    // ASM Drips.asm loc_33650: `moveq #0,d1; moveq #8,d0; bsr.w loc_331D2;
+    // cmpi.w #$6000,d0; bne.w loc_338F8`. The crawler only stays on the
+    // horizontal path while the cell 8px below the object reports solid.
+    relative_collision_mask_loc_331D2(grid, i32::from(x_pos_word), i32::from(y_pos_word), 0, 8)
+        == 0x6000
 }
 
 #[cfg(test)]
@@ -787,6 +801,16 @@ impl NativeRuntime {
             }
             if Self::is_juggernaut_skull_projectile(p) {
                 return Self::step_juggernaut_skull_sub_87B0(p, grid);
+            }
+
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && let Some(g) = grid
+                && !drips_surface_crawler_supported_below_loc_33650(g, p)
+            {
+                // ASM Drips.asm loc_33650 routes a non-solid `loc_331D2`
+                // support probe through loc_338F8, then loc_3392C deletes the
+                // crawler after the finish animation.
+                return false;
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler

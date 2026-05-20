@@ -9092,6 +9092,9 @@ mod chunk_09 {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
         data[(2 * 5 + 2) * 2] = 0xE0;
+        for col in 1..=2 {
+            data[(2 * 5 + col) * 2] = 0x60;
+        }
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
         for index in 0..5u32 {
             rt.projectiles.push(EnemyProjectile {
@@ -9174,6 +9177,65 @@ mod chunk_09 {
         assert_eq!(
             crawler.y_pos, 0x0020_0000,
             "ASM Drips.asm loc_33650 leaves y unchanged on the initial horizontal crawler path"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_deletes_without_solid_support_loc_33650() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(
+            &[0u8; 5 * 5 * 2],
+            5,
+            5,
+        ));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Drips.asm loc_33650 routes non-$6000 support from loc_331D2 to loc_338F8/loc_3392C"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_solid_support_preserves_loc_33650_movement() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect(
+                "ASM Drips.asm loc_33650 should keep crawling while loc_331D2 sees `$6000` support",
+            );
+        assert_eq!(
+            crawler.x_pos, 0x0020_3000,
+            "ASM loc_33650 support probe should allow the normal horizontal crawler movement"
         );
     }
 
