@@ -8,11 +8,13 @@ use crate::enemies::{
     archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
     drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a2c,
     drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a40,
+    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
     drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
     drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339fa,
-    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33964,
-    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
-    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_33946,
+    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33982,
+    drips_surface_crawler_turn_script_loc_33996, drips_vertical_bounds_contact_flag_loc_335b0,
+    tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -215,10 +217,14 @@ fn drips_surface_crawler_vertical_step_loc_33730(
                 drips_surface_crawler_turn_script_loc_339d2(),
             )
         }
+    } else if row.centre == 0x6000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_33946())
+    } else if row.centre == 0x5000 {
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_33a72())
     } else if row.left == 0x6000 {
         DripsSurfaceCrawlerVerticalStepLoc33730::Loop
     } else {
-        DripsSurfaceCrawlerVerticalStepLoc33730::Exit
+        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_339a0())
     }
 }
 

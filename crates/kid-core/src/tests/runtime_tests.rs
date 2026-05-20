@@ -9486,6 +9486,113 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_vertical_loc_33730_falling_centre_solid_runs_loc_33946_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(5 + 2) * 2] = 0x60;
+        data[(2 * 5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::VerticalLoc33730,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33782 routes loc_33286 d6 `$6000` through loc_33946");
+        assert_eq!(crawler.x_pos, 0x0025_0000);
+        assert_eq!(crawler.y_pos, 0x0020_0000);
+        assert_eq!(crawler.x_velocity, 0x3000);
+        assert_eq!(crawler.y_velocity, 0);
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_vertical_loc_33730_falling_centre_slope_runs_loc_33a72_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(5 + 2) * 2] = 0x60;
+        data[(2 * 5 + 2) * 2] = 0x50;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::VerticalLoc33730,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33782 routes loc_33286 d6 `$5000` through loc_33A72");
+        assert_eq!(crawler.x_pos, 0x0022_0000);
+        assert_eq!(crawler.y_pos, 0x0023_0000);
+        assert_eq!(crawler.x_velocity, 0x2000);
+        assert_eq!(crawler.y_velocity, 0x2000);
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_vertical_loc_33730_falling_fallback_runs_loc_339a0_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0x3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::VerticalLoc33730,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33782 falls through to loc_339A0 when loc_33286 d6/d5 do not match");
+        assert_eq!(crawler.x_pos, 0x001A_0000);
+        assert_eq!(crawler.y_pos, 0x0020_0000);
+        assert_eq!(crawler.x_velocity, -0x3000);
+        assert_eq!(crawler.y_velocity, 0);
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_rightward_upper_corner_runs_loc_339dc_turn_script() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
