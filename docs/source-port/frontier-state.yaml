@@ -3,14 +3,14 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-clean-through-frame-2617",
+    "slug": "any-percent-published-clean-through-frame-2665",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 2617,
-    "authoritative_clean_through": 2616,
+    "frontier_frame": 2665,
+    "authoritative_clean_through": 2664,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
@@ -18,7 +18,7 @@
         "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is CRC-clean and authoritative-clean across frames 0..1346 with per-frame checkpoints. The former frame-1146 post-transform drift is cleared by matching ASM `loc_8E16` / `sub_8600` walking floor-check order and suppressing only the premature post-horizontal support release during the demo post-transform hand-off. The remaining top-level `kid_x_vel` / `kid_y_vel` mismatches from frame 1148 onward are classified as oracle limitations when the oracle's live `0x30(kid_gfx)` object at the player position carries the same velocity as native; this reflects the ROM `Load_DemoPlay loc_119D8` controller/object split, not a gameplay state miss."
       }
     ],
-    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 2616 with per-frame checkpoints. The frame-2594 second-demo bootstrap object-count blocker is cleared: native now follows the oracle-backed demo-1 hidden preload count stages after `Load_DemoPlay -> Load_InGame`: startup frame 58 is `1/0`, frames 59..70 are `2/0`, frame 71 is `6/4`, and visible startup frame 72 starts at `7/4`. `verify-tas --frame-start 0 --frame-end 2617 --checkpoint-interval 1` passes with 0 authoritative diffs; only the known masked kid velocity oracle limitations remain around frames 1148+. The next blocker is frame 2617: native has dropped to `objects=4/4` while oracle still reports `7/5`, so focus next on demo-1 gameplay/enemy warmup object and gfx-object lifetime, then the visible dragon roster drift.",
+    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 2664 with per-frame checkpoints. The frame-2617 demo-1 gameplay warmup object-count blocker is cleared: native now follows the oracle-backed hidden worker/gfx lifetime after `Load_DemoPlay -> Load_InGame`: visible startup frames 72..81 are `7/4`, frames 82..88 are `7/5`, and frames 89..130 are `6/5`. `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1` now reports the first authoritative divergence at frame 2665 with matching object counts (`6/5`). The next blocker is Kid's Y position on frame 2665: native is `0x01000000` while oracle remains `0x00ff0000`, so focus next on the first grounded movement/floor update after the demo-1 bootstrap.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -40,15 +40,16 @@
       "The frame-32704 later timeout-restart title-to-demo hand-off miss is cleared locally: `published_tas_later_timeout_restart_title_resumes_demo_play_on_frame_32704` now passes after shortening only that lineage's title attract-lock arm by one frame, `tas-diff --frame-start 32696 --frame-end 32712 --include-advisory` now matches on frames 32704..32711 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 34368.",
       "The frame-34368 later timeout-restart intro-sequence-1 title-pose miss is cleared locally: `published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369` now passes after preserving the already-restored `loc_1B5CE` pose through the later timeout-restart intro-sequence-1 Start-skip title rebuild, `tas-diff --frame-start 34360 --frame-end 34376 --include-advisory` now matches on frames 34368..34375 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 34916.",
       "The frame-34916 later timeout-restart intro-sequence-1 title/demo hand-off miss is cleared locally: `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916` now passes after seeding the later intro-sequence-1 title idle with the two frames that `loc_1B5CE` had already burned before `Obj_TitleMenu loc_1BB02` resumed demo play, and `verify-tas --frame-start 34908 --frame-end 34940 --checkpoint-interval 1 --bisect` is CRC-clean.",
-      "The frame-35148 later demo-2 transform Start-abort miss is cleared locally: `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` now passes after suppressing demo abort edges while Kid_Transform still hibernates the gameplay/object loop, `tas-diff --frame-start 35140 --frame-end 35160 --include-advisory` is advisory-only across that window, and `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean."
+      "The frame-35148 later demo-2 transform Start-abort miss is cleared locally: `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` now passes after suppressing demo abort edges while Kid_Transform still hibernates the gameplay/object loop, `tas-diff --frame-start 35140 --frame-end 35160 --include-advisory` is advisory-only across that window, and `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean.",
+      "The frame-2617 demo-1 gameplay warmup object-count miss is cleared locally: `published_tas_second_demo_bootstrap_counts_hidden_rom_objects` now covers the ASM `Load_DemoPlay -> Load_InGame` hidden worker/gfx count stages through startup frame 130, and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1` now moves the first authoritative divergence to frame 2665 with matching `objects=6/5`."
     ],
     "advisory_diffs": [
       "The repaired later mode-0x28 / demo-2 preload / intro-sequence-4 title-return windows still carry only the known advisory `number_objects` drift from frame 27602 onward.",
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "Resolve second-demo gameplay warmup object lifetime at frame 2617",
-      "reason": "After matching ASM `Load_DemoPlay -> Load_InGame` demo-1 hidden preload object-count staging, `verify-tas --frame-start 0 --frame-end 2617 --checkpoint-interval 1` passes with no authoritative diffs and CRC remains clean. The next failing checkpoint is frame 2617, where native has `objects=4/4` while oracle keeps `objects=7/5` during the first visible Knights Isle demo gameplay frames."
+      "name": "Resolve demo-1 first grounded movement Y-position drift at frame 2665",
+      "reason": "After matching ASM `Load_DemoPlay -> Load_InGame` demo-1 hidden worker/gfx count staging through startup frame 130, `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1` reports the next failing checkpoint at frame 2665. Object counts match (`6/5`); native Kid Y has advanced to `0x01000000` while oracle remains at `0x00ff0000`, so the next investigation should trace the first floor/gravity update after the demo-1 bootstrap."
     },
     "rejected_hypotheses": [
       {

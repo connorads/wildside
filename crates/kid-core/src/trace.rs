@@ -2383,6 +2383,24 @@ impl NativeRuntime {
                         // gameplay gfx objects during the bootstrap hold.
                         (7, 4)
                     }
+                } else if !use_demo_2
+                    && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME.saturating_add(7)
+                {
+                    // ASM Load_DemoPlay -> Load_InGame (kid.asm:23596)
+                    // leaves the hidden demo-1 worker pair alive after Kid's
+                    // bootstrap hold ends. Oracle WRAM also reports one more
+                    // gfx object through startup frame 88 before the first
+                    // hidden worker drops on the following frame.
+                    (7, 5)
+                } else if !use_demo_2
+                    && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME.saturating_add(49)
+                {
+                    // ASM Load_DemoPlay -> Load_InGame (kid.asm:23596) keeps
+                    // one hidden demo-1 worker and the extra gfx object alive
+                    // beyond the visible bootstrap. Oracle WRAM holds this
+                    // 6/5 count through the last count-only TAS checkpoint
+                    // before the next movement divergence at startup frame 131.
+                    (6, 5)
                 } else {
                     // ASM Load_DemoPlay (kid.asm:23585) allocates the hidden
                     // `loc_119D8` Start-abort controller object before the

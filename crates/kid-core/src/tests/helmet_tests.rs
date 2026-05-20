@@ -4621,9 +4621,22 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frames = std::collections::BTreeMap::new();
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(2_608) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_666) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
-            if matches!(frame_index, 2_593 | 2_594 | 2_605 | 2_606 | 2_607) {
+            if matches!(
+                frame_index,
+                2_593
+                    | 2_594
+                    | 2_605
+                    | 2_606
+                    | 2_607
+                    | 2_616
+                    | 2_617
+                    | 2_623
+                    | 2_624
+                    | 2_625
+                    | 2_665
+            ) {
                 frames.insert(
                     frame_index,
                     (
@@ -4660,6 +4673,36 @@ mod chunk_08 {
             frames.get(&2_607),
             Some(&(GameMode::DemoPlay, Some(72), 7, 4)),
             "the first visible demo-1 gameplay frame should add Kid's object count while the four gfx objects stay live",
+        );
+        assert_eq!(
+            frames.get(&2_616),
+            Some(&(GameMode::DemoPlay, Some(81), 7, 4)),
+            "the final bootstrap-hold frame should still use the initial seven-object/four-gfx staging",
+        );
+        assert_eq!(
+            frames.get(&2_617),
+            Some(&(GameMode::DemoPlay, Some(82), 7, 5)),
+            "after the bootstrap hold ends, the ROM keeps the hidden workers and exposes one more gfx object",
+        );
+        assert_eq!(
+            frames.get(&2_623),
+            Some(&(GameMode::DemoPlay, Some(88), 7, 5)),
+            "the seven-object/five-gfx warmup count should last through demo startup frame 88",
+        );
+        assert_eq!(
+            frames.get(&2_624),
+            Some(&(GameMode::DemoPlay, Some(89), 6, 5)),
+            "one hidden worker drops on demo startup frame 89 while the extra gfx warmup object remains",
+        );
+        assert_eq!(
+            frames.get(&2_625),
+            Some(&(GameMode::DemoPlay, Some(90), 6, 5)),
+            "ASM Load_DemoPlay -> Load_InGame keeps one hidden worker and the extra gfx object alive after startup frame 89",
+        );
+        assert_eq!(
+            frames.get(&2_665),
+            Some(&(GameMode::DemoPlay, Some(130), 6, 5)),
+            "the 6/5 demo-1 worker count should last through the final count-only published TAS checkpoint",
         );
     }
 
