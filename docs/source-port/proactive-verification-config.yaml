@@ -47,6 +47,10 @@ strategies:
     # and give later cycles real test-gap work to triage. platforms.rs,
     # projectiles.rs, weather.rs, and vdp.rs extend it again on 2026-05-04
     # to cover gameplay modules that have never been mutation-tested.
+    # kid-render targets extend it on 2026-05-20 after the source-port
+    # frontier and kid-core proactive lanes both reported all-exhausted; these
+    # cover visual-fidelity code paths where remaining source-port debt is
+    # expected to surface.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -62,6 +66,13 @@ strategies:
       - projectiles.rs
       - weather.rs
       - vdp.rs
+      - bundle.rs
+      - lib.rs
+      - background.rs
+      - level.rs
+      - player.rs
+      - palette.rs
+      - tiles.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -76,6 +87,13 @@ strategies:
       - { module: projectiles.rs, package: kid-core, tier: 1 }
       - { module: weather.rs, package: kid-core, tier: 2 }
       - { module: vdp.rs, package: kid-core, tier: 3 }
+      - { module: bundle.rs, package: kid-render, tier: 1 }
+      - { module: lib.rs, package: kid-render, tier: 1 }
+      - { module: background.rs, package: kid-render, tier: 2 }
+      - { module: level.rs, package: kid-render, tier: 2 }
+      - { module: player.rs, package: kid-render, tier: 2 }
+      - { module: palette.rs, package: kid-render, tier: 2 }
+      - { module: tiles.rs, package: kid-render, tier: 2 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
