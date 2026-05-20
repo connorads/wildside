@@ -539,6 +539,20 @@ impl NativeRuntime {
             // Character_Movement at $FFFFFA56 while Game_Mode remains $2C.
             return MOVE_STANDINGSTILL;
         }
+        if let BootState::DemoPlay {
+            frame_counter,
+            use_demo_2,
+            ..
+        } = self.boot_state
+            && frame_counter < self.demo_gameplay_start_frame(use_demo_2)
+        {
+            // ASM Load_DemoPlay -> Load_InGame (kid.asm:23596) creates the
+            // demo controller object before the first recorded input reaches
+            // Kid's gameplay routine. Keep Character_Movement inert through
+            // the hidden bootstrap frames even if the imported TAS raw input
+            // still has a title/menu bit held.
+            return MOVE_STANDINGSTILL;
+        }
 
         if self.helmet.iron_knight_climbing {
             return MOVE_WALL_CLIMBING;
@@ -980,8 +994,10 @@ impl NativeRuntime {
             start_press_count: self.start_press_count,
             boot_phase,
             boot_phase_elapsed,
-            title_screen_ready: !matches!(self.boot_state, BootState::StartingLevel { .. })
-                && self.title_screen_ready(),
+            title_screen_ready: !matches!(
+                self.boot_state,
+                BootState::StartingLevel { .. } | BootState::DemoPlay { .. }
+            ) && self.title_screen_ready(),
             current_player: self.current_player_index,
             current_level: self.current_level,
             player_1_level_id: self.current_level,

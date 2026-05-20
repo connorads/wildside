@@ -4592,6 +4592,31 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_bootstrap_keeps_character_movement_inert() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2535 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_536) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 2_535 {
+                frame_2535 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.character_movement,
+                    trace.title_screen_ready,
+                ));
+                break;
+            }
+        }
+
+        assert_eq!(
+            frame_2535,
+            Some((GameMode::DemoPlay, Some(0), Some(0), false)),
+            "ASM Load_DemoPlay -> Load_InGame has entered Game_Mode=$10, but the demo startup frame has not consumed recorded Kid movement yet",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;
