@@ -14,7 +14,7 @@ use kid_data::{
     AssetManifest, DecodedLevelAssets, LevelHeader, resource_level_id, resource_level_record,
 };
 use kid_md::GemsAudioEngine;
-use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
+use kid_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -557,17 +557,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             for pixel in frame.chunks_exact_mut(3) {
                 pixel[0] = pixel[0].saturating_add(tint_r);
                 pixel[1] = pixel[1].saturating_add(tint_g);
-            }
-        }
-
-        // Invulnerability flicker: dim every other frame
-        if trace.invulnerable_frames > 0
-            && !trace.diamond_power_active
-            && trace.frame_index.is_multiple_of(2)
-        {
-            // Slight dimming to indicate invulnerability
-            for pixel in &mut frame {
-                *pixel = (*pixel as u16 * 180 / 255) as u8;
             }
         }
 
@@ -4480,6 +4469,22 @@ mod tests {
         player_sprite_signature(scene).is_some()
     }
 
+    fn player_sprite_palette(scene: &Scene) -> Option<&Palette> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                tile_sheet,
+                palette,
+                ..
+            } => tile_sheet
+                .tiles
+                .first()
+                .map(|tile| tile.pixels[0])
+                .filter(|signature| is_player_test_signature(*signature))
+                .map(|_| palette.as_ref()),
+            _ => None,
+        })
+    }
+
     fn is_player_test_signature(signature: u8) -> bool {
         (1..=40).contains(&signature)
     }
@@ -4880,30 +4885,36 @@ mod tests {
             scene_has_player_sprite(&white_scene),
             "ASM loc_BC34 keeps Kid visible through Just_received_damage instead of blinking out"
         );
-        let has_white_flash_rect = |scene: &Scene| {
-            scene.commands.iter().any(|command| {
-                matches!(
-                    command,
-                    DrawCommand::Rect {
-                        width: 16,
-                        height: 24,
-                        colour: [240, 240, 240],
-                        ..
-                    }
-                )
-            })
-        };
+        let white = MdColour::from_word(0x0FFF);
+        let player_palette = player_sprite_palette(&white_scene).expect("player sprite palette");
         assert!(
-            has_white_flash_rect(&white_scene),
-            "ASM loc_BC56 spends the first two frames of each six-frame slot on the white palette"
+            player_palette
+                .colours
+                .iter()
+                .take(12)
+                .all(|colour| *colour == white),
+            "ASM sub_80BC writes $FFF into the first twelve visible player palette slots"
+        );
+        assert!(
+            !white_scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect {
+                    width: 16,
+                    height: 24,
+                    colour: [240, 240, 240],
+                    ..
+                }
+            )),
+            "damage flash should use the player sprite palette, not an overlay rectangle"
         );
 
         let normal_phase = trace_with_player(4, 64);
         let normal_scene = build_ingame_scene(&normal_phase, false, None);
         assert!(scene_has_player_sprite(&normal_scene));
+        let normal_palette = player_sprite_palette(&normal_scene).expect("player sprite palette");
         assert!(
-            !has_white_flash_rect(&normal_scene),
-            "ASM loc_BC6E returns to the normal palette for the next four frames"
+            normal_palette.colours.iter().any(|colour| *colour != white),
+            "ASM sub_80D0 restores the normal form palette for the next four frames"
         );
 
         let no_damage = trace_with_player(4, 0);

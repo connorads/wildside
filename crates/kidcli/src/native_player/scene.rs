@@ -1680,11 +1680,7 @@ fn build_game_scene_filtered(
         // the 66-frame `Just_received_damage` window, the ROM alternates
         // between the white palette (sub_80BC) for 2 frames and the normal
         // palette (sub_80D0) for 4 frames, repeating 11 times. Kid stays
-        // visible the whole time. Native previously blinked Kid invisible
-        // every 4 frames as a placeholder, which was visually distracting
-        // and contradicted the ROM. Until the renderer wires the full
-        // palette swap, draw a white overlay rect during the 2-frame white
-        // phase so the player still sees a flash cue without disappearing.
+        // visible the whole time.
         for object in trace
             .active_objects
             .iter()
@@ -1694,27 +1690,20 @@ fn build_game_scene_filtered(
             // engine's `advance_death_windup_motion` (combat.rs:8801).
             // The renderer must NOT add its own offset on top — that was
             // user-reported playtest bug #148 (incorrect dying animation).
-            push_player_sprite(&mut commands, object, trace, level_visuals);
-
-            if trace.invulnerable_frames > 0 {
-                // PLAYER_DAMAGE_INVULNERABLE_FRAMES = 66; elapsed counts up
-                // from 0 to 65 across the cycle. Every six-frame slot is
-                // 2 frames of white + 4 frames of normal, matching ASM
-                // `loc_BC56` (d2=1 → 2 hibernate frames white) and
-                // `loc_BC6E` (d2=3 → 4 hibernate frames normal).
-                let elapsed = 66usize.saturating_sub(trace.invulnerable_frames);
-                let white_phase = (elapsed % 6) < 2;
-                if white_phase {
-                    let (sx, sy) = player_screen_position(object, trace);
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 8,
-                        y: sy - 24,
-                        width: 16,
-                        height: 24,
-                        colour: [240, 240, 240],
-                    });
-                }
-            }
+            // PLAYER_DAMAGE_INVULNERABLE_FRAMES = 66; elapsed counts up from
+            // 0 to 65 across the cycle. Every six-frame slot is 2 frames of
+            // white + 4 frames of normal, matching ASM `loc_BC56` (d2=1 → 2
+            // hibernate frames white) and `loc_BC6E` (d2=3 → 4 hibernate
+            // frames normal).
+            let damage_flash_white_phase = trace.invulnerable_frames > 0
+                && (66usize.saturating_sub(trace.invulnerable_frames) % 6) < 2;
+            push_player_sprite(
+                &mut commands,
+                object,
+                trace,
+                level_visuals,
+                damage_flash_white_phase,
+            );
         }
     }
 

@@ -480,22 +480,25 @@ pub(super) fn push_player_sprite(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
+    damage_flash_white_phase: bool,
 ) {
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+        let base_palette = form_visuals
+            .transform_palette
+            .as_ref()
+            .unwrap_or(&form_visuals.palette);
         commands.push(DrawCommand::Sprite {
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(frame.tile_sheet.clone()),
-            palette: Arc::new(
-                form_visuals
-                    .transform_palette
-                    .clone()
-                    .unwrap_or_else(|| form_visuals.palette.clone()),
-            ),
+            palette: Arc::new(player_palette_for_damage_phase(
+                base_palette,
+                damage_flash_white_phase,
+            )),
             tiles: build_player_sprite_tiles(frame, facing),
         });
         return;
@@ -508,9 +511,28 @@ pub(super) fn push_player_sprite(
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(form_visuals.palette.clone()),
+        palette: Arc::new(player_palette_for_damage_phase(
+            &form_visuals.palette,
+            damage_flash_white_phase,
+        )),
         tiles: build_player_sprite_tiles(frame, facing),
     });
+}
+
+fn player_palette_for_damage_phase(palette: &Palette, white_phase: bool) -> Palette {
+    if !white_phase {
+        return palette.clone();
+    }
+
+    let mut flash_palette = palette.clone();
+    let white = MdColour::from_word(0x0FFF);
+    // ASM sub_80BC writes twelve $FFF words starting at Palette_Buffer+$62:
+    // player palette line visible slots 1..12. Slot 0 is omitted from native
+    // player palettes, so indices 0..11 correspond to those visible slots.
+    for colour in flash_palette.colours.iter_mut().take(12) {
+        *colour = white;
+    }
+    flash_palette
 }
 
 pub(super) fn select_enemy_frame<'a>(
