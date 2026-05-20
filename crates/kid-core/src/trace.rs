@@ -791,8 +791,11 @@ impl NativeRuntime {
                     | BootState::DemoPlay { .. }
                     | BootState::EndingSequence { .. }
             );
+        // ASM startup calls sub_8A4 before Load_SegaScreen, but oracle traces
+        // keep the copied counters hidden through the early loc_12E64 /
+        // loc_12E6C logo wait and expose them once the fade loop is underway.
         let hidden_mode_zero_frame =
-            matches!(self.boot_state, BootState::SegaScreen { .. }) && self.frame_index < 9;
+            matches!(self.boot_state, BootState::SegaScreen { .. }) && self.frame_index < 30;
         let hidden_boot_progression = cold_boot_frame || hidden_mode_zero_frame;
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
         let level_header = self.level_header(self.current_level);

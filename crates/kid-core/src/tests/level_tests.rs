@@ -4032,19 +4032,19 @@ mod chunk_02 {
     }
 
     #[test]
-    fn sega_screen_bootstrap_exposes_live_progression_by_frame_nine() {
-        let trace = run_script(manifest(), &[0; 10], 10);
-        let frame_8 = &trace[8];
-        let frame_9 = &trace[9];
+    fn sega_screen_bootstrap_exposes_progression_on_oracle_frame_thirty() {
+        let trace = run_script(manifest(), &[0; 31], 31);
+        let frame_29 = &trace[29];
+        let frame_30 = &trace[30];
 
-        assert_eq!(frame_8.game_mode, GameMode::SegaScreen);
-        assert_eq!(frame_8.number_lives, 0);
-        assert_eq!(frame_8.number_hitpoints, 0);
+        assert_eq!(frame_29.game_mode, GameMode::SegaScreen);
+        assert_eq!(frame_29.number_lives, 0);
+        assert_eq!(frame_29.number_hitpoints, 0);
 
-        assert_eq!(frame_9.game_mode, GameMode::SegaScreen);
-        assert_eq!(frame_9.number_lives, 3);
-        assert_eq!(frame_9.number_hitpoints, 2);
-        assert_eq!(frame_9.current_helmet_id, 0);
+        assert_eq!(frame_30.game_mode, GameMode::SegaScreen);
+        assert_eq!(frame_30.number_lives, 3);
+        assert_eq!(frame_30.number_hitpoints, 2);
+        assert_eq!(frame_30.current_helmet_id, 0);
     }
 
     #[test]
