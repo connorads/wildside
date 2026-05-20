@@ -2177,6 +2177,27 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_object_counts();
         }
+        if let BootState::SegaScreen { elapsed } = self.boot_state
+            && elapsed >= 33
+        {
+            // ASM Load_SegaScreen loc_12E48 calls j_Allocate_ObjectSlot for
+            // the logo controller, incrementing Number_Objects without
+            // allocating a GfxObjectSlot.
+            return (1, 0);
+        }
+        if let BootState::IntroSequence {
+            segment: 0,
+            elapsed,
+            ..
+        } = self.boot_state
+            && elapsed < 32
+        {
+            // ASM loc_12EDE jumps through loc_6E2 after the Sega logo object
+            // consumes Start; oracle WRAM keeps one object counted during the
+            // first 32 traced intro frames before loc_6E2's
+            // Initialize_ObjectSlots clear is visible in checkpoints.
+            return (1, 0);
+        }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())

@@ -3,22 +3,22 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-sega-logo-object-regressed-at-frame-32",
+    "slug": "any-percent-published-intro-sequence-1-start-skip-at-frame-80",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 32,
-    "authoritative_clean_through": 32,
+    "frontier_frame": 80,
+    "authoritative_clean_through": 80,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
-        "frame_end": 32,
-        "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is state-clean and CRC-clean across frames 0..32 with per-frame checkpoints after hiding Sega-screen gameplay counters through frame 29 and exposing them on oracle frame 30; frame 32 is the next state mismatch on the Sega logo object count."
+        "frame_end": 80,
+        "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is state-clean and CRC-clean across frames 0..80 with per-frame checkpoints after matching Sega-screen gameplay counter visibility, the Sega logo controller object count from `Load_SegaScreen loc_12E48`, and the first 32 traced intro-sequence-1 object-count frames before `loc_6E2`'s `Initialize_ObjectSlots` clear is visible."
       }
     ],
-    "current_blocker": "The previous closed-frontier claim was a false green: full `mise run verify-tas-frontier` printed authoritative diffs for `any-percent-published` and `kc_any_percent_2024` while exiting 0. After tightening the task and matching Sega-screen gameplay counter visibility, `any-percent-published` verifies clean through frame 32 with per-frame checkpoints. Frame 32 is now the next state mismatch on `number_objects` for the Sega logo object; the old 35140..37759 tail window still fails with 7304 authoritative diffs plus CRC divergence at frame 35210.",
+    "current_blocker": "The previous closed-frontier claim was a false green: full `mise run verify-tas-frontier` printed authoritative diffs for `any-percent-published` and `kc_any_percent_2024` while exiting 0. After tightening the task and matching Sega/logo object accounting, `any-percent-published` verifies clean through frame 80 with per-frame checkpoints. Frame 80 is now the next authoritative mismatch: native has already jumped to title (`Game_Mode=$002C`) with objects 2/1, while oracle remains in intro sequence 1 (`Game_Mode=$0004`) with objects 1/0 after the frame-79 Start edge. The old 35140..37759 tail window still fails with 7304 authoritative diffs plus CRC divergence at frame 35210.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",

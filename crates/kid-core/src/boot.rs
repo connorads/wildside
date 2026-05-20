@@ -6318,15 +6318,18 @@ impl NativeRuntime {
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
-                if start_pressed || *elapsed >= SEGA_SCREEN_FRAMES {
-                    // ASM loc_12E96 -> loc_12EDE: once `bclr #7,(Ctrl_1_Pressed).w`
-                    // sees Start, the Sega logo loop branches straight to
-                    // `move.w #4,(Game_Mode).w` on that same frame.
+                if *elapsed >= SEGA_SCREEN_FRAMES {
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
                         elapsed: 0,
                         pending_title_skip: 0,
                     };
+                } else if start_pressed {
+                    // ASM loc_12E96 -> loc_12EDE consumes the Start edge
+                    // inside the logo object's VBlank loop; the outer trace
+                    // still observes mode 0 for that frame and sees
+                    // Game_Mode=$0004 on the following frame.
+                    *elapsed = SEGA_SCREEN_FRAMES;
                 }
             }
             // ASM has 5 intro sequences (Load_IntroSequence1-5) plus

@@ -4048,18 +4048,60 @@ mod chunk_02 {
     }
 
     #[test]
-    fn sega_screen_start_press_switches_to_intro_sequence_on_same_frame() {
-        let mut script = vec![0; 34];
+    fn sega_screen_logo_object_count_appears_on_oracle_frame_thirty_two() {
+        let trace = run_script(manifest(), &[0; 33], 33);
+        let frame_31 = &trace[31];
+        let frame_32 = &trace[32];
+
+        assert_eq!(frame_31.game_mode, GameMode::SegaScreen);
+        assert_eq!(frame_31.number_objects, 0);
+        assert_eq!(frame_31.number_gfx_objects, 0);
+
+        assert_eq!(frame_32.game_mode, GameMode::SegaScreen);
+        assert_eq!(
+            frame_32.number_objects, 1,
+            "ASM Load_SegaScreen loc_12E48 allocates the logo controller object"
+        );
+        assert_eq!(frame_32.number_gfx_objects, 0);
+    }
+
+    #[test]
+    fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
+        let mut script = vec![0; 35];
         script[33] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
         let frame_32 = &trace[32];
         let frame_33 = &trace[33];
+        let frame_34 = &trace[34];
 
         assert_eq!(frame_32.game_mode, GameMode::SegaScreen);
+        assert_eq!(frame_33.game_mode, GameMode::SegaScreen);
         assert_eq!(
-            frame_33.game_mode,
+            frame_34.game_mode,
             GameMode::IntroSequence1,
-            "ASM loc_12E96 -> loc_12EDE writes Game_Mode=$4 immediately after the Start-edge bclr/bne path",
+            "ASM loc_12E96 -> loc_12EDE writes Game_Mode=$4 after the Start-edge frame returns through the outer trace",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_preserves_logo_controller_object_count() {
+        let mut script = vec![0; 69];
+        script[35] = 0x80;
+        let trace = run_script(manifest(), &script, script.len());
+        let frame_36 = &trace[36];
+        let frame_67 = &trace[67];
+        let frame_68 = &trace[68];
+
+        assert_eq!(frame_36.game_mode, GameMode::IntroSequence1);
+        assert_eq!(
+            frame_36.number_objects, 1,
+            "ASM loc_12EDE jumps to loc_6E2 with the Sega logo controller object still counted"
+        );
+        assert_eq!(frame_36.number_gfx_objects, 0);
+        assert_eq!(frame_67.number_objects, 1);
+        assert_eq!(
+            frame_68.number_objects, 0,
+            "ASM loc_6E2 calls Initialize_ObjectSlots; oracle exposes that clear after the first 32 traced intro frames"
         );
     }
 
@@ -4082,27 +4124,27 @@ mod chunk_02 {
 
     #[test]
     fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
-        let mut script = vec![0u8; 436];
+        let mut script = vec![0u8; 437];
         script[33] = 0x80;
-        script[434] = 0x80;
+        script[435] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
-        let frame_433 = &trace[433];
         let frame_434 = &trace[434];
         let frame_435 = &trace[435];
+        let frame_436 = &trace[436];
 
-        assert_eq!(frame_433.game_mode, GameMode::IntroSequence5);
+        assert_eq!(frame_434.game_mode, GameMode::IntroSequence5);
         assert_eq!(
-            frame_434.game_mode,
+            frame_435.game_mode,
             GameMode::IntroSequence5,
             "ASM loc_1BA60 polls sub_1C246 from the intro-sequence-5 hibernate loop before loc_1C250 consumes the Start edge",
         );
         assert_eq!(
-            frame_435.game_mode,
+            frame_436.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C250: cmpi.w #$24,(Game_Mode).w; beq.s loc_1C264 branch targets loc_1C264 for intro sequence 5 (Game_Mode=$24)",
         );
         assert_eq!(
-            frame_435.game_mode,
+            frame_436.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C264: move.w #$2C,(Game_Mode).w writes TitleScreen mode when branching from either intro sequence 5 ($24) or 6 ($28)",
         );
