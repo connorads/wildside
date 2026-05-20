@@ -6818,6 +6818,7 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
 
         let mut frame_979 = None;
+        let mut frame_1004 = None;
         for (frame_index, mask) in script.iter().copied().enumerate().take(980) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 979 {
@@ -6838,6 +6839,44 @@ mod chunk_08 {
             Some(0),
             "published TAS trace export still masks visible velocity while raw WRAM advances",
         );
+
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_005) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 1_004 {
+                frame_1004 = Some(trace);
+                break;
+            }
+        }
+
+        let frame_1004 = frame_1004.expect("frame 1004 trace");
+        // ASM loc_C22 advances the demo stream after the gameplay body while
+        // the Load_DemoPlay `loc_119D8` controller object remains live. Oracle
+        // trace checkpoints still sample the visible velocity as zero through
+        // this post-stall wall-cling fall window.
+        assert_eq!(frame_1004.kid_y_velocity, Some(0));
+    }
+
+    #[test]
+    fn published_demo_prize_block_bounce_counts_loc_1002e_transient_worker() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+
+        let mut frame_989 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(990) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 989 {
+                frame_989 = Some(trace);
+                break;
+            }
+        }
+
+        let frame_989 = frame_989.expect("frame 989 trace");
+        // ASM loc_1002E allocates an object/gfx pair for the sub_1007A
+        // prize-block wobble worker. Native renders that as block_bounces,
+        // but the demo object-count trace must still include the live worker.
+        assert_eq!(frame_989.block_bounces, vec![(4, 0x24, 31, 0)]);
+        assert_eq!(frame_989.number_objects, 5);
+        assert_eq!(frame_989.number_gfx_objects, 5);
     }
 
     #[test]

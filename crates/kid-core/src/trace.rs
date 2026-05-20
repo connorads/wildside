@@ -2292,9 +2292,17 @@ impl NativeRuntime {
                     // ASM Load_DemoPlay (kid.asm:23585) allocates the hidden
                     // `loc_119D8` Start-abort controller object before the
                     // shared Load_InGame tail. Native does not model that
-                    // controller as a roster entry, but oracle keeps the
-                    // post-bootstrap demo trace at 4 objects / 4 gfx slots.
-                    (4, 4)
+                    // controller as a roster entry. Runtime block/prize
+                    // transient workers, such as ASM loc_1002E/sub_1007A
+                    // prize-block bounces, still allocate object+gfx slots
+                    // during demo playback and must be counted above that
+                    // four-object baseline.
+                    let transient_gfx_workers =
+                        (self.block_bounces.len() + self.floating_items.len()) as u16;
+                    (
+                        4u16.saturating_add(transient_gfx_workers),
+                        4u16.saturating_add(transient_gfx_workers),
+                    )
                 }
             } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
                 (5, 2)
