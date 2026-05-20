@@ -41,6 +41,44 @@ mod tests {
     const LEVEL_ID: u8 = 0x00;
     const CAVE_THEME_ID: u8 = 0x08;
     const FOREST_THEME_ID: u8 = 0x09;
+    const FLOATING_PRIZE_HELMET_FIXTURE_ASSETS: [(&str, &str); 9] = [
+        (
+            "ingame/artunc_kid/skycutter_mask.bin",
+            "ingame/palette_kid/Skycutter_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/cyclone_mask.bin",
+            "ingame/palette_kid/Cyclone_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/red_stealth_mask.bin",
+            "ingame/palette_kid/Red_Stealth_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/eyeclops_mask.bin",
+            "ingame/palette_kid/Eyeclops_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/juggernaut_mask.bin",
+            "ingame/palette_kid/Juggernaut_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/iron_knight_mask.bin",
+            "ingame/palette_kid/Iron_Knight_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/berzerker_mask.bin",
+            "ingame/palette_kid/Berzerker_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/maniaxe_mask.bin",
+            "ingame/palette_kid/Maniaxe_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/micromax_mask.bin",
+            "ingame/palette_kid/Micromax_Helmet.bin",
+        ),
+    ];
 
     #[test]
     fn load_level1_tile_sheet_and_palettes() {
@@ -257,6 +295,60 @@ mod tests {
             assert_eq!(frame.tile_base_index, 0);
             assert_eq!(frame.tile_sheet.tiles.len(), tile_count);
         }
+
+        for (content_id, origin_x, width_px, height_px) in [
+            // ASM PrizeHelmetSkycutter_Init -> artunc_kid/skycutter_mask.bin.
+            (0x02, 0x08, 0x11, 0x0E),
+            // ASM PrizeHelmetCyclone_Init -> artunc_kid/cyclone_mask.bin.
+            (0x03, 0x0B, 0x17, 0x0F),
+            // ASM PrizeHelmetRedStealth_Init -> artunc_kid/red_stealth_mask.bin.
+            (0x04, 0x0A, 0x15, 0x11),
+            // ASM PrizeHelmetEyeclops_Init -> artunc_kid/eyeclops_mask.bin.
+            (0x05, 0x0A, 0x15, 0x10),
+            // ASM PrizeHelmetJuggernaut_Init -> artunc_kid/juggernaut_mask.bin.
+            (0x06, 0x08, 0x12, 0x14),
+            // ASM PrizeHelmetIronKnight_Init -> artunc_kid/iron_knight_mask.bin.
+            (0x07, 0x09, 0x16, 0x15),
+            // ASM PrizeHelmetBerzerker_Init -> artunc_kid/berzerker_mask.bin.
+            (0x08, 0x09, 0x13, 0x14),
+            // ASM PrizeHelmetManiaxe_Init -> artunc_kid/maniaxe_mask.bin.
+            (0x09, 0x08, 0x10, 0x12),
+            // ASM PrizeHelmetMicromax_Init -> artunc_kid/micromax_mask.bin.
+            (0x0A, 0x09, 0x13, 0x12),
+        ] {
+            let visual = visuals
+                .floating_prizes
+                .helmets
+                .get(&content_id)
+                .expect("floating prize helmet visual");
+            let frame = &visual.frames[0];
+
+            assert_eq!(visual.frame_duration, 1);
+            assert_eq!(frame.origin_x, origin_x);
+            assert_eq!(
+                frame.origin_y, -2,
+                "ASM floating helmet sprite descriptors all place mask art two pixels above the object origin"
+            );
+            assert_eq!(frame.width_px, width_px);
+            assert_eq!(frame.height_px, height_px);
+        }
+    }
+
+    #[test]
+    fn load_floating_prize_helmets_skip_incomplete_art_palette_pairs() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .manifest
+            .ingame_assets
+            .retain(|asset| asset.relative_path != "palette_kid/Cyclone_Helmet.bin");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert!(
+            !visuals.floating_prizes.helmets.contains_key(&0x03),
+            "ASM floating helmet visuals need both mask art and palette assets before native can render the pickup"
+        );
+        assert!(visuals.floating_prizes.helmets.contains_key(&0x02));
     }
 
     #[test]
@@ -863,6 +955,20 @@ mod tests {
             ] {
                 write_file(root.path(), path, &vec![fill; 32 * 48])?;
             }
+            for (index, (art_path, palette_path)) in
+                FLOATING_PRIZE_HELMET_FIXTURE_ASSETS.iter().enumerate()
+            {
+                let fill = 0x70 + u8::try_from(index).expect("helmet fixture index fits in u8");
+                write_file(root.path(), art_path, &vec![fill; 32 * 24])?;
+                write_file(
+                    root.path(),
+                    palette_path,
+                    &(0..15)
+                        .map(|value| (0x0390_u16 + u16::from(fill) + value).to_be_bytes())
+                        .collect::<Vec<_>>()
+                        .concat(),
+                )?;
+            }
             write_file(
                 root.path(),
                 "theme/palette_fg/cave.bin",
@@ -902,7 +1008,7 @@ mod tests {
                 &[0x00, 0x02, 0x00, 0x01, 0x00, 0x01],
             )?;
 
-            let manifest = AssetManifest {
+            let mut manifest = AssetManifest {
                 generated_bundle_version: GENERATED_BUNDLE_VERSION,
                 rom_sha1: String::from("fixture"),
                 upstream_commit: String::from("fixture"),
@@ -1110,6 +1216,13 @@ mod tests {
                     background: decoded_asset(root.path(), "decoded/level/00/background.bin"),
                 }],
             };
+
+            for (art_path, palette_path) in FLOATING_PRIZE_HELMET_FIXTURE_ASSETS {
+                manifest.ingame_assets.extend([
+                    asset_file(root.path(), art_path),
+                    asset_file(root.path(), palette_path),
+                ]);
+            }
 
             Ok(Self { root, manifest })
         }
