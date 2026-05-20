@@ -1867,6 +1867,9 @@ impl NativeRuntime {
             {
                 Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
+            BootState::TitleScreen { .. } if self.hidden_title_screen_object_counts().is_some() => {
+                None
+            }
             BootState::TitleScreen { .. } if self.title_menu_active => self
                 .title_screen_ready()
                 .then(PlayerState::title_pose)
@@ -2190,13 +2193,26 @@ impl NativeRuntime {
             elapsed,
             ..
         } = self.boot_state
-            && elapsed < 32
         {
-            // ASM loc_12EDE jumps through loc_6E2 after the Sega logo object
-            // consumes Start; oracle WRAM keeps one object counted during the
-            // first 32 traced intro frames before loc_6E2's
-            // Initialize_ObjectSlots clear is visible in checkpoints.
-            return (1, 0);
+            if elapsed < 32 {
+                // ASM loc_12EDE jumps through loc_6E2 after the Sega logo object
+                // consumes Start; oracle WRAM keeps one object counted during the
+                // first 32 traced intro frames before loc_6E2's
+                // Initialize_ObjectSlots clear is visible in checkpoints.
+                return (1, 0);
+            }
+            if elapsed == 44 {
+                // ASM Load_IntroSequence1 allocates the sub_1B8F4 controller
+                // after the post-Sega loc_6E2 shell; no GfxObjectSlot is
+                // allocated for it.
+                return (1, 0);
+            }
+            if elapsed > 44 {
+                // ASM sub_1B8F4 allocates the loc_1C7A0 intro-text worker
+                // before entering sub_1C204/loc_1B920; native does not model
+                // either intro shell object as a gameplay roster entry.
+                return (2, 0);
+            }
         }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
@@ -2300,11 +2316,11 @@ impl NativeRuntime {
             // first Start press arms the active title menu.
             BootState::TitleScreen { .. }
         ) {
-            if self.title_menu_active && !self.title_menu_cursor_pending {
-                return (4, 3);
-            }
             if let Some(counts) = self.hidden_title_screen_object_counts() {
                 return counts;
+            }
+            if self.title_menu_active && !self.title_menu_cursor_pending {
+                return (4, 3);
             }
         }
         if !matches!(

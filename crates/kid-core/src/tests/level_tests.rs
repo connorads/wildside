@@ -2709,7 +2709,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn early_start_boot_path_enters_level_shell_on_frame_138_for_plain_level_1() {
+    fn early_start_boot_path_keeps_intro_return_title_hidden_for_plain_level_1() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut frame_136 = None;
         let mut frame_138 = None;
@@ -2740,27 +2740,26 @@ mod chunk_02 {
         let frame_172 = frame_172.expect("frame 172 trace");
         let frame_179 = frame_179.expect("frame 179 trace");
 
-        // ASM Obj_TitleMenu enters the settled title shell with the standard
-        // `loc_1B5CE` Kid pose before the queued Start enters the hidden early
-        // Level 1 bootstrap, where the next observed shell carries the title
-        // cursor position. The no-title-card slide reaches `x=$128`, `y=$100`
-        // on frame 172 and has already flipped into live gameplay by the time
-        // the shell settles to `x=$10EA`, `y=$EF6` on frame 179.
-        assert_eq!(frame_136.game_mode, GameMode::TitleScreen);
-        assert_eq!(frame_136.kid_x_pos, Some(TITLE_KID_X_POS));
-        assert_eq!(frame_136.kid_y_pos, Some(TITLE_KID_Y_POS));
+        // ASM sub_1B8F4 only starts polling sub_1C246 after the intro fade-in
+        // shell reaches loc_1B924. The earlier Start presses in this
+        // oracle-backed path therefore leave frame 136 in intro sequence 1,
+        // and the title rebuild remains hidden through the later frame-178
+        // Start edge rather than entering the Level 1 bootstrap immediately.
+        assert_eq!(frame_136.game_mode, GameMode::IntroSequence1);
+        assert_eq!(frame_136.kid_x_pos, None);
+        assert_eq!(frame_136.kid_y_pos, None);
 
-        assert_eq!(frame_138.game_mode, GameMode::LevelTransition);
-        assert_eq!(frame_138.kid_x_pos, Some(0x0028_0000));
-        assert_eq!(frame_138.kid_y_pos, Some(0x0030_0000));
+        assert_eq!(frame_138.game_mode, GameMode::TitleScreen);
+        assert_eq!(frame_138.kid_x_pos, None);
+        assert_eq!(frame_138.kid_y_pos, None);
 
-        assert_eq!(frame_172.game_mode, GameMode::LevelTransition);
-        assert_eq!(frame_172.kid_x_pos, Some(0x0128_0000));
-        assert_eq!(frame_172.kid_y_pos, Some(0x0100_0000));
+        assert_eq!(frame_172.game_mode, GameMode::TitleScreen);
+        assert_eq!(frame_172.kid_x_pos, None);
+        assert_eq!(frame_172.kid_y_pos, None);
 
-        assert_eq!(frame_179.game_mode, GameMode::InGame);
-        assert_eq!(frame_179.kid_x_pos, Some(0x010E_A000));
-        assert_eq!(frame_179.kid_y_pos, Some(0x00EF_6000));
+        assert_eq!(frame_179.game_mode, GameMode::TitleScreen);
+        assert_eq!(frame_179.kid_x_pos, None);
+        assert_eq!(frame_179.kid_y_pos, None);
     }
 
     #[test]
@@ -4085,12 +4084,14 @@ mod chunk_02 {
 
     #[test]
     fn intro_sequence_1_preserves_logo_controller_object_count() {
-        let mut script = vec![0; 69];
+        let mut script = vec![0; 83];
         script[35] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
         let frame_36 = &trace[36];
         let frame_67 = &trace[67];
         let frame_68 = &trace[68];
+        let frame_80 = &trace[80];
+        let frame_81 = &trace[81];
 
         assert_eq!(frame_36.game_mode, GameMode::IntroSequence1);
         assert_eq!(
@@ -4103,22 +4104,93 @@ mod chunk_02 {
             frame_68.number_objects, 0,
             "ASM loc_6E2 calls Initialize_ObjectSlots; oracle exposes that clear after the first 32 traced intro frames"
         );
+        assert_eq!(
+            frame_80.number_objects, 1,
+            "ASM Load_IntroSequence1 allocates the sub_1B8F4 controller before the text worker"
+        );
+        assert_eq!(frame_80.number_gfx_objects, 0);
+        assert_eq!(
+            frame_81.number_objects, 2,
+            "ASM sub_1B8F4 allocates the loc_1C7A0 intro-text worker"
+        );
+        assert_eq!(frame_81.number_gfx_objects, 0);
     }
 
     #[test]
-    fn intro_sequence_1_start_skip_reaches_title_on_same_frame() {
-        let mut script = vec![0u8; 79];
-        script[33] = 0x80;
-        script[77] = 0x80;
+    fn intro_sequence_1_ignores_start_until_polling_loop_reaches_loc_1b924() {
+        let mut script = vec![0u8; 140];
+        script[35] = 0x80;
+        script[79] = 0x80;
+        script[137] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
-        let frame_77 = &trace[77];
-        let frame_78 = &trace[78];
+        let frame_79 = &trace[79];
+        let frame_80 = &trace[80];
+        let frame_138 = &trace[138];
+        let frame_139 = &trace[139];
 
-        assert_eq!(frame_77.game_mode, GameMode::IntroSequence1);
+        assert_eq!(frame_79.game_mode, GameMode::IntroSequence1);
         assert_eq!(
-            frame_78.game_mode,
+            frame_80.game_mode,
+            GameMode::IntroSequence1,
+            "ASM sub_1B8F4 has not reached loc_1B924's sub_1C246 polling loop yet, so the frame-79 Start edge is ignored",
+        );
+        assert_eq!(frame_138.game_mode, GameMode::IntroSequence1);
+        assert_eq!(
+            frame_139.game_mode,
             GameMode::TitleScreen,
-            "ASM sub_1B8F4 -> sub_1C246 -> loc_1C250 writes Game_Mode=$2C on the Start-edge frame instead of deferring the intro-return",
+            "ASM sub_1B8F4 loc_1B924 -> sub_1C246 -> loc_1C250 consumes the later Start edge once the polling loop is active",
+        );
+    }
+
+    #[test]
+    fn cold_boot_intro_return_title_shell_rebuild_counts_match_oracle_windows() {
+        let mut script = vec![0u8; 197];
+        script[35] = 0x80;
+        script[79] = 0x80;
+        script[137] = 0x80;
+        script[139] = 0x80;
+        script[181] = 0x80;
+        let trace = run_script(manifest(), &script, script.len());
+
+        let carried_shell = &trace[166];
+        assert_eq!(carried_shell.game_mode, GameMode::TitleScreen);
+        assert_eq!(
+            (
+                carried_shell.number_objects,
+                carried_shell.number_gfx_objects
+            ),
+            (2, 1),
+            "ASM sub_1C246 -> Load_TitleScreen carries the 2/1 intro shell through the early hidden title rebuild"
+        );
+
+        let blank_rebuild = &trace[171];
+        assert_eq!(
+            (
+                blank_rebuild.number_objects,
+                blank_rebuild.number_gfx_objects
+            ),
+            (0, 0),
+            "ASM loc_6E2 / Load_TitleScreen clears object RAM before Obj_TitleMenu's staged rebuild is visible"
+        );
+
+        let first_title_worker = &trace[195];
+        assert_eq!(
+            (
+                first_title_worker.number_objects,
+                first_title_worker.number_gfx_objects
+            ),
+            (3, 0),
+            "ASM Obj_TitleMenu staged rebuild exposes the first hidden title worker batch before gfx slots"
+        );
+
+        let second_title_worker = &trace[196];
+        assert_eq!(
+            (
+                second_title_worker.number_objects,
+                second_title_worker.number_gfx_objects
+            ),
+            (5, 1),
+            "ASM Obj_TitleMenu staged rebuild adds the next hidden title objects and first gfx slot"
         );
     }
 
@@ -4171,14 +4243,14 @@ mod chunk_02 {
     }
 
     #[test]
-    fn timing_regression_early_start_boot_path_reaches_level_transition_by_frame_178() {
+    fn timing_regression_early_start_boot_path_stays_hidden_on_frame_178() {
         let trace = run_script(manifest(), &imported_early_start_boot_script(), 181);
 
         let pre_menu_start = &trace[137];
         assert_eq!(pre_menu_start.game_mode, GameMode::TitleScreen);
 
         let later_title = &trace[178];
-        assert_eq!(later_title.game_mode, GameMode::LevelTransition);
+        assert_eq!(later_title.game_mode, GameMode::TitleScreen);
         assert_eq!(later_title.current_level, LevelId(0));
     }
 
@@ -4190,10 +4262,10 @@ mod chunk_02 {
         }
         let trace = run_script(manifest(), &script, 463);
 
-        assert_eq!(trace[300].game_mode, GameMode::InGame);
-        assert_eq!(trace[360].game_mode, GameMode::LevelTransition);
-        assert_eq!(trace[461].game_mode, GameMode::LevelTransition);
-        assert_eq!(trace[462].game_mode, GameMode::LevelTransition);
+        assert_eq!(trace[300].game_mode, GameMode::TitleScreen);
+        assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
+        assert_eq!(trace[461].game_mode, GameMode::InGame);
+        assert_eq!(trace[462].game_mode, GameMode::InGame);
         assert_eq!(trace[462].current_level, LevelId(0));
     }
 
@@ -6055,13 +6127,13 @@ mod chunk_02 {
         );
         assert_eq!(
             frame_472.kid_x_pos,
-            Some(0x0750_0000),
-            "frame 472 should preserve the oracle-backed grounded X pose before movement begins",
+            Some(0x010E_A000),
+            "frame 472 should preserve the oracle-backed title-card shell X pose before gameplay movement begins",
         );
         assert_eq!(
             frame_472.kid_y_pos,
-            Some(0x010F_0000),
-            "frame 472 should preserve the oracle-backed grounded Y pose before movement begins",
+            Some(0x00EF_6000),
+            "frame 472 should preserve the oracle-backed title-card shell Y pose before gameplay movement begins",
         );
         assert_eq!(
             runtime.progression.invulnerable_frames, 0,

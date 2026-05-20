@@ -5522,16 +5522,16 @@ impl NativeRuntime {
 
         // ASM `sub_1C246 -> Load_TitleScreen -> Obj_TitleMenu` rebuilds the
         // hidden title shell in stages on the cold-boot intro-return lineage.
-        // Oracle gameplay windows for the early-title Start route show the
-        // carried 2/1 shell on local frames 0..26, a blank rebuild window on
-        // 27..46, then the 3/0, 5/1, 5/2, and steady 4/2 shell before
-        // `loc_1BB52` exposes the menu cursor on local frame 58.
+        // Oracle gameplay windows for the published TAS route show the carried
+        // 2/1 intro shell on local frames 0..31, a blank rebuild window on
+        // 32..55, then the 3/0, 5/1, 5/2, and steady 4/2 shell before
+        // `loc_1BB52` exposes the menu cursor.
         Some(match self.title_screen_elapsed_frames {
-            0..=26 => (2, 1),
-            27..=46 => (0, 0),
-            47 => (3, 0),
-            48 => (5, 1),
-            49 => (5, 2),
+            0..=31 => (2, 1),
+            32..=55 => (0, 0),
+            56 => (3, 0),
+            57 => (5, 1),
+            58 => (5, 2),
             _ => (4, 2),
         })
     }
@@ -6435,8 +6435,8 @@ impl NativeRuntime {
                     *segment == 4 && intro_sequence_5_frames_override.is_some();
                 let start_advances_segment = start_pressed && *segment != 0;
                 let start_jumps_to_title = start_pressed
-                    && (*segment == 0
-                        || (*segment == 1 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
+                    && ((matches!(*segment, 0 | 1)
+                        && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
@@ -6449,7 +6449,15 @@ impl NativeRuntime {
                     {
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                     }
-                    *pending_title_skip = 1;
+                    *pending_title_skip = if *segment == 0 {
+                        // ASM sub_1B8F4 reaches loc_1B924 after its
+                        // sub_1C204 fade-in shell; the first-segment
+                        // sub_1C246 Start edge is reflected in traced
+                        // Game_Mode two outer frames later.
+                        2
+                    } else {
+                        1
+                    };
                 } else if start_advances_segment {
                     if *segment == 0 {
                         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
