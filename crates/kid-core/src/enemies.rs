@@ -14909,6 +14909,64 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
     }
 }
 
+fn shared_walker_grounded_scan_requests_turn(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+    walk_delta: i32,
+    half_width: i32,
+    height: i32,
+) -> bool {
+    let moving_right = walk_delta >= 0;
+    if !moving_right {
+        // Native's existing leftward look-ahead path already reaches the Level
+        // 0x01 oracle's `$009B` turn point. The missing parity was the
+        // rightward `sub_36972` boundary turn, whose lead-column/following-row
+        // scan fires before the simpler native floor probe.
+        return false;
+    }
+    let current_x_px = (enemy.x_pos >> 16) as i32;
+    let current_y_px = (enemy.y_pos >> 16) as i32;
+    let scan = terrain::grounded_walker_scan_right_sub_36972(
+        grid,
+        current_x_px,
+        current_y_px,
+        half_width,
+        height,
+    );
+
+    // ASM loc_3C04E/loc_3C0FA: `tst.w d6; bmi` continues immediately when the
+    // following row is fully clear. Grounded cliff turns only happen on the
+    // mixed/blocked following-row path after the next horizontal step crosses a
+    // 16px tile boundary.
+    if scan.floor_class_d6 < 0 {
+        return false;
+    }
+
+    let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+    let next_x_px = (next_x >> 16) as i32;
+    let pixel_delta = if moving_right {
+        next_x_px - current_x_px
+    } else {
+        current_x_px - next_x_px
+    };
+    if pixel_delta <= 0 {
+        return false;
+    }
+
+    let tile_remainder = if moving_right {
+        (-(current_x_px + half_width)) & 0xF
+    } else {
+        (current_x_px - half_width) & 0xF
+    };
+    if tile_remainder >= pixel_delta {
+        return false;
+    }
+
+    let edge_bit_set = scan.flags_d7 & 0b001 != 0;
+    let wall_bit_set = scan.flags_d7 & 0b010 != 0;
+    edge_bit_set || !wall_bit_set
+}
+
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
 /// floor edge. Matches the shared walker subroutines in the disassembly
 /// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
@@ -14925,6 +14983,25 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     enemy.y_velocity = 0;
 
+    let probe_half_width = pacer_probe_half_width(enemy.family);
+    let probe_height = pacer_probe_height(enemy.family);
+
+    if shared_walker_grounded_scan_requests_turn(
+        enemy,
+        grid,
+        enemy.x_velocity,
+        probe_half_width,
+        probe_height,
+    ) {
+        // ASM loc_3C04E -> loc_3C0A6/loc_3C0B4: the rightward `sub_36972`
+        // scan runs before `move.l d2,x_pos(a3)`, so an edge/no-floor turn
+        // consumes the frame without first storing the predicted X position.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
+
     // Apply horizontal movement.
     // ASM loc_3C1DE (kid.asm:43684-43686): no-collision X path in the leftward
     // walker loop — move.l d2,x_pos(a3) stores the predicted position when the
@@ -14936,8 +15013,6 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
-    let probe_half_width = pacer_probe_half_width(enemy.family);
-    let probe_height = pacer_probe_height(enemy.family);
 
     // Wall probe: reverse if we hit a wall.
     let wall = terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);

@@ -5344,6 +5344,33 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let script = vec![0u8; 301];
+
+        let trace = run_script_with_settled_warp(manifest, &script, 301, Some(1));
+        let frame_300 = trace
+            .get(300)
+            .expect("settled Level 0x01 frame 300 should be captured");
+        let first_tank = frame_300
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00D8_0000
+            })
+            .expect("Level 0x01 first RockTank parent should still be active at frame 300");
+
+        assert_eq!(
+            first_tank.x_pos, 0x00C4_0000,
+            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank parent at x=$00C4, not idling near spawn",
+        );
+    }
+
     /// Determinism with active gameplay inputs (walk + jump).
     #[test]
     fn determinism_active_gameplay_identical_traces() {
