@@ -2,10 +2,13 @@ use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
-    DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588, TankBulletLoopRouteLoc3B7BA,
-    archer_angle_to_player, archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa,
-    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
-    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
+    DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
+    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
+    TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
+    drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a40,
+    drips_surface_crawler_turn_script_loc_3393c, drips_vertical_bounds_contact_flag_loc_335b0,
+    tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -65,6 +68,13 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
 
 const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
+    Loop,
+    Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
+    Exit,
+}
 
 fn drips_surface_crawler_from_drop_loc_335d8(
     drop: &EnemyProjectile,
@@ -146,26 +156,85 @@ fn drips_surface_crawler_supported_below_loc_33650(
         == 0x6000
 }
 
-fn drips_surface_crawler_side_column_continues_loc_33650(
+fn drips_surface_crawler_side_column_step_loc_33650(
     grid: &terrain::BlockGrid,
     projectile: &EnemyProjectile,
-) -> bool {
+) -> DripsSurfaceCrawlerSideColumnStepLoc33650 {
     let x_pos_word = (projectile.x_pos >> 16) as u16 as i16;
     let y_pos_word = (projectile.y_pos >> 16) as u16 as i16;
     let x_offset = if projectile.x_velocity < 0 { -6 } else { 6 };
     // ASM Drips.asm loc_33650/loc_336AA: after the support and bounds gates,
-    // `loc_331F6` samples the side column. Native does not yet run the turn
-    // scripts for the non-loop branches, so only the `$6000` current-row loop
-    // stays alive on the straight horizontal path.
-    relative_collision_column_loc_331F6(
+    // `loc_331F6` samples the side column. Native now runs the first two
+    // leftward non-loop turn scripts; other turn targets still exit the
+    // simplified crawler until their state/animation loops are wired.
+    let column = relative_collision_column_loc_331F6(
         grid,
         i32::from(x_pos_word),
         i32::from(y_pos_word),
         x_offset,
         0,
-    )
-    .current_row
-        == 0x6000
+    );
+
+    if projectile.x_velocity < 0 {
+        if column.one_row_up == 0x6000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_3393c(),
+            );
+        }
+        if column.one_row_up == 0x5000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33a40(),
+            );
+        }
+    }
+
+    if column.current_row == 0x6000 {
+        DripsSurfaceCrawlerSideColumnStepLoc33650::Loop
+    } else {
+        DripsSurfaceCrawlerSideColumnStepLoc33650::Exit
+    }
+}
+
+fn drips_surface_crawler_add_word_delta_loc_33af6(pos: u32, delta: i16) -> u32 {
+    let pos_word = (pos >> 16) as u16;
+    u32::from(pos_word.wrapping_add(delta as u16)) << 16
+}
+
+fn drips_surface_crawler_apply_turn_script_loc_33af6(
+    projectile: &mut EnemyProjectile,
+    script: DripsSurfaceCrawlerTurnScriptLoc33AF6,
+) {
+    // ASM Drips.asm loc_33AF6 clears velocity/fraction words before snapping
+    // the selected position word and running the two animation movement tuples.
+    projectile.x_velocity = 0;
+    projectile.y_velocity = 0;
+    projectile.x_pos &= 0xFFFF_0000;
+    projectile.y_pos &= 0xFFFF_0000;
+
+    match script.snap_field {
+        DripsSurfaceCrawlerTurnFieldLoc33AF6::XPos => {
+            let snapped = ((projectile.x_pos >> 16) as u16).wrapping_add(script.snap_offset as u16)
+                & script.snap_mask;
+            projectile.x_pos = u32::from(snapped) << 16;
+        }
+        DripsSurfaceCrawlerTurnFieldLoc33AF6::YPos => {
+            let snapped = ((projectile.y_pos >> 16) as u16).wrapping_add(script.snap_offset as u16)
+                & script.snap_mask;
+            projectile.y_pos = u32::from(snapped) << 16;
+        }
+        DripsSurfaceCrawlerTurnFieldLoc33AF6::Unknown(_) => {}
+    }
+
+    projectile.x_pos =
+        drips_surface_crawler_add_word_delta_loc_33af6(projectile.x_pos, script.first_x_delta);
+    projectile.y_pos =
+        drips_surface_crawler_add_word_delta_loc_33af6(projectile.y_pos, script.first_y_delta);
+    projectile.x_pos =
+        drips_surface_crawler_add_word_delta_loc_33af6(projectile.x_pos, script.second_x_delta);
+    projectile.y_pos =
+        drips_surface_crawler_add_word_delta_loc_33af6(projectile.y_pos, script.second_y_delta);
+    projectile.x_velocity = projectile.x_velocity.wrapping_add(script.x_velocity_delta);
+    projectile.y_velocity = projectile.y_velocity.wrapping_add(script.y_velocity_delta);
 }
 
 #[cfg(test)]
@@ -850,13 +919,24 @@ impl NativeRuntime {
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
                 && let Some(g) = grid
-                && !drips_surface_crawler_side_column_continues_loc_33650(g, p)
             {
-                // ASM Drips.asm loc_33650/loc_336AA only loops on the
-                // straight horizontal path when `loc_331F6` returns `$6000`
-                // in d5. Other flags enter turn scripts; native approximates
-                // those non-loop branches by ending the simplified crawler.
-                return false;
+                match drips_surface_crawler_side_column_step_loc_33650(g, p) {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Loop => {}
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(script) => {
+                        // ASM Drips.asm loc_3393C/loc_33A40 branch into the
+                        // shared loc_33AF6 script and then hibernate in the
+                        // next movement label. Return now so the generic
+                        // projectile mover does not add an extra frame.
+                        drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
+                        return true;
+                    }
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Exit => {
+                        // TODO(fidelity): wire the remaining loc_33650/loc_336AA
+                        // turn-script targets instead of ending the simplified
+                        // crawler.
+                        return false;
+                    }
+                }
             }
 
             if is_diamond_power_rain

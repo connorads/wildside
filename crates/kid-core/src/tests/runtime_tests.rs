@@ -9290,6 +9290,92 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_leftward_upper_solid_runs_loc_3393c_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(5 + 1) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0025_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33650 routes loc_331F6 d6 `$6000` through loc_3393C, not deletion");
+        assert_eq!(
+            crawler.x_pos, 0x0021_0000,
+            "ASM loc_3393C/loc_33AF6 snaps X to `$FFF0`, applies the +1 first animation delta, then no second X delta"
+        );
+        assert_eq!(
+            crawler.y_pos, 0x001B_0000,
+            "ASM loc_3393C/loc_33B5E applies the -5 second Y delta before jumping to loc_33730"
+        );
+        assert_eq!(
+            crawler.x_velocity, 0,
+            "ASM loc_33AF6 clears x_vel before loc_3393C applies no X velocity delta"
+        );
+        assert_eq!(
+            crawler.y_velocity, -0x3000,
+            "ASM loc_3393C/loc_33B5E seeds y_vel with -$3000"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_leftward_upper_slope_runs_loc_33a40_turn_script() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(5 + 1) * 2] = 0x50;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0025_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33650 routes loc_331F6 d6 `$5000` through loc_33A40, not deletion");
+        assert_eq!(
+            crawler.x_pos, 0x001D_0000,
+            "ASM loc_33A40/loc_33AF6 snaps X, applies +1, then applies the -4 second X delta"
+        );
+        assert_eq!(
+            crawler.y_pos, 0x001D_0000,
+            "ASM loc_33A40/loc_33B5E applies the -3 second Y delta before jumping to loc_33892"
+        );
+        assert_eq!(
+            crawler.x_velocity, -0x2000,
+            "ASM loc_33A40/loc_33B5E seeds x_vel with -$2000"
+        );
+        assert_eq!(
+            crawler.y_velocity, -0x2000,
+            "ASM loc_33A40/loc_33B5E seeds y_vel with -$2000"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_deletes_when_left_probe_crosses_zero_loc_335aa() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
