@@ -7574,15 +7574,44 @@ impl NativeRuntime {
         if spawned_ready_children {
             self.active_enemies.extend(ready_children);
         }
+        let mut completed_status_routes = Vec::new();
         self.pending_dragon_death_animations.retain_mut(|pending| {
             pending.remaining_frames = pending.remaining_frames.saturating_sub(1);
-            pending.remaining_frames > 0
+            if pending.remaining_frames == 0 {
+                completed_status_routes.push(pending.status_route);
+                false
+            } else {
+                true
+            }
         });
+        for status_route in completed_status_routes {
+            self.apply_dragon_flying_death_status_route_loc_3492C(status_route);
+        }
         if spawned_ready_children
             || had_pending_animation
             || !self.pending_dragon_death_animations.is_empty()
         {
             self.rebuild_active_enemy_roster();
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_dragon_flying_death_status_route_loc_3492C(
+        &mut self,
+        status_route: DragonFlyingDeathStatusRouteLoc3492C,
+    ) {
+        match status_route {
+            DragonFlyingDeathStatusRouteLoc3492C::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    *word = marker.word_value;
+                }
+            }
+            DragonFlyingDeathStatusRouteLoc3492C::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly => {}
         }
     }
 
@@ -8904,6 +8933,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
+        self.enemy_status_words.fill(0);
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();

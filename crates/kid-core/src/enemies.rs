@@ -6442,6 +6442,7 @@ pub(crate) struct PendingDragonDeathAnimation {
     pub(crate) facing: Direction,
     pub(crate) palette_variant: u8,
     pub(crate) layout_index: usize,
+    pub(crate) status_route: DragonFlyingDeathStatusRouteLoc3492C,
 }
 
 impl PendingDragonDeathAnimation {
@@ -8098,6 +8099,13 @@ pub(crate) fn dragon_flying_death_sequence_loc_3492C(
 pub(crate) fn dragon_flying_death_animation_loc_3492C(
     parent: &ActiveEnemy,
 ) -> PendingDragonDeathAnimation {
+    let sequence = dragon_flying_death_sequence_loc_3492C(
+        parent.x_pos,
+        parent.y_pos,
+        parent.facing,
+        parent.wait_timer,
+        parent.layout_index as u8,
+    );
     PendingDragonDeathAnimation {
         remaining_frames: DRAGON_FLYING_DEATH_ANIMATION_FRAMES,
         x_pos: parent.x_pos,
@@ -8105,6 +8113,7 @@ pub(crate) fn dragon_flying_death_animation_loc_3492C(
         facing: parent.facing,
         palette_variant: parent.palette_variant,
         layout_index: parent.layout_index,
+        status_route: sequence.status_route,
     }
 }
 
@@ -37554,6 +37563,7 @@ impl NativeRuntime {
             self.active_enemies.clear();
             self.pending_dragon_death_children.clear();
             self.pending_dragon_death_animations.clear();
+            self.enemy_status_words.fill(0);
             self.block_state.evanescent_blocks.clear();
             self.block_state.reset_shooter_state_sub_F06A();
             self.block_state.ghost_groups.clear();
@@ -37644,6 +37654,7 @@ impl NativeRuntime {
                 self.active_enemies.clear();
                 self.pending_dragon_death_children.clear();
                 self.pending_dragon_death_animations.clear();
+                self.enemy_status_words.fill(0);
                 self.active_enemy_roster.clear();
             }
         }

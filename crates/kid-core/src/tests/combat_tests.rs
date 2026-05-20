@@ -8044,6 +8044,7 @@ mod chunk_03 {
         dragon.facing = Direction::Right;
         dragon.palette_variant = 2;
         dragon.wait_timer = 0xCAFE;
+        dragon.layout_index = 5;
         let killed_identity = (dragon.segment_index, dragon.layout_index);
         runtime.active_enemies = vec![dragon];
 
@@ -8069,6 +8070,10 @@ mod chunk_03 {
         assert_eq!(
             runtime.pending_dragon_death_animations[0].remaining_frames,
             DRAGON_FLYING_DEATH_ANIMATION_FRAMES
+        );
+        assert_eq!(
+            runtime.enemy_status_words[5], 0,
+            "ASM Dragon_Flying.asm loc_3492C does not run the EnemyStatus_Table route until stru_345E4 finishes"
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
@@ -8122,9 +8127,52 @@ mod chunk_03 {
             "ASM Dragon_Flying.asm loc_3492C deletes the original flying-dragon object after stru_345E4 finishes"
         );
         assert_eq!(
+            runtime.enemy_status_words[5], 0x2168,
+            "ASM Dragon_Flying.asm loc_34998 writes the respawn marker into EnemyStatus_Table after the death animation finishes"
+        );
+        assert_eq!(
             runtime.active_enemy_roster.len(),
             1,
             "ASM Dragon_Flying.asm loc_3492C leaves only the walking child after the death animation delete tail"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.apply_dragon_flying_death_status_route_loc_3492C(
+            DragonFlyingDeathStatusRouteLoc3492C::WriteRespawnMarker(
+                DragonFlyingRespawnMarkerLoc34998 {
+                    index: 3,
+                    word_value: 0x2168,
+                },
+            ),
+        );
+        assert_eq!(
+            runtime.enemy_status_words[3], 0x2168,
+            "ASM Dragon_Flying.asm loc_34998 writes `$2168` into the selected EnemyStatus_Table word"
+        );
+
+        runtime.enemy_status_words[7] = 0xC400;
+        runtime.apply_dragon_flying_death_status_route_loc_3492C(
+            DragonFlyingDeathStatusRouteLoc3492C::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0xC000,
+            "ASM Dragon_Flying.asm loc_3492C subtracts `$400` from bit-7+bit-6 status slots after masking with `$3F`"
+        );
+
+        runtime.enemy_status_words[9] = 0xAAAA;
+        runtime.apply_dragon_flying_death_status_route_loc_3492C(
+            DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly,
+        );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0xAAAA,
+            "ASM Dragon_Flying.asm loc_3492C bit-7 without bit-6 falls through to delete without touching EnemyStatus_Table"
         );
     }
 

@@ -82,7 +82,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ### Dragon Walking — Fixed this session
 - Breath interval: initial $12C (300f), reset $1F4 (500f) — dual constant implemented
 
-### Dragon Flying — Fire/death child fixed, death timing remains
+### Dragon Flying — Fire/death status fixed
 - All script constants verified correct (drift speeds, accelerations, caps, dive script entries)
 - All 3 variant scripts verified correct
 - **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
@@ -93,7 +93,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
   dispatches the six terrain responses from `off_349C6`; native descent now
   enters the matching left/right slide, up/down slide, and slope rebound recovery
   phases before returning to the main flight script.
-- **Partially fixed: Death animation status route**: ASM `loc_3492C` hibernates for two frames before allocating the walking-dragon child, keeps the dying flying-dragon GfxObject alive through `stru_345E4`, and then runs the EnemyStatus_Table route. Native now models the two-frame child delay plus the `stru_345E4` visual lifetime; the table side effects remain approximated by the coarse killed-enemy set.
+- **Fixed: Death animation status route**: ASM `loc_3492C` hibernates for two frames before allocating the walking-dragon child, keeps the dying flying-dragon GfxObject alive through `stru_345E4`, and then runs the EnemyStatus_Table route. Native now models the two-frame child delay, the `stru_345E4` visual lifetime, and the table write/subtract/delete-only side effects.
 
 ### Tornado — Acceleration scaling fixed, Cyclone interaction implemented
 - Cycle timers: 60/40/30 by level — correct
@@ -152,4 +152,4 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### Low impact (edge cases or rare scenarios)
 8. **FIXED**: Dragon Flying collision-recovery during Descent
-9. Dragon Flying death status-table route
+9. **FIXED**: Dragon Flying death status-table route
