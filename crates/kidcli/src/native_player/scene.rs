@@ -312,8 +312,11 @@ pub(super) fn build_transition_scene(
     // native traces can briefly expose LevelTransition before the projected
     // Title_Letter workers are visible; the ROM has no invented "Blue Lake
     // Woods" text screen there, just the title-card VDP shell.
-    let is_title_card_bootstrap = trace.boot_phase.as_deref() == Some("starting_level");
-    if !drew_any_glyph && !is_title_card_bootstrap {
+    let is_rom_transition_without_static_card = matches!(
+        trace.boot_phase.as_deref(),
+        Some("starting_level" | "level_skip_hold")
+    );
+    if !drew_any_glyph && !is_rom_transition_without_static_card {
         let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
         let level_text = level_name.to_string();
         let text_w = level_text.len() as i32 * 8 * 2;

@@ -2137,6 +2137,31 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_airborne_slash_damages_shooting_rock_tank_below_kid() {
+        // ASM Tank_Shooting.asm loc_3B6DE decrements current_hp for `$1C/$2C`
+        // turret collisions; Red Stealth's airborne slash should feed the same
+        // generic enemy damage path for Level 2 shooting RockTanks.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
+        let slice = combat_slice();
+        let tank_y = ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX)
+            as u32
+            * 0x1_0000;
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::TankShooting,
+            slice.player.x_pos,
+            tank_y,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x40);
+    }
+
+    #[test]
     fn red_stealth_airborne_slash_does_not_hit_when_counter_zero() {
         // Without the airborne counter set, `process_sword_hits` should fall
         // back to the ground swing path. Ground timer is also zero here, so
@@ -2299,6 +2324,28 @@ mod chunk_06 {
             rt.active_enemies[0].hit_points, 1,
             "enemy should take 1 damage"
         );
+    }
+
+    #[test]
+    fn red_stealth_sword_damages_nearby_shooting_rock_tank() {
+        // ASM Tank_Shooting.asm loc_3B6DE treats `$1C/$2C` turret hits as
+        // ordinary damage, so a ground Red Stealth sword hit should reduce the
+        // shooting RockTank's multi-hit HP rather than leaving it invulnerable.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::TankShooting,
+            0x009C_0000,
+            0x00F6_0000,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
     }
 
     /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to

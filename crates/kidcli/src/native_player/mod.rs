@@ -489,7 +489,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 }
                 fade_alpha = 255;
                 fading_in = true;
-                level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
+                if should_start_native_level_card_overlay_for_level_change(
+                    &trace,
+                    options.warp_level,
+                    options.settled,
+                ) {
+                    level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
+                }
             }
             if let Some(ref mut gems) = gems_engine {
                 let level_theme =
@@ -640,6 +646,24 @@ fn should_start_native_level_card_overlay(
         && warp_level.is_none()
         && !settled
         && previous_trace.boot_phase.as_deref() != Some("starting_level")
+}
+
+fn should_start_native_level_card_overlay_for_level_change(
+    trace: &NativeTraceFrame,
+    warp_level: Option<u8>,
+    settled: bool,
+) -> bool {
+    if warp_level.is_some() || settled {
+        return false;
+    }
+
+    // ASM loc_74E0 level-skip cheat does not enter Load_TitleCard. The core
+    // projects the ROM hold/resume poses via `level_skip_hold`; do not mask
+    // that path with the native placeholder transition card.
+    !matches!(
+        trace.boot_phase.as_deref(),
+        Some("starting_level" | "level_skip_hold")
+    )
 }
 
 fn save_native_recording_bundle(
@@ -2811,6 +2835,25 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_keeps_level_skip_hold_from_using_static_card() {
+        // ASM loc_74E0 level-skip cheat enters the hold/resume animation path,
+        // not Load_TitleCard. When no visible objects are projected in the
+        // blank preload window, keep the ROM-style blank transition rather than
+        // restoring the old fake "Blue Lake Woods" card.
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        trace.boot_phase = Some(String::from("level_skip_hold"));
+        assert!(trace.active_objects.is_empty());
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            !contains_text(&scene, "Blue Lake Woods 1"),
+            "level-skip hold should not use the static transition fallback",
+        );
+    }
+
+    #[test]
     fn vdp_title_card_bootstrap_composites_title_letter_workers() {
         // ASM Load_TitleCard draws the background through VDP, while
         // loc_1AB26/loc_1AC70 keep the animated Title_Letter workers in gfx
@@ -4208,6 +4251,34 @@ mod tests {
         ));
         assert!(!should_start_native_level_card_overlay(
             &previous, &current, None, true
+        ));
+    }
+
+    #[test]
+    fn level_card_overlay_does_not_mask_level_skip_hold() {
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        trace.boot_phase = Some(String::from("level_skip_hold"));
+
+        assert!(
+            !should_start_native_level_card_overlay_for_level_change(&trace, None, false),
+            "ASM loc_74E0 level-skip hold/resume path should not be covered by the native placeholder level card",
+        );
+    }
+
+    #[test]
+    fn level_card_overlay_can_start_for_ordinary_level_change() {
+        let trace = sample_trace(GameMode::LevelTransition);
+
+        assert!(should_start_native_level_card_overlay_for_level_change(
+            &trace, None, false
+        ));
+        assert!(!should_start_native_level_card_overlay_for_level_change(
+            &trace,
+            Some(0),
+            false
+        ));
+        assert!(!should_start_native_level_card_overlay_for_level_change(
+            &trace, None, true
         ));
     }
 
