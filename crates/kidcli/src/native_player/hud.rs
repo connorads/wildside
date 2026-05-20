@@ -20,6 +20,49 @@ const HUD_HITPOINT_START_X: i32 = 0x90 - 128;
 const HUD_HITPOINT_Y: i32 = 0xA4 - 128;
 const HUD_HITPOINT_SPACING_X: i32 = 0x10;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HudHitpointTile {
+    Full,
+    Half,
+    Empty,
+}
+
+fn hud_hitpoint_tiles(number_hitpoints: u16, max_hitpoints: u16) -> Vec<HudHitpointTile> {
+    // ASM Make_SpriteAttr_HUD loc_BE0C..loc_BE74 (kid.asm:15407): d0
+    // (current HP) and d1 (capacity) decrement by two per visible slot. A
+    // remainder of one current HP emits $822E; an odd trailing capacity slot is
+    // written with size 0 and is therefore skipped by native rendering.
+    let mut current = number_hitpoints as i16;
+    let mut capacity = max_hitpoints as i16;
+    let mut tiles = Vec::new();
+
+    loop {
+        capacity -= 2;
+        current -= 2;
+        let tile = if current >= 0 {
+            Some(HudHitpointTile::Full)
+        } else if current == -1 {
+            if capacity < 0 {
+                None
+            } else {
+                Some(HudHitpointTile::Half)
+            }
+        } else if capacity < 0 {
+            None
+        } else {
+            Some(HudHitpointTile::Empty)
+        };
+        if let Some(tile) = tile {
+            tiles.push(tile);
+        }
+        if capacity <= 0 {
+            break;
+        }
+    }
+
+    tiles
+}
+
 fn push_hud_tile_offset(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -94,16 +137,19 @@ pub(super) fn push_game_hud(
         || PlayerForm::TheKid.max_hitpoints(),
         PlayerForm::max_hitpoints,
     ) as i32;
-    for i in 0..max_hp {
-        let pip_tile = if (i as u16) < trace.number_hitpoints {
-            level_visuals.hud.hitpoint_tiles[0]
-        } else {
-            level_visuals.hud.hitpoint_tiles[2]
+    for (i, hitpoint_tile) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
+        .iter()
+        .enumerate()
+    {
+        let pip_tile = match hitpoint_tile {
+            HudHitpointTile::Full => level_visuals.hud.hitpoint_tiles[0],
+            HudHitpointTile::Half => level_visuals.hud.hitpoint_tiles[1],
+            HudHitpointTile::Empty => level_visuals.hud.hitpoint_tiles[2],
         };
         if let Some(tile) = resolve_ingame_vram_tile(level_visuals, pip_tile) {
             push_resolved_tile(
                 commands,
-                HUD_HITPOINT_START_X + i * HUD_HITPOINT_SPACING_X,
+                HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
                 HUD_HITPOINT_Y,
                 tile,
             );

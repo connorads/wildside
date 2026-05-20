@@ -5040,7 +5040,10 @@ mod tests {
             .count();
 
         assert!(hud_digits >= 2, "HUD should show digit art");
-        assert!(hitpoint_tiles >= 2, "HUD should show hitpoint art");
+        assert_eq!(
+            hitpoint_tiles, 1,
+            "ASM Make_SpriteAttr_HUD renders The Kid's 2 HP as one full 2-HP pip"
+        );
         assert!(!contains_text(&scene, "x3"));
         assert!(!contains_text(&scene, "D:7"));
     }
@@ -5144,24 +5147,21 @@ mod tests {
         trace.number_hitpoints = 1;
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, full_pip, _) =
+        let (_, half_pip, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0xA4 - 128, 0x200)
                 .expect("first hitpoint pip");
-        let (_, empty_pip, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0xA0 - 128, 0xA4 - 128, 0x200)
-                .expect("second hitpoint pip");
 
         assert_eq!(
-            full_pip.tile_index, 13,
-            "ASM Make_SpriteAttr_HUD loc_BE0C writes the first full pip at biased X $90 with tile $822D"
-        );
-        assert_eq!(
-            empty_pip.tile_index, 15,
-            "ASM loc_BE5C writes the second empty pip at biased X $A0 with tile $822F"
+            half_pip.tile_index, 14,
+            "ASM Make_SpriteAttr_HUD loc_BE34 writes 1 HP as the half-pip tile $822E at biased X $90"
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 0, 0xA4 - 128, 0x200).is_none(),
             "native must not draw the old left-edge HP pip approximation"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 0xA0 - 128, 0xA4 - 128, 0x200).is_none(),
+            "ASM exits after The Kid's single 2-HP slot; there is no second empty pip"
         );
     }
 
@@ -5171,18 +5171,18 @@ mod tests {
         trace.number_hitpoints = 1; // Took damage
         let scene = build_ingame_scene(&trace, false, None);
 
-        let has_empty_pip = scene.commands.iter().any(|command| {
+        let has_half_pip = scene.commands.iter().any(|command| {
             matches!(
                 command,
                 DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
                     if *y < 48
                         && tile_sheet.tiles.len() == 0x200
-                        && tile.tile_index == 15
+                        && tile.tile_index == 14
             )
         });
         assert!(
-            has_empty_pip,
-            "HUD should show empty hitpoint art after damage"
+            has_half_pip,
+            "ASM loc_BE34 should show half-hitpoint art after The Kid takes one point of damage"
         );
     }
 
@@ -5196,7 +5196,7 @@ mod tests {
 
         assert_eq!(
             count_hud_hitpoint_tiles(&skycutter_scene),
-            PlayerForm::Skycutter.max_hitpoints() as usize
+            (PlayerForm::Skycutter.max_hitpoints() / 2) as usize
         );
 
         let mut iron_knight = sample_trace(GameMode::InGame);
@@ -5207,7 +5207,7 @@ mod tests {
 
         assert_eq!(
             count_hud_hitpoint_tiles(&iron_knight_scene),
-            PlayerForm::IronKnight.max_hitpoints() as usize
+            (PlayerForm::IronKnight.max_hitpoints() / 2) as usize
         );
     }
 }
