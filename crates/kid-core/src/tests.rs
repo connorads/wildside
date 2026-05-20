@@ -307,3 +307,54 @@ mod movement_tests;
 mod projectile_tests;
 mod runtime_tests;
 mod weather_tests;
+
+#[test]
+fn scenario_boot_to_level_uses_start_path_and_reaches_ingame() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.boot_to_level(LevelId(0));
+
+    assert!(
+        matches!(runtime.boot_state, BootState::InGame),
+        "boot_to_level must press through the title-card path before returning",
+    );
+    assert_eq!(runtime.current_level, LevelId(0));
+    assert!(
+        runtime.start_press_count >= BOOT_TO_LEVEL_START_FRAMES.len(),
+        "the scripted boot path should issue the configured Start presses",
+    );
+    assert!(
+        runtime.level_start_frame.is_some(),
+        "boot_to_level should leave a traceable level-start frame",
+    );
+}
+
+#[test]
+fn scenario_script_wrappers_return_the_requested_trace_length() {
+    let physics_order_trace = run_script_with_physics_order(
+        manifest(),
+        &[0x08, 0x40, 0x00],
+        3,
+        None,
+        PhysicsOrder::GravityFirst,
+    );
+    let traced = run_script_with_trace(manifest(), &[0x00, 0x00], 2, None);
+
+    assert_eq!(physics_order_trace.len(), 3);
+    assert_eq!(physics_order_trace[2].frame_index, 2);
+    assert_eq!(traced.len(), 2);
+    assert_eq!(traced[1].frame_index, 1);
+}
+
+#[test]
+fn scenario_settled_warp_adds_oracle_observed_live_settle_window() {
+    let unsettled = run_script_with_warp(manifest(), &[0x00], 1, Some(0));
+    let settled = run_script_with_settled_warp(manifest(), &[0x00], 1, Some(0));
+
+    assert_eq!(settled[0].current_level, LevelId(0));
+    assert!(!settled[0].paused);
+    assert!(
+        settled[0].frame_index >= unsettled[0].frame_index + 100,
+        "settled full-frame traces should include the oracle-observed live target-level tail",
+    );
+}

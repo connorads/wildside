@@ -5,6 +5,13 @@ use super::*;
 // counting stable target frames. Native's direct `boot_to_level` shortcut skips
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
+const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
+
+fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
+    matches!(runtime.boot_state, BootState::InGame)
+        && runtime.current_level == level_id
+        && !runtime.paused
+}
 
 impl NativeRuntime {
     /// Boot through menus to level 0, then advance to `target` using the
@@ -33,10 +40,11 @@ impl NativeRuntime {
         // that live gameplay has started. Continue idling until the hidden
         // hand-off actually reaches `InGame`, keeping the helper independent
         // of the exact title-card settle length.
-        let mut extra_bootstrap_frames = 0usize;
-        while !matches!(self.boot_state, BootState::InGame) && extra_bootstrap_frames < 720 {
+        for _ in 0..720 {
+            if matches!(self.boot_state, BootState::InGame) {
+                break;
+            }
             self.step_frame(idle);
-            extra_bootstrap_frames += 1;
         }
 
         // Jump directly to target level using internal skip mechanism.
@@ -129,11 +137,11 @@ impl ScriptRunner {
             if self.settle_warp {
                 let idle = FrameInput::default();
                 let mut stable_target_frames = 0usize;
-                while stable_target_frames < ORACLE_SETTLED_WARP_LIVE_FRAMES {
-                    if matches!(runtime.boot_state, BootState::InGame)
-                        && runtime.current_level == LevelId(level_id)
-                        && !runtime.paused
-                    {
+                for _ in 0..SETTLED_WARP_MAX_ATTEMPT_FRAMES {
+                    if stable_target_frames >= ORACLE_SETTLED_WARP_LIVE_FRAMES {
+                        break;
+                    }
+                    if is_live_unpaused_target_level(&runtime, LevelId(level_id)) {
                         stable_target_frames += 1;
                     } else {
                         stable_target_frames = 0;
@@ -216,4 +224,55 @@ pub fn run_script_with_trace(
         runner = runner.warp_to_level(level);
     }
     runner.run(script, frame_count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn settled_warp_guard_requires_ingame_matching_level_and_unpaused() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(3);
+        runtime.paused = false;
+        assert!(is_live_unpaused_target_level(&runtime, LevelId(3)));
+
+        runtime.paused = true;
+        assert!(!is_live_unpaused_target_level(&runtime, LevelId(3)));
+
+        runtime.paused = false;
+        assert!(!is_live_unpaused_target_level(&runtime, LevelId(4)));
+
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        assert!(!is_live_unpaused_target_level(&runtime, LevelId(3)));
+    }
+
+    #[test]
+    fn settled_warp_attempt_budget_covers_live_window_plus_hidden_bootstrap_tail() {
+        assert_eq!(SETTLED_WARP_MAX_ATTEMPT_FRAMES, 828);
+    }
+
+    fn minimal_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("test"),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
 }
