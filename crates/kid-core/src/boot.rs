@@ -6071,6 +6071,28 @@ impl NativeRuntime {
         slice.terrain.floor_terrain_type = TerrainType::Normal;
     }
 
+    pub(crate) fn restore_demo_1_late_fall_velocity(&mut self) {
+        if self.demo_uses_second_recording() != Some(false)
+            || self.demo_startup_frame() != Some(demo::DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME)
+        {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        if slice.player.on_ground || slice.player.y_velocity != 0 {
+            return;
+        }
+
+        // ASM loc_A6F8 -> sub_B168 (kid.asm:13038,14023): the hidden
+        // Load_DemoPlay controller object keeps the top-level TAS velocity
+        // sampled as zero, but raw Kid WRAM has been falling since the
+        // previous jump apex. Restore the live pre-gravity velocity so this
+        // frame adds the normal $4000 and sub_902A advances by $68000.
+        slice.player.y_velocity = 0x0006_4000;
+    }
+
     pub(crate) fn refresh_demo_grounded_run_surface_type(&mut self) {
         let Some(frame_counter) = self.demo_startup_frame() else {
             return;

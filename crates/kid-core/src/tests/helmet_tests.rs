@@ -5199,6 +5199,125 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_late_fall_keeps_live_loc_a6f8_velocity() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        runtime.set_trace_physics(true);
+        let mut frames = std::collections::BTreeMap::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(3_155) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if [
+                3_057usize, 3_058, 3_059, 3_064, 3_121, 3_122, 3_149, 3_150, 3_153, 3_154,
+            ]
+            .contains(&frame_index)
+            {
+                frames.insert(frame_index, trace);
+            }
+        }
+
+        let frame_3057 = frames.get(&3_057).expect("frame 3057 trace");
+        let frame_3058 = frames.get(&3_058).expect("frame 3058 trace");
+        let frame_3059 = frames.get(&3_059).expect("frame 3059 trace");
+        let frame_3064 = frames.get(&3_064).expect("frame 3064 trace");
+        let frame_3121 = frames.get(&3_121).expect("frame 3121 trace");
+        let frame_3122 = frames.get(&3_122).expect("frame 3122 trace");
+        let frame_3153 = frames.get(&3_153).expect("frame 3153 trace");
+        let frame_3154 = frames.get(&3_154).expect("frame 3154 trace");
+        let physics_3058 = frame_3058.physics_trace.expect("frame 3058 physics trace");
+
+        assert_eq!(
+            frame_3057.kid_y_pos,
+            Some(0x019F_5300),
+            "frame 3057 should end at the oracle live Kid Y before the next loc_A6F8 fall step",
+        );
+        assert_eq!(
+            frame_3058.boot_phase_elapsed,
+            Some(523),
+            "frame 3058 should be demo-1 startup frame 523",
+        );
+        assert_eq!(
+            physics_3058.pre_vertical,
+            (0x019F_5300, 0x0006_4000),
+            "ASM loc_A6F8 -> sub_B168 should enter frame 3058 with the live fall velocity carried from frame 3057",
+        );
+        assert_eq!(
+            physics_3058.post_vertical,
+            (0x01A5_D300, 0x0006_8000),
+            "ASM loc_A6F8 -> sub_B168 -> sub_902A should apply normal $4000 gravity and then the live Y step",
+        );
+        assert_eq!(
+            (frame_3058.kid_x_pos, frame_3058.kid_y_pos),
+            (Some(0x026B_2B00), Some(0x01A5_D300)),
+            "live Kid position should match raw oracle WRAM even while the top-level trace samples the controller object",
+        );
+        assert_eq!(
+            frame_3058.camera_y_pos, 0x00E5_0000,
+            "ASM sub_71E4 camera follow should advance with the live falling Kid position",
+        );
+        assert_eq!(
+            (frame_3058.kid_x_velocity, frame_3058.kid_y_velocity),
+            (Some(0), Some(0)),
+            "oracle top-level TAS state still samples zero velocity from the hidden Load_DemoPlay controller object",
+        );
+        assert_eq!(
+            (frame_3058.number_objects, frame_3058.number_gfx_objects),
+            (7, 6),
+            "oracle top-level TAS state keeps the late controller-side worker/gfx count at frame 3058",
+        );
+        assert_eq!(
+            (frame_3059.kid_x_pos, frame_3059.kid_y_pos),
+            (Some(0x026B_8100), Some(0x01AC_9300)),
+            "the following loc_A6F8 frame should continue from the restored live fall velocity",
+        );
+        assert_eq!(
+            (frame_3059.kid_x_velocity, frame_3059.kid_y_velocity),
+            (Some(0), Some(0)),
+            "the controller-sampled zero velocity export should continue after live fall velocity is restored",
+        );
+        assert_eq!(
+            (frame_3059.number_objects, frame_3059.number_gfx_objects),
+            (7, 6),
+            "the late controller-side object count remains visible one frame after the restored live fall",
+        );
+        assert_eq!(
+            (frame_3064.kid_x_velocity, frame_3064.kid_y_velocity),
+            (Some(0), Some(0)),
+            "ASM Load_DemoPlay -> loc_119D8 should keep sampling zero visible velocity after the live Kid has landed",
+        );
+        assert_eq!(
+            (frame_3064.number_objects, frame_3064.number_gfx_objects),
+            (8, 6),
+            "the third late controller-side worker wakes in top-level TAS state on frame 3064",
+        );
+        assert_eq!(
+            (frame_3121.kid_x_velocity, frame_3121.kid_y_velocity),
+            (Some(0), Some(0)),
+            "frame 3121 should be the final zero-velocity controller-sample frame",
+        );
+        assert!(
+            !frame_3121.paused,
+            "frame 3121 should not yet expose the controller-side pause latch",
+        );
+        assert!(
+            frame_3122.paused,
+            "frame 3122 should expose the controller-side Game_Paused latch",
+        );
+        assert_eq!(
+            (frame_3122.number_objects, frame_3122.number_gfx_objects),
+            (8, 6),
+            "the controller-side object count should stay visible while the pause latch is sampled",
+        );
+        assert!(
+            frame_3153.paused,
+            "frame 3153 should be the final pause-latched controller sample",
+        );
+        assert!(
+            !frame_3154.paused,
+            "frame 3154 should return to normal live gameplay trace state",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

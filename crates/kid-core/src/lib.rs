@@ -1627,6 +1627,7 @@ impl NativeRuntime {
                                 KidFrameMotionBranch::DemoBootstrapGroundedRun;
                         } else {
                             self.seed_demo_1_late_jump_reentry();
+                            self.restore_demo_1_late_fall_velocity();
                             self.refresh_demo_grounded_run_surface_type();
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                         }

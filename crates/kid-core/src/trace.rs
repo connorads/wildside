@@ -925,6 +925,7 @@ impl NativeRuntime {
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
             .or_else(|| self.demo_1_late_controller_sample_counts())
+            .or_else(|| self.demo_1_late_title_return_controller_counts())
             .unwrap_or_else(|| {
                 self.object_counts_from_roster(
                     &active_objects,
@@ -1057,7 +1058,7 @@ impl NativeRuntime {
             } else {
                 self.helmet.red_stealth_airborne_slash_counter
             },
-            paused: self.paused,
+            paused: self.paused || self.demo_1_late_controller_pause_active(),
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
             kid_x_velocity: player_state.map(|state| {
@@ -2087,8 +2088,44 @@ impl NativeRuntime {
                 frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
                     && (frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
                         || (!use_demo_2
-                            && frame_counter <= demo::DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME))
+                            && frame_counter
+                                <= demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME))
             })
+    }
+
+    fn demo_1_late_controller_pause_active(&self) -> bool {
+        // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the hidden
+        // controller object alive during the late demo-1 hand-off. Its Start
+        // sample exposes Game_Paused in top-level TAS state for the same
+        // controller-side window as the final object-count sample.
+        if self.demo_1_late_title_return_snapshot_active() {
+            return true;
+        }
+
+        self.demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
+            .is_some_and(|(frame_counter, use_demo_2)| {
+                !use_demo_2
+                    && (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+                        ..=demo::DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME)
+                        .contains(&frame_counter)
+            })
+    }
+
+    fn demo_1_late_title_return_snapshot_active(&self) -> bool {
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.preserve_demo_title_snapshot
+            && self.demo_title_snapshot_object_counts == Some((4, 4))
+            && self.title_screen_elapsed_frames < self.demo_title_partial_snapshot_frames()
+    }
+
+    fn demo_1_late_title_return_controller_counts(&self) -> Option<(u16, u16)> {
+        if self.demo_1_late_title_return_snapshot_active() {
+            // ASM loc_119D8 jumps to the title return while the late demo-1
+            // controller lineage still owns the top-level object/gfx sample.
+            return Some((8, 6));
+        }
+        None
     }
 
     fn demo_1_late_controller_sample_counts(&self) -> Option<(u16, u16)> {
@@ -2097,7 +2134,7 @@ impl NativeRuntime {
             .zip(self.demo_uses_second_recording())?;
         if use_demo_2
             || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
-                ..=demo::DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME)
+                ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
                 .contains(&frame_counter)
         {
             return None;
@@ -2108,7 +2145,9 @@ impl NativeRuntime {
         // top-level TAS state reports the controller-side object/gfx counts
         // while raw Kid WRAM is already moving through loc_A6F8; the sampled
         // worker/gfx count advances earlier than the raw Number_Objects row.
-        if (demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME
+        if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME {
+            Some((8, 6))
+        } else if (demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME
             ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME)
             .contains(&frame_counter)
             || frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME
