@@ -4160,9 +4160,9 @@ mod chunk_09 {
     }
 
     #[test]
-    fn published_tas_intro_sequence_6_timeout_restore_uses_plain_demo_2_preload_row_on_frame_23305()
-    {
+    fn published_tas_timeout_restore_demo_2_uses_timeout_preload_row_on_frame_23305() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_23279 = None;
         let mut frame_23304 = None;
         let mut frame_23305 = None;
         let mut frame_23306 = None;
@@ -4170,6 +4170,13 @@ mod chunk_09 {
         for (frame_index, mask) in script.iter().copied().enumerate().take(23_307) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
+                23_279 => {
+                    frame_23279 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.current_level,
+                    ));
+                }
                 23_304 => {
                     frame_23304 = Some((
                         trace.game_mode,
@@ -4200,9 +4207,18 @@ mod chunk_09 {
         }
 
         // ASM Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame` still
-        // uses the plain demo-2 preload row on the earlier later-demo that starts
-        // immediately after the IntroSequence6 timeout title restore. The lower
-        // `$0228_0000` row belongs only to the later IntroSequence6 revisit.
+        // toggles `Demo_Num` on the earlier later-demo that starts immediately
+        // after the IntroSequence6 timeout title restore. Oracle shows the
+        // Skydragon level ID as soon as the demo startup reaches
+        // `DEMO_LEVEL_SWITCH_FRAME`, and this earlier timeout-restart path uses
+        // the same lower `$0220_0000` preload row as the direct
+        // intro-sequence-5 title return. The later IntroSequence6 revisit
+        // without the hidden-camera carry uses the plain `$0228_0000` row.
+        assert_eq!(
+            frame_23279,
+            Some((GameMode::DemoPlay, Some(31), LevelId(0x1B))),
+            "frame 23279 should switch to the oracle-backed Skydragon demo level",
+        );
         assert_eq!(
             frame_23304,
             Some((GameMode::DemoPlay, Some(56), LevelId(0x1B), 0x0000_0000)),
@@ -4214,9 +4230,9 @@ mod chunk_09 {
                 GameMode::DemoPlay,
                 Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
                 LevelId(0x1B),
-                demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
+                demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP,
             )),
-            "frame 23305 should keep the plain demo-2 preload row on the earlier timeout-restore lineage",
+            "frame 23305 should keep the timeout-restart demo-2 preload row on the earlier timeout-restore lineage",
         );
         assert_eq!(
             frame_23306,

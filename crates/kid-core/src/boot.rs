@@ -5645,9 +5645,23 @@ impl NativeRuntime {
             }
         );
         let intro_sequence_5_title_return_preload_row = use_demo_2
-            && matches!(self.boot_state, BootState::TitleScreen { .. })
-            && self.timeout_restart_title_intro_sequence_5_pose
-            && !self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay;
+            && ((matches!(self.boot_state, BootState::TitleScreen { .. })
+                && self.timeout_restart_title_intro_sequence_5_pose
+                && !self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay)
+                || self.demo_title_return_uses_intro_sequence_6_early_title_restore
+                || matches!(
+                    self.boot_state,
+                    // ASM loc_1BA5C -> Load_IntroSequence6 -> Obj_TitleMenu
+                    // loc_1BB02 reaches the same timeout-restart Load_DemoPlay
+                    // tail as the direct intro-sequence-5 title return. The
+                    // slot-2 pose bit may already be consumed by trace export,
+                    // but the hidden-camera carry identifies this earlier
+                    // lineage; the later IntroSequence6 revisit has it clear.
+                    BootState::IntroSequence6 {
+                        carry_timeout_restart_hidden_camera_wrap: true,
+                        ..
+                    }
+                ));
         let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
             || title_screen_uses_timeout_restart_intro_sequence_4_title_restore
             || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
@@ -6747,7 +6761,7 @@ impl NativeRuntime {
             }
             BootState::IntroSequence6 {
                 cursor,
-                carry_intro_sequence_5_slot_2_pose,
+                carry_intro_sequence_5_slot_2_pose: _,
                 carry_timeout_restart_hidden_camera_wrap,
             } => {
                 let mut just_activated_title_menu = false;
@@ -6815,18 +6829,13 @@ impl NativeRuntime {
                         self.title_idle_frames += 1;
                         if self.title_idle_frames > INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
                             self.title_idle_frames = 0;
-                            let use_demo_2 = if *carry_intro_sequence_5_slot_2_pose
-                                && *carry_timeout_restart_hidden_camera_wrap
-                            {
-                                // ASM Load_IntroSequence6 reaches Obj_TitleMenu
-                                // loc_1BB02 on this timeout-restart lineage
-                                // with Demo_Num still cleared, so the first
-                                // natural demo hand-off is Knights Isle.
-                                false
-                            } else {
-                                self.demo_toggle = !self.demo_toggle;
-                                self.demo_toggle
-                            };
+                            // ASM Load_DemoPlay (kid.asm:23585) always runs
+                            // `not.b ($FFFFFBC8).w` before choosing the demo
+                            // level. The timeout-restart IntroSequence6 path
+                            // still reaches that same tail via Obj_TitleMenu
+                            // loc_1BB02, so it must flip into Skydragon here.
+                            self.demo_toggle = !self.demo_toggle;
+                            let use_demo_2 = self.demo_toggle;
                             self.begin_demo_play(use_demo_2);
                         }
                     }
