@@ -325,6 +325,59 @@ mod tests {
 
         assert_eq!(runtime.current_player_state(), None);
     }
+
+    #[test]
+    fn intro_sequence_4_timeout_restart_intro_3_pose_requires_carry_before_cutoff() {
+        fn uses_pose(
+            elapsed: usize,
+            segment: usize,
+            timeout_restart_intro_sequence_4_pose_carry: bool,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.timeout_restart_intro_sequence_4_pose_carry =
+                timeout_restart_intro_sequence_4_pose_carry;
+            runtime.intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose()
+        }
+
+        // ASM loc_1B96A enters intro sequence 4 before Load_IntroSequence4 /
+        // sub_1B988 clears the timeout-restart intro-3 roster, so the old pose
+        // remains visible only while the carry latch is active and before the
+        // fixed handoff window expires.
+        assert!(uses_pose(26, 3, true));
+        assert!(!uses_pose(27, 3, true));
+        assert!(!uses_pose(26, 3, false));
+        assert!(!uses_pose(26, 2, true));
+    }
+
+    #[test]
+    fn current_player_state_exposes_intro_4_timeout_restart_intro_3_pose_until_cutoff() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: 26,
+            pending_title_skip: 0,
+        };
+        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
+        runtime.active_intro_sequence_3_roster_index = 1;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_3_pose_for_roster(1))
+        );
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: 27,
+            pending_title_skip: 0,
+        };
+
+        assert_eq!(runtime.current_player_state(), None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
