@@ -158,13 +158,18 @@ pub(crate) const DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLA
 /// ordering: `sub_8F26` advances X, then the following frame exposes the
 /// `loc_B5F6` no-support Y increment.
 pub(crate) const DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 148;
+/// Demo-1 resumes a second live jump arc after the long controller-sampled
+/// idle window. ASM `loc_A6F8 -> sub_B168 -> sub_902A -> sub_8F26` enters with
+/// `y_vel=$FFFCE000`, applies held-jump gravity to `$FFFD0000`, then moves
+/// upward on startup frame 252.
+pub(crate) const DEMO_1_LATE_JUMP_REENTRY_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 187;
 /// Published TAS trace sampling keeps the demo player's velocity field on the
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
 /// `loc_C22` updates the demo input stream outside the gameplay object body;
 /// native keeps this as a trace-only hold until the first later live movement
 /// miss so the simulation can still advance.
-pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 186;
+pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_1_LATE_JUMP_REENTRY_FRAME;
 /// After Kid_Transform exits in demo mode, oracle WRAM keeps Kid's sampled
 /// velocity fields at zero while the visible `kid_gfx` object continues moving
 /// for the short controller hand-off window. Native models that as trace-only
@@ -241,7 +246,8 @@ mod tests {
         assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
         assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
         assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
-        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 251);
+        assert_eq!(DEMO_1_LATE_JUMP_REENTRY_FRAME, 252);
+        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 252);
         assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }
 

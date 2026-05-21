@@ -5004,6 +5004,69 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_late_jump_reentry_keeps_live_loc_a6f8_state() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2787 = None;
+        let mut frame_2788 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_789) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                2_787 => frame_2787 = Some(trace),
+                2_788 => {
+                    frame_2788 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_2787 = frame_2787.expect("frame 2787 trace");
+        let frame_2788 = frame_2788.expect("frame 2788 trace");
+
+        assert_eq!(
+            frame_2787.boot_phase_elapsed,
+            Some(252),
+            "frame 2787 should be demo-1 startup frame 252",
+        );
+        assert_eq!(
+            frame_2787.kid_x_pos,
+            Some(0x011B_4080),
+            "ASM loc_A6F8 -> sub_B168 -> sub_902A -> sub_8F26 should carry the second demo-1 jump re-entry horizontally",
+        );
+        assert_eq!(
+            frame_2787.kid_y_pos,
+            Some(0x016B_6000),
+            "ASM loc_A6F8 applies held-jump gravity before the upward sub_902A step during the second demo-1 jump re-entry",
+        );
+        assert_eq!(
+            frame_2787.character_movement,
+            Some(3),
+            "Character_Movement should stay MoveID_Jump through the second demo-1 jump re-entry",
+        );
+        assert_eq!(
+            (frame_2787.number_objects, frame_2787.number_gfx_objects),
+            (6, 5),
+            "the hidden demo-1 worker/gfx count should still be visible when the second jump re-entry reaches frame 2787",
+        );
+        assert_eq!(
+            frame_2787.kid_x_velocity,
+            Some(0),
+            "oracle still samples zero X velocity from the demo controller hand-off while live Kid movement advances",
+        );
+        assert_eq!(
+            frame_2787.kid_y_velocity,
+            Some(0),
+            "oracle still samples zero Y velocity from the demo controller hand-off while live Kid movement advances",
+        );
+        assert_eq!(
+            frame_2788.kid_y_pos,
+            Some(0x0168_8000),
+            "the following ASM loc_A6F8 frame should continue the upward held-jump arc",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

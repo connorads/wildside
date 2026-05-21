@@ -6048,6 +6048,29 @@ impl NativeRuntime {
         true
     }
 
+    pub(crate) fn seed_demo_1_late_jump_reentry(&mut self) {
+        if self.demo_uses_second_recording() != Some(false)
+            || self.demo_startup_frame() != Some(demo::DEMO_1_LATE_JUMP_REENTRY_FRAME)
+        {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+
+        // ASM loc_A6F8 -> sub_B168 (kid.asm:13038,14023): after the
+        // controller-sampled idle window, the ROM resumes the demo-1 Kid
+        // object in MoveID_Jump with y_vel=$FFFCE000. Held-jump gravity adds
+        // $2000 before sub_902A applies the upward position step.
+        slice.player.on_ground = false;
+        slice.player.on_spikes = false;
+        slice.player.just_jumped = false;
+        slice.player.jump_buffer_frames = 0;
+        slice.player.y_velocity = -0x0003_2000;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+    }
+
     pub(crate) fn refresh_demo_grounded_run_surface_type(&mut self) {
         let Some(frame_counter) = self.demo_startup_frame() else {
             return;

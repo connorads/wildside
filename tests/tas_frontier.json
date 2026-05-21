@@ -19,7 +19,7 @@
     "any-percent-published": {
       "scenario": "tests/data/tas/any-percent-published/scenario.json",
       "frame_start": 0,
-      "frontier_frame": 2787,
+      "frontier_frame": 2788,
       "checkpoint_interval": 1,
       "total_frames": 37759,
       "status": "verified"
