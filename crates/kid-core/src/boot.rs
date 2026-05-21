@@ -5471,6 +5471,7 @@ impl NativeRuntime {
             self.title_idle_frames = DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES
                 .try_into()
                 .expect("two-frame intro-sequence-1 title restore offset should fit in u16");
+            self.demo_title_return_uses_intro_sequence_6_early_title_restore = true;
         }
         self.title_screen_ready_frame = ready_frame;
     }
@@ -5649,6 +5650,12 @@ impl NativeRuntime {
                 && self.timeout_restart_title_intro_sequence_5_pose
                 && !self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay)
                 || self.demo_title_return_uses_intro_sequence_6_early_title_restore
+                // ASM sub_1B8F4 -> sub_1C246 can return the later
+                // timeout-restart intro-sequence-1 shell to title after
+                // loc_1B5CE has already restored the standard pose; the next
+                // Obj_TitleMenu loc_1BB02 -> Load_DemoPlay demo-2 bootstrap
+                // keeps the timeout-return `$0220_0000` preload row.
+                || self.timeout_restart_intro_sequence_1_uses_early_title_restore
                 || matches!(
                     self.boot_state,
                     // ASM loc_1BA5C -> Load_IntroSequence6 -> Obj_TitleMenu
@@ -6642,13 +6649,15 @@ impl NativeRuntime {
                     {
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                     }
-                    *pending_title_skip = if timeout_restart_intro_sequence_5_title_return {
-                        // ASM loc_1BA60 calls sub_1C246 after the
-                        // Hibernate_Object_1Frame return. On the second
-                        // timeout-restart intro-sequence-5 visit, oracle sees
-                        // the frame-10288 Start bit while Game_Mode remains
-                        // $24 through frame 10289, then loc_1C264 writes
-                        // $2C on frame 10290.
+                    *pending_title_skip = if timeout_restart_intro_sequence_4_title_return
+                        || timeout_restart_intro_sequence_5_title_return
+                    {
+                        // ASM sub_1B988 / loc_1BA28 call sub_1C246 after the
+                        // Hibernate_Object_1Frame return. On timeout-restart
+                        // intro-sequence-4/5 visits, oracle sees the Start bit
+                        // while Game_Mode remains on the current intro mode
+                        // for one more traced frame, then loc_1C264 writes
+                        // `$2C` on the next frame.
                         2
                     } else if *segment == 0 {
                         // ASM sub_1B8F4 reaches loc_1B924 after its

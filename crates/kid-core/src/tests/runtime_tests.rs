@@ -5006,6 +5006,7 @@ mod chunk_09 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_32004 = None;
         let mut frame_32005 = None;
+        let mut frame_32006 = None;
         let mut frame_32007 = None;
         let mut frame_32011 = None;
 
@@ -5017,6 +5018,9 @@ mod chunk_09 {
                 }
                 32_005 => {
                     frame_32005 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+                }
+                32_006 => {
+                    frame_32006 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
                 }
                 32_007 => {
                     frame_32007 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
@@ -5044,6 +5048,11 @@ mod chunk_09 {
             frame_32005,
             Some((GameMode::IntroSequence4, LevelId(0x00), 0x0004_0000)),
             "frame 32005 should keep the carried sub_1B988 camera hand-off instead of clearing Camera_Y_pos on the Start-tapped revisit",
+        );
+        assert_eq!(
+            frame_32006,
+            Some((GameMode::IntroSequence4, LevelId(0x00), 0x0004_0000)),
+            "frame 32006 should still be the deferred sub_1C246 Start-return frame before loc_1C264 flips to title",
         );
         assert_eq!(
             frame_32007,
@@ -5318,8 +5327,9 @@ mod chunk_09 {
         let mut frame_34915 = None;
         let mut frame_34916 = None;
         let mut frame_34917 = None;
+        let mut frame_34973 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(34_918) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(34_974) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 34_915 => {
@@ -5344,6 +5354,14 @@ mod chunk_09 {
                         trace.current_level,
                         trace.kid_x_pos,
                         trace.kid_y_pos,
+                    ));
+                }
+                34_973 => {
+                    frame_34973 = Some((
+                        trace.game_mode,
+                        trace.current_level,
+                        trace.boot_phase_elapsed,
+                        trace.camera_y_pos,
                     ));
                     break;
                 }
@@ -5378,6 +5396,16 @@ mod chunk_09 {
         assert_eq!(
             frame_34917, demo_pose,
             "frame 34917 should remain in demo playback on the following hidden bootstrap frame",
+        );
+        assert_eq!(
+            frame_34973,
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x1B),
+                Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
+                demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP,
+            )),
+            "frame 34973 should keep the timeout-return demo-2 preload camera row after the later intro-sequence-1 title return",
         );
     }
 
