@@ -50,7 +50,9 @@ strategies:
     # kid-render targets extend it on 2026-05-20 after the source-port
     # frontier and kid-core proactive lanes both reported all-exhausted; these
     # cover visual-fidelity code paths where remaining source-port debt is
-    # expected to surface.
+    # expected to surface. trace.rs extends the source-port fidelity rotation
+    # after the next package still reported all-exhausted while trace helpers
+    # had concrete cargo-mutants candidates.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -69,6 +71,7 @@ strategies:
       - gfx_animation.rs
       - demo.rs
       - scenario.rs
+      - trace.rs
       - bundle.rs
       - lib.rs
       - background.rs
@@ -93,6 +96,7 @@ strategies:
       - { module: gfx_animation.rs, package: kid-core, tier: 3 }
       - { module: demo.rs, package: kid-core, tier: 2 }
       - { module: scenario.rs, package: kid-core, tier: 2 }
+      - { module: trace.rs, package: kid-core, tier: 1 }
       - { module: bundle.rs, package: kid-render, tier: 1 }
       - { module: lib.rs, package: kid-render, tier: 1 }
       - { module: background.rs, package: kid-render, tier: 2 }
