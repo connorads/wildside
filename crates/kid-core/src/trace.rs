@@ -741,6 +741,71 @@ mod tests {
             Some(PlayerState::title_pose())
         );
     }
+
+    #[test]
+    fn trace_frame_marks_currently_transforming_until_final_flash_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.form_change_flash_frames = 2;
+
+        // ASM Kid_Transform loc_7D22 keeps Currently_transforming live during
+        // the visible flash, but loc_7E90 has cleared it by the final
+        // hibernated cleanup frame when one flash frame remains.
+        assert!(
+            runtime
+                .trace_frame()
+                .gameplay_debug_fields
+                .contains_key("currently_transforming")
+        );
+
+        runtime.progression.form_change_flash_frames = 1;
+
+        assert!(
+            !runtime
+                .trace_frame()
+                .gameplay_debug_fields
+                .contains_key("currently_transforming")
+        );
+    }
+
+    #[test]
+    fn trace_frame_reports_prize_diamond_debug_when_either_source_is_live() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.pending_prize_diamond_awards.push(7);
+
+        // ASM PrizeDiamond_Init loc_10396 can leave delayed award bookkeeping
+        // live even without a current floating-diamond proximity candidate.
+        let pending_only = runtime.trace_frame();
+        assert_eq!(
+            pending_only
+                .gameplay_debug_fields
+                .get("pending_prize_diamond_awards"),
+            Some(&"[7]".to_string())
+        );
+
+        runtime.pending_prize_diamond_awards.clear();
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+        runtime.floating_items.push(diamond_at_x(100));
+
+        // The same loc_10396 frontier diagnostics should remain visible when
+        // there are contact candidates but no queued award delays.
+        let candidate_only = runtime.trace_frame();
+        assert_eq!(
+            candidate_only
+                .gameplay_debug_fields
+                .get("pending_prize_diamond_awards"),
+            Some(&"[]".to_string())
+        );
+        assert!(
+            candidate_only
+                .gameplay_debug_fields
+                .contains_key("floating_diamond_contact_candidates")
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
