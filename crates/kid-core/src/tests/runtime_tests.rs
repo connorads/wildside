@@ -5454,6 +5454,46 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn published_tas_later_timeout_restart_intro_sequence_2_start_title_jump_keeps_mode_18() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_36819 = None;
+        let mut frame_36820 = None;
+        let mut frame_36821 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(36_822) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                36_819 => frame_36819 = Some(trace.game_mode),
+                36_820 => frame_36820 = Some(trace.game_mode),
+                36_821 => {
+                    frame_36821 = Some(trace.game_mode);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        // ASM loc_1BA02 tests Start inside the intro-sequence-2 DBF loop. On
+        // this timeout-restart lineage, oracle keeps `$18` visible for one more
+        // traced frame before sub_1C246 -> loc_1C264 writes title mode `$2C`.
+        assert_eq!(
+            frame_36819,
+            Some(GameMode::IntroSequence2),
+            "frame 36819 should keep loc_1BA02 in `Game_Mode=$18` while the Start edge lands",
+        );
+        assert_eq!(
+            frame_36820,
+            Some(GameMode::IntroSequence2),
+            "frame 36820 should keep loc_1BA02 in `Game_Mode=$18` for one more traced frame",
+        );
+        assert_eq!(
+            frame_36821,
+            Some(GameMode::TitleScreen),
+            "frame 36821 should expose loc_1C264's Start-driven title jump after one more traced `$18` frame",
+        );
+    }
+
     /// Determinism: running the same scenario twice must produce identical traces.
     /// Non-determinism would invalidate all oracle comparisons.
     #[test]

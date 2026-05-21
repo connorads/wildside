@@ -6665,6 +6665,13 @@ impl NativeRuntime {
                         // sub_1C246 Start edge is reflected in traced
                         // Game_Mode two outer frames later.
                         2
+                    } else if *segment == 1 && intro_sequence_2_frames_override.is_some() {
+                        // ASM loc_1BA02 calls sub_1C246 after
+                        // Hibernate_Object_1Frame. On the timeout-restart
+                        // intro-sequence-2 lineage, oracle keeps `$18`
+                        // visible for one more traced frame before loc_1C264
+                        // writes the Start-driven `$2C` title mode.
+                        2
                     } else {
                         1
                     };
