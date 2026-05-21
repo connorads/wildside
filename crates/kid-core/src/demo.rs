@@ -210,6 +210,10 @@ pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FR
 /// Kid WRAM continues moving under the controller shell.
 pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAME: u16 =
     DEMO_MAX_FRAMES + DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES;
+/// Later IntroSequence6 -> demo-2 starts with the same `Load_DemoPlay`
+/// controller-side y-velocity sample as the title shell that spawned it. The
+/// trace-only sample releases once the hidden Load_InGame bootstrap settles.
+pub(crate) const DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME: u16 = 26;
 /// After the long controller-sampled demo-1 arc, native's trace-only hold has
 /// the oracle live pose but must restore the raw Kid `loc_A6F8` fall velocity
 /// before the next `sub_B168` gravity step.

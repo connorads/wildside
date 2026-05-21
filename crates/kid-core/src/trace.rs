@@ -1105,7 +1105,15 @@ impl NativeRuntime {
                 }
             }),
             kid_y_velocity: player_state.map(|state| {
-                if demo_trace_velocity_hold {
+                if self.demo_2_later_intro_sequence_6_start_velocity_sample_active() {
+                    // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
+                    // 23585) reaches the later demo-2 shell with the previous
+                    // controller-side sample still exposed through the hidden
+                    // Load_InGame bootstrap.
+                    // Raw Kid WRAM is still the title-pose object here; only
+                    // the top-level oracle velocity sample carries `$60000`.
+                    0x0006_0000
+                } else if demo_trace_velocity_hold {
                     0
                 } else {
                     state.y_velocity
@@ -2139,6 +2147,17 @@ impl NativeRuntime {
             })
     }
 
+    fn demo_2_later_intro_sequence_6_start_velocity_sample_active(&self) -> bool {
+        self.demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
+            .is_some_and(|(frame_counter, use_demo_2)| {
+                use_demo_2
+                    && self.demo_uses_intro_sequence_6_later_demo_2_preload_row
+                    && frame_counter
+                        <= demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
+            })
+    }
+
     fn demo_1_late_controller_pause_active(&self) -> bool {
         // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the hidden
         // controller object alive during the late demo-1 hand-off. Its Start
@@ -2310,7 +2329,10 @@ impl NativeRuntime {
             let camera_y_pos = if !use_demo_2 {
                 if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
                     demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP
-                } else if frame_counter == 60 && self.demo_uses_demo_title_return_camera_wrap {
+                } else if frame_counter == 60
+                    && self.demo_uses_demo_title_return_camera_wrap
+                    && !self.demo_uses_intro_sequence_6_early_title_restore
+                {
                     // ASM `loc_119D8 -> loc_6E2 -> Obj_TitleMenu loc_1BB02 ->
                     // Load_DemoPlay -> Load_InGame` keeps the later demo-1
                     // startup on the same wrapped preload row that oracle

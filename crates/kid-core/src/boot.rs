@@ -5611,9 +5611,8 @@ impl NativeRuntime {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
-        let demo_title_return_camera_wrap = !use_demo_2
-            && self.next_demo_uses_demo_title_return_camera_wrap
-            && !self.demo_title_return_uses_intro_sequence_6_early_title_restore;
+        let demo_title_return_camera_wrap =
+            !use_demo_2 && self.next_demo_uses_demo_title_return_camera_wrap;
         let title_screen_uses_timeout_restart_intro_sequence_4_title_restore = matches!(
             self.boot_state,
             // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BB02` can also hand a demo
@@ -6872,6 +6871,14 @@ impl NativeRuntime {
                         // flips into demo play.
                         title_idle_frames +=
                             TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES;
+                        // ASM Obj_TitleMenu `loc_1BB52` builds the cursor
+                        // before `Title_InputLoop`, but the later
+                        // IntroSequence6 revisit has already entered the
+                        // shared `loc_1BAEA` attract countdown. Oracle keeps
+                        // those cursor-build frames counted toward `loc_1BB02`
+                        // instead of pausing the demo hand-off timer.
+                        title_idle_frames = title_idle_frames
+                            .saturating_sub(TITLE_MENU_ACTIVATION_DELAY_FRAMES as u16);
                     }
                     self.title_idle_frames += 1;
                     if self.title_idle_frames >= title_idle_frames {

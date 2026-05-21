@@ -4802,8 +4802,10 @@ mod chunk_09 {
         let mut frame_29402 = None;
         let mut frame_29404 = None;
         let mut frame_29405 = None;
+        let mut frame_29431 = None;
+        let mut frame_29432 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(29_406) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(29_433) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 29_401 => {
@@ -4840,6 +4842,21 @@ mod chunk_09 {
                         trace.boot_phase_elapsed,
                         trace.kid_x_pos,
                         trace.kid_y_pos,
+                        trace.kid_y_velocity,
+                    ));
+                }
+                29_431 => {
+                    frame_29431 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.kid_y_velocity,
+                    ));
+                }
+                29_432 => {
+                    frame_29432 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.kid_y_velocity,
                     ));
                     break;
                 }
@@ -4893,8 +4910,27 @@ mod chunk_09 {
                 Some(0),
                 Some(TITLE_KID_X_POS),
                 Some(TITLE_KID_Y_POS),
+                Some(0x0006_0000),
             )),
-            "frame 29405 should be the first later-lineage demo-play frame after the delayed loc_1BB02 hand-off",
+            "ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay should make frame 29405 the first later-lineage demo-play frame while preserving the oracle controller-side y velocity sample",
+        );
+        assert_eq!(
+            frame_29431,
+            Some((
+                GameMode::DemoPlay,
+                Some(demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME as usize),
+                Some(0x0006_0000),
+            )),
+            "frame 29431 should be the last later IntroSequence6 demo-2 controller-side y velocity sample",
+        );
+        assert_eq!(
+            frame_29432,
+            Some((
+                GameMode::DemoPlay,
+                Some(demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME as usize + 1),
+                None,
+            )),
+            "frame 29432 should release back to the raw hidden Load_InGame player sample",
         );
     }
 
