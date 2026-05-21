@@ -107,6 +107,11 @@ pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
 /// Oracle WRAM reads `Camera_Y_pos=$0228_0000` on this preload frame for both
 /// the plain initial boot and the Start-skip intro-return lineage.
 pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
+/// The direct timeout-restart intro-sequence-5 title return reaches the same
+/// demo-2 preload frame through a different hidden title shell. Oracle WRAM
+/// shows `Camera_Y_pos=$0220_0000` only for that `sub_1C246 -> loc_1C264 ->
+/// Obj_TitleMenu loc_1BB02` lineage.
+pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP: u32 = 0x0220_0000;
 /// Oracle-backed timeout-restart `IntroSequence6` demo-1 hidden wrap. ASM
 /// `loc_1BA5C -> Load_IntroSequence6 -> loc_1BB02 -> Load_DemoPlay ->
 /// Load_InGame` leaves a different wrapped preload row than both the
@@ -181,6 +186,16 @@ pub(crate) const DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME: u16 =
 /// worker after the initial extended `loc_119D8` sample settles.
 pub(crate) const DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME: u16 =
     DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 32;
+/// Direct timeout-restart intro-sequence-5 title-return demo-2 keeps sampling
+/// the hidden `Load_DemoPlay -> loc_119D8` controller object for top-level TAS
+/// velocity after the live Cyclone Kid object has started its upward arc.
+pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FRAME: u16 =
+    DEMO_GAMEPLAY_START_FRAME + 424;
+/// The matching controller-sampled velocity window reaches the adjusted demo-2
+/// auto-timeout edge. `ReadJoypad loc_C0A` owns the top-level sample while raw
+/// Kid WRAM continues moving under the controller shell.
+pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAME: u16 =
+    DEMO_MAX_FRAMES + DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES;
 /// After the long controller-sampled demo-1 arc, native's trace-only hold has
 /// the oracle live pose but must restore the raw Kid `loc_A6F8` fall velocity
 /// before the next `sub_B168` gravity step.

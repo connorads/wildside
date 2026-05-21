@@ -2127,9 +2127,15 @@ impl NativeRuntime {
                     } else {
                         demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
                     };
+                let timeout_restart_demo_2_velocity_sample = use_demo_2
+                    && self.demo_uses_intro_sequence_5_title_return_preload_row
+                    && (demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FRAME
+                        ..=demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAME)
+                        .contains(&frame_counter);
                 frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
                     && (frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
-                        || (!use_demo_2 && frame_counter <= late_demo_1_velocity_sample_end))
+                        || (!use_demo_2 && frame_counter <= late_demo_1_velocity_sample_end)
+                        || timeout_restart_demo_2_velocity_sample)
             })
     }
 
@@ -2333,6 +2339,15 @@ impl NativeRuntime {
                         .map(|slice| slice.camera.y_pos)
                         .unwrap_or_default()
                 }
+            } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME
+                && self.demo_uses_intro_sequence_5_title_return_preload_row
+            {
+                // ASM sub_1C246 -> loc_1C264 returns directly from
+                // timeout-restart intro sequence 5 to the title shell; the
+                // later Obj_TitleMenu loc_1BB02 -> Load_DemoPlay hand-off
+                // exposes a one-frame Skydragon Castle preload row at
+                // `$0220_0000` instead of the generic `$0228_0000`.
+                demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP
             } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 // ASM Obj_TitleMenu loc_1BB02 flips into `Game_Mode=$10`, and
                 // the following `Load_DemoPlay -> Load_InGame` hand-off
@@ -2599,6 +2614,18 @@ impl NativeRuntime {
                 _ => (3, 0x000B),
             };
         }
+        if let BootState::IntroSequence { segment: 4, .. } = self.boot_state
+            && self
+                .demo_auto_timeout_intro_sequence_5_frames_override
+                .is_some()
+        {
+            // ASM Load_IntroSequence5 -> loc_1BA28/loc_1BCD0
+            // (kid.asm:29324,30316,30567): the timeout-restart copy keeps the
+            // controller, loc_1BC36 tile worker, and loc_1BCD0 gfx-slot worker
+            // counted while the fixed verifier still reads the stale slot-2
+            // pose. Native does not model these workers as roster entries.
+            return (3, 0);
+        }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())
@@ -2733,6 +2760,17 @@ impl NativeRuntime {
             // The stale loc_1AEBA gfx roster remains count-visible while the
             // intro-sequence-3 pose is carried into the first title frames.
             return (3, 0x000B);
+        }
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_5_pose
+            && self.title_screen_elapsed_frames
+                < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+        {
+            // ASM sub_1C246 -> loc_1C264 switches Game_Mode to $2C without
+            // immediately clearing the live loc_1BA28/loc_1BCD0 workers. The
+            // stale three-object intro-sequence-5 shell stays count-visible
+            // while the carried slot-2 pose remains in WRAM.
+            return (3, 0);
         }
         if let Some(counts) = self.timeout_restart_intro_3_title_return_object_counts() {
             return counts;

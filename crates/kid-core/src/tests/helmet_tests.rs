@@ -7197,13 +7197,32 @@ mod chunk_08 {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 10_288 => {
-                    frame_10288 = Some((mask, trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_10288 = Some((
+                        mask,
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 10_289 => {
-                    frame_10289 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_10289 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 10_290 => {
-                    frame_10290 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_10290 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 10_317 => {
                     frame_10317 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
@@ -7240,6 +7259,8 @@ mod chunk_08 {
                 GameMode::IntroSequence5,
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+                3,
+                0,
             )),
             "frame 10288 should be the published TAS Start press that arms the intro-sequence-5 title return",
         );
@@ -7249,8 +7270,10 @@ mod chunk_08 {
                 GameMode::IntroSequence5,
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+                3,
+                0,
             )),
-            "frame 10289 should still be intro sequence 5 during the shared 2-frame Start deferral",
+            "ASM loc_1BA28/loc_1BCD0 should keep the stale three-object shell visible while frame 10289 remains in intro sequence 5 during the shared 2-frame Start deferral",
         );
         assert_eq!(
             frame_10290,
@@ -7258,8 +7281,10 @@ mod chunk_08 {
                 GameMode::TitleScreen,
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+                3,
+                0,
             )),
-            "frame 10290 should enter title mode without discarding loc_1BCD0's slot-2 pose",
+            "frame 10290 should enter title mode without discarding loc_1BCD0's slot-2 pose or stale intro shell count",
         );
         assert_eq!(
             frame_10317,
@@ -7437,9 +7462,9 @@ mod chunk_08 {
             Some((
                 GameMode::DemoPlay,
                 Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
-                demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
+                demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP,
             )),
-            "frame 11043 should expose the oracle-backed hidden preload camera row",
+            "frame 11043 should expose the oracle-backed direct intro-sequence-5 title-return preload row",
         );
         assert_eq!(
             frame_11044,
@@ -7456,6 +7481,7 @@ mod chunk_08 {
         let mut frame_11547_special_motion = None;
         let mut frame_11548 = None;
         let mut frame_11549 = None;
+        let mut frame_11549_y_velocity = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(11_550) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
@@ -7487,6 +7513,7 @@ mod chunk_08 {
                         trace.kid_y_pos,
                         trace.camera_y_pos,
                     ));
+                    frame_11549_y_velocity = trace.kid_y_velocity;
                     break;
                 }
                 _ => {}
@@ -7519,8 +7546,8 @@ mod chunk_08 {
             Some((
                 GameMode::DemoPlay,
                 PlayerForm::Cyclone.helmet_id(),
-                Some(0x010E_9600),
-                0x0072_0000,
+                Some(0x010F_0000),
+                0x0073_0000,
             )),
             "frame 11548 should stay on the oracle-backed Cyclone rise instead of freezing one pixel higher",
         );
@@ -7529,10 +7556,15 @@ mod chunk_08 {
             Some((
                 GameMode::DemoPlay,
                 PlayerForm::Cyclone.helmet_id(),
-                Some(0x010D_C600),
-                0x0071_0000,
+                Some(0x010E_9A00),
+                0x0072_0000,
             )),
             "frame 11549 should keep following the oracle-backed Cyclone rise on the next frame",
+        );
+        assert_eq!(
+            frame_11549_y_velocity,
+            Some(0),
+            "ASM Load_DemoPlay -> loc_119D8 keeps the direct intro-sequence-5 title-return demo-2 top-level velocity on the hidden controller object while raw Kid WRAM moves",
         );
     }
 

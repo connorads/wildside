@@ -5431,6 +5431,7 @@ impl NativeRuntime {
         self.demo_uses_intro_sequence_6_early_title_restore = false;
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row = false;
+        self.demo_uses_intro_sequence_5_title_return_preload_row = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay = false;
@@ -5643,6 +5644,9 @@ impl NativeRuntime {
                 ..
             }
         );
+        let intro_sequence_5_title_return_preload_row = use_demo_2
+            && matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_5_pose;
         let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
             || title_screen_uses_timeout_restart_intro_sequence_4_title_restore
             || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
@@ -5693,6 +5697,8 @@ impl NativeRuntime {
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row =
             intro_sequence_6_later_demo_2_preload_row;
+        self.demo_uses_intro_sequence_5_title_return_preload_row =
+            intro_sequence_5_title_return_preload_row;
         // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
         // timeout-restore title shell, so this lineage bit must survive the
         // intermediate title screen before the next demo auto-timeout revisit.
@@ -6571,7 +6577,15 @@ impl NativeRuntime {
                     {
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                     }
-                    *pending_title_skip = if *segment == 0 {
+                    *pending_title_skip = if timeout_restart_intro_sequence_5_title_return {
+                        // ASM loc_1BA60 calls sub_1C246 after the
+                        // Hibernate_Object_1Frame return. On the second
+                        // timeout-restart intro-sequence-5 visit, oracle sees
+                        // the frame-10288 Start bit while Game_Mode remains
+                        // $24 through frame 10289, then loc_1C264 writes
+                        // $2C on frame 10290.
+                        2
+                    } else if *segment == 0 {
                         // ASM sub_1B8F4 reaches loc_1B924 after its
                         // sub_1C204 fade-in shell; the first-segment
                         // sub_1C246 Start edge is reflected in traced

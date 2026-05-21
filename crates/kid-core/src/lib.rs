@@ -370,6 +370,11 @@ pub struct NativeRuntime {
     /// that still carries the old `loc_1BCD0` slot-2 pose but no longer uses
     /// the earlier hidden-camera wrap.
     demo_uses_intro_sequence_6_later_demo_2_preload_row: bool,
+    /// Active demo-2 bootstrap came from the direct timeout-restart
+    /// intro-sequence-5 title return. That `sub_1C246 -> loc_1C264` lineage
+    /// exposes a lower one-frame camera preload row than the generic demo-2
+    /// attract path.
+    demo_uses_intro_sequence_5_title_return_preload_row: bool,
     /// ASM loc_1B5CE has already restored the standard title pose before a
     /// later timeout-restart demo starts. When that lineage returns to title,
     /// oracle exposes the pose two frames earlier than the generic demo-title
@@ -1226,6 +1231,7 @@ impl NativeRuntime {
             demo_uses_intro_sequence_6_early_title_restore: false,
             timeout_restart_intro_sequence_1_uses_early_title_restore: false,
             demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
+            demo_uses_intro_sequence_5_title_return_preload_row: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,
             demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: false,
