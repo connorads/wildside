@@ -5342,6 +5342,67 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_demo_1_late_jump_reentry_keeps_live_velocity() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_22017 = None;
+        let mut frame_22018 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_019) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                22_017 => frame_22017 = Some(trace),
+                22_018 => {
+                    frame_22018 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_22017 = frame_22017.expect("frame 22017 trace");
+        let frame_22018 = frame_22018.expect("frame 22018 trace");
+
+        assert_eq!(
+            frame_22017.boot_phase_elapsed,
+            Some(252),
+            "frame 22017 should be timeout-restart demo-1 startup frame 252",
+        );
+        assert_eq!(
+            frame_22017.kid_x_pos,
+            Some(0x011B_0000),
+            "ASM loc_AA8E -> sub_902A should keep the wall-cling loop's horizontal position aligned before release",
+        );
+        assert_eq!(
+            frame_22017.kid_y_pos,
+            Some(0x016E_6000),
+            "ASM loc_AA8E calls sub_902A without sub_B168 gravity, so the rising wall-cling frame uses the pre-gravity y_vel",
+        );
+        assert_eq!(
+            frame_22017.kid_y_velocity,
+            Some(0),
+            "published TAS trace export still samples zero Y velocity from the hidden demo controller",
+        );
+        assert_eq!(
+            frame_22017.camera_y_pos, 0x00DF_0000,
+            "the timeout-restart re-entry repair must preserve the ROM camera follow state on the hand-off frame",
+        );
+        assert_eq!(
+            frame_22018.kid_y_pos,
+            Some(0x016B_6000),
+            "the following live loc_A6F8 frame should continue the timeout-restart held-jump arc",
+        );
+        assert_eq!(
+            frame_22018.kid_y_velocity,
+            Some(0),
+            "the controller-sampled zero velocity export should continue while raw live velocity advances",
+        );
+        assert_eq!(
+            frame_22018.camera_y_pos, 0x00DD_0000,
+            "camera follow should resume from the preserved hand-off camera state",
+        );
+    }
+
+    #[test]
     fn published_tas_second_demo_late_jump_reentry_keeps_live_loc_a6f8_state() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_2787 = None;

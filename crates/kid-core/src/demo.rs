@@ -214,6 +214,12 @@ pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAM
 /// the oracle live pose but must restore the raw Kid `loc_A6F8` fall velocity
 /// before the next `sub_B168` gravity step.
 pub(crate) const DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME: u16 = DEMO_1_GAMEPLAY_START_FRAME + 451;
+/// The timeout-restart IntroSequence6 -> demo-1 controller shell reaches the
+/// same raw fall-velocity restore one startup frame later. The published TAS
+/// observes the consequence after the timeout path has restarted demo play
+/// again, so visible trace frames can have a different local `boot_phase_elapsed`.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_LATE_FALL_VELOCITY_RESTORE_FRAME: u16 =
+    DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME + 1;
 /// First late demo-1 controller-sample count wake in the top-level TAS sample.
 pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME: u16 =
     DEMO_1_GAMEPLAY_START_FRAME + 301;
@@ -342,6 +348,7 @@ mod tests {
         assert_eq!(DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME, 1162);
         assert_eq!(DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME, 650);
         assert_eq!(DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME, 523);
+        assert_eq!(DEMO_1_TIMEOUT_RESTART_LATE_FALL_VELOCITY_RESTORE_FRAME, 524);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME, 529);
         assert_eq!(DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME, 587);
         assert_eq!(DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME, 618);

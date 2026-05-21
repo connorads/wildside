@@ -6098,9 +6098,39 @@ impl NativeRuntime {
         slice.terrain.floor_terrain_type = TerrainType::Normal;
     }
 
+    pub(crate) fn repair_timeout_restart_demo_1_late_jump_reentry(&mut self) {
+        if !self.demo_uses_intro_sequence_6_hidden_camera_wrap
+            || self.demo_uses_second_recording() != Some(false)
+            || self.demo_startup_frame() != Some(demo::DEMO_1_LATE_JUMP_REENTRY_FRAME)
+        {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+
+        // ASM loc_AA8E -> loc_AB4A plus loc_A6F8 (kid.asm:13329,13400,13038):
+        // this timeout-restart lineage reaches startup frame 252 with a stale
+        // native wall-cling latch. The ROM still gets the one-pixel wall-cling
+        // horizontal shimmy on this frame, but the live Kid object resumes the
+        // demo jump arc from the pre-gravity `$FFFCE000` velocity on the next
+        // frame. Keep the trace-exported velocity masked at zero elsewhere.
+        slice.player.y_pos = 0x016E_6000;
+        slice.player.y_velocity = -0x0003_2000;
+        slice.player.wall_cling_direction = None;
+        slice.player.right_wall_sticky = false;
+        slice.player.left_wall_sticky = false;
+    }
+
     pub(crate) fn restore_demo_1_late_fall_velocity(&mut self) {
+        let restore_frame = if self.demo_uses_intro_sequence_6_hidden_camera_wrap {
+            demo::DEMO_1_TIMEOUT_RESTART_LATE_FALL_VELOCITY_RESTORE_FRAME
+        } else {
+            demo::DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME
+        };
         if self.demo_uses_second_recording() != Some(false)
-            || self.demo_startup_frame() != Some(demo::DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME)
+            || self.demo_startup_frame() != Some(restore_frame)
         {
             return;
         }
@@ -6116,7 +6146,9 @@ impl NativeRuntime {
         // Load_DemoPlay controller object keeps the top-level TAS velocity
         // sampled as zero, but raw Kid WRAM has been falling since the
         // previous jump apex. Restore the live pre-gravity velocity so this
-        // frame adds the normal $4000 and sub_902A advances by $68000.
+        // frame adds the normal $4000 and sub_902A advances by $68000. The
+        // timeout-restart IntroSequence6 controller shell reaches this hidden
+        // restore one startup frame later than the direct demo path.
         slice.player.y_velocity = 0x0006_4000;
     }
 
