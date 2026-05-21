@@ -166,6 +166,63 @@ mod tests {
         assert_eq!(hidden_count_with(56, false, true, true), None);
         assert_eq!(hidden_count_with(56, false, false, false), None);
     }
+
+    #[test]
+    fn timeout_restart_intro_3_title_return_counts_require_pose_latch() {
+        fn hidden_count_with(
+            title_screen_elapsed_frames: usize,
+            boot_state: BootState,
+            timeout_restart_title_intro_sequence_3_pose: bool,
+        ) -> Option<(u16, u16)> {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = boot_state;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.timeout_restart_title_intro_sequence_3_pose =
+                timeout_restart_title_intro_sequence_3_pose;
+            runtime.timeout_restart_intro_3_title_return_object_counts()
+        }
+
+        // ASM sub_1C246 -> loc_6E2 exposes the timeout-restart intro-3
+        // title-return shell only while the carried intro-3 pose latch is
+        // active; Load_TitleScreen/Obj_TitleMenu then rebuild the hidden
+        // object counters in this exact staged sequence.
+        assert_eq!(
+            hidden_count_with(55, BootState::TitleScreen { cursor: 0 }, true),
+            Some((3, 0))
+        );
+        assert_eq!(
+            hidden_count_with(56, BootState::TitleScreen { cursor: 0 }, true),
+            Some((5, 0))
+        );
+        assert_eq!(
+            hidden_count_with(57, BootState::TitleScreen { cursor: 0 }, true),
+            Some((5, 1))
+        );
+        assert_eq!(
+            hidden_count_with(58, BootState::TitleScreen { cursor: 0 }, true),
+            Some((4, 1))
+        );
+        assert_eq!(
+            hidden_count_with(59, BootState::TitleScreen { cursor: 0 }, true),
+            Some((4, 1))
+        );
+        assert_eq!(
+            hidden_count_with(55, BootState::TitleScreen { cursor: 0 }, false),
+            None
+        );
+        assert_eq!(
+            hidden_count_with(
+                55,
+                BootState::IntroSequence {
+                    segment: 2,
+                    elapsed: 0,
+                    pending_title_skip: 0,
+                },
+                true,
+            ),
+            None
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
