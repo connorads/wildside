@@ -173,6 +173,10 @@ pub(crate) const DEMO_1_TIMEOUT_RESTART_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u1
 /// ordering: `sub_8F26` advances X, then the following frame exposes the
 /// `loc_B5F6` no-support Y increment.
 pub(crate) const DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 148;
+/// The timeout-restart IntroSequence6 -> demo-1 path carries the same late
+/// horizontal hand-off one startup frame later.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 =
+    DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME + 1;
 /// Demo-1 resumes a second live jump arc after the long controller-sampled
 /// idle window. ASM `loc_A6F8 -> sub_B168 -> sub_902A -> sub_8F26` enters with
 /// `y_vel=$FFFCE000`, applies held-jump gravity to `$FFFD0000`, then moves
@@ -324,6 +328,10 @@ mod tests {
             159
         );
         assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
+        assert_eq!(
+            DEMO_1_TIMEOUT_RESTART_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME,
+            214
+        );
         assert_eq!(DEMO_1_LATE_JUMP_REENTRY_FRAME, 252);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME, 373);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME, 440);

@@ -6002,10 +6002,16 @@ impl NativeRuntime {
             } else {
                 demo::DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME
             };
+        let demo_1_late_horizontal_release_frame =
+            if self.demo_uses_intro_sequence_6_hidden_camera_wrap {
+                demo::DEMO_1_TIMEOUT_RESTART_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME
+            } else {
+                demo::DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME
+            };
         let force_demo_1_handoff_pin = self.demo_uses_second_recording() == Some(false)
             && (frame_counter <= demo_1_grounded_run_handoff_end
                 || frame_counter == demo_1_final_horizontal_release_frame
-                || frame_counter == demo::DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME);
+                || frame_counter == demo_1_late_horizontal_release_frame);
         let Some(slice) = self.opening_slice.as_mut() else {
             return false;
         };

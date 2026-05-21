@@ -5278,6 +5278,70 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_demo_1_late_floor_release_splits_horizontal_and_vertical_steps()
+     {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_21979 = None;
+        let mut frame_21980 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_981) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                21_979 => frame_21979 = Some(trace),
+                21_980 => {
+                    frame_21980 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_21979 = frame_21979.expect("frame 21979 trace");
+        let frame_21980 = frame_21980.expect("frame 21980 trace");
+
+        assert_eq!(
+            frame_21979.boot_phase_elapsed,
+            Some(214),
+            "frame 21979 should be timeout-restart demo-1 startup frame 214",
+        );
+        assert_eq!(
+            frame_21979.kid_x_pos,
+            Some(0x0105_BC00),
+            "ASM loc_8E16 -> sub_8F26 advances X before the late timeout-restart floor-release frame",
+        );
+        assert_eq!(
+            frame_21979.kid_y_pos,
+            Some(0x017F_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps Y pinned for the late timeout-restart horizontal hand-off frame",
+        );
+        assert_eq!(
+            frame_21979.character_movement,
+            Some(2),
+            "Character_Movement should remain MoveID_Walking during the late timeout-restart pinned horizontal hand-off",
+        );
+        assert_eq!(
+            frame_21980.boot_phase_elapsed,
+            Some(215),
+            "frame 21980 should be timeout-restart demo-1 startup frame 215",
+        );
+        assert_eq!(
+            frame_21980.kid_x_pos,
+            Some(0x0105_BC00),
+            "ASM loc_B5F6's no-support release should expose the first falling pixel before the next timeout-restart sub_8F26 horizontal step",
+        );
+        assert_eq!(
+            frame_21980.kid_y_pos,
+            Some(0x0180_0000),
+            "the late timeout-restart first post-hand-off floor release should drop exactly one pixel",
+        );
+        assert_eq!(
+            frame_21980.character_movement,
+            Some(3),
+            "Character_Movement should switch to MoveID_Jump on the late timeout-restart first falling release frame",
+        );
+    }
+
+    #[test]
     fn published_tas_second_demo_late_jump_reentry_keeps_live_loc_a6f8_state() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_2787 = None;
