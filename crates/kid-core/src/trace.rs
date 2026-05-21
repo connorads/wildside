@@ -934,6 +934,54 @@ mod tests {
 
         assert!(!runtime.trace_frame().just_received_damage);
     }
+
+    #[test]
+    fn trace_frame_exports_live_effects_with_pixel_coordinates() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 120,
+            y_px: 208,
+            height_px: 32,
+            phase: 0,
+            timer: 0,
+            current_height: 0,
+        });
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 144,
+            y_px: 208,
+            height_px: 32,
+            phase: 1,
+            timer: 0,
+            current_height: 24,
+        });
+        runtime.floating_items.push(FloatingItem {
+            x_pos: (0x0123 << 16) | 0x4567,
+            y_pos: (0x0045 << 16) | 0x6789,
+            y_velocity: 0,
+            remaining: 0x01AB,
+            spawn_delay: 0,
+            level_col: 0,
+            level_row: 0,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Diamond,
+            collected: false,
+        });
+        runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
+            remaining_frames: PLAYER_DEATH_WINDUP_FRAMES - 7,
+        };
+
+        // ASM loc_147A0/loc_14914 only exposes visible lava columns once their
+        // height is non-zero. Prize_Init/sub_10C50 stores prize objects in
+        // FP16.16 WRAM, while the trace renderer consumes whole pixels.
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.active_geysers, vec![(144, 184, 24)]);
+        assert_eq!(trace.floating_items, vec![(0x0123, 0x0045, 0xAB, 0)]);
+        assert_eq!(trace.death_windup_elapsed, 7);
+
+        runtime.player_lifecycle = PlayerLifecycle::Alive;
+        assert_eq!(runtime.trace_frame().death_windup_elapsed, 0);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
