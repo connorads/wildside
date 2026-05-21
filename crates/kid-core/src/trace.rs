@@ -857,6 +857,21 @@ mod tests {
 
         assert_eq!(runtime.trace_frame().continue_countdown, None);
     }
+
+    #[test]
+    fn trace_frame_exports_ending_sequence_elapsed_frames() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::EndingSequence { elapsed: 456 };
+
+        // ASM EndingSequence keeps Game_Mode=$4C with an elapsed frame
+        // counter; trace output needs that counter to align native/oracle
+        // ending checkpoints.
+        assert_eq!(runtime.trace_frame().ending_elapsed, Some(456));
+
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+
+        assert_eq!(runtime.trace_frame().ending_elapsed, None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
