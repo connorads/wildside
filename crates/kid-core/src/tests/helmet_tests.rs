@@ -5917,10 +5917,22 @@ mod chunk_08 {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 5_503 => {
-                    frame_5503 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_5503 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 5_504 => {
-                    frame_5504 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_5504 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                     break;
                 }
                 _ => {}
@@ -5929,13 +5941,83 @@ mod chunk_08 {
 
         assert_eq!(
             frame_5503,
-            Some((GameMode::IntroSequence1, None, None)),
+            Some((GameMode::IntroSequence1, None, None, 1, 1)),
             "the timeout restart should keep intro sequence 1 alive through frame 5503",
         );
         assert_eq!(
             frame_5504,
-            Some((GameMode::IntroSequence2, None, None)),
-            "the timeout restart should only advance into intro sequence 2 on frame 5504",
+            Some((GameMode::IntroSequence2, None, None, 1, 0)),
+            "ASM Load_IntroSequence2 should expose the loc_1B9D0 worker on frame 5504",
+        );
+    }
+
+    #[test]
+    fn published_tas_demo_2_intro_sequence_counts_timeout_restart_workers() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frames = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(6_242) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                5_530
+                    | 5_531
+                    | 5_534
+                    | 5_535
+                    | 5_544
+                    | 5_545
+                    | 5_546
+                    | 5_789
+                    | 5_790
+                    | 5_952
+                    | 5_953
+                    | 5_983
+                    | 5_984
+                    | 5_994
+                    | 5_995
+                    | 6_068
+                    | 6_069
+                    | 6_236
+                    | 6_237
+                    | 6_240
+                    | 6_241
+            ) {
+                frames.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        assert_eq!(
+            frames,
+            vec![
+                (5_530, GameMode::IntroSequence2, Some(26), 1, 0),
+                (5_531, GameMode::IntroSequence2, Some(27), 1, 0),
+                (5_534, GameMode::IntroSequence2, Some(30), 1, 0),
+                (5_535, GameMode::IntroSequence2, Some(31), 0, 0),
+                (5_544, GameMode::IntroSequence2, Some(40), 0, 0),
+                (5_545, GameMode::IntroSequence2, Some(41), 1, 0),
+                (5_546, GameMode::IntroSequence2, Some(42), 2, 0),
+                (5_789, GameMode::IntroSequence2, Some(285), 2, 0),
+                (5_790, GameMode::IntroSequence2, Some(286), 1, 0),
+                (5_952, GameMode::IntroSequence2, Some(448), 1, 0),
+                (5_953, GameMode::IntroSequence3, Some(0), 1, 0),
+                (5_983, GameMode::IntroSequence3, Some(30), 1, 0),
+                (5_984, GameMode::IntroSequence3, Some(31), 0, 0),
+                (5_994, GameMode::IntroSequence3, Some(41), 3, 0x000B),
+                (5_995, GameMode::IntroSequence3, Some(42), 4, 0x000B),
+                (6_068, GameMode::IntroSequence3, Some(115), 4, 0x000B),
+                (6_069, GameMode::IntroSequence3, Some(116), 3, 0x000B),
+                (6_236, GameMode::TitleScreen, Some(27), 3, 0x000B),
+                (6_237, GameMode::TitleScreen, Some(28), 3, 0x000B),
+                (6_240, GameMode::TitleScreen, Some(31), 3, 0x000B),
+                (6_241, GameMode::TitleScreen, Some(32), 0, 0),
+            ],
+            "ASM Load_IntroSequence2/3 -> loc_1B9D0/sub_1B93E allocate controller workers before sub_1C204, then expose hidden clear/rebuild windows as loc_1BA02 and loc_1B96A take over",
         );
     }
 

@@ -2447,6 +2447,28 @@ impl NativeRuntime {
             };
         }
         if let BootState::IntroSequence {
+            segment: 1,
+            elapsed,
+            ..
+        } = self.boot_state
+            && self
+                .demo_auto_timeout_intro_sequence_2_frames_override
+                .is_some()
+        {
+            // ASM Load_IntroSequence2 -> loc_1B9D0 (kid.asm:29299,30296)
+            // allocates the controller object before entering sub_1C204.
+            // Oracle traces keep that worker counted through the early fade,
+            // expose the loc_1B9F4 hidden clear window, then count both the
+            // controller and IntroText2 worker once loc_1BA02's loop is live.
+            return match elapsed {
+                0..=30 => (1, 0),
+                31..=40 => (0, 0),
+                41 => (1, 0),
+                42..=285 => (2, 0),
+                _ => (1, 0),
+            };
+        }
+        if let BootState::IntroSequence {
             segment: 0,
             elapsed,
             ..
@@ -2481,14 +2503,19 @@ impl NativeRuntime {
                 .demo_auto_timeout_intro_sequence_3_frames_override
                 .is_some()
                 || self.timeout_restart_title_intro_sequence_3_return_pending)
-            && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES
         {
-            // ASM Load_IntroSequence3 / sub_1B93E (kid.asm:29078,30238)
-            // keeps the controller plus intro-text workers alive while the
-            // rotating loc_1AEBA title gfx roster is visible. Oracle WRAM
-            // reports Number_Objects=3 and Number_GfxObjects=$B through the
-            // frame-6208 Start edge before sub_1C246 returns to title.
-            return (3, 0x000B);
+            // ASM Load_IntroSequence3 -> sub_1B93E (kid.asm:29078,30238)
+            // follows the same sub_1C204 fade shell as loc_1B9D0. The timeout
+            // restart keeps the controller counted, clears during the hidden
+            // object-slot rebuild, then carries one extra shell worker until
+            // loc_1B96A's visible roster owns the scene.
+            return match elapsed {
+                0..=30 => (1, 0),
+                31..=40 => (0, 0),
+                41 => (3, 0x000B),
+                42..=115 => (4, 0x000B),
+                _ => (3, 0x000B),
+            };
         }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
@@ -2615,7 +2642,10 @@ impl NativeRuntime {
         {
             return counts;
         }
-        if self.title_uses_timeout_restart_intro_sequence_3_pose() {
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_3_pose
+            && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES + 4
+        {
             // ASM sub_1C246 -> loc_1C264 switches Game_Mode to $2C without
             // clearing the live Load_IntroSequence3/sub_1B93E object counters.
             // The stale loc_1AEBA gfx roster remains count-visible while the
