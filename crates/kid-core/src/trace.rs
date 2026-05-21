@@ -872,6 +872,30 @@ mod tests {
 
         assert_eq!(runtime.trace_frame().ending_elapsed, None);
     }
+
+    #[test]
+    fn trace_frame_exports_menu_cursor_and_sound_test_track() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 2 };
+
+        // ASM Obj_TitleMenu/Options menu both expose the selected row as a
+        // cursor byte; trace output keeps it available for menu-state parity.
+        let title_trace = runtime.trace_frame();
+        assert_eq!(title_trace.options_cursor, Some(2));
+        assert_eq!(title_trace.sound_test_track, None);
+
+        runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+
+        assert_eq!(runtime.trace_frame().options_cursor, Some(1));
+
+        runtime.boot_state = BootState::SoundTest { track: 7 };
+
+        // ASM SoundTest uses the same menu shell but carries the selected
+        // sound id separately from the cursor row.
+        let sound_trace = runtime.trace_frame();
+        assert_eq!(sound_trace.options_cursor, None);
+        assert_eq!(sound_trace.sound_test_track, Some(7));
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
