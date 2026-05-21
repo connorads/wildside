@@ -694,6 +694,28 @@ impl NativeRuntime {
         }
     }
 
+    fn timeout_restart_intro_3_title_return_object_counts(&self) -> Option<(u16, u16)> {
+        if !matches!(self.boot_state, BootState::TitleScreen { .. })
+            || !self.timeout_restart_title_intro_sequence_3_pose
+        {
+            return None;
+        }
+
+        // ASM Load_TitleScreen (kid.asm:29444) allocates the three title
+        // shell objects, then Obj_TitleMenu (kid.asm:30380) allocates the
+        // title flash and text workers. This timeout-return lineage exposes
+        // those counters one frame earlier than the generic manual demo-return
+        // path and keeps the title-card gfx counter hidden until the steady
+        // title shell takes over.
+        match self.title_screen_elapsed_frames {
+            55 => Some((3, 0)),
+            56 => Some((5, 0)),
+            57 => Some((5, 1)),
+            58..=59 => Some((4, 1)),
+            _ => None,
+        }
+    }
+
     fn title_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.timeout_restart_title_intro_sequence_3_pose
@@ -2651,6 +2673,9 @@ impl NativeRuntime {
             // The stale loc_1AEBA gfx roster remains count-visible while the
             // intro-sequence-3 pose is carried into the first title frames.
             return (3, 0x000B);
+        }
+        if let Some(counts) = self.timeout_restart_intro_3_title_return_object_counts() {
+            return counts;
         }
         if let Some(counts) = self.demo_title_return_hidden_object_counts() {
             return counts;

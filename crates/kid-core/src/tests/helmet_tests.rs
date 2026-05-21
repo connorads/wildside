@@ -5956,7 +5956,7 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frames = Vec::new();
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(6_242) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(6_269) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if matches!(
                 frame_index,
@@ -5981,6 +5981,12 @@ mod chunk_08 {
                     | 6_237
                     | 6_240
                     | 6_241
+                    | 6_263
+                    | 6_264
+                    | 6_265
+                    | 6_266
+                    | 6_267
+                    | 6_268
             ) {
                 frames.push((
                     frame_index,
@@ -6016,6 +6022,12 @@ mod chunk_08 {
                 (6_237, GameMode::TitleScreen, Some(28), 3, 0x000B),
                 (6_240, GameMode::TitleScreen, Some(31), 3, 0x000B),
                 (6_241, GameMode::TitleScreen, Some(32), 0, 0),
+                (6_263, GameMode::TitleScreen, Some(54), 0, 0),
+                (6_264, GameMode::TitleScreen, Some(55), 3, 0),
+                (6_265, GameMode::TitleScreen, Some(56), 5, 0),
+                (6_266, GameMode::TitleScreen, Some(57), 5, 1),
+                (6_267, GameMode::TitleScreen, Some(58), 4, 1),
+                (6_268, GameMode::TitleScreen, Some(59), 4, 1),
             ],
             "ASM Load_IntroSequence2/3 -> loc_1B9D0/sub_1B93E allocate controller workers before sub_1C204, then expose hidden clear/rebuild windows as loc_1BA02 and loc_1B96A take over",
         );
