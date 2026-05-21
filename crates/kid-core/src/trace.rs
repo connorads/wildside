@@ -806,6 +806,29 @@ mod tests {
                 .contains_key("floating_diamond_contact_candidates")
         );
     }
+
+    #[test]
+    fn trace_frame_kid_on_slope_uses_fixed_point_pixel_coordinates() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 64,
+            height_pixels: 64,
+        });
+        slice.player.x_pos = 8 << 16;
+        slice.player.y_pos = 7 << 16;
+        slice.player.on_ground = true;
+        runtime.opening_slice = Some(slice);
+
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 4, 4);
+        grid.set_cell_at(0, 0, terrain::Cell::from_be_bytes(0x40, 0x00));
+        runtime.set_block_grid(grid);
+
+        // ASM sub_9386/sub_A254 slope probes consume pixel positions derived
+        // from fixed-point WRAM. The trace must shift x/y down before probing,
+        // otherwise the same player pose reads as an out-of-bounds empty cell.
+        assert_eq!(runtime.trace_frame().kid_on_slope, 1);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
