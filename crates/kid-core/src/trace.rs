@@ -378,6 +378,115 @@ mod tests {
 
         assert_eq!(runtime.current_player_state(), None);
     }
+
+    #[test]
+    fn timeout_restart_camera_handoff_spans_late_intro_4_and_early_intro_5() {
+        fn uses_camera(
+            segment: usize,
+            elapsed: usize,
+            timeout_restart_intro_sequence_4_pose_carry: bool,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.timeout_restart_intro_sequence_4_pose_carry =
+                timeout_restart_intro_sequence_4_pose_carry;
+            runtime.intro_sequence_4_uses_timeout_restart_camera_handoff()
+        }
+
+        // ASM sub_1B988's `Camera_Y_pos=4` hand-off appears only after the
+        // intro-3 pose carry clears, then survives into early intro sequence 5
+        // because Load_IntroSequence5 does not call sub_1B222.
+        assert!(!uses_camera(3, 36, true));
+        assert!(uses_camera(3, 37, true));
+        assert!(uses_camera(4, 30, true));
+        assert!(!uses_camera(4, 31, true));
+        assert!(!uses_camera(3, 37, false));
+        assert!(!uses_camera(2, 37, true));
+    }
+
+    #[test]
+    fn camera_state_exposes_timeout_restart_intro_4_camera_handoff() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: 37,
+            pending_title_skip: 0,
+        };
+        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
+
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x0004_0000,
+            }
+        );
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: 31,
+            pending_title_skip: 0,
+        };
+
+        assert_eq!(runtime.current_camera_state(), CameraState::default());
+    }
+
+    #[test]
+    fn intro_sequence_5_timeout_restart_slot_2_pose_requires_carry_and_visible_elapsed() {
+        fn uses_pose(
+            elapsed: usize,
+            timeout_restart_intro_sequence_4_pose_carry: bool,
+            early_visibility: bool,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.timeout_restart_intro_sequence_4_pose_carry =
+                timeout_restart_intro_sequence_4_pose_carry;
+            runtime.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
+                early_visibility;
+            runtime.intro_sequence_5_uses_timeout_restart_slot_2_pose()
+        }
+
+        // ASM loc_1BCD0's slot-2 pose appears after the timeout-restart
+        // intro-sequence-5 visibility delay, with one earlier frame for the
+        // later Start-skip intro-return lineage.
+        assert!(!uses_pose(57, true, false));
+        assert!(uses_pose(58, true, false));
+        assert!(uses_pose(57, true, true));
+        assert!(!uses_pose(58, false, false));
+    }
+
+    #[test]
+    fn current_player_state_exposes_intro_5_timeout_restart_slot_2_pose_after_delay() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: 58,
+            pending_title_skip: 0,
+        };
+        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_5_slot_2_pose())
+        );
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: 57,
+            pending_title_skip: 0,
+        };
+
+        assert_eq!(runtime.current_player_state(), None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
