@@ -576,6 +576,77 @@ mod tests {
             Some(0)
         );
     }
+
+    #[test]
+    fn title_return_hides_player_uses_lineage_specific_hidden_windows() {
+        fn hides_with(
+            title_screen_elapsed_frames: usize,
+            configure: impl FnOnce(&mut NativeRuntime),
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.hide_demo_return_title_player = true;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            configure(&mut runtime);
+            runtime.title_hides_demo_return_player()
+        }
+
+        // ASM title rebuild lineages hide Kid until their oracle-backed local
+        // title-frame cutoffs; timeout-restart intro-5 Start-skip adds one
+        // hidden frame, while the later intro-6 title restore removes two.
+        assert!(hides_with(149, |_| {}));
+        assert!(!hides_with(150, |_| {}));
+        assert!(hides_with(148, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_3_pose = true;
+        }));
+        assert!(!hides_with(149, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_3_pose = true;
+        }));
+        assert!(hides_with(147, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_5_pose = true;
+        }));
+        assert!(!hides_with(148, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_5_pose = true;
+        }));
+        assert!(hides_with(148, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_5_pose = true;
+            runtime.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay = true;
+        }));
+        assert!(!hides_with(149, |runtime| {
+            runtime.timeout_restart_title_intro_sequence_5_pose = true;
+            runtime.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay = true;
+        }));
+        assert!(hides_with(147, |runtime| {
+            runtime.demo_title_return_uses_intro_sequence_6_early_title_restore = true;
+        }));
+        assert!(!hides_with(148, |runtime| {
+            runtime.demo_title_return_uses_intro_sequence_6_early_title_restore = true;
+        }));
+        assert!(hides_with(999, |runtime| {
+            runtime.demo_auto_timeout_handoff_active = true;
+        }));
+        assert!(!hides_with(0, |runtime| {
+            runtime.hide_demo_return_title_player = false;
+        }));
+    }
+
+    #[test]
+    fn current_player_state_hides_title_return_player_until_window_expires() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.hide_demo_return_title_player = true;
+        runtime.title_screen_ready_frame = 0;
+        runtime.title_screen_elapsed_frames = 149;
+
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.title_screen_elapsed_frames = 150;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
