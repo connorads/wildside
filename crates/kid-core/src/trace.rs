@@ -56,6 +56,7 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn diamond_at_x(x_px: u32) -> FloatingItem {
         FloatingItem {
@@ -69,6 +70,27 @@ mod tests {
             first_row_grace: false,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+        }
+    }
+
+    fn minimal_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("trace-test"),
+            upstream_commit: String::from("trace-test"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
         }
     }
 
@@ -113,6 +135,36 @@ mod tests {
             &diamond,
             player_at_x(113)
         ));
+    }
+
+    #[test]
+    fn manual_title_return_hidden_counts_require_all_gate_latches() {
+        fn hidden_count_with(
+            title_screen_elapsed_frames: usize,
+            preserve_demo_title_snapshot: bool,
+            demo_auto_timeout_handoff_active: bool,
+            hide_demo_return_title_player: bool,
+        ) -> Option<(u16, u16)> {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.preserve_demo_title_snapshot = preserve_demo_title_snapshot;
+            runtime.demo_auto_timeout_handoff_active = demo_auto_timeout_handoff_active;
+            runtime.hide_demo_return_title_player = hide_demo_return_title_player;
+            runtime.demo_title_return_hidden_object_counts()
+        }
+
+        // ASM loc_119D8 -> loc_6E2 only exposes the staged hidden
+        // Load_TitleScreen rebuild after the preserved gameplay snapshot and
+        // auto-timeout handoff are both clear, while the manual-demo-return
+        // hide latch is still active.
+        assert_eq!(hidden_count_with(55, false, false, true), Some((0, 0)));
+        assert_eq!(hidden_count_with(56, false, false, true), Some((3, 0)));
+        assert_eq!(hidden_count_with(57, false, false, true), Some((5, 1)));
+        assert_eq!(hidden_count_with(58, false, false, true), Some((5, 2)));
+        assert_eq!(hidden_count_with(56, true, false, true), None);
+        assert_eq!(hidden_count_with(56, false, true, true), None);
+        assert_eq!(hidden_count_with(56, false, false, false), None);
     }
 }
 
