@@ -9,7 +9,7 @@
     "area": "Published any-percent TAS full-run verification is CRC-clean through the recorded script end",
     "status": "complete",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": null,
+    "frontier_frame": 37760,
     "authoritative_clean_through": 37759,
     "pre_divergence_windows": [
       {
@@ -73,8 +73,8 @@
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "Extend published TAS bisect beyond frame 36000",
-      "reason": "`verify-tas --frame-start 0 --frame-end 36000 --checkpoint-interval 1 --bisect --frontier-kind gameplay` now passes all checked frames by CRC after the frame-32006 intro-sequence-4 Start-return deferral and frame-34973 later intro-sequence-1 demo-2 preload-row fixes. The next concrete action is to run the same published TAS bisect past frame 36000 and inspect the first new divergence."
+      "name": "Published TAS clean through recorded end",
+      "reason": "`verify-tas --frame-start 0 --frame-end 37759 --checkpoint-interval 1 --bisect --frontier-kind gameplay` passes all 37759 recorded frames by CRC after the frame-36820 timeout-restart intro-sequence-2 Start-return deferral fix. There is no next published-TAS divergence until a longer recording is added."
     },
     "rejected_hypotheses": [
       {
