@@ -5033,6 +5033,69 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_demo_1_floor_release_splits_horizontal_and_vertical_steps() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_21924 = None;
+        let mut frame_21925 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_926) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                21_924 => frame_21924 = Some(trace),
+                21_925 => {
+                    frame_21925 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_21924 = frame_21924.expect("frame 21924 trace");
+        let frame_21925 = frame_21925.expect("frame 21925 trace");
+
+        assert_eq!(
+            frame_21924.boot_phase_elapsed,
+            Some(159),
+            "frame 21924 should be timeout-restart demo-1 startup frame 159",
+        );
+        assert_eq!(
+            frame_21924.kid_x_pos,
+            Some(0x0065_2B00),
+            "ASM loc_8E16 -> sub_8F26 advances X before the later timeout-restart floor-release frame",
+        );
+        assert_eq!(
+            frame_21924.kid_y_pos,
+            Some(0x013F_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps Y pinned for the later timeout-restart final horizontal hand-off",
+        );
+        assert_eq!(
+            frame_21924.character_movement,
+            Some(2),
+            "Character_Movement should remain MoveID_Walking during the later timeout-restart final pinned horizontal hand-off",
+        );
+        assert_eq!(
+            frame_21925.boot_phase_elapsed,
+            Some(160),
+            "frame 21925 should be timeout-restart demo-1 startup frame 160",
+        );
+        assert_eq!(
+            frame_21925.kid_x_pos,
+            Some(0x0065_2B00),
+            "ASM sub_902A releases the first falling pixel before the next later timeout-restart sub_8F26 horizontal step is visible",
+        );
+        assert_eq!(
+            frame_21925.kid_y_pos,
+            Some(0x0140_0000),
+            "the later timeout-restart first post-hand-off floor release should drop exactly one pixel",
+        );
+        assert_eq!(
+            frame_21925.character_movement,
+            Some(3),
+            "Character_Movement should switch to MoveID_Jump on the later timeout-restart first falling release frame",
+        );
+    }
+
+    #[test]
     fn published_tas_second_demo_trace_hold_keeps_controller_worker_counts_visible() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_2703 = None;

@@ -165,6 +165,10 @@ pub(crate) const DEMO_1_TIMEOUT_RESTART_GROUNDED_RUN_HANDOFF_END_FRAME: u16 =
 /// frame drops through the walking no-support path (`loc_B5F6`) before the next
 /// horizontal movement becomes visible.
 pub(crate) const DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 93;
+/// The matching final horizontal hand-off on the timeout-restart
+/// IntroSequence6 -> demo-1 path is one startup frame later.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 =
+    DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME + 1;
 /// Later demo-1 walking frame with the same horizontal-before-vertical release
 /// ordering: `sub_8F26` advances X, then the following frame exposes the
 /// `loc_B5F6` no-support Y increment.
@@ -315,6 +319,10 @@ mod tests {
         assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
         assert_eq!(DEMO_1_TIMEOUT_RESTART_GROUNDED_RUN_HANDOFF_END_FRAME, 131);
         assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
+        assert_eq!(
+            DEMO_1_TIMEOUT_RESTART_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME,
+            159
+        );
         assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
         assert_eq!(DEMO_1_LATE_JUMP_REENTRY_FRAME, 252);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME, 373);
