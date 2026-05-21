@@ -154,6 +154,12 @@ pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAM
 /// sub_902A` moves horizontally first, but oracle WRAM still reports the
 /// Load_InGame floor Y at published TAS frame 2665.
 pub(crate) const DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME: u16 = DEMO_OBJECT_BOOTSTRAP_END_FRAME + 49;
+/// The timeout-restart IntroSequence6 -> demo-1 path carries the same
+/// grounded-run hand-off one frame further. Oracle frame 21896 is startup
+/// frame 131 and still reports the old `sub_902A` floor result while X has
+/// advanced through `sub_8F26`.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_GROUNDED_RUN_HANDOFF_END_FRAME: u16 =
+    DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME + 1;
 /// Final demo-1 walking frame where the ROM performs the `sub_8F26` horizontal
 /// step while still holding the previous `sub_902A` floor result. The following
 /// frame drops through the walking no-support path (`loc_B5F6`) before the next
@@ -307,6 +313,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
         assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
+        assert_eq!(DEMO_1_TIMEOUT_RESTART_GROUNDED_RUN_HANDOFF_END_FRAME, 131);
         assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
         assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
         assert_eq!(DEMO_1_LATE_JUMP_REENTRY_FRAME, 252);

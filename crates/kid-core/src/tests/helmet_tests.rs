@@ -4925,6 +4925,51 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_demo_1_grounded_run_holds_y_through_frame_21896() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_21896 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_897) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 21_896 {
+                frame_21896 = Some(trace);
+                break;
+            }
+        }
+
+        let frame_21896 = frame_21896.expect("frame 21896 trace");
+        let path_debug = frame_21896
+            .gameplay_debug_fields
+            .get("kid_gameplay_path_probe")
+            .expect("frame 21896 should emit Kid gameplay path diagnostics");
+
+        assert_eq!(
+            frame_21896.boot_phase_elapsed,
+            Some(131),
+            "frame 21896 should be timeout-restart demo-1 startup frame 131",
+        );
+        assert_eq!(
+            frame_21896.kid_y_pos,
+            Some(0x00FF_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps the later timeout-restart demo-1 grounded hand-off pinned for this edge frame",
+        );
+        assert_eq!(
+            frame_21896.kid_on_ground,
+            Some(true),
+            "frame 21896 should still be grounded during the later timeout-restart demo-1 hand-off",
+        );
+        assert_eq!(
+            frame_21896.character_movement,
+            Some(2),
+            "Character_Movement should remain MoveID_Walking during the later pinned horizontal hand-off",
+        );
+        assert!(
+            path_debug.contains("motion=demo_bootstrap_grounded_run"),
+            "frame 21896 should still use the demo bootstrap grounded-run hand-off, got {path_debug}",
+        );
+    }
+
+    #[test]
     fn published_tas_second_demo_floor_release_splits_horizontal_and_vertical_steps() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_2693 = None;
