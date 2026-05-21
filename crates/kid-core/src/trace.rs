@@ -275,6 +275,56 @@ mod tests {
 
         assert_eq!(runtime.current_player_state(), None);
     }
+
+    #[test]
+    fn timeout_restart_intro_5_title_pose_requires_title_latch_before_cutoff() {
+        fn uses_pose(
+            title_screen_elapsed_frames: usize,
+            boot_state: BootState,
+            timeout_restart_title_intro_sequence_5_pose: bool,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = boot_state;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.timeout_restart_title_intro_sequence_5_pose =
+                timeout_restart_title_intro_sequence_5_pose;
+            runtime.title_uses_timeout_restart_intro_sequence_5_pose()
+        }
+
+        // ASM sub_1C246 preserves the loc_1BCD0 slot-2 intro-sequence-5 pose
+        // only through the early title carry window.
+        assert!(uses_pose(27, BootState::TitleScreen { cursor: 0 }, true));
+        assert!(!uses_pose(28, BootState::TitleScreen { cursor: 0 }, true));
+        assert!(!uses_pose(27, BootState::TitleScreen { cursor: 0 }, false));
+        assert!(!uses_pose(
+            27,
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed: 0,
+                pending_title_skip: 0,
+            },
+            true,
+        ));
+    }
+
+    #[test]
+    fn current_player_state_exposes_timeout_restart_intro_5_title_pose_until_cutoff() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.timeout_restart_title_intro_sequence_5_pose = true;
+        runtime.title_screen_elapsed_frames = 27;
+
+        // ASM loc_1BCD0's slot-2 pose survives the direct sub_1C246 title
+        // return until the later title rebuild overwrites that object RAM.
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_5_slot_2_pose())
+        );
+
+        runtime.title_screen_elapsed_frames = 28;
+
+        assert_eq!(runtime.current_player_state(), None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
