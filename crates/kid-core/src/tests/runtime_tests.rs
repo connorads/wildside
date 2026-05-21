@@ -3212,12 +3212,21 @@ mod chunk_09 {
     #[test]
     fn published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_20852 = None;
         let mut frame_20893 = None;
         let mut frame_20894 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(20_895) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
+                20_852 => {
+                    frame_20852 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
                 20_893 => {
                     frame_20893 = Some((
                         trace.game_mode,
@@ -3243,6 +3252,16 @@ mod chunk_09 {
         // timeout-restart revisit does `move.w #$28,(Game_Mode).w` and lets
         // Load_IntroSequence6 rebuild the title shell. The old loc_1BCD0 slot-2
         // pose at `x=0`, `y=$E0` is still visible on the first mode-$28 frame.
+        assert_eq!(
+            frame_20852,
+            Some((
+                GameMode::IntroSequence5,
+                Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME),
+                6,
+                0,
+            )),
+            "ASM loc_1BCD0 -> loc_1BE3C should keep the late title-particle workers count-visible before the timeout hand-off",
+        );
         assert_eq!(
             frame_20893,
             Some((

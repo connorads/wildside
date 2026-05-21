@@ -2614,11 +2614,23 @@ impl NativeRuntime {
                 _ => (3, 0x000B),
             };
         }
-        if let BootState::IntroSequence { segment: 4, .. } = self.boot_state
+        if let BootState::IntroSequence {
+            segment: 4,
+            elapsed,
+            ..
+        } = self.boot_state
             && self
                 .demo_auto_timeout_intro_sequence_5_frames_override
                 .is_some()
         {
+            if elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME {
+                // ASM loc_1BCD0 -> loc_1BE3C (kid.asm:30567,30667) keeps the
+                // three title-particle gfx workers from the unk_1BE18 /
+                // unk_1BE24 / unk_1BE30 tables count-visible near the end of
+                // the later Start-skip timeout-restart revisit, before
+                // loc_1BA5C switches to Game_Mode=$28.
+                return (6, 0);
+            }
             // ASM Load_IntroSequence5 -> loc_1BA28/loc_1BCD0
             // (kid.asm:29324,30316,30567): the timeout-restart copy keeps the
             // controller, loc_1BC36 tile worker, and loc_1BCD0 gfx-slot worker

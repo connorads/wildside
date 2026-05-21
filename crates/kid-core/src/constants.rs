@@ -170,10 +170,7 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // loc_1BA5C starts its long intro-sequence-5 timeout. Oracle traces of the
 // published TAS later timeout-restart revisit keep `Game_Mode=$24` alive
 // through frame 20893 and only reach loc_1BA5C's `move.w #$28,(Game_Mode).w`
-// hand-off on 20894. A later TAS diff showed the earlier +59 correction had
-// conflated another restart lineage with this plain timeout path, leaving the
-// native hand-off 34 frames late; this path needs only the 25-frame post-fade
-// skew below.
+// hand-off on 20894.
 // ASM loc_1BA28 also allocates a worker at loc_1BC36 (kid.asm:30516) for
 // tile decompression via repeated sub_1C034 calls and j_Hibernate_Object
 // yields. After the tile uploads complete, loc_1BCCA (kid.asm:30562) spins
@@ -185,7 +182,7 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // `jsr (j_Hibernate_Object_1Frame).w; bsr.w sub_1C246; dbf d0,loc_1BA60`
 // for 0x1BC+1 = 0x1BD = 445 iterations before the `move.w #$28,(Game_Mode).w`
 // transition to intro sequence 6. The DBF loop includes the zero slot.
-pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 25;
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 59;
 // ASM loc_1BA60: after the 445-iteration hibernate loop finishes, the
 // routine clears the intro-sequence flag at `$FFFFFBCE`, then ASM loc_1BA82
 // fills Palette_Buffer_3 with 64 words of `$AAA` for the fade-to-black.
@@ -211,6 +208,12 @@ pub(crate) const INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS: usize = 9;
 // elapses.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES: usize =
     TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES;
+// ASM loc_1BCD0 spawns three loc_1BE3C particle gfx objects from the
+// unk_1BE18/unk_1BE24/unk_1BE30 tables late in the Start-skip
+// timeout-restart revisit. Oracle top-level counts keep those three extra
+// workers visible before loc_1BA5C reaches the final Game_Mode=$28 hand-off.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME: usize =
+    17 + 0x01BD + DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES;
 // ASM Load_IntroSequence6 no longer allocates loc_1BA28 / loc_1BCD0; it
 // switches to the new `loc_1BAB0` / `loc_1B37C` / `sub_1B43A` title-shell
 // workers immediately, so the carried slot-2 pose in the verifier's fixed
