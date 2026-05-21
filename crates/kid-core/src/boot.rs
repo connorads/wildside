@@ -5646,7 +5646,8 @@ impl NativeRuntime {
         );
         let intro_sequence_5_title_return_preload_row = use_demo_2
             && matches!(self.boot_state, BootState::TitleScreen { .. })
-            && self.timeout_restart_title_intro_sequence_5_pose;
+            && self.timeout_restart_title_intro_sequence_5_pose
+            && !self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay;
         let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
             || title_screen_uses_timeout_restart_intro_sequence_4_title_restore
             || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
