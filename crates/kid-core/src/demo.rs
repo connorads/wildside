@@ -149,6 +149,11 @@ pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAM
 /// sub_902A` moves horizontally first, but oracle WRAM still reports the
 /// Load_InGame floor Y at published TAS frame 2665.
 pub(crate) const DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME: u16 = DEMO_OBJECT_BOOTSTRAP_END_FRAME + 49;
+/// Final demo-1 walking frame where the ROM performs the `sub_8F26` horizontal
+/// step while still holding the previous `sub_902A` floor result. The following
+/// frame drops through the walking no-support path (`loc_B5F6`) before the next
+/// horizontal movement becomes visible.
+pub(crate) const DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 93;
 /// Published TAS trace sampling keeps the demo player's velocity field on the
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
@@ -230,6 +235,7 @@ mod tests {
         assert_eq!(DEMO_BOOTSTRAP_GROUNDED_FRAME, 70);
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
         assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
+        assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
         assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 167);
         assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }

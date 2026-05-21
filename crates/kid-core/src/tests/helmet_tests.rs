@@ -4759,6 +4759,69 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_floor_release_splits_horizontal_and_vertical_steps() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2693 = None;
+        let mut frame_2694 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_695) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                2_693 => frame_2693 = Some(trace),
+                2_694 => {
+                    frame_2694 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_2693 = frame_2693.expect("frame 2693 trace");
+        let frame_2694 = frame_2694.expect("frame 2694 trace");
+
+        assert_eq!(
+            frame_2693.boot_phase_elapsed,
+            Some(158),
+            "frame 2693 should be demo-1 startup frame 158",
+        );
+        assert_eq!(
+            frame_2693.kid_x_pos,
+            Some(0x0065_2B00),
+            "ASM loc_8E16 -> sub_8F26 advances X before the final demo-1 floor-release frame",
+        );
+        assert_eq!(
+            frame_2693.kid_y_pos,
+            Some(0x013F_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps Y pinned for the final horizontal hand-off frame",
+        );
+        assert_eq!(
+            frame_2693.character_movement,
+            Some(2),
+            "Character_Movement should remain MoveID_Walking during the final pinned horizontal hand-off",
+        );
+        assert_eq!(
+            frame_2694.boot_phase_elapsed,
+            Some(159),
+            "frame 2694 should be demo-1 startup frame 159",
+        );
+        assert_eq!(
+            frame_2694.kid_x_pos,
+            Some(0x0065_2B00),
+            "ASM sub_902A releases the first falling pixel before the next sub_8F26 horizontal step is visible",
+        );
+        assert_eq!(
+            frame_2694.kid_y_pos,
+            Some(0x0140_0000),
+            "the first post-hand-off floor release should drop exactly one pixel",
+        );
+        assert_eq!(
+            frame_2694.character_movement,
+            Some(3),
+            "Character_Movement should switch to MoveID_Jump on the first falling release frame",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

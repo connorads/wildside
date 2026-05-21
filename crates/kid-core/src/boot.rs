@@ -5982,7 +5982,8 @@ impl NativeRuntime {
         }
 
         let force_demo_1_handoff_pin = self.demo_uses_second_recording() == Some(false)
-            && frame_counter <= demo::DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME;
+            && (frame_counter <= demo::DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME
+                || frame_counter == demo::DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME);
         let Some(slice) = self.opening_slice.as_mut() else {
             return false;
         };
@@ -6027,10 +6028,9 @@ impl NativeRuntime {
         }
 
         // ASM loc_8E16 -> sub_8F26 -> sub_902A: demo playback keeps the actor
-        // grounded on an invisible hand-off path after the bootstrap hold, then
-        // regular physics resumes once the recorded jump lifts off from that
-        // pinned floor. Demo 1's published TAS path holds this one frame longer
-        // than the start-of-frame support probe alone would imply.
+        // grounded on invisible hand-off paths after the bootstrap hold. The
+        // later demo-1 release performs one final horizontal sub_8F26 step
+        // before loc_B5F6's no-support vertical drop becomes visible.
         slice.update_horizontal_motion(
             input,
             false,
