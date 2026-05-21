@@ -896,6 +896,44 @@ mod tests {
         assert_eq!(sound_trace.options_cursor, None);
         assert_eq!(sound_trace.sound_test_track, Some(7));
     }
+
+    #[test]
+    fn trace_frame_exports_damage_latch_and_diamond_power_boundaries() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.just_received_damage = true;
+        runtime.progression.diamond_power_frames = 1;
+
+        // ASM damage paths pulse the trace damage flag directly, while the
+        // diamond-power state is live only while its countdown is non-zero.
+        let direct_damage = runtime.trace_frame();
+        assert!(direct_damage.just_received_damage);
+        assert!(direct_damage.diamond_power_active);
+
+        runtime.just_received_damage = false;
+        runtime.progression.diamond_power_frames = 0;
+        runtime.death_shell_snapshot = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player: PlayerState::title_pose(),
+            frozen_camera: CameraState::default(),
+            frozen_active_objects: Vec::new(),
+            frozen_number_objects: 0,
+            frozen_number_gfx_objects: 0,
+        });
+        runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
+            remaining_frames: 1,
+        };
+
+        // ASM death wind-up keeps the shell snapshot count-visible as damage
+        // feedback even after the one-frame damage latch has cleared.
+        let death_shell_damage = runtime.trace_frame();
+        assert!(death_shell_damage.just_received_damage);
+        assert!(!death_shell_damage.diamond_power_active);
+
+        runtime.player_lifecycle = PlayerLifecycle::Alive;
+
+        assert!(!runtime.trace_frame().just_received_damage);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
