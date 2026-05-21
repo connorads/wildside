@@ -223,6 +223,58 @@ mod tests {
             None
         );
     }
+
+    #[test]
+    fn timeout_restart_intro_3_title_pose_requires_title_latch_before_cutoff() {
+        fn uses_pose(
+            title_screen_elapsed_frames: usize,
+            boot_state: BootState,
+            timeout_restart_title_intro_sequence_3_pose: bool,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = boot_state;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.timeout_restart_title_intro_sequence_3_pose =
+                timeout_restart_title_intro_sequence_3_pose;
+            runtime.title_uses_timeout_restart_intro_sequence_3_pose()
+        }
+
+        // ASM sub_1C246 leaves the timeout-restart intro-3 pose visible only
+        // during the first title frames; once the full title snapshot window
+        // expires, the trace must hide that carried pose.
+        assert!(uses_pose(27, BootState::TitleScreen { cursor: 0 }, true));
+        assert!(!uses_pose(28, BootState::TitleScreen { cursor: 0 }, true));
+        assert!(!uses_pose(27, BootState::TitleScreen { cursor: 0 }, false));
+        assert!(!uses_pose(
+            27,
+            BootState::IntroSequence {
+                segment: 2,
+                elapsed: 0,
+                pending_title_skip: 0,
+            },
+            true,
+        ));
+    }
+
+    #[test]
+    fn current_player_state_exposes_timeout_restart_intro_3_title_pose_until_cutoff() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.timeout_restart_title_intro_sequence_3_pose = true;
+        runtime.active_intro_sequence_3_roster_index = 1;
+        runtime.title_screen_elapsed_frames = 27;
+
+        // ASM sub_1C246 preserves the active Load_IntroSequence3 roster pose
+        // into early title frames before the hidden title rebuild takes over.
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_3_pose_for_roster(1))
+        );
+
+        runtime.title_screen_elapsed_frames = 28;
+
+        assert_eq!(runtime.current_player_state(), None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
