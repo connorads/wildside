@@ -5067,6 +5067,138 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_late_jump_trace_export_keeps_controller_sample() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frames = std::collections::BTreeMap::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(3_058) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if [
+                2_788usize, 2_894, 2_907, 2_908, 2_914, 2_915, 2_975, 2_976, 3_044, 3_045, 3_046,
+                3_057,
+            ]
+            .contains(&frame_index)
+            {
+                frames.insert(frame_index, trace);
+            }
+        }
+
+        let frame_2788 = frames.get(&2_788).expect("frame 2788 trace");
+        assert_eq!(
+            frame_2788.kid_x_pos,
+            Some(0x011B_C180),
+            "live ASM loc_A6F8 movement should keep advancing even while the trace samples the controller object",
+        );
+        assert_eq!(
+            frame_2788.kid_y_pos,
+            Some(0x0168_8000),
+            "live ASM loc_A6F8 movement should keep advancing even while the trace samples the controller object",
+        );
+        assert_eq!(
+            (frame_2788.kid_x_velocity, frame_2788.kid_y_velocity),
+            (Some(0), Some(0)),
+            "oracle top-level TAS state still samples zero velocity from the hidden Load_DemoPlay controller object",
+        );
+        assert_eq!(
+            (frame_2788.number_objects, frame_2788.number_gfx_objects),
+            (6, 5),
+            "ASM Load_DemoPlay -> loc_119D8 keeps the hidden demo-controller object/gfx sample visible after live movement resumes",
+        );
+
+        let frame_2894 = frames.get(&2_894).expect("frame 2894 trace");
+        assert_eq!(
+            frame_2894.character_movement,
+            Some(3),
+            "ASM loc_A6F8 -> loc_A94E keeps MoveID_Jump through the late landing stall",
+        );
+
+        let frame_2914 = frames.get(&2_914).expect("frame 2914 trace");
+        assert_eq!(
+            frame_2914.character_movement,
+            Some(3),
+            "frame 2914 should be the last late demo-1 MoveID_Jump landing-stall frame",
+        );
+
+        let frame_2907 = frames.get(&2_907).expect("frame 2907 trace");
+        assert_eq!(
+            (frame_2907.number_objects, frame_2907.number_gfx_objects),
+            (6, 5),
+            "frame 2907 should be the last base 6/5 controller-sample count frame",
+        );
+
+        let frame_2908 = frames.get(&2_908).expect("frame 2908 trace");
+        assert_eq!(
+            (frame_2908.number_objects, frame_2908.number_gfx_objects),
+            (7, 6),
+            "oracle top-level TAS state reports the late worker/gfx pair from frame 2908",
+        );
+
+        let frame_2975 = frames.get(&2_975).expect("frame 2975 trace");
+        assert_eq!(
+            (frame_2975.number_objects, frame_2975.number_gfx_objects),
+            (7, 6),
+            "frame 2975 should be the last frame of the first late controller-sample worker/gfx wake",
+        );
+
+        let frame_2976 = frames.get(&2_976).expect("frame 2976 trace");
+        assert_eq!(
+            (frame_2976.number_objects, frame_2976.number_gfx_objects),
+            (6, 5),
+            "frame 2976 should return to the base hidden demo-controller count",
+        );
+
+        let frame_2915 = frames.get(&2_915).expect("frame 2915 trace");
+        assert_eq!(
+            frame_2915.character_movement,
+            Some(0),
+            "frame 2915 should expose the settled standing movement state",
+        );
+
+        let frame_3044 = frames.get(&3_044).expect("frame 3044 trace");
+        assert_eq!(
+            (frame_3044.kid_x_velocity, frame_3044.kid_y_velocity),
+            (Some(0), Some(0)),
+            "frame 3044 is the last 6/5 controller-sample frame before the late transient worker wakes",
+        );
+        assert_eq!(
+            (frame_3044.number_objects, frame_3044.number_gfx_objects),
+            (6, 5),
+            "frame 3044 should still export the base hidden demo-controller count before the second wake",
+        );
+
+        let frame_3045 = frames.get(&3_045).expect("frame 3045 trace");
+        assert_eq!(
+            (frame_3045.kid_x_velocity, frame_3045.kid_y_velocity),
+            (Some(0), Some(0)),
+            "the controller-sampled velocity hold should survive the second late worker count change",
+        );
+        assert_eq!(
+            (frame_3045.number_objects, frame_3045.number_gfx_objects),
+            (7, 5),
+            "oracle reports one extra non-gfx worker on frame 3045",
+        );
+
+        let frame_3046 = frames.get(&3_046).expect("frame 3046 trace");
+        assert_eq!(
+            (frame_3046.number_objects, frame_3046.number_gfx_objects),
+            (7, 6),
+            "oracle reports the matching gfx worker from frame 3046 onward",
+        );
+
+        let frame_3057 = frames.get(&3_057).expect("frame 3057 trace");
+        assert_eq!(
+            (frame_3057.kid_x_velocity, frame_3057.kid_y_velocity),
+            (Some(0), Some(0)),
+            "frame 3057 should remain state-clean before the frame-3058 live gameplay divergence",
+        );
+        assert_eq!(
+            (frame_3057.number_objects, frame_3057.number_gfx_objects),
+            (7, 6),
+            "frame 3057 should keep the late 7/6 controller-sample count",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;

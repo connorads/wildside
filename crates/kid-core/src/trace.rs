@@ -557,6 +557,9 @@ impl NativeRuntime {
         if self.helmet.iron_knight_climbing {
             return MOVE_WALL_CLIMBING;
         }
+        if self.demo_1_late_jump_movement_hold_active() {
+            return MOVE_JUMP;
+        }
         if self.demo_trace_wall_jump_movement_hold_active(player) {
             return MOVE_JUMP;
         }
@@ -631,6 +634,24 @@ impl NativeRuntime {
                 && !probe.on_ground_after
                 && probe.y_velocity_after < 0
         })
+    }
+
+    fn demo_1_late_jump_movement_hold_active(&self) -> bool {
+        let Some((frame_counter, false)) = self
+            .demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
+        else {
+            return false;
+        };
+
+        // ASM loc_A6F8 -> loc_A94E (kid.asm:13038,13239): during the late
+        // demo-1 landing stall, oracle WRAM keeps `Character_Movement` on
+        // MoveID_Jump while the sampled controller object is already pinned
+        // to the floor. The normal standing/crawling trace inference would
+        // expose the post-settle native state too early.
+        (demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME
+            ..=demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_END_FRAME)
+            .contains(&frame_counter)
     }
 
     fn title_uses_demo_snapshot(&self) -> bool {
@@ -903,6 +924,7 @@ impl NativeRuntime {
         let active_objects = self.active_objects();
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
+            .or_else(|| self.demo_1_late_controller_sample_counts())
             .unwrap_or_else(|| {
                 self.object_counts_from_roster(
                     &active_objects,
@@ -2059,10 +2081,44 @@ impl NativeRuntime {
             // carries the post-transform movement for this hand-off window.
             return true;
         }
-        self.demo_startup_frame().is_some_and(|frame_counter| {
-            frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
-                && frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
-        })
+        self.demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
+            .is_some_and(|(frame_counter, use_demo_2)| {
+                frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
+                    && (frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
+                        || (!use_demo_2
+                            && frame_counter <= demo::DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME))
+            })
+    }
+
+    fn demo_1_late_controller_sample_counts(&self) -> Option<(u16, u16)> {
+        let (frame_counter, use_demo_2) = self
+            .demo_startup_frame()
+            .zip(self.demo_uses_second_recording())?;
+        if use_demo_2
+            || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
+                ..=demo::DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME)
+                .contains(&frame_counter)
+        {
+            return None;
+        }
+
+        // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the hidden
+        // controller sample live after the second demo-1 jump re-entry. Oracle
+        // top-level TAS state reports the controller-side object/gfx counts
+        // while raw Kid WRAM is already moving through loc_A6F8; the sampled
+        // worker/gfx count advances earlier than the raw Number_Objects row.
+        if (demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME
+            ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME)
+            .contains(&frame_counter)
+            || frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME
+        {
+            Some((7, 6))
+        } else if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME {
+            Some((7, 5))
+        } else {
+            Some((6, 5))
+        }
     }
 
     pub(crate) fn current_camera_state(&self) -> CameraState {

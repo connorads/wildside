@@ -163,6 +163,27 @@ pub(crate) const DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY
 /// `y_vel=$FFFCE000`, applies held-jump gravity to `$FFFD0000`, then moves
 /// upward on startup frame 252.
 pub(crate) const DEMO_1_LATE_JUMP_REENTRY_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 187;
+/// Last demo-1 frame where oracle top-level TAS state still samples Kid
+/// velocity from the hidden `loc_119D8` controller object rather than the live
+/// Kid object. Live physics continues independently.
+pub(crate) const DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 457;
+/// First late demo-1 controller-sample count wake in the top-level TAS sample.
+pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME: u16 =
+    DEMO_GAMEPLAY_START_FRAME + 308;
+/// Last frame of the first late demo-1 controller-sample count wake.
+pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME: u16 =
+    DEMO_GAMEPLAY_START_FRAME + 375;
+/// Second late demo-1 controller-sample count transition: one non-gfx worker wakes.
+pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME: u16 =
+    DEMO_GAMEPLAY_START_FRAME + 445;
+/// Second late demo-1 controller-sample count transition: the matching gfx worker wakes.
+pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME: u16 =
+    DEMO_GAMEPLAY_START_FRAME + 446;
+/// Late demo-1 landing stall keeps `Character_Movement=MoveID_Jump` after
+/// floor contact, until the controller-sampled object settles on the next
+/// frame.
+pub(crate) const DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 294;
+pub(crate) const DEMO_1_LATE_JUMP_MOVEMENT_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 314;
 /// Published TAS trace sampling keeps the demo player's velocity field on the
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
@@ -247,6 +268,13 @@ mod tests {
         assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
         assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
         assert_eq!(DEMO_1_LATE_JUMP_REENTRY_FRAME, 252);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME, 373);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME, 440);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME, 510);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME, 511);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_SAMPLE_END_FRAME, 522);
+        assert_eq!(DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME, 359);
+        assert_eq!(DEMO_1_LATE_JUMP_MOVEMENT_HOLD_END_FRAME, 379);
         assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 252);
         assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }
