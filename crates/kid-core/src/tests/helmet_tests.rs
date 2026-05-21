@@ -4826,13 +4826,15 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_2703 = None;
         let mut frame_2747 = None;
+        let mut frame_2786 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(2_748) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_787) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 2_703 => frame_2703 = Some(trace),
-                2_747 => {
-                    frame_2747 = Some(trace);
+                2_747 => frame_2747 = Some(trace),
+                2_786 => {
+                    frame_2786 = Some(trace);
                     break;
                 }
                 _ => {}
@@ -4841,6 +4843,7 @@ mod chunk_08 {
 
         let frame_2703 = frame_2703.expect("frame 2703 trace");
         let frame_2747 = frame_2747.expect("frame 2747 trace");
+        let frame_2786 = frame_2786.expect("frame 2786 trace");
 
         assert_eq!(
             frame_2703.boot_phase_elapsed,
@@ -4902,6 +4905,101 @@ mod chunk_08 {
             (frame_2747.number_objects, frame_2747.number_gfx_objects),
             (6, 5),
             "the hidden demo-1 worker and gfx count should remain visible through startup frame 212",
+        );
+
+        assert_eq!(
+            frame_2786.boot_phase_elapsed,
+            Some(251),
+            "frame 2786 should be demo-1 startup frame 251",
+        );
+        assert_eq!(
+            frame_2786.kid_x_velocity,
+            Some(0),
+            "oracle keeps sampled X velocity zero through the last trace-only frame before the frame-2787 movement miss",
+        );
+        assert_eq!(
+            frame_2786.kid_y_velocity,
+            Some(0),
+            "oracle keeps sampled Y velocity zero through the last trace-only frame before the frame-2787 movement miss",
+        );
+        assert_eq!(
+            (frame_2786.number_objects, frame_2786.number_gfx_objects),
+            (6, 5),
+            "the hidden demo-1 worker and gfx count should remain visible through startup frame 251",
+        );
+    }
+
+    #[test]
+    fn published_tas_second_demo_late_floor_release_splits_horizontal_and_vertical_steps() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2748 = None;
+        let mut frame_2749 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_750) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                2_748 => frame_2748 = Some(trace),
+                2_749 => {
+                    frame_2749 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_2748 = frame_2748.expect("frame 2748 trace");
+        let frame_2749 = frame_2749.expect("frame 2749 trace");
+
+        assert_eq!(
+            frame_2748.boot_phase_elapsed,
+            Some(213),
+            "frame 2748 should be demo-1 startup frame 213",
+        );
+        assert_eq!(
+            frame_2748.kid_x_pos,
+            Some(0x0105_BC00),
+            "ASM loc_8E16 -> sub_8F26 advances X before the late demo-1 floor-release frame",
+        );
+        assert_eq!(
+            frame_2748.kid_y_pos,
+            Some(0x017F_0000),
+            "ASM loc_8E16 -> sub_8F26 -> sub_902A keeps Y pinned for the late horizontal hand-off frame",
+        );
+        assert_eq!(
+            frame_2748.character_movement,
+            Some(2),
+            "Character_Movement should remain MoveID_Walking during the late pinned horizontal hand-off",
+        );
+        assert_eq!(
+            (frame_2748.number_objects, frame_2748.number_gfx_objects),
+            (6, 5),
+            "the hidden demo-1 controller worker should still be visible on the late horizontal hand-off",
+        );
+        assert_eq!(
+            frame_2748.kid_x_velocity,
+            Some(0),
+            "oracle still samples zero X velocity during the late controller hand-off",
+        );
+
+        assert_eq!(
+            frame_2749.boot_phase_elapsed,
+            Some(214),
+            "frame 2749 should be demo-1 startup frame 214",
+        );
+        assert_eq!(
+            frame_2749.kid_x_pos,
+            Some(0x0105_BC00),
+            "ASM loc_B5F6's no-support release should expose the first falling pixel before the next sub_8F26 horizontal step",
+        );
+        assert_eq!(
+            frame_2749.kid_y_pos,
+            Some(0x0180_0000),
+            "the first post-hand-off floor release should drop exactly one pixel",
+        );
+        assert_eq!(
+            frame_2749.character_movement,
+            Some(3),
+            "Character_Movement should switch to MoveID_Jump on the first late falling release frame",
         );
     }
 

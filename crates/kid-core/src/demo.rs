@@ -154,13 +154,17 @@ pub(crate) const DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME: u16 = DEMO_OBJECT_BOOTST
 /// frame drops through the walking no-support path (`loc_B5F6`) before the next
 /// horizontal movement becomes visible.
 pub(crate) const DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 93;
+/// Later demo-1 walking frame with the same horizontal-before-vertical release
+/// ordering: `sub_8F26` advances X, then the following frame exposes the
+/// `loc_B5F6` no-support Y increment.
+pub(crate) const DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 148;
 /// Published TAS trace sampling keeps the demo player's velocity field on the
 /// held respawn value after raw WRAM has started moving. ASM `Load_DemoPlay`
 /// allocates the `loc_119D8` controller object before `Load_InGame`, and
 /// `loc_C22` updates the demo input stream outside the gameplay object body;
-/// native keeps this as a trace-only hold through the last count-only
-/// demo-1 controller hand-off frame so the simulation can still advance.
-pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 147;
+/// native keeps this as a trace-only hold until the first later live movement
+/// miss so the simulation can still advance.
+pub(crate) const DEMO_TRACE_GROUNDED_HOLD_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 186;
 /// After Kid_Transform exits in demo mode, oracle WRAM keeps Kid's sampled
 /// velocity fields at zero while the visible `kid_gfx` object continues moving
 /// for the short controller hand-off window. Native models that as trace-only
@@ -236,7 +240,8 @@ mod tests {
         assert_eq!(DEMO_OBJECT_BOOTSTRAP_END_FRAME, 81);
         assert_eq!(DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME, 130);
         assert_eq!(DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME, 158);
-        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 212);
+        assert_eq!(DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME, 213);
+        assert_eq!(DEMO_TRACE_GROUNDED_HOLD_END_FRAME, 251);
         assert_eq!(DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES, 17);
     }
 

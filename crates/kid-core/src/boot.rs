@@ -5983,7 +5983,8 @@ impl NativeRuntime {
 
         let force_demo_1_handoff_pin = self.demo_uses_second_recording() == Some(false)
             && (frame_counter <= demo::DEMO_1_GROUNDED_RUN_HANDOFF_END_FRAME
-                || frame_counter == demo::DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME);
+                || frame_counter == demo::DEMO_1_FINAL_HORIZONTAL_FLOOR_RELEASE_FRAME
+                || frame_counter == demo::DEMO_1_LATE_HORIZONTAL_FLOOR_RELEASE_FRAME);
         let Some(slice) = self.opening_slice.as_mut() else {
             return false;
         };

@@ -3,14 +3,14 @@
   "updated_at": "2026-05-20T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-clean-through-frame-2748",
+    "slug": "any-percent-published-clean-through-frame-2787",
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification no longer supports the previous tail-clean completion claim",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 2748,
-    "authoritative_clean_through": 2747,
+    "frontier_frame": 2787,
+    "authoritative_clean_through": 2786,
     "pre_divergence_windows": [
       {
         "frame_start": 0,
@@ -18,7 +18,7 @@
         "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is CRC-clean and authoritative-clean across frames 0..1346 with per-frame checkpoints. The former frame-1146 post-transform drift is cleared by matching ASM `loc_8E16` / `sub_8600` walking floor-check order and suppressing only the premature post-horizontal support release during the demo post-transform hand-off. The remaining top-level `kid_x_vel` / `kid_y_vel` mismatches from frame 1148 onward are classified as oracle limitations when the oracle's live `0x30(kid_gfx)` object at the player position carries the same velocity as native; this reflects the ROM `Load_DemoPlay loc_119D8` controller/object split, not a gameplay state miss."
       }
     ],
-    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 2747 with per-frame checkpoints. The frame-2703 demo-1 trace/count export miss is cleared: native now keeps the ASM `Load_DemoPlay -> loc_119D8` hidden worker count and `loc_C22` zero sampled Kid velocity visible through startup frame 212, matching oracle at frames 2703 and 2747 while live Kid movement still advances. `verify-tas --frame-start 0 --frame-end 2748 --checkpoint-interval 1` is CRC-clean. The next blocker is the frame-2748 live movement miss reported by `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1 --bisect`: native is in `Game_Mode=$10`, level `$15`, Kid at `0x0105bc00,0x01800000` with `x_vel=0x00038000`, while the oracle first diverges on CRC there.",
+    "current_blocker": "`any-percent-published` is CRC-clean and authoritative-clean through frame 2786 with per-frame checkpoints. The frame-2748 late demo-1 floor-release miss is cleared: native now keeps the ASM `loc_8E16 -> sub_8F26 -> sub_902A` horizontal hand-off pinned for startup frame 213, then exposes the following `loc_B5F6` no-support drop on startup frame 214. The demo-1 trace/count export hold now remains active through startup frame 251, matching the oracle's hidden `Load_DemoPlay -> loc_119D8` worker count and `loc_C22` zero sampled velocities through frame 2786. `verify-tas --frame-start 0 --frame-end 2787 --checkpoint-interval 1` is CRC-clean with zero authoritative/advisory diffs. The next blocker is frame 2787: native is in `Game_Mode=$10`, level `$15`, Kid at `0x011b4080,0x016ea000` with `x_vel=0x00004080`, `y_vel=0x00004000`, while oracle has Kid at `0x011b4080,0x016b6000` and still samples velocities/counts as zero/`6/5`.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -44,15 +44,16 @@
       "The frame-2617 demo-1 gameplay warmup object-count miss is cleared locally: `published_tas_second_demo_bootstrap_counts_hidden_rom_objects` now covers the ASM `Load_DemoPlay -> Load_InGame` hidden worker/gfx count stages through the loc_C22 grounded trace-hold window, and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1` now keeps `objects=6/5` at the next movement blocker.",
       "The frame-2665 demo-1 grounded hand-off Y-position miss is cleared locally: `published_tas_second_demo_grounded_run_holds_y_through_frame_2665` proves the ASM `loc_8E16 -> sub_8F26 -> sub_902A` hand-off stays pinned at `0x00ff0000` on startup frame 130, and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1` moved the first authoritative divergence to frame 2693.",
       "The frame-2693 demo-1 floor-release Y-position miss is cleared locally: `published_tas_second_demo_floor_release_splits_horizontal_and_vertical_steps` proves startup frame 158 advances X to `0x00652b00` while holding Y at `0x013f0000` and `Character_Movement=MoveID_Walking`; startup frame 159 then drops to `0x01400000` with X still held and `Character_Movement=MoveID_Jump`. `verify-tas --frame-start 0 --frame-end 2703 --checkpoint-interval 1` is CRC-clean and moves the first authoritative divergence to frame 2703.",
-      "The frame-2703 demo-1 trace/count export miss is cleared locally: `published_tas_second_demo_trace_hold_keeps_controller_worker_counts_visible` proves startup frames 168 and 212 still export the ASM `Load_DemoPlay -> loc_119D8` hidden worker/gfx count (`6/5`) and `loc_C22` zero sampled Kid velocity while native position remains oracle-clean. `verify-tas --frame-start 0 --frame-end 2748 --checkpoint-interval 1` is CRC-clean and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1 --bisect` moves the first CRC divergence to frame 2748."
+      "The frame-2703 demo-1 trace/count export miss is cleared locally: `published_tas_second_demo_trace_hold_keeps_controller_worker_counts_visible` proves startup frames 168, 212, and 251 still export the ASM `Load_DemoPlay -> loc_119D8` hidden worker/gfx count (`6/5`) and `loc_C22` zero sampled Kid velocity while native position remains oracle-clean.",
+      "The frame-2748 late demo-1 floor-release miss is cleared locally: `published_tas_second_demo_late_floor_release_splits_horizontal_and_vertical_steps` proves startup frame 213 advances X to `0x0105bc00` while holding Y at `0x017f0000` and `Character_Movement=MoveID_Walking`; startup frame 214 then drops to `0x01800000` with X still held and `Character_Movement=MoveID_Jump`. `verify-tas --frame-start 0 --frame-end 2787 --checkpoint-interval 1` is CRC-clean with zero authoritative/advisory diffs, and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1 --bisect` moves the first CRC divergence to frame 2787."
     ],
     "advisory_diffs": [
       "The repaired later mode-0x28 / demo-2 preload / intro-sequence-4 title-return windows still carry only the known advisory `number_objects` drift from frame 27602 onward.",
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Native layout #02 is already 12px behind oracle by frame 3388 (`0x01E68000` vs `0x01F28000`) before its frame-3392 patrol-timer turn, so the remaining ignored tests in `runtime_tests.rs` document enemy fidelity debt rather than an authoritative TAS blocker."
     ],
     "current_hypothesis": {
-      "name": "Resolve demo-1 live movement drift at frame 2748",
-      "reason": "After extending the demo-1 trace/count export hold through startup frame 212, `verify-tas --frame-start 0 --frame-end 2748 --checkpoint-interval 1` is CRC-clean and `verify-tas --frame-start 0 --frame-end 2800 --checkpoint-interval 1 --bisect` reports the next CRC divergence at frame 2748. The remaining miss is no longer trace-only export: native enters frame 2748 with Kid at `0x0105bc00,0x01800000` and `x_vel=0x00038000`; next investigation should compare the ASM `loc_8E16 -> sub_8F26 -> sub_902A` floor-support/release path against oracle around startup frame 213."
+      "name": "Resolve demo-1 live movement drift at frame 2787",
+      "reason": "After splitting the late demo-1 floor release and extending the trace/count export hold through startup frame 251, `verify-tas --frame-start 0 --frame-end 2787 --checkpoint-interval 1` is CRC-clean with zero authoritative/advisory diffs. `tas-diff --frame-start 2786 --frame-end 2788 --include-advisory` shows the next real miss at frame 2787: native applies airborne gravity and lands at Kid Y `0x016ea000` with `y_vel=0x00004000`, while oracle remains at `0x016b6000` and continues zero sampled velocities/counts. Next investigation should compare the ASM floor/object-support path around startup frame 252, including the metal block hitbox probe shown by native `kid_ground_probe`."
     },
     "rejected_hypotheses": [
       {
