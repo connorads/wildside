@@ -53,6 +53,69 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn diamond_at_x(x_px: u32) -> FloatingItem {
+        FloatingItem {
+            x_pos: x_px << 16,
+            y_pos: 100 << 16,
+            y_velocity: 0,
+            remaining: 0x01F4,
+            spawn_delay: 0,
+            level_col: 0,
+            level_row: 0,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Diamond,
+            collected: false,
+        }
+    }
+
+    fn player_at_x(x_px: u32) -> PlayerState {
+        PlayerState {
+            x_pos: x_px << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        }
+    }
+
+    #[test]
+    fn prize_diamond_loc_10396_horizontal_band_is_inclusive() {
+        // ASM PrizeDiamond_Init loc_10396 reaches `tst.w collision_type(a3)`;
+        // the stale prize-block worker remains count-visible only while the
+        // diamond object is inside Kid's inclusive horizontal collision band.
+        let diamond = diamond_at_x(100);
+
+        assert!(floating_diamond_in_player_horizontal_band_loc_10396(
+            &diamond,
+            player_at_x(88)
+        ));
+        assert!(floating_diamond_in_player_horizontal_band_loc_10396(
+            &diamond,
+            player_at_x(112)
+        ));
+        assert!(!floating_diamond_in_player_horizontal_band_loc_10396(
+            &diamond,
+            player_at_x(87)
+        ));
+        assert!(!floating_diamond_in_player_horizontal_band_loc_10396(
+            &diamond,
+            player_at_x(113)
+        ));
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum KidObjectRelation {
     Below,
