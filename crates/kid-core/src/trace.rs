@@ -647,6 +647,100 @@ mod tests {
             Some(PlayerState::title_pose())
         );
     }
+
+    #[test]
+    fn title_menu_cursor_player_state_tracks_live_menu_rows() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.title_menu_active = true;
+
+        // ASM Obj_TitleMenu loc_1BB52 seeds the cursor sprite at x=$28 and
+        // loc_1BC0E selects one of the three fixed title-menu rows.
+        assert_eq!(
+            runtime.title_menu_cursor_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x0030_0000))
+        );
+
+        runtime.boot_state = BootState::TitleScreen { cursor: 1 };
+        assert_eq!(
+            runtime.title_menu_cursor_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x003A_0000))
+        );
+
+        runtime.boot_state = BootState::TitleScreen { cursor: 2 };
+        assert_eq!(
+            runtime.title_menu_cursor_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x0044_0000))
+        );
+
+        runtime.title_menu_cursor_pending = true;
+        assert_eq!(runtime.title_menu_cursor_player_state(), None);
+
+        runtime.title_menu_cursor_pending = false;
+        runtime.title_menu_active = false;
+        assert_eq!(runtime.title_menu_cursor_player_state(), None);
+    }
+
+    #[test]
+    fn title_menu_cursor_player_state_requires_early_start_carry_window() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES - 1,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+        runtime.title_menu_active = true;
+        runtime.two_player = true;
+
+        // ASM loc_1AE2E can carry the Obj_TitleMenu cursor into the early
+        // Start transition, but only while the title-worker shell is still
+        // active and before Load_InGame consumes the bootstrap.
+        assert_eq!(
+            runtime.title_menu_cursor_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x003A_0000))
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+
+        assert_eq!(runtime.title_menu_cursor_player_state(), None);
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: 0,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+
+        assert_eq!(runtime.title_menu_cursor_player_state(), None);
+    }
+
+    #[test]
+    fn current_player_state_exposes_title_menu_cursor_before_title_ready() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 1 };
+        runtime.title_menu_active = true;
+        runtime.title_screen_ready_frame = 1;
+
+        // ASM Obj_TitleMenu loc_1BC0E keeps the live cursor object visible
+        // before the normal title Kid pose is rebuilt.
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x003A_0000))
+        );
+
+        runtime.title_screen_ready_frame = 0;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
