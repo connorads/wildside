@@ -5611,8 +5611,9 @@ impl NativeRuntime {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
-        let demo_title_return_camera_wrap =
-            !use_demo_2 && self.next_demo_uses_demo_title_return_camera_wrap;
+        let demo_title_return_camera_wrap = !use_demo_2
+            && self.next_demo_uses_demo_title_return_camera_wrap
+            && !self.demo_title_return_uses_intro_sequence_6_early_title_restore;
         let title_screen_uses_timeout_restart_intro_sequence_4_title_restore = matches!(
             self.boot_state,
             // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BB02` can also hand a demo

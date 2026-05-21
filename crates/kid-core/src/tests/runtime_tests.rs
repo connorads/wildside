@@ -4242,6 +4242,68 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restore_demo_1_uses_cold_boot_wrap_on_frame_24563() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_24562 = None;
+        let mut frame_24563 = None;
+        let mut frame_24564 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(24_565) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                24_562 => {
+                    frame_24562 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.current_level,
+                        trace.camera_y_pos,
+                    ));
+                }
+                24_563 => {
+                    frame_24563 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.current_level,
+                        trace.camera_y_pos,
+                    ));
+                }
+                24_564 => {
+                    frame_24564 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.current_level,
+                        trace.camera_y_pos,
+                    ));
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        // ASM `loc_119D8 -> loc_6E2 -> Obj_TitleMenu loc_1BB02 ->
+        // Load_DemoPlay -> Load_InGame` returns from the later Skydragon demo
+        // after loc_1B5CE has already restored the title pose. That lineage
+        // still toggles back to Knights Isle, but oracle uses the cold-boot
+        // demo-1 wrap (`$FF00_0000`) rather than the generic demo-title return
+        // wrap (`$FF20_0000`) on startup frame 60.
+        assert_eq!(
+            frame_24562,
+            Some((GameMode::DemoPlay, Some(59), LevelId(0x15), 0x00E0_0000)),
+            "frame 24562 should still be the hidden Knights Isle warm-up row",
+        );
+        assert_eq!(
+            frame_24563,
+            Some((GameMode::DemoPlay, Some(60), LevelId(0x15), 0xFF00_0000)),
+            "frame 24563 should use the oracle-backed cold-boot demo-1 camera wrap",
+        );
+        assert_eq!(
+            frame_24564,
+            Some((GameMode::DemoPlay, Some(61), LevelId(0x15), 0x00E0_0000)),
+            "frame 24564 should settle back to the hidden warm-up row",
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_27602 = None;
