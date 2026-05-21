@@ -835,6 +835,28 @@ mod tests {
 
         assert_eq!(runtime.trace_frame().kid_on_slope, -1);
     }
+
+    #[test]
+    fn trace_frame_exports_continue_countdown_remaining_frames() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: 123,
+        };
+
+        // ASM PrizeContinue loc_1080A enters the "CONTINUE?" countdown as a
+        // game-over state with a live countdown timer, so trace output must
+        // keep both the game-over flag and the remaining-frame value.
+        let trace = runtime.trace_frame();
+        assert!(trace.game_over);
+        assert_eq!(trace.continue_countdown, Some(123));
+
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: 123,
+        };
+
+        assert_eq!(runtime.trace_frame().continue_countdown, None);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
