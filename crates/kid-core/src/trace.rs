@@ -487,6 +487,95 @@ mod tests {
 
         assert_eq!(runtime.current_player_state(), None);
     }
+
+    #[test]
+    fn intro_sequence_6_timeout_restart_hidden_camera_wraps_then_ramps() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap: true,
+        };
+
+        // ASM Load_IntroSequence6 seeds the timeout-restart hidden camera late:
+        // no wrapped row before frame 32, then `$FFF0_0000`, then the
+        // GfxObjects_Collision_BottomBoundary4 ramp advances by one pixel.
+        runtime.title_screen_elapsed_frames = 31;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            None
+        );
+        assert_eq!(runtime.current_camera_state(), CameraState::default());
+
+        runtime.title_screen_elapsed_frames = 32;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0xFFF0_0000)
+        );
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFFF0_0000,
+            }
+        );
+
+        runtime.title_screen_elapsed_frames = 248;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0xFFF1_0000)
+        );
+
+        runtime.title_screen_elapsed_frames = 264;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn intro_sequence_6_later_revisit_hidden_camera_seeds_then_ramps() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+
+        // The later title-restore revisit delays the same hidden-camera seed,
+        // then ramps by three pixels per frame because `$FFD0_0000 >> 4`
+        // produces `$FFFD_0000`.
+        runtime.title_screen_elapsed_frames = 34;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            None
+        );
+
+        runtime.title_screen_elapsed_frames = 35;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0xFFD0_0000)
+        );
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFFD0_0000,
+            }
+        );
+
+        runtime.title_screen_elapsed_frames = 251;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0xFFD3_0000)
+        );
+
+        runtime.title_screen_elapsed_frames = 267;
+        assert_eq!(
+            runtime.intro_sequence_6_timeout_restart_hidden_camera_y(),
+            Some(0)
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
