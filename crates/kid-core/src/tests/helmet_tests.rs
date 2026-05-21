@@ -4473,15 +4473,118 @@ mod chunk_08 {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;
         let mut frame_4967 = None;
+        let mut frame_4998 = None;
+        let mut frame_4999 = None;
+        let mut frame_5002 = None;
+        let mut frame_5173 = None;
+        let mut frame_5174 = None;
+        let mut frame_5186 = None;
+        let mut frame_5187 = None;
+        let mut frame_5390 = None;
+        let mut frame_5391 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(4_968) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(5_392) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 4_966 => {
-                    frame_4966 = Some((trace.game_mode, trace.current_level, trace.paused));
+                    frame_4966 = Some((
+                        trace.game_mode,
+                        trace.current_level,
+                        trace.paused,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                        trace.boot_phase.as_deref().map(str::to_owned),
+                        trace.boot_phase_elapsed,
+                        trace.character_movement,
+                    ));
                 }
                 4_967 => {
-                    frame_4967 = Some((trace.game_mode, trace.current_level, trace.paused));
+                    frame_4967 = Some((
+                        trace.game_mode,
+                        trace.current_level,
+                        trace.paused,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                        trace.boot_phase.as_deref().map(str::to_owned),
+                        trace.boot_phase_elapsed,
+                        trace.character_movement,
+                    ));
+                }
+                4_998 => {
+                    frame_4998 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                4_999 => {
+                    frame_4999 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_002 => {
+                    frame_5002 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_173 => {
+                    frame_5173 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_174 => {
+                    frame_5174 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_186 => {
+                    frame_5186 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_187 => {
+                    frame_5187 = Some((
+                        trace.game_mode,
+                        trace.title_screen_ready,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_390 => {
+                    frame_5390 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                5_391 => {
+                    frame_5391 = Some((
+                        trace.game_mode,
+                        trace.boot_phase_elapsed,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                     break;
                 }
                 _ => {}
@@ -4490,13 +4593,76 @@ mod chunk_08 {
 
         assert_eq!(
             frame_4966,
-            Some((GameMode::DemoPlay, LevelId(0x1B), false)),
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x1B),
+                false,
+                4,
+                4,
+                Some("demo_play".to_owned()),
+                Some(1071),
+                Some(0),
+            )),
             "the published Skydragon Castle demo should still trace as live gameplay on frame 4966",
         );
         assert_eq!(
             frame_4967,
-            Some((GameMode::SegaScreen, LevelId(0x00), false)),
-            "the next frame should take the ROM timeout handoff instead of the paused title helper",
+            Some((
+                GameMode::SegaScreen,
+                LevelId(0x00),
+                false,
+                4,
+                4,
+                Some("sega_screen".to_owned()),
+                None,
+                Some(0),
+            )),
+            "ASM ReadJoypad loc_C0A should take the ROM timeout handoff instead of the paused title helper",
+        );
+        assert_eq!(
+            frame_4998,
+            Some((GameMode::SegaScreen, false, 4, 4)),
+            "ASM ReadJoypad loc_C0A keeps the frozen 4/4 demo counters through local mode-0 frame 31",
+        );
+        assert_eq!(
+            frame_4999,
+            Some((GameMode::SegaScreen, false, 0, 0)),
+            "ASM loc_6E2 should expose the cleared object slots on local mode-0 frame 32",
+        );
+        assert_eq!(
+            frame_5002,
+            Some((GameMode::SegaScreen, false, 1, 0)),
+            "ASM Load_SegaScreen's controller object should be counted without a gfx slot after the clear window",
+        );
+        assert_eq!(
+            frame_5173,
+            Some((GameMode::IntroSequence1, false, Some(30), 1, 0)),
+            "ASM Load_IntroSequence1 keeps the timeout-restart controller counted through local elapsed 30",
+        );
+        assert_eq!(
+            frame_5174,
+            Some((GameMode::IntroSequence1, false, Some(31), 0, 0)),
+            "ASM Load_IntroSequence1 should expose the timeout-restart clear window at local elapsed 31",
+        );
+        assert_eq!(
+            frame_5186,
+            Some((GameMode::IntroSequence1, false, Some(43), 1, 0)),
+            "ASM sub_1B8F4 should expose the controller before the intro-text worker gfx slot",
+        );
+        assert_eq!(
+            frame_5187,
+            Some((GameMode::IntroSequence1, false, Some(44), 2, 1)),
+            "ASM sub_1B8F4 should expose the intro-text worker from local elapsed 44",
+        );
+        assert_eq!(
+            frame_5390,
+            Some((GameMode::IntroSequence1, Some(247), 2, 1)),
+            "ASM sub_1B8F4 should keep both intro-sequence-1 workers counted through local elapsed 247",
+        );
+        assert_eq!(
+            frame_5391,
+            Some((GameMode::IntroSequence1, Some(248), 1, 1)),
+            "ASM sub_1B8F4 should drop the extra non-gfx worker from local elapsed 248",
         );
     }
 
@@ -5882,6 +6048,7 @@ mod chunk_08 {
     fn published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_6033 = None;
+        let mut frame_6198 = None;
         let mut frame_6208 = None;
         let mut frame_6209 = None;
         let mut frame_6236 = None;
@@ -5893,8 +6060,23 @@ mod chunk_08 {
                 6_033 => {
                     frame_6033 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
                 }
+                6_198 => {
+                    frame_6198 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
                 6_208 => {
-                    frame_6208 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_6208 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 6_209 => {
                     frame_6209 = Some((
@@ -5902,6 +6084,8 @@ mod chunk_08 {
                         trace.kid_x_pos,
                         trace.kid_y_pos,
                         trace.kid_facing,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
                     ));
                 }
                 6_236 => {
@@ -5925,13 +6109,26 @@ mod chunk_08 {
             "the timeout restart should keep intro sequence 3 alive on the old frame-6033 frontier",
         );
         assert_eq!(
+            frame_6198,
+            Some((
+                GameMode::IntroSequence3,
+                Some(0x0060_0000),
+                Some(0x00D0_0000),
+                3,
+                0x000B,
+            )),
+            "ASM Load_IntroSequence3/sub_1B93E should keep the visible title gfx roster counted before the Start edge",
+        );
+        assert_eq!(
             frame_6208,
             Some((
                 GameMode::IntroSequence3,
                 Some(0x0060_0000),
                 Some(0x00D0_0000),
+                3,
+                0x000B,
             )),
-            "the timeout restart should keep intro sequence 3 alive through frame 6208",
+            "ASM sub_1C246 should see the Start edge on frame 6208 but not expose Game_Mode=$2C until frame 6209",
         );
         assert_eq!(
             frame_6209,
@@ -5940,6 +6137,8 @@ mod chunk_08 {
                 Some(0x0060_0000),
                 Some(0x00D0_0000),
                 Some(Direction::Left),
+                3,
+                0x000B,
             )),
             "frame 6209 should enter title mode without discarding the intro-sequence-3 Kid pose",
         );

@@ -539,6 +539,13 @@ impl NativeRuntime {
             // Character_Movement at $FFFFFA56 while Game_Mode remains $2C.
             return MOVE_STANDINGSTILL;
         }
+        if self.demo_auto_timeout_handoff_active {
+            // ASM ReadJoypad loc_C0A (kid.asm:1380) enters the timeout restart
+            // by writing Game_Mode=$00 and jumping through loc_6E2. The title
+            // snapshot can still carry Kid's pose, but oracle WRAM exposes an
+            // inert Character_Movement while this mode-0 shell is active.
+            return MOVE_STANDINGSTILL;
+        }
         if let BootState::DemoPlay {
             frame_counter,
             use_demo_2,
@@ -1017,10 +1024,11 @@ impl NativeRuntime {
             start_press_count: self.start_press_count,
             boot_phase,
             boot_phase_elapsed,
-            title_screen_ready: !matches!(
+            title_screen_ready: matches!(
                 self.boot_state,
-                BootState::StartingLevel { .. } | BootState::DemoPlay { .. }
-            ) && self.title_screen_ready(),
+                BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
+            ) && !self.demo_auto_timeout_handoff_active
+                && self.title_screen_ready(),
             current_player: self.current_player_index,
             current_level: self.current_level,
             player_1_level_id: self.current_level,
@@ -2115,6 +2123,7 @@ impl NativeRuntime {
     fn demo_1_late_title_return_snapshot_active(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.preserve_demo_title_snapshot
+            && !self.demo_auto_timeout_handoff_active
             && self.demo_title_snapshot_object_counts == Some((4, 4))
             && self.title_screen_elapsed_frames < self.demo_title_partial_snapshot_frames()
     }
@@ -2420,6 +2429,28 @@ impl NativeRuntime {
             elapsed,
             ..
         } = self.boot_state
+            && self
+                .demo_auto_timeout_intro_sequence_1_frames_override
+                .is_some()
+        {
+            // ASM ReadJoypad loc_C0A -> Load_IntroSequence1/sub_1B8F4
+            // (kid.asm:1380,30214): the timeout restart keeps the first
+            // intro controller counted through local elapsed 30, clears the
+            // shell counters for the hidden rebuild, then exposes the
+            // controller and intro-text worker as they reallocate.
+            return match elapsed {
+                0..=30 => (1, 0),
+                31..=42 => (0, 0),
+                43 => (1, 0),
+                44..=247 => (2, 1),
+                _ => (1, 1),
+            };
+        }
+        if let BootState::IntroSequence {
+            segment: 0,
+            elapsed,
+            ..
+        } = self.boot_state
         {
             if elapsed < 32 {
                 // ASM loc_12EDE jumps through loc_6E2 after the Sega logo object
@@ -2440,6 +2471,24 @@ impl NativeRuntime {
                 // either intro shell object as a gameplay roster entry.
                 return (2, 0);
             }
+        }
+        if let BootState::IntroSequence {
+            segment: 2,
+            elapsed,
+            ..
+        } = self.boot_state
+            && (self
+                .demo_auto_timeout_intro_sequence_3_frames_override
+                .is_some()
+                || self.timeout_restart_title_intro_sequence_3_return_pending)
+            && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES
+        {
+            // ASM Load_IntroSequence3 / sub_1B93E (kid.asm:29078,30238)
+            // keeps the controller plus intro-text workers alive while the
+            // rotating loc_1AEBA title gfx roster is visible. Oracle WRAM
+            // reports Number_Objects=3 and Number_GfxObjects=$B through the
+            // frame-6208 Start edge before sub_1C246 returns to title.
+            return (3, 0x000B);
         }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
@@ -2534,6 +2583,22 @@ impl NativeRuntime {
                 (1, 0)
             };
         }
+        if self.demo_auto_timeout_handoff_active
+            && self.title_screen_elapsed_frames >= DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES
+        {
+            // ASM ReadJoypad loc_C0A -> loc_6E2 (kid.asm:1380): after the
+            // timeout restart has exposed the preserved 4/4 demo counters for
+            // 32 local mode-0 frames, oracle WRAM shows the object slots
+            // cleared for three frames, then the Sega/logo controller count
+            // appears without a gfx slot.
+            return if self.title_screen_elapsed_frames
+                < DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES + 3
+            {
+                (0, 0)
+            } else {
+                (1, 0)
+            };
+        }
         if self.title_uses_full_demo_snapshot() {
             if let Some(counts) = self.demo_title_snapshot_object_counts {
                 return counts;
@@ -2549,6 +2614,13 @@ impl NativeRuntime {
             && let Some(counts) = self.demo_title_snapshot_object_counts
         {
             return counts;
+        }
+        if self.title_uses_timeout_restart_intro_sequence_3_pose() {
+            // ASM sub_1C246 -> loc_1C264 switches Game_Mode to $2C without
+            // clearing the live Load_IntroSequence3/sub_1B93E object counters.
+            // The stale loc_1AEBA gfx roster remains count-visible while the
+            // intro-sequence-3 pose is carried into the first title frames.
+            return (3, 0x000B);
         }
         if let Some(counts) = self.demo_title_return_hidden_object_counts() {
             return counts;

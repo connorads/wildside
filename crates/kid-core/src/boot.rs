@@ -6174,6 +6174,14 @@ impl NativeRuntime {
     }
 
     pub(crate) fn boot_phase_label(&self) -> Option<&'static str> {
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.demo_auto_timeout_handoff_active
+        {
+            // ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo
+            // auto-timeout restart while the native shell still reuses the
+            // title-state timer that later feeds IntroSequence1.
+            return Some("sega_screen");
+        }
         match self.boot_state {
             BootState::SegaScreen { .. } => Some("sega_screen"),
             BootState::IntroSequence { segment: 0, .. } => Some("intro_sequence_1"),
@@ -6200,6 +6208,14 @@ impl NativeRuntime {
     }
 
     pub(crate) fn boot_phase_elapsed_frames(&self) -> Option<usize> {
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.demo_auto_timeout_handoff_active
+        {
+            // ASM ReadJoypad loc_C0A's mode-0 handoff has no live Sega-screen
+            // object timer in oracle trace state; the internal title elapsed
+            // counter is only native scheduling state.
+            return None;
+        }
         match self.boot_state {
             BootState::SegaScreen { elapsed } => Some(elapsed),
             BootState::IntroSequence { elapsed, .. } => Some(elapsed),
@@ -6583,7 +6599,16 @@ impl NativeRuntime {
                         if !timeout_restart_intro_sequence_5_title_return {
                             self.timeout_restart_intro_sequence_4_pose_carry = false;
                         }
-                        *pending_title_skip = 1;
+                        *pending_title_skip = if timeout_restart_start_returns_to_title {
+                            // ASM sub_1B93E -> loc_1B96E calls sub_1C246
+                            // after the hibernate return. Oracle probes show
+                            // the frame-6207 Start edge as Ctrl_1_Pressed on
+                            // frame 6208 while Game_Mode remains $1C, then
+                            // loc_1C264 writes $2C on frame 6209.
+                            2
+                        } else {
+                            1
+                        };
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.timeout_restart_title_intro_sequence_4_return_pending = false;
