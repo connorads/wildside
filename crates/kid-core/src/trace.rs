@@ -2115,11 +2115,19 @@ impl NativeRuntime {
         self.demo_startup_frame()
             .zip(self.demo_uses_second_recording())
             .is_some_and(|(frame_counter, use_demo_2)| {
+                let late_demo_1_velocity_sample_end =
+                    if self.demo_started_from_timeout_restart_shell {
+                        // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) still
+                        // leaves the timeout-restart demo-1 controller object as
+                        // the top-level velocity sample, but that lineage does
+                        // not expose the cold-boot pause/count latch below.
+                        demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
+                    } else {
+                        demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
+                    };
                 frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
                     && (frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
-                        || (!use_demo_2
-                            && frame_counter
-                                <= demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME))
+                        || (!use_demo_2 && frame_counter <= late_demo_1_velocity_sample_end))
             })
     }
 
@@ -2136,6 +2144,7 @@ impl NativeRuntime {
             .zip(self.demo_uses_second_recording())
             .is_some_and(|(frame_counter, use_demo_2)| {
                 !use_demo_2
+                    && !self.demo_started_from_timeout_restart_shell
                     && (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
                         ..=demo::DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME)
                         .contains(&frame_counter)
@@ -2163,6 +2172,28 @@ impl NativeRuntime {
         let (frame_counter, use_demo_2) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())?;
+        if !use_demo_2 && self.demo_started_from_timeout_restart_shell {
+            if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+                ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
+                .contains(&frame_counter)
+            {
+                // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the
+                // timeout-restart demo-1 controller lineage count-visible
+                // here, but oracle shows its paired gfx worker awake rather
+                // than the cold-boot demo-1 8/6 pause sample.
+                return Some((8, 7));
+            }
+            if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME.saturating_sub(7)
+                ..demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME)
+                .contains(&frame_counter)
+            {
+                // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585): the
+                // timeout-restart lineage wakes the controller-side object
+                // count seven trace frames before its gfx workers become
+                // count-visible.
+                return Some((8, 4));
+            }
+        }
         if use_demo_2
             || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
                 ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)

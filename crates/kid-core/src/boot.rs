@@ -5422,6 +5422,7 @@ impl NativeRuntime {
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = false;
+        self.demo_started_from_timeout_restart_shell = false;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
         self.next_demo_uses_demo_title_return_camera_wrap = false;
@@ -5684,6 +5685,7 @@ impl NativeRuntime {
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
+        self.demo_started_from_timeout_restart_shell = timeout_restart_demo_bootstrap;
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
         self.demo_uses_demo_title_return_camera_wrap = demo_title_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;

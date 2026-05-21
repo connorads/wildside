@@ -332,6 +332,10 @@ pub struct NativeRuntime {
     /// Timeout-restart demo playback ignores queued manual Start aborts until
     /// the restarted attract demo reaches its live gameplay hand-off.
     ignore_demo_start_abort_until_gameplay: bool,
+    /// The active demo started from the timeout-restart title shell. It keeps
+    /// the late demo-1 velocity sample, but oracle does not expose the older
+    /// cold-boot controller pause/count sample on that lineage.
+    demo_started_from_timeout_restart_shell: bool,
     /// The next demo start comes from a Start-skip intro return rather than
     /// the cold-boot attract path.
     next_demo_uses_start_skip_intro_return_camera_wrap: bool,
@@ -1213,6 +1217,7 @@ impl NativeRuntime {
             timeout_restart_intro_sequence_4_pose_carry: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,
+            demo_started_from_timeout_restart_shell: false,
             next_demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_start_skip_intro_return_camera_wrap: false,
             next_demo_uses_demo_title_return_camera_wrap: false,

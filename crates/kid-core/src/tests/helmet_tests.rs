@@ -7690,6 +7690,76 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restarted_demo_stays_unpaused_on_frame_7493() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_7486 = None;
+        let mut frame_7492 = None;
+        let mut frame_7493 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_494) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            let sample = (
+                trace.game_mode,
+                trace.current_level,
+                trace.paused,
+                trace.kid_x_velocity,
+                trace.kid_y_velocity,
+                trace.number_objects,
+                trace.number_gfx_objects,
+            );
+            match frame_index {
+                7_486 => frame_7486 = Some(sample),
+                7_492 => frame_7492 = Some(sample),
+                7_493 => {
+                    frame_7493 = Some(sample);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert_eq!(
+            frame_7486,
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x15),
+                false,
+                Some(0),
+                Some(0),
+                8,
+                4,
+            )),
+            "ASM Load_DemoPlay loc_119D8 should expose the timeout-restart controller-side object count before the matching gfx workers wake",
+        );
+        assert_eq!(
+            frame_7492,
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x15),
+                false,
+                Some(0),
+                Some(0),
+                8,
+                4,
+            )),
+            "the final pre-pause-window frame should still keep only the controller-side object count widened",
+        );
+        assert_eq!(
+            frame_7493,
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x15),
+                false,
+                Some(0),
+                Some(0),
+                8,
+                7,
+            )),
+            "ASM Load_DemoPlay loc_119D8 keeps the timeout-restarted demo controller object live without setting Game_Paused on this lineage",
+        );
+    }
+
+    #[test]
     fn demo_input_decoded_correctly() {
         // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
         let input = demo::decode_demo_byte(0x48);
