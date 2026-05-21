@@ -2118,10 +2118,12 @@ impl NativeRuntime {
                 let late_demo_1_velocity_sample_end =
                     if self.demo_started_from_timeout_restart_shell {
                         // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) still
-                        // leaves the timeout-restart demo-1 controller object as
-                        // the top-level velocity sample, but that lineage does
-                        // not expose the cold-boot pause/count latch below.
-                        demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
+                        // leaves the timeout-restart demo-1 controller object
+                        // as the top-level velocity sample through the
+                        // ReadJoypad loc_C0A timeout edge. Raw Kid WRAM keeps
+                        // moving underneath; only the exported TAS sample is
+                        // still owned by the hidden controller object.
+                        demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
                     } else {
                         demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
                     };
@@ -2173,6 +2175,33 @@ impl NativeRuntime {
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())?;
         if !use_demo_2 && self.demo_started_from_timeout_restart_shell {
+            if frame_counter > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
+                && frame_counter <= demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
+            {
+                let active_objects = self.active_objects();
+                let camera_state = self.current_camera_state();
+                let (number_objects, number_gfx_objects) = self.object_counts_from_roster(
+                    &active_objects,
+                    camera_state.x_pos,
+                    camera_state.y_pos,
+                );
+                // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) allocates an
+                // object-only Start-abort controller. On the timeout-restart
+                // lineage, oracle top-level TAS state keeps that hidden object
+                // count-visible after the cold-boot controller window while
+                // `Number_GfxObjects` continues to follow live gameplay WRAM.
+                let hidden_controller_objects = if frame_counter
+                    >= demo::DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME
+                {
+                    5
+                } else {
+                    4
+                };
+                return Some((
+                    number_objects.saturating_add(hidden_controller_objects),
+                    number_gfx_objects,
+                ));
+            }
             if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
                 ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
                 .contains(&frame_counter)

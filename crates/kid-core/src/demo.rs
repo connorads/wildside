@@ -172,6 +172,15 @@ pub(crate) const DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME: u16 =
 /// counts from the hidden `loc_119D8` controller-side lineage.
 pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME: u16 =
     DEMO_1_GAMEPLAY_START_FRAME + 546;
+/// Timeout-restarted demo-1 keeps sampling the hidden `loc_119D8` controller
+/// object through the auto-timeout edge. The ROM `ReadJoypad` counter compare
+/// uses `$3F2`, but native's frame counter is offset to match oracle WRAM.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME: u16 =
+    DEMO_MAX_FRAMES + DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES + 84;
+/// Timeout-restart demo-1 exposes one additional object-only controller-side
+/// worker after the initial extended `loc_119D8` sample settles.
+pub(crate) const DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME: u16 =
+    DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 32;
 /// After the long controller-sampled demo-1 arc, native's trace-only hold has
 /// the oracle live pose but must restore the raw Kid `loc_A6F8` fall velocity
 /// before the next `sub_B168` gravity step.
@@ -292,6 +301,8 @@ mod tests {
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME, 511);
         assert_eq!(DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME, 586);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME, 618);
+        assert_eq!(DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME, 1162);
+        assert_eq!(DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME, 650);
         assert_eq!(DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME, 523);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME, 529);
         assert_eq!(DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME, 587);

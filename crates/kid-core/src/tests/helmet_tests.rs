@@ -7760,6 +7760,44 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_timeout_restarted_demo_keeps_controller_sample_until_timeout() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_7525 = None;
+        let mut frame_8068 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(8_069) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            let sample = (
+                trace.game_mode,
+                trace.current_level,
+                trace.kid_x_velocity,
+                trace.kid_y_velocity,
+                trace.number_objects,
+                trace.number_gfx_objects,
+            );
+            match frame_index {
+                7_525 => frame_7525 = Some(sample),
+                8_068 => {
+                    frame_8068 = Some(sample);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert_eq!(
+            frame_7525,
+            Some((GameMode::DemoPlay, LevelId(0x15), Some(0), Some(0), 8, 4,)),
+            "ASM Load_DemoPlay loc_119D8 should keep timeout-restart demo-1 velocity sampled from the inert controller object after the cold-boot count window",
+        );
+        assert_eq!(
+            frame_8068,
+            Some((GameMode::DemoPlay, LevelId(0x15), Some(0), Some(0), 9, 4,)),
+            "ASM ReadJoypad loc_C0A should still expose the hidden controller object on the timeout edge while raw Kid WRAM continues moving",
+        );
+    }
+
+    #[test]
     fn demo_input_decoded_correctly() {
         // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
         let input = demo::decode_demo_byte(0x48);
