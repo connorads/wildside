@@ -4822,6 +4822,90 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_second_demo_trace_hold_keeps_controller_worker_counts_visible() {
+        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let mut frame_2703 = None;
+        let mut frame_2747 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_748) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                2_703 => frame_2703 = Some(trace),
+                2_747 => {
+                    frame_2747 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_2703 = frame_2703.expect("frame 2703 trace");
+        let frame_2747 = frame_2747.expect("frame 2747 trace");
+
+        assert_eq!(
+            frame_2703.boot_phase_elapsed,
+            Some(168),
+            "frame 2703 should be demo-1 startup frame 168",
+        );
+        assert_eq!(
+            frame_2703.kid_x_pos,
+            Some(0x007B_9F00),
+            "ASM loc_C22 keeps sampling the demo controller stream while live Kid position continues advancing",
+        );
+        assert_eq!(
+            frame_2703.kid_y_pos,
+            Some(0x014B_4000),
+            "frame 2703 should still match oracle position; only trace-only velocity/count export is under test here",
+        );
+        assert_eq!(
+            frame_2703.kid_x_velocity,
+            Some(0),
+            "ASM Load_DemoPlay -> loc_119D8 keeps the demo controller worker visible while oracle samples Kid velocity as zero",
+        );
+        assert_eq!(
+            frame_2703.kid_y_velocity,
+            Some(0),
+            "the first post-boundary published TAS miss should remain a trace-only velocity hold",
+        );
+        assert_eq!(
+            (frame_2703.number_objects, frame_2703.number_gfx_objects),
+            (6, 5),
+            "ASM Load_DemoPlay allocates the hidden loc_119D8 worker before Load_InGame; oracle still reports the worker/gfx count at frame 2703",
+        );
+
+        assert_eq!(
+            frame_2747.boot_phase_elapsed,
+            Some(212),
+            "frame 2747 should be demo-1 startup frame 212",
+        );
+        assert_eq!(
+            frame_2747.kid_x_pos,
+            Some(0x0102_3C00),
+            "the last count-only published TAS checkpoint before the next live movement miss should still expose native position",
+        );
+        assert_eq!(
+            frame_2747.kid_y_pos,
+            Some(0x017F_0000),
+            "frame 2747 should stay position-clean while the trace export hold remains active",
+        );
+        assert_eq!(
+            frame_2747.kid_x_velocity,
+            Some(0),
+            "oracle keeps sampled X velocity zero through the last count-only demo-1 trace checkpoint",
+        );
+        assert_eq!(
+            frame_2747.kid_y_velocity,
+            Some(0),
+            "oracle keeps sampled Y velocity zero through the last count-only demo-1 trace checkpoint",
+        );
+        assert_eq!(
+            (frame_2747.number_objects, frame_2747.number_gfx_objects),
+            (6, 5),
+            "the hidden demo-1 worker and gfx count should remain visible through startup frame 212",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
         let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
         let mut frame_4966 = None;
