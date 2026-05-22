@@ -94,6 +94,35 @@ mod tests {
         }
     }
 
+    fn manifest_with_flag(flag_x: u16, flag_y: u16) -> AssetManifest {
+        let mut manifest = minimal_manifest();
+        manifest.levels.push(kid_data::LevelRecord {
+            level_id: 0,
+            title_text_id: None,
+            display_name: None,
+            title_card: None,
+            resource_paths: Vec::new(),
+            resources: kid_data::LevelResources::default(),
+            header_metadata: Some(kid_data::LevelHeader {
+                width_screens: 1,
+                height_screens: 1,
+                height_flag_bits: 0,
+                level_theme: 0,
+                murder_wall_flags: 0,
+                background_theme: 0,
+                weather_flags: 0,
+                player_start_x: 0,
+                player_start_y: 0,
+                flag_x,
+                flag_y,
+            }),
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        manifest
+    }
+
     fn player_at_x(x_px: u32) -> PlayerState {
         PlayerState {
             x_pos: x_px << 16,
@@ -1028,6 +1057,61 @@ mod tests {
         assert!(
             ground_debug.contains("right=ground=1/y=32/cell=3,2"),
             "right probe should use the form's positive edge, got {ground_debug}",
+        );
+    }
+
+    #[test]
+    fn trace_frame_goal_probe_exports_fixed_point_pixel_distances() {
+        let mut runtime = NativeRuntime::new(manifest_with_flag(0x0120, 0x0040));
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 512,
+            height_pixels: 256,
+        });
+        slice.player.x_pos = (0x0129 << 16) | 1;
+        slice.player.y_pos = (0x0049 << 16) | 1;
+        runtime.opening_slice = Some(slice);
+
+        // ASM loc_140B8 compares Kid against the goal flag in FP16.16 WRAM.
+        // Trace diagnostics expose the same deltas as whole pixels for parity triage.
+        let goal_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_goal_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid-goal probe diagnostics"));
+
+        assert!(
+            goal_debug.contains("flag=(288, 64)"),
+            "goal probe should report the level header flag, got {goal_debug}",
+        );
+        assert!(
+            goal_debug.contains("dx_px=9"),
+            "goal probe should convert the FP16.16 X delta to pixels, got {goal_debug}",
+        );
+        assert!(
+            goal_debug.contains("dy_px=9"),
+            "goal probe should convert the FP16.16 Y delta to pixels, got {goal_debug}",
+        );
+        assert!(
+            goal_debug.contains("touch=0"),
+            "9px/9px distance should sit outside the 8px goal hit box, got {goal_debug}",
+        );
+
+        let slice = runtime.opening_slice.as_mut().unwrap();
+        slice.player.x_pos = (0x0128 << 16) | 1;
+        slice.player.y_pos = (0x0049 << 16) | 1;
+        let one_axis_outside = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_goal_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid-goal probe diagnostics"));
+        assert!(
+            one_axis_outside.contains("dx_px=8")
+                && one_axis_outside.contains("dy_px=9")
+                && one_axis_outside.contains("touch=0"),
+            "both axes must be inside the 8px goal hit box, got {one_axis_outside}",
         );
     }
 }
