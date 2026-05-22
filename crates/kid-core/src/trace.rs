@@ -1252,6 +1252,42 @@ mod tests {
             "generated-grid provenance should report matching current and baseline cells, got {generated_debug}",
         );
     }
+
+    #[test]
+    fn trace_frame_iron_knight_block_breaker_requires_iron_knight_form() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::TheKid;
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 120, 56);
+        for row in 0..3 {
+            grid.set_cell_at(10, row, terrain::Cell::from_be_bytes(0xE0, 0));
+        }
+        runtime.set_block_grid(grid);
+
+        let mut player = player_at_x(154);
+        player.y_pos = 32 << 16;
+        player.x_velocity = 0x0004_8000;
+        player.facing = Direction::Right;
+        runtime.last_kid_frame_pre_physics_before_physics = Some(player);
+
+        // ASM sub_AF7A gates Iron Knight block breaking on both form and speed;
+        // a fast non-Iron-Knight wall contact is only a normal wall hit.
+        let breaker_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_iron_knight_block_breaker_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit Iron Knight breaker diagnostics"));
+
+        assert!(
+            breaker_debug.contains("helmet=0x0000/facing=right/x_vel=0x00048000/speed_gate=0"),
+            "breaker speed gate should require Iron Knight form, got {breaker_debug}",
+        );
+        assert!(
+            breaker_debug.contains("candidate=0"),
+            "fast non-Iron-Knight wall contact must not be a breaker candidate, got {breaker_debug}",
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
