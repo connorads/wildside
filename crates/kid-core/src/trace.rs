@@ -1347,6 +1347,121 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_late_controller_counts_follow_playback_windows() {
+        fn counts_at(
+            frame_counter: u16,
+            use_demo_2: bool,
+            started_from_timeout_restart_shell: bool,
+        ) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2,
+            };
+            runtime.demo_started_from_timeout_restart_shell = started_from_timeout_restart_shell;
+            runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            }));
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_DemoPlay -> loc_119D8 keeps controller-side object/gfx
+        // samples visible through the late first-recording playback windows.
+        assert_eq!(
+            counts_at(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1, false, false),
+            (6, 5)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME,
+                false,
+                false
+            ),
+            (7, 6)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME,
+                false,
+                false
+            ),
+            (7, 5)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME,
+                false,
+                false
+            ),
+            (8, 6)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME - 1,
+                false,
+                true
+            ),
+            (8, 4)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME, false, true),
+            (8, 7)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME,
+                false,
+                true
+            ),
+            (9, 4)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME,
+                false,
+                true
+            ),
+            (8, 7)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
+                false,
+                true
+            ),
+            (8, 4)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
+                false,
+                false
+            ),
+            (4, 4)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
+                true,
+                true
+            ),
+            (4, 4)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME,
+                true,
+                false
+            ),
+            (4, 4)
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_prize_diamond_debug_when_either_source_is_live() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
