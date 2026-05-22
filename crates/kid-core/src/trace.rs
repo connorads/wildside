@@ -1045,6 +1045,137 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_holds_playback_velocity_after_transform_cleanup() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        runtime.demo_post_transform_trace_velocity_hold_frames = 1;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        runtime.opening_slice = Some(slice);
+
+        // ASM Kid_Transform loc_7E90 clears the transform flag before the
+        // top-level playback trace stops sampling the controller-side zero
+        // velocity during this post-transform hand-off window.
+        let held = runtime.trace_frame();
+        assert_eq!(held.kid_x_velocity, Some(0));
+        assert_eq!(held.kid_y_velocity, Some(0));
+
+        runtime.demo_post_transform_trace_velocity_hold_frames = 0;
+
+        let live = runtime.trace_frame();
+        assert_eq!(live.kid_x_velocity, Some(0x0002_0000));
+        assert_eq!(live.kid_y_velocity, Some(0x0003_0000));
+    }
+
+    #[test]
+    fn trace_frame_holds_playback_velocity_only_after_bootstrap_gate() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        runtime.opening_slice = Some(slice);
+
+        // ASM Load_DemoPlay -> loc_119D8 exposes the controller-side zero
+        // velocity only after the object bootstrap frame has passed; equality
+        // at the bootstrap boundary still reports live Kid WRAM velocity.
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        let boundary = runtime.trace_frame();
+        assert_eq!(boundary.kid_x_velocity, Some(0x0002_0000));
+        assert_eq!(boundary.kid_y_velocity, Some(0x0003_0000));
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        let held = runtime.trace_frame();
+        assert_eq!(held.kid_x_velocity, Some(0));
+        assert_eq!(held.kid_y_velocity, Some(0));
+    }
+
+    #[test]
+    fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
+        fn velocities_at(
+            use_demo_2: bool,
+            uses_intro_sequence_5_title_return_preload_row: bool,
+        ) -> (Option<i32>, Option<i32>) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter: demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME + 1,
+                data_index: 0,
+                use_demo_2,
+            };
+            runtime.demo_uses_intro_sequence_5_title_return_preload_row =
+                uses_intro_sequence_5_title_return_preload_row;
+            let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            });
+            slice.player.x_velocity = 0x0002_0000;
+            slice.player.y_velocity = 0x0003_0000;
+            runtime.opening_slice = Some(slice);
+
+            let frame = runtime.trace_frame();
+            (frame.kid_x_velocity, frame.kid_y_velocity)
+        }
+
+        // ASM Load_DemoPlay -> loc_119D8 keeps the long controller-side zero
+        // sample only for the demo-2 intro-sequence-5 title-return lineage.
+        assert_eq!(velocities_at(true, true), (Some(0), Some(0)));
+        assert_eq!(
+            velocities_at(true, false),
+            (Some(0x0002_0000), Some(0x0003_0000))
+        );
+        assert_eq!(
+            velocities_at(false, true),
+            (Some(0x0002_0000), Some(0x0003_0000))
+        );
+    }
+
+    #[test]
+    fn trace_frame_late_playback_velocity_hold_is_first_recording_only() {
+        fn velocities_at(use_demo_2: bool) -> (Option<i32>, Option<i32>) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter: demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
+                data_index: 0,
+                use_demo_2,
+            };
+            let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            });
+            slice.player.x_velocity = 0x0002_0000;
+            slice.player.y_velocity = 0x0003_0000;
+            runtime.opening_slice = Some(slice);
+
+            let frame = runtime.trace_frame();
+            (frame.kid_x_velocity, frame.kid_y_velocity)
+        }
+
+        // ASM Load_DemoPlay -> loc_119D8 keeps sampling the late controller
+        // velocity only for the first recording after the shared grounded
+        // hold has ended; second-recording playback reports live Kid velocity.
+        assert_eq!(velocities_at(false), (Some(0), Some(0)));
+        assert_eq!(velocities_at(true), (Some(0x0002_0000), Some(0x0003_0000)));
+    }
+
+    #[test]
     fn trace_frame_reports_prize_diamond_debug_when_either_source_is_live() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
