@@ -1114,6 +1114,48 @@ mod tests {
             "both axes must be inside the 8px goal hit box, got {one_axis_outside}",
         );
     }
+
+    #[test]
+    fn trace_frame_collision_handoff_formats_stomp_enemy_candidate() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
+            player_lifecycle: PlayerLifecycle::Alive,
+            previous_post_motion_mutator: KidFramePostMotionMutator::None,
+            pending_stomp_bounce: true,
+            pending_form: None,
+            pending_level_skip: None,
+            form_change_flash_frames: 0,
+            on_ground_before: false,
+            jump_buffer_frames: 0,
+            wall_cling_direction: None,
+            stomp_candidate: true,
+            stomp_enemy_object_type: Some(0x1c),
+            stomp_enemy_x_pos: Some(0x0123_4567),
+            stomp_enemy_y_pos: Some(0x089a_bcde),
+            anchor_x_pos: 0x0100_0000,
+            anchor_y_pos: 0x0200_0000,
+        });
+
+        // ASM GfxObjects_Collision/sub_B168 carries the stomp target object
+        // through the same-frame handoff; the trace keeps the object id and
+        // FP16.16 position together so parity triage can tie it back to WRAM.
+        let handoff_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_collision_handoff_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid collision-handoff diagnostics"));
+
+        assert!(
+            handoff_debug.contains("pending_stomp=1"),
+            "handoff should expose the pending stomp latch, got {handoff_debug}",
+        );
+        assert!(
+            handoff_debug.contains("stomp_candidate=1/stomp_enemy=0x1c@0x01234567,0x089abcde"),
+            "handoff should format the stomp enemy id and FP16.16 position, got {handoff_debug}",
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
