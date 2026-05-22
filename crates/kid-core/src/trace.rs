@@ -306,6 +306,32 @@ mod tests {
     }
 
     #[test]
+    fn current_player_state_hides_intro_3_roster_until_visible_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.active_intro_sequence_3_roster_index = 1;
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 2,
+            elapsed: INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES - 1,
+            pending_title_skip: 0,
+        };
+
+        // ASM Load_IntroSequence3/sub_1B93E creates the roster object before it
+        // becomes trace-visible; Kid appears only at the ROM's visible cutoff.
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 2,
+            elapsed: INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            pending_title_skip: 0,
+        };
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_3_pose_for_roster(1))
+        );
+    }
+
+    #[test]
     fn timeout_restart_intro_5_title_pose_requires_title_latch_before_cutoff() {
         fn uses_pose(
             title_screen_elapsed_frames: usize,
@@ -518,6 +544,102 @@ mod tests {
     }
 
     #[test]
+    fn current_player_state_hides_intro_6_slot_2_carry_after_handoff_window() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES - 1;
+
+        // ASM Load_IntroSequence6 replaces the old loc_1BCD0 slot-2 object
+        // after a brief stale-WRAM handoff window.
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_5_slot_2_pose())
+        );
+
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES;
+
+        assert_eq!(runtime.current_player_state(), None);
+    }
+
+    #[test]
+    fn current_player_state_exposes_later_intro_6_title_pose_at_visible_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: false,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES - 1;
+
+        // ASM loc_1B5CE writes the title pose on the later IntroSequence6
+        // revisit, but oracle-backed traces keep it hidden until frame 333.
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+    }
+
+    #[test]
+    fn current_player_state_exposes_timeout_restart_intro_6_title_pose_at_visible_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: false,
+            carry_timeout_restart_hidden_camera_wrap: true,
+        };
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRAMES - 1;
+
+        // ASM loc_1B5CE writes the standard title pose on the timeout-restart
+        // IntroSequence6 lineage only after the hidden camera wrap/ramp window.
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRAMES;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+    }
+
+    #[test]
+    fn current_player_state_uses_intro_6_title_menu_only_when_active() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 2,
+            carry_intro_sequence_5_slot_2_pose: false,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+        runtime.title_screen_ready_frame = 0;
+
+        // ASM Obj_TitleMenu loc_1BB52/loc_1BC0E can expose the live cursor while
+        // the title shell is still in IntroSequence6 mode, but only after the
+        // menu worker is active.
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.title_menu_active = true;
+        runtime.title_screen_ready_frame = 100;
+
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x0044_0000))
+        );
+    }
+
+    #[test]
     fn intro_sequence_6_timeout_restart_hidden_camera_wraps_then_ramps() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::IntroSequence6 {
@@ -678,6 +800,47 @@ mod tests {
     }
 
     #[test]
+    fn current_player_state_hides_intro_return_shell_before_menu_cursor() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 2 };
+        runtime.title_menu_active = true;
+        runtime.title_screen_ready_frame = 100;
+        runtime.title_screen_elapsed_frames = 56;
+        runtime.title_screen_uses_intro_return_hidden_shell = true;
+
+        // ASM sub_1C246 -> Load_TitleScreen keeps the rebuilt title shell
+        // hidden before Obj_TitleMenu loc_1BB52 can expose the menu cursor.
+        assert_eq!(runtime.hidden_title_screen_object_counts(), Some((3, 0)));
+        assert_eq!(runtime.current_player_state(), None);
+    }
+
+    #[test]
+    fn current_player_state_uses_preserved_title_frame_until_full_window_expires() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.preserve_demo_title_snapshot = true;
+        runtime.title_screen_ready_frame = 100;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player = player_at_x(88);
+        runtime.opening_slice = Some(slice);
+
+        // ASM loc_119D8 carries the full demo snapshot through the early title
+        // return window before the regular title pose is rebuilt.
+        runtime.title_screen_elapsed_frames = DEMO_TITLE_FULL_SNAPSHOT_FRAMES - 1;
+        assert_eq!(runtime.current_player_state(), Some(player_at_x(88)));
+
+        runtime.title_screen_elapsed_frames = DEMO_TITLE_FULL_SNAPSHOT_FRAMES;
+        runtime.title_screen_ready_frame = 0;
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+    }
+
+    #[test]
     fn title_menu_cursor_player_state_tracks_live_menu_rows() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
@@ -768,6 +931,90 @@ mod tests {
         assert_eq!(
             runtime.current_player_state(),
             Some(PlayerState::title_pose())
+        );
+    }
+
+    #[test]
+    fn current_player_state_uses_title_menu_cursor_only_when_active() {
+        let mut inactive = NativeRuntime::new(minimal_manifest());
+        inactive.boot_state = BootState::TitleScreen { cursor: 2 };
+        inactive.title_screen_ready_frame = 0;
+
+        // ASM Obj_TitleMenu loc_1BB52 exposes the cursor sprite before the
+        // regular title pose branch, but only after the menu worker is live.
+        assert_eq!(
+            inactive.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+
+        let mut active = NativeRuntime::new(minimal_manifest());
+        active.boot_state = BootState::TitleScreen { cursor: 2 };
+        active.title_menu_active = true;
+        active.title_screen_ready_frame = 100;
+        active.title_screen_elapsed_frames = 0;
+
+        assert_eq!(
+            active.current_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x0044_0000))
+        );
+
+        let mut hidden_inactive = NativeRuntime::new(minimal_manifest());
+        hidden_inactive.boot_state = BootState::TitleScreen { cursor: 2 };
+        hidden_inactive.hide_demo_return_title_player = true;
+        hidden_inactive.title_screen_ready_frame = 0;
+        hidden_inactive.title_screen_elapsed_frames = 149;
+
+        assert_eq!(hidden_inactive.current_player_state(), None);
+    }
+
+    #[test]
+    fn current_player_state_separates_title_hold_and_hidden_playback_bootstrap() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_TITLE_POSE_FRAMES - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+
+        // ASM Load_DemoPlay -> Load_InGame keeps the title Kid visible for
+        // the early mode-$10 hand-off, then hides Kid until gameplay starts.
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_pose())
+        );
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_TITLE_POSE_FRAMES,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(runtime.current_player_state(), None);
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(
+                OpeningSliceState::respawn(crate::physics::LevelBounds {
+                    width_pixels: 320,
+                    height_pixels: 224,
+                })
+                .player
+            )
         );
     }
 
