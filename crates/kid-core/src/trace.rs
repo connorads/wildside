@@ -982,6 +982,54 @@ mod tests {
         runtime.player_lifecycle = PlayerLifecycle::Alive;
         assert_eq!(runtime.trace_frame().death_windup_elapsed, 0);
     }
+
+    #[test]
+    fn trace_frame_ground_probe_uses_left_and_right_form_edges() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 96,
+            height_pixels: 64,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.on_ground = true;
+        slice.terrain.floor_y_pos = (32 << 16) | 1;
+        runtime.opening_slice = Some(slice);
+
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 6, 4);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x11));
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x22));
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0x60, 0x33));
+        runtime.set_block_grid(grid);
+
+        // ASM unk_B408/sub_B41C gives Juggernaut a 23px half-width; the trace
+        // mirrors the gameplay floor probes by checking x-half_width, x, x+half_width.
+        let ground_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_ground_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid-ground probe diagnostics"));
+
+        assert!(
+            ground_debug.contains("left=ground=1/y=32/cell=1,2"),
+            "left probe should use the form's negative edge, got {ground_debug}",
+        );
+        assert!(
+            ground_debug.contains("latched_floor_y=32"),
+            "latched FP16.16 floor should be exported as pixels, got {ground_debug}",
+        );
+        assert!(
+            ground_debug.contains("center=ground=1/y=32/cell=2,2"),
+            "center probe should use Kid's centre, got {ground_debug}",
+        );
+        assert!(
+            ground_debug.contains("right=ground=1/y=32/cell=3,2"),
+            "right probe should use the form's positive edge, got {ground_debug}",
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
