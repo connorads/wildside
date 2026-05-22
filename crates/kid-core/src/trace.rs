@@ -491,6 +491,191 @@ mod tests {
     }
 
     #[test]
+    fn camera_state_exposes_title_and_playback_handoff_boundaries() {
+        let mut title = NativeRuntime::new(minimal_manifest());
+        title.boot_state = BootState::TitleScreen { cursor: 0 };
+        title.timeout_restart_title_intro_sequence_4_camera_carry = true;
+        title.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES - 1;
+
+        // ASM sub_1C246 preserves sub_1B988's `Camera_Y_pos=4` only through
+        // the short title hand-off window.
+        assert_eq!(
+            title.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x0004_0000,
+            }
+        );
+
+        title.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES;
+        assert_eq!(title.current_camera_state(), CameraState::default());
+
+        title.timeout_restart_title_intro_sequence_4_camera_carry = false;
+        title.title_screen_elapsed_frames =
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES - 1;
+        assert_eq!(title.current_camera_state(), CameraState::default());
+
+        let mut playback = NativeRuntime::new(minimal_manifest());
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_1_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        playback.demo_uses_intro_sequence_6_hidden_camera_wrap = true;
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_CAMERA_PRELOAD_FRAME,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        assert_eq!(playback.current_camera_state(), CameraState::default());
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_1_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: false,
+        };
+
+        // ASM Load_DemoPlay keeps demo-1 camera preload rows visible only
+        // before the gameplay-start frame.
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_1_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_1_GAMEPLAY_START_FRAME + 1,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        assert_eq!(playback.current_camera_state(), CameraState::default());
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: 60,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP,
+            }
+        );
+
+        playback.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
+        playback.demo_uses_demo_title_return_camera_wrap = true;
+        playback.demo_uses_intro_sequence_6_early_title_restore = false;
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFF20_0000,
+            }
+        );
+
+        playback.demo_uses_intro_sequence_6_early_title_restore = true;
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFF00_0000,
+            }
+        );
+
+        playback.demo_uses_demo_title_return_camera_wrap = false;
+        playback.demo_uses_start_skip_intro_return_camera_wrap = true;
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFF20_0000,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: 59,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_CAMERA_PRELOAD_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        playback.demo_uses_intro_sequence_5_title_return_preload_row = true;
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP,
+            }
+        );
+
+        playback.demo_uses_intro_sequence_5_title_return_preload_row = false;
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_CAMERA_PRELOAD_FRAME - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(playback.current_camera_state(), CameraState::default());
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_CAMERA_HOLD_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            playback.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x02A0_0000,
+            }
+        );
+
+        playback.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(playback.current_camera_state(), CameraState::default());
+    }
+
+    #[test]
     fn intro_sequence_5_timeout_restart_slot_2_pose_requires_carry_and_visible_elapsed() {
         fn uses_pose(
             elapsed: usize,
