@@ -56,7 +56,7 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     fn diamond_at_x(x_px: u32) -> FloatingItem {
         FloatingItem {
@@ -1154,6 +1154,102 @@ mod tests {
         assert!(
             handoff_debug.contains("stomp_candidate=1/stomp_enemy=0x1c@0x01234567,0x089abcde"),
             "handoff should format the stomp enemy id and FP16.16 position, got {handoff_debug}",
+        );
+    }
+
+    #[test]
+    fn trace_frame_grounded_release_formats_scan_and_current_cell() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
+            on_ground_before: true,
+            held_direction: Some(Direction::Right),
+            jump_pressed: false,
+            jump_buffer_frames: 0,
+            custom_gravity: false,
+            wall_cling_direction: None,
+            velocity_branch: KidGroundedReleaseVelocityBranch::GroundedHold,
+            probe_row: Some(2),
+            left_col: Some(1),
+            right_col: Some(3),
+            support_col: Some(2),
+            support_collision: Some(terrain::CollisionKind::Solid),
+            support_block_type: Some(terrain::BlockType::Metal),
+            release_triggered: false,
+        });
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 5, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x42));
+        runtime.set_block_grid(grid);
+
+        // ASM loc_9D22/sub_9386 scans Kid's left/right floor-probe span before
+        // deciding whether support is retained. Trace keeps the scanned range
+        // plus the live terrain cell so release frontiers can distinguish stale
+        // support from current terrain.
+        let release_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_grounded_release_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid grounded-release diagnostics"));
+
+        assert!(
+            release_debug.contains("scan=row=2/cols=1..3"),
+            "grounded-release probe should report the scanned row and column span, got {release_debug}",
+        );
+        assert!(
+            release_debug.contains("support=solid@2,2 block=Metal"),
+            "grounded-release probe should report the selected support cell, got {release_debug}",
+        );
+        assert!(
+            release_debug.contains("/terrain=grid=manual/current[solid,Smash,skin=0x42]"),
+            "grounded-release probe should report current terrain provenance, got {release_debug}",
+        );
+
+        let output_root =
+            std::env::temp_dir().join(format!("kid-trace-grounded-release-{}", std::process::id()));
+        let layout_dir = output_root.join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir should be creatable");
+        let mut layout = vec![0; 5 * 4 * 2];
+        let cell_offset = ((2 * 5 + 2) * 2) as usize;
+        layout[cell_offset] = 0xE0;
+        layout[cell_offset + 1] = 0x42;
+        fs::write(layout_dir.join("00.bin"), &layout).expect("layout data should be writable");
+        let metadata = LevelLayoutMetadata {
+            width_blocks: 5,
+            height_blocks: 4,
+            data_bytes: layout.len(),
+        };
+        fs::write(
+            layout_dir.join("00.json"),
+            serde_json::to_vec(&metadata).expect("layout metadata should serialise"),
+        )
+        .expect("layout metadata should be writable");
+
+        let mut manifest = minimal_manifest();
+        manifest.output_root = output_root;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_state = BootState::InGame;
+        runtime.reload_block_grid_for_level(LevelId(0));
+        runtime.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
+            support_col: Some(2),
+            probe_row: Some(2),
+            support_collision: Some(terrain::CollisionKind::Solid),
+            support_block_type: Some(terrain::BlockType::Smash),
+            ..KidGroundedReleaseProbe::default()
+        });
+
+        let generated_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("kid_grounded_release_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit kid grounded-release diagnostics"));
+        assert!(
+            generated_debug
+                .contains("/terrain=grid=generated/current[solid,Smash,skin=0x42]/baseline[solid,Smash,skin=0x42]/same=1"),
+            "generated-grid provenance should report matching current and baseline cells, got {generated_debug}",
         );
     }
 }
