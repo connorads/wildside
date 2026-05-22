@@ -1278,6 +1278,75 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_late_title_return_controller_counts_require_latches() {
+        fn counts_with(
+            preserve_demo_title_snapshot: bool,
+            demo_auto_timeout_handoff_active: bool,
+            demo_title_snapshot_object_counts: Option<(u16, u16)>,
+            title_screen_elapsed_frames: usize,
+        ) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.preserve_demo_title_snapshot = preserve_demo_title_snapshot;
+            runtime.demo_auto_timeout_handoff_active = demo_auto_timeout_handoff_active;
+            runtime.demo_title_snapshot_object_counts = demo_title_snapshot_object_counts;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM loc_119D8 returns to title while the late first-recording
+        // controller lineage still owns the top-level object/gfx counters,
+        // but only during the preserved partial snapshot window.
+        assert_eq!(
+            counts_with(
+                true,
+                false,
+                Some((4, 4)),
+                DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES - 1
+            ),
+            (8, 6)
+        );
+        assert_eq!(
+            counts_with(
+                true,
+                false,
+                Some((4, 4)),
+                DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES
+            ),
+            (0, 0)
+        );
+        assert_eq!(
+            counts_with(
+                false,
+                false,
+                Some((4, 4)),
+                DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES - 1
+            ),
+            (0, 0)
+        );
+        assert_eq!(
+            counts_with(
+                true,
+                true,
+                Some((4, 4)),
+                DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES - 1
+            ),
+            (4, 4)
+        );
+        assert_eq!(
+            counts_with(
+                true,
+                false,
+                Some((4, 3)),
+                DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES - 1
+            ),
+            (4, 3)
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_prize_diamond_debug_when_either_source_is_live() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
