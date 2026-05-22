@@ -837,6 +837,91 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_floating_diamond_candidates_use_fixed_point_pixel_coordinates() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 96 << 16;
+        slice.player.y_pos = 100 << 16;
+        runtime.opening_slice = Some(slice);
+        runtime.floating_items.push(diamond_at_x(100));
+        let mut near_high_diamond = diamond_at_x(95);
+        near_high_diamond.y_pos = 90 << 16;
+        runtime.floating_items.push(near_high_diamond);
+        runtime.floating_items.push(diamond_at_x(74));
+        let mut higher_diamond = diamond_at_x(112);
+        higher_diamond.y_pos = 50 << 16;
+        runtime.floating_items.push(higher_diamond);
+        let mut lower_diamond = diamond_at_x(120);
+        lower_diamond.y_pos = 150 << 16;
+        runtime.floating_items.push(lower_diamond);
+
+        // ASM PrizeDiamond_Init loc_10396 reaches the standard object collision
+        // path using FP16.16 positions converted back to pixel coordinates.
+        let diamond_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("floating_diamond_contact_candidates")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit floating-diamond candidates"));
+
+        let expected_debug = "diamond@100,100 dx=4 dy=0 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@95,90 dx=-1 dy=-10 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@74,100 dx=-22 dy=0 gap_x=10 gap_y=0 overlap_x=0 overlap_y=1 spawn=0 rem=500 collected=0; diamond@112,50 dx=16 dy=-50 gap_x=4 gap_y=19 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0";
+        assert_eq!(
+            diamond_debug, expected_debug,
+            "floating-diamond candidates should be sorted by Manhattan pixel distance",
+        );
+        assert!(
+            diamond_debug
+                .contains("diamond@100,100 dx=4 dy=0 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1"),
+            "floating-diamond candidate should report pixel-space overlap, got {diamond_debug}",
+        );
+        assert!(
+            diamond_debug
+                .contains("diamond@74,100 dx=-22 dy=0 gap_x=10 gap_y=0 overlap_x=0 overlap_y=1"),
+            "left-side gap should use the player's left edge, got {diamond_debug}",
+        );
+        assert!(
+            diamond_debug
+                .contains("diamond@112,50 dx=16 dy=-50 gap_x=4 gap_y=19 overlap_x=0 overlap_y=0"),
+            "vertical gap should use the player's top edge, got {diamond_debug}",
+        );
+    }
+
+    #[test]
+    fn trace_frame_floating_diamond_candidate_reports_lower_vertical_gap() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 96 << 16;
+        slice.player.y_pos = 100 << 16;
+        runtime.opening_slice = Some(slice);
+        let mut lower_diamond = diamond_at_x(120);
+        lower_diamond.y_pos = 150 << 16;
+        runtime.floating_items.push(lower_diamond);
+
+        // ASM PrizeDiamond_Init loc_10396 feeds item bounds through the shared
+        // object collision path; item_top is item_y - Kid height, not scaled.
+        let diamond_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("floating_diamond_contact_candidates")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit floating-diamond candidates"));
+
+        assert_eq!(
+            diamond_debug,
+            "diamond@120,150 dx=24 dy=50 gap_x=12 gap_y=19 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0",
+            "lower vertical gap should use the diamond's top edge",
+        );
+    }
+
+    #[test]
     fn trace_frame_kid_on_slope_uses_fixed_point_pixel_coordinates() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
