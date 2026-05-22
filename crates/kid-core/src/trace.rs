@@ -1176,6 +1176,108 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_later_intro_6_velocity_sample_requires_second_recording_preload() {
+        fn y_velocity_at(
+            use_demo_2: bool,
+            uses_later_intro_6_preload: bool,
+            frame_counter: u16,
+        ) -> Option<i32> {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2,
+            };
+            runtime.demo_uses_intro_sequence_6_later_demo_2_preload_row =
+                uses_later_intro_6_preload;
+            let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            });
+            slice.player.y_velocity = 0x0003_0000;
+            runtime.opening_slice = Some(slice);
+
+            runtime.trace_frame().kid_y_velocity
+        }
+
+        // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay carries `$60000` only
+        // for the later IntroSequence6 second-recording preload window.
+        assert_eq!(
+            y_velocity_at(
+                true,
+                true,
+                demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
+            ),
+            Some(0x0006_0000)
+        );
+        assert_eq!(
+            y_velocity_at(
+                true,
+                true,
+                demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME + 1
+            ),
+            None
+        );
+        assert_eq!(
+            y_velocity_at(
+                true,
+                false,
+                demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
+            ),
+            Some(0)
+        );
+        assert_eq!(
+            y_velocity_at(
+                false,
+                true,
+                demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
+            ),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn trace_frame_late_controller_pause_is_first_recording_only() {
+        fn paused_at(
+            use_demo_2: bool,
+            started_from_timeout_restart_shell: bool,
+            frame_counter: u16,
+        ) -> bool {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2,
+            };
+            runtime.demo_started_from_timeout_restart_shell = started_from_timeout_restart_shell;
+            runtime.trace_frame().paused
+        }
+
+        // ASM Load_DemoPlay -> loc_119D8 exposes the late controller Start
+        // sample only for ordinary first-recording playback.
+        assert!(paused_at(
+            false,
+            false,
+            demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+        ));
+        assert!(!paused_at(
+            false,
+            false,
+            demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME - 1
+        ));
+        assert!(!paused_at(
+            true,
+            false,
+            demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+        ));
+        assert!(!paused_at(
+            false,
+            true,
+            demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+        ));
+    }
+
+    #[test]
     fn trace_frame_reports_prize_diamond_debug_when_either_source_is_live() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
