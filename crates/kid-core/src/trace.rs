@@ -1373,6 +1373,26 @@ mod tests {
             "fast non-Iron-Knight wall contact must not be a breaker candidate, got {breaker_debug}",
         );
     }
+
+    #[test]
+    fn player_collision_bounds_use_fixed_point_pixels_and_form_half_width() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        let mut player = player_at_x(120);
+        player.y_pos = 96 << 16;
+
+        // ASM loc_1CDE/loc_1D00 object collision compares pixel-space bounds;
+        // Kid's top edge is foot_y - PLAYER_HEIGHT and X edges use form width.
+        assert_eq!(
+            runtime.player_collision_bounds(player),
+            ObjectBoundsPx {
+                left: 113,
+                right: 127,
+                top: 65,
+                bottom: 96,
+            }
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
