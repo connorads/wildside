@@ -1799,6 +1799,83 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_playback_transient_workers_count_each_live_gfx_pair() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        runtime
+            .block_bounces
+            .extend((0..2).map(|cell_x| BlockBounceAnim {
+                cell_x,
+                cell_y: 0,
+                remaining: 1,
+                initial_duration: 1,
+                prize_content: None,
+                y_offset_px: 0,
+            }));
+        runtime.prize_block_spawn_flashes.extend([1, 1, 1]);
+        runtime
+            .block_destroy_effects
+            .extend((0..5).map(|x_px| BlockDestroyEffect {
+                x_px,
+                y_px: 0,
+                remaining: 1,
+                direction: 0,
+            }));
+        runtime
+            .prize_block_worker_tails
+            .extend((0..13).map(|cell_x| PrizeBlockWorkerTail {
+                cell_x,
+                cell_y: 0,
+                content: None,
+                remaining: 1,
+            }));
+        runtime.floating_items.extend((0..7).map(diamond_at_x));
+        runtime.pending_prize_diamond_awards.extend([1; 11]);
+
+        // ASM Load_DemoPlay's loc_119D8 baseline has four live gameplay gfx
+        // objects; each transient object/gfx worker listed here adds exactly one
+        // to both top-level counters while collected floating prizes do not.
+        let frame = runtime.trace_frame();
+        assert_eq!(frame.number_objects, 4 + 2 + 13 + 3 + 5 + 7 + 11);
+        assert_eq!(frame.number_gfx_objects, 4 + 2 + 13 + 3 + 5 + 7 + 11);
+
+        runtime.floating_items[0].collected = true;
+        let frame = runtime.trace_frame();
+        assert_eq!(frame.number_objects, 4 + 2 + 13 + 3 + 5 + 6 + 11);
+        assert_eq!(frame.number_gfx_objects, 4 + 2 + 13 + 3 + 5 + 6 + 11);
+    }
+
+    #[test]
+    fn trace_frame_auto_timeout_title_counts_split_clear_and_logo_controller() {
+        fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.demo_auto_timeout_handoff_active = true;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM ReadJoypad loc_C0A -> loc_6E2 clears object RAM for three title
+        // frames after the timeout snapshot, then Load_SegaScreen exposes the
+        // logo controller without a gfx slot.
+        assert_eq!(counts_at(DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES), (0, 0));
+        assert_eq!(
+            counts_at(DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES + 2),
+            (0, 0)
+        );
+        assert_eq!(
+            counts_at(DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES + 3),
+            (1, 0)
+        );
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
