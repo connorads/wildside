@@ -9267,6 +9267,53 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_legacy_projectile_trace_signature_requires_all_gates_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0064_0000,
+            y_pos: 0x00D0_0000,
+            x_velocity: 0,
+            lifetime: 45,
+            gravity: 0x1800,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0068_0000,
+            y_pos: 0x00D0_0000,
+            x_velocity: 0,
+            lifetime: 46,
+            gravity: 0x1800,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x006C_0000,
+            y_pos: 0x00D0_0000,
+            x_velocity: 0,
+            lifetime: 100,
+            friendly: true,
+            gravity: 0,
+            ..Default::default()
+        });
+
+        let trace = rt.trace_frame();
+        let kinds = trace
+            .active_projectile_details
+            .iter()
+            .map(|projectile| projectile.kind)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            kinds,
+            vec![
+                ActiveProjectileKind::FireDemonDeathTrail,
+                ActiveProjectileKind::Generic,
+                ActiveProjectileKind::Generic,
+            ],
+            "ASM Fire_Demon loc_3A63C legacy trace fallback should require hostile gravity-$1800 short-lived trail signatures, not just a matching velocity",
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_deletes_when_centre_support_has_block_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
