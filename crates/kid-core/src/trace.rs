@@ -1664,6 +1664,26 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_intro_sequence_1_regular_counts_split_controller_and_text_worker() {
+        fn counts_at(elapsed: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 0,
+                elapsed,
+                pending_title_skip: 0,
+            };
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_IntroSequence1 first exposes only the sub_1B8F4 controller at
+        // elapsed 44; loc_1C7A0's intro-text worker joins on the next trace.
+        assert_eq!(counts_at(44), (1, 0));
+        assert_eq!(counts_at(45), (2, 0));
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
