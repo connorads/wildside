@@ -1352,6 +1352,61 @@ mod tests {
         assert_eq!(visible.x_pos, 0x0020_0000);
         assert_eq!(visible.y_pos, 0x00FF_0000);
         assert!(visible.on_ground);
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME + 3,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+
+        let airborne = runtime.current_player_state().unwrap_or_else(|| {
+            panic!("early Start Level 1 Load_InGame should expose ramp velocity after takeoff")
+        });
+        assert_eq!(airborne.y_pos, 0x0100_C000);
+        assert_eq!(airborne.y_velocity, 0x0000_8000);
+        assert!(!airborne.on_ground);
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME - 1,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState::default(),
+            "ASM loc_6E2 keeps the early Start Load_InGame camera at default before the preload row",
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            },
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME - 1,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            },
+            "ASM loc_6E2 holds the preload camera row until the player-visible ramp frame",
+        );
     }
 
     #[test]
