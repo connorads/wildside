@@ -1616,6 +1616,54 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_intro_sequence_1_timeout_restart_counts_follow_rebuild_windows() {
+        fn counts_at(elapsed: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 0,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.demo_auto_timeout_intro_sequence_1_frames_override = Some(0);
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM ReadJoypad loc_C0A -> Load_IntroSequence1/sub_1B8F4 keeps the
+        // controller counted through local frame 30, clears object slots for the
+        // hidden rebuild, then reallocates the controller before the text worker.
+        assert_eq!(counts_at(30), (1, 0));
+        assert_eq!(counts_at(31), (0, 0));
+        assert_eq!(counts_at(43), (1, 0));
+        assert_eq!(counts_at(44), (2, 1));
+    }
+
+    #[test]
+    fn trace_frame_intro_sequence_2_timeout_restart_counts_follow_rebuild_windows() {
+        fn counts_at(elapsed: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 1,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.demo_auto_timeout_intro_sequence_2_frames_override = Some(0);
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_IntroSequence2 -> loc_1B9D0/sub_1C204 keeps the controller
+        // counted through local frame 30, clears for the hidden rebuild, then
+        // reallocates the controller before IntroText2 joins the object count.
+        assert_eq!(counts_at(30), (1, 0));
+        assert_eq!(counts_at(31), (0, 0));
+        assert_eq!(counts_at(41), (1, 0));
+        assert_eq!(counts_at(42), (2, 0));
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
@@ -4855,9 +4903,7 @@ impl NativeRuntime {
             // expose the loc_1B9F4 hidden clear window, then count both the
             // controller and IntroText2 worker once loc_1BA02's loop is live.
             return match elapsed {
-                0..=30 => (1, 0),
                 31..=40 => (0, 0),
-                41 => (1, 0),
                 42..=285 => (2, 0),
                 _ => (1, 0),
             };
