@@ -1706,11 +1706,96 @@ mod tests {
 
         // ASM Load_IntroSequence3 -> sub_1B93E reaches the same hidden rebuild
         // counter table from both the auto-timeout path and the later title-return
-        // latch; either path must expose the local frame-31 clear window.
+        // latch; either path must expose the controller, clear, and shell-worker
+        // boundary counts.
+        assert_eq!(counts_with(true, false, 30), (1, 0));
         assert_eq!(counts_with(true, false, 31), (0, 0));
         assert_eq!(counts_with(false, true, 31), (0, 0));
         assert_eq!(counts_with(false, true, 41), (3, 0x000B));
+        assert_eq!(counts_with(false, true, 42), (4, 0x000B));
         assert_ne!(counts_with(false, false, 41), (3, 0x000B));
+    }
+
+    #[test]
+    fn trace_frame_intro_sequence_5_timeout_restart_counts_expose_particle_threshold() {
+        fn counts_at(elapsed: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.demo_auto_timeout_intro_sequence_5_frames_override = Some(0);
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM loc_1BCD0 -> loc_1BE3C only adds the three title-particle workers
+        // at the late Start-skip timeout-restart threshold.
+        let particle_count_frame =
+            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME;
+        assert_eq!(counts_at(particle_count_frame - 1), (3, 0));
+        assert_eq!(counts_at(particle_count_frame), (6, 0));
+    }
+
+    #[test]
+    fn trace_frame_playback_startup_counts_split_level_switch_and_first_recording_preload() {
+        fn counts_at(frame_counter: u16, use_demo_2: bool) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2,
+            };
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_DemoPlay -> Load_InGame keeps the title-level count through
+        // DEMO_LEVEL_SWITCH_FRAME, then demo 1 exposes the hidden controller
+        // worker before its second non-gfx preload worker joins.
+        assert_eq!(counts_at(demo::DEMO_LEVEL_SWITCH_FRAME, false), (4, 4));
+        assert_eq!(counts_at(demo::DEMO_LEVEL_SWITCH_FRAME + 1, false), (1, 0));
+        assert_eq!(
+            counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME - 14, false),
+            (1, 0)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME - 13, false),
+            (2, 0)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME - 2, false),
+            (2, 0)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME - 1, false),
+            (6, 4)
+        );
+        assert_eq!(counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME, false), (7, 4));
+        assert_eq!(counts_at(demo::DEMO_OBJECT_WARMUP_FRAME, true), (5, 2));
+
+        // The first-recording visible bootstrap holds its extra hidden worker
+        // through DEMO_OBJECT_BOOTSTRAP_END_FRAME, then keeps the extra gfx
+        // worker for seven more frames before falling back to the grounded hold.
+        assert_eq!(
+            counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME, false),
+            (7, 4)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1, false),
+            (7, 5)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 7, false),
+            (7, 5)
+        );
+        assert_eq!(
+            counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 8, false),
+            (6, 5)
+        );
     }
 
     #[test]
@@ -5002,7 +5087,6 @@ impl NativeRuntime {
             return match elapsed {
                 0..=30 => (1, 0),
                 31..=40 => (0, 0),
-                41 => (3, 0x000B),
                 42..=115 => (4, 0x000B),
                 _ => (3, 0x000B),
             };
@@ -5037,11 +5121,10 @@ impl NativeRuntime {
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
-            } else if !use_demo_2
-                && frame_counter
-                    < self
-                        .demo_gameplay_start_frame(use_demo_2)
-                        .saturating_sub(13)
+            } else if frame_counter
+                < self
+                    .demo_gameplay_start_frame(use_demo_2)
+                    .saturating_sub(13)
             {
                 (1, 0)
             } else if !use_demo_2
