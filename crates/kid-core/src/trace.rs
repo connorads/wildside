@@ -2174,6 +2174,10 @@ mod tests {
         // first visible frame, then exposes the complete 15/14 shell from the
         // following trace onward.
         assert_eq!(
+            counts_at(crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME - 10),
+            (4, 4)
+        );
+        assert_eq!(
             counts_at(crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME - 9),
             (0, 0)
         );
