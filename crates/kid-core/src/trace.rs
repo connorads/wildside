@@ -1957,6 +1957,76 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_intro_5_title_return_counts_expire_after_pose_carry_window() {
+        fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.timeout_restart_title_intro_sequence_5_pose = true;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM sub_1C246 -> loc_1C264 leaves the loc_1BA28/loc_1BCD0 shell
+        // counted only while the carried intro-sequence-5 pose remains live.
+        assert_eq!(
+            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES - 1),
+            (3, 0)
+        );
+        assert_ne!(
+            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES),
+            (3, 0)
+        );
+    }
+
+    #[test]
+    fn trace_frame_early_start_title_counts_split_hidden_and_visible_workers() {
+        fn title_worker(gfx_slot_index: usize) -> LevelEntryTitleWorker {
+            LevelEntryTitleWorker {
+                gfx_slot_index,
+                glyph: 0,
+                activation_frame: EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+                target_x_pos: 0,
+                target_y_pos: 0,
+                motion: None,
+            }
+        }
+
+        fn counts_at(elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::StartingLevel {
+                start_latched: true,
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: false,
+            };
+            runtime
+                .starting_level_title_workers
+                .extend((0..14).map(title_worker));
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Obj_TitleMenu Title_InputLoop reaches Load_TitleCard through the
+        // early-start path: hidden workers appear before the first visible
+        // title-card frame, then the final gfx worker joins one trace later.
+        assert_eq!(
+            counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME - 1),
+            (15, 0)
+        );
+        assert_eq!(
+            counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME),
+            (15, 13)
+        );
+        assert_eq!(
+            counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1),
+            (15, 14)
+        );
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
