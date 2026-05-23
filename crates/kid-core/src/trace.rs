@@ -1281,6 +1281,27 @@ mod tests {
 
         runtime.boot_state = BootState::StartingLevel {
             start_latched: true,
+            elapsed_frames: EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+
+        let sliding = runtime.current_player_state().unwrap_or_else(|| {
+            panic!("early Start Level 1 bootstrap should expose the first hidden slide step")
+        });
+        assert_eq!(
+            sliding.x_pos,
+            (i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
+                + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP)) as u32
+        );
+        assert_eq!(
+            sliding.y_pos,
+            (i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
+                + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP)) as u32
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
             elapsed_frames: EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
                 + EARLY_START_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
             uses_load_ingame_bootstrap: true,
@@ -1299,6 +1320,25 @@ mod tests {
             None,
             "ASM loc_1AE2E early-start hidden bootstrap carry is a Level 1 title-start lineage, not a generic level-start pose",
         );
+
+        runtime.current_level = LevelId(0);
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+
+        let visible = runtime.current_player_state().unwrap_or_else(|| {
+            panic!("early Start Level 1 Load_InGame should expose Kid at the visible ramp")
+        });
+        assert_eq!(visible.x_pos, 0x0020_0000);
+        assert_eq!(visible.y_pos, 0x00FF_0000);
+        assert!(visible.on_ground);
     }
 
     #[test]
