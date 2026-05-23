@@ -8549,6 +8549,7 @@ mod chunk_03 {
         cloud.layout_index = 1;
         runtime.active_enemy_roster = vec![enemy.snapshot()];
         runtime.active_enemies = vec![enemy, cloud];
+        runtime.active_platforms = vec![make_test_platform(34, 225, 1, 0)];
 
         let trace = runtime.trace_frame();
         let support_debug = trace
@@ -8575,6 +8576,10 @@ mod chunk_03 {
         assert!(
             support_debug.contains("enemy_0E#01 dx=0 top_gap=23 x_overlap=8 y_overlap=16"),
             "generic enemy support diagnostics should use its positive bottom collision bound, got {support_debug}",
+        );
+        assert!(
+            support_debug.contains("platform_00 dx=7 top_gap=16 x_overlap=10 y_overlap=15"),
+            "platform support diagnostics should decode fixed-point platform bounds, got {support_debug}",
         );
     }
 
