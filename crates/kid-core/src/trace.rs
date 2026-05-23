@@ -1204,6 +1204,90 @@ mod tests {
     }
 
     #[test]
+    fn active_objects_hides_playback_roster_until_gameplay_start() {
+        fn enemy_object() -> NativeObjectSnapshot {
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 1 },
+                x_pos: 0x0040_0000,
+                y_pos: 0x0080_0000,
+                layout_index: Some(0),
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: BTreeMap::new(),
+            }
+        }
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+        runtime.active_enemy_roster.push(enemy_object());
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        // ASM Load_DemoPlay keeps the title/demo shell object list hidden until
+        // the first gameplay-start trace frame reaches Load_InGame.
+        assert!(runtime.active_objects().is_empty());
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        let active_objects = runtime.active_objects();
+        assert_eq!(active_objects.len(), 2);
+        assert!(matches!(active_objects[0].kind, NativeObjectKind::Player));
+        assert!(matches!(
+            active_objects[1].kind,
+            NativeObjectKind::Enemy { object_type: 1 }
+        ));
+
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.player_lifecycle = PlayerLifecycle::Alive;
+        assert!(runtime.active_objects().is_empty());
+
+        runtime.boot_state = BootState::InGame;
+        let active_objects = runtime.active_objects();
+        assert_eq!(active_objects.len(), 2);
+        assert!(matches!(active_objects[0].kind, NativeObjectKind::Player));
+        assert!(matches!(
+            active_objects[1].kind,
+            NativeObjectKind::Enemy { object_type: 1 }
+        ));
+        let frozen_active_objects = active_objects.clone();
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 1,
+        };
+        assert!(runtime.active_objects().is_empty());
+
+        runtime.death_shell_snapshot = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player: PlayerState::title_pose(),
+            frozen_camera: CameraState::default(),
+            frozen_active_objects,
+            frozen_number_objects: 2,
+            frozen_number_gfx_objects: 2,
+        });
+        assert_eq!(runtime.active_objects(), vec![enemy_object()]);
+    }
+
+    #[test]
     fn trace_frame_marks_currently_transforming_until_final_flash_frame() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
