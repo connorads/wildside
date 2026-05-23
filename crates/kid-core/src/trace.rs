@@ -1328,6 +1328,19 @@ mod tests {
         }));
         runtime.boot_state = BootState::StartingLevel {
             start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME - 1,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+
+        assert_eq!(
+            runtime.current_player_state(),
+            None,
+            "ASM loc_6E2 keeps the early Start Level 1 Load_InGame player hidden until the visible ramp frame",
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
             elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME,
             uses_load_ingame_bootstrap: true,
             load_ingame_bootstrap_started: true,
