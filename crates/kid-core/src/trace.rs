@@ -2211,6 +2211,11 @@ mod tests {
         // early-start path: hidden workers appear before the first visible
         // title-card frame, then the final gfx worker joins one trace later.
         assert_eq!(
+            counts_at(EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES - 1),
+            (4, 3)
+        );
+        assert_eq!(counts_at(EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES), (0, 0));
+        assert_eq!(
             counts_at(EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME - 1),
             (0, 0)
         );
