@@ -1876,6 +1876,87 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_full_title_copy_counts_roster_plus_fixed_title_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.preserve_demo_title_snapshot = true;
+        runtime.title_screen_elapsed_frames = DEMO_TITLE_FULL_SNAPSHOT_FRAMES - 1;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+        runtime
+            .active_enemy_roster
+            .extend((0..2).map(|object_type| NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type },
+                x_pos: 0,
+                y_pos: 0,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: BTreeMap::new(),
+            }));
+        runtime
+            .active_platform_roster
+            .extend((0..3).map(|subtype| NativeObjectSnapshot {
+                kind: NativeObjectKind::Platform { kind: 0, subtype },
+                x_pos: 0,
+                y_pos: 0,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: BTreeMap::new(),
+            }));
+
+        // ASM loc_119D8 title return keeps four fixed title workers alive while
+        // the preserved gameplay roster is still exposed.
+        let frame = runtime.trace_frame();
+        assert_eq!(frame.number_objects, 1 + 2 + 3 + 4);
+        assert_eq!(frame.number_gfx_objects, 1 + 2 + 3 + 4);
+    }
+
+    #[test]
+    fn trace_frame_intro_3_title_return_counts_expire_after_pose_carry_window() {
+        fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.timeout_restart_title_intro_sequence_3_pose = true;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM sub_1C246 -> loc_1C264 carries the Load_IntroSequence3 count
+        // state into the first title frames, but drops it once the title pose
+        // carry window expires.
+        assert_eq!(counts_at(DEMO_TITLE_FULL_SNAPSHOT_FRAMES + 3), (3, 0x000B));
+        assert_ne!(counts_at(DEMO_TITLE_FULL_SNAPSHOT_FRAMES + 4), (3, 0x000B));
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
