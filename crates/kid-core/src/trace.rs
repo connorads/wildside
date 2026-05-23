@@ -1907,6 +1907,69 @@ mod tests {
     }
 
     #[test]
+    fn playback_prize_block_worker_tails_require_own_live_diamond() {
+        fn diamond_for_cell(cell_x: u16, cell_y: u16) -> FloatingItem {
+            let mut item = diamond_at_x(1_000);
+            item.level_col = cell_x;
+            item.level_row = cell_y;
+            item
+        }
+
+        fn diamond_tail(cell_x: u16, cell_y: u16) -> PrizeBlockWorkerTail {
+            PrizeBlockWorkerTail {
+                cell_x,
+                cell_y,
+                content: Some(terrain::PrizeContent::Diamond),
+                remaining: 1,
+            }
+        }
+
+        fn visible_tail_count(
+            tail: PrizeBlockWorkerTail,
+            items: impl IntoIterator<Item = FloatingItem>,
+        ) -> usize {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter: demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
+                data_index: 0,
+                use_demo_2: true,
+            };
+            runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            }));
+            runtime.prize_block_worker_tails.push(tail);
+            runtime.floating_items.extend(items);
+            runtime.demo_count_visible_prize_block_worker_tails()
+        }
+
+        let mut collected_match = diamond_for_cell(1, 1);
+        collected_match.collected = true;
+        let mut non_diamond_match = diamond_for_cell(1, 1);
+        non_diamond_match.content = terrain::PrizeContent::Points10000;
+
+        // ASM PrizeDiamond_Init only replaces the stale sub_1007A worker for
+        // the matching uncollected diamond from the same prize-block cell.
+        assert_eq!(
+            visible_tail_count(diamond_tail(1, 1), [diamond_for_cell(1, 1)]),
+            0
+        );
+        assert_eq!(visible_tail_count(diamond_tail(1, 1), [collected_match]), 1);
+        assert_eq!(
+            visible_tail_count(diamond_tail(1, 1), [non_diamond_match]),
+            1
+        );
+        assert_eq!(
+            visible_tail_count(diamond_tail(1, 1), [diamond_for_cell(2, 1)]),
+            1
+        );
+        assert_eq!(
+            visible_tail_count(diamond_tail(1, 1), [diamond_for_cell(1, 2)]),
+            1
+        );
+    }
+
+    #[test]
     fn trace_frame_ingame_counts_roster_system_and_palette_workers() {
         fn enemy_object(object_type: u8) -> NativeObjectSnapshot {
             NativeObjectSnapshot {
