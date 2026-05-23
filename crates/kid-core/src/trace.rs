@@ -2013,6 +2013,14 @@ mod tests {
         // early-start path: hidden workers appear before the first visible
         // title-card frame, then the final gfx worker joins one trace later.
         assert_eq!(
+            counts_at(EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME - 1),
+            (0, 0)
+        );
+        assert_eq!(
+            counts_at(EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME),
+            (2, 0)
+        );
+        assert_eq!(
             counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME - 1),
             (15, 0)
         );
@@ -2022,6 +2030,48 @@ mod tests {
         );
         assert_eq!(
             counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1),
+            (15, 14)
+        );
+    }
+
+    #[test]
+    fn trace_frame_cold_boot_title_counts_split_visible_gfx_completion() {
+        fn title_worker(gfx_slot_index: usize) -> LevelEntryTitleWorker {
+            LevelEntryTitleWorker {
+                gfx_slot_index,
+                glyph: 0,
+                activation_frame: crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+                target_x_pos: 0,
+                target_y_pos: 0,
+                motion: None,
+            }
+        }
+
+        fn counts_at(elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::StartingLevel {
+                start_latched: false,
+                elapsed_frames,
+                uses_load_ingame_bootstrap: false,
+                load_ingame_bootstrap_started: false,
+            };
+            runtime
+                .starting_level_title_workers
+                .extend((0..14).map(title_worker));
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_TitleCard keeps the final title-card gfx worker hidden on the
+        // first visible frame, then exposes the complete 15/14 shell from the
+        // following trace onward.
+        assert_eq!(
+            counts_at(crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME),
+            (15, 13)
+        );
+        assert_eq!(
+            counts_at(crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1),
             (15, 14)
         );
     }
