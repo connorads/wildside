@@ -123,6 +123,39 @@ mod tests {
         manifest
     }
 
+    fn manifest_with_theme_level(
+        level_id: u8,
+        level_theme: u8,
+        background_theme: u8,
+    ) -> AssetManifest {
+        let mut manifest = minimal_manifest();
+        manifest.levels.push(kid_data::LevelRecord {
+            level_id,
+            title_text_id: None,
+            display_name: None,
+            title_card: None,
+            resource_paths: Vec::new(),
+            resources: kid_data::LevelResources::default(),
+            header_metadata: Some(kid_data::LevelHeader {
+                width_screens: 1,
+                height_screens: 1,
+                height_flag_bits: 0,
+                level_theme,
+                murder_wall_flags: 0,
+                background_theme,
+                weather_flags: 0,
+                player_start_x: 0,
+                player_start_y: 0,
+                flag_x: 0,
+                flag_y: 0,
+            }),
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        manifest
+    }
+
     fn player_at_x(x_px: u32) -> PlayerState {
         PlayerState {
             x_pos: x_px << 16,
@@ -1847,6 +1880,56 @@ mod tests {
         let frame = runtime.trace_frame();
         assert_eq!(frame.number_objects, 4 + 2 + 13 + 3 + 5 + 6 + 11);
         assert_eq!(frame.number_gfx_objects, 4 + 2 + 13 + 3 + 5 + 6 + 11);
+    }
+
+    #[test]
+    fn trace_frame_ingame_counts_roster_system_and_palette_workers() {
+        fn enemy_object(object_type: u8) -> NativeObjectSnapshot {
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type },
+                x_pos: 0,
+                y_pos: 0,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: BTreeMap::new(),
+            }
+        }
+
+        fn counts_for_theme(level_theme: u8, background_theme: u8) -> (u16, u16) {
+            let mut runtime =
+                NativeRuntime::new(manifest_with_theme_level(3, level_theme, background_theme));
+            runtime.current_level = LevelId(3);
+            runtime.boot_state = BootState::InGame;
+            runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            }));
+            runtime
+                .active_enemy_roster
+                .extend([enemy_object(1), enemy_object(2)]);
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_InGame keeps two fixed system objects live alongside the
+        // player/enemy roster. Mountain/Cave/Island themes allocate one extra
+        // palette-rotation object/gfx slot.
+        assert_eq!(counts_for_theme(0, 0), (5, 5));
+        assert_eq!(counts_for_theme(7, 0), (6, 6));
+        assert_eq!(counts_for_theme(0, 4), (6, 6));
     }
 
     #[test]
