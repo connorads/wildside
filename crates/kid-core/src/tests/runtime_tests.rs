@@ -9363,6 +9363,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_typed_children_project_to_trace_kinds_loc_33424_loc_335d8() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0021_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x0000_3000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            ..Default::default()
+        });
+
+        let trace = rt.trace_frame();
+
+        assert_eq!(trace.active_projectile_details.len(), 2);
+        assert_eq!(
+            trace.active_projectile_details[0].kind,
+            ActiveProjectileKind::DripsDrop,
+            "ASM Drips.asm loc_33424/loc_3345C falling children should remain distinguishable from generic projectiles in trace output",
+        );
+        assert_eq!(
+            trace.active_projectile_details[1].kind,
+            ActiveProjectileKind::DripsSurfaceCrawler,
+            "ASM Drips.asm loc_335D8 crawler children should remain distinguishable from generic projectiles in trace output",
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_spawn_honours_five_child_cap_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
