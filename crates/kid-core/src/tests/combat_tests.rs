@@ -9327,6 +9327,18 @@ mod chunk_03 {
             "the pre-physics probe should report the final pre-physics Kid snapshot",
         );
         assert!(
+            probe_debug.contains(
+                "start[x=0x00200000/y=0x010f0000/x_vel=0x00000000/y_vel=0x00000000/ground=1]"
+            ),
+            "the pre-physics probe should report the starting Kid position and velocity",
+        );
+        assert!(
+            probe_debug.contains(
+                "before_physics[x=0x00200000/y=0x010f0000/x_vel=0x00000000/y_vel=0xffffc000/ground=0]"
+            ),
+            "the pre-physics probe should report the final pre-physics Kid position and velocity",
+        );
+        assert!(
             probe_debug.contains("first=iron_knight_climb"),
             "the pre-physics probe should report the first handler that changed Kid",
         );
