@@ -1684,6 +1684,36 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_intro_sequence_3_timeout_restart_counts_use_either_latch() {
+        fn counts_with(
+            demo_auto_timeout_override: bool,
+            pending_title_return: bool,
+            elapsed: usize,
+        ) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::IntroSequence {
+                segment: 2,
+                elapsed,
+                pending_title_skip: 0,
+            };
+            runtime.demo_auto_timeout_intro_sequence_3_frames_override =
+                demo_auto_timeout_override.then_some(0);
+            runtime.timeout_restart_title_intro_sequence_3_return_pending = pending_title_return;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_IntroSequence3 -> sub_1B93E reaches the same hidden rebuild
+        // counter table from both the auto-timeout path and the later title-return
+        // latch; either path must expose the local frame-31 clear window.
+        assert_eq!(counts_with(true, false, 31), (0, 0));
+        assert_eq!(counts_with(false, true, 31), (0, 0));
+        assert_eq!(counts_with(false, true, 41), (3, 0x000B));
+        assert_ne!(counts_with(false, false, 41), (3, 0x000B));
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
