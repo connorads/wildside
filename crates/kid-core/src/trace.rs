@@ -4947,7 +4947,7 @@ impl NativeRuntime {
                 // allocated for it.
                 return (1, 0);
             }
-            if elapsed > 44 {
+            if elapsed >= 45 {
                 // ASM sub_1B8F4 allocates the loc_1C7A0 intro-text worker
                 // before entering sub_1C204/loc_1B920; native does not model
                 // either intro shell object as a gameplay roster entry.
