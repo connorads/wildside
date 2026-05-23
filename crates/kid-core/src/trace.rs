@@ -1970,6 +1970,34 @@ mod tests {
     }
 
     #[test]
+    fn death_respawn_level_one_bootstrap_holds_after_sixty_five_frame_slide() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+                - PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+        };
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+
+        // ASM `lose_life -> Teleport -> loc_6E2`: oracle-backed traces finish
+        // the 65-frame hidden Level 1 slide at elapsed frame 64, then hold the
+        // same pose instead of applying one more `$-4.8,+0.9` step.
+        let frame = runtime.trace_frame();
+        assert_eq!(
+            frame.kid_x_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP)
+        );
+        assert_eq!(
+            frame.kid_y_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP)
+        );
+    }
+
+    #[test]
     fn trace_frame_ingame_counts_roster_system_and_palette_workers() {
         fn enemy_object(object_type: u8) -> NativeObjectSnapshot {
             NativeObjectSnapshot {
