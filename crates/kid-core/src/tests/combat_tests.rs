@@ -8545,8 +8545,10 @@ mod chunk_03 {
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
+        let mut cloud = test_enemy(EnemyFamily::Cloud, 42 << 16, 226 << 16, 1);
+        cloud.layout_index = 1;
         runtime.active_enemy_roster = vec![enemy.snapshot()];
-        runtime.active_enemies = vec![enemy];
+        runtime.active_enemies = vec![enemy, cloud];
 
         let trace = runtime.trace_frame();
         let support_debug = trace
@@ -8565,6 +8567,14 @@ mod chunk_03 {
         assert!(
             support_debug.contains("support=1"),
             "standing support candidates should be marked as active support",
+        );
+        assert!(
+            support_debug.contains("enemy_0E#01 dx=0 top_gap=23"),
+            "the support trace should include the nearby generic enemy candidate, got {support_debug}",
+        );
+        assert!(
+            support_debug.contains("enemy_0E#01 dx=0 top_gap=23 x_overlap=8 y_overlap=16"),
+            "generic enemy support diagnostics should use its positive bottom collision bound, got {support_debug}",
         );
     }
 
