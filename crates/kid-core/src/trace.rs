@@ -1261,6 +1261,47 @@ mod tests {
     }
 
     #[test]
+    fn current_player_state_exposes_early_start_level_one_hidden_bootstrap_before_load_ingame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.current_level = LevelId(0);
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+
+        let initial = runtime.current_player_state().unwrap_or_else(|| {
+            panic!("early Start Level 1 bootstrap should expose the hidden slide pose")
+        });
+        assert_eq!(initial.x_pos, EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP);
+        assert_eq!(initial.y_pos, EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP);
+        assert_eq!(initial.facing, Direction::Right);
+        assert!(initial.on_ground);
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                + EARLY_START_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+
+        let held = runtime.current_player_state().unwrap_or_else(|| {
+            panic!("early Start Level 1 bootstrap should hold the settled hidden pose")
+        });
+        assert_eq!(held.x_pos, EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP);
+        assert_eq!(held.y_pos, EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP);
+
+        runtime.current_level = LevelId(1);
+        assert_eq!(
+            runtime.current_player_state(),
+            None,
+            "ASM loc_1AE2E early-start hidden bootstrap carry is a Level 1 title-start lineage, not a generic level-start pose",
+        );
+    }
+
+    #[test]
     fn active_objects_hides_playback_roster_until_gameplay_start() {
         fn enemy_object() -> NativeObjectSnapshot {
             NativeObjectSnapshot {
