@@ -1092,6 +1092,30 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_title_menu_counts_ignore_stale_title_card_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.title_menu_active = true;
+        runtime
+            .starting_level_title_workers
+            .push(LevelEntryTitleWorker {
+                gfx_slot_index: 0,
+                glyph: 0,
+                activation_frame: 0,
+                target_x_pos: 0,
+                target_y_pos: 0,
+                motion: None,
+            });
+
+        // ASM Obj_TitleMenu loc_1BB52 exposes the active title cursor as the
+        // third gfx slot. Stale Load_TitleCard workers are only meaningful while
+        // BootState::StartingLevel is active.
+        let frame = runtime.trace_frame();
+        assert_eq!(frame.number_objects, 4);
+        assert_eq!(frame.number_gfx_objects, 3);
+    }
+
+    #[test]
     fn title_menu_cursor_player_state_requires_early_start_carry_window() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::StartingLevel {
