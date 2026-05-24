@@ -178,6 +178,80 @@ mod chunk_04 {
     }
 
     #[test]
+    fn opening_level_one_object_counts_pin_camera_boundary_branches() {
+        assert_eq!(
+            opening_level_one_object_counts(LevelId(2), 2, 0, OPENING_GROUNDED_CAMERA_Y_FP),
+            None,
+            "only opening Level 1 and the Level 2 resume special case use these trace object-count overrides",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                2,
+                0x0200_0000,
+                OPENING_GROUNDED_CAMERA_Y_FP
+            ),
+            Some((4, 5)),
+            "camera_x == $0200.0000 is still inside the opening Level 1 trace-count window",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                2,
+                0x0200_0001,
+                OPENING_GROUNDED_CAMERA_Y_FP
+            ),
+            None,
+            "camera_x one subpixel past $0200.0000 leaves the opening Level 1 trace-count window",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                2,
+                0,
+                OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000
+            ),
+            Some((3, 4)),
+            "camera_y at the grounded threshold keeps the regular zero-camera count split",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                2,
+                0,
+                OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0001
+            ),
+            Some((4, 4)),
+            "camera_y one subpixel beyond the grounded threshold uses the fully hidden count split",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                3,
+                0,
+                OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0001
+            ),
+            Some((5, 5)),
+            "the fully hidden zero-camera branch adds two system objects to arbitrary roster counts",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(LevelId(0), 3, 0, OPENING_GROUNDED_CAMERA_Y_FP),
+            Some((4, 5)),
+            "the regular zero-camera branch adds one object and two gfx objects to arbitrary roster counts",
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                3,
+                0x0001_0000,
+                OPENING_GROUNDED_CAMERA_Y_FP
+            ),
+            Some((5, 6)),
+            "the scrolling opening branch adds two objects and three gfx objects to arbitrary roster counts",
+        );
+    }
+
+    #[test]
     fn platform_script_nothing_all_zero_record_is_not_active() {
         let platform = PlatformPlacement {
             x: 0,

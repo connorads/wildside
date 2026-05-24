@@ -1366,6 +1366,46 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_1f56_accepts_candidate_right_and_bottom_on_kid_edges() {
+        assert!(
+            crate::trace::kid_support_overlap_loc_1F56(
+                100,
+                120,
+                200,
+                220,
+                &[(80, 100, 180, 200), (0, 0, 0, 0)],
+            ),
+            "ASM loc_1F56 should accept inclusive candidate right == Kid left and candidate bottom == Kid top edge contact",
+        );
+    }
+
+    #[test]
+    fn loc_1f56_rejects_each_strictly_separated_support_edge() {
+        // ASM loc_1F56 (kid.asm:3748-3756) rejects a support candidate as soon
+        // as any inclusive edge comparison fails before checking later entries.
+        let kid = (100, 120, 200, 220);
+        let separated = [
+            (121, 140, 200, 220), // candidate starts one pixel right of Kid
+            (80, 99, 200, 220),   // candidate ends one pixel left of Kid
+            (100, 120, 221, 240), // candidate starts one pixel below Kid
+            (100, 120, 180, 199), // candidate ends one pixel above Kid
+        ];
+
+        for candidate in separated {
+            assert!(
+                !crate::trace::kid_support_overlap_loc_1F56(
+                    kid.0,
+                    kid.1,
+                    kid.2,
+                    kid.3,
+                    &[candidate, (0, 0, 0, 0)],
+                ),
+                "ASM loc_1F56 should reject strictly separated support bounds {candidate:?}",
+            );
+        }
+    }
+
+    #[test]
     fn loc_1fb2_skips_disabled_or_missing_kid_and_seeds_the_hitbox_scan_window() {
         assert_eq!(
             crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(

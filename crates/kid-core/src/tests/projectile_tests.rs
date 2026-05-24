@@ -8518,6 +8518,87 @@ mod chunk_06 {
     }
 
     #[test]
+    fn classify_kid_object_relation_requires_positive_x_and_y_overlap() {
+        // ASM sub_1B0C overlap gates must reject mere edge contact on either
+        // axis before loc_1CD2/loc_1CD8/loc_1CDE/loc_1CE4 can classify a side.
+        let player = crate::trace::ObjectBoundsPx {
+            left: 10,
+            right: 30,
+            top: 10,
+            bottom: 30,
+        };
+
+        for object in [
+            crate::trace::ObjectBoundsPx {
+                left: 30,
+                right: 50,
+                top: 10,
+                bottom: 30,
+            },
+            crate::trace::ObjectBoundsPx {
+                left: 10,
+                right: 30,
+                top: 30,
+                bottom: 50,
+            },
+        ] {
+            assert_eq!(
+                crate::trace::classify_kid_object_relation(player, object),
+                None,
+                "ASM object collision relation should reject zero-area edge contact {object:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn classify_kid_object_relation_uses_signed_penetration_distances() {
+        let relation = crate::trace::classify_kid_object_relation(
+            crate::trace::ObjectBoundsPx {
+                left: 10,
+                right: 30,
+                top: 10,
+                bottom: 30,
+            },
+            crate::trace::ObjectBoundsPx {
+                left: 18,
+                right: 60,
+                top: 18,
+                bottom: 60,
+            },
+        );
+
+        assert_eq!(
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
+            Some("kidbelow"),
+            "ASM loc_1CDE should win when top penetration is the smallest signed overlap distance",
+        );
+    }
+
+    #[test]
+    fn classify_kid_object_relation_uses_object_right_minus_player_left_for_left_side() {
+        let relation = crate::trace::classify_kid_object_relation(
+            crate::trace::ObjectBoundsPx {
+                left: 10,
+                right: 40,
+                top: 10,
+                bottom: 60,
+            },
+            crate::trace::ObjectBoundsPx {
+                left: 0,
+                right: 12,
+                top: 50,
+                bottom: 80,
+            },
+        );
+
+        assert_eq!(
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
+            Some("kidleft"),
+            "ASM loc_1CD8 should use object right minus player left so a shallow left-side overlap wins over the vertical penetration distances",
+        );
+    }
+
+    #[test]
     fn kid_object_collision_writeback_loc_1cf2_copies_the_selected_colid_into_both_slots() {
         let right = crate::trace::kid_object_collision_writeback_loc_1CF2(
             crate::trace::KidObjectRelation::Right,
