@@ -283,8 +283,8 @@ use crate::weather::{
     step_level_special_effects_sub_6048, step_weather_worker_sub_61CA,
 };
 use kid_data::{
-    AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
-    PlatformLayout, PlatformPlacement, PlatformScriptRef,
+    AssetManifest, BgscrollProfile, DecodedAssetFile, DecodedLevelAssets, EnemyLayout, LevelHeader,
+    LevelRecord, LevelResources, PlatformLayout, PlatformPlacement, PlatformScriptRef,
 };
 use std::path::PathBuf;
 use std::{
@@ -357,4 +357,85 @@ fn scenario_settled_warp_adds_oracle_observed_live_settle_window() {
         settled[0].frame_index >= unsettled[0].frame_index + 100,
         "settled full-frame traces should include the oracle-observed live target-level tail",
     );
+}
+
+#[test]
+fn load_block_grid_resolves_decoded_resource_layout_for_mapped_level() {
+    let output_root = unique_temp_path("decoded-resource-block-layout");
+    let block_dir = output_root.join("decoded/level/56");
+    fs::create_dir_all(&block_dir).expect("decoded block directory should be creatable");
+    let block_path = block_dir.join("block.bin");
+    fs::write(&block_path, [0x60, 0x2A]).expect("decoded block layout should be writable");
+
+    let mut mapped = manifest();
+    mapped.output_root = output_root.clone();
+    mapped.map_order = vec![0; 10];
+    mapped.map_order[9] = 0x56;
+    mapped.levels[0].level_id = 0x56;
+    if let Some(header) = mapped.levels[0].header_metadata.as_mut() {
+        header.width_screens = 12;
+        header.height_screens = 2;
+    }
+    mapped.decoded_levels = vec![DecodedLevelAssets {
+        contract_version: 3,
+        level_id: 0x56,
+        foreground: DecodedAssetFile {
+            relative_path: String::from("decoded/level/56/foreground.bin"),
+            preview_png_path: String::from("decoded/level/56/foreground.png"),
+            size_bytes: 0,
+            sha1: String::new(),
+        },
+        block: DecodedAssetFile {
+            relative_path: String::from("decoded/level/56/block.bin"),
+            preview_png_path: String::from("decoded/level/56/block.png"),
+            size_bytes: 2,
+            sha1: String::new(),
+        },
+        background: DecodedAssetFile {
+            relative_path: String::from("decoded/level/56/background.bin"),
+            preview_png_path: String::from("decoded/level/56/background.png"),
+            size_bytes: 0,
+            sha1: String::new(),
+        },
+    }];
+
+    let runtime = NativeRuntime::new(mapped);
+    let grid = runtime
+        .load_block_grid_for_level(LevelId(9))
+        .expect("ASM MapOrder_Index lookup should resolve logical level 09 to decoded resource 56");
+
+    assert_eq!(grid.width_cells, 240);
+    assert_eq!(grid.height_cells, 28);
+    assert_eq!(grid.cell_at(0, 0).collision, terrain::CollisionKind::Solid);
+
+    fs::remove_dir_all(output_root).ok();
+}
+
+#[test]
+fn scenario_settled_warp_starts_later_levels_in_live_gameplay() {
+    let settled = run_script_with_settled_warp(manifest(), &[0x00], 1, Some(9));
+
+    assert_eq!(settled[0].current_level, LevelId(9));
+    assert_eq!(
+        settled[0].game_mode,
+        GameMode::InGame,
+        "full-frame sweeps must not start while the native level-skip shell is still visible",
+    );
+    assert!(!settled[0].paused);
+}
+
+#[test]
+fn scenario_settled_warp_level09_cached_assets_starts_in_live_gameplay() {
+    let manifest_path = repo_root()
+        .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+    if !manifest_path.is_file() {
+        eprintln!("skipping cached level09 settled-warp test: generated asset manifest missing");
+        return;
+    }
+    let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+    let settled = run_script_with_settled_warp(manifest, &[0x00], 1, Some(9));
+
+    assert_eq!(settled[0].current_level, LevelId(9));
+    assert_eq!(settled[0].game_mode, GameMode::InGame);
+    assert!(!settled[0].paused);
 }

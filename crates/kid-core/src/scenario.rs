@@ -8,7 +8,7 @@ const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 
 fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
-    matches!(runtime.boot_state, BootState::InGame)
+    runtime.trace_frame().game_mode == GameMode::InGame
         && runtime.current_level == level_id
         && !runtime.paused
 }
@@ -62,6 +62,16 @@ impl NativeRuntime {
         // places the player on the actual floor (header spawn Y is approximate).
         // After floor-snap, simulate the camera's gravity-following path to
         // match how the oracle's camera converges during real gravity settling.
+        self.boot_state = BootState::InGame;
+        self.level_skip_resume_hold = false;
+        self.pending_level_skip = None;
+        self.pending_level_skip_resume = false;
+        self.level_skip_transition = None;
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.progression.number_lives = 3;
+        self.progression.number_hitpoints = self.progression.current_form.max_hitpoints();
+        self.just_received_damage = false;
+        self.death_shell_snapshot = None;
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
     }
@@ -137,12 +147,20 @@ impl ScriptRunner {
             if self.settle_warp {
                 let idle = FrameInput::default();
                 let mut stable_target_frames = 0usize;
+                let target_live_frames = if level_id <= 1 {
+                    ORACLE_SETTLED_WARP_LIVE_FRAMES
+                } else {
+                    1
+                };
                 for _ in 0..SETTLED_WARP_MAX_ATTEMPT_FRAMES {
-                    if stable_target_frames >= ORACLE_SETTLED_WARP_LIVE_FRAMES {
+                    if stable_target_frames >= target_live_frames {
                         break;
                     }
                     if is_live_unpaused_target_level(&runtime, LevelId(level_id)) {
                         stable_target_frames += 1;
+                        if stable_target_frames >= target_live_frames {
+                            break;
+                        }
                     } else {
                         stable_target_frames = 0;
                     }

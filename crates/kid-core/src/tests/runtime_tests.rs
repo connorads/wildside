@@ -5551,8 +5551,8 @@ mod chunk_09 {
 
         assert_eq!(
             settled[0].frame_index,
-            fresh[0].frame_index + 108,
-            "full-frame oracle helper reaches Level 1's first RockTank after the ROM's live title-card tail plus the 60 stable target-level frames; native must use the same pre-run contract",
+            fresh[0].frame_index + 107,
+            "full-frame oracle helper reaches Level 1's first RockTank on the frame the ROM-observed live target-level window is satisfied; native must not step one extra frame after the settle condition",
         );
         assert_eq!(settled[0].game_mode, GameMode::InGame);
         assert_eq!(settled[0].current_level, LevelId(1));

@@ -23,7 +23,7 @@ use constants::*;
 use enemies::*;
 use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
-    load_level_asset_bundle, resource_level_record,
+    load_level_asset_bundle, resource_level_id, resource_level_record,
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
