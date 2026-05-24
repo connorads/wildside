@@ -765,7 +765,7 @@ fn first_trace_drift(
         let matches = if legacy_block_destroy_direction_frames.contains(&index) {
             trace_frames_match_with_legacy_block_destroy_direction(expected, actual)
         } else {
-            expected == actual
+            trace_frames_match(expected, actual)
         };
         if !matches {
             return Some(TraceDriftReport {
@@ -787,11 +787,31 @@ fn first_trace_drift(
     None
 }
 
+fn trace_frames_match(expected: &NativeTraceFrame, actual: &NativeTraceFrame) -> bool {
+    if expected == actual {
+        return true;
+    }
+
+    if expected.game_mode == actual.game_mode
+        && !title_screen_ready_affects_recording_match(expected.game_mode)
+    {
+        let mut normalised_expected = expected.clone();
+        normalised_expected.title_screen_ready = actual.title_screen_ready;
+        return &normalised_expected == actual;
+    }
+
+    false
+}
+
+fn title_screen_ready_affects_recording_match(game_mode: GameMode) -> bool {
+    matches!(game_mode, GameMode::TitleScreen | GameMode::OptionsMenu)
+}
+
 fn trace_frames_match_with_legacy_block_destroy_direction(
     expected: &NativeTraceFrame,
     actual: &NativeTraceFrame,
 ) -> bool {
-    if expected == actual {
+    if trace_frames_match(expected, actual) {
         return true;
     }
     if expected.block_destroy_effects.len() != actual.block_destroy_effects.len() {
@@ -818,7 +838,7 @@ fn trace_frames_match_with_legacy_block_destroy_direction(
     normalised_expected
         .block_destroy_effects
         .clone_from(&actual.block_destroy_effects);
-    &normalised_expected == actual
+    trace_frames_match(&normalised_expected, actual)
 }
 
 fn unix_timestamp() -> String {
@@ -1282,6 +1302,44 @@ mod tests {
         replay[1].number_hitpoints = 1;
         let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new()).expect("drift");
         assert_eq!(drift.frame_index, 1);
+    }
+
+    #[test]
+    fn first_trace_drift_ignores_non_shell_title_screen_ready_only() {
+        let recorded = vec![sample_trace_frame(0), {
+            let mut frame = sample_trace_frame(1);
+            frame.game_mode = GameMode::LevelTransition;
+            frame.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            frame.title_screen_ready = true;
+            frame
+        }];
+        let replay = vec![sample_trace_frame(0), {
+            let mut frame = sample_trace_frame(1);
+            frame.game_mode = GameMode::LevelTransition;
+            frame.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            frame
+        }];
+
+        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new());
+
+        assert_eq!(
+            drift, None,
+            "settled gameplay recordings should not fail native replay because a shell-only title readiness diagnostic changed while both frames are outside the title/options shell"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_keeps_title_screen_ready_strict_in_title_shell() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.game_mode = GameMode::TitleScreen;
+        recorded.game_mode_value = GameMode::TitleScreen.as_disassembly_value();
+        recorded.title_screen_ready = true;
+        let mut replay = recorded.clone();
+        replay.title_screen_ready = false;
+
+        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::new()).expect("drift");
+
+        assert_eq!(drift.frame_index, 0);
     }
 
     #[test]
