@@ -1800,41 +1800,46 @@ mod tests {
 
     #[test]
     fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
-        fn runtime_at(frame_counter: u16) -> NativeRuntime {
+        fn runtime_at(frame_counter: u16, probe: KidJumpGravityProbe) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::DemoPlay {
                 frame_counter,
                 data_index: 0,
                 use_demo_2: true,
             };
-            runtime.last_kid_frame_jump_gravity_probe = Some(KidJumpGravityProbe {
-                branch: KidJumpGravityBranch::AirborneHeldJumpGravity,
-                on_ground_before: false,
-                on_ground_after: false,
-                y_velocity_after: -1,
-                ..KidJumpGravityProbe::default()
-            });
+            runtime.last_kid_frame_jump_gravity_probe = Some(probe);
             runtime
         }
 
         let mut settled_player = PlayerState::title_pose();
         settled_player.on_ground = true;
         settled_player.x_velocity = 0;
+        let held_jump_probe = KidJumpGravityProbe {
+            branch: KidJumpGravityBranch::AirborneHeldJumpGravity,
+            on_ground_before: false,
+            on_ground_after: false,
+            y_velocity_after: -1,
+            ..KidJumpGravityProbe::default()
+        };
 
         // ASM loc_A6F8 -> loc_A94E keeps MoveID_Jump only after the object
         // bootstrap frame and through the published playback wall-jump window.
-        let active = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        let active = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1, held_jump_probe);
         assert_eq!(active.current_character_movement(settled_player), 3);
 
-        let before_window = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+        let before_window = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME, held_jump_probe);
         assert_eq!(before_window.current_character_movement(settled_player), 0);
 
-        let after_window = runtime_at(demo::DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME + 1);
+        let after_window = runtime_at(
+            demo::DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME + 1,
+            held_jump_probe,
+        );
         assert_eq!(after_window.current_character_movement(settled_player), 0);
 
         let mut airborne_player = settled_player;
         airborne_player.on_ground = false;
-        let active_airborne = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        let active_airborne =
+            runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1, held_jump_probe);
         assert_eq!(
             active_airborne.current_character_movement(airborne_player),
             3
@@ -1842,8 +1847,44 @@ mod tests {
 
         let mut moving_player = settled_player;
         moving_player.x_velocity = 0x0001_0000;
-        let active_moving = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        let active_moving = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1, held_jump_probe);
         assert_eq!(active_moving.current_character_movement(moving_player), 2);
+
+        let previously_grounded = runtime_at(
+            demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1,
+            KidJumpGravityProbe {
+                on_ground_before: true,
+                ..held_jump_probe
+            },
+        );
+        assert_eq!(
+            previously_grounded.current_character_movement(settled_player),
+            0
+        );
+
+        let now_grounded_probe = runtime_at(
+            demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1,
+            KidJumpGravityProbe {
+                on_ground_after: true,
+                ..held_jump_probe
+            },
+        );
+        assert_eq!(
+            now_grounded_probe.current_character_movement(settled_player),
+            0
+        );
+
+        let non_rising_probe = runtime_at(
+            demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1,
+            KidJumpGravityProbe {
+                y_velocity_after: 0,
+                ..held_jump_probe
+            },
+        );
+        assert_eq!(
+            non_rising_probe.current_character_movement(settled_player),
+            0
+        );
     }
 
     #[test]
