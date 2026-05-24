@@ -7291,6 +7291,36 @@ mod chunk_06 {
         );
     }
 
+    /// ASM unk_B408/sub_B41C gives Berzerker a 7px collision half-width.
+    /// The charge contact path must use the helmet's current form width, not
+    /// TheKid's 5px default, or horn-edge contacts in front of the player miss.
+    #[test]
+    fn berzerker_charge_uses_form_half_width_for_front_edge_contact() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0x0002_0000;
+        let berzerker_limit = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            (0x0040 + berzerker_limit as u32) << 16,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM sub_B41C/GfxObjects_Collision should let Berzerker charge hit at the 7px form edge"
+        );
+    }
+
     /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
     /// side contact tests object_meta bit 15, then `neg.l x_vel(a3)` before
     /// returning without contact damage to Kid.
@@ -7324,7 +7354,7 @@ mod chunk_06 {
     }
 
     /// ASM Berzerker charging contact only fires when the contact boxes overlap;
-    /// native must reject enemies just outside horizontal range.
+    /// native must reject enemies just outside Berzerker's form-width range.
     #[test]
     fn berzerker_charge_misses_just_beyond_horizontal_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -7333,7 +7363,7 @@ mod chunk_06 {
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
-        let miss_dx = PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let miss_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,

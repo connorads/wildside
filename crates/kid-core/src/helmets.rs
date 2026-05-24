@@ -5217,6 +5217,7 @@ impl NativeRuntime {
 
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
+        let player_contact_half_width = self.progression.current_form.half_width();
 
         let mut reflected_player_velocity = false;
         let incoming_player_x_velocity = slice.player.x_velocity;
@@ -5230,7 +5231,7 @@ impl NativeRuntime {
             let ey = (enemy.y_pos >> 16) as i32;
             let dx = (px - ex).abs();
             let dy = (py - ey).abs();
-            if dx <= PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
+            if dx <= player_contact_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
                 && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
             {
                 if !reflected_player_velocity {
