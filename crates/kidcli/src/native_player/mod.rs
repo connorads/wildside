@@ -380,7 +380,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         );
                     }
                     let next = runtime.next_level_id();
-                    runtime.warp_to_level(next);
+                    trace = runtime.enter_level_playtest(next);
+                    level_card_frames_remaining = 0;
+                    fade_alpha = 0;
+                    fading_in = false;
                     suppress_level_card_for_debug_warp = true;
                 }
                 Event::KeyDown {
@@ -394,7 +397,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         );
                     }
                     let prev = runtime.prev_level_id();
-                    runtime.warp_to_level(prev);
+                    trace = runtime.enter_level_playtest(prev);
+                    level_card_frames_remaining = 0;
+                    fade_alpha = 0;
+                    fading_in = false;
                     suppress_level_card_for_debug_warp = true;
                 }
                 _ => {}
