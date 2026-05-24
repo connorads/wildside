@@ -94,6 +94,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn trace_frame_reports_boot_phase_for_visible_sega_screen() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::SegaScreen { elapsed: 30 };
+        runtime.frame_index = 30;
+
+        // ASM Load_SegaScreen loc_12E48/loc_12E6C has a live mode-0 boot phase
+        // once the hidden startup frames have elapsed; trace_frame must not
+        // collapse to NativeTraceFrame::default().
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.game_mode, GameMode::SegaScreen);
+        assert_eq!(trace.boot_phase.as_deref(), Some("sega_screen"));
+        assert_eq!(trace.boot_phase_elapsed, Some(30));
+    }
+
     fn manifest_with_flag(flag_x: u16, flag_y: u16) -> AssetManifest {
         let mut manifest = minimal_manifest();
         manifest.levels.push(kid_data::LevelRecord {
