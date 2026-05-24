@@ -1728,6 +1728,26 @@ mod chunk_06 {
         let new_cell = grid.cell_at(3, 4);
         assert!(new_cell.has_block, "block should have shifted up");
         assert_eq!(new_cell.block_type, terrain::BlockType::Shifting);
+
+        assert_eq!(
+            rt.block_bounces.len(),
+            1,
+            "ASM loc_11364 should spawn the sub_113C0 visual worker as the shifting block rises",
+        );
+        assert_eq!(rt.block_bounces[0].cell_x, 3);
+        assert_eq!(rt.block_bounces[0].cell_y, 4);
+        assert_eq!(rt.block_bounces[0].kind, BlockBounceKind::Shifting);
+        assert_eq!(
+            rt.block_bounces[0].y_offset_px, 16,
+            "ASM sub_113C0 starts the gfx worker at the source row before loc_113F4 rises it into the new row",
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(
+            rt.block_bounces[0].y_offset_px, 14,
+            "ASM loc_113F4 should move the visual worker up by two pixels on each hibernated frame",
+        );
+        assert_eq!(rt.block_bounces[0].remaining, 7);
     }
 
     #[test]

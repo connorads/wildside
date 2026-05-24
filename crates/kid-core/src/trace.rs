@@ -2377,6 +2377,7 @@ mod tests {
                 cell_y: 0,
                 remaining: 1,
                 initial_duration: 1,
+                kind: BlockBounceKind::Metal,
                 prize_content: None,
                 y_offset_px: 0,
             }));

@@ -1381,6 +1381,7 @@ pub(crate) struct BlockBounceAnim {
     pub(crate) cell_x: u16,
     pub(crate) cell_y: u16,
     pub(crate) remaining: u8,
+    pub(crate) kind: BlockBounceKind,
     /// Total duration when the bounce was spawned. Drives the wobble lookup
     /// per ASM `sub_1007A` (31 frames for prize blocks, shorter arc for
     /// metal/rubber until their ASM coroutines are individually pinned).
@@ -1392,6 +1393,13 @@ pub(crate) struct BlockBounceAnim {
     /// Current y-pixel offset for visual rendering. Negative = rising (block
     /// moves up after a head-bonk). Maintained by `process_block_effects`.
     pub(crate) y_offset_px: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockBounceKind {
+    Metal,
+    Prize,
+    Shifting,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

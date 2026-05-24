@@ -8375,6 +8375,7 @@ mod chunk_09 {
             cell_y: 5,
             remaining: 2,
             initial_duration: 8,
+            kind: BlockBounceKind::Metal,
             prize_content: None,
             y_offset_px: 0,
         });

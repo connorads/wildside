@@ -349,6 +349,11 @@ pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
 /// metal block runs four `subq.w #2,y_pos(a3)` hibernated frames then four
 /// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 → -8 → 0 arc.
 pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196: [i16; 8] = [-2, -2, -2, -2, 2, 2, 2, 2];
+/// ASM sub_113C0 / loc_113F4 (kid.asm:23335-23339): shifting/lift block
+/// workers rise by two pixels for eight hibernated frames before the layout
+/// cell above is committed and the source cell is erased.
+pub(crate) const SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4: [i16; 8] =
+    [-2, -2, -2, -2, -2, -2, -2, -2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
@@ -2708,6 +2713,19 @@ impl NativeRuntime {
         // Move block up: copy cell to row above, clear current cell
         grid.set_cell_at(col, foot_row - 1, cell);
         grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
+        // ASM loc_11364 -> sub_113C0 (kid.asm:23303-23339): native keeps the
+        // collision-visible grid swap immediate, but the ROM still draws a
+        // worker sprite rising two pixels for eight hibernated frames from the
+        // source row into the reserved cell above.
+        self.block_bounces.push(BlockBounceAnim {
+            cell_x: col,
+            cell_y: foot_row - 1,
+            remaining: 8,
+            initial_duration: 8,
+            kind: BlockBounceKind::Shifting,
+            prize_content: None,
+            y_offset_px: 16,
+        });
     }
 
     pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
@@ -2856,6 +2874,7 @@ impl NativeRuntime {
                 cell_y,
                 remaining: 8,
                 initial_duration: 8,
+                kind: BlockBounceKind::Metal,
                 prize_content: None,
                 y_offset_px: 0,
             });
@@ -3277,18 +3296,17 @@ impl NativeRuntime {
             )
         };
 
-        // ASM sub_1007A (kid.asm:21345-21599) and sub_11120 (kid.asm:23050):
-        // each hibernate cycle in the block wobble applies one entry from the
-        // delta table to `y_pos(a3)`. Native walks the 31-entry prize-block
-        // table for prize bounces and the 8-entry metal-block table
-        // (loc_11196 ascending path: four -2 steps then four +2 steps,
-        // producing a 0 → -8 → 0 arc) for metal/rubber bounces.
+        // ASM sub_1007A (kid.asm:21345-21599), sub_11120 (kid.asm:23050),
+        // and sub_113C0 (kid.asm:23322): each hibernate cycle applies one
+        // entry from the relevant y-position script. Prize blocks use the
+        // long wobble table, metal blocks use the loc_11196 up/down bounce,
+        // and shifting blocks use loc_113F4's eight two-pixel rise steps.
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
-            let delta_table: &[i16] = if b.initial_duration == 31 {
-                &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
-            } else {
-                &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+            let delta_table: &[i16] = match b.kind {
+                BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
+                BlockBounceKind::Metal => &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196,
+                BlockBounceKind::Shifting => &SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4,
             };
             if let Some(delta) = delta_table.get(usize::from(elapsed)) {
                 b.y_offset_px = b.y_offset_px.saturating_add(*delta);
@@ -3306,7 +3324,7 @@ impl NativeRuntime {
             if b.remaining > 0 {
                 true
             } else {
-                if b.initial_duration == 31 {
+                if b.kind == BlockBounceKind::Prize {
                     let tail_frames = if b.prize_content == Some(terrain::PrizeContent::Diamond) {
                         // ASM PrizeDiamond_Init's `sf is_moved(a3)` makes the
                         // original sub_1007A object/gfx allocation overlap the
