@@ -2421,6 +2421,32 @@ mod tests {
             counts_at(EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME),
             (2, 0)
         );
+        let load_ingame_counts_at = |elapsed_frames| {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::StartingLevel {
+                start_latched: true,
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: true,
+            };
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        };
+
+        assert_eq!(
+            load_ingame_counts_at(EARLY_START_LOAD_INGAME_VISIBLE_FRAME - 2),
+            (0, 0),
+            "ASM loc_6E2 keeps early Start Load_InGame counts blank before the final hidden preload frame",
+        );
+        assert_eq!(
+            load_ingame_counts_at(EARLY_START_LOAD_INGAME_VISIBLE_FRAME - 1),
+            (4, 2),
+        );
+        assert_eq!(
+            load_ingame_counts_at(EARLY_START_LOAD_INGAME_VISIBLE_FRAME),
+            (5, 4),
+        );
         assert_eq!(
             counts_at(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME - 1),
             (15, 0)
