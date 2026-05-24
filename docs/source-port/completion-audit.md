@@ -1,6 +1,6 @@
 # Source-Port Completion Audit
 
-Last audited: 2026-05-20 (current phase complete)
+Last audited: 2026-05-24 (current phase complete)
 
 ## Objective
 
@@ -19,11 +19,11 @@ true:
 
 | Criterion | Evidence required | Current evidence | Status |
 |---|---|---|---|
-| Native 1P core path works | `cargo run -q -p kidcli -- project-status` reports `1p-playable (passed)` with no top open playability risks | 2026-05-20 audit: passed, no top open playability risks | Pass |
-| Oracle-backed accuracy stays green | `project-status` reports `1p-accurate: passed`, backed by release-gate/sweep evidence | 2026-05-20 audit: passed | Pass |
-| Published TAS frontier is closed | `project-status` reports `any-percent-published [complete]` through its end frame | 2026-05-20 audit: clean through frame 37759 | Pass |
-| Source-port frontier has no agent-actionable task | `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` reports no ready implementation task, and `cargo run -q -p kidcli -- autonomous-loop --goal case-queue` has no reduced authoritative case | 2026-05-20 audit: source-port frontier reports verification lanes exhausted and `project-status` reports no ready implementation item after the Drips surface-crawler follow-ups; the targeted Drips bounds mutation check caught all 14 mutants | Pass |
-| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | 2026-05-20 audit: #147, #148, #149, #150, #151, #154, and #155 are closed with ASM-cited regressions or refreshed deterministic evidence; no top open playability or visual risks remain | Pass |
+| Native 1P core path works | `cargo run -q -p kidcli -- project-status` reports `1p-playable (passed)` with no top open playability risks | 2026-05-24 audit: passed, no top open playability risks | Pass |
+| Oracle-backed accuracy stays green | `project-status` reports `1p-accurate: passed`, backed by release-gate/sweep evidence | 2026-05-24 audit: passed; `.cache/release-gate/1p-accurate/latest.json` reports `"passed": true` | Pass |
+| Published TAS frontier is closed | `project-status` reports `any-percent-published [complete]` through its end frame | 2026-05-24 audit: clean through frame 37759 | Pass |
+| Source-port frontier has no agent-actionable task | `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` reports no ready implementation task, and `cargo run -q -p kidcli -- autonomous-loop --goal case-queue` has no reduced authoritative case | 2026-05-24 audit: source-port frontier reports verification lanes exhausted; case queue reports no reduced authoritative case; `project-status` reports no ready implementation item | Pass |
+| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | 2026-05-24 audit: backlog has no open `[ ]`, `[~]`, `[?]`, or `[b]` rows; no top open playability or visual risks remain | Pass |
 | Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | No human-only validation rows remain | Pass |
 | Human-only repro blockers have been resolved | Blocked rows have a human repro bundle or an explicit out-of-scope decision | #146 now has deterministic Level 2 death evidence proving recovery; no `[b]` repro blocker remains | Pass |
 
@@ -44,7 +44,7 @@ rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 
 ## Conclusion
 
-Current phase completion audit passes on 2026-05-20. `mise run
+Current phase completion audit passes on 2026-05-24. `mise run
 completion-audit` refreshes all human-validation bundles, writes
 `.cache/human-validation/index.html`, and `project-status --fail-on-human-blockers`
 reports no top open playability risks, visual risks, or human validation/repro
