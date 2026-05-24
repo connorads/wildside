@@ -1888,6 +1888,45 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_holds_late_playback_one_jump_window() {
+        fn movement_at(frame_counter: u16, use_demo_2: bool) -> u16 {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2,
+            };
+            let mut player = PlayerState::title_pose();
+            player.on_ground = true;
+            player.x_velocity = 0;
+            runtime.current_character_movement(player)
+        }
+
+        // ASM loc_A6F8 -> loc_A94E keeps MoveID_Jump through the late demo-1
+        // landing stall, inclusive of both oracle-derived boundary frames.
+        assert_eq!(
+            movement_at(demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME, false),
+            3
+        );
+        assert_eq!(
+            movement_at(demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_END_FRAME, false),
+            3
+        );
+        assert_eq!(
+            movement_at(demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME - 1, false),
+            0
+        );
+        assert_eq!(
+            movement_at(demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_END_FRAME + 1, false),
+            0
+        );
+        assert_eq!(
+            movement_at(demo::DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME, true),
+            0
+        );
+    }
+
+    #[test]
     fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
         fn velocities_at(
             use_demo_2: bool,
