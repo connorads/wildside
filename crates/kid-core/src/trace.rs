@@ -1633,6 +1633,117 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_character_movement_ignores_stale_death_shell_when_alive() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::Alive;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_velocity = 0x0001_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.death_shell_snapshot = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player: PlayerState::title_pose(),
+            frozen_camera: CameraState::default(),
+            frozen_active_objects: Vec::new(),
+            frozen_number_objects: 0,
+            frozen_number_gfx_objects: 0,
+        });
+
+        assert_eq!(
+            runtime.trace_frame().character_movement,
+            Some(2),
+            "ASM lose_life shell snapshots only force MoveID_Standingstill while the death lifecycle is active"
+        );
+    }
+
+    #[test]
+    fn trace_frame_playback_bootstrap_character_movement_starts_at_gameplay_boundary() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_velocity = 0x0001_0000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(runtime.trace_frame().character_movement, None);
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.trace_frame().character_movement,
+            Some(2),
+            "ASM Load_DemoPlay keeps Character_Movement inert only before the first gameplay-start frame"
+        );
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME + 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.trace_frame().character_movement,
+            Some(2),
+            "ASM Load_DemoPlay keeps Character_Movement live after the first gameplay-start frame"
+        );
+    }
+
+    #[test]
+    fn current_character_movement_honours_playback_gameplay_start_boundary() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_velocity = 0x0001_0000;
+        let moving_player = slice.player;
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.current_character_movement(moving_player),
+            0,
+            "ASM Load_DemoPlay keeps Character_Movement inert before the gameplay-start frame"
+        );
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.current_character_movement(moving_player),
+            2,
+            "ASM Load_DemoPlay releases Character_Movement on the gameplay-start frame"
+        );
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_GAMEPLAY_START_FRAME + 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+        assert_eq!(
+            runtime.current_character_movement(moving_player),
+            2,
+            "ASM Load_DemoPlay keeps Character_Movement live after the gameplay-start frame"
+        );
+    }
+
+    #[test]
     fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
         fn velocities_at(
             use_demo_2: bool,
