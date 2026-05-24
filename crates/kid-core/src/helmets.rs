@@ -4162,6 +4162,7 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
 }
 
 impl NativeRuntime {
+    #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
         // ASM sub_DB22 (kid.asm:17170): grounded/default-pose recovery clears
@@ -4224,8 +4225,8 @@ impl NativeRuntime {
         //     else loc_794C. Native: preserves red_stealth_sword_timer when > 0.
         //   loc_794C (kid.asm:8009): default standing sprite — sf Maniaxe_throwing_axe,
         //     sf Red_Stealth_sword_swing, index off_79B2[helmet_id] for sprite.
-        //     Native: clear_special_movement_state_sub_DB22 clears the flags;
-        //     sprite selection is visual-only.
+        //     This does not call sub_DB22, so unrelated action state such as
+        //     Berzerker_charging survives the visual refresh.
         //   loc_7962 (kid.asm:8019): Micromax (helmet=9) — increment walk
         //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
         //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
@@ -4250,8 +4251,9 @@ impl NativeRuntime {
         //     this reset unmodelled with the rest of the dead block.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
-        self.clear_special_movement_state_sub_DB22();
+
         match self.progression.current_form {
+            PlayerForm::Juggernaut | PlayerForm::Micromax | PlayerForm::Skycutter => {}
             PlayerForm::Maniaxe => {
                 if previous_maniaxe_axe_active
                     && self.projectiles.iter().any(|projectile| {
@@ -4259,18 +4261,28 @@ impl NativeRuntime {
                     })
                 {
                     self.helmet.maniaxe_axe_active = true;
+                } else {
+                    // ASM loc_794C: the default-pose refresh clears only
+                    // Maniaxe's axe and Red Stealth's sword latch. Full
+                    // transient-state cleanup belongs to explicit sub_DB22
+                    // call sites such as landing and recovery.
+                    self.helmet.maniaxe_axe_active = false;
+                    self.helmet.red_stealth_sword_timer = 0;
                 }
             }
             PlayerForm::RedStealth => {
-                // `clear_special_movement_state_sub_DB22` just zeroed
-                // `red_stealth_sword_timer`; restoring `previous` is identical to
-                // skipping the assignment when previous == 0, so write
-                // unconditionally to avoid an equivalent `> 0` ↔ `>= 0`
-                // boundary mutation. ASM loc_7932 only keeps the swing pose
-                // when the prior sword latch was live.
-                self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
+                if previous_red_stealth_sword_timer > 0 {
+                    self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
+                } else {
+                    // ASM loc_7932 falls through to loc_794C when the prior
+                    // sword latch is clear.
+                    self.helmet.maniaxe_axe_active = false;
+                    self.helmet.red_stealth_sword_timer = 0;
+                }
             }
             PlayerForm::Eyeclops => {
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.red_stealth_sword_timer = 0;
                 self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
                     projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
                 });
@@ -4279,7 +4291,11 @@ impl NativeRuntime {
                     self.helmet.eyeclops_beam_hard = false;
                 }
             }
-            _ => {}
+            _ => {
+                // ASM loc_794C: default standing sprite path.
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.red_stealth_sword_timer = 0;
+            }
         }
     }
 

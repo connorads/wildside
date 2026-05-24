@@ -7321,6 +7321,56 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_9564 -> loc_B678 -> loc_B692: a live frame that overflows the
+    /// Berzerker charge accumulator must immediately let the horn-side contact
+    /// damage the enemy in front of Kid.
+    #[test]
+    fn berzerker_live_frame_charge_hits_front_enemy_after_accumulator_overflow() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
+        rt.helmet.berzerker_charge_accum = 0xF0;
+        rt.previous_input = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
+        rt.set_block_grid(grid_with_floor_at_row(17));
+
+        let mut slice = OpeningSliceState::respawn(rt.level_bounds(LevelId(0)));
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x010F_0000;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+        slice.terrain.floor_y_pos = 0x011F_0000;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+        rt.opening_slice = Some(slice);
+
+        let hit_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            (0x0040 + hit_dx as u32) << 16,
+            0x010F_0000,
+            1,
+        ));
+        rt.rebuild_active_enemy_roster();
+
+        rt.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+
+        assert!(
+            rt.helmet.berzerker_charging,
+            "ASM loc_9564: accumulator overflow should set Berzerker_charging"
+        );
+        assert!(
+            rt.active_enemies.is_empty(),
+            "ASM loc_B678: front-edge side contact while charging should damage the enemy"
+        );
+    }
+
     /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
     /// side contact tests object_meta bit 15, then `neg.l x_vel(a3)` before
     /// returning without contact damage to Kid.

@@ -3074,12 +3074,10 @@ mod chunk_11 {
         );
     }
 
-    // --- loc_7920: Skycutter standing animation gate in sub_78E8 ---
+    // --- loc_79AC: Skycutter standing flipboard visual in sub_78E8 ---
 
-    /// ASM loc_7920 (kid.asm:7991): `cmpi.w #4,d0 / bne.w loc_7932 / tst.b
-    /// is_animated(a3) / beq.w loc_794C / rts`. If Skycutter and animated,
-    /// the ROM keeps the current sprite and returns. Otherwise falls through
-    /// to loc_794C (default standing sprite).
+    /// ASM loc_79AC (kid.asm:8053): Skycutter (helmet=1) branches before
+    /// loc_7920 and goes straight to sub_98F2, bypassing loc_794C and sub_DB22.
     ///
     /// Native: Skycutter flipboard is managed by `step_skycutter_flipboard`;
     /// sub_78E8 doesn't need a special Skycutter branch — the `_ => {}` arm
@@ -3091,20 +3089,15 @@ mod chunk_11 {
         rt.helmet.skycutter_flipboard = 0x11;
         rt.helmet.skycutter_on_board = true;
 
-        // sub_78E8 calls sub_DB22 which clears flipboard state.
-        // This matches ASM loc_794C (default sprite) path for Skycutter when
-        // is_animated is false. The ROM also clears the transient state.
         rt.refresh_grounded_helmet_state_sub_78E8();
 
-        // ASM loc_7920: when is_animated is false, the Skycutter falls through
-        // to loc_794C, which means sub_DB22 equivalently clears the state.
         assert_eq!(
-            rt.helmet.skycutter_flipboard, 0,
-            "ASM loc_7920 → loc_794C: non-animated Skycutter should have flipboard cleared by sub_DB22 path",
+            rt.helmet.skycutter_flipboard, 0x11,
+            "ASM loc_79AC: Skycutter sub_78E8 path should preserve flipboard counter",
         );
         assert!(
-            !rt.helmet.skycutter_on_board,
-            "ASM loc_7920 → loc_794C: non-animated Skycutter should have on_board cleared by sub_DB22 path",
+            rt.helmet.skycutter_on_board,
+            "ASM loc_79AC: Skycutter sub_78E8 path should preserve on_board latch",
         );
     }
 
@@ -3154,7 +3147,7 @@ mod chunk_11 {
     /// (Red_Stealth_sword_swing) / add.w d0,d0 / lea off_79B2(pc),a0 / add.w
     /// d0,a0 / move.w (a0),addroffset_sprite(a3) / rts`.
     ///
-    /// The flag-clearing part is modelled by `clear_special_movement_state_sub_DB22`.
+    /// The flag-clearing part is modelled by `refresh_grounded_helmet_state_sub_78E8`.
     /// The sprite table lookup (off_79B2 indexed by helmet ID) is visual-only.
     #[test]
     fn default_sprite_clears_maniaxe_and_red_stealth_flags_loc_794c() {
@@ -3163,8 +3156,8 @@ mod chunk_11 {
         rt.helmet.maniaxe_axe_active = true;
         rt.helmet.red_stealth_sword_timer = 0x70;
 
-        // sub_78E8 for TheKid form: no special branch, falls through sub_DB22
-        // which clears both flags — equivalent to loc_794C's sf pair.
+        // sub_78E8 for TheKid form: no special branch, falls through loc_794C
+        // which clears both flags with an sf pair.
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
@@ -3179,7 +3172,8 @@ mod chunk_11 {
 
     /// ASM loc_794C: Berzerker form reaches loc_794C through the default path
     /// (helmet=7, not matched by Juggernaut/Micromax/Skycutter/Red Stealth/
-    /// Maniaxe gates). Verify flags are cleared.
+    /// Maniaxe gates). The path clears only the axe/sword visual latches, not
+    /// Berzerker's charge state from sub_DB22.
     #[test]
     fn berzerker_reaches_default_sprite_path_loc_794c() {
         let mut rt = NativeRuntime::new(manifest());
@@ -3191,12 +3185,12 @@ mod chunk_11 {
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
-            !rt.helmet.berzerker_charging,
-            "ASM loc_794C: Berzerker should have charging cleared via sub_DB22 on default path",
+            rt.helmet.berzerker_charging,
+            "ASM loc_794C: default sprite refresh should preserve Berzerker_charging",
         );
         assert_eq!(
-            rt.helmet.berzerker_charge_accum, 0,
-            "ASM loc_794C: Berzerker charge accumulator should be zeroed via sub_DB22",
+            rt.helmet.berzerker_charge_accum, 0xFF,
+            "ASM loc_794C: default sprite refresh should preserve Berzerker charge accumulator",
         );
         assert!(
             !rt.helmet.maniaxe_axe_active,
@@ -3216,30 +3210,21 @@ mod chunk_11 {
     /// non-special helmets. The walk accumulator ($FFFFF8F0) is unrelated
     /// to gameplay state.
     #[test]
-    fn micromax_sub_78e8_clears_stale_flags_loc_7962() {
+    fn micromax_sub_78e8_preserves_state_loc_7962() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Micromax;
         rt.helmet.maniaxe_axe_active = true;
         rt.helmet.red_stealth_sword_timer = 0x30;
 
-        // Micromax falls through the _ => {} arm after sub_DB22 clears flags.
-        // In the ROM, Micromax would branch to loc_7962 for the idle cycle,
-        // but loc_7962 doesn't touch Maniaxe/RedStealth flags — those were
-        // already cleared by loc_794C before the Micromax check at sub_78E8
-        // entry (Micromax is checked at helmet=9 before the Maniaxe/RedStealth
-        // gates). Actually, the ROM flow: sub_78E8 checks helmet=9 early →
-        // branches to loc_7962 directly, skipping loc_794C. So loc_794C's
-        // flag clearing does NOT run for Micromax — but sub_DB22 (which native
-        // calls unconditionally) does clear them.
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
-            !rt.helmet.maniaxe_axe_active,
-            "ASM loc_7962: Micromax path should still clear Maniaxe flag via sub_DB22",
+            rt.helmet.maniaxe_axe_active,
+            "ASM loc_7962: Micromax idle path bypasses loc_794C and should preserve Maniaxe flag",
         );
         assert_eq!(
-            rt.helmet.red_stealth_sword_timer, 0,
-            "ASM loc_7962: Micromax path should still clear Red Stealth timer via sub_DB22",
+            rt.helmet.red_stealth_sword_timer, 0x30,
+            "ASM loc_7962: Micromax idle path bypasses loc_794C and should preserve Red Stealth timer",
         );
     }
 
@@ -3252,8 +3237,7 @@ mod chunk_11 {
     /// the result and returns.
     ///
     /// Visual-only — native does not model the walk accumulator or sprite
-    /// selection. Verify that sub_78E8 for Micromax has no gameplay side effects
-    /// beyond sub_DB22 flag clearing.
+    /// selection. Verify that sub_78E8 for Micromax has no gameplay side effects.
     #[test]
     fn micromax_sub_78e8_no_gameplay_side_effects_loc_7982() {
         let mut rt = NativeRuntime::new(manifest());
@@ -3263,7 +3247,7 @@ mod chunk_11 {
 
         rt.refresh_grounded_helmet_state_sub_78E8();
 
-        // loc_7982 is pure visual — no gameplay state changed beyond sub_DB22.
+        // loc_7982 is pure visual — no gameplay state changed.
         assert!(
             !rt.helmet.maniaxe_axe_active,
             "ASM loc_7982: Micromax sprite store path should not set Maniaxe flag",
@@ -3291,26 +3275,21 @@ mod chunk_11 {
     /// deploy/retract animation). sub_975C (companion step) is modelled as a
     /// standalone pure function, not called in the frame tick.
     #[test]
-    fn juggernaut_sub_78e8_clears_stale_flags_loc_7988() {
+    fn juggernaut_sub_78e8_preserves_stale_flags_loc_7988() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
         rt.helmet.maniaxe_axe_active = true;
         rt.helmet.red_stealth_sword_timer = 0x20;
 
-        // Juggernaut (helmet=5) branches to loc_7988 in the ROM, which gates
-        // on is_animated/$18 before reaching the companion step (loc_79A2).
-        // None of those paths touch Maniaxe/RedStealth flags — those are
-        // only cleared at loc_794C, which Juggernaut bypasses entirely.
-        // Native: sub_DB22 clears them unconditionally.
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
-            !rt.helmet.maniaxe_axe_active,
-            "ASM loc_7988: Juggernaut standing path should clear Maniaxe flag via sub_DB22",
+            rt.helmet.maniaxe_axe_active,
+            "ASM loc_7988: Juggernaut standing path bypasses loc_794C and should preserve Maniaxe flag",
         );
         assert_eq!(
-            rt.helmet.red_stealth_sword_timer, 0,
-            "ASM loc_7988: Juggernaut standing path should clear Red Stealth timer via sub_DB22",
+            rt.helmet.red_stealth_sword_timer, 0x20,
+            "ASM loc_7988: Juggernaut standing path bypasses loc_794C and should preserve Red Stealth timer",
         );
     }
 
@@ -3322,8 +3301,7 @@ mod chunk_11 {
     /// to loc_79A2 for the companion step.
     ///
     /// Native: Juggernaut's `_ => {}` arm doesn't need explicit sprite
-    /// assignment or is_animated clear — these are visual-only. The sub_DB22
-    /// call handles flag cleanup.
+    /// assignment or is_animated clear — these are visual-only.
     #[test]
     fn juggernaut_sub_78e8_preserves_juggernaut_specific_state_loc_7998() {
         let mut rt = NativeRuntime::new(manifest());
@@ -3442,11 +3420,10 @@ mod chunk_11 {
 
     /// ASM loc_79AC (kid.asm:8053): in the ROM, Skycutter's sub_78E8 branch
     /// goes straight to sub_98F2 which reads/updates the flipboard counter.
-    /// Native sub_DB22 clears the flipboard counter and on_board flag, matching
-    /// the ROM's loc_794C path (which Skycutter bypasses — but sub_98F2 would
-    /// reinitialise the visual from the counter anyway).
+    /// Native preserves the flipboard counter and on_board flag here because
+    /// this visual branch does not call sub_DB22 or loc_794C.
     #[test]
-    fn skycutter_sub_78e8_sub_db22_clears_flipboard_loc_79ac() {
+    fn skycutter_sub_78e8_preserves_flipboard_loc_79ac() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Skycutter;
         rt.helmet.skycutter_flipboard = 0x0F;
@@ -3454,18 +3431,13 @@ mod chunk_11 {
 
         rt.refresh_grounded_helmet_state_sub_78E8();
 
-        // sub_DB22 clears all helmet state including flipboard.
-        // In the ROM, loc_79AC would call sub_98F2 which reads the counter
-        // to determine visual state — but since step_skycutter_flipboard
-        // runs independently, the sub_DB22 reset is the correct native
-        // behaviour for the sub_78E8 path.
         assert_eq!(
-            rt.helmet.skycutter_flipboard, 0,
-            "ASM loc_79AC: sub_DB22 should clear flipboard counter in sub_78E8 path",
+            rt.helmet.skycutter_flipboard, 0x0F,
+            "ASM loc_79AC: sub_78E8 should preserve flipboard counter",
         );
         assert!(
-            !rt.helmet.skycutter_on_board,
-            "ASM loc_79AC: sub_DB22 should clear on_board flag in sub_78E8 path",
+            rt.helmet.skycutter_on_board,
+            "ASM loc_79AC: sub_78E8 should preserve on_board flag",
         );
     }
 
@@ -4343,7 +4315,7 @@ mod chunk_11 {
     fn loc_82ba_sub_78e8_clears_special_movement_state() {
         // ASM sub_78E8 (kid.asm:7973) → loc_794C (kid.asm:8009):
         // `sf (Maniaxe_throwing_axe); sf (Red_Stealth_sword_swing)`.
-        // Native: clear_special_movement_state_sub_DB22 inside sub_78E8.
+        // Native: refresh_grounded_helmet_state_sub_78E8 models loc_794C directly.
         let mut rt = NativeRuntime::new(manifest());
         start_level(&mut rt);
         rt.helmet.maniaxe_axe_active = true;
