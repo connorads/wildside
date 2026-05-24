@@ -1407,6 +1407,55 @@ mod tests {
             },
             "ASM loc_6E2 holds the preload camera row until the player-visible ramp frame",
         );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFF00_0000,
+            },
+            "ASM loc_6E2 wraps the early Start Load_InGame camera row before returning to the preload hold",
+        );
+
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: EARLY_START_LOAD_INGAME_VISIBLE_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x00D8_0000,
+            },
+        );
+
+        runtime.current_level = LevelId(1);
+        runtime.opening_slice = Some(OpeningSliceState {
+            camera: CameraState {
+                x_pos: 0x1234_0000,
+                y_pos: 0x0042_0000,
+            },
+            ..OpeningSliceState::respawn(crate::physics::LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            })
+        });
+        assert_eq!(
+            runtime.current_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x0042_0000,
+            },
+            "ASM loc_6E2 Level 1 camera ramp is not reused for non-Level 1 early-start loads",
+        );
     }
 
     #[test]
