@@ -5520,7 +5520,6 @@ impl NativeRuntime {
         if !moving_forward
             || ice_without_directional_input
             || vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
-            || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
             // ASM loc_957C (kid.asm:11023): every rejected charge frame clears
             // `$FFFFFA13`, the byte accumulator represented by this native field.

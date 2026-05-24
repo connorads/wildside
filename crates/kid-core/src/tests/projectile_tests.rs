@@ -7375,6 +7375,48 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_9512 -> loc_9564 (kid.asm:10978-11013): non-Ice Berzerker
+    /// charge only gates on forward speed; it does not require grounded state
+    /// or held horizontal input. The resulting `Berzerker_charging` flag then
+    /// feeds loc_B678's side-contact damage path in the same airborne case.
+    #[test]
+    fn berzerker_airborne_charge_hits_front_enemy_without_held_input() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
+        rt.helmet.berzerker_charge_accum = 0xF0;
+        rt.previous_input = FrameInput::default();
+
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = -0x0002_0000;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        let hit_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            (0x0040 + hit_dx as u32) << 16,
+            0x0040_0000,
+            1,
+        ));
+
+        rt.step_berzerker_charge(&slice);
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert!(
+            rt.helmet.berzerker_charging,
+            "ASM loc_9564 should set Berzerker_charging for airborne forward speed on non-Ice"
+        );
+        assert!(
+            rt.active_enemies.is_empty(),
+            "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy"
+        );
+    }
+
     /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
     /// side contact tests object_meta bit 15, then `neg.l x_vel(a3)` before
     /// returning without contact damage to Kid.
