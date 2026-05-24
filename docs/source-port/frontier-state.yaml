@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-21T00:00:00Z",
+  "updated_at": "2026-05-24T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-clean-through-frame-37759",
@@ -365,11 +365,7 @@
   "next_actions": {
     "ready_to_implement": [],
     "proactive_verification": [
-      "Run cargo mutants on enemies.rs, combat.rs, blocks.rs (see ralph-gameplay-loop.md Strategy 1)",
-      "Audit mini_hopping_skull family (92 uncovered locs, see Strategy 2)",
-      "Audit drips family (74 uncovered locs)",
-      "Audit ninja family (48 uncovered locs)",
-      "Enable enemy-state sweep comparison (see Strategy 3)"
+      "No proactive-verification task is currently actionable. `cargo run -q -p kidcli -- autonomous-loop --goal proactive-verification` reports `proactive-verification:all-exhausted`; reopen only with a new recording, reduced case, root-cause backlog item, additional proactive-verification strategy, or previously unrotated mutation target."
     ]
   },
   "bootstrap": {
