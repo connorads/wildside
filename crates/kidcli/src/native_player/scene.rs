@@ -1611,6 +1611,40 @@ pub(super) fn push_tile_quad(
     }
 }
 
+fn prize_block_wobble_frame_sub_1007a(
+    level_visuals: &NativeLevelVisuals,
+    remaining: u8,
+) -> kid_render::SpriteFrame {
+    let elapsed = 31_u8.saturating_sub(remaining);
+    // ASM stru_101B6/stru_10296 (kid.asm:21447,21529): the prize-block
+    // wobble worker alternates 16x16 sprite frames at VRAM tiles $220 and
+    // $229 for three hibernated frames each while sub_1007A moves y_pos.
+    let tile_base_index = if (elapsed / 3).is_multiple_of(2) {
+        0x000
+    } else {
+        0x009
+    };
+    kid_render::SpriteFrame {
+        origin_x: 0x00,
+        origin_y: 0x10,
+        width_px: 0x10,
+        height_px: 0x10,
+        tile_base_index,
+        tile_sheet: level_visuals.block_tiles.clone(),
+    }
+}
+
+fn push_prize_block_wobble_sub_1007a(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x: i32,
+    y: i32,
+    remaining: u8,
+) {
+    let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
+    push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
+}
+
 pub(super) fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -1670,8 +1704,11 @@ pub(super) fn push_block_grid_overrides(
                 .block_bounces
                 .iter()
                 .find(|(cx, cy, _, _)| *cx == col && *cy == row)
-                .map(|(_, _, _, y)| i32::from(*y));
+                .map(|(_, _, remaining, y)| (*remaining, i32::from(*y)));
             if !cell.has_block && bounce_y_offset.is_none() {
+                continue;
+            }
+            if bounce_y_offset.is_some_and(|(remaining, _)| remaining > 8) {
                 continue;
             }
 
@@ -1692,7 +1729,7 @@ pub(super) fn push_block_grid_overrides(
             // ASM sub_1007A wobble: if the cell is in `block_bounces`, offset
             // the draw y_pos by the engine-supplied value so the block visibly
             // shakes up/down before settling.
-            let y_offset = bounce_y_offset.unwrap_or(0);
+            let y_offset = bounce_y_offset.map_or(0, |(_, y)| y);
             push_tile_quad(
                 commands,
                 level_visuals,
@@ -1701,6 +1738,19 @@ pub(super) fn push_block_grid_overrides(
                 resolved.quad,
             );
         }
+    }
+
+    for &(col, row, remaining, y_offset) in &trace.block_bounces {
+        if remaining <= 8 {
+            continue;
+        }
+        push_prize_block_wobble_sub_1007a(
+            commands,
+            level_visuals,
+            i32::from(col) * 16 - camera_x_px,
+            i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
+            remaining,
+        );
     }
 }
 

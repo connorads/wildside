@@ -2760,7 +2760,7 @@ mod tests {
     }
 
     #[test]
-    fn build_scene_draws_prize_block_wobble_even_after_deleted_cell_write() {
+    fn build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write() {
         // ASM sub_1007A/loc_10200 writes `$6Fxx` to Level_Layout while the
         // wobble worker remains live and draws `unk_E0E4E`/`unk_E0E5E` at the
         // hibernated y offset. Rendering must therefore key off `block_bounces`
@@ -2778,11 +2778,18 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
 
         assert!(
-            scene
-                .commands
-                .iter()
-                .any(|command| matches!(command, DrawCommand::IndexedTile { x: 32, y: 30, .. })),
-            "active sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell at the bounced y offset",
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 32,
+                    y: 30,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0)
+            )),
+            "active sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell as the ROM wobble sprite at the bounced y offset",
         );
     }
 

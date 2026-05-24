@@ -128,13 +128,17 @@ mod chunk_06 {
         runtime.step_frame(FrameInput::default());
         assert_eq!(runtime.block_bounces.len(), 1);
 
-        for _ in 0..24 {
+        for _ in 0..120 {
             runtime.step_frame(FrameInput::default());
             assert!(
                 runtime.block_bounces.len() <= 1,
                 "same metal cell should not accumulate concurrent steel bounces"
             );
         }
+        assert!(
+            runtime.block_bounces.is_empty(),
+            "ASM loc_A94E/sub_DB22: same-cell metal recontact should settle after the one loc_110D0 wobble, not restart forever"
+        );
     }
 
     /// ASM loc_AF96 (kid.asm:13808): active break path inside sub_AF7A.
