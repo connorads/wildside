@@ -405,6 +405,7 @@ pub(crate) fn golden_diff(
             } else {
                 divergence_summary_with(DivergenceCategory::Authoritative)
             },
+            checksum_mismatch: None,
         });
     }
 

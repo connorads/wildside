@@ -268,6 +268,7 @@ mod tests {
             diff_images: Vec::new(),
             error: None,
             divergence_summary: summary,
+            checksum_mismatch: None,
         }
     }
 

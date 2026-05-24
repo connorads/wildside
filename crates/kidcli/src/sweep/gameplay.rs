@@ -101,6 +101,7 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> LevelS
         } else {
             divergence_summary_with(DivergenceCategory::Authoritative)
         },
+        checksum_mismatch: None,
     }
 }
 

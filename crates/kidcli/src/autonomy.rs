@@ -14755,6 +14755,7 @@ strategies:
                     diff_images: Vec::new(),
                     error: None,
                     divergence_summary: DivergenceSummary::default(),
+                    checksum_mismatch: None,
                 }
             })
             .collect();

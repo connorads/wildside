@@ -372,6 +372,7 @@ fn run_one_player_accurate_gate(
         &sweep::SweepOptions {
             warm_cache_only: false,
             max_failures,
+            checksum: false,
         },
     ) {
         Ok(sweep_report) => {

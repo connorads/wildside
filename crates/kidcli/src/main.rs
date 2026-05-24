@@ -496,6 +496,9 @@ enum Commands {
         /// Stop after this many failures (0 = run all levels).
         #[arg(long, default_value_t = 0)]
         max_failures: usize,
+        /// Record first per-frame authoritative CRC mismatch per level in report.json.
+        #[arg(long, default_value_t = false)]
+        checksum: bool,
         /// Capture golden state snapshots (no oracle needed).
         #[arg(long, default_value_t = false)]
         golden_capture: bool,
@@ -1453,6 +1456,7 @@ fn main() -> Result<()> {
             tier,
             warm_cache_only,
             max_failures,
+            checksum,
             golden_capture,
             golden_diff,
         } => {
@@ -1469,6 +1473,7 @@ fn main() -> Result<()> {
                 let options = sweep::SweepOptions {
                     warm_cache_only,
                     max_failures,
+                    checksum,
                 };
                 sweep::run_sweep_with_options(
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,

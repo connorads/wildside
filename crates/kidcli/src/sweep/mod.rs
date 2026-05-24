@@ -164,6 +164,18 @@ pub(crate) struct LevelSweepResult {
     pub(crate) error: Option<String>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     pub(crate) divergence_summary: DivergenceSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) checksum_mismatch: Option<FrameChecksumMismatch>,
+}
+
+/// First per-frame authoritative CRC mismatch for a native/oracle level run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct FrameChecksumMismatch {
+    pub(crate) frame_index: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) native_crc32: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) oracle_crc32: Option<String>,
 }
 
 /// Field-level state divergence.
@@ -219,6 +231,8 @@ pub(crate) struct SweepOptions {
     pub(crate) warm_cache_only: bool,
     /// Stop the sweep after this many failures (0 = no limit).
     pub(crate) max_failures: usize,
+    /// Record the first per-frame authoritative CRC mismatch for each level.
+    pub(crate) checksum: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -442,6 +456,7 @@ fn finalise_level_result(
                 diff_images: Vec::new(),
                 error: Some(format!("{e:#}")),
                 divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
+                checksum_mismatch: None,
             };
             (r, true)
         }
@@ -556,7 +571,15 @@ pub(crate) fn run_sweep_with_options(
         for &level_id in levels {
             println!("sweep level {level_id:#04x}...");
             let result = sweep_single_level(
-                repo_root, rom_path, &rom_bytes, manifest, &*backend, &run_dir, level_id, tier,
+                repo_root,
+                rom_path,
+                &rom_bytes,
+                manifest,
+                &*backend,
+                &run_dir,
+                level_id,
+                tier,
+                options.checksum,
             );
             let (r, failed) = finalise_level_result(level_id, tier, result);
             print_level_result(&r);
@@ -581,7 +604,15 @@ pub(crate) fn run_sweep_with_options(
             .map(|&level_id| {
                 println!("sweep level {level_id:#04x}...");
                 let result = sweep_single_level(
-                    repo_root, rom_path, &rom_bytes, manifest, &*backend, &run_dir, level_id, tier,
+                    repo_root,
+                    rom_path,
+                    &rom_bytes,
+                    manifest,
+                    &*backend,
+                    &run_dir,
+                    level_id,
+                    tier,
+                    options.checksum,
                 );
                 (level_id, result)
             })
@@ -739,6 +770,14 @@ pub(crate) fn run_sweep_with_options(
             .join(", ");
         println!("release-gate focus: {summary}");
     }
+    let checksum_mismatches = report
+        .levels
+        .iter()
+        .filter(|level| level.checksum_mismatch.is_some())
+        .count();
+    if checksum_mismatches > 0 {
+        println!("checksum mismatches: {checksum_mismatches} level(s)");
+    }
     println!("report: {}", report_path.display());
 
     Ok(report)
@@ -753,6 +792,7 @@ fn sweep_single_level(
     run_dir: &Path,
     level_id: u8,
     requested_tier: SweepTier,
+    checksum: bool,
 ) -> Result<LevelSweepResult> {
     let scenario = idle_sweep_scenario_for_tier(level_id, requested_tier);
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
@@ -820,8 +860,13 @@ fn sweep_single_level(
                 oracle.states.first().map_or(0, |s| s.game_mode)
             )),
             divergence_summary: divergence_summary_with(DivergenceCategory::OracleLimitation),
+            checksum_mismatch: None,
         });
     }
+
+    let checksum_mismatch = checksum
+        .then(|| first_frame_checksum_mismatch(&native_trace, &oracle.frame_crcs))
+        .flatten();
 
     // Compare states
     let mut state_diffs = compare_sweep_states(&native_states, &oracle.states);
@@ -916,6 +961,7 @@ fn sweep_single_level(
         diff_images,
         error: None,
         divergence_summary,
+        checksum_mismatch,
     })
 }
 
@@ -1087,6 +1133,45 @@ pub(crate) fn find_first_crc_mismatch(native_crcs: &[u32], oracle_crcs: &[u32]) 
         .iter()
         .zip(oracle_crcs.iter())
         .position(|(n, o)| n != o)
+}
+
+fn first_frame_checksum_mismatch(
+    native_trace: &[NativeTraceFrame],
+    oracle_crcs: &[u32],
+) -> Option<FrameChecksumMismatch> {
+    let native_crcs = native_trace
+        .iter()
+        .map(NativeTraceFrame::authoritative_crc32)
+        .collect::<Vec<_>>();
+    first_checksum_mismatch(&native_crcs, oracle_crcs)
+}
+
+fn first_checksum_mismatch(
+    native_crcs: &[u32],
+    oracle_crcs: &[u32],
+) -> Option<FrameChecksumMismatch> {
+    if let Some(frame_index) = find_first_crc_mismatch(native_crcs, oracle_crcs) {
+        return Some(FrameChecksumMismatch {
+            frame_index,
+            native_crc32: native_crcs.get(frame_index).copied().map(format_crc32),
+            oracle_crc32: oracle_crcs.get(frame_index).copied().map(format_crc32),
+        });
+    }
+
+    if native_crcs.len() == oracle_crcs.len() {
+        None
+    } else {
+        let frame_index = native_crcs.len().min(oracle_crcs.len());
+        Some(FrameChecksumMismatch {
+            frame_index,
+            native_crc32: native_crcs.get(frame_index).copied().map(format_crc32),
+            oracle_crc32: oracle_crcs.get(frame_index).copied().map(format_crc32),
+        })
+    }
+}
+
+fn format_crc32(value: u32) -> String {
+    format!("{value:#010x}")
 }
 
 /// Extract NativeTraceFrame fields at checkpoint frame indices, returning
@@ -2044,6 +2129,37 @@ mod tests {
     }
 
     #[test]
+    fn first_checksum_mismatch_reports_first_crc_delta() {
+        let mismatch =
+            first_checksum_mismatch(&[0x1111_1111, 0x2222_2222], &[0x1111_1111, 0x3333_3333])
+                .expect("crc mismatch");
+
+        assert_eq!(
+            mismatch,
+            FrameChecksumMismatch {
+                frame_index: 1,
+                native_crc32: Some("0x22222222".into()),
+                oracle_crc32: Some("0x33333333".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn first_checksum_mismatch_reports_length_delta_after_matching_prefix() {
+        let mismatch = first_checksum_mismatch(&[0x1111_1111, 0x2222_2222], &[0x1111_1111])
+            .expect("length mismatch");
+
+        assert_eq!(
+            mismatch,
+            FrameChecksumMismatch {
+                frame_index: 1,
+                native_crc32: Some("0x22222222".into()),
+                oracle_crc32: None,
+            }
+        );
+    }
+
+    #[test]
     fn compare_sweep_states_detects_game_mode_diff() {
         let native = vec![OracleState {
             label: "settle".into(),
@@ -2458,6 +2574,7 @@ mod tests {
         let opts = SweepOptions::default();
         assert!(!opts.warm_cache_only);
         assert_eq!(opts.max_failures, 0);
+        assert!(!opts.checksum);
     }
 
     #[test]
@@ -3248,6 +3365,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 4,
             },
+            checksum_mismatch: None,
         };
 
         assert!(is_oracle_limitation_only(&result));
@@ -3315,6 +3433,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 4,
             },
+            checksum_mismatch: None,
         };
 
         assert_eq!(level_result_status(&result), "NON-BLOCKING");
@@ -3650,6 +3769,7 @@ mod tests {
                 diff_images: Vec::new(),
                 error: None,
                 divergence_summary: DivergenceSummary::default(),
+                checksum_mismatch: None,
             },
             LevelSweepResult {
                 level_id: 0x01,
@@ -3677,6 +3797,7 @@ mod tests {
                 diff_images: Vec::new(),
                 error: None,
                 divergence_summary: DivergenceSummary::default(),
+                checksum_mismatch: None,
             },
         ];
 
@@ -4055,6 +4176,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 2,
             },
+            checksum_mismatch: None,
         }];
 
         assert_eq!(
@@ -4171,6 +4293,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 1,
             },
+            checksum_mismatch: None,
         }];
 
         assert_eq!(
@@ -4310,6 +4433,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 1,
             },
+            checksum_mismatch: None,
         })
         .collect::<Vec<_>>();
 
@@ -4406,6 +4530,7 @@ mod tests {
                 rng: 0,
                 oracle_limitation: 4,
             },
+            checksum_mismatch: None,
         };
 
         assert!(!is_oracle_limitation_only(&result));
