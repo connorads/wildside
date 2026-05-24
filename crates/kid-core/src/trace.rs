@@ -1799,6 +1799,54 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
+        fn runtime_at(frame_counter: u16) -> NativeRuntime {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::DemoPlay {
+                frame_counter,
+                data_index: 0,
+                use_demo_2: true,
+            };
+            runtime.last_kid_frame_jump_gravity_probe = Some(KidJumpGravityProbe {
+                branch: KidJumpGravityBranch::AirborneHeldJumpGravity,
+                on_ground_before: false,
+                on_ground_after: false,
+                y_velocity_after: -1,
+                ..KidJumpGravityProbe::default()
+            });
+            runtime
+        }
+
+        let mut settled_player = PlayerState::title_pose();
+        settled_player.on_ground = true;
+        settled_player.x_velocity = 0;
+
+        // ASM loc_A6F8 -> loc_A94E keeps MoveID_Jump only after the object
+        // bootstrap frame and through the published playback wall-jump window.
+        let active = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        assert_eq!(active.current_character_movement(settled_player), 3);
+
+        let before_window = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+        assert_eq!(before_window.current_character_movement(settled_player), 0);
+
+        let after_window = runtime_at(demo::DEMO_TRACE_WALL_JUMP_MOVEMENT_HOLD_END_FRAME + 1);
+        assert_eq!(after_window.current_character_movement(settled_player), 0);
+
+        let mut airborne_player = settled_player;
+        airborne_player.on_ground = false;
+        let active_airborne = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        assert_eq!(
+            active_airborne.current_character_movement(airborne_player),
+            3
+        );
+
+        let mut moving_player = settled_player;
+        moving_player.x_velocity = 0x0001_0000;
+        let active_moving = runtime_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1);
+        assert_eq!(active_moving.current_character_movement(moving_player), 2);
+    }
+
+    #[test]
     fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
         fn velocities_at(
             use_demo_2: bool,
