@@ -266,6 +266,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
+    let mut suppress_level_card_for_debug_warp = false;
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
@@ -371,6 +372,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     }
                     let next = runtime.next_level_id();
                     runtime.warp_to_level(next);
+                    suppress_level_card_for_debug_warp = true;
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::P),
@@ -384,6 +386,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     }
                     let prev = runtime.prev_level_id();
                     runtime.warp_to_level(prev);
+                    suppress_level_card_for_debug_warp = true;
                 }
                 _ => {}
             }
@@ -404,6 +407,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             trace = runtime.trace_frame();
             current_level_id = trace.current_level.0;
             level_card_frames_remaining = 0;
+            suppress_level_card_for_debug_warp = false;
         } else {
             prev_trace = trace.clone();
             if level_card_frames_remaining == 0 {
@@ -493,9 +497,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     &trace,
                     options.warp_level,
                     options.settled,
+                    suppress_level_card_for_debug_warp,
                 ) {
                     level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
                 }
+                suppress_level_card_for_debug_warp = false;
             }
             if let Some(ref mut gems) = gems_engine {
                 let level_theme =
@@ -652,8 +658,9 @@ fn should_start_native_level_card_overlay_for_level_change(
     trace: &NativeTraceFrame,
     warp_level: Option<u8>,
     settled: bool,
+    debug_hotkey_warp: bool,
 ) -> bool {
-    if warp_level.is_some() || settled {
+    if warp_level.is_some() || settled || debug_hotkey_warp {
         return false;
     }
 
@@ -4267,7 +4274,7 @@ mod tests {
         trace.boot_phase = Some(String::from("level_skip_hold"));
 
         assert!(
-            !should_start_native_level_card_overlay_for_level_change(&trace, None, false),
+            !should_start_native_level_card_overlay_for_level_change(&trace, None, false, false),
             "ASM loc_74E0 level-skip hold/resume path should not be covered by the native placeholder level card",
         );
     }
@@ -4277,15 +4284,19 @@ mod tests {
         let trace = sample_trace(GameMode::LevelTransition);
 
         assert!(should_start_native_level_card_overlay_for_level_change(
-            &trace, None, false
+            &trace, None, false, false
         ));
         assert!(!should_start_native_level_card_overlay_for_level_change(
             &trace,
             Some(0),
+            false,
             false
         ));
         assert!(!should_start_native_level_card_overlay_for_level_change(
-            &trace, None, true
+            &trace, None, true, false
+        ));
+        assert!(!should_start_native_level_card_overlay_for_level_change(
+            &trace, None, false, true
         ));
     }
 
