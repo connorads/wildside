@@ -1773,6 +1773,32 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_classifies_moving_grounded_frames_after_standing_gate() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 40 << 16;
+        player.y_pos = 32 << 16;
+        player.x_velocity = 0x0001_0000;
+        player.on_ground = true;
+
+        let mut slope_runtime = NativeRuntime::new(minimal_manifest());
+        slope_runtime.boot_state = BootState::InGame;
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 5, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        slope_runtime.set_block_grid(grid);
+
+        // ASM loc_9D22 writes MoveID 6 when slope support is live after the
+        // earlier loc_8DFC/loc_8E16 standing gate has admitted moving ground.
+        assert_eq!(slope_runtime.current_character_movement(player), 6);
+
+        let mut flat_runtime = NativeRuntime::new(minimal_manifest());
+        flat_runtime.boot_state = BootState::InGame;
+
+        // ASM loc_8DFC/loc_8E16 falls through to walking when either direction
+        // bit or non-zero velocity admits moving flat ground past standing.
+        assert_eq!(flat_runtime.current_character_movement(player), 2);
+    }
+
+    #[test]
     fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
         fn velocities_at(
             use_demo_2: bool,
@@ -3934,13 +3960,10 @@ impl NativeRuntime {
             // before flat support was reacquired.
             core_slope || (was_grounded_before_step && edge_slope && slope_release)
         });
-        if on_slope && (self.trace_input.left || self.trace_input.right || player.x_velocity != 0) {
+        if on_slope {
             return MOVE_UPHILL_DOWNHILL;
         }
-        if self.trace_input.left || self.trace_input.right || player.x_velocity != 0 {
-            return MOVE_WALKING;
-        }
-        MOVE_STANDINGSTILL
+        MOVE_WALKING
     }
 
     fn demo_trace_wall_jump_movement_hold_active(&self, player: PlayerState) -> bool {
