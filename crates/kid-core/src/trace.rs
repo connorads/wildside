@@ -3543,6 +3543,84 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn kid_object_support_candidate_accepts_exact_trace_window_edges() {
+        let candidate = kid_object_support_candidate(
+            "edge",
+            100,
+            196,
+            ObjectBoundsPx {
+                left: 180,
+                right: 200,
+                top: 100,
+                bottom: 150,
+            },
+            ObjectBoundsPx {
+                left: 186,
+                right: 206,
+                top: 148,
+                bottom: 180,
+            },
+        )
+        .unwrap_or_else(|| {
+            panic!("exact Kid/object support trace window edges should be included")
+        });
+
+        assert_eq!(candidate.abs_dx_px, KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX);
+        assert_eq!(
+            candidate.abs_top_gap_px,
+            KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX
+        );
+        assert!(
+            candidate.summary.contains("relation=kidbelow support=1"),
+            "ASM loc_1CDE support traces should mark Below overlap as active support, got {}",
+            candidate.summary,
+        );
+    }
+
+    #[test]
+    fn kid_object_support_candidate_rejects_one_pixel_outside_trace_window() {
+        let player_bounds = ObjectBoundsPx {
+            left: 90,
+            right: 110,
+            top: 70,
+            bottom: 100,
+        };
+
+        assert_eq!(
+            kid_object_support_candidate(
+                "too_far_x",
+                100,
+                100,
+                player_bounds,
+                ObjectBoundsPx {
+                    left: 187,
+                    right: 207,
+                    top: 98,
+                    bottom: 130,
+                },
+            ),
+            None,
+            "Kid/object support trace candidates stop one pixel past the horizontal debug window",
+        );
+        assert_eq!(
+            kid_object_support_candidate(
+                "too_far_y",
+                100,
+                100,
+                player_bounds,
+                ObjectBoundsPx {
+                    left: 90,
+                    right: 110,
+                    top: 149,
+                    bottom: 180,
+                },
+            ),
+            None,
+            "Kid/object support trace candidates stop one pixel past the vertical debug window",
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
