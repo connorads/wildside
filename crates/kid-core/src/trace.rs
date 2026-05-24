@@ -1744,6 +1744,35 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_uses_form_edges_for_slope_release() {
+        fn movement_with_edge_slope(slope_col: u16) -> u16 {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::InGame;
+            runtime.progression.current_form = PlayerForm::Juggernaut;
+            runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
+                on_ground_before: true,
+                release_triggered: true,
+                ..KidGroundedReleaseProbe::default()
+            });
+            let mut grid = terrain::BlockGrid::from_level_layout(&[], 5, 4);
+            grid.set_cell_at(slope_col, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+            runtime.set_block_grid(grid);
+
+            let mut player = PlayerState::title_pose();
+            player.x_pos = 40 << 16;
+            player.y_pos = 32 << 16;
+            player.x_velocity = 0x0001_0000;
+            player.on_ground = true;
+            runtime.current_character_movement(player)
+        }
+
+        // ASM loc_9D22/sub_9386 scans Kid's form-width left/right floor probes;
+        // edge-only slope contact keeps MoveID 6 during the grounded-release seam.
+        assert_eq!(movement_with_edge_slope(1), 6);
+        assert_eq!(movement_with_edge_slope(3), 6);
+    }
+
+    #[test]
     fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
         fn velocities_at(
             use_demo_2: bool,
