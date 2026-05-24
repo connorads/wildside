@@ -102,6 +102,41 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    fn iron_knight_metal_block_hit_does_not_retrigger_same_bounce_loop() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+        let mut grid = grid_with_floor_at_row(14);
+        // ASM loc_110D0/sub_11120 (kid.asm:23019): a metal hit spawns one
+        // steel wobble worker for the contacted cell and rebounds Iron Knight.
+        // The preserved sub_AF7A latch must not make native repeatedly spawn
+        // new workers while the same metal cell is already wobbling.
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.block_bounces.len(), 1);
+
+        for _ in 0..24 {
+            runtime.step_frame(FrameInput::default());
+            assert!(
+                runtime.block_bounces.len() <= 1,
+                "same metal cell should not accumulate concurrent steel bounces"
+            );
+        }
+    }
+
     /// ASM loc_AF96 (kid.asm:13808): active break path inside sub_AF7A.
     /// `st (Iron_Knight_block_breaker).w; bsr.w sub_BBE2` probes for a block,
     /// then dispatches via off_AFD8.  On successful break the ROM sets

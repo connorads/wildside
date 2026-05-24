@@ -5888,6 +5888,7 @@ impl NativeRuntime {
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
         self.block_bounces.clear();
+        self.iron_knight_last_metal_block_hit = None;
         self.prize_block_worker_tails.clear();
         self.prize_block_spawn_flashes.clear();
         self.block_destroy_effects.clear();

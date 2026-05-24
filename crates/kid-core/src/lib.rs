@@ -116,6 +116,10 @@ pub struct NativeRuntime {
     /// handled Iron Knight block impact, cleared by sub_DB22 on the normal
     /// grounded clean-up path.
     iron_knight_block_breaker: bool,
+    /// Native guard for a same-cell metal rebound: ASM loc_110D0 creates one
+    /// sub_11120 worker for the contacted metal block, then a later normal
+    /// landing path reaches sub_DB22 and clears the Iron Knight latch.
+    iron_knight_last_metal_block_hit: Option<(u16, u16)>,
     /// Prize diamonds award their count later via PrizeDiamondCollected_Init,
     /// not on the touch frame.
     pending_prize_diamond_awards: Vec<u8>,
@@ -1153,6 +1157,7 @@ impl NativeRuntime {
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
             iron_knight_block_breaker: false,
+            iron_knight_last_metal_block_hit: None,
             pending_prize_diamond_awards: Vec::new(),
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
@@ -2639,13 +2644,33 @@ impl NativeRuntime {
                     // y_vel(a3); moveq #1,d7; rts`.  No block or block ID
                     // > 5 → loc_AFCA (kid.asm:13826): restore regs, fall
                     // through to loc_AFD0 (`moveq #0,d7; rts`).
-                    let collision = Self::iron_knight_block_breaker_collision_sub_AF7A(
-                        self.progression.current_form == PlayerForm::IronKnight,
-                        self.iron_knight_block_breaker,
-                        pre_physics_y_velocity,
-                        probe.on_ground && probe.cell.has_block,
-                        probe.cell.block_type,
-                    );
+                    let probed_cell = (probe.cell_x, probe.cell_y);
+                    let same_metal_rebound_cell = self.iron_knight_last_metal_block_hit
+                        == Some(probed_cell)
+                        && self.iron_knight_block_breaker
+                        && probe.on_ground
+                        && probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Metal;
+                    let collision = if same_metal_rebound_cell {
+                        // ASM loc_A94E/sub_DB22: after loc_110D0's tiny
+                        // rebound, re-touching the same restored metal cell
+                        // settles through the normal grounded clean-up instead
+                        // of spawning another sub_11120 worker.
+                        blocks::IronKnightBlockBreakerCollisionSubAF7A {
+                            next_block_breaker: false,
+                            handled_collision: false,
+                            next_y_velocity: None,
+                            effect: None,
+                        }
+                    } else {
+                        Self::iron_knight_block_breaker_collision_sub_AF7A(
+                            self.progression.current_form == PlayerForm::IronKnight,
+                            self.iron_knight_block_breaker,
+                            pre_physics_y_velocity,
+                            probe.on_ground && probe.cell.has_block,
+                            probe.cell.block_type,
+                        )
+                    };
                     self.iron_knight_block_breaker = if collision.handled_collision {
                         collision.next_block_breaker
                     } else {
@@ -2653,8 +2678,14 @@ impl NativeRuntime {
                         // returns zero; sub_DB22 clears Iron_Knight_block_breaker.
                         false
                     };
+                    if !self.iron_knight_block_breaker {
+                        self.iron_knight_last_metal_block_hit = None;
+                    }
 
                     if let Some(effect) = collision.effect {
+                        if effect != blocks::IronKnightBlockEffectSubAF7A::Metal {
+                            self.iron_knight_last_metal_block_hit = None;
+                        }
                         match effect {
                             // ASM loc_AFF0 (kid.asm:13854): off_AFD8 block
                             // type 0 (Smash) handler — `moveq #2,d6; jmp
@@ -2710,6 +2741,8 @@ impl NativeRuntime {
                             // restore $E50B instead of being deleted.
                             blocks::IronKnightBlockEffectSubAF7A::Metal => {
                                 slice.metal_block_hit = Some((probe.cell_x, probe.cell_y));
+                                self.iron_knight_last_metal_block_hit =
+                                    Some((probe.cell_x, probe.cell_y));
                                 slice.player.y_velocity =
                                     collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;
