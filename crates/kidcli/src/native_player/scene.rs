@@ -1139,12 +1139,6 @@ pub(super) fn push_background_tiles(
         }
         kid_render::BackgroundVisuals::Layered(background) => {
             for (row_index, row) in background.rows.iter().enumerate() {
-                let shimmer_offset = layered_background_shimmer_offset(
-                    trace.frame_index,
-                    row_index,
-                    row.selector,
-                    background.effect_start_row_selector,
-                );
                 for (column, tile) in row.tiles.iter().enumerate() {
                     let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
@@ -1154,7 +1148,6 @@ pub(super) fn push_background_tiles(
                         camera_x_px,
                         camera_y_px,
                     );
-                    let screen_x = screen_x + shimmer_offset;
                     if screen_x <= -8
                         || screen_y <= -8
                         || screen_x >= FRAME_WIDTH as i32
@@ -1162,16 +1155,87 @@ pub(super) fn push_background_tiles(
                     {
                         continue;
                     }
-                    commands.push(DrawCommand::IndexedTile {
-                        x: screen_x,
-                        y: screen_y,
-                        tile_sheet: tile_sheet.clone(),
-                        tile: *tile,
-                        palette: palette.clone(),
-                    });
+                    push_layered_background_tile(
+                        commands,
+                        trace,
+                        background.effect_start_row_selector,
+                        level_visuals.level.background_theme_id,
+                        camera_y_px,
+                        screen_x,
+                        screen_y,
+                        tile_sheet.clone(),
+                        palette.clone(),
+                        *tile,
+                    );
                 }
             }
         }
+    }
+}
+
+fn push_layered_background_tile(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    effect_start_row_selector: Option<u8>,
+    background_theme_id: u8,
+    camera_y_px: i32,
+    screen_x: i32,
+    screen_y: i32,
+    tile_sheet: Arc<TileSheet>,
+    palette: Arc<Palette>,
+    tile: TileRef,
+) {
+    let Some(effect_start_row_selector) = effect_start_row_selector else {
+        commands.push(DrawCommand::IndexedTile {
+            x: screen_x,
+            y: screen_y,
+            tile_sheet,
+            tile,
+            palette,
+        });
+        return;
+    };
+    if background_theme_id != 9 {
+        commands.push(DrawCommand::IndexedTile {
+            x: screen_x,
+            y: screen_y,
+            tile_sheet,
+            tile,
+            palette,
+        });
+        return;
+    }
+
+    let row_offsets = (0..8)
+        .map(|row| {
+            forest_water_ripple_offset_for_screen_y_sub_30598(
+                trace.frame_index,
+                screen_y + row,
+                effect_start_row_selector,
+                camera_y_px,
+            )
+        })
+        .collect::<Vec<_>>();
+    if row_offsets.iter().all(Option::is_none) {
+        commands.push(DrawCommand::IndexedTile {
+            x: screen_x,
+            y: screen_y,
+            tile_sheet,
+            tile,
+            palette,
+        });
+        return;
+    }
+
+    for (row, offset) in row_offsets.into_iter().enumerate() {
+        commands.push(DrawCommand::IndexedTileRow {
+            x: screen_x + offset.unwrap_or(0),
+            y: screen_y + row as i32,
+            tile_sheet: tile_sheet.clone(),
+            tile,
+            palette: palette.clone(),
+            row: row as u8,
+        });
     }
 }
 
@@ -1454,18 +1518,34 @@ const FOREST_RIPPLE: [i8; 64] = [
     1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
 
-pub(super) fn layered_background_shimmer_offset(
+pub(super) fn forest_water_ripple_offset_for_screen_y_sub_30598(
     frame_index: usize,
-    row_index: usize,
-    row_selector: u8,
-    effect_start_row_selector: Option<u8>,
-) -> i32 {
-    if effect_start_row_selector.is_none_or(|start| row_selector < start) {
-        return 0;
+    screen_y: i32,
+    effect_start_row_selector: u8,
+    camera_y_px: i32,
+) -> Option<i32> {
+    // ASM BackgroundScroll_ApplyForestWaterRipple loc_30598-loc_3060A:
+    // start at `(map_header+$14)[0] * 8 - (Camera_Y_pos >> 2)`, affect at
+    // most 64 visible scanlines, then add one table byte per screen line.
+    let start_y = i32::from(effect_start_row_selector) * 8 - (camera_y_px >> 2);
+    if !(0..FRAME_HEIGHT as i32).contains(&screen_y) {
+        return None;
     }
+    let visible_start = start_y.max(0);
+    let table_start = if start_y < 0 { -start_y } else { 0 };
+    let line_count = if start_y < 0 {
+        (64 + start_y).clamp(0, 64)
+    } else {
+        (FRAME_HEIGHT as i32 - start_y).clamp(0, 64)
+    };
+    let visible_end = visible_start + line_count;
+    if screen_y < visible_start || screen_y >= visible_end {
+        return None;
+    }
+
     let time_phase = (frame_index / 4) & 0x3F;
-    let table_idx = (time_phase + row_index) & 0x3F;
-    i32::from(FOREST_RIPPLE[table_idx])
+    let table_idx = (time_phase + (table_start + screen_y - visible_start) as usize) & 0x3F;
+    Some(i32::from(FOREST_RIPPLE[table_idx]))
 }
 
 pub(super) fn background_tile_screen_position(

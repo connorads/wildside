@@ -100,6 +100,15 @@ enum DrawCommand {
         palette: Arc<Palette>,
     },
     #[allow(dead_code)]
+    IndexedTileRow {
+        x: i32,
+        y: i32,
+        tile_sheet: Arc<TileSheet>,
+        tile: TileRef,
+        palette: Arc<Palette>,
+        row: u8,
+    },
+    #[allow(dead_code)]
     Sprite {
         x: i32,
         y: i32,
@@ -3357,14 +3366,30 @@ mod tests {
     }
 
     #[test]
-    fn forest_ripple_starts_from_row_selector_not_row_index() {
+    fn forest_ripple_starts_from_asm_screen_line_window() {
         assert_eq!(
-            super::scene::layered_background_shimmer_offset(0, 4, 0x10, Some(0x11)),
-            0
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 135, 0x11, 0),
+            None
         );
         assert_eq!(
-            super::scene::layered_background_shimmer_offset(0, 4, 0x20, Some(0x11)),
-            1
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 136, 0x11, 0),
+            Some(0)
+        );
+        assert_eq!(
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 140, 0x11, 0),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn forest_ripple_scrolls_partial_top_window_like_asm() {
+        assert_eq!(
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 0, 0x00, 28),
+            Some(2)
+        );
+        assert_eq!(
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 57, 0x00, 28),
+            None
         );
     }
 

@@ -54,6 +54,23 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
                 *tile,
                 palette,
             ),
+            DrawCommand::IndexedTileRow {
+                x,
+                y,
+                tile_sheet,
+                tile,
+                palette,
+                row,
+            } => draw_indexed_tile_row(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                tile_sheet,
+                *tile,
+                palette,
+                *row,
+            ),
             DrawCommand::Sprite {
                 x,
                 y,
@@ -229,6 +246,40 @@ pub(super) fn draw_sprite(
             tile_sheet,
             tile.tile,
             palette,
+        );
+    }
+}
+
+pub(super) fn draw_indexed_tile_row(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    row: u8,
+) {
+    let Some(tile) = tile_sheet.tiles.get(usize::from(tile_ref.tile_index)) else {
+        return;
+    };
+    let dest_y = usize::from(row.min(7));
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+
+    for dest_x in 0..8 {
+        let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+        let palette_index = tile.pixels[source_y * 8 + source_x];
+        let Some(colour) = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)
+        else {
+            continue;
+        };
+        set_pixel(
+            rgb,
+            high_priority_pixels,
+            x + dest_x as i32,
+            y,
+            colour,
+            Some(tile_ref.priority),
         );
     }
 }
