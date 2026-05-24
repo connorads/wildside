@@ -1586,25 +1586,33 @@ pub(super) fn push_block_grid_overrides(
     for row in row_start..row_end {
         for col in col_start..col_end {
             let cell = grid.cell_at(col, row);
-            if !cell.has_block {
-                continue;
-            }
-
-            let Some(resolved) = level_visuals
-                .level
-                .block_mapping
-                .resolve(cell.skin, Some(cell.block_type as u8))
-            else {
-                continue;
-            };
-            // ASM sub_1007A wobble: if the cell is in `block_bounces`,
-            // offset the draw y_pos by the engine-supplied value so the
-            // block visibly shakes up/down before settling.
-            let y_offset = trace
+            let bounce_y_offset = trace
                 .block_bounces
                 .iter()
                 .find(|(cx, cy, _, _)| *cx == col && *cy == row)
-                .map_or(0, |(_, _, _, y)| i32::from(*y));
+                .map(|(_, _, _, y)| i32::from(*y));
+            if !cell.has_block && bounce_y_offset.is_none() {
+                continue;
+            }
+
+            let Some(resolved) = level_visuals.level.block_mapping.resolve(
+                cell.skin,
+                Some(if cell.has_block {
+                    cell.block_type as u8
+                } else {
+                    // ASM sub_1007A writes `$6Fxx` while the prize-block
+                    // wobble object remains live. The block flag is clear,
+                    // but the worker still draws the block sprite frames
+                    // (`unk_E0E4E`/`unk_E0E5E`) at the bounced position.
+                    kid_core::terrain::BlockType::Prize as u8
+                }),
+            ) else {
+                continue;
+            };
+            // ASM sub_1007A wobble: if the cell is in `block_bounces`, offset
+            // the draw y_pos by the engine-supplied value so the block visibly
+            // shakes up/down before settling.
+            let y_offset = bounce_y_offset.unwrap_or(0);
             push_tile_quad(
                 commands,
                 level_visuals,

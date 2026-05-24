@@ -2745,6 +2745,33 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_draws_prize_block_wobble_even_after_deleted_cell_write() {
+        // ASM sub_1007A/loc_10200 writes `$6Fxx` to Level_Layout while the
+        // wobble worker remains live and draws `unk_E0E4E`/`unk_E0E5E` at the
+        // hibernated y offset. Rendering must therefore key off `block_bounces`
+        // as well as the cell's block flag, or the prize block vanishes before
+        // the post-prize `$E001` smash cell appears.
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(2, 2, 30, -2)];
+        let visuals = sample_level_visuals();
+        let data = vec![0u8; 20 * 14 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x6F, 0x01));
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+
+        assert!(
+            scene
+                .commands
+                .iter()
+                .any(|command| matches!(command, DrawCommand::IndexedTile { x: 32, y: 30, .. })),
+            "active sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell at the bounced y offset",
+        );
+    }
+
+    #[test]
     fn build_scene_renders_level_transition_title_workers_at_their_fly_in_positions() {
         // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
         // builds Title_Letter workers that glide from a random off-screen
