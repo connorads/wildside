@@ -11445,6 +11445,9 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
             width_px: 47,
@@ -11456,6 +11459,7 @@ mod chunk_04 {
                 command_index: 0,
                 remaining_duration: 3,
             }),
+            special: None,
         };
 
         let start_x = platform.x_pos;
@@ -11504,6 +11508,9 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
             width_px: 47,
@@ -11515,6 +11522,7 @@ mod chunk_04 {
                 command_index: 0,
                 remaining_duration: 1,
             }),
+            special: None,
         };
 
         platform.step_script(&table);
@@ -11560,6 +11568,9 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
             width_px: 47,
@@ -11571,6 +11582,7 @@ mod chunk_04 {
                 command_index: 0,
                 remaining_duration: 1,
             }),
+            special: None,
         };
 
         platform.step_script(&table);
@@ -11619,6 +11631,9 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 100 << 16,
             y_pos: 50 << 16,
             width_px: 47,
@@ -11630,6 +11645,7 @@ mod chunk_04 {
                 command_index: 1,
                 remaining_duration: 1,
             }),
+            special: None,
         };
 
         platform.step_script(&table);
@@ -12747,6 +12763,102 @@ mod chunk_04 {
             soft_platform_settled_step_loc_4160(0x5678, 0x1234),
             SoftPlatformSettledActionLoc4160::ReturnToWaitLoop,
             "Kid standing on a different platform should return to SoftPlatform_WaitLoop",
+        );
+    }
+
+    #[test]
+    fn soft_platform_launch_velocity_loc_40e2_scales_by_current_helmet() {
+        // ASM SoftPlatform_Init loc_40E2 (kid.asm:5201): Iron Knight keeps
+        // Kid y velocity, normal helmets divide by 2, Micromax divides by 4.
+        assert_eq!(
+            soft_platform_launch_velocity_loc_40E2(0x0004_0000, PlayerForm::IronKnight),
+            0x0004_0000,
+        );
+        assert_eq!(
+            soft_platform_launch_velocity_loc_40E2(0x0004_0000, PlayerForm::TheKid),
+            0x0002_0000,
+        );
+        assert_eq!(
+            soft_platform_launch_velocity_loc_40E2(0x0004_0000, PlayerForm::Micromax),
+            0x0001_0000,
+        );
+    }
+
+    #[test]
+    fn soft_platform_bounce_loop_loc_4140_applies_upward_acceleration_and_clamp() {
+        // ASM SoftPlatform_BounceLoop loc_4140 (kid.asm:5225): subtract
+        // `$7000`, then clamp any value <= -$18000 to exactly -$18000.
+        assert_eq!(soft_platform_next_bounce_velocity_loc_4140(0), -0x7000);
+        assert_eq!(
+            soft_platform_next_bounce_velocity_loc_4140(-0x1_7000),
+            -0x1_8000,
+        );
+        assert_eq!(
+            soft_platform_next_bounce_velocity_loc_4140(-0x1_8000),
+            -0x1_8000,
+        );
+    }
+
+    #[test]
+    fn soft_platform_special_state_loc_40e2_moves_platform_object_not_player_directly() {
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("0"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: 128 << 16,
+                phase: SoftPlatformPhase::Wait,
+            })),
+            "ASM loc_2876/off_40D2 (kid.asm:4799/5195): special platform script word 0 dispatches to SoftPlatform_Init",
+        );
+
+        platform.trigger_soft_platform_bounce_loc_40E2(0x0004_0000, PlayerForm::TheKid);
+        assert_eq!(platform.y_velocity, 0x0002_0000);
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: 128 << 16,
+                phase: SoftPlatformPhase::Bounce,
+            })),
+        );
+
+        platform.step_soft_platform_loc_40E2(true);
+        assert_eq!(
+            platform.y_pos,
+            130 << 16,
+            "ASM SoftPlatform_Move adds platform `$E(a3)` into platform `6(a3)`; Kid is carried later by platform collision",
+        );
+        assert_eq!(platform.y_velocity, 0x0001_9000);
+
+        for _ in 0..16 {
+            platform.step_soft_platform_loc_40E2(true);
+        }
+        assert_eq!(platform.y_pos, 128 << 16);
+        assert_eq!(platform.y_velocity, 0);
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: 128 << 16,
+                phase: SoftPlatformPhase::Settled,
+            })),
         );
     }
 

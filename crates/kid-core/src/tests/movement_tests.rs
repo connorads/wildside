@@ -4368,6 +4368,9 @@ mod chunk_11 {
         use crate::platforms::platform_support_check_sub_8ED0;
         // Kid at x=100px, platform spanning x=80..160 (80px wide).
         let platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 80 << 16,
             y_pos: 200 << 16,
             x_velocity: 0,
@@ -4375,6 +4378,7 @@ mod chunk_11 {
             width_px: 80,
             height_px: 16,
             script: None,
+            special: None,
         };
         let unsupported = platform_support_check_sub_8ED0(
             Some(&platform),
@@ -4397,6 +4401,9 @@ mod chunk_11 {
     fn loc_833e_sub_8ed0_unsupported_past_edge() {
         use crate::platforms::platform_support_check_sub_8ED0;
         let platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
             x_pos: 80 << 16,
             y_pos: 200 << 16,
             x_velocity: 0,
@@ -4404,6 +4411,7 @@ mod chunk_11 {
             width_px: 80,
             height_px: 16,
             script: None,
+            special: None,
         };
         // Kid at x=170px — past right edge (80+80=160).
         let unsupported = platform_support_check_sub_8ED0(

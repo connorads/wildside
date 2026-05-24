@@ -2874,6 +2874,14 @@ impl NativeRuntime {
                 platform.step_script(script_table);
             }
         }
+        let platform_standing_before = find_standing_platform_index_loc_8ED0(
+            &self.active_platforms,
+            slice.player,
+            self.progression.current_form,
+        );
+        for (platform_index, platform) in self.active_platforms.iter_mut().enumerate() {
+            platform.step_soft_platform_loc_40E2(platform_standing_before == Some(platform_index));
+        }
 
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;
@@ -2893,6 +2901,22 @@ impl NativeRuntime {
             self.begin_death_windup();
             return;
         }
+        if let Some(platform_index) = find_standing_platform_index_loc_8ED0(
+            &self.active_platforms,
+            slice.player,
+            self.progression.current_form,
+        ) && let Some(platform) = self.active_platforms.get_mut(platform_index)
+        {
+            platform.trigger_soft_platform_bounce_loc_40E2(
+                player_before_platform_collision.y_velocity,
+                self.progression.current_form,
+            );
+        }
+        self.active_platform_roster = self
+            .active_platforms
+            .iter()
+            .map(ActivePlatform::snapshot)
+            .collect();
 
         // Evanescent blocks: trigger when player stands on one, tick timers,
         // and clear expired blocks from the grid.

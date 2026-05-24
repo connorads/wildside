@@ -97,7 +97,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
 | 065 | [x] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | Shooter blocks now register per visible cell, fire on entry, and recycle after the ROM's 22-frame slot lifetime |
-| 066 | [-] | P3 | block | Mushroom bounce uses direct player velocity; ASM bounces platform object | DEVIATION — structural: ASM uses SoftPlatform objects, native bounces player inline |
+| 066 | [x] | P3 | block | SoftPlatform bounce moves platform object | Fixed — native now models ASM SoftPlatform object state (`SoftPlatform_Init`/`SoftPlatform_BounceLoop`) instead of inline player-only bounce |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [x] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | Fixed: native now queues an ASM `loc_11364`/`sub_113C0` visual worker that rises from the source row while preserving the immediate collision grid swap |
 | 069 | [x] | P2 | fidelity | TAS boot slice desync: native consumed early boot/title Start presses on the wrong frames | First 250-frame boot slices of 3 imported TAS recordings show 0 authoritative diffs |

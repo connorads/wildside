@@ -852,6 +852,32 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn find_standing_platform_index_loc_8ED0(
+    platforms: &[ActivePlatform],
+    player: PlayerState,
+    current_form: PlayerForm,
+) -> Option<usize> {
+    if !player.on_ground {
+        return None;
+    }
+    let player_foot_y_px = (player.y_pos >> 16) as i32;
+    platforms.iter().position(|platform| {
+        if platform_support_check_sub_8ED0(
+            Some(platform),
+            player.x_pos,
+            current_form.half_width(),
+            current_form,
+            false,
+        ) {
+            return false;
+        }
+        let platform_top_px = (platform.y_pos >> 16) as i32;
+        player.y_pos.abs_diff(platform.y_pos) <= GROUND_SNAP_TOLERANCE_FP
+            || player_foot_y_px.abs_diff(platform_top_px) <= 2
+    })
+}
+
+#[allow(non_snake_case)]
 pub(crate) fn platform_support_check_sub_8ED0(
     platform: Option<&ActivePlatform>,
     player_x_pos: u32,
@@ -1287,6 +1313,75 @@ pub(crate) fn soft_platform_settled_step_loc_4160(
         SoftPlatformSettledActionLoc4160::ReturnToWaitLoop
     } else {
         SoftPlatformSettledActionLoc4160::StaySettled
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn soft_platform_launch_velocity_loc_40E2(
+    kid_y_velocity: i32,
+    current_form: PlayerForm,
+) -> i32 {
+    // ASM SoftPlatform_Init loc_40E2 (kid.asm:5201): when Kid stands on this
+    // platform, copy sampled Kid y velocity to platform `$E(a3)`. Iron Knight
+    // keeps the full value; other helmets `asr.l #1`; Micromax shifts again.
+    match current_form {
+        PlayerForm::IronKnight => kid_y_velocity,
+        PlayerForm::Micromax => kid_y_velocity >> 2,
+        _ => kid_y_velocity >> 1,
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn soft_platform_next_bounce_velocity_loc_4140(y_velocity: i32) -> i32 {
+    // ASM SoftPlatform_BounceLoop loc_4140 (kid.asm:5225): after moving the
+    // platform, subtract `$7000` from y velocity and clamp upward speed at
+    // `-$18000`.
+    (y_velocity - 0x7000).max(-0x1_8000)
+}
+
+impl ActivePlatform {
+    #[allow(non_snake_case)]
+    pub(crate) fn trigger_soft_platform_bounce_loc_40E2(
+        &mut self,
+        kid_y_velocity: i32,
+        current_form: PlayerForm,
+    ) {
+        let Some(PlatformSpecialState::Soft(ref mut state)) = self.special else {
+            return;
+        };
+        if state.phase != SoftPlatformPhase::Wait {
+            return;
+        }
+        self.y_velocity = soft_platform_launch_velocity_loc_40E2(kid_y_velocity, current_form);
+        state.phase = SoftPlatformPhase::Bounce;
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn step_soft_platform_loc_40E2(&mut self, kid_standing_on_this_platform: bool) {
+        let Some(PlatformSpecialState::Soft(ref mut state)) = self.special else {
+            return;
+        };
+        match state.phase {
+            SoftPlatformPhase::Wait => {
+                self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+            }
+            SoftPlatformPhase::Bounce => {
+                self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+                self.y_velocity = soft_platform_next_bounce_velocity_loc_4140(self.y_velocity);
+                if (self.y_pos >> 16) <= (state.original_y_pos >> 16) {
+                    self.y_pos = state.original_y_pos;
+                    self.y_velocity = 0;
+                    state.phase = SoftPlatformPhase::Settled;
+                }
+            }
+            SoftPlatformPhase::Settled => {
+                if !kid_standing_on_this_platform {
+                    state.phase = SoftPlatformPhase::Wait;
+                }
+            }
+        }
     }
 }
 

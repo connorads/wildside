@@ -384,6 +384,9 @@ pub(super) fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> A
 
 pub(super) fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -> ActivePlatform {
     ActivePlatform {
+        layout_index: None,
+        kind: 0,
+        subtype: 0,
         x_pos: u32::from(x) << 16,
         y_pos: u32::from(y) << 16,
         width_px: u16::from(h_variant) * 16 + 15,
@@ -391,6 +394,7 @@ pub(super) fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -
         x_velocity: 0,
         y_velocity: 0,
         script: None,
+        special: None,
     }
 }
 

@@ -173,7 +173,7 @@ Low impact: Dragon Flying collision-recovery during Descent and death status-tab
 - Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
 - Lift block ASM coroutine timing (#067) — 2px/frame×8 up, erase, 1px/frame×16 down
 - Shooter mechanism (#065) — resolved: visible shooter cells now register independently, fire on entry, and recycle after the ROM's 22-frame slot lifetime
-- Mushroom bounce (#066) — documented as DEVIATION (ASM SoftPlatform objects vs native inline bounce)
+- SoftPlatform bounce (#066) — fixed; native now moves the platform object per ASM `SoftPlatform_Init`/`SoftPlatform_BounceLoop`
 - Shifting block (#068) — fixed: native preserves the immediate collision grid swap and now emits the ASM `loc_11364`/`sub_113C0` visual rise worker through the block-bounce trace path.
 
 ## Previously deferred (now done)

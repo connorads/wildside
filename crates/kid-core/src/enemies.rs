@@ -38479,12 +38479,26 @@ impl NativeRuntime {
                 .platform_loader
                 .active_platforms(platform_layout, window);
             let script_table = self.platform_script_table.as_ref();
+            let previous_platforms = self.active_platforms.clone();
             self.active_platforms = platform_layout
                 .placements
                 .iter()
+                .enumerate()
                 .take(objects.platform_loader.next_index)
-                .filter(|p| platform_is_active(p, window))
-                .map(|p| ActivePlatform::from_placement(p, script_table))
+                .filter(|(_, p)| platform_is_active(p, window))
+                .map(|(layout_index, placement)| {
+                    previous_platforms
+                        .iter()
+                        .find(|platform| platform.layout_index == Some(layout_index))
+                        .copied()
+                        .unwrap_or_else(|| {
+                            ActivePlatform::from_placement_with_index(
+                                layout_index,
+                                placement,
+                                script_table,
+                            )
+                        })
+                })
                 .collect();
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }

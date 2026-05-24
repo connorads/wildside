@@ -1866,6 +1866,12 @@ pub(crate) struct PlatformScriptState {
 /// Positions use the same FP16.16 format as player/enemy positions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ActivePlatform {
+    /// Source placement index in the level platform layout.
+    pub(crate) layout_index: Option<usize>,
+    /// Platform type nibble from the `ptfm` macro.
+    pub(crate) kind: u8,
+    /// Platform subtype/art variant from the `ptfm` macro.
+    pub(crate) subtype: u8,
     /// FP16.16 X position (left edge of the platform).
     pub(crate) x_pos: u32,
     /// FP16.16 Y position (top edge of the platform).
@@ -1880,6 +1886,26 @@ pub(crate) struct ActivePlatform {
     pub(crate) y_velocity: i32,
     /// Movement script state (None for stationary platforms).
     pub(crate) script: Option<PlatformScriptState>,
+    /// Special-platform coroutine state for negative ROM platform types.
+    pub(crate) special: Option<PlatformSpecialState>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlatformSpecialState {
+    Soft(SoftPlatformState),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoftPlatformState {
+    pub(crate) original_y_pos: u32,
+    pub(crate) phase: SoftPlatformPhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SoftPlatformPhase {
+    Wait,
+    Bounce,
+    Settled,
 }
 
 impl ActivePlatform {
@@ -1911,15 +1937,39 @@ impl ActivePlatform {
                 command_index: 0,
                 remaining_duration: first_cmd.duration,
             });
+        let y_pos = u32::from(placement.y) << 16;
+        let special = if placement.kind == 8 && placement.script.raw.trim() == "0" {
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: y_pos,
+                phase: SoftPlatformPhase::Wait,
+            }))
+        } else {
+            None
+        };
 
         Self {
+            layout_index: None,
+            kind: placement.kind,
+            subtype: placement.subtype,
             x_pos: u32::from(placement.x) << 16,
-            y_pos: u32::from(placement.y) << 16,
+            y_pos,
             width_px: u16::from(placement.h_variant) * 16 + 15,
             height_px: u16::from(placement.v_variant) * 16 + 15,
             x_velocity: 0,
             y_velocity: 0,
             script,
+            special,
+        }
+    }
+
+    pub(crate) fn from_placement_with_index(
+        layout_index: usize,
+        placement: &kid_data::PlatformPlacement,
+        script_table: Option<&kid_data::PlatformScriptTable>,
+    ) -> Self {
+        Self {
+            layout_index: Some(layout_index),
+            ..Self::from_placement(placement, script_table)
         }
     }
 
@@ -1962,6 +2012,32 @@ impl ActivePlatform {
             state.remaining_duration = next_cmd.duration;
             self.x_velocity = next_cmd.x_velocity;
             self.y_velocity = next_cmd.y_velocity;
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Platform {
+                kind: self.kind,
+                subtype: self.subtype,
+            },
+            x_pos: self.x_pos,
+            y_pos: self.y_pos,
+            layout_index: self.layout_index,
+            x_velocity: Some(self.x_velocity),
+            y_velocity: Some(self.y_velocity),
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
         }
     }
 }
