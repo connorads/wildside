@@ -254,14 +254,24 @@ fn capture_frames(
     let end_frame = *watched_frames.end();
     let watched = watched_frames.collect::<Vec<_>>();
     let mut frames = BTreeMap::new();
-    while runtime.trace_frame().frame_index < end_frame {
-        let next_frame = runtime.trace_frame().frame_index + 1;
+    let start_frame = runtime.trace_frame().frame_index + 1;
+    for next_frame in start_frame..=end_frame {
         let trace = runtime.step_frame(input_for_frame(next_frame));
         if watched.contains(&trace.frame_index) {
             frames.insert(trace.frame_index, trace);
         }
     }
     frames
+}
+
+fn step_until_kid_grounded(runtime: &mut NativeRuntime, max_frames: usize) -> NativeTraceFrame {
+    for _ in 0..max_frames {
+        let trace = runtime.step_frame(FrameInput::default());
+        if trace.kid_on_ground == Some(true) {
+            return trace;
+        }
+    }
+    panic!("Kid did not reach a grounded trace frame within {max_frames} frames");
 }
 
 fn write_generated_level_layout(
@@ -5263,8 +5273,7 @@ mod chunk_02 {
         // unchanged — only absolute positions shifted.
         let mut runtime = cached_generated_runtime();
         let mut frames = BTreeMap::new();
-        while runtime.trace_frame().frame_index <= 997 {
-            let frame_index = runtime.trace_frame().frame_index;
+        for frame_index in 0..=997 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
             if (900..=997).contains(&trace.frame_index) {
                 frames.insert(trace.frame_index, trace);
@@ -5341,8 +5350,7 @@ mod chunk_02 {
     fn progress_two_transitions_skip_cheat_matches_resume_timeline() {
         let mut runtime = cached_generated_runtime();
         let mut frames = BTreeMap::new();
-        while runtime.trace_frame().frame_index <= 2214 {
-            let frame_index = runtime.trace_frame().frame_index;
+        for frame_index in 0..=2214 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
             if (2100..=2214).contains(&trace.frame_index) {
                 frames.insert(trace.frame_index, trace);
@@ -5440,8 +5448,7 @@ mod chunk_02 {
     fn progress_two_transitions_rearms_level_2_into_live_gameplay() {
         let mut runtime = cached_generated_runtime();
         let mut frames = BTreeMap::new();
-        while runtime.trace_frame().frame_index <= 2_701 {
-            let frame_index = runtime.trace_frame().frame_index;
+        for frame_index in 0..=2_701 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
             if (2_699..=2_701).contains(&trace.frame_index) {
                 frames.insert(trace.frame_index, trace);
@@ -5698,14 +5705,8 @@ mod chunk_02 {
     fn timing_regression_jump_press_primes_takeoff_for_next_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        loop {
-            runtime.step_frame(FrameInput::default());
-            if runtime.trace_frame().kid_on_ground == Some(true) {
-                break;
-            }
-        }
 
-        let grounded = runtime.trace_frame();
+        let grounded = step_until_kid_grounded(&mut runtime, 240);
         let jump_frame = runtime.step_frame(FrameInput {
             b: true,
             ..FrameInput::default()
@@ -5727,14 +5728,8 @@ mod chunk_02 {
     fn timing_regression_held_jump_advances_upward_on_second_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        loop {
-            runtime.step_frame(FrameInput::default());
-            if runtime.trace_frame().kid_on_ground == Some(true) {
-                break;
-            }
-        }
 
-        let grounded = runtime.trace_frame();
+        let grounded = step_until_kid_grounded(&mut runtime, 240);
         let jump_frame = runtime.step_frame(FrameInput {
             b: true,
             ..FrameInput::default()
@@ -6036,14 +6031,8 @@ mod chunk_02 {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
-        loop {
-            runtime.step_frame(FrameInput::default());
-            if runtime.trace_frame().kid_on_ground == Some(true) {
-                break;
-            }
-        }
 
-        let grounded = runtime.trace_frame();
+        let grounded = step_until_kid_grounded(&mut runtime, 240);
         let jump_frame = runtime.step_frame(FrameInput {
             right: true,
             a: true,
@@ -6070,14 +6059,8 @@ mod chunk_02 {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
-        loop {
-            runtime.step_frame(FrameInput::default());
-            let trace = runtime.trace_frame();
-            if trace.kid_on_ground == Some(true) {
-                assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
-                break;
-            }
-        }
+        let trace = step_until_kid_grounded(&mut runtime, 240);
+        assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
     }
 
     #[test]
