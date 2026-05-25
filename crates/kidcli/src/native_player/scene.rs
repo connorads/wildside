@@ -1255,7 +1255,7 @@ fn push_sprite_frame(
     });
 }
 
-fn push_sprite_frame_top_left(
+pub(super) fn push_sprite_frame_top_left(
     commands: &mut Vec<DrawCommand>,
     frame: &kid_render::SpriteFrame,
     palette: &Palette,

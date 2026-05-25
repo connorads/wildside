@@ -117,14 +117,43 @@ pub(super) fn push_hud_icon(
     x: i32,
     y: i32,
 ) {
-    if let Some(icon) = level_visuals
-        .hud
-        .icons
-        .iter()
-        .find(|icon| icon.name == icon_name)
-        && let Some(tile) = resolve_ingame_vram_tile(level_visuals, icon.tile)
-    {
-        push_resolved_tile(commands, x, y, tile);
+    match icon_name {
+        "ankh" => {
+            // ASM Init_SpriteAttr_HUD unk_1427C uses `sprite_attr $1A1,$8D,1,1,$8231`.
+            // Tile $231 overlaps native's block VRAM range, so resolve it via
+            // the ROM Life_icon sheet loaded for PrizeAnkh_Init instead of the
+            // level block sheet.
+            if let Some(icon) = level_visuals.floating_prizes.icons.get(&0x0B)
+                && let Some(frame) = icon.frames.first()
+            {
+                push_sprite_frame_top_left(commands, frame, &icon.palette, x, y);
+            }
+        }
+        "diamond" => {
+            // ASM Init_SpriteAttr_HUD unk_1427C uses `sprite_attr $1A0,$A2,1,1,$86F2`.
+            // The size bits are 1,1, i.e. a 2x2 tile sprite starting at HUD
+            // diamond VRAM tile $6F2, not a single 8x8 tile.
+            let frame = kid_render::SpriteFrame {
+                origin_x: 0,
+                origin_y: 0,
+                width_px: 0x10,
+                height_px: 0x10,
+                tile_base_index: 0x06F2 - level_visuals.hud.diamond_base_tile_index,
+                tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+            };
+            push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
+        }
+        _ => {
+            if let Some(icon) = level_visuals
+                .hud
+                .icons
+                .iter()
+                .find(|icon| icon.name == icon_name)
+                && let Some(tile) = resolve_ingame_vram_tile(level_visuals, icon.tile)
+            {
+                push_resolved_tile(commands, x, y, tile);
+            }
+        }
     }
 }
 

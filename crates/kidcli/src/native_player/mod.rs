@@ -3529,18 +3529,19 @@ mod tests {
             .count();
 
         assert!(hud_digits >= 2, "expected digit tiles in the HUD");
-        assert!(hud_hitpoints >= 2, "expected hitpoint art tiles in the HUD");
+        assert!(hud_hitpoints >= 1, "expected hitpoint art tiles in the HUD");
         assert!(
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                    DrawCommand::Sprite { y, tile_sheet, tiles, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() == 16
-                            && tile.tile_index == 8
+                            && tiles.len() == 4
+                            && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
                 )
             }),
-            "expected the HUD diamond icon"
+            "expected the HUD diamond icon as the ASM 2x2 sprite"
         );
         assert!(!contains_text(&scene, "x3"));
         assert!(!contains_text(&scene, "D:7"));
@@ -3896,10 +3897,11 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                    DrawCommand::Sprite { y, tile_sheet, tiles, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() == 16
-                            && tile.tile_index == 8
+                            && tiles.len() == 4
+                            && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
                 )
             }),
             "missing diamond HUD art"
@@ -3921,11 +3923,6 @@ mod tests {
     #[test]
     fn resolve_ingame_vram_tile_maps_hud_symbols_and_diamond_tiles() {
         let visuals = sample_level_visuals();
-
-        let ankh =
-            resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x8231)).expect("ankh tile");
-        assert_eq!(ankh.tile_sheet.tiles.len(), 0x200);
-        assert_eq!(ankh.tile.tile_index, 17);
 
         let colon = resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x86C4))
             .expect("colon tile");
@@ -5555,21 +5552,33 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, ankh, _) = indexed_tile_at_with_sheet_len(&scene, 0x1A1 - 128, 0x8D - 128, 0x200)
-            .expect("ankh symbol tile");
-        let (_, diamond, _) = indexed_tile_at_with_sheet_len(&scene, 0x1A0 - 128, 0xA2 - 128, 16)
-            .expect("diamond symbol tile");
-
-        assert_eq!(
-            ankh.tile_index, 17,
-            "ASM HUD table unk_1427C uses VRAM tile $8231 for the ankh symbol at $1A1,$8D"
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                        if *x == 0x1A1 - 128
+                            && *y == 0x8D - 128
+                            && tile_sheet.tiles.iter().any(|tile| tile.pixels == [101; 64])
+                            && tiles.len() == 4
+                )
+            }),
+            "ASM HUD table unk_1427C uses a 2x2 Life_icon sprite for the ankh symbol at $1A1,$8D"
         );
-        assert!(ankh.priority);
-        assert_eq!(
-            diamond.tile_index, 8,
-            "ASM HUD table unk_1427C uses VRAM tile $86F2 for the diamond symbol at $1A0,$A2"
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                        if *x == 0x1A0 - 128
+                            && *y == 0xA2 - 128
+                            && tile_sheet.tiles.len() == 16
+                            && tiles.len() == 4
+                            && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
+                )
+            }),
+            "ASM HUD table unk_1427C uses a 2x2 diamond sprite from VRAM tile $86F2 at $1A0,$A2"
         );
-        assert!(diamond.priority);
     }
 
     #[test]
