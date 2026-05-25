@@ -110,6 +110,27 @@ fn push_hud_two_digit_counter(
     push_hud_fixed_digit(commands, level_visuals, clamped % 10, x + 8, y);
 }
 
+fn push_hud_hitpoint_sprite(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    base_tile: TileRef,
+    x: i32,
+    y: i32,
+) {
+    // ASM Make_SpriteAttr_HUD loc_BE20/BE34/BE5C writes size byte #4 for
+    // $822D/$822E/$822F. On Mega Drive this is a 2x1 tile sprite, so the
+    // visible pip includes the following tile as well as the base tile.
+    for tile_offset in 0..2 {
+        let tile_ref = TileRef {
+            tile_index: base_tile.tile_index + tile_offset,
+            ..base_tile
+        };
+        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, tile_ref) {
+            push_resolved_tile(commands, x + i32::from(tile_offset) * 8, y, tile);
+        }
+    }
+}
+
 pub(super) fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -175,14 +196,13 @@ pub(super) fn push_game_hud(
             HudHitpointTile::Half => level_visuals.hud.hitpoint_tiles[1],
             HudHitpointTile::Empty => level_visuals.hud.hitpoint_tiles[2],
         };
-        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, pip_tile) {
-            push_resolved_tile(
-                commands,
-                HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
-                HUD_HITPOINT_Y,
-                tile,
-            );
-        }
+        push_hud_hitpoint_sprite(
+            commands,
+            level_visuals,
+            pip_tile,
+            HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
+            HUD_HITPOINT_Y,
+        );
     }
 
     let minutes = trace.level_timer_seconds / 60;

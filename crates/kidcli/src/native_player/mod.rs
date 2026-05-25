@@ -1738,7 +1738,7 @@ mod tests {
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() == 0x200
-                            && [13, 15].contains(&tile.tile_index)
+                            && (13..=16).contains(&tile.tile_index)
                 )
             })
             .count()
@@ -5556,15 +5556,15 @@ mod tests {
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
                         if *y < 48
                             && tile_sheet.tiles.len() == 0x200
-                            && [13, 15].contains(&tile.tile_index)
+                            && (13..=16).contains(&tile.tile_index)
                 )
             })
             .count();
 
         assert!(hud_digits >= 2, "HUD should show digit art");
         assert_eq!(
-            hitpoint_tiles, 1,
-            "ASM Make_SpriteAttr_HUD renders The Kid's 2 HP as one full 2-HP pip"
+            hitpoint_tiles, 2,
+            "ASM Make_SpriteAttr_HUD renders The Kid's 2 HP as one size-4 two-tile pip"
         );
         assert!(!contains_text(&scene, "x3"));
         assert!(!contains_text(&scene, "D:7"));
@@ -5706,10 +5706,17 @@ mod tests {
         let (_, half_pip, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0xA4 - 128, 0x200)
                 .expect("first hitpoint pip");
+        let (_, grey_tail, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x98 - 128, 0xA4 - 128, 0x200)
+                .expect("second tile of size-4 hitpoint sprite");
 
         assert_eq!(
             half_pip.tile_index, 14,
             "ASM Make_SpriteAttr_HUD loc_BE34 writes 1 HP as the half-pip tile $822E at biased X $90"
+        );
+        assert_eq!(
+            grey_tail.tile_index, 15,
+            "ASM Make_SpriteAttr_HUD loc_BE34 size byte #4 also draws the following grey pip tile $822F"
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 0, 0xA4 - 128, 0x200).is_none(),
@@ -5752,7 +5759,7 @@ mod tests {
 
         assert_eq!(
             count_hud_hitpoint_tiles(&skycutter_scene),
-            (PlayerForm::Skycutter.max_hitpoints() / 2) as usize
+            (PlayerForm::Skycutter.max_hitpoints() / 2) as usize * 2
         );
 
         let mut iron_knight = sample_trace(GameMode::InGame);
@@ -5763,7 +5770,7 @@ mod tests {
 
         assert_eq!(
             count_hud_hitpoint_tiles(&iron_knight_scene),
-            (PlayerForm::IronKnight.max_hitpoints() / 2) as usize
+            (PlayerForm::IronKnight.max_hitpoints() / 2) as usize * 2
         );
     }
 
