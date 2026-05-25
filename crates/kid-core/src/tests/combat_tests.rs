@@ -8613,6 +8613,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn big_hopping_skull_death_waits_for_stru_367fa_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0080_0000, 0x0040_0000, 1);
+        skull.layout_index = 21;
+        let killed_identity = (skull.segment_index, skull.layout_index);
+        runtime.active_enemies = vec![skull];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Big_Hopping_Skull.asm loc_3664E/loc_36664 hibernates through stru_367FA before loc_366B2 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            BIG_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 
