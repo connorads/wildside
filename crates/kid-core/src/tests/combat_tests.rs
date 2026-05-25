@@ -8642,6 +8642,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn spinning_twins_death_waits_for_stru_3b83c_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 0x0080_0000, 0x0040_0000, 1);
+        twins.layout_index = 22;
+        let killed_identity = (twins.segment_index, twins.layout_index);
+        runtime.active_enemies = vec![twins];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Spinning_Twins.asm loc_3BC56 hibernates through stru_3B83C before loc_3BC78/loc_3BCA2 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            SPINNING_TWINS_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 
