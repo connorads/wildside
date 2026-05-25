@@ -2455,6 +2455,16 @@ impl GemsBus {
         }
     }
 
+    fn reload_driver(&mut self, driver: &[u8]) {
+        self.ram.fill(0);
+        let copy_len = driver.len().min(Z80_RAM_LEN);
+        self.ram[..copy_len].copy_from_slice(&driver[..copy_len]);
+        self.bank_address = 0;
+        self.z80_cycles = 0;
+        self.audio_events.clear();
+        self.ym2612_shadow.borrow_mut().reset();
+    }
+
     fn record_ym2612_write(&mut self, port: u8, value: u8) {
         self.ym2612_shadow.borrow_mut().write_port(port, value);
         self.audio_events.push_back(AudioEvent::Ym2612Write {
@@ -2530,6 +2540,7 @@ pub struct GemsAudioEngine {
     mixer: AudioMixer,
     vblank_irq_cycles_remaining: u32,
     initialised: bool,
+    driver: Vec<u8>,
 }
 
 /// Z80 cycles per VBlank period (NTSC: ~59,659 Z80 cycles per frame).
@@ -2568,6 +2579,7 @@ impl GemsAudioEngine {
             mixer: AudioMixer::default(),
             vblank_irq_cycles_remaining: 0,
             initialised: false,
+            driver: driver.to_vec(),
         }
     }
 
@@ -2601,6 +2613,21 @@ impl GemsAudioEngine {
             self.step_z80_frame();
         }
         self.initialised = true;
+    }
+
+    /// Match ASM `StopMusic` (kid.asm:49727): reload/reset the GEMS driver,
+    /// then queue the `$0B` sound-data pointer command. This is the ROM path
+    /// used before changing music contexts; `$16` stop-all is not what Kid's
+    /// 68k wrapper emits.
+    pub fn stop_music(&mut self) {
+        let levels = self.mixer.levels;
+        self.z80.io.reload_driver(&self.driver);
+        self.z80.reset();
+        self.mixer = AudioMixer::default();
+        self.mixer.set_levels(levels);
+        self.vblank_irq_cycles_remaining = 0;
+        self.initialised = false;
+        self.init();
     }
 
     /// Queue a single byte to the GEMS command circular buffer.
@@ -3176,6 +3203,43 @@ mod tests {
             &queue[14..20],
             [0xFF, 0x16, 0xFF, 0xFF, 0x10, 0x07],
             "ASM/GEMS command $16 consumes a sequence id byte; without the $FF id, the following PlaySound command marker is swallowed and level BGM never starts"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_music_reloads_driver_and_requeues_pointer_init_like_rom() {
+        let mut driver = vec![0u8; 64];
+        driver[0] = 0xC3;
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+        engine.play_sound(0x03);
+        engine.z80.io.ram[0] = 0x00;
+        engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + 30] = 0xAA;
+
+        engine.stop_music();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..14];
+        assert_eq!(
+            engine.z80.io.ram[0], 0xC3,
+            "ASM StopMusic reloads the GEMS driver before queueing the pointer init"
+        );
+        assert_eq!(
+            queue,
+            [
+                0xFF, 0x0B, 0x0E, 0x16, 0x0E, 0xEA, 0x25, 0x0E, 0x66, 0x27, 0x0E, 0x16, 0x87, 0x0E,
+            ],
+            "ASM StopMusic queues the same `$0B` pointer command as initial GEMS setup, not command `$16`"
+        );
+        assert_eq!(
+            engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + 30],
+            0x00,
+            "ASM StopMusic clears Z80 RAM, so stale title commands cannot survive into gameplay"
         );
     }
 }

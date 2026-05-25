@@ -1054,7 +1054,7 @@ enum NativeBgmCue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeBgmPlaybackCommand {
     Start(u8),
-    StopAllThenStart(u8),
+    StopMusicThenStart(u8),
 }
 
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
@@ -1081,7 +1081,7 @@ fn native_bgm_playback_command(
     }
     let bgm = bgm_for_native_cue(manifest, cue)?;
     let command = if active_bgm_cue.is_some() {
-        NativeBgmPlaybackCommand::StopAllThenStart(bgm)
+        NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
     } else {
         NativeBgmPlaybackCommand::Start(bgm)
     };
@@ -1097,15 +1097,13 @@ fn apply_native_bgm_command(
             gems.play_sound(bgm);
             None
         }
-        NativeBgmPlaybackCommand::StopAllThenStart(bgm) => {
-            // GEMS command $16 consumes a sequence id byte; $FF means all
-            // sequences. The ROM's `j_PlaySound` calls rely on GEMS sequence
-            // allocation to replace music contexts; native playback has to be
-            // explicit or the title Ice sequence can keep playing underneath
-            // level music and starve SFX channels. Queue the replacement on
-            // the next audio frame so the stop command cannot silence the
-            // just-started sequence in the standalone driver.
-            gems.stop_all_sequences();
+        NativeBgmPlaybackCommand::StopMusicThenStart(bgm) => {
+            // ASM StopMusic (kid.asm:49727) reloads/resets the GEMS driver
+            // and queues command `$0B` with the sound data pointers. Native
+            // playback must use that ROM path before changing music contexts;
+            // `$16` stop-all leaves the standalone driver with stale title
+            // sequence state and can starve gameplay SFX channels.
+            gems.stop_music();
             Some(bgm)
         }
     }
@@ -6263,9 +6261,9 @@ mod tests {
             native_bgm_playback_command(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
             Some((
                 NativeBgmCue::Level(LevelId(0)),
-                NativeBgmPlaybackCommand::StopAllThenStart(gems_bgm::CAVE),
+                NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
             )),
-            "GEMS command $10 starts a sequence without stopping older music; title-to-gameplay must queue stop-all before deferring the level BGM"
+            "ASM StopMusic reloads/resets GEMS before title-to-gameplay BGM replacement; `$16` stop-all leaves stale title sequence state in native playback"
         );
         Ok(())
     }
