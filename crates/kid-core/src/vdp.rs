@@ -11,7 +11,9 @@
 use anyhow::{Context, Result};
 use kid_data::AssetManifest;
 
-use crate::boot::{VDP_GAME_INIT_VALUES, title_text_word_writes_sub_1B7B6};
+use crate::boot::{
+    VDP_GAME_INIT_VALUES, intro_text_buggy_substitution_loc_1C7DC, title_text_word_writes_sub_1B7B6,
+};
 
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
@@ -418,7 +420,27 @@ fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpStat
     build_intro_sequence_vdp_with_title_variant(data, segment, 1)
 }
 
+#[cfg(test)]
 pub(crate) fn build_intro_sequence_vdp_with_title_variant(
+    data: &IntroSub1B850Data,
+    segment: usize,
+    title_variant: u8,
+) -> VdpState {
+    build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant)
+}
+
+pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
+    data: &IntroSub1B850Data,
+    segment: usize,
+    title_variant: u8,
+    elapsed: usize,
+) -> VdpState {
+    let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
+    overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
+    vdp
+}
+
+fn build_intro_sequence_vdp_base_with_title_variant(
     data: &IntroSub1B850Data,
     segment: usize,
     title_variant: u8,
@@ -428,6 +450,189 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant(
         3 => build_intro_sequence_4_vdp(data),
         4 => build_intro_sequence_5_vdp(data, title_variant),
         _ => build_intro_sub_1b850_vdp(data, segment),
+    }
+}
+
+struct IntroTextScriptLoc1C7A0 {
+    base_vram_byte_address: u16,
+    base_tile_word: u16,
+    delay_frames: u16,
+    x_pos: u16,
+    y_pos: u16,
+    text_bytes: &'static [u8],
+}
+
+const INTRO_TEXT_1_BYTES: &[u8] = b"\xFE\x20THERE WAS A NEW MACHINE\xFDIN THE ARCADE\xFD\xFE\x20THAT ONE COULD WALK INTO\xFDAND PLAY\x66\xFF";
+const INTRO_TEXT_2_BYTES: &[u8] =
+    b"\xFE\x90IT USED HOLOGRAMS TO CREATE\xFDA REALITY NOT OUR OWN\x66\xFF";
+const INTRO_TEXT_3_BYTES: &[u8] = b"\xFE\x20EVERYBODY PLAYED IT\x66\xFF";
+const INTRO_TEXT_4_BYTES: &[u8] = b"\xFE\x20BUT IT WAS A LITTLE TOO REAL\x66\xFD\xFD\xFE\x40THE BOSS ESCAPED\x68 AND BEGAN\xFDCAPTURING KIDS BY DEFEATING\xFDTHEM AT THE GAME\x66\xFF";
+const INTRO_TEXT_5_BYTES: &[u8] = b"\xFE\x20THIS IS THE\xFDSTORY OF\xFDSOMEONE TOO\xFDTOUGH TO BEAT\x66\xFD\xFD\xFE\x60SOMEONE KNOWN\xFDAS\x66\x66\x66\xFF";
+
+const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
+    67, // ASM sub_1B8F4/loc_1C7A0; frame-360 oracle text writes lag the object-count exposure by 22 frames.
+    42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
+    42, // ASM sub_1B93E follows the same Load_IntroSequence3 hidden rebuild shell.
+    42, // ASM sub_1B988 allocates IntroText4 before sub_1C204's fade shell.
+    42, // ASM loc_1BA28 allocates IntroText5 before sub_1C204's fade shell.
+];
+
+fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0> {
+    // ASM IntroText1-5 (kid.asm:31380-31396): headers are
+    // `(VRAM destination byte address, VRAM base tile, delay, x, y)`.
+    match segment {
+        0 => Some(IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0x0000,
+            base_tile_word: 0x67D3,
+            delay_frames: 2,
+            x_pos: 8,
+            y_pos: 2,
+            text_bytes: INTRO_TEXT_1_BYTES,
+        }),
+        1 => Some(IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0xE000,
+            base_tile_word: 0xC7D3,
+            delay_frames: 2,
+            x_pos: 7,
+            y_pos: 3,
+            text_bytes: INTRO_TEXT_2_BYTES,
+        }),
+        2 => Some(IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0x0000,
+            base_tile_word: 0x67D3,
+            delay_frames: 2,
+            x_pos: 0x0A,
+            y_pos: 4,
+            text_bytes: INTRO_TEXT_3_BYTES,
+        }),
+        3 => Some(IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0x0000,
+            base_tile_word: 0xC7D3,
+            delay_frames: 2,
+            x_pos: 6,
+            y_pos: 8,
+            text_bytes: INTRO_TEXT_4_BYTES,
+        }),
+        4 => Some(IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0x0000,
+            base_tile_word: 0xC7D3,
+            delay_frames: 2,
+            x_pos: 0x19,
+            y_pos: 3,
+            text_bytes: INTRO_TEXT_5_BYTES,
+        }),
+        _ => None,
+    }
+}
+
+fn overlay_intro_text_worker_loc_1c7a0(vdp: &mut VdpState, segment: usize, elapsed: usize) {
+    let Some(script) = intro_text_script_loc_1c7a0(segment) else {
+        return;
+    };
+    clear_intro_text_script_cells_loc_1c7a0(vdp, &script);
+    let Some(start_elapsed) = INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0
+        .get(segment)
+        .copied()
+    else {
+        return;
+    };
+    let Some(worker_elapsed) = elapsed.checked_sub(start_elapsed) else {
+        return;
+    };
+    replay_intro_text_worker_loc_1c7a0(vdp, &script, worker_elapsed);
+}
+
+fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTextScriptLoc1C7A0) {
+    // Native asset extraction can leave the final text tilemap in the intro
+    // scene maps. ASM loc_1C7A0/sub_1C7F6 writes each glyph over blank plane
+    // cells at runtime, so clear the scripted cells before replaying the
+    // visible prefix for this frame.
+    let mut byte_index = 0usize;
+    let mut x_pos = script.x_pos;
+    let mut y_pos = script.y_pos;
+    while let Some(&raw_byte) = script.text_bytes.get(byte_index) {
+        byte_index += 1;
+        match raw_byte {
+            0xFF => return,
+            0xFD => {
+                x_pos = script.x_pos;
+                y_pos = y_pos.wrapping_add(2);
+            }
+            0xFE => {
+                byte_index += 1;
+            }
+            _ => {
+                let write = kid_data::title_intro_glyph_write_sub_1C7F6(
+                    script.base_vram_byte_address,
+                    script.base_tile_word,
+                    x_pos,
+                    y_pos,
+                    0,
+                );
+                vdp.write_vram_word(usize::from(write.vram_word_address), 0);
+                x_pos = x_pos.wrapping_add(1);
+            }
+        }
+    }
+}
+
+fn replay_intro_text_worker_loc_1c7a0(
+    vdp: &mut VdpState,
+    script: &IntroTextScriptLoc1C7A0,
+    worker_elapsed: usize,
+) {
+    // ASM loc_1C7A0 -> loc_1C7AE (kid.asm:31404-31414): the text worker
+    // hibernates once before parsing its stream. `$FE` delays and per-glyph
+    // header delays also return to this hibernate loop before the next byte.
+    if worker_elapsed < 1 {
+        return;
+    }
+    let mut remaining = worker_elapsed - 1;
+    let mut byte_index = 0usize;
+    let mut x_pos = script.x_pos;
+    let mut y_pos = script.y_pos;
+    while let Some(&raw_byte) = script.text_bytes.get(byte_index) {
+        byte_index += 1;
+        match raw_byte {
+            0xFF => return,
+            0xFD => {
+                // ASM loc_1C7C4: reload X from the header and advance Y by two rows.
+                x_pos = script.x_pos;
+                y_pos = y_pos.wrapping_add(2);
+            }
+            0xFE => {
+                // ASM loc_1C7D2: following byte is the hibernate duration.
+                let Some(&duration) = script.text_bytes.get(byte_index) else {
+                    return;
+                };
+                byte_index += 1;
+                let duration = usize::from(duration);
+                if remaining < duration {
+                    return;
+                }
+                remaining -= duration;
+            }
+            byte => {
+                let substitution = intro_text_buggy_substitution_loc_1C7DC(byte, 0);
+                let glyph_index = u16::from(substitution.output_byte.wrapping_sub(0x41));
+                let write = kid_data::title_intro_glyph_write_sub_1C7F6(
+                    script.base_vram_byte_address,
+                    script.base_tile_word,
+                    x_pos,
+                    y_pos,
+                    glyph_index,
+                );
+                vdp.write_vram_word(usize::from(write.vram_word_address), write.tile_word);
+                x_pos = x_pos.wrapping_add(1);
+                if script.delay_frames != 0 {
+                    let delay_frames = usize::from(script.delay_frames);
+                    if remaining < delay_frames {
+                        return;
+                    }
+                    remaining -= delay_frames;
+                }
+            }
+        }
     }
 }
 
@@ -1034,6 +1239,10 @@ mod tests {
         }
     }
 
+    fn vram_word(vdp: &VdpState, byte_addr: usize) -> u16 {
+        u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+    }
+
     #[test]
     fn vdp_state_new_has_correct_sizes() {
         let vdp = VdpState::new();
@@ -1049,6 +1258,81 @@ mod tests {
         vdp.write_vram_word(0x100, 0x80BC);
         assert_eq!(vdp.vram[0x100], 0x80);
         assert_eq!(vdp.vram[0x101], 0xBC);
+    }
+
+    #[test]
+    fn intro_sequence_text_worker_waits_for_rom_initial_and_fe_delay() {
+        let mut baked_text_tilemap = vec![0u16; 40 * 28];
+        baked_text_tilemap[2 * 40 + 8] = 0x67E6;
+        let data = IntroSub1B850Data {
+            plane_a_tilemap: baked_text_tilemap,
+            ..empty_intro_data()
+        };
+        let first_glyph_elapsed = INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[0] + 1 + 0x20;
+
+        // ASM sub_1B8F4 allocates loc_1C7A0 before the visible text writes;
+        // loc_1C7A0 then hibernates once and IntroText1 starts with `$FE,$20`,
+        // so a baked-in tilemap glyph must be cleared until the effective
+        // text-write start plus loc_1C7AE's initial hibernate and marker delay.
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            0,
+            1,
+            first_glyph_elapsed - 1,
+        );
+        assert_eq!(
+            vram_word(&before, 0x0110),
+            0,
+            "ASM loc_1C7A0/loc_1C7D2 should leave the first IntroText1 glyph hidden until the initial hibernate and `$FE,$20` delay expire",
+        );
+
+        let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            0,
+            1,
+            first_glyph_elapsed,
+        );
+        assert_eq!(
+            vram_word(&after, 0x0110),
+            0x67E6,
+            "ASM sub_1C7F6 should write IntroText1's first `T` tile only once loc_1C7A0 reaches the glyph path",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_text_worker_honours_second_fe_delay_before_third_line() {
+        let data = empty_intro_data();
+        let first_line = b"THERE WAS A NEW MACHINE";
+        let second_line = b"IN THE ARCADE";
+        let worker_elapsed_before_third_line =
+            1 + 0x20 + first_line.len() * 2 + second_line.len() * 2 + 0x1F;
+        let elapsed_before_third_line =
+            INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[0] + worker_elapsed_before_third_line;
+        let third_line_first_glyph_addr = 0x0310;
+
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            0,
+            1,
+            elapsed_before_third_line,
+        );
+        assert_eq!(
+            vram_word(&before, third_line_first_glyph_addr),
+            0,
+            "ASM IntroText1's second `$FE,$20` pause should stop the third line being pre-rendered",
+        );
+
+        let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            0,
+            1,
+            elapsed_before_third_line + 1,
+        );
+        assert_eq!(
+            vram_word(&after, third_line_first_glyph_addr),
+            0x67E6,
+            "ASM loc_1C7D2 should reveal the third line immediately after the second `$FE,$20` delay expires",
+        );
     }
 
     #[test]

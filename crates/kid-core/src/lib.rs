@@ -1371,15 +1371,16 @@ impl NativeRuntime {
                 .sega_screen_data
                 .as_ref()
                 .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
-            BootState::IntroSequence { segment, .. } => {
-                self.intro_sub_1b850_data.as_ref().map(|data| {
-                    vdp::build_intro_sequence_vdp_with_title_variant(
-                        data,
-                        *segment,
-                        self.title_screen_region_byte,
-                    )
-                })
-            }
+            BootState::IntroSequence {
+                segment, elapsed, ..
+            } => self.intro_sub_1b850_data.as_ref().map(|data| {
+                vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                    data,
+                    *segment,
+                    self.title_screen_region_byte,
+                    *elapsed,
+                )
+            }),
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
                     vdp::build_title_screen_vdp_with_character_frame(
