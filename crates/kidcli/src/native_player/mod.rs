@@ -3010,6 +3010,59 @@ mod tests {
     }
 
     #[test]
+    fn render_full_16_colour_sprite_palette_keeps_rom_slot_numbers() {
+        // ASM loc_1AB40 copies `Pal_19C48` as all 16 words of the title-card
+        // letter palette. Pixel index 2 must resolve to palette slot 2; shifting
+        // it down to slot 1 makes the Blue Lake Woods title glyphs black.
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 0), (1, 0, 1), (2, 0, 2)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![
+                colour(20, 20, 60),
+                colour(0, 0, 0),
+                colour(64, 96, 192),
+                colour(80, 120, 220),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+                colour(0, 0, 0),
+            ],
+        });
+        let scene = Scene {
+            background: [1, 2, 3],
+            commands: vec![DrawCommand::IndexedTile {
+                x: 0,
+                y: 0,
+                tile_sheet,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                palette,
+            }],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 0, 0), [1, 2, 3]);
+        assert_eq!(pixel_at(&rgb, 1, 0), [0, 0, 0]);
+        assert_eq!(pixel_at(&rgb, 2, 0), [64, 96, 192]);
+    }
+
+    #[test]
     fn render_sprite_command_honours_mapping_priority_and_transparency() {
         let tile_sheet = Arc::new(TileSheet {
             tiles: vec![

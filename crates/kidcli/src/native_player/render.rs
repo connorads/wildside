@@ -328,7 +328,13 @@ pub(super) fn resolve_palette_colour(
         return None;
     }
 
-    let colour = if palette.colours.len() == 8 {
+    let colour = if palette.colours.len() == 16 && selected_palette_line == 0 {
+        // ASM loc_1AB40 copies Pal_19C48 as a complete 16-word palette line
+        // for title-card letters. Unlike 15-colour visible-only level
+        // palettes, slot 0 is present in the data, so non-zero tile indices
+        // address their matching MD palette slot directly.
+        palette.colours.get(usize::from(palette_index))
+    } else if palette.colours.len() == 8 {
         match selected_palette_line {
             0 => palette.colours.get(usize::from(palette_index)),
             1 | 2 if (8..=15).contains(&palette_index) => {

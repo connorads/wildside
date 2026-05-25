@@ -508,11 +508,12 @@ fn push_title_card_glyph_tiles(
                 tile_sheet: tile_sheet.clone(),
                 tile: kid_render::TileRef {
                     tile_index,
-                    // The loaded `Title_card_letters.bin` palette holds only
-                    // the 16 colours destined for VRAM palette line 1. Native
-                    // stores those colours starting at slot 0 of the Palette
-                    // struct, so resolve via `palette_line: 0` — using line 1
-                    // would offset past the end of the loaded data.
+                    // The loaded `Title_card_letters.bin` palette is the
+                    // complete 16-colour line that ASM loc_1AB40 copies to
+                    // CRAM line 1. Native stores that standalone line at
+                    // Palette slot 0; `palette_line: 0` lets the 16-colour
+                    // resolver keep the ROM slot numbers while avoiding a
+                    // second-line offset past the loaded data.
                     palette_line: 0,
                     priority: false,
                     flip_x: false,
