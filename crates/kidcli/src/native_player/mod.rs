@@ -2233,8 +2233,22 @@ mod tests {
                     sample_player_frame(6),
                     sample_player_frame(7),
                 ],
-                slope_walk: Vec::new(),
-                slope_walk_left: Vec::new(),
+                slope_walk: vec![
+                    sample_player_frame(25),
+                    sample_player_frame(26),
+                    sample_player_frame(27),
+                    sample_player_frame(28),
+                    sample_player_frame(29),
+                    sample_player_frame(30),
+                ],
+                slope_walk_left: vec![
+                    sample_player_frame(31),
+                    sample_player_frame(32),
+                    sample_player_frame(33),
+                    sample_player_frame(34),
+                    sample_player_frame(35),
+                    sample_player_frame(36),
+                ],
                 jump_rise: sample_player_frame(8),
                 jump_fall: sample_player_frame(9),
                 pull_up: vec![
@@ -5450,6 +5464,43 @@ mod tests {
             player_sprite_signature(&scene),
             Some(39),
             "ASM off_A23C selects `unk_B7150` for Red Stealth's second slope animation slot instead of the generic walk frame"
+        );
+    }
+
+    #[test]
+    fn kid_slope_frame_bank_follows_loc_a13a_fa26_canonical_direction() {
+        let selected_signature = |slope: i8, facing: Direction| {
+            let mut trace = trace_with_player(4, 0);
+            trace.kid_x_velocity = Some(match facing {
+                Direction::Right => 0x0001_0000,
+                Direction::Left => -0x0001_0000,
+            });
+            trace.kid_on_ground = Some(true);
+            trace.kid_on_slope = slope;
+            trace.kid_facing = Some(facing);
+
+            player_sprite_signature(&build_ingame_scene(&trace, false, None))
+        };
+
+        assert_eq!(
+            selected_signature(1, Direction::Right),
+            Some(32),
+            "ASM loc_A13A: SlopeUp ($FA26=0) keeps x_direction=0, selecting the first six-entry Kid slope table (`kid_slope_1..6`)"
+        );
+        assert_eq!(
+            selected_signature(1, Direction::Left),
+            Some(26),
+            "ASM loc_A13A+loc_A16C: SlopeUp keeps x_direction=$FF, selecting the second six-entry Kid slope table (`kid_slope_7..12`)"
+        );
+        assert_eq!(
+            selected_signature(-1, Direction::Right),
+            Some(26),
+            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=0 to canonical reverse before table selection"
+        );
+        assert_eq!(
+            selected_signature(-1, Direction::Left),
+            Some(32),
+            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=$FF to canonical forward before table selection"
         );
     }
 
