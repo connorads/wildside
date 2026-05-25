@@ -327,48 +327,7 @@ pub(super) fn build_transition_scene(
         colour: [0, 0, 0],
     });
 
-    let overlay = build_title_card_worker_overlay_scene(trace, level_visuals);
-    let drew_any_glyph = !overlay.commands.is_empty();
-    commands.extend(overlay.commands);
-
-    // Fallback: death/respawn transitions never seed title workers. Keep the
-    // lightweight name/ID/score readout for those windows only. During
-    // ASM Load_TitleCard (`loc_6E2` -> `Load_TitleCard` -> `loc_1AB26`),
-    // native traces can briefly expose LevelTransition before the projected
-    // Title_Letter workers are visible; the ROM has no invented "Blue Lake
-    // Woods" text screen there, just the title-card VDP shell.
-    let is_rom_transition_without_static_card = matches!(
-        trace.boot_phase.as_deref(),
-        Some("starting_level" | "level_skip_hold")
-    );
-    if !drew_any_glyph && !is_rom_transition_without_static_card {
-        let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
-        let level_text = level_name.to_string();
-        let text_w = level_text.len() as i32 * 8 * 2;
-        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 20;
-        commands.push(text(text_x, text_y, &level_text, [255, 255, 255], 2));
-
-        let id_text = format!("Level {:02X}", trace.current_level.0);
-        let id_w = id_text.len() as i32 * 8;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - id_w) / 2,
-            text_y + 22,
-            &id_text,
-            [120, 120, 120],
-            1,
-        ));
-
-        let info_text = format!("Lives: {}  Score: {}", trace.number_lives, trace.score);
-        let info_w = info_text.len() as i32 * 8;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - info_w) / 2,
-            text_y + 40,
-            &info_text,
-            [100, 140, 180],
-            1,
-        ));
-    }
+    commands.extend(build_title_card_worker_overlay_scene(trace, level_visuals).commands);
 
     Scene {
         background: [0, 0, 0],

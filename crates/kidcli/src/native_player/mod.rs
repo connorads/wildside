@@ -656,36 +656,28 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
 }
 
 fn should_start_native_level_card_overlay(
-    previous_trace: &NativeTraceFrame,
-    trace: &NativeTraceFrame,
-    warp_level: Option<u8>,
-    settled: bool,
+    _previous_trace: &NativeTraceFrame,
+    _trace: &NativeTraceFrame,
+    _warp_level: Option<u8>,
+    _settled: bool,
 ) -> bool {
-    let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
-        && matches!(trace.game_mode, GameMode::InGame);
-    entered_gameplay
-        && warp_level.is_none()
-        && !settled
-        && previous_trace.boot_phase.as_deref() != Some("starting_level")
+    // The old native placeholder card could not distinguish real
+    // `Load_TitleCard` from hidden death/continue bootstrap windows. The ROM
+    // path is now rendered by VDP state plus the `loc_1AB26` title workers, so
+    // generic mode changes must not re-enter a fake LevelTransition overlay.
+    false
 }
 
 fn should_start_native_level_card_overlay_for_level_change(
-    trace: &NativeTraceFrame,
-    warp_level: Option<u8>,
-    settled: bool,
-    debug_hotkey_warp: bool,
+    _trace: &NativeTraceFrame,
+    _warp_level: Option<u8>,
+    _settled: bool,
+    _debug_hotkey_warp: bool,
 ) -> bool {
-    if warp_level.is_some() || settled || debug_hotkey_warp {
-        return false;
-    }
-
-    // ASM loc_74E0 level-skip cheat does not enter Load_TitleCard. The core
-    // projects the ROM hold/resume poses via `level_skip_hold`; do not mask
-    // that path with the native placeholder transition card.
-    !matches!(
-        trace.boot_phase.as_deref(),
-        Some("starting_level" | "level_skip_hold")
-    )
+    // ASM Load_TitleCard (`loc_6E2` -> `loc_1AB26`) is the only real level-card
+    // renderer. Level changes, debug warps, and death/continue restarts should
+    // expose the ROM/current core state instead of a native placeholder.
+    false
 }
 
 fn save_native_recording_bundle(
@@ -2899,20 +2891,20 @@ mod tests {
     }
 
     #[test]
-    fn build_scene_falls_back_to_static_text_when_level_transition_has_no_title_workers() {
+    fn build_scene_keeps_plain_level_transition_blank_without_title_workers() {
         // Death/respawn transitions reach LevelTransition without seeding any
         // Title_Letter workers (see kid_core::trace `PlayerLifecycle::Dying`
         // and `Respawning` branches mapping to GameMode::LevelTransition).
-        // Keep the lightweight name/ID readout for those frames so the screen
-        // is not blank.
+        // The ROM does not draw the native placeholder "Blue Lake Woods" card
+        // there; only `Load_TitleCard`/`loc_1AB26` owns title-card visuals.
         let trace = sample_trace(GameMode::LevelTransition);
         assert!(trace.active_objects.is_empty());
         let visuals = sample_level_visuals();
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert!(
-            contains_text(&scene, "Blue Lake Woods 1"),
-            "without title workers the transition scene should still show the level name",
+            !contains_text(&scene, "Blue Lake Woods 1"),
+            "plain LevelTransition windows should not invent a static level loader",
         );
     }
 
@@ -4354,13 +4346,14 @@ mod tests {
     }
 
     #[test]
-    fn level_card_overlay_still_starts_for_non_title_gameplay_entry() {
+    fn level_card_overlay_does_not_start_for_non_title_gameplay_entry() {
         let previous = sample_trace(GameMode::LevelTransition);
         let current = sample_trace(GameMode::InGame);
 
-        assert!(should_start_native_level_card_overlay(
-            &previous, &current, None, false
-        ));
+        assert!(
+            !should_start_native_level_card_overlay(&previous, &current, None, false),
+            "death/continue LevelTransition -> InGame handoff must not be masked by a native fake loader",
+        );
         assert!(!should_start_native_level_card_overlay(
             &previous,
             &current,
@@ -4384,12 +4377,13 @@ mod tests {
     }
 
     #[test]
-    fn level_card_overlay_can_start_for_ordinary_level_change() {
+    fn level_card_overlay_does_not_start_for_ordinary_level_change() {
         let trace = sample_trace(GameMode::LevelTransition);
 
-        assert!(should_start_native_level_card_overlay_for_level_change(
-            &trace, None, false, false
-        ));
+        assert!(
+            !should_start_native_level_card_overlay_for_level_change(&trace, None, false, false),
+            "only ROM Load_TitleCard should render a level-card transition",
+        );
         assert!(!should_start_native_level_card_overlay_for_level_change(
             &trace,
             Some(0),
