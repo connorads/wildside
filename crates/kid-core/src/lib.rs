@@ -109,6 +109,8 @@ pub struct NativeRuntime {
     prize_block_spawn_flashes: Vec<PrizeBlockSpawnFlash>,
     /// Block destruction fragment effects.
     block_destroy_effects: Vec<BlockDestroyEffect>,
+    /// ASM sub_2A4C falling block debris scratch workers.
+    block_debris_swarms: Vec<BlockDebrisSwarmSub2A4C>,
     /// Floating prize items rising from blocks.
     floating_items: Vec<FloatingItem>,
     /// ASM `Iron_Knight_block_breaker` ($FFFFFA6B): set by sub_AF7A after a
@@ -1154,6 +1156,7 @@ impl NativeRuntime {
             prize_block_worker_tails: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             block_destroy_effects: Vec::new(),
+            block_debris_swarms: Vec::new(),
             floating_items: Vec::new(),
             iron_knight_block_breaker: false,
             iron_knight_last_metal_block_hit: None,

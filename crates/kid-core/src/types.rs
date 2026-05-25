@@ -1143,6 +1143,9 @@ pub struct NativeTraceFrame {
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
     #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
     pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
+    /// Falling block debris shards from ASM `sub_2A4C`: (x_px, y_px).
+    #[serde(default)]
+    pub block_debris_pieces: Vec<(i16, i16)>,
     /// Prize-block spawn flash effects: (x_px, y_px, remaining_frames).
     #[serde(default)]
     pub prize_block_spawn_flashes: Vec<(u16, u16, u8)>,
@@ -1299,6 +1302,7 @@ impl Default for NativeTraceFrame {
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
+            block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
@@ -1433,6 +1437,19 @@ pub(crate) struct BlockDestroyEffect {
     /// ASM `sub_292E` (kid.asm:4881) selects debris velocity tables from
     /// `d6`: 0=below, 1=left, 2=above, otherwise right/default.
     pub(crate) direction: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockDebrisPieceSub2A4C {
+    pub(crate) x_pos_fp: i32,
+    pub(crate) y_pos_fp: i32,
+    pub(crate) x_velocity_fp: i32,
+    pub(crate) y_velocity_fp: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockDebrisSwarmSub2A4C {
+    pub(crate) pieces: [BlockDebrisPieceSub2A4C; 5],
 }
 
 /// A floating prize item spawned from a prize block hit.

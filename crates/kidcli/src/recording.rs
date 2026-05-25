@@ -1273,6 +1273,7 @@ mod tests {
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
+            block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),

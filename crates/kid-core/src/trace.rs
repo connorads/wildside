@@ -4832,6 +4832,16 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
                 .collect(),
+            block_debris_pieces: self
+                .block_debris_swarms
+                .iter()
+                .flat_map(|swarm| {
+                    swarm
+                        .pieces
+                        .iter()
+                        .map(|piece| ((piece.x_pos_fp >> 16) as i16, (piece.y_pos_fp >> 16) as i16))
+                })
+                .collect(),
             prize_block_spawn_flashes: self
                 .prize_block_spawn_flashes
                 .iter()

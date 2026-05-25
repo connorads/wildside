@@ -1526,6 +1526,7 @@ mod tests {
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
+            block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
@@ -4016,6 +4017,22 @@ mod tests {
         assert!(
             !has_rect(&scene, 37, 29, 6, 6, [180, 150, 110]),
             "block debris should use ASM sub_292E/sub_2A4C tile sprites when level art is loaded"
+        );
+    }
+
+    #[test]
+    fn falling_block_debris_uses_sub_2a4c_rom_tile_after_destroy_handoff() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.block_debris_pieces = vec![(0x003F, 0x002C)];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let (_, tile, _) = indexed_tile_at_with_sheet_len(&scene, 47, 36, 0x200)
+            .expect("falling debris tile from ASM sub_2A4C");
+        assert_eq!(
+            tile.tile_index, 8,
+            "ASM sub_2A4C emits persistent falling shards with VRAM tile $8228, i.e. block sheet index 8"
         );
     }
 

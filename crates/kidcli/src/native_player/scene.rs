@@ -2130,6 +2130,25 @@ fn build_game_scene_filtered(
             });
         }
 
+        if let Some(tile) = resolve_ingame_vram_tile(
+            level_visuals,
+            TileRef::from_attr_word(BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C),
+        ) {
+            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            for &(x_px, y_px) in &trace.block_debris_pieces {
+                // ASM sub_2A4C (kid.asm:5053) emits persistent falling debris
+                // sprite entries with tile `$8228` after sub_292E seeds the
+                // scratch slot.
+                push_resolved_tile(
+                    &mut commands,
+                    i32::from(x_px) - camera_x_px,
+                    i32::from(y_px) - camera_y_px,
+                    tile.clone(),
+                );
+            }
+        }
+
         for &(x_px, y_px, remaining) in &trace.prize_block_spawn_flashes {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;

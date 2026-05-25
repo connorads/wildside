@@ -1600,6 +1600,48 @@ impl NativeRuntime {
     pub(crate) const BLOCK_DESTROY_DIRECTION_LEFT: u16 = 1;
     pub(crate) const BLOCK_DESTROY_DIRECTION_ABOVE: u16 = 2;
     pub(crate) const BLOCK_DESTROY_DIRECTION_RIGHT: u16 = 3;
+    const BLOCK_DEBRIS_GRAVITY_STEP_FP_SUB_2A4C: i32 = 0x0000_36B0;
+    const BLOCK_DEBRIS_BASE_X_SUB_292E: [i16; 5] = [0, 0, 8, 8, 4];
+    const BLOCK_DEBRIS_BASE_Y_SUB_292E: [i16; 5] = [0, 8, 8, 0, 4];
+    const BLOCK_DEBRIS_VEL_D6_2_SUB_292E: [(i16, i16); 5] =
+        [(-1, -4), (-1, -3), (1, -3), (1, -4), (1, -5)];
+    const BLOCK_DEBRIS_VEL_D6_0_SUB_292E: [(i16, i16); 5] =
+        [(-1, -2), (-2, 0), (1, 0), (1, -1), (-1, -2)];
+    const BLOCK_DEBRIS_VEL_D6_1_SUB_292E: [(i16, i16); 5] =
+        [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)];
+    const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
+        [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
+
+    fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
+        match direction {
+            Self::BLOCK_DESTROY_DIRECTION_ABOVE => &Self::BLOCK_DEBRIS_VEL_D6_2_SUB_292E,
+            Self::BLOCK_DESTROY_DIRECTION_BELOW => &Self::BLOCK_DEBRIS_VEL_D6_0_SUB_292E,
+            Self::BLOCK_DESTROY_DIRECTION_LEFT => &Self::BLOCK_DEBRIS_VEL_D6_1_SUB_292E,
+            _ => &Self::BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E,
+        }
+    }
+
+    fn block_debris_swarm_sub_2a4c(
+        x_px: u16,
+        y_px: u16,
+        direction: u16,
+    ) -> BlockDebrisSwarmSub2A4C {
+        let velocities = Self::block_debris_velocity_sub_292e(direction);
+        BlockDebrisSwarmSub2A4C {
+            pieces: core::array::from_fn(|index| BlockDebrisPieceSub2A4C {
+                // ASM sub_292E (kid.asm:4881) seeds word x/y positions and
+                // x/y velocities; sub_2A4C then treats them as 16.16 longs.
+                x_pos_fp: i32::from(x_px)
+                    .saturating_add(i32::from(Self::BLOCK_DEBRIS_BASE_X_SUB_292E[index]))
+                    << 16,
+                y_pos_fp: i32::from(y_px)
+                    .saturating_add(i32::from(Self::BLOCK_DEBRIS_BASE_Y_SUB_292E[index]))
+                    << 16,
+                x_velocity_fp: i32::from(velocities[index].0) << 16,
+                y_velocity_fp: i32::from(velocities[index].1) << 16,
+            }),
+        }
+    }
     const IRON_KNIGHT_BLOCK_BREAKER_MIN_Y_VELOCITY_SUB_AF7A: i32 = 0x0004_8000;
     const IRON_KNIGHT_BLOCK_BREAKER_REBOUND_Y_VELOCITY_SUB_AF7A: i32 = -0x0000_8000;
 
@@ -3363,7 +3405,37 @@ impl NativeRuntime {
         for e in &mut self.block_destroy_effects {
             e.remaining = e.remaining.saturating_sub(1);
         }
-        self.block_destroy_effects.retain(|e| e.remaining > 0);
+        let mut new_debris_swarms = Vec::new();
+        self.block_destroy_effects.retain(|e| {
+            if e.remaining > 0 {
+                return true;
+            }
+            new_debris_swarms.push(Self::block_debris_swarm_sub_2a4c(
+                e.x_px,
+                e.y_px,
+                e.direction,
+            ));
+            false
+        });
+        self.block_debris_swarms.extend(new_debris_swarms);
+        for swarm in &mut self.block_debris_swarms {
+            for piece in &mut swarm.pieces {
+                // ASM sub_2A4C (kid.asm:5053): per frame, add velocity to
+                // 16.16 position, then add `$36B0` gravity to y velocity.
+                piece.x_pos_fp = piece.x_pos_fp.wrapping_add(piece.x_velocity_fp);
+                piece.y_pos_fp = piece.y_pos_fp.wrapping_add(piece.y_velocity_fp);
+                piece.y_velocity_fp = piece
+                    .y_velocity_fp
+                    .wrapping_add(Self::BLOCK_DEBRIS_GRAVITY_STEP_FP_SUB_2A4C);
+            }
+        }
+        self.block_debris_swarms.retain(|swarm| {
+            swarm.pieces.iter().any(|piece| {
+                let x = piece.x_pos_fp >> 16;
+                let y = piece.y_pos_fp >> 16;
+                (-0x0100..0x2000).contains(&x) && (-0x0100..0x0400).contains(&y)
+            })
+        });
 
         for f in &mut self.floating_items {
             if f.spawn_delay > 0 {

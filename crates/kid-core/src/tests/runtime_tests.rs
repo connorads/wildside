@@ -8409,6 +8409,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn block_destroy_effect_hands_off_to_falling_sub_2a4c_debris() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_destroy_effects.push(BlockDestroyEffect {
+            x_px: 80,
+            y_px: 48,
+            remaining: 1,
+            direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+        });
+
+        rt.step_visual_effects();
+
+        assert!(rt.block_destroy_effects.is_empty());
+        assert_eq!(
+            rt.trace_frame().block_debris_pieces,
+            vec![(79, 44), (79, 53), (89, 53), (89, 44), (85, 47)],
+            "ASM sub_292E seeds the five shard rows, then sub_2A4C immediately advances them by the selected velocity table"
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(
+            rt.trace_frame().block_debris_pieces[0],
+            (78, 40),
+            "ASM sub_2A4C should keep advancing the shard instead of deleting it after the smash worker hibernate"
+        );
+    }
+
+    #[test]
     fn prize_block_spawn_flash_counts_down_and_is_traced_with_loc_102b8_position() {
         let mut rt = NativeRuntime::new(manifest());
         rt.prize_block_spawn_flashes.push(PrizeBlockSpawnFlash {
