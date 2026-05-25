@@ -2103,9 +2103,17 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 154 && *x > 320 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] >= 130)
+                    if *y == 154 && *x == 532 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
-            "ASM loc_C5A2 should start EOL number rows off-screen right before their -8px/frame fly-in",
+            "ASM Object_EOL_Number loc_C48C draws from the initial x before loc_C4E2 applies the first -8px fly-in step",
+        );
+        assert!(
+            early.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                    if *y == 202 && *x == -52 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+            )),
+            "ASM Object_EOL_Number loc_C48C leaves the CONTINUES number at x=$FF84 on the first visible row tick",
         );
 
         trace.level_complete_score_rows_elapsed_frames = 0x24;
@@ -2117,6 +2125,14 @@ mod tests {
                     if *y == 156 && *x == 64 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_D4CE increments d6 before TIME/BONUS, so after loc_C5A2 the time label should rest at x=$40",
+        );
+        assert!(
+            settled.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                    if *y == 154 && *x == 252 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+            )),
+            "ASM Object_EOL_Number remains one tick before its settled x when text reaches its final x because loc_C48C draws before advancing `$64`",
         );
     }
 

@@ -1448,6 +1448,14 @@ fn eol_position_loc_c5a2(initial: i32, velocity: i32, timer: usize, elapsed: usi
     initial + velocity * i32::try_from(moving_frames).unwrap_or(i32::MAX)
 }
 
+fn eol_number_position_loc_c48c(initial: i32, velocity: i32, timer: usize, elapsed: usize) -> i32 {
+    // ASM Object_EOL_Number loc_C48C draws digits from `$64/$68`, then loc_C4E2
+    // advances `$64/$68` and decrements `$A`. Text workers in loc_C5A2 move
+    // before drawing, so EOL numbers are visibly one worker tick behind text.
+    let moving_frames = elapsed.saturating_sub(1).min(timer);
+    initial + velocity * i32::try_from(moving_frames).unwrap_or(i32::MAX)
+}
+
 fn push_eol_text_loc_c5a2(
     commands: &mut Vec<DrawCommand>,
     frame: &kid_render::SpriteFrame,
@@ -1471,7 +1479,7 @@ fn push_eol_number_loc_c5a2(
     elapsed: usize,
     value: u32,
 ) {
-    let x = eol_position_loc_c5a2(initial_x, velocity, timer, elapsed);
+    let x = eol_number_position_loc_c48c(initial_x, velocity, timer, elapsed);
     push_eol_number_sprites(commands, eol, x, y - 2, value);
 }
 
@@ -2682,9 +2690,8 @@ fn build_game_scene_filtered(
     // emits sprite-art labels — `LnkTo_Spr_EOL_Score`,
     // `LnkTo_Spr_EOL_Time`, `LnkTo_Spr_EOL_Bonus`, `LnkTo_Spr_EOL_NoHit`,
     // `LnkTo_Spr_EOL_NoPrize`, `LnkTo_Spr_EOL_Path`, `LnkTo_Spr_EOL_Speed`
-    // — plus seven digit workers from `Load_Object_EOL_Number`. Native draws
-    // the settled row positions when the EOL score sheet is available; the
-    // off-screen fly-in timing is not in `NativeTraceFrame` yet.
+    // — plus seven digit workers from `Load_Object_EOL_Number`. Native uses
+    // the trace's EOL worker elapsed fields to replay the ROM fly-in timing.
     if trace.level_complete {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_eol_score_overlay(&mut commands, trace, eol_score);
