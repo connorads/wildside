@@ -211,7 +211,8 @@ pub(super) fn push_game_hud(
     let max_hp = PlayerForm::from_helmet_id(trace.current_helmet_id).map_or_else(
         || PlayerForm::TheKid.max_hitpoints(),
         PlayerForm::max_hitpoints,
-    ) as i32;
+    ) as i32
+        + i32::from(trace.extra_hitpoint_slots);
     for (i, hitpoint_tile) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
         .iter()
         .enumerate()

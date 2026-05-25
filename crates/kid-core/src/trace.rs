@@ -4647,6 +4647,11 @@ impl NativeRuntime {
             } else {
                 self.progression.number_hitpoints
             },
+            extra_hitpoint_slots: if hidden_boot_progression {
+                0
+            } else {
+                self.progression.extra_hitpoint_slots
+            },
             current_helmet_id: if hidden_boot_progression {
                 0
             } else {

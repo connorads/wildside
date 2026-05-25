@@ -1543,6 +1543,7 @@ mod tests {
             active_platform_object_count: 1,
             number_lives: 3,
             number_hitpoints: 2,
+            extra_hitpoint_slots: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
@@ -6221,6 +6222,32 @@ mod tests {
         assert_eq!(
             count_hud_hitpoint_tiles(&iron_knight_scene),
             (PlayerForm::IronKnight.max_hitpoints() / 2) as usize * 2
+        );
+    }
+
+    #[test]
+    fn game_hud_includes_extra_hitpoint_slots_for_grey_empty_pips() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        trace.number_hitpoints = 4;
+        trace.extra_hitpoint_slots = 2;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, empty_pip, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xB0 - 128, 0xA4 - 128, 0x200)
+                .expect("extra empty hitpoint pip");
+        let (_, empty_tail, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xB8 - 128, 0xA4 - 128, 0x200)
+                .expect("second tile of extra empty hitpoint sprite");
+
+        assert_eq!(
+            empty_pip.tile_index, 15,
+            "ASM Make_SpriteAttr_HUD loc_BE5C adds Extra_hitpoint_slots to the helmet capacity and draws empty tile $822F for the now-empty extra slot"
+        );
+        assert_eq!(
+            empty_tail.tile_index, 16,
+            "ASM Make_SpriteAttr_HUD loc_BE5C size byte #4 draws the following grey tile for the extra empty slot"
         );
     }
 

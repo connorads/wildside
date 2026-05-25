@@ -812,6 +812,7 @@ mod tests {
             number_lives: 0,
             number_continues: 0,
             number_hitpoints: 0,
+            extra_hitpoint_slots: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,

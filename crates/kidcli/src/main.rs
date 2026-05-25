@@ -2789,6 +2789,7 @@ AddrTbl_LevelNames:
             active_platform_object_count: 0,
             number_lives: 3,
             number_hitpoints: 2,
+            extra_hitpoint_slots: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
