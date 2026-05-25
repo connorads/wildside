@@ -6533,6 +6533,9 @@ pub(crate) const FIRE_DEMON_DEATH_ANIMATION_FRAMES: u16 = 0x03 + 0x03 + 0x03 + 0
 /// ASM Crab.asm loc_3B094 plays `stru_3AF82`: $14, $0A, then $1E ticks
 /// before the shared delete tail at loc_3C46E.
 pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;
+/// ASM Cloud.asm loc_35C0E plays `stru_35EBA`: three 7-tick frames before
+/// the loc_35C50 delete tail.
+pub(crate) const CLOUD_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
@@ -6579,6 +6582,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
         EnemyFamily::Armadillo => Some(ARMADILLO_DEATH_ANIMATION_FRAMES),
         EnemyFamily::BigHoppingSkull => Some(BIG_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Cloud => Some(CLOUD_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Crab => Some(CRAB_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Diamond => Some(DIAMOND_DEATH_ANIMATION_FRAMES),
         EnemyFamily::DragonWalking => Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
