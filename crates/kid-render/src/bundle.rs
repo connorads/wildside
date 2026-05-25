@@ -1609,11 +1609,11 @@ const KID_PULL_UP_FRAMES: [PlayerFrameDescriptor; 7] = [
 // Right-facing set (kid_slope_7..12) — dimensions from ROM sprite mappings.
 const KID_SLOPE_WALK_RIGHT_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/kid_slope_7.bin", 0x0B, 0x00, 0x17, 0x1F),
-    pfd("artunc_kid/kid_slope_8.bin", 0x0C, 0x00, 0x16, 0x1E),
-    pfd("artunc_kid/kid_slope_9.bin", 0x0A, 0x00, 0x15, 0x20),
+    pfd("artunc_kid/kid_slope_8.bin", 0x0C, -0x02, 0x16, 0x1E),
+    pfd("artunc_kid/kid_slope_9.bin", 0x0A, -0x01, 0x15, 0x20),
     pfd("artunc_kid/kid_slope_10.bin", 0x0A, 0x01, 0x16, 0x20),
-    pfd("artunc_kid/kid_slope_11.bin", 0x0A, 0x00, 0x16, 0x1E),
-    pfd("artunc_kid/kid_slope_12.bin", 0x0A, 0x00, 0x16, 0x1F),
+    pfd("artunc_kid/kid_slope_11.bin", 0x0A, -0x02, 0x16, 0x1E),
+    pfd("artunc_kid/kid_slope_12.bin", 0x0A, -0x02, 0x16, 0x1F),
 ];
 
 // Left-facing set (kid_slope_1..6).
@@ -4353,6 +4353,32 @@ mod tests {
         assert_eq!(
             red_stealth.slope_walk[1].relative_path,
             "artunc_kid/red_stealth_slope_2.bin"
+        );
+    }
+
+    #[test]
+    fn kid_right_slope_visual_spec_preserves_signed_rom_origins() {
+        let kid = super::PLAYER_FORM_SPECS
+            .iter()
+            .find(|spec| spec.form_id == super::PLAYER_FORM_THE_KID)
+            .expect("kid player form spec");
+
+        assert_eq!(kid.slope_walk.len(), 6);
+        assert_eq!(
+            kid.slope_walk[1].origin_y, -0x02,
+            "ASM unk_A2552 / kid_slope_8 stores signed origin_y=-$02 for the SlopeDown/right-facing bank"
+        );
+        assert_eq!(
+            kid.slope_walk[2].origin_y, -0x01,
+            "ASM unk_A26D8 / kid_slope_9 stores signed origin_y=-$01 for the SlopeDown/right-facing bank"
+        );
+        assert_eq!(
+            kid.slope_walk[4].origin_y, -0x02,
+            "ASM unk_A29E4 / kid_slope_11 keeps the right-facing slope bank two pixels higher"
+        );
+        assert_eq!(
+            kid.slope_walk[5].origin_y, -0x02,
+            "ASM unk_A2B6A / kid_slope_12 keeps the right-facing slope bank two pixels higher"
         );
     }
 
