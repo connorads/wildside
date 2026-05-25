@@ -8787,6 +8787,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn fireball_death_waits_for_stru_345e4_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut fireball = test_enemy(EnemyFamily::Fireball, 0x0080_0000, 0x0040_0000, 1);
+        fireball.layout_index = 27;
+        let killed_identity = (fireball.segment_index, fireball.layout_index);
+        runtime.active_enemies = vec![fireball];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Fireball.asm Enemy19_Fireball_Kill hibernates through stru_345E4 before loc_32ED8 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            FIREBALL_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

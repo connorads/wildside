@@ -6512,6 +6512,9 @@ pub(crate) const DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES: u16 = 2;
 /// ASM `stru_345E4`: four `anim_frame 1, 2, ...` entries before the zero
 /// terminator. GfxObject animation keeps advancing while the object hibernates.
 pub(crate) const DRAGON_FLYING_DEATH_ANIMATION_FRAMES: u16 = 8;
+/// ASM Fireball.asm Enemy19_Fireball_Kill reuses `stru_345E4` before the
+/// loc_32ED8 delete tail.
+pub(crate) const FIREBALL_DEATH_ANIMATION_FRAMES: u16 = DRAGON_FLYING_DEATH_ANIMATION_FRAMES;
 /// ASM Mini_Hopping_Skull.asm loc_3F158 plays `stru_3E9AC`: frame
 /// LnkTo_unk_C8040 for $0A ticks, then LnkTo_unk_C8048 for $1E ticks before
 /// continuing to `j_Delete_CurrentObject`.
@@ -6590,6 +6593,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Diamond => Some(DIAMOND_DEATH_ANIMATION_FRAMES),
         EnemyFamily::DragonWalking => Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Fireball => Some(FIREBALL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::FireDemon => Some(FIRE_DEMON_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Hand => Some(HAND_DEATH_ANIMATION_FRAMES),
