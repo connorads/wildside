@@ -6528,6 +6528,9 @@ pub(crate) const ARCHER_DEATH_ANIMATION_FRAMES: u16 = 0x05 + 0x05 + 0x05 + 0x23;
 /// ASM Tornado.asm loc_359B2 plays `stru_35B1E`: $06, $03, $04, $04,
 /// $03, then $06 ticks before loc_359EE.
 pub(crate) const TORNADO_DEATH_ANIMATION_FRAMES: u16 = 0x06 + 0x03 + 0x04 + 0x04 + 0x03 + 0x06;
+/// ASM Emo_Rock.asm loc_36346 plays `stru_36468`: five 6-tick frames before
+/// the loc_3639A delete tail.
+pub(crate) const EMO_ROCK_DEATH_ANIMATION_FRAMES: u16 = 6 * 5;
 /// ASM Armadillo.asm loc_3C886 plays `stru_3C69A`: $16, $04, $04, $03, $03,
 /// $02, $02, five $01-tick flashes, then $03 before the shared delete tail.
 pub(crate) const ARMADILLO_DEATH_ANIMATION_FRAMES: u16 =
@@ -6600,6 +6603,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Diamond => Some(DIAMOND_DEATH_ANIMATION_FRAMES),
         EnemyFamily::DragonWalking => Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::EmoRock => Some(EMO_ROCK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Fireball => Some(FIREBALL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::FireDemon => Some(FIRE_DEMON_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
