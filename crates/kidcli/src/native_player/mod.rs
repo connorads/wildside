@@ -2188,15 +2188,27 @@ mod tests {
             colours: vec![colour(0, 0, 0), colour(200, 200, 255)],
         };
         let mut helmets = HashMap::new();
-        helmets.insert(
-            0x02,
-            AnimatedSpriteVisual {
-                palette: helmet_palette,
-                extra_palettes: vec![],
-                frames: vec![sample_object_frame(91, 0x11, 0x0E)],
-                frame_duration: 1,
-            },
-        );
+        for (content_id, tile_pattern, width_px, height_px) in [
+            (0x02, 91, 0x11, 0x0E),
+            (0x03, 92, 0x17, 0x0F),
+            (0x04, 93, 0x15, 0x11),
+            (0x05, 94, 0x15, 0x10),
+            (0x06, 95, 0x12, 0x14),
+            (0x07, 96, 0x16, 0x15),
+            (0x08, 97, 0x13, 0x14),
+            (0x09, 98, 0x10, 0x12),
+            (0x0A, 99, 0x13, 0x12),
+        ] {
+            helmets.insert(
+                content_id,
+                AnimatedSpriteVisual {
+                    palette: helmet_palette.clone(),
+                    extra_palettes: vec![],
+                    frames: vec![sample_object_frame(tile_pattern, width_px, height_px)],
+                    frame_duration: 1,
+                },
+            );
+        }
         let mut icons = HashMap::new();
         for (content_id, tile_pattern) in [(0x0B, 101), (0x0C, 102), (0x0D, 103)] {
             icons.insert(
@@ -3119,32 +3131,44 @@ mod tests {
     }
 
     #[test]
-    fn build_scene_draws_floating_helmet_with_rom_mask_art() {
-        let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u8::MAX, 0x02)];
-        let visuals = sample_level_visuals();
+    fn build_scene_draws_floating_helmets_with_rom_mask_art() {
+        for (content_id, tile_pattern, asm_label) in [
+            (0x02, 91, "PrizeHelmetSkycutter_Init/stru_106DC/unk_A96C4"),
+            (0x03, 92, "PrizeHelmetCyclone_Init/stru_106E8/unk_BACEC"),
+            (0x04, 93, "PrizeHelmetRedStealth_Init/stru_106F4/unk_B3FB8"),
+            (0x05, 94, "PrizeHelmetEyeclops_Init/stru_106EE/unk_B7668"),
+            (0x06, 95, "PrizeHelmetJuggernaut_Init/stru_106D6/unk_C1A5C"),
+            (0x07, 96, "PrizeHelmetIronKnight_Init/stru_106FA/unk_C2324"),
+            (0x08, 97, "PrizeHelmetBerzerker_Init/stru_106E2/unk_AFF56"),
+            (0x09, 98, "PrizeHelmetManiaxe_Init/stru_106D0/unk_A5AB6"),
+            (0x0A, 99, "PrizeHelmetMicromax_Init/stru_10700/unk_ABA68"),
+        ] {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.floating_items = vec![(48, 64, u8::MAX, content_id)];
+            let visuals = sample_level_visuals();
 
-        let scene = build_scene(&trace, false, Some(&visuals), None);
+            let scene = build_scene(&trace, false, Some(&visuals), None);
 
-        assert!(
-            scene.commands.iter().any(|command| {
-                matches!(
-                    command,
-                    DrawCommand::Sprite { tile_sheet, .. }
-                        if tile_sheet.tiles.iter().any(|tile| tile.pixels == [91; 64])
-                )
-            }),
-            "ASM sub_10CB0/stru_106DC should render the Skycutter floating prize from mask art"
-        );
-        assert!(
-            !scene.commands.iter().any(|command| {
-                matches!(
-                    command,
-                    DrawCommand::Rect { colour, .. } if *colour == [200, 200, 255]
-                )
-            }),
-            "floating helmet should not fall back to the old placeholder square"
-        );
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { tile_sheet, .. }
+                            if tile_sheet.tiles.iter().any(|tile| tile.pixels == [tile_pattern; 64])
+                    )
+                }),
+                "ASM {asm_label} should render floating helmet content id {content_id:#04X} from ROM mask art"
+            );
+            assert!(
+                !scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Rect { colour, .. } if *colour == [220, 220, 255]
+                    )
+                }),
+                "floating helmet content id {content_id:#04X} should not fall back to placeholder rects"
+            );
+        }
     }
 
     #[test]

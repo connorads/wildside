@@ -41,41 +41,50 @@ mod tests {
     const LEVEL_ID: u8 = 0x00;
     const CAVE_THEME_ID: u8 = 0x08;
     const FOREST_THEME_ID: u8 = 0x09;
-    const FLOATING_PRIZE_HELMET_FIXTURE_ASSETS: [(&str, &str); 9] = [
+    const FLOATING_PRIZE_HELMET_FIXTURE_ASSETS: [(&str, &str, &str); 9] = [
         (
             "ingame/artunc_kid/skycutter_mask.bin",
+            "ingame/palette_kid/Skycutter.bin",
             "ingame/palette_kid/Skycutter_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/cyclone_mask.bin",
+            "ingame/palette_kid/Cyclone.bin",
             "ingame/palette_kid/Cyclone_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/red_stealth_mask.bin",
+            "ingame/palette_kid/Red_Stealth.bin",
             "ingame/palette_kid/Red_Stealth_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/eyeclops_mask.bin",
+            "ingame/palette_kid/Eyeclops.bin",
             "ingame/palette_kid/Eyeclops_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/juggernaut_mask.bin",
+            "ingame/palette_kid/Juggernaut.bin",
             "ingame/palette_kid/Juggernaut_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/iron_knight_mask.bin",
+            "ingame/palette_kid/Iron_Knight.bin",
             "ingame/palette_kid/Iron_Knight_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/berzerker_mask.bin",
+            "ingame/palette_kid/Berzerker.bin",
             "ingame/palette_kid/Berzerker_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/maniaxe_mask.bin",
+            "ingame/palette_kid/Maniaxe.bin",
             "ingame/palette_kid/Maniaxe_Helmet.bin",
         ),
         (
             "ingame/artunc_kid/micromax_mask.bin",
+            "ingame/palette_kid/Micromax.bin",
             "ingame/palette_kid/Micromax_Helmet.bin",
         ),
     ];
@@ -351,6 +360,16 @@ mod tests {
             );
             assert_eq!(frame.width_px, width_px);
             assert_eq!(frame.height_px, height_px);
+            assert_eq!(
+                visual.palette.colours.len(),
+                15,
+                "ASM sub_10CB0 copies three helmet palette words into slots $D..$F; native expands the extracted partial palette so mask pixels $D..$F resolve"
+            );
+            assert!(
+                visual.palette.colours[12..15]
+                    .iter()
+                    .all(|colour| colour.raw_word != 0)
+            );
         }
     }
 
@@ -1034,16 +1053,24 @@ mod tests {
             ] {
                 write_file(root.path(), path, &vec![fill; 32 * 48])?;
             }
-            for (index, (art_path, palette_path)) in
+            for (index, (art_path, base_palette_path, palette_path)) in
                 FLOATING_PRIZE_HELMET_FIXTURE_ASSETS.iter().enumerate()
             {
                 let fill = 0x70 + u8::try_from(index).expect("helmet fixture index fits in u8");
                 write_file(root.path(), art_path, &vec![fill; 32 * 24])?;
                 write_file(
                     root.path(),
-                    palette_path,
+                    base_palette_path,
                     &(0..15)
                         .map(|value| (0x0390_u16 + u16::from(fill) + value).to_be_bytes())
+                        .collect::<Vec<_>>()
+                        .concat(),
+                )?;
+                write_file(
+                    root.path(),
+                    palette_path,
+                    &(0..3)
+                        .map(|value| (0x0490_u16 + u16::from(fill) + value).to_be_bytes())
                         .collect::<Vec<_>>()
                         .concat(),
                 )?;
@@ -1308,7 +1335,8 @@ mod tests {
                 }],
             };
 
-            for (art_path, palette_path) in FLOATING_PRIZE_HELMET_FIXTURE_ASSETS {
+            for (art_path, _base_palette_path, palette_path) in FLOATING_PRIZE_HELMET_FIXTURE_ASSETS
+            {
                 manifest.ingame_assets.extend([
                     asset_file(root.path(), art_path),
                     asset_file(root.path(), palette_path),

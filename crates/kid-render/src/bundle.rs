@@ -5,7 +5,7 @@ use crate::background::{
 };
 use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
-use crate::palette::{Palette, PaletteSet};
+use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
     LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
@@ -789,6 +789,7 @@ struct EnemyFamilySpec {
 struct FloatingPrizeHelmetSpec {
     content_id: u8,
     art: PlayerFrameDescriptor,
+    base_palette_path: &'static str,
     palette_path: &'static str,
     palette_family: &'static str,
 }
@@ -818,54 +819,63 @@ static FLOATING_PRIZE_HELMETS: &[FloatingPrizeHelmetSpec] = &[
     FloatingPrizeHelmetSpec {
         content_id: 0x02,
         art: pfd("artunc_kid/skycutter_mask.bin", 0x08, -2, 0x11, 0x0E),
+        base_palette_path: SKYCUTTER_PALETTE_PATH,
         palette_path: SKYCUTTER_HELMET_PALETTE_PATH,
         palette_family: "Skycutter helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x03,
         art: pfd("artunc_kid/cyclone_mask.bin", 0x0B, -2, 0x17, 0x0F),
+        base_palette_path: CYCLONE_PALETTE_PATH,
         palette_path: CYCLONE_HELMET_PALETTE_PATH,
         palette_family: "Cyclone helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x04,
         art: pfd("artunc_kid/red_stealth_mask.bin", 0x0A, -2, 0x15, 0x11),
+        base_palette_path: RED_STEALTH_PALETTE_PATH,
         palette_path: RED_STEALTH_HELMET_PALETTE_PATH,
         palette_family: "Red Stealth helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x05,
         art: pfd("artunc_kid/eyeclops_mask.bin", 0x0A, -2, 0x15, 0x10),
+        base_palette_path: EYECLOPS_PALETTE_PATH,
         palette_path: EYECLOPS_HELMET_PALETTE_PATH,
         palette_family: "Eyeclops helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x06,
         art: pfd("artunc_kid/juggernaut_mask.bin", 0x08, -2, 0x12, 0x14),
+        base_palette_path: JUGGERNAUT_PALETTE_PATH,
         palette_path: JUGGERNAUT_HELMET_PALETTE_PATH,
         palette_family: "Juggernaut helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x07,
         art: pfd("artunc_kid/iron_knight_mask.bin", 0x09, -2, 0x16, 0x15),
+        base_palette_path: IRON_KNIGHT_PALETTE_PATH,
         palette_path: IRON_KNIGHT_HELMET_PALETTE_PATH,
         palette_family: "Iron Knight helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x08,
         art: pfd("artunc_kid/berzerker_mask.bin", 0x09, -2, 0x13, 0x14),
+        base_palette_path: BERZERKER_PALETTE_PATH,
         palette_path: BERZERKER_HELMET_PALETTE_PATH,
         palette_family: "Berzerker helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x09,
         art: pfd("artunc_kid/maniaxe_mask.bin", 0x08, -2, 0x10, 0x12),
+        base_palette_path: MANIAXE_PALETTE_PATH,
         palette_path: MANIAXE_HELMET_PALETTE_PATH,
         palette_family: "Maniaxe helmet palette",
     },
     FloatingPrizeHelmetSpec {
         content_id: 0x0A,
         art: pfd("artunc_kid/micromax_mask.bin", 0x09, -2, 0x13, 0x12),
+        base_palette_path: MICROMAX_PALETTE_PATH,
         palette_path: MICROMAX_HELMET_PALETTE_PATH,
         palette_family: "Micromax helmet palette",
     },
@@ -2908,8 +2918,9 @@ fn load_floating_prize_visuals(
         helmets.insert(
             spec.content_id,
             AnimatedSpriteVisual {
-                palette: load_ingame_palette_asset(
+                palette: load_floating_prize_helmet_palette_asset(
                     manifest,
+                    spec.base_palette_path,
                     spec.palette_path,
                     spec.palette_family,
                 )?,
@@ -3331,6 +3342,33 @@ fn load_ingame_palette_asset(
             .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?,
         family,
     )?)
+}
+
+fn load_floating_prize_helmet_palette_asset(
+    manifest: &AssetManifest,
+    base_relative_path: &str,
+    relative_path: &str,
+    family: &str,
+) -> Result<Palette> {
+    let base_path = if find_ingame_asset(manifest, base_relative_path).is_some() {
+        base_relative_path
+    } else {
+        KID_PALETTE_PATH
+    };
+    let base = load_ingame_palette_asset(manifest, base_path, family)?;
+    let helmet = load_ingame_palette_asset(manifest, relative_path, family)?;
+    if helmet.colours.len() != 3 {
+        return Ok(helmet);
+    }
+
+    let mut colours = base.colours;
+    colours.resize(15, MdColour::from_word(0));
+    // ASM sub_10CB0: `lea Palette_Buffer+$7A,a1; move.w (a5)+,(a1)+`
+    // copies the three helmet colours into palette-line 3 slots $D..$F.
+    // The mask art also references low player-form colours, so compose the
+    // standalone palette from the form palette plus the three-word helmet patch.
+    colours[12..15].copy_from_slice(&helmet.colours);
+    Ok(Palette { colours })
 }
 
 fn load_compressed_sprite_frames(
