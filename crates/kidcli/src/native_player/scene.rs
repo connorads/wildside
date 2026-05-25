@@ -1581,7 +1581,9 @@ fn push_eol_score_overlay(
     let mut amount_index = 0usize;
     let mut y = 0x9C;
     let mut timer = 0x24usize;
-    let mut d6 = 0;
+    // ASM loc_D4CE subtracts `$18` from d7 and adds `$40` to d6 after the
+    // SCORE row, before loading the first TIME/BONUS row.
+    let mut d6 = 0x40;
     push_eol_bonus_row_loc_d468(
         commands,
         eol,

@@ -2106,9 +2106,9 @@ mod tests {
             settled.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 156 && *x == 128 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+                    if *y == 156 && *x == 64 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
-            "after the first row's loc_C5A2 timer expires, the time label should rest at the settled row anchor",
+            "ASM loc_D4CE increments d6 before TIME/BONUS, so after loc_C5A2 the time label should rest at x=$40",
         );
     }
 
