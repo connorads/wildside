@@ -6567,6 +6567,9 @@ pub(crate) const LION_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 /// ASM Spinning_Twins.asm loc_3BC56 plays `stru_3B83C`: $19, $0F, then
 /// $14 ticks before the loc_3BC78/loc_3BCA2 delete path.
 pub(crate) const SPINNING_TWINS_DEATH_ANIMATION_FRAMES: u16 = 0x19 + 0x0F + 0x14;
+/// ASM Hand.asm loc_32AA2 plays `stru_32B78`: eleven 6-tick frames before
+/// the loc_32AE6 delete tail.
+pub(crate) const HAND_DEATH_ANIMATION_FRAMES: u16 = 6 * 11;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6578,6 +6581,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
         EnemyFamily::FireDemon => Some(FIRE_DEMON_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Hand => Some(HAND_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Lion => Some(LION_DEATH_ANIMATION_FRAMES),
         EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
