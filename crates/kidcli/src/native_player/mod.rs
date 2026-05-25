@@ -3502,6 +3502,71 @@ mod tests {
     }
 
     #[test]
+    fn vdp_title_card_overlay_keeps_blue_lake_letter_pixels_on_rom_palette_slots() {
+        // ASM loc_1AB40 copies `Pal_19C48` as a complete 16-word palette line
+        // into CRAM line 1. Native stores that standalone line at palette line
+        // 0 for rendering, so a glyph pixel with value 2 must stay on ROM slot
+        // 2; shifting visible pixels down makes the Blue Lake Woods title text
+        // read as black against the title-card background.
+        let mut trace = sample_trace(GameMode::LevelTransition);
+        trace.boot_phase = Some(String::from("starting_level"));
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0 },
+            x_pos: 0x0010_0000,
+            y_pos: 0x0010_0000,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::from([(
+                String::from("glyph"),
+                String::from("0x68"),
+            )]),
+        }];
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x20);
+        tile_sheet.tiles[0x1C] = make_tile(&[(0, 0, 2)]);
+        visuals.title_card_letters = Some(kid_render::TitleCardLettersVisuals {
+            tile_sheet,
+            palette: Palette {
+                colours: vec![
+                    colour(20, 20, 60),
+                    colour(0, 0, 0),
+                    colour(64, 96, 192),
+                    colour(80, 120, 220),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                    colour(0, 0, 0),
+                ],
+            },
+        });
+        let mut frame = vec![12; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_vdp_trace_overlay(&trace, &visuals, &mut frame);
+
+        assert_eq!(pixel_at(&frame, 16, 16), [64, 96, 192]);
+    }
+
+    #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.floating_items = vec![(48, 64, u8::MAX, 0x01)];
