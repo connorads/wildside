@@ -1668,6 +1668,38 @@ mod tests {
     }
 
     #[test]
+    fn drips_surface_crawler_uses_off_33520_surface_frames() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 192,
+            kind: ActiveProjectileKind::DripsSurfaceCrawler,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let crawler_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 26 && *y == 22 => Some(tiles),
+            _ => None,
+        });
+        let tiles =
+            crawler_sprite.expect("ASM Drips.asm off_33520 should render crawler surface frames");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0B9,
+            "ASM `unk_C7B9E: sprite_frame_vram $0B9,$06,$00,$0C,$02` is one of the two off_33520 crawler/surface frames",
+        );
+        assert!(
+            scene.commands.iter().all(|command| {
+                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x082)
+            }),
+            "surface crawlers should not reuse the falling-drop child frame from loc_33424",
+        );
+    }
+
+    #[test]
     fn level_complete_overlay_uses_eol_sprite_workers_loc_d55e() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

@@ -93,6 +93,31 @@ fn drips_drop_child_frame(
     })
 }
 
+fn drips_surface_crawler_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, width_px, height_px) =
+        if (remaining_frames / 8).is_multiple_of(2) {
+            // ASM Drips.asm off_33520: first crawler/surface frame is
+            // `LnkTo_unk_C7B9E`, `sprite_frame_vram $0B9,$06,$00,$0C,$02`.
+            (0x0B9, 0x06, 0x0C, 0x02)
+        } else {
+            // ASM Drips.asm off_33520: second crawler/surface frame is
+            // `LnkTo_unk_C7BA6`, `sprite_frame_vram $0BB,$07,$00,$0F,$03`.
+            (0x0BB, 0x07, 0x0F, 0x03)
+        };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y: 0x00,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
     match direction {
         // ASM sub_292E loc_2988: d6=2 uses `unk_29FC`/`unk_2A06`.
@@ -2024,7 +2049,18 @@ fn build_game_scene_filtered(
                         .families
                         .get(&DRIPS_OBJECT_TYPE)
                         .and_then(|drips_visuals| {
-                            let frame = drips_drop_child_frame(drips_visuals)?;
+                            let frame = match projectile.kind {
+                                ActiveProjectileKind::DripsDrop => {
+                                    drips_drop_child_frame(drips_visuals)?
+                                }
+                                ActiveProjectileKind::DripsSurfaceCrawler => {
+                                    drips_surface_crawler_frame(
+                                        drips_visuals,
+                                        projectile.remaining_frames,
+                                    )?
+                                }
+                                _ => return None,
+                            };
                             push_sprite_frame(
                                 &mut commands,
                                 &frame,
