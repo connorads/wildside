@@ -4718,6 +4718,13 @@ impl NativeRuntime {
             number_gfx_objects,
             rng_offset: Some(self.rom_random.offset_word()),
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
+            level_complete_elapsed_frames: match self.player_lifecycle {
+                PlayerLifecycle::LevelComplete {
+                    remaining_frames,
+                    total_frames,
+                } => total_frames.saturating_sub(remaining_frames),
+                _ => 0,
+            },
             game_over: matches!(
                 self.player_lifecycle,
                 PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }

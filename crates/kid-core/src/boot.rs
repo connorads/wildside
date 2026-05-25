@@ -7508,10 +7508,14 @@ impl NativeRuntime {
                 }
                 return false;
             }
-            PlayerLifecycle::LevelComplete { remaining_frames } => {
+            PlayerLifecycle::LevelComplete {
+                remaining_frames,
+                total_frames,
+            } => {
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::LevelComplete {
                         remaining_frames: remaining_frames - 1,
+                        total_frames,
                     };
                 } else {
                     self.advance_level();

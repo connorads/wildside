@@ -1541,6 +1541,7 @@ mod tests {
             number_gfx_objects: 4,
             rng_offset: None,
             level_complete: false,
+            level_complete_elapsed_frames: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
@@ -1856,6 +1857,60 @@ mod tests {
             under_seconds_digits,
             vec![132, 130],
             "ASM loc_D660 should display SpeedBonus_Values[0] = 20, not the remaining timer seconds"
+        );
+    }
+
+    fn eol_number_digits_at(scene: &Scene, y: i32) -> Vec<u8> {
+        scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y: sprite_y,
+                    tile_sheet,
+                    ..
+                } if *x >= 200 && *sprite_y == y => tile_sheet
+                    .tiles
+                    .first()
+                    .and_then(|tile| tile.pixels[0].checked_sub(130)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn eol_expected_digits(value: u32) -> Vec<u8> {
+        value
+            .min(9_999_999)
+            .to_string()
+            .bytes()
+            .map(|digit| digit - b'0')
+            .collect()
+    }
+
+    #[test]
+    fn level_complete_overlay_replays_loc_d770_score_counter_drain() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_timer_seconds = 180;
+        trace.level_damage_taken = true;
+        trace.level_prize_collected = true;
+        trace.level_complete_elapsed_frames = kid_core::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + 1;
+        let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
+        trace.score = 1_000 + time_bonus;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert_eq!(
+            eol_number_digits_at(&scene, 92),
+            eol_expected_digits(time_bonus - 0x28),
+            "ASM loc_D7CE should draw the active EOL bonus row after subtracting the first `$28` transfer"
+        );
+        assert_eq!(
+            eol_number_digits_at(&scene, 106),
+            eol_expected_digits(1_000 + 0x28),
+            "ASM loc_D77E should draw the score row after adding the same `$28` transfer"
         );
     }
 

@@ -7763,6 +7763,7 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
         let PlayerLifecycle::LevelComplete {
             remaining_frames: frames_until_advance,
+            ..
         } = runtime.player_lifecycle
         else {
             panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
@@ -7838,7 +7839,10 @@ mod chunk_02 {
 
         runtime.step_frame(FrameInput::default());
 
-        let PlayerLifecycle::LevelComplete { remaining_frames } = runtime.player_lifecycle else {
+        let PlayerLifecycle::LevelComplete {
+            remaining_frames, ..
+        } = runtime.player_lifecycle
+        else {
             panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
         };
         assert!(
@@ -8333,6 +8337,40 @@ mod chunk_02 {
         assert!(
             complete.all_numbers_complete,
             "ASM loc_D7CE should branch to loc_D7F4 when the final active EOL number reaches zero"
+        );
+    }
+
+    /// ASM loc_D770-loc_D7F4 (kid.asm:16855-16916): each visible counter
+    /// frame moves one transfer chunk from the current EOL number object into
+    /// the live score display before the row can advance.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D770_eol_score_counter_snapshot_replays_visible_drain_state() {
+        let start = crate::level::eol_score_counter_snapshot_loc_D770(1_000, &[100, 80], 0);
+        assert_eq!(start.score, 1_000);
+        assert_eq!(&start.remaining_amounts[..start.amount_count], &[100, 80]);
+
+        let after_one = crate::level::eol_score_counter_snapshot_loc_D770(1_000, &[100, 80], 1);
+        assert_eq!(
+            after_one.score, 1_040,
+            "ASM loc_D77E should add the clamped `$28` transfer to the score display"
+        );
+        assert_eq!(
+            &after_one.remaining_amounts[..after_one.amount_count],
+            &[60, 80],
+            "ASM loc_D7CE should subtract the full transfer chunk from only the active row"
+        );
+
+        let after_first_row =
+            crate::level::eol_score_counter_snapshot_loc_D770(1_000, &[100, 80], 3);
+        assert_eq!(
+            after_first_row.score, 1_100,
+            "the third frame clamps the last transfer to the active row's smaller remainder"
+        );
+        assert_eq!(
+            &after_first_row.remaining_amounts[..after_first_row.amount_count],
+            &[0, 80],
+            "exhausting one EOL number should leave later rows untouched until the next frame"
         );
     }
 

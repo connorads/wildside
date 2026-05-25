@@ -1451,6 +1451,44 @@ fn push_eol_bonus_row(
     push_eol_number_sprites(commands, eol, 200, y - 2, value);
 }
 
+fn eol_bonus_amounts_for_trace(trace: &NativeTraceFrame) -> ([u32; 5], usize) {
+    let mut amounts = [0; 5];
+    let mut count = 0;
+    let mut push = |amount: u32| {
+        amounts[count] = amount;
+        count += 1;
+    };
+
+    push(kid_core::time_bonus_loc_d56e(trace.level_timer_seconds));
+    if !trace.level_damage_taken {
+        push(5_000);
+    }
+    if !trace.level_prize_collected {
+        push(5_000);
+    }
+    if trace.level_path_bonus_amount > 0 {
+        push(trace.level_path_bonus_amount);
+    }
+    if trace.level_speed_bonus_awarded {
+        push(10_000);
+    }
+
+    (amounts, count)
+}
+
+fn eol_score_counter_snapshot_for_trace(
+    trace: &NativeTraceFrame,
+) -> kid_core::EolScoreCounterSnapshotLocD770 {
+    let (amounts, count) = eol_bonus_amounts_for_trace(trace);
+    let total_bonus = amounts[..count].iter().copied().sum::<u32>();
+    let initial_score = trace.score.saturating_sub(total_bonus);
+    let counter_elapsed = trace
+        .level_complete_elapsed_frames
+        .saturating_sub(kid_core::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770);
+
+    kid_core::eol_score_counter_snapshot_loc_D770(initial_score, &amounts[..count], counter_elapsed)
+}
+
 fn push_eol_score_overlay(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -1459,29 +1497,62 @@ fn push_eol_score_overlay(
     // ASM loc_D55E emits these rows with Load_Object_EOL_Text and
     // Load_Object_EOL_Number. Native currently renders the settled row
     // positions only; the off-screen fly-in worker timer is not in trace state.
+    // ASM loc_D770 then drains each number object's `$60` into the score
+    // display; native derives that visual state from the level-complete
+    // elapsed frame while keeping progression score awarded at flag touch.
+    let counter = eol_score_counter_snapshot_for_trace(trace);
+    let mut amount_index = 0usize;
     let mut y = (FRAME_HEIGHT as i32) / 2 - 18;
     push_eol_bonus_row(
         commands,
         eol,
         &eol.time,
         y,
-        kid_core::time_bonus_loc_d56e(trace.level_timer_seconds),
+        counter.remaining_amounts[amount_index],
     );
+    amount_index += 1;
     y += 14;
     if !trace.level_damage_taken {
-        push_eol_bonus_row(commands, eol, &eol.no_hit, y, 5_000);
+        push_eol_bonus_row(
+            commands,
+            eol,
+            &eol.no_hit,
+            y,
+            counter.remaining_amounts[amount_index],
+        );
+        amount_index += 1;
         y += 14;
     }
     if !trace.level_prize_collected {
-        push_eol_bonus_row(commands, eol, &eol.no_prize, y, 5_000);
+        push_eol_bonus_row(
+            commands,
+            eol,
+            &eol.no_prize,
+            y,
+            counter.remaining_amounts[amount_index],
+        );
+        amount_index += 1;
         y += 14;
     }
     if trace.level_path_bonus_amount > 0 {
-        push_eol_bonus_row(commands, eol, &eol.path, y, trace.level_path_bonus_amount);
+        push_eol_bonus_row(
+            commands,
+            eol,
+            &eol.path,
+            y,
+            counter.remaining_amounts[amount_index],
+        );
+        amount_index += 1;
         y += 14;
     }
     if trace.level_speed_bonus_awarded {
-        push_eol_bonus_row(commands, eol, &eol.speed, y, 10_000);
+        push_eol_bonus_row(
+            commands,
+            eol,
+            &eol.speed,
+            y,
+            counter.remaining_amounts[amount_index],
+        );
         y += 14;
         push_sprite_frame_top_left(commands, &eol.under, &eol.palette, 56, y);
         // ASM loc_D660: the "UNDER ... SECONDS" number is the threshold byte
@@ -1493,7 +1564,7 @@ fn push_eol_score_overlay(
         y += 14;
     }
     push_sprite_frame_top_left(commands, &eol.score, &eol.palette, 56, y);
-    push_eol_number_sprites(commands, eol, 200, y - 2, trace.score);
+    push_eol_number_sprites(commands, eol, 200, y - 2, counter.score);
 }
 
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData

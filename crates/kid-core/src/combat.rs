@@ -7523,14 +7523,13 @@ impl NativeRuntime {
         // loc_D734 eight one-frame fade steps, and loc_D752 #$14. The
         // flagpole scoreboard reveal scan remains a separate visual fidelity
         // gap, so this is a conservative lower bound plus the real counter.
-        const FIXED_PRE_COUNTER_FRAMES: usize = 0x24 + 0x14 + 0x5A + 8 + 0x14;
         let tally = self.level_completion_bonus_tally_loc_D468();
         let counter = crate::level::eol_score_counter_duration_loc_D770(
             self.progression.score,
             tally.amounts(),
         );
 
-        FIXED_PRE_COUNTER_FRAMES + counter.total_frames
+        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + counter.total_frames
     }
 
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
@@ -9925,7 +9924,10 @@ impl NativeRuntime {
             let remaining_frames = self.level_complete_sequence_frames_loc_D770();
             self.apply_level_completion_bonuses();
             self.opening_slice = Some(*slice);
-            self.player_lifecycle = PlayerLifecycle::LevelComplete { remaining_frames };
+            self.player_lifecycle = PlayerLifecycle::LevelComplete {
+                remaining_frames,
+                total_frames: remaining_frames,
+            };
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::FlagTouch;
             return true;
         }

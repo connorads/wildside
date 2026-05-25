@@ -1089,6 +1089,11 @@ pub struct NativeTraceFrame {
     pub number_gfx_objects: u16,
     pub rng_offset: Option<u16>,
     pub level_complete: bool,
+    /// Elapsed frames in the current collapsed end-of-level sequence.
+    /// Used by native rendering to replay ASM `loc_D770` score-counter
+    /// visuals without changing the already-awarded progression score.
+    #[serde(default)]
+    pub level_complete_elapsed_frames: usize,
     pub game_over: bool,
     /// Continue countdown remaining frames (None if not in continue screen).
     pub continue_countdown: Option<usize>,
@@ -1276,6 +1281,7 @@ impl Default for NativeTraceFrame {
             number_gfx_objects: 0,
             rng_offset: None,
             level_complete: false,
+            level_complete_elapsed_frames: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
@@ -1729,6 +1735,7 @@ pub(crate) enum PlayerLifecycle {
     },
     LevelComplete {
         remaining_frames: usize,
+        total_frames: usize,
     },
     /// All lives lost — "GAME OVER" display, then continue countdown if available.
     GameOver {

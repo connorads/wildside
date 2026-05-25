@@ -16866,6 +16866,15 @@ pub(crate) struct EolScoreCounterDurationLocD770 {
     pub(crate) total_frames: usize,
 }
 
+pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x24 + 0x14 + 0x5A + 8 + 0x14;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EolScoreCounterSnapshotLocD770 {
+    pub score: u32,
+    pub remaining_amounts: [u32; 5],
+    pub amount_count: usize,
+}
+
 /// ASM loc_D7E4 (kid.asm:16896): after each score-counter transfer, decrement
 /// the frame-delay word `d1`. A non-zero result loops with the same chunk;
 /// zero resets `d1` to `$78` and quadruples `d2` before looping.
@@ -16958,6 +16967,69 @@ pub(crate) fn eol_score_counter_duration_loc_D770(
         final_wait_frames,
         awards_extra_life,
         total_frames: counter_frames + final_wait_frames,
+    }
+}
+
+/// ASM loc_D770-loc_D7F4 (kid.asm:16855-16916): replay the visible score
+/// counter state after `elapsed_counter_frames` one-frame hibernates. This is
+/// the render-facing sibling of `eol_score_counter_duration_loc_D770`: it
+/// preserves the live score display and each EOL number object's remaining
+/// `$60` amount while the ROM drains bonus rows into `(Score).w`.
+#[allow(non_snake_case)]
+pub fn eol_score_counter_snapshot_loc_D770(
+    initial_score: u32,
+    bonus_amounts: &[u32],
+    elapsed_counter_frames: usize,
+) -> EolScoreCounterSnapshotLocD770 {
+    let mut remaining_amounts = [0; 5];
+    let amount_count = bonus_amounts.len().min(remaining_amounts.len());
+    remaining_amounts[..amount_count].copy_from_slice(&bonus_amounts[..amount_count]);
+    if amount_count == 0 {
+        return EolScoreCounterSnapshotLocD770 {
+            score: initial_score,
+            remaining_amounts,
+            amount_count,
+        };
+    }
+
+    let mut score = initial_score;
+    let mut active_index = 0usize;
+    let mut active_number_count = amount_count as u16;
+    let mut frame_delay = 0x78;
+    let mut transfer_chunk = 0x28;
+
+    for _ in 0..elapsed_counter_frames {
+        if active_index >= amount_count {
+            break;
+        }
+
+        let remaining_amount = remaining_amounts[active_index];
+        let transfer = eol_score_counter_transfer_chunk_loc_D770(remaining_amount, transfer_chunk);
+        score = eol_score_counter_apply_loc_D77E(score, transfer).score;
+        let drain = eol_score_counter_drain_current_number_loc_D7CE(
+            score,
+            remaining_amount,
+            transfer_chunk,
+            active_number_count,
+        );
+        remaining_amounts[active_index] = drain.remaining_amount;
+        if drain.all_numbers_complete {
+            break;
+        }
+        active_number_count = drain.active_number_count;
+        if drain.advances_to_next_number {
+            active_index += 1;
+        }
+
+        let tail = eol_score_counter_loop_tail_loc_D7E4(frame_delay, transfer_chunk);
+        frame_delay = tail.frame_delay;
+        transfer_chunk = tail.transfer_chunk;
+    }
+
+    EolScoreCounterSnapshotLocD770 {
+        score,
+        remaining_amounts,
+        amount_count,
     }
 }
 

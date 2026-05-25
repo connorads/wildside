@@ -2850,6 +2850,7 @@ AddrTbl_LevelNames:
             number_gfx_objects: 3,
             rng_offset: None,
             level_complete: false,
+            level_complete_elapsed_frames: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
