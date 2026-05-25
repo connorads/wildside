@@ -36,9 +36,10 @@ pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
 pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 pub use level::{
     EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
-    EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468, EolScoreCounterSnapshotLocD770,
-    FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    eol_score_counter_snapshot_loc_D770, flagpole_scoreboard_reveal_tiles_loc_C21E,
+    EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
+    EolScoreCounterSnapshotLocD770, FlagpoleScoreboardRevealTileLocC21E,
+    TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, eol_score_counter_snapshot_loc_D770,
+    flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 use std::collections::HashSet;
 use std::fs;

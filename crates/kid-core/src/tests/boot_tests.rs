@@ -2314,6 +2314,19 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_C0CC/loc_C1D0 (kid.asm:15696-15773): after the flagpole
+    /// `#$24` hibernate, the score-screen path waits one setup frame and 17
+    /// palette-fade frames before the `loc_C21E` tile reveal can reach
+    /// `Score_Board`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_C0CC_pre_scoreboard_fade_duration_matches_asm() {
+        assert_eq!(
+            EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, 18,
+            "ASM loc_C0CC hibernates once, then loc_C1D0 runs $100,$F0,...,$00,$FFF0 for 17 more frames"
+        );
+    }
+
     /// ASM loc_C21E: an empty 320x224 screen rectangle is 20x14 tiles, and
     /// empty cells cost 2 budget units. With `d7=$C`, each outer hibernate
     /// pass reveals seven empty cells, so 280 cells take 40 frames.

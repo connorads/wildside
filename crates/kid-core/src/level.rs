@@ -16944,7 +16944,12 @@ pub(crate) struct EolScoreCounterDurationLocD770 {
     pub(crate) total_frames: usize,
 }
 
-pub const EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468: usize = 0x24 + 0x14;
+/// ASM flagpole score-screen setup before `loc_C21E`:
+/// `loc_C0CC` hibernates once, then `loc_C1D0` subtracts `$10` from `$100`
+/// until the word goes negative, for 17 more one-frame hibernates.
+pub const EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC: usize = 1 + 0x11;
+pub const EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468: usize =
+    0x24 + EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC + 0x14;
 pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
 pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize =
     EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770;
