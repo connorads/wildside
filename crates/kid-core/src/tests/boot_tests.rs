@@ -2571,6 +2571,34 @@ mod chunk_01 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_C21E_reveal_tile_stream_preserves_sub_c254_order() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE1, 0x00));
+
+        let tiles = flagpole_scoreboard_reveal_tiles_loc_C21E(&grid, 0, 0, 1);
+
+        assert_eq!(
+            tiles[0],
+            FlagpoleScoreboardRevealTileLocC21E {
+                col: 0,
+                row: 0,
+                tile_words: [0x4409, 0x4409, 0x4409, 0x4409],
+            },
+            "ASM loc_C21E should emit the first sub_C254 empty-cell write at the camera tile origin"
+        );
+        assert_eq!(
+            tiles[1],
+            FlagpoleScoreboardRevealTileLocC21E {
+                col: 1,
+                row: 0,
+                tile_words: [0x4417, 0x4418, 0x4419, 0x441A],
+            },
+            "ASM sub_C254 should preserve the block-cell tile pair in the public reveal stream"
+        );
+    }
+
     /// ASM loc_C2F2 (kid.asm:15925): digit-clear animation constants — 8 steps,
     /// 4-frame hibernate, 3 digit groups.
     #[test]

@@ -1920,6 +1920,38 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_replays_sub_c254_foreground_reveal_writes() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x0420);
+        tile_sheet.tiles[0x0417].pixels = [1; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 112, 0)],
+            },
+            tile_sheet,
+            rows: vec![vec![TileRef::from_attr_word(0x0001)]],
+        });
+        let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(1, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::IndexedTile { x: 16, y: 0, tile, .. } if tile.tile_index == 0x0417
+            )),
+            "ASM loc_C21E/sub_C254 should overlay the first revealed block cell over Scroll A"
+        );
+    }
+
+    #[test]
     fn level_complete_speed_under_seconds_uses_loc_d660_threshold() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

@@ -2073,6 +2073,127 @@ fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>, level_visuals: &Nativ
     });
 }
 
+fn push_eol_hologram_tile(
+    commands: &mut Vec<DrawCommand>,
+    hologram: &kid_render::EolHologramVisuals,
+    x: i32,
+    y: i32,
+    tile_col: usize,
+    tile_row: usize,
+    tile_sheet: &Arc<TileSheet>,
+    palette: &Arc<Palette>,
+) {
+    let Some(row) = hologram.rows.get(tile_row) else {
+        return;
+    };
+    let Some(tile) = row.get(tile_col).copied() else {
+        return;
+    };
+    commands.push(DrawCommand::IndexedTile {
+        x,
+        y,
+        tile_sheet: Arc::clone(tile_sheet),
+        tile,
+        palette: Arc::clone(palette),
+    });
+}
+
+fn push_eol_foreground_reveal_tiles(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
+) {
+    let (Some(hologram), Some(grid)) = (&level_visuals.eol_hologram, block_grid) else {
+        return;
+    };
+    let reveal_elapsed = trace
+        .level_complete_elapsed_frames
+        .saturating_sub(usize::from(
+            kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
+        ));
+    if reveal_elapsed == 0 {
+        return;
+    }
+
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let tile_sheet = Arc::new(hologram.tile_sheet.clone());
+    let palette = Arc::new(hologram.palette.clone());
+    for write in kid_core::flagpole_scoreboard_reveal_tiles_loc_C21E(
+        grid,
+        (trace.camera_x_pos >> 16) as u16,
+        (trace.camera_y_pos >> 16) as u16,
+        reveal_elapsed,
+    ) {
+        let x = i32::from(write.col) * 16 - camera_x_px;
+        let y = i32::from(write.row) * 16 - camera_y_px;
+        commands.push(DrawCommand::Rect {
+            x,
+            y,
+            width: 16,
+            height: 16,
+            colour: [0, 0, 0],
+        });
+        // ASM loc_C186 uploads the hologram as a Scroll B screen map. Redraw the
+        // visible screen-space tiles under the loc_C21E/sub_C254 foreground write.
+        let tile_col = usize::try_from(x.max(0) / 8).expect("screen tile column fits");
+        let tile_row = usize::try_from(y.max(0) / 8).expect("screen tile row fits");
+        push_eol_hologram_tile(
+            commands,
+            hologram,
+            x,
+            y,
+            tile_col,
+            tile_row,
+            &tile_sheet,
+            &palette,
+        );
+        push_eol_hologram_tile(
+            commands,
+            hologram,
+            x + 8,
+            y,
+            tile_col + 1,
+            tile_row,
+            &tile_sheet,
+            &palette,
+        );
+        push_eol_hologram_tile(
+            commands,
+            hologram,
+            x,
+            y + 8,
+            tile_col,
+            tile_row + 1,
+            &tile_sheet,
+            &palette,
+        );
+        push_eol_hologram_tile(
+            commands,
+            hologram,
+            x + 8,
+            y + 8,
+            tile_col + 1,
+            tile_row + 1,
+            &tile_sheet,
+            &palette,
+        );
+        for (index, word) in write.tile_words.iter().copied().enumerate() {
+            commands.push(DrawCommand::IndexedTile {
+                x: x + i32::try_from(index % 2).expect("tile column fits") * 8,
+                y: y + i32::try_from(index / 2).expect("tile row fits") * 8,
+                tile_sheet: Arc::clone(&tile_sheet),
+                tile: TileRef {
+                    palette_line: 0,
+                    ..TileRef::from_attr_word(word)
+                },
+                palette: Arc::clone(&palette),
+            });
+        }
+    }
+}
+
 pub(super) fn object_rect(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -2122,6 +2243,9 @@ fn build_game_scene_filtered(
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+    }
+    if eol_hologram_visible {
+        push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);
     }
 
     if !eol_hologram_visible && filter.platforms {

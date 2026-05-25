@@ -424,6 +424,13 @@ pub(crate) struct FlagpoleScoreboardStepSubC254 {
     pub(crate) finished: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlagpoleScoreboardRevealTileLocC21E {
+    pub col: u16,
+    pub row: u16,
+    pub tile_words: [u16; 4],
+}
+
 /// ASM loc_C1D0 / loc_C1DC (kid.asm:15765): one iteration of the flagpole
 /// hologram fade-out loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14528,6 +14535,48 @@ pub(crate) fn flagpole_scoreboard_reveal_duration_loc_C21E(
             }
         }
     }
+}
+
+#[allow(non_snake_case)]
+pub fn flagpole_scoreboard_reveal_tiles_loc_C21E(
+    grid: &terrain::BlockGrid,
+    camera_x: u16,
+    camera_y: u16,
+    elapsed_reveal_frames: usize,
+) -> Vec<FlagpoleScoreboardRevealTileLocC21E> {
+    let mut cursor = flagpole_scoreboard_cursor_loc_C1EE(camera_x, camera_y);
+    let mut tiles = Vec::new();
+
+    for _ in 0..elapsed_reveal_frames {
+        cursor.budget = FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E;
+
+        loop {
+            let col = cursor.col;
+            let row = cursor.row;
+            let step = flagpole_scoreboard_step_sub_C254(grid, cursor);
+            let first = step.entry.first_longword.to_be_bytes();
+            let second = step.entry.second_longword.to_be_bytes();
+            tiles.push(FlagpoleScoreboardRevealTileLocC21E {
+                col,
+                row,
+                tile_words: [
+                    u16::from_be_bytes([first[0], first[1]]),
+                    u16::from_be_bytes([first[2], first[3]]),
+                    u16::from_be_bytes([second[0], second[1]]),
+                    u16::from_be_bytes([second[2], second[3]]),
+                ],
+            });
+            cursor = step.next_cursor;
+            if cursor.remaining_rows < 0 {
+                return tiles;
+            }
+            if cursor.budget < 0 {
+                break;
+            }
+        }
+    }
+
+    tiles
 }
 
 /// ASM loc_C2F2 (kid.asm:15925): scoreboard digit-clear animation entry.
