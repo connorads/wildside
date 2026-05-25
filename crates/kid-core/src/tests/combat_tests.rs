@@ -8179,6 +8179,45 @@ mod chunk_03 {
     }
 
     #[test]
+    fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);
+        demon.layout_index = 20;
+        let killed_identity = (demon.segment_index, demon.layout_index);
+        runtime.active_enemies = vec![demon];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Fire_Demon.asm loc_3A5A6 hibernates through stru_3A378 before decrementing `(Fire_Demon).w` and deleting"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            FIRE_DEMON_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            runtime.fire_demon_trails.is_empty(),
+            "ASM Fire_Demon.asm loc_3A5A6 reaches the loc_3A63C trail child only after the death animation delete tail"
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(runtime.fire_demon_trails.len(), 1);
+        assert_eq!(runtime.fire_demon_trails[0].x_pos, 0x0080_0000);
+        assert_eq!(
+            runtime.fire_demon_trails[0].y_pos, 0x0040_0000,
+            "ASM loc_3A63C adds $F pixels then aligns down to a 16px row"
+        );
+    }
+
+    #[test]
     fn armadillo_death_waits_for_stru_3c69a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut armadillo = test_enemy(EnemyFamily::Armadillo, 0x0080_0000, 0x0040_0000, 1);

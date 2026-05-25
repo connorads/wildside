@@ -9279,9 +9279,26 @@ mod chunk_09 {
             EnemyFamily::FireDemon,
             0x0064_0000,
             0x00C8_0000,
-            0,
+            1,
         ));
 
+        rt.remove_dead_enemy(0);
+
+        assert_eq!(
+            rt.active_enemies.len(),
+            1,
+            "ASM Fire_Demon loc_3A5A6 hibernates through the death animation before the loc_3A63C child allocation"
+        );
+        assert_eq!(
+            rt.active_enemies[0].wait_timer,
+            FIRE_DEMON_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            rt.fire_demon_trails.is_empty(),
+            "ASM Fire_Demon loc_3A63C is reached only after the loc_3A5A6 animation hibernate"
+        );
+
+        rt.active_enemies[0].wait_timer = 0;
         rt.remove_dead_enemy(0);
 
         assert!(
