@@ -17184,6 +17184,7 @@ impl NativeRuntime {
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
+        self.level_complete_initial_score = 0;
         self.clocks_collected = 0;
         self.y_look_offset = 0;
         self.progression.current_form = PlayerForm::TheKid;
@@ -17271,6 +17272,7 @@ impl NativeRuntime {
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
+        self.level_complete_initial_score = 0;
         self.clocks_collected = 0;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -17393,6 +17395,7 @@ impl NativeRuntime {
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
+        self.level_complete_initial_score = 0;
         self.clocks_collected = 0;
         self.y_look_offset = 0;
         self.paused = false;

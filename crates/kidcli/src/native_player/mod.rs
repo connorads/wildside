@@ -1567,6 +1567,7 @@ mod tests {
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
+            level_complete_initial_score: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
@@ -2022,7 +2023,8 @@ mod tests {
         trace.level_complete_score_rows_elapsed_frames = 0x40;
         trace.level_complete_score_counter_elapsed_frames = 1;
         let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
-        trace.score = 1_000 + time_bonus;
+        trace.level_complete_initial_score = 1_000;
+        trace.score = 0;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -2034,7 +2036,7 @@ mod tests {
         assert_eq!(
             eol_number_digits_at(&scene, 178),
             eol_expected_digits(1_000 + 0x28),
-            "ASM loc_D77E should draw the score row after adding the same `$28` transfer"
+            "ASM loc_D17E clears live score, but loc_D77E should draw from the copied EOL score seed"
         );
     }
 

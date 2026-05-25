@@ -228,6 +228,10 @@ pub struct NativeRuntime {
     /// ASM loc_D60E path bonus (PathBonus_Values[level] × 1000) on the
     /// current level-complete sequence. Cleared on level restart.
     level_path_bonus_amount: u32,
+    /// ASM loc_D17E copies live `(Score).w` into the EOL score object before
+    /// clearing the live score word. Native keeps the copied value here for
+    /// render-facing traces while progression retains the awarded total.
+    level_complete_initial_score: u32,
     /// Number of clock pickups collected during current level (for completion time calc).
     clocks_collected: u16,
     /// ASM Prize10000Points_Init loc_10AC2 / main-loop loc_7452 share the
@@ -1200,6 +1204,7 @@ impl NativeRuntime {
             level_prize_collected: false,
             level_speed_bonus_awarded: false,
             level_path_bonus_amount: 0,
+            level_complete_initial_score: 0,
             clocks_collected: 0,
             hundred_k_trip_timer: 0,
             title_idle_frames: 0,

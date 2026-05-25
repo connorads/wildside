@@ -4756,6 +4756,10 @@ impl NativeRuntime {
                 }
                 _ => 0,
             },
+            level_complete_initial_score: match self.player_lifecycle {
+                PlayerLifecycle::LevelComplete { .. } => self.level_complete_initial_score,
+                _ => 0,
+            },
             game_over: matches!(
                 self.player_lifecycle,
                 PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }
@@ -4792,7 +4796,16 @@ impl NativeRuntime {
                     )),
             diamond_power_active: self.progression.diamond_power_frames > 0,
             diamond_count: self.progression.diamond_count,
-            score: self.progression.score,
+            // ASM loc_D17E (kid.asm:16428): the flagpole score-screen setup
+            // copies `(Score).w` into an EOL number object and clears the live
+            // score word. Native progression keeps the awarded total for the
+            // collapsed post-sequence handoff, but trace state reports the ROM
+            // live score while LevelComplete is active.
+            score: if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+                0
+            } else {
+                self.progression.score
+            },
             level_timer_seconds: self.level_timer.seconds,
             level_damage_taken: self.level_damage_taken,
             level_prize_collected: self.level_prize_collected,

@@ -7929,6 +7929,37 @@ mod chunk_02 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_D17E_level_complete_score_handoff_clears_live_score() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.progression.score = 12_340;
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        let trace = runtime.trace_frame();
+
+        assert!(
+            trace.level_complete,
+            "flag touch should enter the ASM level-complete path before loc_D17E"
+        );
+        assert_eq!(
+            trace.score, 0,
+            "ASM loc_D17E clears live `(Score).w` after copying it to the EOL score object"
+        );
+        assert_eq!(
+            trace.level_complete_initial_score, 12_340,
+            "native trace should preserve the copied loc_D17E score value for EOL rendering"
+        );
+    }
+
+    #[test]
     fn no_hit_bonus_absent_when_damage_taken() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));

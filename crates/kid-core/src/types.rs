@@ -1104,6 +1104,9 @@ pub struct NativeTraceFrame {
     /// Elapsed frames inside ASM `loc_D770` score-counter drain.
     #[serde(default)]
     pub level_complete_score_counter_elapsed_frames: usize,
+    /// ASM loc_D17E copied score value preserved for EOL score rendering.
+    #[serde(default)]
+    pub level_complete_initial_score: u32,
     pub game_over: bool,
     /// Continue countdown remaining frames (None if not in continue screen).
     pub continue_countdown: Option<usize>,
@@ -1295,6 +1298,7 @@ impl Default for NativeTraceFrame {
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
+            level_complete_initial_score: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,

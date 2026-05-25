@@ -8186,6 +8186,7 @@ impl NativeRuntime {
     /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
     pub(crate) fn apply_level_completion_bonuses(&mut self) {
         let tally = self.level_completion_bonus_tally_loc_D468();
+        self.level_complete_initial_score = self.progression.score;
         self.level_path_bonus_amount = tally.path_bonus_amount;
         self.level_speed_bonus_awarded = tally.speed_bonus_awarded;
         for amount in tally.amounts() {

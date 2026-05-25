@@ -838,6 +838,7 @@ mod tests {
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
+            level_complete_initial_score: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,

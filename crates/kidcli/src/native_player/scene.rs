@@ -1539,7 +1539,11 @@ fn eol_score_counter_snapshot_for_trace(
 ) -> kid_core::EolScoreCounterSnapshotLocD770 {
     let (amounts, count) = eol_bonus_amounts_for_trace(trace);
     let total_bonus = amounts[..count].iter().copied().sum::<u32>();
-    let initial_score = trace.score.saturating_sub(total_bonus);
+    let initial_score = if trace.level_complete && trace.level_complete_initial_score > 0 {
+        trace.level_complete_initial_score
+    } else {
+        trace.score.saturating_sub(total_bonus)
+    };
     kid_core::eol_score_counter_snapshot_loc_D770(
         initial_score,
         &amounts[..count],
