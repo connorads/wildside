@@ -4725,6 +4725,32 @@ impl NativeRuntime {
                 } => total_frames.saturating_sub(remaining_frames),
                 _ => 0,
             },
+            level_complete_score_rows_elapsed_frames: match self.player_lifecycle {
+                PlayerLifecycle::LevelComplete {
+                    remaining_frames,
+                    total_frames,
+                } => {
+                    let elapsed = total_frames.saturating_sub(remaining_frames);
+                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
+                    elapsed.saturating_sub(
+                        crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + reveal_frames,
+                    )
+                }
+                _ => 0,
+            },
+            level_complete_score_counter_elapsed_frames: match self.player_lifecycle {
+                PlayerLifecycle::LevelComplete {
+                    remaining_frames,
+                    total_frames,
+                } => {
+                    let elapsed = total_frames.saturating_sub(remaining_frames);
+                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
+                    elapsed.saturating_sub(
+                        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + reveal_frames,
+                    )
+                }
+                _ => 0,
+            },
             game_over: matches!(
                 self.player_lifecycle,
                 PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }

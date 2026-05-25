@@ -16895,7 +16895,10 @@ pub(crate) struct EolScoreCounterDurationLocD770 {
     pub(crate) total_frames: usize,
 }
 
-pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x24 + 0x14 + 0x5A + 8 + 0x14;
+pub const EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468: usize = 0x24 + 0x14;
+pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
+pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize =
+    EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EolScoreCounterSnapshotLocD770 {

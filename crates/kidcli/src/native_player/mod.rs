@@ -1542,6 +1542,8 @@ mod tests {
             rng_offset: None,
             level_complete: false,
             level_complete_elapsed_frames: 0,
+            level_complete_score_rows_elapsed_frames: 0,
+            level_complete_score_counter_elapsed_frames: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
@@ -1838,6 +1840,7 @@ mod tests {
         trace.level_damage_taken = true;
         trace.level_prize_collected = true;
         trace.level_speed_bonus_awarded = true;
+        trace.level_complete_score_rows_elapsed_frames = 0x80;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
         let under_seconds_digits = scene
@@ -1896,7 +1899,8 @@ mod tests {
         trace.level_timer_seconds = 180;
         trace.level_damage_taken = true;
         trace.level_prize_collected = true;
-        trace.level_complete_elapsed_frames = kid_core::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + 1;
+        trace.level_complete_score_rows_elapsed_frames = 0x40;
+        trace.level_complete_score_counter_elapsed_frames = 1;
         let time_bonus = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
         trace.score = 1_000 + time_bonus;
 
@@ -1911,6 +1915,46 @@ mod tests {
             eol_number_digits_at(&scene, 106),
             eol_expected_digits(1_000 + 0x28),
             "ASM loc_D77E should draw the score row after adding the same `$28` transfer"
+        );
+    }
+
+    #[test]
+    fn level_complete_overlay_flies_rows_in_with_loc_c5a2_offsets() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_timer_seconds = 180;
+        trace.level_damage_taken = true;
+        trace.level_prize_collected = true;
+        trace.score = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
+
+        let early = build_scene(&trace, false, Some(&visuals), None);
+        assert!(
+            early.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                    if *y == 94 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+            )),
+            "ASM loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
+        );
+        assert!(
+            early.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                    if *y == 92 && *x > 320 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] >= 130)
+            )),
+            "ASM loc_C5A2 should start EOL number rows off-screen right before their -8px/frame fly-in",
+        );
+
+        trace.level_complete_score_rows_elapsed_frames = 0x24;
+        let settled = build_scene(&trace, false, Some(&visuals), None);
+        assert!(
+            settled.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { x, y, tile_sheet, .. }
+                    if *y == 94 && *x == 56 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+            )),
+            "after the first row's loc_C5A2 timer expires, the time label should rest at the settled row anchor",
         );
     }
 

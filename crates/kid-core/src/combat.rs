@@ -7476,6 +7476,18 @@ impl LevelCompletionBonusTallyLocD468 {
 
 impl NativeRuntime {
     #[allow(non_snake_case)]
+    pub(crate) fn level_complete_scoreboard_reveal_frames_loc_C21E(&self) -> usize {
+        let camera = self.current_camera_state();
+        self.block_grid.as_ref().map_or(0, |grid| {
+            crate::level::flagpole_scoreboard_reveal_duration_loc_C21E(
+                grid,
+                (camera.x_pos >> 16) as u16,
+                (camera.y_pos >> 16) as u16,
+            )
+        })
+    }
+
+    #[allow(non_snake_case)]
     fn level_completion_bonus_tally_loc_D468(&self) -> LevelCompletionBonusTallyLocD468 {
         let mut tally = LevelCompletionBonusTallyLocD468::default();
 
@@ -7527,14 +7539,7 @@ impl NativeRuntime {
             self.progression.score,
             tally.amounts(),
         );
-        let camera = self.current_camera_state();
-        let reveal_frames = self.block_grid.as_ref().map_or(0, |grid| {
-            crate::level::flagpole_scoreboard_reveal_duration_loc_C21E(
-                grid,
-                (camera.x_pos >> 16) as u16,
-                (camera.y_pos >> 16) as u16,
-            )
-        });
+        let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
 
         crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + reveal_frames + counter.total_frames
     }

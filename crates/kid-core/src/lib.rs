@@ -35,7 +35,8 @@ pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_STAR
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
 pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 pub use level::{
-    EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770, EolScoreCounterSnapshotLocD770,
+    EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
+    EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468, EolScoreCounterSnapshotLocD770,
     eol_score_counter_snapshot_loc_D770,
 };
 use std::collections::HashSet;
