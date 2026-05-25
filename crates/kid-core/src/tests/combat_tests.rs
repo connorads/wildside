@@ -8584,6 +8584,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn lion_death_waits_for_stru_3df48_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 1);
+        lion.layout_index = 20;
+        let killed_identity = (lion.segment_index, lion.layout_index);
+        runtime.active_enemies = vec![lion];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Lion.asm loc_3E378 hibernates through stru_3DF48 before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            LION_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

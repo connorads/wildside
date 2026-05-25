@@ -6558,6 +6558,9 @@ pub(crate) const SCORPION_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x2D;
 /// ASM Driller.asm loc_3BF1C plays parent `stru_3BCD4`: $0A, $14, then
 /// $28 ticks before the shared delete tail at loc_3C46E.
 pub(crate) const DRILLER_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x28;
+/// ASM Lion.asm loc_3E378 plays `stru_3DF48`: three $0A-tick frames before
+/// the shared delete tail at loc_3E956.
+pub(crate) const LION_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6568,6 +6571,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
         EnemyFamily::FireDemon => Some(FIRE_DEMON_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Lion => Some(LION_DEATH_ANIMATION_FRAMES),
         EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Orca => Some(ORCA_DEATH_ANIMATION_FRAMES),
