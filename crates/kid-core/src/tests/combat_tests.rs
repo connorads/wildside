@@ -8359,6 +8359,122 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_death_waits_for_stru_3acc4_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 1);
+        diamond.layout_index = 15;
+        let killed_identity = (diamond.segment_index, diamond.layout_index);
+        runtime.active_enemies = vec![diamond];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Diamond.asm loc_3AEE6/loc_3AE28 hibernates through stru_3ACC4 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DIAMOND_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn dragon_walking_death_waits_for_stru_3ccec_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x0080_0000, 0x0040_0000, 1);
+        dragon.layout_index = 16;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEFC hibernates through stru_3CCEC before loc_3E956 deletes the walking dragon"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRAGON_WALKING_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);
+        scorpion.layout_index = 17;
+        let killed_identity = (scorpion.segment_index, scorpion.layout_index);
+        runtime.active_enemies = vec![scorpion];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Scorpion.asm loc_3DCF4 hibernates through stru_3DB80 before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            SCORPION_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn driller_death_waits_for_stru_3bcd4_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 1);
+        driller.layout_index = 18;
+        let killed_identity = (driller.segment_index, driller.layout_index);
+        runtime.active_enemies = vec![driller];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Driller.asm loc_3BF1C hibernates the parent through stru_3BCD4 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRILLER_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

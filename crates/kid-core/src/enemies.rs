@@ -6534,14 +6534,31 @@ pub(crate) const TANK_SHOOTING_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
 /// ASM Robot.asm loc_3A9D2 plays `stru_3A74A`: two $09-tick frames before
 /// the shared delete tail at loc_3C46E.
 pub(crate) const ROBOT_DEATH_ANIMATION_FRAMES: u16 = 0x09 + 0x09;
+/// ASM Diamond.asm loc_3AEE6 / loc_3AE28 plays `stru_3ACC4`: $08, $06,
+/// $03, $03, then $02 ticks before the shared delete tail at loc_3C46E.
+pub(crate) const DIAMOND_DEATH_ANIMATION_FRAMES: u16 = 0x08 + 0x06 + 0x03 + 0x03 + 0x02;
+/// ASM Dragon.asm loc_3CEFC plays `stru_3CCEC`: $07, $06, $03, $16, $05,
+/// $04, $04, $0C, $05, then $63 ticks before loc_3E956.
+pub(crate) const DRAGON_WALKING_DEATH_ANIMATION_FRAMES: u16 =
+    0x07 + 0x06 + 0x03 + 0x16 + 0x05 + 0x04 + 0x04 + 0x0C + 0x05 + 0x63;
+/// ASM Scorpion.asm loc_3DCF4 plays `stru_3DB80`: $0A, $14, then $2D ticks
+/// before the shared delete tail at loc_3E956.
+pub(crate) const SCORPION_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x2D;
+/// ASM Driller.asm loc_3BF1C plays parent `stru_3BCD4`: $0A, $14, then
+/// $28 ticks before the shared delete tail at loc_3C46E.
+pub(crate) const DRILLER_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x14 + 0x28;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
         EnemyFamily::Crab => Some(CRAB_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Diamond => Some(DIAMOND_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::DragonWalking => Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Robot => Some(ROBOT_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Scorpion => Some(SCORPION_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
         _ => None,
