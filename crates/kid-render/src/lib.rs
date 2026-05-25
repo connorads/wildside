@@ -190,6 +190,11 @@ mod tests {
         assert_eq!(visuals.hud.digit_base_tile_index, 0x06BA);
         assert_eq!(visuals.hud.diamond_tiles.tiles.len(), 16);
         assert_eq!(visuals.hud.diamond_base_tile_index, 0x06EA);
+        assert_eq!(
+            visuals.hud.hitpoint_sheet.tiles.len(),
+            4,
+            "ASM loc_12C34 DMA streams 4 HUD hitpoint tiles from ArtUnc_12C3C"
+        );
         assert!(visuals.hud.icons.iter().any(|icon| {
             icon.name == "ankh"
                 && icon.position == (0x01A1, 0x008D)
@@ -684,6 +689,11 @@ mod tests {
                 root.path(),
                 "ingame/artcomp/HUD_numbers.bin",
                 &direct_copy_saxman(&(0..384).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Hitpoint_display.bin",
+                &(0..128).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
             )?;
             write_file(
                 root.path(),
@@ -1222,6 +1232,7 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Murder_wall.bin"),
                     asset_file(root.path(), "ingame/artcomp/Lava.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
+                    asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0E_Cloud.bin"),

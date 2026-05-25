@@ -2127,8 +2127,8 @@ mod tests {
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
                         if *y < 48
-                            && tile_sheet.tiles.len() == 0x200
-                            && (13..=16).contains(&tile.tile_index)
+                            && tile_sheet.tiles.len() == 4
+                            && tile.tile_index <= 3
                 )
             })
             .count()
@@ -2241,6 +2241,16 @@ mod tests {
     fn blank_tile_sheet(tile_count: usize) -> TileSheet {
         TileSheet {
             tiles: vec![Tile { pixels: [0; 64] }; tile_count],
+        }
+    }
+
+    fn sample_hitpoint_tile_sheet() -> TileSheet {
+        TileSheet {
+            tiles: (0..4)
+                .map(|index| Tile {
+                    pixels: [0xD0 + index; 64],
+                })
+                .collect(),
         }
     }
 
@@ -2780,6 +2790,7 @@ mod tests {
                 digit_base_tile_index: 0x06BA,
                 diamond_tiles: blank_tile_sheet(16),
                 diamond_base_tile_index: 0x06EA,
+                hitpoint_sheet: sample_hitpoint_tile_sheet(),
                 icons: vec![
                     HudIcon::new("ankh", (0x01A1, 0x008D), TileRef::from_attr_word(0x8231)),
                     HudIcon::new("colon", (0x0090, 0x0090), TileRef::from_attr_word(0x86C4)),
@@ -4112,7 +4123,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, .. }
-                        if *y < 48 && tile_sheet.tiles.len() == 0x200
+                        if *y < 48 && tile_sheet.tiles.len() == 4
                 )
             })
             .count();
@@ -6239,8 +6250,8 @@ mod tests {
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
                         if *y < 48
-                            && tile_sheet.tiles.len() == 0x200
-                            && (13..=16).contains(&tile.tile_index)
+                            && tile_sheet.tiles.len() == 4
+                            && tile.tile_index <= 3
                 )
             })
             .count();
@@ -6425,27 +6436,25 @@ mod tests {
         trace.number_hitpoints = 1;
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, half_pip, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0xA4 - 128, 0x200)
-                .expect("first hitpoint pip");
-        let (_, grey_tail, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x98 - 128, 0xA4 - 128, 0x200)
-                .expect("second tile of size-4 hitpoint sprite");
+        let (_, half_pip, _) = indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0xA4 - 128, 4)
+            .expect("first hitpoint pip");
+        let (_, grey_tail, _) = indexed_tile_at_with_sheet_len(&scene, 0x98 - 128, 0xA4 - 128, 4)
+            .expect("second tile of size-4 hitpoint sprite");
 
         assert_eq!(
-            half_pip.tile_index, 14,
+            half_pip.tile_index, 1,
             "ASM Make_SpriteAttr_HUD loc_BE34 writes 1 HP as the half-pip tile $822E at biased X $90"
         );
         assert_eq!(
-            grey_tail.tile_index, 15,
+            grey_tail.tile_index, 2,
             "ASM Make_SpriteAttr_HUD loc_BE34 size byte #4 also draws the following grey pip tile $822F"
         );
         assert!(
-            indexed_tile_at_with_sheet_len(&scene, 0, 0xA4 - 128, 0x200).is_none(),
+            indexed_tile_at_with_sheet_len(&scene, 0, 0xA4 - 128, 4).is_none(),
             "native must not draw the old left-edge HP pip approximation"
         );
         assert!(
-            indexed_tile_at_with_sheet_len(&scene, 0xA0 - 128, 0xA4 - 128, 0x200).is_none(),
+            indexed_tile_at_with_sheet_len(&scene, 0xA0 - 128, 0xA4 - 128, 4).is_none(),
             "ASM exits after The Kid's single 2-HP slot; there is no second empty pip"
         );
     }
@@ -6460,9 +6469,9 @@ mod tests {
             matches!(
                 command,
                 DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                    if *y < 48
-                        && tile_sheet.tiles.len() == 0x200
-                        && tile.tile_index == 14
+                        if *y < 48
+                        && tile_sheet.tiles.len() == 4
+                        && tile.tile_index == 1
             )
         });
         assert!(
@@ -6505,19 +6514,17 @@ mod tests {
 
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, empty_pip, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0xB0 - 128, 0xA4 - 128, 0x200)
-                .expect("extra empty hitpoint pip");
-        let (_, empty_tail, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0xB8 - 128, 0xA4 - 128, 0x200)
-                .expect("second tile of extra empty hitpoint sprite");
+        let (_, empty_pip, _) = indexed_tile_at_with_sheet_len(&scene, 0xB0 - 128, 0xA4 - 128, 4)
+            .expect("extra empty hitpoint pip");
+        let (_, empty_tail, _) = indexed_tile_at_with_sheet_len(&scene, 0xB8 - 128, 0xA4 - 128, 4)
+            .expect("second tile of extra empty hitpoint sprite");
 
         assert_eq!(
-            empty_pip.tile_index, 15,
+            empty_pip.tile_index, 2,
             "ASM Make_SpriteAttr_HUD loc_BE5C adds Extra_hitpoint_slots to the helmet capacity and draws empty tile $822F for the now-empty extra slot"
         );
         assert_eq!(
-            empty_tail.tile_index, 16,
+            empty_tail.tile_index, 3,
             "ASM Make_SpriteAttr_HUD loc_BE5C size byte #4 draws the following grey tile for the extra empty slot"
         );
     }

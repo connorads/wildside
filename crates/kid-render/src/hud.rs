@@ -6,6 +6,7 @@ pub struct HudVisuals {
     pub digit_base_tile_index: u16,
     pub diamond_tiles: TileSheet,
     pub diamond_base_tile_index: u16,
+    pub hitpoint_sheet: TileSheet,
     pub icons: Vec<HudIcon>,
     pub hitpoint_tiles: [TileRef; 3],
 }

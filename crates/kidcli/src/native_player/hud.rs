@@ -120,14 +120,31 @@ fn push_hud_hitpoint_sprite(
 ) {
     // ASM Make_SpriteAttr_HUD loc_BE20/BE34/BE5C writes size byte #4 for
     // $822D/$822E/$822F. On Mega Drive this is a 2x1 tile sprite, so the
-    // visible pip includes the following tile as well as the base tile.
+    // visible pip includes the following tile as well as the base tile. ASM
+    // loc_12C34 DMAs ArtUnc_12C3C into VRAM tile $22D, overlapping the block
+    // VRAM page; draw from the dedicated HUD hitpoint sheet, not block art.
     for tile_offset in 0..2 {
-        let tile_ref = TileRef {
-            tile_index: base_tile.tile_index + tile_offset,
-            ..base_tile
+        let Some(tile_index) = base_tile
+            .tile_index
+            .checked_sub(0x022D)
+            .and_then(|index| index.checked_add(tile_offset))
+        else {
+            continue;
         };
-        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, tile_ref) {
-            push_resolved_tile(commands, x + i32::from(tile_offset) * 8, y, tile);
+        if usize::from(tile_index) < level_visuals.hud.hitpoint_sheet.tiles.len() {
+            push_resolved_tile(
+                commands,
+                x + i32::from(tile_offset) * 8,
+                y,
+                ResolvedSceneTile {
+                    tile_sheet: Arc::new(level_visuals.hud.hitpoint_sheet.clone()),
+                    tile: TileRef {
+                        tile_index,
+                        ..base_tile
+                    },
+                    palette: Arc::new(level_visuals.palettes.foreground.clone()),
+                },
+            );
         }
     }
 }

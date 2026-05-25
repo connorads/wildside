@@ -26,6 +26,7 @@ const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
+const HUD_HITPOINT_ART_PATH: &str = "artunc/Hitpoint_display.bin";
 const FLOATING_DIAMOND_ART_PATHS: [&str; 4] = [
     "artunc/diamond_1.bin",
     "artunc/diamond_2.bin",
@@ -248,6 +249,14 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         })?,
         "HUD diamond tile sheet",
     )?;
+    let hud_hitpoint_sheet = load_uncompressed_tile_sheet(
+        manifest,
+        "ingame",
+        find_ingame_asset(manifest, HUD_HITPOINT_ART_PATH).ok_or_else(|| {
+            anyhow!("missing HUD hitpoint art asset ingame/{HUD_HITPOINT_ART_PATH}")
+        })?,
+        "HUD hitpoint tile sheet",
+    )?;
     let fg_palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "theme",
@@ -338,6 +347,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             digit_base_tile_index: HUD_DIGIT_BASE_TILE_INDEX,
             diamond_tiles: hud_diamond_tiles,
             diamond_base_tile_index: HUD_DIAMOND_BASE_TILE_INDEX,
+            hitpoint_sheet: hud_hitpoint_sheet,
             icons: vec![
                 HudIcon::new("ankh", (0x01A1, 0x008D), TileRef::from_attr_word(0x8231)),
                 HudIcon::new("colon", (0x0090, 0x0090), TileRef::from_attr_word(0x86C4)),
