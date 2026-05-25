@@ -1835,6 +1835,7 @@ mod tests {
         trace.level_prize_collected = false;
         trace.level_path_bonus_amount = 3_000;
         trace.level_speed_bonus_awarded = true;
+        trace.level_complete_score_rows_elapsed_frames = 1;
         trace.score = 12_340;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -2082,6 +2083,13 @@ mod tests {
         trace.level_prize_collected = true;
         trace.score = kid_core::time_bonus_loc_d56e(trace.level_timer_seconds);
 
+        let before_first_hibernate = build_scene(&trace, false, Some(&visuals), None);
+        assert!(
+            !has_sprite_signature(&before_first_hibernate, 128),
+            "ASM Object_EOL_Text loc_C5A2 hibernates before the first visible TIME row update"
+        );
+
+        trace.level_complete_score_rows_elapsed_frames = 1;
         let early = build_scene(&trace, false, Some(&visuals), None);
         assert!(
             early.commands.iter().any(|command| matches!(

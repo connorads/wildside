@@ -1556,6 +1556,10 @@ fn push_eol_score_overlay(
     trace: &NativeTraceFrame,
     eol: &kid_render::EolScoreVisuals,
 ) {
+    if trace.level_complete_score_rows_elapsed_frames == 0 {
+        return;
+    }
+
     // ASM loc_D4CE emits CONTINUES and SCORE first, then the bonus rows with
     // Load_Object_EOL_Text and Load_Object_EOL_Number. Native follows the ROM
     // `$64/$68/$6C` seeds directly and advances them through loc_C5A2.
