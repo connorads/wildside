@@ -905,8 +905,8 @@ fn write_title_character_tilemap_rect(
 ///
 /// ASM `Load_TitleCard` (kid.asm:28588) runs `sub_914`, decompresses the
 /// selected theme art to VRAM `$5F60`, decodes the theme Enigma map with base
-/// word `$02FB`, copies the theme palette, and centres the decoded map in a
-/// 64×28 plane with `$02FB` padding.
+/// word `$02FB`, copies the theme palette, and centres the decoded map in
+/// Scroll A's normal `$0000` nametable with `$02FB` padding.
 pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Option<VdpState> {
     let theme = data
         .themes
@@ -918,9 +918,6 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
         vdp.registers[i] = value;
     }
     vdp.registers[1] = 0x74;
-    // ASM sub_914: foreground/Scroll A at $6000, background/Scroll B at $0000.
-    vdp.registers[2] = 0x18;
-    vdp.registers[4] = 0x00;
 
     vdp.write_vram(0x5F60, &theme.art_bytes);
     for i in 0..0x01C0 {
@@ -1870,8 +1867,14 @@ mod tests {
 
         assert_eq!(&vdp.vram[0x5F60..0x5F64], &[0xAA, 0xBB, 0xCC, 0xDD]);
         assert_eq!(u16::from_be_bytes([vdp.cram[2], vdp.cram[3]]), 0x0222);
-        assert_eq!(vdp.registers[2], 0x18, "ASM sub_914 sets Scroll A to $6000");
-        assert_eq!(vdp.registers[4], 0x00, "ASM sub_914 sets Scroll B to $0000");
+        assert_eq!(
+            vdp.registers[2], 0x00,
+            "ASM Load_TitleCard inherits VDPGameInitValues Scroll A base $0000 before writing the card map to VRAM $0000",
+        );
+        assert_eq!(
+            vdp.registers[4], 0x07,
+            "ASM Load_TitleCard inherits VDPGameInitValues Scroll B base $E000; loc_19B58 fills that plane with $0094",
+        );
         assert_eq!(
             u16::from_be_bytes([vdp.vram[0xE000], vdp.vram[0xE001]]),
             0x0094,

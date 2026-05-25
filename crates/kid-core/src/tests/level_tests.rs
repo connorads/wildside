@@ -2847,8 +2847,14 @@ mod chunk_02 {
         let vdp = runtime
             .vdp_state()
             .expect("ASM Load_TitleCard should expose a title-card VDP shell");
-        assert_eq!(vdp.registers[2], 0x18, "ASM sub_914 Scroll A base");
-        assert_eq!(vdp.registers[4], 0x00, "ASM sub_914 Scroll B base");
+        assert_eq!(
+            vdp.registers[2], 0x00,
+            "ASM Load_TitleCard inherits VDPGameInitValues Scroll A base $0000",
+        );
+        assert_eq!(
+            vdp.registers[4], 0x07,
+            "ASM Load_TitleCard inherits VDPGameInitValues Scroll B base $E000",
+        );
         assert_eq!(
             u16::from_be_bytes([vdp.vram[0], vdp.vram[1]]),
             0x02FB,
