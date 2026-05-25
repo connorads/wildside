@@ -5101,11 +5101,8 @@ impl NativeRuntime {
             if dx <= RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
                 && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
             {
-                enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                if enemy.hit_points == 0 {
+                if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
-                } else {
-                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                 }
                 // ASM loc_86EC (kid.asm:9556): on non-zero sword collision,
                 // play `sfx_Red_Stealth_hitting_a_target`, then delete. For
@@ -5161,11 +5158,8 @@ impl NativeRuntime {
                 if dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
                     && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
-                    enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                    if enemy.hit_points == 0 {
+                    if enemy.take_damage_or_queue_death() {
                         kill_indices.push(ei);
-                    } else {
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                     }
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
                     // rain slots are removed by screen cull, not by enemy
@@ -5197,11 +5191,8 @@ impl NativeRuntime {
                 if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
                     && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
-                    enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                    if enemy.hit_points == 0 {
+                    if enemy.take_damage_or_queue_death() {
                         kill_indices.push(ei);
-                    } else {
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                     }
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
                     // rain slots stay in the DP list after enemy contact and
@@ -5272,11 +5263,9 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
-                enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                if enemy.hit_points == 0 {
+                if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {
-                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                     changed_enemy_state = true;
                 }
             }
@@ -5908,11 +5897,8 @@ impl NativeRuntime {
             if matches!(enemy.family, EnemyFamily::Diamond) {
                 continue;
             }
-            enemy.hit_points = enemy.hit_points.saturating_sub(1);
-            if enemy.hit_points == 0 {
+            if enemy.take_damage_or_queue_death() {
                 kill_indices.push(i);
-            } else {
-                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
             }
         }
         for &idx in kill_indices.iter().rev() {

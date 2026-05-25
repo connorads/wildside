@@ -567,6 +567,50 @@ pub(super) fn select_enemy_frame<'a>(
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> &'a kid_render::SpriteFrame {
+    if object.hit_points == Some(0)
+        && let NativeObjectKind::Enemy { object_type } = object.kind
+        && let Some(remaining) = object.wait_timer
+    {
+        let death_frame = match object_type {
+            // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
+            // C7C06 for $0A, then C7C0E for $1E before deletion.
+            0x09 if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x0A + 0x1E {
+                    Some(6)
+                } else if remaining > 0x1E {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
+            // ASM Goat.asm loc_3CB64 runs `stru_3C9EA`: C7C56 for $1E,
+            // C7C8E for $0A, then C7C96 for $37 before deletion.
+            0x10 if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x0A + 0x37 {
+                    Some(6)
+                } else if remaining > 0x37 {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
+            // ASM Ninja.asm loc_3DB4E runs `stru_3D50A`: C7D56 for $14,
+            // C7D5E for $0A, then C7D66 for $2D before deletion.
+            0x11 if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x0A + 0x2D {
+                    Some(6)
+                } else if remaining > 0x2D {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
+            _ => None,
+        };
+        if let Some(frame_index) = death_frame {
+            return &enemy_visuals.frames[frame_index];
+        }
+    }
     if matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1C })
         && object.hit_points == Some(0)
         && let Some(remaining) = object.wait_timer

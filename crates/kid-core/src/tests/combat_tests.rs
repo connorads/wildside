@@ -8179,6 +8179,99 @@ mod chunk_03 {
     }
 
     #[test]
+    fn goat_death_waits_for_stru_3c9ea_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut goat = test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 1);
+        goat.layout_index = 9;
+        let killed_identity = (goat.segment_index, goat.layout_index);
+        runtime.active_enemies = vec![goat];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Goat.asm loc_3CB64 hibernates through stru_3C9EA before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            GOAT_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Goat.asm loc_3CB64 should not mark the layout killed until the death animation reaches the delete tail"
+        );
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(
+            runtime.killed_enemies.contains(&killed_identity),
+            "ASM Goat.asm loc_3E956 delete tail should mark the layout killed after stru_3C9EA"
+        );
+    }
+
+    #[test]
+    fn crab_death_waits_for_stru_3af82_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut crab = test_enemy(EnemyFamily::Crab, 0x0080_0000, 0x0040_0000, 1);
+        crab.layout_index = 10;
+        let killed_identity = (crab.segment_index, crab.layout_index);
+        runtime.active_enemies = vec![crab];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Crab.asm loc_3B094 hibernates through stru_3AF82 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            CRAB_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn ninja_death_waits_for_stru_3d50a_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 1);
+        ninja.layout_index = 11;
+        let killed_identity = (ninja.segment_index, ninja.layout_index);
+        runtime.active_enemies = vec![ninja];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Ninja.asm loc_3DB4E hibernates through stru_3D50A before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            NINJA_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

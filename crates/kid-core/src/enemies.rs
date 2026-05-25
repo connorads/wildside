@@ -6516,6 +6516,25 @@ pub(crate) const DRAGON_FLYING_DEATH_ANIMATION_FRAMES: u16 = 8;
 /// LnkTo_unk_C8040 for $0A ticks, then LnkTo_unk_C8048 for $1E ticks before
 /// continuing to `j_Delete_CurrentObject`.
 pub(crate) const MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x1E;
+/// ASM Crab.asm loc_3B094 plays `stru_3AF82`: $14, $0A, then $1E ticks
+/// before the shared delete tail at loc_3C46E.
+pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;
+/// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
+/// before the shared delete tail at loc_3E956.
+pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
+/// ASM Ninja.asm loc_3DB4E plays `stru_3D50A`: $14, $0A, then $2D ticks
+/// before the shared delete tail at loc_3E956.
+pub(crate) const NINJA_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x2D;
+
+pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
+    match family {
+        EnemyFamily::Crab => Some(CRAB_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
+        _ => None,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -8394,6 +8413,15 @@ impl ActivationWindow {
 }
 
 impl ActiveEnemy {
+    pub(crate) fn take_damage_or_queue_death(&mut self) -> bool {
+        if self.hit_points <= 1 {
+            return true;
+        }
+        self.hit_points -= 1;
+        self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        false
+    }
+
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
         if self.hit_points == 0 {
@@ -8420,7 +8448,7 @@ impl ActiveEnemy {
         let walk_phase =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
         let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking)
-            || (matches!(self.family, EnemyFamily::MiniHoppingSkull) && self.hit_points == 0)
+            || (self.hit_points == 0 && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)
         } else {
@@ -8485,7 +8513,7 @@ impl ActiveEnemy {
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
             stationary: self.dragon_phase.is_stationary()
-                || (matches!(self.family, EnemyFamily::MiniHoppingSkull) && self.hit_points == 0),
+                || (self.hit_points == 0 && enemy_death_animation_frames(self.family).is_some()),
             shared_walker_state,
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,
@@ -9009,10 +9037,11 @@ pub(crate) fn step_active_enemies_with_rng(
             continue;
         }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
-        if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points == 0 {
-            // ASM Mini_Hopping_Skull.asm loc_3F158 clears `is_moved(a3)`
-            // while `stru_3E9AC` hibernates, so the corpse animation should
-            // not run the normal hopper movement step.
+        if enemy.hit_points == 0 && enemy_death_animation_frames(enemy.family).is_some() {
+            // ASM family death tails such as Goat.asm loc_3CB64 and
+            // Mini_Hopping_Skull.asm loc_3F158 clear movement while the death
+            // animation hibernates, so the corpse should not run its normal
+            // movement step.
             continue;
         }
         match enemy.family.archetype() {
@@ -38481,12 +38510,12 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                 );
                 for enemy in &mut self.active_enemies {
-                    if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
-                        && enemy.hit_points == 0
+                    if enemy.hit_points == 0
+                        && enemy_death_animation_frames(enemy.family).is_some()
                         && enemy.wait_timer > 0
                     {
-                        // ASM Mini_Hopping_Skull.asm loc_3F158 hibernates
-                        // until `stru_3E9AC` finishes before the delete tail.
+                        // ASM death-animation tails hibernate until the
+                        // family animation finishes before deletion.
                         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
                     }
                 }
@@ -38496,7 +38525,7 @@ impl NativeRuntime {
                     .enumerate()
                     .filter_map(|(idx, enemy)| {
                         let waiting_for_death_animation =
-                            matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                            enemy_death_animation_frames(enemy.family).is_some()
                                 && enemy.wait_timer > 0;
                         (enemy.hit_points == 0 && !waiting_for_death_animation).then_some(idx)
                     })

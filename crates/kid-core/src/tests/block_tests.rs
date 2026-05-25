@@ -1753,10 +1753,15 @@ mod chunk_04 {
         assert!(enemies_before > 0, "Skull should be activated");
 
         runtime.step_frame(FrameInput::default());
-        assert!(
-            runtime.active_enemies.len() < enemies_before,
-            "stomped enemy should be removed (before: {enemies_before}, after: {})",
-            runtime.active_enemies.len()
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the stomped skull alive until its death animation finishes"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
         );
     }
 
@@ -2071,9 +2076,15 @@ mod chunk_04 {
         assert!(enemies_before > 0, "Skull should be activated");
 
         runtime.step_frame(FrameInput::default());
-        assert!(
-            runtime.active_enemies.len() < enemies_before,
-            "stomp should still kill enemy during invulnerability"
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the invulnerability stomp kill visible until the death animation finishes"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
         );
     }
 
@@ -2438,9 +2449,15 @@ mod chunk_04 {
         // Second stomp
         setup_stomp_against_first_active_enemy(&mut runtime);
         runtime.step_frame(FrameInput::default());
-        assert!(
-            runtime.active_enemies.len() < enemies_before,
-            "2-HP enemy should die on the second stomp frame"
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the second-stomp kill visible until the death animation finishes"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
         );
     }
 

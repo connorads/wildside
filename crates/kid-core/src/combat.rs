@@ -7592,17 +7592,19 @@ impl NativeRuntime {
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
-        if matches!(family, EnemyFamily::MiniHoppingSkull)
+        if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
             && enemy.wait_timer == 0
         {
             let enemy = &mut self.active_enemies[idx];
-            // ASM Mini_Hopping_Skull.asm loc_3F158: final damage clears
-            // movement, plays `stru_3E9AC` to completion, then deletes.
+            // ASM Goat.asm loc_3CB64, Ninja.asm loc_3DB4E, Crab.asm loc_3B094,
+            // and Mini_Hopping_Skull.asm loc_3F158: final damage clears
+            // movement, plays the family death animation to completion, then
+            // reaches the shared delete tail.
             enemy.hit_points = 0;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
-            enemy.wait_timer = MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES;
+            enemy.wait_timer = death_animation_frames;
             self.rebuild_active_enemy_roster();
             return;
         }
@@ -7756,11 +7758,9 @@ impl NativeRuntime {
         for &roster_idx in &stomped_indices {
             if roster_idx < self.active_enemies.len() {
                 let enemy = &mut self.active_enemies[roster_idx];
-                enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                if enemy.hit_points == 0 {
+                if enemy.take_damage_or_queue_death() {
                     kill_indices.push(roster_idx);
                 } else {
-                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
                     if matches!(enemy.family, EnemyFamily::DragonWalking) {
                         // The stomp resolves after the landing frame. Give the
                         // hurt hibernate a one-frame arm so DragonWalking still

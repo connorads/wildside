@@ -2525,13 +2525,16 @@ mod chunk_06 {
 
         rt.process_sword_hits(&slice);
 
-        assert!(rt.active_enemies.is_empty(), "1HP enemy should be killed");
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES);
     }
 
-    /// ASM loc_86EC deletes the sword object after a collision; native removes
-    /// killed enemies from both the live list and trace roster in the same hit.
+    /// ASM Goat.asm loc_3CB64 hibernates through `stru_3C9EA` after the
+    /// lethal sword hit; native keeps the corpse in both live list and trace
+    /// roster until that animation completes.
     #[test]
-    fn red_stealth_sword_kill_refreshes_active_enemy_roster() {
+    fn red_stealth_sword_kill_keeps_death_animation_in_roster() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
@@ -2547,10 +2550,13 @@ mod chunk_06 {
 
         rt.process_sword_hits(&slice);
 
-        assert!(rt.active_enemies.is_empty(), "1HP enemy should be killed");
-        assert!(
-            rt.active_enemy_roster.is_empty(),
-            "ASM loc_86EC: native trace roster should drop enemies killed by the sword"
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(rt.active_enemy_roster.len(), 1);
+        assert_eq!(
+            rt.active_enemy_roster[0].wait_timer,
+            Some(GOAT_DEATH_ANIMATION_FRAMES),
+            "ASM loc_3CB64: native trace roster should retain the Goat until stru_3C9EA finishes",
         );
     }
 
@@ -2579,14 +2585,24 @@ mod chunk_06 {
         rt.process_sword_hits(&slice);
 
         assert!(
-            rt.active_enemies.is_empty(),
-            "the sword hit should kill the skull"
+            !rt.active_enemies.is_empty(),
+            "ASM loc_3F158: the lethal sword hit should keep the skull until its death animation finishes"
+        );
+        assert_eq!(
+            rt.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
         );
         assert!(
-            rt.killed_enemies.contains(&(0, 0)),
-            "a sword kill should record the layout kill bit so activate_enemies does not respawn it",
+            !rt.killed_enemies.contains(&(0, 0)),
+            "the layout kill bit should wait for the delete tail, not the first death-animation frame",
         );
 
+        rt.active_enemies[0].wait_timer = 0;
+        rt.remove_dead_enemy(0);
+        assert!(
+            rt.killed_enemies.contains(&(0, 0)),
+            "the completed death animation should record the layout kill bit so activate_enemies does not respawn it",
+        );
         activate_enemies(
             &mut rt.active_enemies,
             &layout,
@@ -7248,10 +7264,9 @@ mod chunk_06 {
 
         rt.process_berzerker_charge_hits(&mut slice);
 
-        assert!(
-            rt.active_enemies.is_empty(),
-            "enemy should be killed by charge"
-        );
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES);
     }
 
     /// ASM Crab.asm loc_3B180: charging Berzerker side contact doubles Kid's
@@ -7389,9 +7404,11 @@ mod chunk_06 {
             rt.helmet.berzerker_charging,
             "ASM loc_9564: accumulator overflow should set Berzerker_charging"
         );
-        assert!(
-            rt.active_enemies.is_empty(),
-            "ASM loc_B678: front-edge side contact while charging should damage the enemy"
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES,
+            "ASM loc_B678 damage should enter Goat.asm loc_3CB64 instead of deleting immediately"
         );
     }
 
@@ -7431,9 +7448,11 @@ mod chunk_06 {
             rt.helmet.berzerker_charging,
             "ASM loc_9564 should set Berzerker_charging for airborne forward speed on non-Ice"
         );
-        assert!(
-            rt.active_enemies.is_empty(),
-            "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy"
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES,
+            "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy, then Goat.asm loc_3CB64 hibernates"
         );
     }
 
@@ -7523,8 +7542,8 @@ mod chunk_06 {
         );
     }
 
-    /// A charging Berzerker kill removes the enemy from both the live list and
-    /// the trace roster in the same native contact step.
+    /// A charging Berzerker kill starts the Goat death hibernate and refreshes
+    /// the trace roster to expose that retained corpse.
     #[test]
     fn berzerker_charge_kill_refreshes_active_enemy_roster() {
         let mut rt = NativeRuntime::new(manifest());
@@ -7544,10 +7563,12 @@ mod chunk_06 {
 
         rt.process_berzerker_charge_hits(&mut slice);
 
-        assert!(rt.active_enemies.is_empty());
-        assert!(
-            rt.active_enemy_roster.is_empty(),
-            "ASM Berzerker_charging contact: trace roster should drop killed enemy"
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemy_roster.len(), 1);
+        assert_eq!(
+            rt.active_enemy_roster[0].wait_timer,
+            Some(GOAT_DEATH_ANIMATION_FRAMES),
+            "ASM Goat.asm loc_3CB64: trace roster should keep killed Goat until stru_3C9EA finishes"
         );
     }
 

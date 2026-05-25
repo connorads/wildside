@@ -2217,6 +2217,27 @@ mod tests {
             },
         );
         families.insert(
+            0x10,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 160, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame(111, 16, 16),
+                    sample_object_frame(112, 16, 16),
+                    sample_object_frame(113, 16, 16),
+                    sample_object_frame(114, 16, 16),
+                    sample_object_frame(115, 16, 16),
+                    sample_object_frame(116, 16, 16),
+                    sample_object_frame(117, 16, 16),
+                    sample_object_frame(118, 16, 16),
+                    sample_object_frame(119, 16, 16),
+                ],
+                frame_duration: 6,
+            },
+        );
+        families.insert(
             0x20,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -5413,6 +5434,62 @@ mod tests {
                 .pixels[0],
             38,
             "ASM Mini_Hopping_Skull.asm loc_3F158 should render LnkTo_unk_C8048 for the final $1E ticks"
+        );
+    }
+
+    #[test]
+    fn goat_death_snapshot_selects_stru_3c9ea_frames() {
+        let visuals = sample_level_visuals();
+        let goat_visuals = visuals.enemies.families.get(&0x10).expect("goat visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x10 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x1E + 0x0A + 0x37),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, goat_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            117,
+            "ASM Goat.asm loc_3CB64 should render LnkTo_unk_C7C56 for the first $1E ticks of stru_3C9EA"
+        );
+
+        object.wait_timer = Some(0x37 + 1);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, goat_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            118,
+            "ASM Goat.asm loc_3CB64 should render LnkTo_unk_C7C8E for the middle $0A ticks of stru_3C9EA"
+        );
+
+        object.wait_timer = Some(0x37);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, goat_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            119,
+            "ASM Goat.asm loc_3CB64 should render LnkTo_unk_C7C96 for the final $37 ticks of stru_3C9EA"
         );
     }
 
