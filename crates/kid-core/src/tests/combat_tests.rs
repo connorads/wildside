@@ -8179,6 +8179,41 @@ mod chunk_03 {
     }
 
     #[test]
+    fn armadillo_death_waits_for_stru_3c69a_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut armadillo = test_enemy(EnemyFamily::Armadillo, 0x0080_0000, 0x0040_0000, 1);
+        armadillo.layout_index = 8;
+        let killed_identity = (armadillo.segment_index, armadillo.layout_index);
+        runtime.active_enemies = vec![armadillo];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Armadillo.asm loc_3C886 hibernates through stru_3C69A before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ARMADILLO_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Armadillo.asm loc_3C886 should not mark the layout killed until the death animation reaches the delete tail"
+        );
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(
+            runtime.killed_enemies.contains(&killed_identity),
+            "ASM Armadillo.asm loc_3E956 delete tail should mark the layout killed after stru_3C69A"
+        );
+    }
+
+    #[test]
     fn goat_death_waits_for_stru_3c9ea_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut goat = test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 1);
