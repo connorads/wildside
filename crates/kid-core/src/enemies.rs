@@ -6525,6 +6525,9 @@ pub(crate) const BIG_HOPPING_SKULL_DEATH_ANIMATION_FRAMES: u16 = 0x18 + 0x0C + 0
 /// ASM Archer.asm loc_3414A plays `stru_33FC2`: three 5-tick frames, then
 /// $23 ticks before loc_34196.
 pub(crate) const ARCHER_DEATH_ANIMATION_FRAMES: u16 = 0x05 + 0x05 + 0x05 + 0x23;
+/// ASM Tornado.asm loc_359B2 plays `stru_35B1E`: $06, $03, $04, $04,
+/// $03, then $06 ticks before loc_359EE.
+pub(crate) const TORNADO_DEATH_ANIMATION_FRAMES: u16 = 0x06 + 0x03 + 0x04 + 0x04 + 0x03 + 0x06;
 /// ASM Armadillo.asm loc_3C886 plays `stru_3C69A`: $16, $04, $04, $03, $03,
 /// $02, $02, five $01-tick flashes, then $03 before the shared delete tail.
 pub(crate) const ARMADILLO_DEATH_ANIMATION_FRAMES: u16 =
@@ -6612,6 +6615,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TarMonster => Some(TAR_MONSTER_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Tornado => Some(TORNADO_DEATH_ANIMATION_FRAMES),
         _ => None,
     }
 }
