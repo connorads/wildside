@@ -1710,6 +1710,54 @@ mod tests {
     }
 
     #[test]
+    fn drips_parent_controller_is_not_rendered_as_floating_slime() {
+        let visuals = sample_level_visuals();
+        let drips_sheet_len = visuals
+            .enemies
+            .families
+            .get(&0x16)
+            .expect("sample visuals include Drips")
+            .frames[0]
+            .tile_sheet
+            .tiles
+            .len();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(-0x0001_0000),
+            facing: Some(Direction::Right),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().all(|command| {
+                !matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles.len() == drips_sheet_len
+                )
+            }),
+            "ASM Drips.asm keeps the parent/controller gfx object hidden via `$13`; native should not render it as a floating slime",
+        );
+    }
+
+    #[test]
     fn level_complete_overlay_uses_eol_sprite_workers_loc_d55e() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

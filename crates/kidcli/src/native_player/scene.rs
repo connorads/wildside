@@ -1855,6 +1855,13 @@ fn build_game_scene_filtered(
             .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
         {
             if let NativeObjectKind::Enemy { object_type } = object.kind {
+                if object_type == DRIPS_OBJECT_TYPE {
+                    // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
+                    // parent/controller gfx object hidden via `$13`; native
+                    // renders only the falling child and hostile surface
+                    // crawler through typed projectile snapshots.
+                    continue;
+                }
                 push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
                 // Debug: show enemy HP above each enemy
                 if debug_overlay_visible && let Some(hp) = object.hit_points {
