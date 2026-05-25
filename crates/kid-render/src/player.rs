@@ -85,6 +85,7 @@ pub struct LavaVisuals {
 pub struct EolScoreVisuals {
     pub palette: Palette,
     pub bonus: SpriteFrame,
+    pub continues: SpriteFrame,
     pub no_hit: SpriteFrame,
     pub no_prize: SpriteFrame,
     pub path: SpriteFrame,

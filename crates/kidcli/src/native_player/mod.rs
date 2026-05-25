@@ -1843,6 +1843,10 @@ mod tests {
             "ASM loc_D55E should render Spr_EOL_Bonus label sprites",
         );
         assert!(
+            has_sprite_signature(&scene, 120),
+            "ASM loc_D4CE should render the Spr_EOL_Continues row before score and bonus rows",
+        );
+        assert!(
             has_sprite_signature(&scene, 131),
             "ASM Object_EOL_Number should render digit sprite workers",
         );
@@ -1868,7 +1872,7 @@ mod tests {
             .filter_map(|command| match command {
                 DrawCommand::Sprite {
                     x, y, tile_sheet, ..
-                } if *y == 120 && *x >= 128 && *x <= 200 => {
+                } if *y == 106 && *x >= 124 && *x <= 200 => {
                     tile_sheet.tiles.first().map(|tile| tile.pixels[0])
                 }
                 _ => None,
@@ -1892,7 +1896,7 @@ mod tests {
                     y: sprite_y,
                     tile_sheet,
                     ..
-                } if *x >= 200 && *sprite_y == y => tile_sheet
+                } if *x >= 0 && *sprite_y == y => tile_sheet
                     .tiles
                     .first()
                     .and_then(|tile| tile.pixels[0].checked_sub(130)),
@@ -1926,12 +1930,12 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert_eq!(
-            eol_number_digits_at(&scene, 92),
+            eol_number_digits_at(&scene, 154),
             eol_expected_digits(time_bonus - 0x28),
             "ASM loc_D7CE should draw the active EOL bonus row after subtracting the first `$28` transfer"
         );
         assert_eq!(
-            eol_number_digits_at(&scene, 106),
+            eol_number_digits_at(&scene, 178),
             eol_expected_digits(1_000 + 0x28),
             "ASM loc_D77E should draw the score row after adding the same `$28` transfer"
         );
@@ -1952,7 +1956,7 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 94 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+                    if *y == 156 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
         );
@@ -1960,7 +1964,7 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 92 && *x > 320 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] >= 130)
+                    if *y == 154 && *x > 320 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] >= 130)
             )),
             "ASM loc_C5A2 should start EOL number rows off-screen right before their -8px/frame fly-in",
         );
@@ -1971,7 +1975,7 @@ mod tests {
             settled.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 94 && *x == 56 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+                    if *y == 156 && *x == 128 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "after the first row's loc_C5A2 timer expires, the time label should rest at the settled row anchor",
         );
@@ -2542,6 +2546,7 @@ mod tests {
                 colours: vec![colour(0, 0, 0), colour(220, 220, 255)],
             },
             bonus: sample_object_frame_with_base(121, 0x40, 0x08, 0x000),
+            continues: sample_object_frame_with_base(120, 0x6C, 0x08, 0x008),
             no_hit: sample_object_frame_with_base(122, 0x57, 0x08, 0x065),
             no_prize: sample_object_frame_with_base(123, 0x6F, 0x08, 0x070),
             path: sample_object_frame_with_base(124, 0x35, 0x08, 0x080),

@@ -1439,29 +1439,73 @@ fn push_eol_number_sprites(
     }
 }
 
-fn push_eol_bonus_row(
+fn eol_position_loc_c5a2(initial: i32, velocity: i32, timer: usize, elapsed: usize) -> i32 {
+    // ASM Object_EOL_Text/Object_EOL_Number loc_C5A2 updates `$64/$68` by
+    // `$6C/$70` until `$46` or `$A` reaches zero, then clears velocity and
+    // leaves the worker anchored at its settled coordinate.
+    let moving_frames = elapsed.min(timer);
+    initial + velocity * i32::try_from(moving_frames).unwrap_or(i32::MAX)
+}
+
+fn push_eol_text_loc_c5a2(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    eol: &kid_render::EolScoreVisuals,
+    initial_x: i32,
+    y: i32,
+    timer: usize,
+    elapsed: usize,
+) {
+    let x = eol_position_loc_c5a2(initial_x, 8, timer, elapsed);
+    push_sprite_frame_top_left(commands, frame, &eol.palette, x, y);
+}
+
+fn push_eol_number_loc_c5a2(
+    commands: &mut Vec<DrawCommand>,
+    eol: &kid_render::EolScoreVisuals,
+    initial_x: i32,
+    velocity: i32,
+    y: i32,
+    timer: usize,
+    elapsed: usize,
+    value: u32,
+) {
+    let x = eol_position_loc_c5a2(initial_x, velocity, timer, elapsed);
+    push_eol_number_sprites(commands, eol, x, y - 2, value);
+}
+
+fn push_eol_bonus_row_loc_d468(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
     label: &kid_render::SpriteFrame,
+    label_initial_x: i32,
+    bonus_initial_x: i32,
     y: i32,
+    number_initial_x: i32,
+    timer: usize,
+    elapsed: usize,
     value: u32,
-    label_x_offset: i32,
-    number_x_offset: i32,
 ) {
-    push_sprite_frame_top_left(commands, label, &eol.palette, 56 + label_x_offset, y);
-    push_sprite_frame_top_left(commands, &eol.bonus, &eol.palette, 120 + label_x_offset, y);
-    push_eol_number_sprites(commands, eol, 200 + number_x_offset, y - 2, value);
-}
-
-fn eol_fly_in_offsets_loc_c5a2(trace: &NativeTraceFrame, row_index: usize) -> (i32, i32) {
-    // ASM Load_Object_EOL_Text / Load_Object_EOL_Number seed mirrored x
-    // velocities for the score rows: text moves right by +8, numbers move
-    // left by -8, and `d5` grows by 8 frames for each successive row before
-    // loc_C5A2 clears both velocities.
-    let timer = 0x24usize + row_index * 8;
-    let remaining = timer.saturating_sub(trace.level_complete_score_rows_elapsed_frames);
-    let offset = i32::try_from(remaining.saturating_mul(8)).unwrap_or(i32::MAX);
-    (-offset, offset)
+    push_eol_text_loc_c5a2(commands, label, eol, label_initial_x, y, timer, elapsed);
+    push_eol_text_loc_c5a2(
+        commands,
+        &eol.bonus,
+        eol,
+        bonus_initial_x,
+        y,
+        timer,
+        elapsed,
+    );
+    push_eol_number_loc_c5a2(
+        commands,
+        eol,
+        number_initial_x,
+        -8,
+        y,
+        timer,
+        elapsed,
+        value,
+    );
 }
 
 fn eol_bonus_amounts_for_trace(trace: &NativeTraceFrame) -> ([u32; 5], usize) {
@@ -1507,101 +1551,135 @@ fn push_eol_score_overlay(
     trace: &NativeTraceFrame,
     eol: &kid_render::EolScoreVisuals,
 ) {
-    // ASM loc_D55E emits these rows with Load_Object_EOL_Text and
-    // Load_Object_EOL_Number. Native uses settled row positions as anchors,
-    // then applies the mirrored loc_C5A2 fly-in offset from trace timing.
+    // ASM loc_D4CE emits CONTINUES and SCORE first, then the bonus rows with
+    // Load_Object_EOL_Text and Load_Object_EOL_Number. Native follows the ROM
+    // `$64/$68/$6C` seeds directly and advances them through loc_C5A2.
     // ASM loc_D770 then drains each number object's `$60` into the score
     // display; native derives that visual state from the level-complete
     // elapsed frame while keeping progression score awarded at flag touch.
     let counter = eol_score_counter_snapshot_for_trace(trace);
+    let elapsed = trace.level_complete_score_rows_elapsed_frames;
+    push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0xB8, 0xCC, 0x1C, elapsed);
+    push_eol_number_loc_c5a2(
+        commands,
+        eol,
+        -0x7C,
+        8,
+        0xCC,
+        0x1C,
+        elapsed,
+        u32::from(trace.number_continues),
+    );
+    push_eol_text_loc_c5a2(commands, &eol.score, eol, -0x68, 0xB4, 0x1C, elapsed);
+    push_eol_number_loc_c5a2(commands, eol, 0x1B0, -8, 0xB4, 0x1C, elapsed, counter.score);
+
     let mut amount_index = 0usize;
-    let mut row_index = 0usize;
-    let mut y = (FRAME_HEIGHT as i32) / 2 - 18;
-    let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-    push_eol_bonus_row(
+    let mut y = 0x9C;
+    let mut timer = 0x24usize;
+    let mut d6 = 0;
+    push_eol_bonus_row_loc_d468(
         commands,
         eol,
         &eol.time,
+        -0xA0 - d6,
+        -0x68 - d6,
         y,
+        0x1B0 + d6,
+        timer,
+        elapsed,
         counter.remaining_amounts[amount_index],
-        label_offset,
-        number_offset,
     );
     amount_index += 1;
-    row_index += 1;
-    y += 14;
+    y -= 0x18;
+    timer += 8;
+    d6 += 0x40;
     if !trace.level_damage_taken {
-        let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-        push_eol_bonus_row(
+        push_eol_bonus_row_loc_d468(
             commands,
             eol,
             &eol.no_hit,
+            -0xC8 - d6,
+            -0x68 - d6,
             y,
+            0x1B0 + d6,
+            timer,
+            elapsed,
             counter.remaining_amounts[amount_index],
-            label_offset,
-            number_offset,
         );
         amount_index += 1;
-        row_index += 1;
-        y += 14;
+        y -= 0x18;
+        timer += 8;
+        d6 += 0x40;
     }
     if !trace.level_prize_collected {
-        let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-        push_eol_bonus_row(
+        push_eol_bonus_row_loc_d468(
             commands,
             eol,
             &eol.no_prize,
+            -0xE0 - d6,
+            -0x68 - d6,
             y,
+            0x1B0 + d6,
+            timer,
+            elapsed,
             counter.remaining_amounts[amount_index],
-            label_offset,
-            number_offset,
         );
         amount_index += 1;
-        row_index += 1;
-        y += 14;
+        y -= 0x18;
+        timer += 8;
+        d6 += 0x40;
     }
     if trace.level_path_bonus_amount > 0 {
-        let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-        push_eol_bonus_row(
+        push_eol_bonus_row_loc_d468(
             commands,
             eol,
             &eol.path,
+            -0xA8 - d6,
+            -0x68 - d6,
             y,
+            0x1B0 + d6,
+            timer,
+            elapsed,
             counter.remaining_amounts[amount_index],
-            label_offset,
-            number_offset,
         );
         amount_index += 1;
-        row_index += 1;
-        y += 14;
+        y -= 0x18;
+        timer += 8;
+        d6 += 0x40;
     }
     if trace.level_speed_bonus_awarded {
-        let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-        push_eol_bonus_row(
+        push_eol_bonus_row_loc_d468(
             commands,
             eol,
             &eol.speed,
+            -0xB0 - d6,
+            -0x68 - d6,
             y,
+            0x1B0 + d6,
+            timer,
+            elapsed,
             counter.remaining_amounts[amount_index],
-            label_offset,
-            number_offset,
         );
-        row_index += 1;
-        y += 14;
-        let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-        push_sprite_frame_top_left(commands, &eol.under, &eol.palette, 56 + label_offset, y);
+        y -= 0x18;
+        timer += 8;
+        d6 += 0x40;
+        push_eol_text_loc_c5a2(commands, &eol.under, eol, -0xB0 - d6, y, timer, elapsed);
         // ASM loc_D660: the "UNDER ... SECONDS" number is the threshold byte
         // loaded from SpeedBonus_Values[Current_LevelID], not remaining time.
         let speed_threshold = kid_core::speed_bonus_threshold_loc_d660(trace.current_level)
             .map_or(u32::from(trace.level_timer_seconds), u32::from);
-        push_eol_number_sprites(commands, eol, 128 + number_offset, y - 2, speed_threshold);
-        push_sprite_frame_top_left(commands, &eol.seconds, &eol.palette, 184 + number_offset, y);
-        row_index += 1;
-        y += 14;
+        push_eol_number_loc_c5a2(
+            commands,
+            eol,
+            -0xA4 - d6,
+            8,
+            y,
+            timer,
+            elapsed,
+            speed_threshold,
+        );
+        push_eol_text_loc_c5a2(commands, &eol.seconds, eol, -0x4C - d6, y, timer, elapsed);
     }
-    let (label_offset, number_offset) = eol_fly_in_offsets_loc_c5a2(trace, row_index);
-    push_sprite_frame_top_left(commands, &eol.score, &eol.palette, 56 + label_offset, y);
-    push_eol_number_sprites(commands, eol, 200 + number_offset, y - 2, counter.score);
 }
 
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData

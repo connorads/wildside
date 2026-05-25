@@ -466,6 +466,8 @@ mod tests {
         assert_eq!(eol.time.width_px, 0x2D);
         assert_eq!(eol.bonus.tile_base_index, 0x000);
         assert_eq!(eol.bonus.width_px, 0x40);
+        assert_eq!(eol.continues.tile_base_index, 0x008);
+        assert_eq!(eol.continues.width_px, 0x6C);
         assert_eq!(eol.digits.len(), 10);
         assert_eq!(eol.digits[0].tile_base_index, 0x0CB);
         assert_eq!(eol.digits[1].origin_x, -0x03);
