@@ -14501,6 +14501,35 @@ pub(crate) fn flagpole_scoreboard_step_sub_C254(
     }
 }
 
+/// ASM loc_C21E (kid.asm:15794): the flagpole scoreboard reveal hibernates
+/// once per outer pass, then calls `sub_C254` until either the per-frame tile
+/// budget is negative or the `loc_C1EE` screen rectangle has been exhausted.
+#[allow(non_snake_case)]
+pub(crate) fn flagpole_scoreboard_reveal_duration_loc_C21E(
+    grid: &terrain::BlockGrid,
+    camera_x: u16,
+    camera_y: u16,
+) -> usize {
+    let mut cursor = flagpole_scoreboard_cursor_loc_C1EE(camera_x, camera_y);
+    let mut frames = 0usize;
+
+    loop {
+        frames += 1;
+        cursor.budget = FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E;
+
+        loop {
+            let step = flagpole_scoreboard_step_sub_C254(grid, cursor);
+            cursor = step.next_cursor;
+            if cursor.remaining_rows < 0 {
+                return frames;
+            }
+            if cursor.budget < 0 {
+                break;
+            }
+        }
+    }
+}
+
 /// ASM loc_C2F2 (kid.asm:15925): scoreboard digit-clear animation entry.
 /// `moveq #0,d0` sets the step counter, then falls through to `loc_C2F4`.
 ///

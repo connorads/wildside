@@ -7519,17 +7519,24 @@ impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn level_complete_sequence_frames_loc_D770(&self) -> usize {
         // Known fixed waits before the score counter starts:
-        // loc_C070 #$24, Score_Board #$14, loc_D702 #$5A,
-        // loc_D734 eight one-frame fade steps, and loc_D752 #$14. The
-        // flagpole scoreboard reveal scan remains a separate visual fidelity
-        // gap, so this is a conservative lower bound plus the real counter.
+        // loc_C070 #$24, loc_C21E scoreboard reveal, Score_Board #$14,
+        // loc_D702 #$5A, loc_D734 eight one-frame fade steps, and loc_D752
+        // #$14.
         let tally = self.level_completion_bonus_tally_loc_D468();
         let counter = crate::level::eol_score_counter_duration_loc_D770(
             self.progression.score,
             tally.amounts(),
         );
+        let camera = self.current_camera_state();
+        let reveal_frames = self.block_grid.as_ref().map_or(0, |grid| {
+            crate::level::flagpole_scoreboard_reveal_duration_loc_C21E(
+                grid,
+                (camera.x_pos >> 16) as u16,
+                (camera.y_pos >> 16) as u16,
+            )
+        });
 
-        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + counter.total_frames
+        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + reveal_frames + counter.total_frames
     }
 
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after

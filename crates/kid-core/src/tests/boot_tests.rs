@@ -2314,6 +2314,21 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_C21E: an empty 320x224 screen rectangle is 20x14 tiles, and
+    /// empty cells cost 2 budget units. With `d7=$C`, each outer hibernate
+    /// pass reveals seven empty cells, so 280 cells take 40 frames.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_C21E_empty_screen_reveal_duration_is_40_frames() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 20 * 14 * 2], 20, 14);
+
+        assert_eq!(
+            flagpole_scoreboard_reveal_duration_loc_C21E(&grid, 0, 0),
+            40,
+            "ASM loc_C21E should hibernate once per seven-empty-cell reveal pass until the loc_C1EE screen rectangle is exhausted"
+        );
+    }
+
     /// ASM loc_C228 (kid.asm:15799): inner reveal loop processes tiles until
     /// budget exhausts or all rows are done. With budget=12, empty tiles cost 2
     /// each, so up to 6 empty tiles per frame before budget goes negative.
