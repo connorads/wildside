@@ -8758,6 +8758,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn sphere_death_waits_for_stru_36182_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut sphere = test_enemy(EnemyFamily::Sphere, 0x0080_0000, 0x0040_0000, 1);
+        sphere.layout_index = 26;
+        let killed_identity = (sphere.segment_index, sphere.layout_index);
+        runtime.active_enemies = vec![sphere];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Sphere.asm Enemy06_Sphere_Kill hibernates through stru_36182 before loc_36096 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            SPHERE_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

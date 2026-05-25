@@ -6536,6 +6536,9 @@ pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;
 /// ASM Cloud.asm loc_35C0E plays `stru_35EBA`: three 7-tick frames before
 /// the loc_35C50 delete tail.
 pub(crate) const CLOUD_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
+/// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
+/// frames before the loc_36096 delete tail.
+pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
 /// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
@@ -6596,6 +6599,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Orca => Some(ORCA_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Robot => Some(ROBOT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Scorpion => Some(SCORPION_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Sphere => Some(SPHERE_DEATH_ANIMATION_FRAMES),
         EnemyFamily::SpinningTwins => Some(SPINNING_TWINS_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
