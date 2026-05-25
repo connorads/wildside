@@ -21,7 +21,8 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
     drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
     drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
-    drips_vertical_bounds_contact_flag_loc_335b0, tank_bullet_loop_route_loc_3b7ba,
+    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
+    tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -81,6 +82,12 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
 
 const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
+
+#[derive(Debug, Clone, Copy)]
+struct PendingDripsSplash {
+    owner: EnemyProjectileOwner,
+    drop: EnemyProjectile,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
@@ -1056,6 +1063,46 @@ impl NativeRuntime {
         }
     }
 
+    fn resolve_drips_splashes(
+        &mut self,
+        splashes: Vec<PendingDripsSplash>,
+        drips_surface_crawler_count: &mut usize,
+        player_x: Option<u32>,
+        spawned_projectiles: &mut Vec<EnemyProjectile>,
+    ) {
+        for splash in splashes {
+            let Some(enemy) = self.active_enemies.iter_mut().find(|enemy| {
+                enemy.family == EnemyFamily::Drips
+                    && enemy.segment_index == splash.owner.segment_index
+                    && enemy.layout_index == splash.owner.layout_index
+            }) else {
+                continue;
+            };
+            let spawn_crawler_on_splash = if enemy.drips_surface_table_index < 2 {
+                enemy.drips_surface_table_index += 1;
+                false
+            } else {
+                // ASM Drips.asm loc_33488 reaches the negative `off_33520`
+                // sentinel, then loc_33506 resets the cursor before
+                // returning to loc_3340E.
+                enemy.drips_surface_table_index = 0;
+                true
+            };
+            if spawn_crawler_on_splash
+                && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
+            {
+                spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(
+                    &splash.drop,
+                    self.rom_random.next_byte(),
+                ));
+                *drips_surface_crawler_count += 1;
+            }
+            // ASM loc_3350E branches back to loc_3340E after the splash path.
+            enemy.wait_timer =
+                drips_wait_timer_with_rng_loc_3340e(&mut self.rom_random, player_x.unwrap_or(0));
+        }
+    }
+
     pub(crate) fn step_fire_demon_trails(&mut self) {
         let grid = self.block_grid.as_ref();
         self.fire_demon_trails.retain_mut(|trail| {
@@ -1189,7 +1236,7 @@ impl NativeRuntime {
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
             .count();
         let mut spawned_projectiles = Vec::new();
-        let rom_random = &mut self.rom_random;
+        let mut pending_drips_splashes = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
@@ -1562,13 +1609,13 @@ impl NativeRuntime {
                         // sentinel path can allocate a hostile surface crawler
                         // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
                         // +/-$3000 from `Get_RandomNumber_byte` bit 2.
-                        if p.drips_spawn_crawler_on_splash
+                        if let Some(owner) = p.owner {
+                            pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
+                        } else if p.drips_spawn_crawler_on_splash
                             && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
                         {
-                            spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(
-                                p,
-                                rom_random.next_byte(),
-                            ));
+                            spawned_projectiles
+                                .push(drips_surface_crawler_from_drop_loc_335d8(p, 0));
                             drips_surface_crawler_count += 1;
                         }
                         return false;
@@ -1672,6 +1719,12 @@ impl NativeRuntime {
             }
             true
         });
+        self.resolve_drips_splashes(
+            pending_drips_splashes,
+            &mut drips_surface_crawler_count,
+            player_x,
+            &mut spawned_projectiles,
+        );
         self.projectiles.extend(spawned_projectiles);
         self.release_lion_projectile_owners(released_owners);
     }

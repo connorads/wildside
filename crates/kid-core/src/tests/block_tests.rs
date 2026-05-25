@@ -10190,8 +10190,21 @@ mod chunk_04 {
         );
         assert!(!projectiles[0].friendly);
         assert_eq!(
+            projectiles[0].owner,
+            Some(EnemyProjectileOwner {
+                segment_index: enemy.segment_index,
+                layout_index: enemy.layout_index,
+                token: 0,
+            }),
+            "ASM Drips.asm loc_33424 reuses the parent-owned falling child until loc_33488 returns control to the parent",
+        );
+        assert_eq!(
+            enemy.wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
+            "ASM Drips.asm loc_33424/loc_3345C should keep the parent dormant while the falling child is active",
+        );
+        assert_ne!(
             enemy.wait_timer, expected_wait_timer,
-            "ASM Drips.asm loc_3350E branches back to loc_3340E after a drop, so the next dormant delay must be reseeded from RNG and Kid X",
+            "ASM Drips.asm loc_3350E reseeds the dormant delay only after the splash path",
         );
     }
 
@@ -10214,19 +10227,19 @@ mod chunk_04 {
         assert_eq!(projectiles.len(), 3);
         assert!(
             !projectiles[0].drips_spawn_crawler_on_splash,
-            "ASM off_33520 entry 0 is a pool-growth sprite, not loc_335D8"
+            "ASM off_33520 is consumed on splash, not when loc_33424 spawns the falling child"
         );
         assert!(
             !projectiles[1].drips_spawn_crawler_on_splash,
-            "ASM off_33520 entry 1 is a larger pool-growth sprite, not loc_335D8"
+            "ASM off_33520 is consumed on splash, so queued falling children do not predeclare pool growth"
         );
         assert!(
-            projectiles[2].drips_spawn_crawler_on_splash,
-            "ASM off_33520 sentinel enters loc_335D8 after two pool-growth splashes"
+            !projectiles[2].drips_spawn_crawler_on_splash,
+            "ASM off_33520 sentinel is reached by loc_33488 after terrain collision, not by the drop spawn path"
         );
         assert_eq!(
             enemy.drips_surface_table_index, 0,
-            "ASM loc_33506 resets the off_33520 cursor after the sentinel path"
+            "ASM loc_33424 should not advance the off_33520 cursor before the child splashes"
         );
     }
 

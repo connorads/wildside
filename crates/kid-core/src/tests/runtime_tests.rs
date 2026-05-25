@@ -9500,6 +9500,56 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_owned_drop_advances_pool_and_reseeds_parent_only_on_splash_loc_33488() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0xE0;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = DRIPS_DROP_IN_FLIGHT_TIMER;
+        rt.active_enemies.push(drips);
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            gravity: 0,
+            terrain_kill: true,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 0,
+                token: 0,
+            }),
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after child splash");
+        assert_eq!(
+            drips.drips_surface_table_index, 1,
+            "ASM Drips.asm loc_33488 should consume off_33520 entry 0 only when the falling child splashes"
+        );
+        assert_ne!(
+            drips.wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
+            "ASM Drips.asm loc_3350E should reseed the dormant timer after loc_33488 finishes"
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
+            "ASM off_33520 entry 0 is pool growth, not loc_335D8 crawler allocation"
+        );
+    }
+
+    #[test]
     fn drips_typed_children_project_to_trace_kinds_loc_33424_loc_335d8() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

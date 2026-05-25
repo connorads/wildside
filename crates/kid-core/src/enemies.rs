@@ -20573,6 +20573,10 @@ pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;
 /// Sentinel lifetime for the falling drop. ASM loc_3345C has no short timer:
 /// terrain/contact ends the drop before the splash/reset sequence.
 pub(crate) const DRIPS_DROP_LIFETIME: u16 = u16::MAX;
+/// Native-only sentinel for the parent/controller while its falling child is
+/// active. ASM Drips.asm loc_33424/loc_3345C does not branch back to
+/// loc_3340E until the child reaches loc_33488.
+pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRIPS_COLID_CEILING: u16 = 0x0010;
 
@@ -22060,19 +22064,13 @@ pub(crate) fn step_drips(
         enemy.y_velocity = 0;
     }
 
+    if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
+        return;
+    }
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
     }
-    let spawn_crawler_on_splash = if enemy.drips_surface_table_index < 2 {
-        enemy.drips_surface_table_index += 1;
-        false
-    } else {
-        // ASM Drips.asm loc_33488 reaches the negative `off_33520` sentinel,
-        // then loc_33506 resets the cursor before returning to loc_3340E.
-        enemy.drips_surface_table_index = 0;
-        true
-    };
     // ASM Drips.asm loc_33424/loc_3345C: the ROM reuses the preallocated
     // falling child object, starts it from rest, then accelerates downward
     // under `$2000` gravity until it reaches the floor.
@@ -22089,11 +22087,18 @@ pub(crate) fn step_drips(
         speed_cap: 0,
         wall_bounce: false,
         terrain_kill: true,
-        drips_spawn_crawler_on_splash: spawn_crawler_on_splash,
+        drips_spawn_crawler_on_splash: false,
+        owner: Some(EnemyProjectileOwner {
+            segment_index: enemy.segment_index,
+            layout_index: enemy.layout_index,
+            token: 0,
+        }),
         ..Default::default()
     });
-    // ASM loc_3350E branches back to loc_3340E after the drop/splash cycle.
-    enemy.wait_timer = drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos);
+    // ASM loc_3350E branches back to loc_3340E only after the child reaches
+    // loc_33488; keep the parent dormant until `step_projectiles` observes
+    // the terrain splash and reseeds the timer.
+    enemy.wait_timer = DRIPS_DROP_IN_FLIGHT_TIMER;
 }
 
 // SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
