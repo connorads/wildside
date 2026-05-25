@@ -7743,6 +7743,63 @@ mod chunk_02 {
     }
 
     #[test]
+    fn flag_touch_deletes_non_kid_objects_before_eol_workers_loc_c070() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.active_enemies = vec![make_pacer(EnemyFamily::DragonWalking, 1, 120, 224)];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 120 << 16,
+            y_pos: 224 << 16,
+            lifetime: 30,
+            kind: EnemyProjectileKind::Generic,
+            ..EnemyProjectile::default()
+        });
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ),
+            "expected LevelComplete, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert!(
+            runtime.active_enemies.is_empty(),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 deletes enemy object threads before the score-board sequence"
+        );
+        assert!(
+            runtime.active_enemy_roster.is_empty(),
+            "trace roster should mirror loc_C070 Delete_AllButCurrentObject"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "non-Kid object children should not survive the flagpole cleanup"
+        );
+
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            runtime.active_enemy_roster.is_empty(),
+            "ASM loc_C070 has deleted object threads, so enemy loading must not repopulate the EOL trace roster"
+        );
+    }
+
+    #[test]
     fn level_complete_freezes_input_then_advances() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));

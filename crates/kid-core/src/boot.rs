@@ -7515,6 +7515,7 @@ impl NativeRuntime {
                 remaining_frames,
                 total_frames,
             } => {
+                self.clear_flagpole_deleted_objects_loc_C070();
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::LevelComplete {
                         remaining_frames: remaining_frames - 1,

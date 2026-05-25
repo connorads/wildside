@@ -8211,6 +8211,21 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn clear_flagpole_deleted_objects_loc_C070(&mut self) {
+        // ASM CharacterCollision_TouchFlagpole loc_C056 clears collision
+        // fields on every object except Kid, then loc_C070 calls
+        // Delete_AllButCurrentObject before allocating the EOL fade workers.
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.projectiles.clear();
+        self.enemy_death_effects.clear();
+    }
+
     /// Check if the player is standing on a teleporter block and return the destination.
     ///
     /// ASM loc_BC80 (kid.asm:15219): telepad destination lookup entry.
@@ -9953,6 +9968,7 @@ impl NativeRuntime {
         if self.player_touches_flag(slice) {
             let remaining_frames = self.level_complete_sequence_frames_loc_D770();
             self.apply_level_completion_bonuses();
+            self.clear_flagpole_deleted_objects_loc_C070();
             self.opening_slice = Some(*slice);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames,
