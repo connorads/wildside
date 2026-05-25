@@ -497,16 +497,15 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             suppress_level_card_for_debug_warp = false;
         }
         let mut queued_bgm_start_this_frame = false;
-        if let Some((cue, command)) = native_bgm_playback_command(manifest, &trace, active_bgm_cue)
+        let (next_bgm_cue, bgm_command) =
+            native_bgm_state_after_trace(manifest, &trace, active_bgm_cue);
+        if let Some(command) = bgm_command
+            && let Some(ref mut gems) = gems_engine
         {
-            if let Some(ref mut gems) = gems_engine {
-                pending_bgm_start = apply_native_bgm_command(gems, command);
-                queued_bgm_start_this_frame = pending_bgm_start.is_some();
-            }
-            active_bgm_cue = Some(cue);
-        } else if native_bgm_cue_for_trace(&trace).is_none() {
-            active_bgm_cue = None;
+            pending_bgm_start = apply_native_bgm_command(gems, command);
+            queued_bgm_start_this_frame = pending_bgm_start.is_some();
         }
+        active_bgm_cue = next_bgm_cue;
 
         let should_capture_audio = options.record_to.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
@@ -1070,22 +1069,26 @@ fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
     }
 }
 
-fn native_bgm_playback_command(
+fn native_bgm_state_after_trace(
     manifest: &AssetManifest,
     trace: &NativeTraceFrame,
     active_bgm_cue: Option<NativeBgmCue>,
-) -> Option<(NativeBgmCue, NativeBgmPlaybackCommand)> {
-    let cue = native_bgm_cue_for_trace(trace)?;
+) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
+    let Some(cue) = native_bgm_cue_for_trace(trace) else {
+        return (active_bgm_cue, None);
+    };
     if Some(cue) == active_bgm_cue {
-        return None;
+        return (active_bgm_cue, None);
     }
-    let bgm = bgm_for_native_cue(manifest, cue)?;
+    let Some(bgm) = bgm_for_native_cue(manifest, cue) else {
+        return (active_bgm_cue, None);
+    };
     let command = if active_bgm_cue.is_some() {
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
     } else {
         NativeBgmPlaybackCommand::Start(bgm)
     };
-    Some((cue, command))
+    (Some(cue), Some(command))
 }
 
 fn apply_native_bgm_command(
@@ -6263,12 +6266,40 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
 
         assert_eq!(
-            native_bgm_playback_command(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
-            Some((
-                NativeBgmCue::Level(LevelId(0)),
-                NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
-            )),
+            native_bgm_state_after_trace(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
+            ),
             "ASM StopMusic reloads/resets GEMS before title-to-gameplay BGM replacement; `$16` stop-all leaves stale title sequence state in native playback"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_bgm_gap_preserves_title_cue_before_level_music() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let transition = sample_trace(GameMode::LevelTransition);
+        let level = sample_trace(GameMode::InGame);
+
+        let (active_after_gap, gap_command) = native_bgm_state_after_trace(
+            &fixture.manifest,
+            &transition,
+            Some(NativeBgmCue::TitleShell),
+        );
+        assert_eq!(
+            (active_after_gap, gap_command),
+            (Some(NativeBgmCue::TitleShell), None),
+            "the title-to-gameplay shell gap must preserve the previous BGM cue so the first gameplay frame still runs ASM StopMusic before replacing bgm_Ice",
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
+            ),
+            "gameplay BGM after an intervening LevelTransition should still reset the carried title sequence before starting level music"
         );
         Ok(())
     }
@@ -6279,11 +6310,11 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
 
         assert_eq!(
-            native_bgm_playback_command(&fixture.manifest, &trace, None),
-            Some((
-                NativeBgmCue::Level(LevelId(0)),
-                NativeBgmPlaybackCommand::Start(gems_bgm::CAVE),
-            )),
+            native_bgm_state_after_trace(&fixture.manifest, &trace, None),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
+            ),
             "direct settled native play has no previous music context, so queueing stop-all before the first level BGM can silence the standalone GEMS start"
         );
         Ok(())
@@ -6295,12 +6326,12 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
 
         assert_eq!(
-            native_bgm_playback_command(
+            native_bgm_state_after_trace(
                 &fixture.manifest,
                 &trace,
                 Some(NativeBgmCue::Level(LevelId(0)))
             ),
-            None,
+            (Some(NativeBgmCue::Level(LevelId(0))), None),
             "steady gameplay should not spam stop/start commands every frame"
         );
         Ok(())
