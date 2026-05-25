@@ -14,7 +14,7 @@ use crate::player::{
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
-    AssetFile, AssetManifest, DecodedAssetFile, decode_enigma, decode_saxman,
+    AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
     ensure_generated_bundle_contract, load_level_asset_bundle,
 };
 use sha1::{Digest, Sha1};
@@ -88,6 +88,11 @@ const THEME_NAMES: [&str; 11] = [
     "theme0", "sky", "ice", "hill", "island", "desert", "swamp", "mountain", "cave", "forest",
     "city",
 ];
+const FOREST_THEME_ID: u8 = 9;
+const FOREST_ENEMY_ART_PERMUTATION: [u8; 16] =
+    [0, 1, 2, 3, 4, 5, 6, 7, 0xA, 9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF];
+const FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION: [u8; 16] =
+    [0, 1, 2, 3, 4, 5, 6, 7, 7, 9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeLevelVisuals {
@@ -259,7 +264,11 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     }
 
     let player = load_player_visuals(manifest)?;
-    let enemies = load_enemy_visuals(manifest);
+    let enemies = load_enemy_visuals(
+        manifest,
+        header.level_theme,
+        level_bundle.parsed_enemy_layout.as_ref(),
+    );
     let floating_prizes = load_floating_prize_visuals(manifest, &fg_palette, &hud_diamond_tiles)?;
     let flag = load_flag_visuals(manifest, &fg_palette)?;
     let murder_wall = load_murder_wall_visuals(manifest).unwrap_or_else(|err| {
@@ -2817,7 +2826,11 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
     },
 ];
 
-fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
+fn load_enemy_visuals(
+    manifest: &AssetManifest,
+    level_theme: u8,
+    enemy_layout: Option<&EnemyLayout>,
+) -> EnemyVisuals {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
         let palette = match load_ingame_palette_asset(manifest, spec.palette_path, spec.art_path) {
@@ -2827,7 +2840,7 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
                 continue;
             }
         };
-        let frames = match load_compressed_sprite_frames(
+        let mut frames = match load_compressed_sprite_frames(
             manifest,
             spec.art_path,
             &format!("enemy 0x{:02X}", spec.object_type),
@@ -2839,6 +2852,11 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
                 continue;
             }
         };
+        if let Some(permutation) =
+            forest_enemy_art_permutation(level_theme, enemy_layout, spec.object_type)
+        {
+            apply_enemy_art_permutation(&mut frames, permutation);
+        }
         let extra_palettes = spec
             .extra_palette_paths
             .iter()
@@ -2855,6 +2873,31 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
         );
     }
     EnemyVisuals { families }
+}
+
+fn forest_enemy_art_permutation(
+    level_theme: u8,
+    enemy_layout: Option<&EnemyLayout>,
+    object_type: u8,
+) -> Option<&'static [u8; 16]> {
+    if level_theme != FOREST_THEME_ID {
+        return None;
+    }
+    let first_slot = *enemy_layout?.enemy_type_slots.first()?;
+    if first_slot == 0xFFFF || first_slot & 0x0FFF != u16::from(object_type) {
+        return None;
+    }
+    if object_type == 0x05 {
+        Some(&FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION)
+    } else {
+        Some(&FOREST_ENEMY_ART_PERMUTATION)
+    }
+}
+
+fn apply_enemy_art_permutation(frames: &mut [SpriteFrame], permutation: &[u8; 16]) {
+    for frame in frames {
+        frame.tile_sheet.apply_pixel_permutation(permutation);
+    }
 }
 
 fn load_floating_prize_visuals(
@@ -3678,12 +3721,14 @@ fn sha1_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_indoor_rubber_block_tiles_sub_144da, apply_layered_background_palette_fallback,
-        bg_permutation_file, canvas_to_tiles, compose_player_frame, fg_permutation_file,
-        frame_to_pixels, load_palette_permutation,
+        FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,
+        append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
+        apply_layered_background_palette_fallback, bg_permutation_file, canvas_to_tiles,
+        compose_player_frame, fg_permutation_file, forest_enemy_art_permutation, frame_to_pixels,
+        load_palette_permutation,
     };
     use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileQuad, TileRef, TileSheet};
-    use kid_data::{AssetFile, AssetManifest};
+    use kid_data::{AssetFile, AssetManifest, EnemyLayout};
     use sha1::{Digest, Sha1};
     use std::fs;
     use tempfile::TempDir;
@@ -3704,12 +3749,72 @@ mod tests {
         }
     }
 
+    fn enemy_layout_with_slots(enemy_type_slots: Vec<u16>) -> EnemyLayout {
+        EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots,
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 0,
+            objects: Vec::new(),
+            segments: Vec::new(),
+        }
+    }
+
     fn asset_file(relative_path: &str, bytes: &[u8]) -> AssetFile {
         AssetFile {
             relative_path: relative_path.to_owned(),
             size_bytes: u64::try_from(bytes.len()).expect("asset size fits in u64"),
             sha1: format!("{:x}", Sha1::digest(bytes)),
         }
+    }
+
+    #[test]
+    fn forest_enemy_art_permutation_matches_asm_first_slot_rules() {
+        let dragon_first = enemy_layout_with_slots(vec![0x000C, 0x401C, 0xFFFF]);
+        assert_eq!(
+            forest_enemy_art_permutation(FOREST_THEME_ID, Some(&dragon_first), 0x0C),
+            Some(&FOREST_ENEMY_ART_PERMUTATION),
+            "ASM Load_EnemyArtToVRAM loc_36E24 remaps the first forest enemy slot"
+        );
+        assert_eq!(
+            forest_enemy_art_permutation(FOREST_THEME_ID, Some(&dragon_first), 0x1C),
+            None,
+            "ASM only routes d7=0, the first loaded enemy art slot, through the forest RAM remap"
+        );
+
+        let tar_first = enemy_layout_with_slots(vec![0x0005, 0xFFFF, 0xFFFF]);
+        assert_eq!(
+            forest_enemy_art_permutation(FOREST_THEME_ID, Some(&tar_first), 0x05),
+            Some(&FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION),
+            "ASM loc_36E24 selects the Tar Monster-specific remap table"
+        );
+        assert_eq!(
+            forest_enemy_art_permutation(8, Some(&dragon_first), 0x0C),
+            None
+        );
+    }
+
+    #[test]
+    fn apply_enemy_art_permutation_rewrites_loaded_sprite_pixels() {
+        let mut frames = vec![SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }],
+            },
+        }];
+
+        apply_enemy_art_permutation(&mut frames, &FOREST_ENEMY_ART_PERMUTATION);
+
+        assert_eq!(
+            frames[0].tile_sheet.tiles[0].pixels, [0x0A; 64],
+            "ASM unk_36E54 maps pixel index 8 to $A before forest enemy art is rendered"
+        );
     }
 
     fn palette_manifest(relative_path: &str, bytes: &[u8]) -> (TempDir, AssetManifest) {
