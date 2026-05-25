@@ -13,6 +13,7 @@ const HUD_DIAMOND_X: i32 = 0x1A0 - 128;
 const HUD_DIAMOND_Y: i32 = 0xA2 - 128;
 const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
 const HUD_DIAMOND_COUNT_Y: i32 = 0xA4 - 128;
+const HUD_DIAMOND_ANIMATION_FRAME_DURATION: usize = 6;
 // ASM Make_SpriteAttr_HUD loc_BE0C (kid.asm:15407): d2 starts at $80 and
 // `addi.w #$10,d2` runs before the first hitpoint sprite write, so the first
 // visible HP pip lands at biased X $90, i.e. screen X 16.
@@ -137,6 +138,7 @@ pub(super) fn push_hud_icon(
     icon_name: &str,
     x: i32,
     y: i32,
+    frame_index: usize,
 ) {
     match icon_name {
         "ankh" => {
@@ -153,14 +155,30 @@ pub(super) fn push_hud_icon(
         "diamond" => {
             // ASM Init_SpriteAttr_HUD unk_1427C uses `sprite_attr $1A0,$A2,1,1,$86F2`.
             // The size bits are 1,1, i.e. a 2x2 tile sprite starting at HUD
-            // diamond VRAM tile $6F2, not a single 8x8 tile.
+            // diamond VRAM tile $6F2, not a single 8x8 tile. ASM sub_44DC
+            // drives `unk_461C` at 6 VBlanks per frame and `sub_5D4A` DMAs
+            // diamond_1..4 into the same $6EA VRAM page, so the HUD icon uses
+            // the currently uploaded diamond page.
+            let animation_frame = hud_diamond_animation_frame_index(
+                frame_index,
+                level_visuals.floating_prizes.diamond.frames.len(),
+            );
+            let tile_sheet = level_visuals
+                .floating_prizes
+                .diamond
+                .frames
+                .get(animation_frame)
+                .map_or_else(
+                    || level_visuals.hud.diamond_tiles.clone(),
+                    |frame| frame.tile_sheet.clone(),
+                );
             let frame = kid_render::SpriteFrame {
                 origin_x: 0,
                 origin_y: 0,
                 width_px: 0x10,
                 height_px: 0x10,
                 tile_base_index: 0x06F2 - level_visuals.hud.diamond_base_tile_index,
-                tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+                tile_sheet,
             };
             push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
         }
@@ -176,6 +194,13 @@ pub(super) fn push_hud_icon(
             }
         }
     }
+}
+
+fn hud_diamond_animation_frame_index(frame_index: usize, frame_count: usize) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
+    (frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION) % frame_count
 }
 
 pub(super) fn push_game_hud(
@@ -245,7 +270,14 @@ pub(super) fn push_game_hud(
         HUD_LIVES_X,
         HUD_LIVES_Y,
     );
-    push_hud_icon(commands, level_visuals, "ankh", HUD_ANKH_X, HUD_ANKH_Y);
+    push_hud_icon(
+        commands,
+        level_visuals,
+        "ankh",
+        HUD_ANKH_X,
+        HUD_ANKH_Y,
+        trace.frame_index,
+    );
 
     push_hud_two_digit_counter(
         commands,
@@ -260,5 +292,6 @@ pub(super) fn push_game_hud(
         "diamond",
         HUD_DIAMOND_X,
         HUD_DIAMOND_Y,
+        trace.frame_index,
     );
 }

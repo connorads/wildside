@@ -2248,14 +2248,16 @@ mod tests {
             diamond: AnimatedSpriteVisual {
                 palette: diamond_palette,
                 extra_palettes: vec![],
-                frames: vec![SpriteFrame {
-                    origin_x: 0x06,
-                    origin_y: -2,
-                    width_px: 0x10,
-                    height_px: 0x0C,
-                    tile_base_index: 8,
-                    tile_sheet: blank_tile_sheet(16),
-                }],
+                frames: (0..4)
+                    .map(|frame| SpriteFrame {
+                        origin_x: 0x06,
+                        origin_y: -2,
+                        width_px: 0x10,
+                        height_px: 0x0C,
+                        tile_base_index: 8,
+                        tile_sheet: blank_tile_sheet(16 + frame),
+                    })
+                    .collect(),
                 frame_duration: 3,
             },
             helmets,
@@ -5709,6 +5711,44 @@ mod tests {
                 )
             }),
             "ASM HUD table unk_1427C uses a 2x2 diamond sprite from VRAM tile $86F2 at $1A0,$A2"
+        );
+    }
+
+    #[test]
+    fn game_hud_diamond_icon_animates_via_sub_44dc_dma_pages() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 0;
+        let frame_0 = build_ingame_scene(&trace, false, None);
+        trace.frame_index = 6;
+        let frame_6 = build_ingame_scene(&trace, false, None);
+
+        let diamond_sheet_len = |scene: &Scene| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if *x == 0x1A0 - 128
+                    && *y == 0xA2 - 128
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
+                {
+                    Some(tile_sheet.tiles.len())
+                }
+                _ => None,
+            })
+        };
+
+        assert_eq!(
+            diamond_sheet_len(&frame_0),
+            Some(16),
+            "ASM sub_44DC `unk_461C` starts by DMAing diamond_1 into HUD diamond VRAM $6EA"
+        );
+        assert_eq!(
+            diamond_sheet_len(&frame_6),
+            Some(17),
+            "ASM sub_44DC advances `unk_461C` after 6 VBlanks, so native must not keep the HUD diamond static"
         );
     }
 
