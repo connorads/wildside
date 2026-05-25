@@ -1054,17 +1054,20 @@ mod gems_bgm {
 
 /// Map level theme ID to GEMS BGM ID.
 fn theme_to_bgm(theme: u8) -> Option<u8> {
+    // ASM loc_12004 indexes `unk_1201E` by Foreground_theme, then queues the
+    // resulting byte through j_PlaySound. These are sound IDs, not theme indexes.
     match theme {
-        0 => Some(gems_bgm::FOREST),
-        1 => Some(gems_bgm::ISLAND),
-        2 => Some(gems_bgm::DESERT),
-        3 => Some(gems_bgm::ICE),
-        4 => Some(gems_bgm::CAVE),
-        5 => Some(gems_bgm::SKY),
-        6 => Some(gems_bgm::MOUNTAIN),
-        7 => Some(gems_bgm::HILLS),
-        8 => Some(gems_bgm::CITY),
-        9 => Some(gems_bgm::SWAMP),
+        0 => Some(gems_bgm::MOUNTAIN),
+        1 => Some(gems_bgm::SKY),
+        2 => Some(gems_bgm::ICE),
+        3 => Some(gems_bgm::HILLS),
+        4 => Some(gems_bgm::ISLAND),
+        5 => Some(gems_bgm::DESERT),
+        6 => Some(gems_bgm::SWAMP),
+        7 => Some(gems_bgm::MOUNTAIN),
+        8 => Some(gems_bgm::CAVE),
+        9 => Some(gems_bgm::FOREST),
+        10 => Some(gems_bgm::CITY),
         _ => None,
     }
 }
@@ -5633,5 +5636,26 @@ mod tests {
             "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
         );
         Ok(())
+    }
+
+    #[test]
+    fn play_native_theme_bgm_ids_follow_asm_loc_12004() {
+        assert_eq!(
+            (0..=10).map(theme_to_bgm).collect::<Vec<_>>(),
+            vec![
+                Some(gems_bgm::MOUNTAIN),
+                Some(gems_bgm::SKY),
+                Some(gems_bgm::ICE),
+                Some(gems_bgm::HILLS),
+                Some(gems_bgm::ISLAND),
+                Some(gems_bgm::DESERT),
+                Some(gems_bgm::SWAMP),
+                Some(gems_bgm::MOUNTAIN),
+                Some(gems_bgm::CAVE),
+                Some(gems_bgm::FOREST),
+                Some(gems_bgm::CITY),
+            ],
+            "ASM loc_12004 / unk_1201E queues the constants.asm BGM bytes by Foreground_theme; native play must not use display theme names as the table order",
+        );
     }
 }
