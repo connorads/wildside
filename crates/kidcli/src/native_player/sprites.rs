@@ -496,9 +496,21 @@ pub(super) fn push_player_sprite(
 ) {
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let facing = trace.kid_facing.unwrap_or(Direction::Right);
+    let render_facing = if trace.kid_on_slope < 0 {
+        // ASM loc_A13A canonicalises SlopeDown through `$FFFFFA26` before
+        // selecting the slope frame bank. Mirror the selected bank on `$5000`
+        // slopes so the top-left-to-bottom-right surface uses the ROM-facing
+        // art instead of applying the live `x_direction` a second time.
+        match facing {
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
+    } else {
+        facing
+    };
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
-        let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+        let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
         let base_palette = form_visuals
             .transform_palette
             .as_ref()
@@ -511,13 +523,13 @@ pub(super) fn push_player_sprite(
                 base_palette,
                 damage_flash_white_phase,
             )),
-            tiles: build_player_sprite_tiles(frame, facing),
+            tiles: build_player_sprite_tiles(frame, render_facing),
         });
         return;
     }
 
     let frame = select_player_frame(trace, form_visuals);
-    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
 
     commands.push(DrawCommand::Sprite {
         x: draw_x,
@@ -527,7 +539,7 @@ pub(super) fn push_player_sprite(
             &form_visuals.palette,
             damage_flash_white_phase,
         )),
-        tiles: build_player_sprite_tiles(frame, facing),
+        tiles: build_player_sprite_tiles(frame, render_facing),
     });
 }
 

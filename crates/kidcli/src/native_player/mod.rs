@@ -5611,6 +5611,21 @@ mod tests {
         })
     }
 
+    fn player_sprite_first_flip_x(scene: &Scene) -> Option<bool> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                tiles, tile_sheet, ..
+            } if tile_sheet
+                .tiles
+                .first()
+                .is_some_and(|tile| is_player_test_signature(tile.pixels[0])) =>
+            {
+                tiles.first().map(|tile| tile.tile.flip_x)
+            }
+            _ => None,
+        })
+    }
+
     #[test]
     fn player_form_uses_iron_knight_sprite_art_when_helmet_equipped() {
         let mut trace = trace_with_player(720, 0);
@@ -5732,6 +5747,33 @@ mod tests {
             selected_signature(-1, Direction::Left),
             Some(32),
             "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=$FF to canonical forward before table selection"
+        );
+    }
+
+    #[test]
+    fn kid_slope_down_render_facing_is_mirrored_after_loc_a13a_canonical_bank_selection() {
+        let selected_flip = |facing: Direction| {
+            let mut trace = trace_with_player(4, 0);
+            trace.kid_x_velocity = Some(match facing {
+                Direction::Right => 0x0001_0000,
+                Direction::Left => -0x0001_0000,
+            });
+            trace.kid_on_ground = Some(true);
+            trace.kid_on_slope = -1;
+            trace.kid_facing = Some(facing);
+
+            player_sprite_first_flip_x(&build_ingame_scene(&trace, false, None))
+        };
+
+        assert_eq!(
+            selected_flip(Direction::Right),
+            Some(true),
+            "ASM loc_A13A flips SlopeDown through `$FA26`; native must mirror the selected slope bank for the top-left-to-bottom-right slope"
+        );
+        assert_eq!(
+            selected_flip(Direction::Left),
+            Some(false),
+            "ASM loc_A13A SlopeDown canonicalisation should mirror both traversal directions on the `$5000` slope"
         );
     }
 
