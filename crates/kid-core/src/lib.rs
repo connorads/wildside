@@ -37,7 +37,7 @@ pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 pub use level::{
     EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
     EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468, EolScoreCounterSnapshotLocD770,
-    eol_score_counter_snapshot_loc_D770,
+    TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, eol_score_counter_snapshot_loc_D770,
 };
 use std::collections::HashSet;
 use std::fs;
@@ -1277,6 +1277,16 @@ impl NativeRuntime {
         runtime.load_platform_script_table();
         runtime.update_vdp_state();
         runtime
+    }
+
+    pub fn set_player_probe_position(&mut self, x_px: u16, y_px: u16) {
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.player.x_pos = u32::from(x_px) << 16;
+            slice.player.y_pos = u32::from(y_px) << 16;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+            slice.player.on_ground = true;
+        }
     }
 
     #[allow(non_snake_case)]

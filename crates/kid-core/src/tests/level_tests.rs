@@ -7824,6 +7824,29 @@ mod chunk_02 {
     }
 
     #[test]
+    fn probe_position_can_start_recording_on_flag() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        // ASM flag check path loc_BC4C -> loc_BC74 samples live Kid x_pos/y_pos
+        // against the level header flag coordinates; the recording probe hook
+        // rewrites only that live position before frame 0.
+        runtime.set_player_probe_position(0x0750, 0x0300);
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ),
+            "expected LevelComplete, got {:?}",
+            runtime.player_lifecycle
+        );
+    }
+
+    #[test]
     fn level_complete_waits_for_eol_score_counter_before_advancing_loc_d770() {
         const OLD_FIXED_LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120;
 

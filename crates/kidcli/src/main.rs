@@ -846,7 +846,7 @@ fn main() -> Result<()> {
                 settled: true,
                 record_frames: None,
             };
-            let trace = recording::run_recorded_trace(&manifest, start, &dynamic.script)?;
+            let trace = recording::run_recorded_trace(&manifest, start, &dynamic)?;
             let record_to = repo_root
                 .join(".cache/recordings")
                 .join(recording::validate_recording_slug(&slug)?);
@@ -887,7 +887,7 @@ fn main() -> Result<()> {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
             }
             let start = recording_start_for_dynamic_scenario(&dynamic);
-            let trace = recording::run_recorded_trace(&manifest, start, &dynamic.script)?;
+            let trace = recording::run_recorded_trace(&manifest, start, &dynamic)?;
             let record_to = repo_root
                 .join(".cache/recordings")
                 .join(recording::validate_recording_slug(&slug)?);
@@ -3811,6 +3811,7 @@ AddrTbl_LevelNames:
             script: vec![0, 8, 8],
             frame_count: 3,
             checkpoints: Vec::new(),
+            start_position: None,
             warp_to_level: None,
         };
 
@@ -3830,6 +3831,7 @@ AddrTbl_LevelNames:
             script: vec![0, 8, 8],
             frame_count: 3,
             checkpoints: Vec::new(),
+            start_position: None,
             warp_to_level: Some(0x15),
         };
 

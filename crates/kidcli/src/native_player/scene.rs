@@ -1979,6 +1979,81 @@ pub(super) fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
         .map_or(SKY_COLOUR, |colour| [colour.red, colour.green, colour.blue])
 }
 
+fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>) {
+    // ASM loc_C186 uploads MapEni_CC0E to Scroll B after the flag-touch
+    // hibernate, replacing the level playfield with the orange hologram room.
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [0, 0, 0],
+    });
+
+    let grid_colour = [255, 112, 0];
+    for y in (32..190).step_by(16) {
+        commands.push(DrawCommand::Rect {
+            x: 0,
+            y,
+            width: FRAME_WIDTH as i32,
+            height: 2,
+            colour: grid_colour,
+        });
+    }
+    for x in (0..FRAME_WIDTH as i32).step_by(16) {
+        commands.push(DrawCommand::Rect {
+            x,
+            y: 32,
+            width: 2,
+            height: 158,
+            colour: grid_colour,
+        });
+    }
+
+    let stone_dark = [64, 72, 96];
+    let stone_light = [144, 152, 184];
+    for x in [176, 224] {
+        commands.push(DrawCommand::Rect {
+            x,
+            y: 0,
+            width: 16,
+            height: 152,
+            colour: stone_dark,
+        });
+        for y in (0..152).step_by(16) {
+            commands.push(DrawCommand::Rect {
+                x,
+                y,
+                width: 16,
+                height: 2,
+                colour: stone_light,
+            });
+            commands.push(DrawCommand::Rect {
+                x,
+                y,
+                width: 2,
+                height: 16,
+                colour: stone_light,
+            });
+        }
+    }
+
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 152,
+        width: FRAME_WIDTH as i32,
+        height: 72,
+        colour: [111, 70, 40],
+    });
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 144,
+        width: FRAME_WIDTH as i32,
+        height: 12,
+        colour: [30, 168, 72],
+    });
+}
+
 pub(super) fn object_rect(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -2008,20 +2083,29 @@ fn build_game_scene_filtered(
     block_grid: Option<&BlockGrid>,
     filter: LayerFilter,
 ) -> Scene {
-    let background = background_colour(level_visuals);
+    let eol_hologram_visible = trace.level_complete
+        && trace.level_complete_elapsed_frames
+            >= usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+    let background = if eol_hologram_visible {
+        [0, 0, 0]
+    } else {
+        background_colour(level_visuals)
+    };
     let mut commands = Vec::new();
 
-    if filter.background {
+    if eol_hologram_visible {
+        push_eol_hologram_room(&mut commands);
+    } else if filter.background {
         push_background_tiles(&mut commands, trace, level_visuals);
     }
-    if filter.terrain {
+    if !eol_hologram_visible && filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals);
     }
-    if filter.block_overrides {
+    if !eol_hologram_visible && filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
     }
 
-    if filter.platforms {
+    if !eol_hologram_visible && filter.platforms {
         for object in trace
             .active_objects
             .iter()
@@ -2032,7 +2116,7 @@ fn build_game_scene_filtered(
             }
         }
     }
-    if filter.enemies {
+    if !eol_hologram_visible && filter.enemies {
         for object in trace
             .active_objects
             .iter()
@@ -2056,7 +2140,7 @@ fn build_game_scene_filtered(
             }
         }
     }
-    if filter.player {
+    if !eol_hologram_visible && filter.player {
         // ASM `loc_BC34` damage-flash thread (kid.asm:15181-15215): during
         // the 66-frame `Just_received_damage` window, the ROM alternates
         // between the white palette (sub_80BC) for 2 frames and the normal
@@ -2088,7 +2172,7 @@ fn build_game_scene_filtered(
         }
     }
 
-    if filter.effects {
+    if !eol_hologram_visible && filter.effects {
         if !trace.level_complete
             && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
         {
@@ -2433,7 +2517,7 @@ fn build_game_scene_filtered(
         }
     }
 
-    if filter.hud {
+    if !eol_hologram_visible && filter.hud {
         push_game_hud(&mut commands, trace, level_visuals);
     }
 

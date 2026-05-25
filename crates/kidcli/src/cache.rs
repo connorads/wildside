@@ -155,6 +155,7 @@ mod tests {
             script: vec![0; 1],
             frame_count: 1,
             checkpoints: Vec::new(),
+            start_position: None,
             warp_to_level: None,
         };
         let key_v1 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v1");

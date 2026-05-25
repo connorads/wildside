@@ -241,6 +241,11 @@ pub struct DynamicScenario {
     pub script: Vec<u8>,
     pub frame_count: usize,
     pub checkpoints: Vec<DynamicCheckpoint>,
+    /// Optional probe-only starting position applied after a settled level
+    /// warp. This lets native/oracle recordings reduce long routes to the
+    /// specific gameplay window under investigation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_position: Option<DynamicStartPosition>,
     /// Target level to warp to before running the script.
     /// Both native and oracle boot to level 0 first, then advance
     /// to this level using their own mechanism (native: direct skip,
@@ -253,6 +258,12 @@ pub struct DynamicScenario {
 pub struct DynamicCheckpoint {
     pub label: String,
     pub frame_index: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicStartPosition {
+    pub x: u16,
+    pub y: u16,
 }
 
 /// Idle on a level for `idle_frames` (default 300, ~5 s at 60 fps).
@@ -282,6 +293,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         script: vec![0u8; total_frames.saturating_add(1)],
         frame_count: total_frames,
         checkpoints,
+        start_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -361,6 +373,7 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
         script,
         frame_count: total_frames,
         checkpoints,
+        start_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -433,6 +446,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         script,
         frame_count: total_frames,
         checkpoints,
+        start_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -483,6 +497,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         script: vec![0u8; total_frames.saturating_add(1)],
         frame_count: total_frames,
         checkpoints,
+        start_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -525,6 +540,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         script,
         frame_count: total_frames,
         checkpoints,
+        start_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -609,6 +625,7 @@ impl Scenario {
                     frame_index: cp.frame_index,
                 })
                 .collect(),
+            start_position: None,
             warp_to_level: None,
         }
     }
@@ -765,6 +782,7 @@ impl GameplayScenario {
                 .into_iter()
                 .map(|(frame_index, label)| DynamicCheckpoint { label, frame_index })
                 .collect(),
+            start_position: None,
             warp_to_level: None,
         })
     }
@@ -783,6 +801,7 @@ impl GameplayScenario {
                     frame_index: cp.frame_index,
                 })
                 .collect(),
+            start_position: None,
             warp_to_level: None,
         }
     }
@@ -821,10 +840,52 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario,
-        idle_level_full_frame_scenario, idle_level_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_scenario,
+        DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
+        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
+        prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
     };
+
+    #[test]
+    fn dynamic_scenario_deserialises_probe_start_position() {
+        let scenario: DynamicScenario = serde_json::from_str(
+            r#"{
+                "slug": "issue-175-eol-flag-touch",
+                "script": [0, 0],
+                "frame_count": 2,
+                "checkpoints": [{"label": "flag_touch", "frame_index": 0}],
+                "warp_to_level": 0,
+                "start_position": {"x": 3152, "y": 176}
+            }"#,
+        )
+        .expect("scenario");
+
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 3152, y: 176 })
+        );
+    }
+
+    #[test]
+    fn dynamic_scenario_omits_absent_probe_start_position() {
+        let scenario = DynamicScenario {
+            slug: String::from("idle"),
+            script: vec![0],
+            frame_count: 1,
+            checkpoints: vec![DynamicCheckpoint {
+                label: String::from("start"),
+                frame_index: 0,
+            }],
+            start_position: None,
+            warp_to_level: Some(0),
+        };
+
+        let json = serde_json::to_string(&scenario).expect("json");
+
+        assert!(
+            !json.contains("start_position"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+    }
 
     #[test]
     fn move_right_scenario_holds_right_for_five_seconds() {

@@ -52,7 +52,15 @@ struct ScenarioFile {
     frame_count: usize,
     checkpoints: Vec<ScenarioFileCheckpoint>,
     #[serde(default)]
+    start_position: Option<ScenarioStartPosition>,
+    #[serde(default)]
     warp_to_level: Option<u8>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+struct ScenarioStartPosition {
+    x: u16,
+    y: u16,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -71,6 +79,8 @@ struct ResolvedScenario {
     _owned_labels: Vec<String>,
     /// Target level to warp to before running the script.
     warp_to_level: Option<u8>,
+    /// Optional probe-only live Kid position applied after the settled warp.
+    start_position: Option<ScenarioStartPosition>,
     /// Whether the oracle warp must settle into live unpaused target-level
     /// gameplay before scenario frame 0.
     settle_oracle_warp: bool,
@@ -494,6 +504,7 @@ fn resolve_scenario(
                 checkpoints: scenario_checkpoints(scenario).to_vec(),
                 _owned_labels: Vec::new(),
                 warp_to_level: None,
+                start_position: None,
                 settle_oracle_warp: false,
             })
         }
@@ -520,6 +531,7 @@ fn resolve_scenario(
                 checkpoints,
                 _owned_labels: owned_labels,
                 warp_to_level: sf.warp_to_level,
+                start_position: sf.start_position,
                 settle_oracle_warp,
             })
         }
@@ -549,6 +561,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
             target_level,
             resolved.settle_oracle_warp,
         )?;
+    }
+    if let Some(position) = resolved.start_position {
+        apply_probe_start_position(&mut emulator, position);
     }
 
     while frame_index < resolved.frame_count {
@@ -1436,6 +1451,13 @@ fn force_warp_level_registers(emulator: &mut GenesisEmulator, target_level: u8) 
     write_emulator_wram_u16(emulator, PLAYER_1_LEVEL_ID_ADDR, u16::from(target_level));
 }
 
+fn apply_probe_start_position(emulator: &mut GenesisEmulator, position: ScenarioStartPosition) {
+    // ASM flag check path loc_BC4C -> loc_BC74 samples the live Kid object
+    // x_pos/y_pos words. Probe scenarios patch only that live object position.
+    write_emulator_wram_u32(emulator, KID_X_POS_ADDR, u32::from(position.x) << 16);
+    write_emulator_wram_u32(emulator, KID_Y_POS_ADDR, u32::from(position.y) << 16);
+}
+
 fn clear_input_latches(emulator: &mut GenesisEmulator) {
     let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
     mem.write(work_ram_index(CTRL_1_HELD_ADDR), 0);
@@ -1471,6 +1493,16 @@ fn write_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize, value
     mem.write(work_ram_index(address), hi);
     mem.write(work_ram_index(address) + 1, lo);
 }
+
+fn write_emulator_wram_u32(emulator: &mut GenesisEmulator, address: usize, value: u32) {
+    let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    let [b0, b1, b2, b3] = value.to_be_bytes();
+    mem.write(work_ram_index(address), b0);
+    mem.write(work_ram_index(address) + 1, b1);
+    mem.write(work_ram_index(address) + 2, b2);
+    mem.write(work_ram_index(address) + 3, b3);
+}
+
 
 fn inputs_from_mask(mask: u8) -> GenesisInputs {
     let p1 = GenesisJoypadState {

@@ -1858,6 +1858,32 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_replaces_playfield_with_hologram_room_after_flag_hibernate() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert_eq!(scene.background, [0, 0, 0]);
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect {
+                    x: 0,
+                    y: 32,
+                    width,
+                    height: 2,
+                    colour: [255, 112, 0],
+                } if *width == NATIVE_FRAME_WIDTH as i32
+            )),
+            "ASM loc_C186 should replace gameplay terrain with the orange EOL hologram room after the flag hibernate"
+        );
+    }
+
+    #[test]
     fn level_complete_speed_under_seconds_uses_loc_d660_threshold() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

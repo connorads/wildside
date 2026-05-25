@@ -169,6 +169,7 @@ pub(crate) fn build_recording(
                 checkpoints: recording_checkpoints(frame_count),
                 frame_count,
                 script,
+                start_position: None,
                 warp_to_level: start.warp_level,
             },
         },
@@ -300,7 +301,7 @@ fn legacy_block_destroy_direction_frames(trace: &[u8]) -> Result<BTreeSet<usize>
 pub(crate) fn run_recorded_trace(
     manifest: &AssetManifest,
     start: RecordingStart,
-    script: &[u8],
+    scenario: &DynamicScenario,
 ) -> Result<Vec<NativeTraceFrame>> {
     let initial_level_id = start.warp_level.unwrap_or(0x00);
     let (_, block_grid) = load_session_assets(manifest, initial_level_id)?;
@@ -315,16 +316,19 @@ pub(crate) fn run_recorded_trace(
     } else if start.settled {
         runtime.enter_level_playtest(LevelId(0));
     }
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
 
     let mut trace = runtime.trace_frame();
     let mut current_level_id = trace.current_level.0;
-    let mut replay = Vec::with_capacity(script.len());
+    let mut replay = Vec::with_capacity(scenario.script.len());
     let mut level_card_frames_remaining = 0usize;
     let mut script_index = 0usize;
 
-    while script_index < script.len() {
+    while script_index < scenario.script.len() {
         if level_card_frames_remaining == 0 {
-            let buttons = script[script_index];
+            let buttons = scenario.script[script_index];
             script_index += 1;
             let previous_trace = trace.clone();
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
@@ -370,7 +374,7 @@ pub(crate) fn verify_recording(
     let replay_trace = run_recorded_trace(
         manifest,
         recording.manifest.start,
-        &recording.manifest.scenario.script,
+        &recording.manifest.scenario,
     )?;
 
     let verify_dir = record_dir.join("verify");
@@ -611,6 +615,7 @@ pub(crate) fn oracle_scenario_for_recording(
             frame_count: script.len(),
             script,
             checkpoints,
+            start_position: recording.manifest.scenario.start_position,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
         },
         RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
@@ -1440,6 +1445,33 @@ mod tests {
         assert_eq!(&oracle_scenario.script[prefix..], &[1, 2, 3]);
         assert_eq!(oracle_scenario.checkpoints[0].label, "start");
         assert_eq!(oracle_scenario.checkpoints[0].frame_index, prefix);
+    }
+
+    #[test]
+    fn settled_recording_oracle_prefix_preserves_probe_start_position() {
+        let mut recording = build_recording(
+            &fixture_manifest(),
+            "issue-175-eol-flag-touch",
+            RecordingStart {
+                warp_level: Some(0),
+                settled: true,
+                record_frames: None,
+            },
+            vec![0],
+            vec![sample_trace_frame(0)],
+        )
+        .expect("recording");
+        recording.manifest.scenario.start_position =
+            Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 });
+
+        let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
+
+        assert_eq!(prefix, RECORDING_SETTLED_ORACLE_PREFIX_FRAMES);
+        assert_eq!(
+            oracle_scenario.start_position,
+            Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 }),
+            "the oracle helper must patch the same live Kid position after its settle prefix"
+        );
     }
 
     #[test]

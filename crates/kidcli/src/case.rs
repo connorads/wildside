@@ -725,11 +725,8 @@ fn run_case_verification(
         VerificationBackend::OracleHelper => {
             let native_trace = if matches!(source, CaseSource::Recording { .. }) {
                 let recording = recording_from_source(source)?;
-                let replay_trace = run_recorded_trace(
-                    manifest,
-                    recording.manifest.start,
-                    &verification.scenario.script,
-                )?;
+                let replay_trace =
+                    run_recorded_trace(manifest, recording.manifest.start, &verification.scenario)?;
                 if let Some(blocked_reason) =
                     recording_replay_drift_reason(&recording, &replay_trace)
                 {
@@ -1862,6 +1859,7 @@ fn build_branch_scenario(
                 frame_index,
             })
             .collect(),
+        start_position: manifest.scenario.start_position,
         warp_to_level: manifest.scenario.warp_to_level,
     }
 }
@@ -1977,6 +1975,7 @@ mod tests {
                 script: vec![0; 20],
                 frame_count: 20,
                 checkpoints: vec![],
+                start_position: None,
                 warp_to_level: None,
             },
             prefix_script: vec![0; 10],
@@ -2237,6 +2236,7 @@ mod tests {
                 label: String::from("frame_00600"),
                 frame_index: 600,
             }],
+            start_position: None,
             warp_to_level: None,
         };
         manifest.prefix_script = vec![0; 10];
@@ -2280,6 +2280,7 @@ mod tests {
                 label: String::from("start"),
                 frame_index: 0,
             }],
+            start_position: None,
             warp_to_level: Some(0),
         };
 
@@ -2323,6 +2324,7 @@ mod tests {
                         label: String::from("start"),
                         frame_index: 0,
                     }],
+                    start_position: None,
                     warp_to_level: Some(0),
                 },
             },
@@ -2370,6 +2372,7 @@ mod tests {
                         label: String::from("start"),
                         frame_index: 0,
                     }],
+                    start_position: None,
                     warp_to_level: Some(0),
                 },
             },
@@ -2412,6 +2415,7 @@ mod tests {
                         label: String::from("start"),
                         frame_index: 0,
                     }],
+                    start_position: None,
                     warp_to_level: Some(0x15),
                 },
             },
@@ -2460,6 +2464,7 @@ mod tests {
                         label: String::from("start"),
                         frame_index: 0,
                     }],
+                    start_position: None,
                     warp_to_level: Some(0x01),
                 },
             },

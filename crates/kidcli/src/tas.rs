@@ -298,6 +298,7 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
         script: import.script.clone(),
         frame_count,
         checkpoints,
+        start_position: None,
         warp_to_level: None, // TAS runs from power-on
     }
 }
@@ -630,6 +631,7 @@ fn probe_tas(
         script: scenario.script[..end.min(scenario.script.len())].to_vec(),
         frame_count: end,
         checkpoints: checkpoints.to_vec(),
+        start_position: scenario.start_position,
         warp_to_level: scenario.warp_to_level,
     };
 
@@ -753,6 +755,7 @@ pub fn bisect_tas(
             script: scenario.script[..end.min(scenario.script.len())].to_vec(),
             frame_count: end,
             checkpoints: crc_checkpoints,
+            start_position: scenario.start_position,
             warp_to_level: scenario.warp_to_level,
         };
         let run_dir = repo_root
@@ -1173,6 +1176,7 @@ mod tests {
                     frame_index: 300,
                 },
             ],
+            start_position: None,
             warp_to_level: None,
         };
         let transitions = vec![
@@ -1212,6 +1216,7 @@ mod tests {
                 label: "frame_200".into(),
                 frame_index: 200,
             }],
+            start_position: None,
             warp_to_level: None,
         };
         // Transition at frame 200 — already a checkpoint
@@ -1237,6 +1242,7 @@ mod tests {
                 label: "frame_780".into(),
                 frame_index: 780,
             }],
+            start_position: None,
             warp_to_level: None,
         };
         let transitions = vec![

@@ -468,7 +468,7 @@ pub(crate) const TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070: [u16; 2] = [0x8200, 0x8407];
 /// ASM loc_C070: hibernate duration (frames) before gfx object cleanup.
 /// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`.
 #[allow(dead_code)]
-pub(crate) const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
+pub const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 
 /// ASM loc_C0B6 (kid.asm:15675): gfx object cleanup loop after the $24-frame
 /// hibernate.  Walks `Addr_FirstGfxObjectSlot` linked list (each slot's offset
