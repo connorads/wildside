@@ -8138,6 +8138,45 @@ mod chunk_03 {
     }
 
     #[test]
+    fn mini_hopping_skull_death_waits_for_loc_3f158_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 1);
+        skull.layout_index = 7;
+        let killed_identity = (skull.segment_index, skull.layout_index);
+        runtime.active_enemies = vec![skull];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 hibernates through stru_3E9AC before the delete tail"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Mini_Hopping_Skull.asm loc_3F158 should not mark the layout killed until the animation reaches j_Delete_CurrentObject"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster[0].wait_timer,
+            Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES)
+        );
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(
+            runtime.killed_enemies.contains(&killed_identity),
+            "ASM Mini_Hopping_Skull.asm loc_3F158 delete tail should mark the layout killed after the animation"
+        );
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

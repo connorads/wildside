@@ -7515,6 +7515,20 @@ impl NativeRuntime {
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
+        if matches!(family, EnemyFamily::MiniHoppingSkull)
+            && enemy.hit_points != 0
+            && enemy.wait_timer == 0
+        {
+            let enemy = &mut self.active_enemies[idx];
+            // ASM Mini_Hopping_Skull.asm loc_3F158: final damage clears
+            // movement, plays `stru_3E9AC` to completion, then deletes.
+            enemy.hit_points = 0;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.wait_timer = MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES;
+            self.rebuild_active_enemy_roster();
+            return;
+        }
         let x_pos = enemy.x_pos;
         let y_pos = enemy.y_pos;
         let dragon_death = if matches!(family, EnemyFamily::Dragon) {

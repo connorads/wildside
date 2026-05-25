@@ -1307,6 +1307,18 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         frames: &[
             fd(0x02C, 0x07, 0x00, 0x0F, 0x11),
             fd(0x032, 0x08, 0x00, 0x0F, 0x12),
+            // ASM ingame/anim/enemy/Mini_Hopping_Skull.asm `stru_3E9A2`
+            // death animation frames: LnkTo_unk_C8000/C8008.
+            fd(0x000, 0x05, 0x00, 0x0D, 0x0F),
+            fd(0x004, 0x05, 0x00, 0x0B, 0x0E),
+            // ASM `stru_3E998` death animation frames:
+            // LnkTo_unk_C8020/C8028.
+            fd(0x010, 0x06, 0x00, 0x0D, 0x0E),
+            fd(0x014, 0x06, 0x00, 0x0E, 0x0B),
+            // ASM `stru_3E9AC` death animation frames:
+            // LnkTo_unk_C8040/C8048.
+            fd(0x020, 0x06, 0x00, 0x0C, 0x0F),
+            fd(0x024, 0x08, 0x00, 0x10, 0x0B),
         ],
     },
     EnemyFamilySpec {

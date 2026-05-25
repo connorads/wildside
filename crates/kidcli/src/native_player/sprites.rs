@@ -567,6 +567,16 @@ pub(super) fn select_enemy_frame<'a>(
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
 ) -> &'a kid_render::SpriteFrame {
+    if matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1C })
+        && object.hit_points == Some(0)
+        && let Some(remaining) = object.wait_timer
+        && enemy_visuals.frames.len() >= 8
+    {
+        // ASM Mini_Hopping_Skull.asm loc_3F158 runs `stru_3E9AC`: C8040 for
+        // $0A ticks, then C8048 for $1E ticks before deletion.
+        let death_frame = if remaining > 0x1E { 6 } else { 7 };
+        return &enemy_visuals.frames[death_frame];
+    }
     if object.stationary {
         return &enemy_visuals.frames[0];
     }

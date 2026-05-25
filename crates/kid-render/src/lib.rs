@@ -436,8 +436,10 @@ mod tests {
         assert_eq!(dragon.frames.len(), 5);
         assert_eq!(dragon.frames[0].tile_base_index, 0x011D);
         let skull = visuals.enemies.families.get(&0x1C).expect("skull visuals");
-        assert_eq!(skull.frames.len(), 2);
+        assert_eq!(skull.frames.len(), 8);
         assert_eq!(skull.frames[0].tile_base_index, 0x002C);
+        assert_eq!(skull.frames[6].tile_base_index, 0x0020);
+        assert_eq!(skull.frames[7].tile_base_index, 0x0024);
         let cloud = visuals.enemies.families.get(&0x0E).expect("cloud visuals");
         assert_eq!(cloud.frame_duration, 11);
         assert_eq!(

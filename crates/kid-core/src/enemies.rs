@@ -6508,6 +6508,10 @@ pub(crate) const DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES: u16 = 2;
 /// ASM `stru_345E4`: four `anim_frame 1, 2, ...` entries before the zero
 /// terminator. GfxObject animation keeps advancing while the object hibernates.
 pub(crate) const DRAGON_FLYING_DEATH_ANIMATION_FRAMES: u16 = 8;
+/// ASM Mini_Hopping_Skull.asm loc_3F158 plays `stru_3E9AC`: frame
+/// LnkTo_unk_C8040 for $0A ticks, then LnkTo_unk_C8048 for $1E ticks before
+/// continuing to `j_Delete_CurrentObject`.
+pub(crate) const MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x1E;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -8410,8 +8414,13 @@ impl ActiveEnemy {
             .then_some(self.shared_walker_patrol_short_next);
         let walk_phase =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
-        let wait_timer =
-            matches!(self.family, EnemyFamily::DragonWalking).then_some(self.wait_timer);
+        let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking)
+            || (matches!(self.family, EnemyFamily::MiniHoppingSkull) && self.hit_points == 0)
+        {
+            Some(self.wait_timer)
+        } else {
+            None
+        };
         let mut debug_fields = std::collections::BTreeMap::new();
         debug_fields.insert("segment_index".into(), self.segment_index.to_string());
         if matches!(self.family, EnemyFamily::DragonWalking) {
@@ -8470,7 +8479,8 @@ impl ActiveEnemy {
             hit_points: Some(self.hit_points),
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
-            stationary: self.dragon_phase.is_stationary(),
+            stationary: self.dragon_phase.is_stationary()
+                || (matches!(self.family, EnemyFamily::MiniHoppingSkull) && self.hit_points == 0),
             shared_walker_state,
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,
@@ -8993,6 +9003,12 @@ pub(crate) fn step_active_enemies_with_rng(
             continue;
         }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+        if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points == 0 {
+            // ASM Mini_Hopping_Skull.asm loc_3F158 clears `is_moved(a3)`
+            // while `stru_3E9AC` hibernates, so the corpse animation should
+            // not run the normal hopper movement step.
+            continue;
+        }
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => {
@@ -38444,11 +38460,26 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                 );
+                for enemy in &mut self.active_enemies {
+                    if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                        && enemy.hit_points == 0
+                        && enemy.wait_timer > 0
+                    {
+                        // ASM Mini_Hopping_Skull.asm loc_3F158 hibernates
+                        // until `stru_3E9AC` finishes before the delete tail.
+                        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+                    }
+                }
                 let dead_enemy_indices: Vec<usize> = self
                     .active_enemies
                     .iter()
                     .enumerate()
-                    .filter_map(|(idx, enemy)| (enemy.hit_points == 0).then_some(idx))
+                    .filter_map(|(idx, enemy)| {
+                        let waiting_for_death_animation =
+                            matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                                && enemy.wait_timer > 0;
+                        (enemy.hit_points == 0 && !waiting_for_death_animation).then_some(idx)
+                    })
                     .collect();
                 for idx in dead_enemy_indices.into_iter().rev() {
                     self.remove_dead_enemy(idx);

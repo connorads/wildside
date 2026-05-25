@@ -2103,6 +2103,12 @@ mod tests {
                 frames: vec![
                     sample_object_frame(31, 16, 17),
                     sample_object_frame(32, 16, 18),
+                    sample_object_frame(33, 13, 15),
+                    sample_object_frame(34, 11, 14),
+                    sample_object_frame(35, 13, 14),
+                    sample_object_frame(36, 14, 11),
+                    sample_object_frame(37, 12, 15),
+                    sample_object_frame(38, 16, 11),
                 ],
                 frame_duration: 9,
             },
@@ -5213,6 +5219,52 @@ mod tests {
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == ENEMY_COLOUR || *colour == ENEMY_FLASH_COLOUR)
         }));
+    }
+
+    #[test]
+    fn mini_hopping_skull_death_snapshot_selects_loc_3f158_frames() {
+        let visuals = sample_level_visuals();
+        let skull_visuals = visuals.enemies.families.get(&0x1C).expect("skull visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1C },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x0A + 0x1E),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, skull_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            37,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 should render LnkTo_unk_C8040 during the first $0A ticks"
+        );
+
+        object.wait_timer = Some(0x1E);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, skull_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            38,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 should render LnkTo_unk_C8048 for the final $1E ticks"
+        );
     }
 
     #[test]
