@@ -6520,6 +6520,10 @@ pub(crate) const MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x1E;
 /// $02, $02, five $01-tick flashes, then $03 before the shared delete tail.
 pub(crate) const ARMADILLO_DEATH_ANIMATION_FRAMES: u16 =
     0x16 + 0x04 + 0x04 + 0x03 + 0x03 + 0x02 + 0x02 + 0x01 + 0x01 + 0x01 + 0x01 + 0x01 + 0x03;
+/// ASM Orca.asm loc_3D268 / loc_3D4BC plays `stru_3D11E`: $09, $04, $03,
+/// $11, $04, $04, $03, $03, five $02-tick flashes, then $63 before loc_3E956.
+pub(crate) const ORCA_DEATH_ANIMATION_FRAMES: u16 =
+    0x09 + 0x04 + 0x03 + 0x11 + 0x04 + 0x04 + 0x03 + 0x03 + 0x02 + 0x02 + 0x02 + 0x02 + 0x02 + 0x63;
 /// ASM Crab.asm loc_3B094 plays `stru_3AF82`: $14, $0A, then $1E ticks
 /// before the shared delete tail at loc_3C46E.
 pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;
@@ -6562,6 +6566,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Orca => Some(ORCA_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Robot => Some(ROBOT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Scorpion => Some(SCORPION_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
