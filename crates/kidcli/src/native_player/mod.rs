@@ -2549,6 +2549,23 @@ mod tests {
             },
         );
         families.insert(
+            0x0C,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(210, 120, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame(141, 24, 24),
+                    sample_object_frame(142, 24, 24),
+                    sample_object_frame(143, 24, 24),
+                    sample_object_frame(144, 24, 24),
+                    sample_object_frame(145, 24, 24),
+                ],
+                frame_duration: 7,
+            },
+        );
+        families.insert(
             0x20,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -6002,6 +6019,45 @@ mod tests {
             119,
             "ASM Goat.asm loc_3CB64 should render LnkTo_unk_C7C96 for the final $37 ticks of stru_3C9EA"
         );
+    }
+
+    #[test]
+    fn flying_dragon_death_snapshot_selects_loc_3492c_frames() {
+        let visuals = sample_level_visuals();
+        let dragon_visuals = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0C },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(8),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(8, 141), (6, 142), (4, 143), (2, 144)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, dragon_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Dragon_Flying.asm loc_3492C should advance `stru_345E4` every two ticks"
+            );
+        }
     }
 
     #[test]

@@ -6474,15 +6474,15 @@ impl PendingDragonDeathAnimation {
             y_velocity: Some(0),
             facing: Some(self.facing),
             on_ground: None,
-            hit_points: None,
+            hit_points: Some(0),
             damage_flash: false,
             palette_variant: self.palette_variant,
-            stationary: true,
+            stationary: false,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
-            wait_timer: None,
+            wait_timer: Some(self.remaining_frames),
             debug_fields: std::collections::BTreeMap::new(),
         }
     }

@@ -8082,6 +8082,12 @@ mod chunk_03 {
             1,
             "ASM Dragon_Flying.asm loc_3492C should still expose the visual dying dragon before the child allocation"
         );
+        assert_eq!(runtime.active_enemy_roster[0].hit_points, Some(0));
+        assert_eq!(
+            runtime.active_enemy_roster[0].wait_timer,
+            Some(DRAGON_FLYING_DEATH_ANIMATION_FRAMES),
+            "the pending loc_3492C visual must expose the stru_345E4 timer so the renderer does not freeze on the ordinary dragon frame"
+        );
 
         runtime.step_pending_dragon_death_children();
         assert!(

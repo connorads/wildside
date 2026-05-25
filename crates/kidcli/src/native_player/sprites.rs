@@ -630,6 +630,20 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(2)
                 }
             }
+            // ASM Dragon_Flying.asm loc_3492C runs shared `stru_345E4`:
+            // four 2-tick frames while the flying parent hibernates before
+            // loc_349A6 deletes it.
+            0x0C if enemy_visuals.frames.len() >= 4 => {
+                if remaining > 0x06 {
+                    Some(0)
+                } else if remaining > 0x04 {
+                    Some(1)
+                } else if remaining > 0x02 {
+                    Some(2)
+                } else {
+                    Some(3)
+                }
+            }
             _ => None,
         };
         if let Some(frame_index) = death_frame {
