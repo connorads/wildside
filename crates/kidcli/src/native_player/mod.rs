@@ -272,6 +272,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = trace.current_level.0;
     let mut active_bgm_cue: Option<NativeBgmCue> = None;
+    let mut pending_bgm_start: Option<u8> = None;
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
@@ -495,10 +496,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
             suppress_level_card_for_debug_warp = false;
         }
+        let mut queued_bgm_start_this_frame = false;
         if let Some((cue, command)) = native_bgm_playback_command(manifest, &trace, active_bgm_cue)
         {
             if let Some(ref mut gems) = gems_engine {
-                apply_native_bgm_command(gems, command);
+                pending_bgm_start = apply_native_bgm_command(gems, command);
+                queued_bgm_start_this_frame = pending_bgm_start.is_some();
             }
             active_bgm_cue = Some(cue);
         } else if native_bgm_cue_for_trace(&trace).is_none() {
@@ -509,6 +512,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
             let maybe_samples = if let Some(ref mut gems) = gems_engine {
+                if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
+                    gems.play_sound(bgm);
+                }
                 detect_gems_events(&prev_trace, &trace, gems);
                 gems.step_frame();
                 Some(gems.generate_samples(735))
@@ -1047,7 +1053,8 @@ enum NativeBgmCue {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeBgmPlaybackCommand {
-    StopAllAndStart(u8),
+    Start(u8),
+    StopAllThenStart(u8),
 }
 
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
@@ -1073,19 +1080,33 @@ fn native_bgm_playback_command(
         return None;
     }
     let bgm = bgm_for_native_cue(manifest, cue)?;
-    Some((cue, NativeBgmPlaybackCommand::StopAllAndStart(bgm)))
+    let command = if active_bgm_cue.is_some() {
+        NativeBgmPlaybackCommand::StopAllThenStart(bgm)
+    } else {
+        NativeBgmPlaybackCommand::Start(bgm)
+    };
+    Some((cue, command))
 }
 
-fn apply_native_bgm_command(gems: &mut GemsAudioEngine, command: NativeBgmPlaybackCommand) {
+fn apply_native_bgm_command(
+    gems: &mut GemsAudioEngine,
+    command: NativeBgmPlaybackCommand,
+) -> Option<u8> {
     match command {
-        NativeBgmPlaybackCommand::StopAllAndStart(bgm) => {
+        NativeBgmPlaybackCommand::Start(bgm) => {
+            gems.play_sound(bgm);
+            None
+        }
+        NativeBgmPlaybackCommand::StopAllThenStart(bgm) => {
             // GEMS command $16 consumes a sequence id byte; $FF means all
             // sequences. The ROM's `j_PlaySound` calls rely on GEMS sequence
             // allocation to replace music contexts; native playback has to be
             // explicit or the title Ice sequence can keep playing underneath
-            // level music and starve SFX channels.
+            // level music and starve SFX channels. Queue the replacement on
+            // the next audio frame so the stop command cannot silence the
+            // just-started sequence in the standalone driver.
             gems.stop_all_sequences();
-            gems.play_sound(bgm);
+            Some(bgm)
         }
     }
 }
@@ -6242,9 +6263,25 @@ mod tests {
             native_bgm_playback_command(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
             Some((
                 NativeBgmCue::Level(LevelId(0)),
-                NativeBgmPlaybackCommand::StopAllAndStart(gems_bgm::CAVE),
+                NativeBgmPlaybackCommand::StopAllThenStart(gems_bgm::CAVE),
             )),
-            "GEMS command $10 starts a sequence without stopping older music; title-to-gameplay must queue stop-all before the level BGM"
+            "GEMS command $10 starts a sequence without stopping older music; title-to-gameplay must queue stop-all before deferring the level BGM"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_initial_level_bgm_starts_without_stop_all() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            native_bgm_playback_command(&fixture.manifest, &trace, None),
+            Some((
+                NativeBgmCue::Level(LevelId(0)),
+                NativeBgmPlaybackCommand::Start(gems_bgm::CAVE),
+            )),
+            "direct settled native play has no previous music context, so queueing stop-all before the first level BGM can silence the standalone GEMS start"
         );
         Ok(())
     }
