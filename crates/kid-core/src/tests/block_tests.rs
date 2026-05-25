@@ -10185,6 +10185,10 @@ mod chunk_04 {
             enemy.y_velocity, 0,
             "ASM loc_333F6 clears y_vel on ceiling contact",
         );
+        assert_eq!(
+            enemy.y_pos, 0x003F_0000,
+            "ASM GfxObjects_Collision loc_1A6C snaps Drips via object_meta `$16` / `unk_314D0` top `-$1F`, so row-1 ceiling bottom 32px leaves y_pos at 63px",
+        );
         assert!(
             projectiles.is_empty(),
             "Drips must reach the ceiling before its first drop spawns",

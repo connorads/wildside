@@ -21949,14 +21949,16 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawl
 /// the slime with -1.0 fp/frame upward velocity before the loc_333F6 loop.
 pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
 
-/// Half-width used by the Drips ceiling probe. The ROM's collision check is
-/// at the GfxObject's hitbox; native approximates the slime sprite as ±4px
-/// horizontally for the rise-to-ceiling probe.
-const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 4;
-/// Vertical reach above the spawn point used to look for a solid ceiling.
-/// Matches the player ceiling probe convention so the rising slime stops as
-/// soon as its head crosses into a solid cell.
-const DRIPS_CEILING_PROBE_HEIGHT: i32 = 1;
+/// Half-width used by the Drips ceiling probe.
+/// ASM Enemy16_Drip_Init writes `object_meta=$16`; CollisionSize_Index entry
+/// `$16` resolves to `unk_314D0: dc.w -$5,$A,-$1F,$1F`, so the live collision
+/// box spans five pixels left and right of x_pos.
+const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 5;
+/// Vertical reach above the Drips object origin used for ceiling attachment.
+/// ASM `GfxObjects_Collision loc_1A6C` snaps ceiling hits through the collision
+/// size top offset. For Drips `unk_314D0` that top is `-$1F`, not the 2px
+/// visible slime sprite frame, so using a 1px probe leaves the slime embedded.
+const DRIPS_CEILING_PROBE_HEIGHT: i32 = 0x1F;
 
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
@@ -21989,10 +21991,10 @@ pub(crate) fn step_drips(
                 DRIPS_CEILING_PROBE_HEIGHT,
             );
             if probe.hit {
-                // ASM loc_3340A: clear collision_type and y_vel, then enter
-                // the dormant-delay seed loop. Snap the body so the next-row
-                // ceiling cell is exactly one pixel above the slime's head,
-                // matching the ROM's `loc_333F6` exit position.
+                // ASM loc_333F6 exits only after GfxObjects_Collision has
+                // reported colid_ceiling. The shared collision routine
+                // `loc_1A6C` repositions y_pos from the hitbox top offset;
+                // for Drips object_meta `$16`, that offset is `-$1F`.
                 enemy.y_pos = (probe.ceiling_y_px as u32 + DRIPS_CEILING_PROBE_HEIGHT as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
