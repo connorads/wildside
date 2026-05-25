@@ -2434,7 +2434,7 @@ struct GemsBus {
     /// Virtual ROM built from extracted sound data files.
     virtual_rom: Vec<u8>,
     bank_address: u32,
-    ym2612_shadow: Ym2612Shadow,
+    ym2612_shadow: RefCell<Ym2612Shadow>,
     z80_cycles: u64,
     audio_events: VecDeque<AudioEvent>,
 }
@@ -2449,14 +2449,14 @@ impl GemsBus {
             ram,
             virtual_rom,
             bank_address: 0,
-            ym2612_shadow: Ym2612Shadow::new(),
+            ym2612_shadow: RefCell::new(Ym2612Shadow::new()),
             z80_cycles: 0,
             audio_events: VecDeque::new(),
         }
     }
 
     fn record_ym2612_write(&mut self, port: u8, value: u8) {
-        self.ym2612_shadow.write_port(port, value);
+        self.ym2612_shadow.borrow_mut().write_port(port, value);
         self.audio_events.push_back(AudioEvent::Ym2612Write {
             z80_cycles: self.z80_cycles,
             port,
@@ -2476,11 +2476,10 @@ impl Z80_io for GemsBus {
     fn read_byte(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x1FFF => self.ram[usize::from(address) & (Z80_RAM_LEN - 1)],
-            0x4000..=0x5FFF => {
-                // YM2612 status read — use shadow for decay simulation
-                // (const borrow prevents mutable access here, return 0 for status)
-                0
-            }
+            0x4000..=0x5FFF => self
+                .ym2612_shadow
+                .borrow_mut()
+                .read_port((address & 0x03) as u8),
             0x8000..=0xFFFF => {
                 let banked = self
                     .bank_address
@@ -2662,6 +2661,11 @@ impl GemsAudioEngine {
             }
             let elapsed = self.z80.step();
             let budget = elapsed.min(remaining);
+            self.z80
+                .io
+                .ym2612_shadow
+                .borrow_mut()
+                .advance_clocks(budget);
             self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(u64::from(budget));
             self.vblank_irq_cycles_remaining =
                 self.vblank_irq_cycles_remaining.saturating_sub(budget);
@@ -2687,9 +2691,9 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, GEMS_QUEUE_ADDR, MdBus, MdRuntime,
-        WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
-        cram_rgb, probe_rom, scale_channel,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, GEMS_QUEUE_ADDR, GemsBus, MdBus,
+        MdRuntime, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus,
+        Z80Shared, cram_rgb, probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2986,6 +2990,61 @@ mod tests {
         assert_eq!(shadow.read_port(1), 0);
         assert_eq!(shadow.read_port(2), 0);
         assert_eq!(shadow.read_port(3), 0);
+    }
+
+    #[test]
+    fn standalone_gems_bus_mirrors_ym2612_status_reads() {
+        let mut bus = GemsBus::new(&[], vec![0; 0x20_0000]);
+        bus.record_ym2612_write(0, 0x30);
+        bus.record_ym2612_write(1, 0xFF);
+
+        let status = bus.read_byte(0x4000);
+        assert_ne!(
+            status & 0x80,
+            0,
+            "standalone GEMS must expose the YM busy flag to the Z80 driver, matching MdRuntime's Z80Bus"
+        );
+        assert_eq!(bus.read_byte(0x4001), status);
+
+        bus.ym2612_shadow
+            .borrow_mut()
+            .advance_clocks(YM2612_STATUS_DECAY_CLOCKS);
+        assert_eq!(bus.read_byte(0x4001), 0);
+    }
+
+    #[test]
+    fn standalone_gems_frame_step_advances_ym2612_status_decay() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        {
+            let mut shadow = engine.z80.io.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+            let _ = shadow.read_port(0);
+            assert_eq!(
+                shadow.status_decay_clocks_remaining,
+                YM2612_STATUS_DECAY_CLOCKS
+            );
+        }
+
+        engine.step_z80_frame();
+
+        assert!(
+            engine
+                .z80
+                .io
+                .ym2612_shadow
+                .borrow()
+                .status_decay_clocks_remaining
+                < YM2612_STATUS_DECAY_CLOCKS,
+            "standalone GEMS frame stepping must age YM status reads like MdRuntime::step"
+        );
     }
 
     #[test]

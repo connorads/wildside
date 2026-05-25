@@ -271,7 +271,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = trace.current_level.0;
-    let mut in_game_bgm_playing = false; // triggers BGM on first InGame entry
+    let mut active_bgm_cue: Option<NativeBgmCue> = None;
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
@@ -488,11 +488,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
-        // Trigger BGM when entering InGame for the first time or on level change
+        // Trigger BGM when entering a ROM music context or changing levels.
         let level_changed = trace.current_level.0 != current_level_id;
-        let entered_in_game = matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
-            && !in_game_bgm_playing;
-        if level_changed || entered_in_game {
+        let bgm_cue = native_bgm_cue_for_trace(&trace);
+        if level_changed || bgm_cue != active_bgm_cue {
             let new_level = trace.current_level.0;
             if level_changed {
                 // Reload presentation assets only — engine already set up the new level
@@ -518,19 +517,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 }
                 suppress_level_card_for_debug_warp = false;
             }
-            if let Some(ref mut gems) = gems_engine {
-                let level_theme =
-                    resolved_level_header(manifest, new_level).map(|header| header.level_theme);
-                if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
-                    gems.play_sound(bgm);
-                }
+            if let Some(ref mut gems) = gems_engine
+                && let Some(bgm) = bgm_cue.and_then(|cue| bgm_for_native_cue(manifest, cue))
+            {
+                gems.play_sound(bgm);
             }
-            if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) {
-                in_game_bgm_playing = true;
-            }
-        }
-        if !matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) {
-            in_game_bgm_playing = false;
+            active_bgm_cue = bgm_cue;
         }
 
         let render_trace = if level_card_frames_remaining > 0 {
@@ -1042,6 +1034,29 @@ mod gems_bgm {
     pub const SWAMP: u8 = 0x0A;
     pub const CITY: u8 = 0x65;
     pub const SCORE_BOARD: u8 = 0x74;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeBgmCue {
+    TitleShell,
+    Level(LevelId),
+}
+
+fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
+    match trace.game_mode {
+        GameMode::TitleScreen | GameMode::OptionsMenu => Some(NativeBgmCue::TitleShell),
+        GameMode::InGame | GameMode::DemoPlay => Some(NativeBgmCue::Level(trace.current_level)),
+        _ => None,
+    }
+}
+
+fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
+    match cue {
+        // ASM Load_TitleScreen queues bgm_Ice through j_PlaySound before loading title art.
+        NativeBgmCue::TitleShell => Some(gems_bgm::ICE),
+        NativeBgmCue::Level(level) => resolved_level_header(manifest, level.0)
+            .and_then(|header| theme_to_bgm(header.level_theme)),
+    }
 }
 
 /// Map level theme ID to GEMS BGM ID.
@@ -5792,6 +5807,45 @@ mod tests {
             gems_sound_dir(&manifest),
             source_sound_dir,
             "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_title_shell_uses_load_title_screen_bgm() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut title = sample_trace(GameMode::TitleScreen);
+        let mut options = sample_trace(GameMode::OptionsMenu);
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&title)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::ICE),
+            "ASM Load_TitleScreen queues bgm_Ice via j_PlaySound before title/menu objects are allocated"
+        );
+        assert_eq!(
+            native_bgm_cue_for_trace(&options),
+            native_bgm_cue_for_trace(&title),
+            "the options shell inherits the title music context instead of restarting or falling silent"
+        );
+
+        title.game_mode = GameMode::SegaScreen;
+        options.game_mode = GameMode::IntroSequence1;
+        assert_eq!(native_bgm_cue_for_trace(&title), None);
+        assert_eq!(native_bgm_cue_for_trace(&options), None);
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_level_bgm_cue_uses_current_level_theme() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&trace)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::CAVE),
+            "fixture level theme 0x08 should still route through ASM loc_12004 / unk_1201E"
         );
         Ok(())
     }
