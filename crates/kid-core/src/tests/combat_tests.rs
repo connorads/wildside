@@ -8700,6 +8700,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tar_monster_death_waits_for_stru_32700_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 1);
+        tar.layout_index = 24;
+        let killed_identity = (tar.segment_index, tar.layout_index);
+        runtime.active_enemies = vec![tar];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tar_Monster.asm loc_323E6 hibernates through stru_32700 before loc_3243A deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TAR_MONSTER_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 

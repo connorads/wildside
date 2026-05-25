@@ -6570,6 +6570,10 @@ pub(crate) const SPINNING_TWINS_DEATH_ANIMATION_FRAMES: u16 = 0x19 + 0x0F + 0x14
 /// ASM Hand.asm loc_32AA2 plays `stru_32B78`: eleven 6-tick frames before
 /// the loc_32AE6 delete tail.
 pub(crate) const HAND_DEATH_ANIMATION_FRAMES: u16 = 6 * 11;
+/// ASM Tar_Monster.asm loc_323E6 plays `stru_32700`: $09, $09, $03, $03,
+/// $09, $03, $03, $09, $03, $03, then $09 ticks before loc_3243A.
+pub(crate) const TAR_MONSTER_DEATH_ANIMATION_FRAMES: u16 =
+    0x09 + 0x09 + 0x03 + 0x03 + 0x09 + 0x03 + 0x03 + 0x09 + 0x03 + 0x03 + 0x09;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6591,6 +6595,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::SpinningTwins => Some(SPINNING_TWINS_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::TarMonster => Some(TAR_MONSTER_DEATH_ANIMATION_FRAMES),
         _ => None,
     }
 }
