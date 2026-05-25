@@ -7724,6 +7724,36 @@ mod chunk_06 {
         );
     }
 
+    /// ASM sub_B41C/unk_B408 gives Berzerker a 7px standing half-width. After
+    /// native wall collision clamps the live frame to that form width, the
+    /// side-block dispatch must probe from the same edge, not The Kid's 5px
+    /// default width.
+    #[test]
+    fn berzerker_charge_wall_break_uses_berzerker_form_width_after_wall_snap() {
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            smash,
+        ));
+        let mut slice = berzerker_wall_slice(0, Direction::Right);
+        // Wall at x=80, Berzerker half-width=7, moving-right clamp is 80-(7+1).
+        slice.player.x_pos = 72 << 16;
+
+        rt.berzerker_break_wall_block(&slice);
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(5, 3)),
+            "ASM sub_B41C width restore should let post-collision Berzerker still reach the side block"
+        );
+    }
+
     /// ASM loc_92EC: negative x_vel chooses the left probe even if the sprite is
     /// still facing right.
     #[test]
@@ -7773,6 +7803,40 @@ mod chunk_06 {
         assert!(
             !rt.helmet.berzerker_charging,
             "ASM loc_9326: non-rubber wall hit clears Berzerker_charging even when no block handler runs"
+        );
+    }
+
+    /// ASM loc_9294 -> loc_930E (kid.asm:10699-10752): after a non-handled
+    /// solid cell, the ROM continues scanning the same side column and can
+    /// still dispatch a higher Smash block through `off_933E`.
+    #[test]
+    fn berzerker_charge_scans_past_lower_solid_to_break_upper_smash_loc_9294() {
+        let solid_non_block = terrain::Cell::from_be_bytes(0x60, 0x01);
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.helmet.berzerker_charging = true;
+        let mut grid = berzerker_wall_grid(terrain::Cell::from_be_bytes(0, 0), solid_non_block);
+        grid.set_cell_at(5, 2, smash);
+        rt.set_block_grid(grid);
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            grid.cell_at(5, 3),
+            solid_non_block,
+            "ASM loc_92DE: lower solid terrain without a block handler stays intact"
+        );
+        assert!(
+            cell_is_empty(grid.cell_at(5, 2)),
+            "ASM loc_930E should continue the column scan and dispatch the upper Smash block"
+        );
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9326 clears Berzerker_charging after any non-rubber wall hit"
         );
     }
 

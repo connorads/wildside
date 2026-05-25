@@ -5563,34 +5563,49 @@ impl NativeRuntime {
         let y_px = (slice.player.y_pos >> 16) as i32;
         let moving_right = slice.player.x_velocity > 0
             || (slice.player.x_velocity == 0 && slice.player.facing == Direction::Right);
-        let probe = terrain::probe_wall(
-            grid,
-            x_px,
-            y_px,
-            PLAYER_HALF_WIDTH,
-            PLAYER_HEIGHT,
-            moving_right,
-        );
-        if probe.hit {
+        let half_width = self.progression.current_form.half_width();
+        let edge_x = if moving_right {
+            x_px + half_width + 1
+        } else {
+            x_px - half_width - 1
+        };
+        if edge_x < 0 || edge_x >= grid.width_pixels() {
+            return;
+        }
+
+        let col = (edge_x / 16).clamp(0, i32::from(grid.width_cells).saturating_sub(1)) as u16;
+        let top_row = ((y_px - PLAYER_HEIGHT).max(0) / 16) as u16;
+        let foot_row = (y_px / 16).clamp(0, i32::from(grid.height_cells).saturating_sub(1)) as u16;
+        let mut hit_wall = false;
+
+        // ASM loc_9294 -> loc_930E (kid.asm:10699-10752): scan every row in
+        // the leading column, dispatch handled blocks, then continue upward.
+        for row in (top_row..=foot_row).rev() {
+            let cell = grid.cell_at(col, row);
+            if !matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            ) {
+                continue;
+            }
+            hit_wall = true;
+            if slice.player.on_ground
+                && cell.has_block
+                && cell.block_type == terrain::BlockType::Smash
+            {
+                // ASM loc_92DE -> loc_92EC: non-Rubber block handlers are
+                // gated behind Berzerker charge and `Character_Movement !=
+                // MoveID_Jump`; native approximates that movement gate with
+                // grounded state while keeping loc_9326's charge-clear below.
+                grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+            }
+        }
+
+        if hit_wall {
             // ASM loc_9326 (kid.asm:10762): any non-rubber wall hit reaches
             // `sf (Berzerker_charging).w` after the scan, even if loc_92DE
-            // skipped the block dispatch because the solid cell has no block.
+            // skipped every block dispatch.
             self.helmet.berzerker_charging = false;
-        }
-        if probe.hit
-            && slice.player.on_ground
-            && probe.cell.has_block
-            && probe.cell.block_type == terrain::BlockType::Smash
-        {
-            // ASM loc_92DE (kid.asm:10729): non-Rubber block handlers are
-            // gated behind Berzerker charge and `Character_Movement !=
-            // MoveID_Jump`; native approximates that movement gate with
-            // grounded state while keeping loc_9326's charge-clear above.
-            grid.set_cell_at(
-                probe.cell_x,
-                probe.cell_y,
-                terrain::Cell::from_be_bytes(0, 0),
-            );
         }
     }
 
