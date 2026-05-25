@@ -1921,6 +1921,38 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_hologram_keeps_scroll_a_background_tiles() {
+        let mut visuals = sample_level_visuals();
+        let mut hologram_tiles = blank_tile_sheet(2);
+        hologram_tiles.tiles[1].pixels = [1; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 112, 0)],
+            },
+            tile_sheet: hologram_tiles,
+            rows: vec![vec![TileRef::from_attr_word(0x0001)]],
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::IndexedTile { x: 0, y: 0, tile_sheet, tile, .. }
+                    if tile_sheet.tiles.len() == visuals.background_tiles.tiles.len()
+                        && tile.tile_index == 0
+            )),
+            "ASM loc_C186 changes Scroll B for the hologram room; Scroll A background tiles stay in front until loc_C21E/sub_C254 replaces them"
+        );
+    }
+
+    #[test]
     fn level_complete_replays_sub_c254_foreground_reveal_writes() {
         let mut visuals = sample_level_visuals();
         let mut tile_sheet = blank_tile_sheet(0x0420);

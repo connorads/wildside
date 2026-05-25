@@ -2239,6 +2239,10 @@ fn build_game_scene_filtered(
 
     if eol_hologram_visible {
         push_eol_hologram_room(&mut commands, level_visuals);
+        // ASM loc_C186 swaps in the hologram on Scroll B; Scroll A's forest
+        // background remains live until loc_C21E/sub_C254 reveal writes replace
+        // visible foreground cells.
+        push_background_tiles(&mut commands, trace, level_visuals);
     } else if filter.background {
         push_background_tiles(&mut commands, trace, level_visuals);
     }
