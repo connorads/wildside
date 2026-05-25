@@ -1,6 +1,6 @@
 # Source-Port Completion Audit
 
-Last audited: 2026-05-24 (current phase complete)
+Last audited: 2026-05-25 (current phase reopened)
 
 ## Objective
 
@@ -44,9 +44,9 @@ rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 
 ## Conclusion
 
-Current phase completion audit passes on 2026-05-24. `mise run
-completion-audit` refreshes all human-validation bundles, writes
-`.cache/human-validation/index.html`, and `project-status --fail-on-human-blockers`
-reports no top open playability risks, visual risks, or human validation/repro
-blockers. Treat this as completion for the current single-player native phase,
-not as a claim that every future source-port fidelity improvement is exhausted.
+The 2026-05-24 completion call is revoked by 2026-05-25 playtest feedback.
+The audit over-weighted proxy gates and missed player-visible intro, audio,
+HUD/prize, wall-grab animation, enemy-rendering, enemy-death, Drips, Berzerker
+side-block, and death/continue transition failures. These are now tracked as
+backlog #160-#170. Treat the source port as reopened until those rows have
+frame/audio-backed evidence, not only narrow unit or TAS-state proof.

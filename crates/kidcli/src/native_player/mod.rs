@@ -963,7 +963,7 @@ struct SfxTone {
 
 /// Try to load a GEMS audio engine from extracted sound data in the disassembly.
 fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
-    let sound_dir = manifest.source_root.join("sound");
+    let sound_dir = gems_sound_dir(manifest);
     let driver = std::fs::read(sound_dir.join("GEMS_Sounddriver.bin"))
         .map_err(|e| eprintln!("GEMS: failed to read driver: {e}"))
         .ok()?;
@@ -983,6 +983,10 @@ fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
     let mut engine = GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
     engine.init();
     Some(engine)
+}
+
+fn gems_sound_dir(manifest: &AssetManifest) -> PathBuf {
+    manifest.output_root.join("sound")
 }
 
 /// GEMS sound IDs for Kid Chameleon (from constants.asm).
@@ -5607,5 +5611,27 @@ mod tests {
             count_hud_hitpoint_tiles(&iron_knight_scene),
             (PlayerForm::IronKnight.max_hitpoints() / 2) as usize
         );
+    }
+
+    #[test]
+    fn play_native_loads_gems_from_generated_bundle_output() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut manifest = fixture.manifest.clone();
+        manifest.source_root = fixture._root.path().join("upstream");
+        manifest.output_root = fixture._root.path().join("generated");
+        let source_sound_dir = manifest.source_root.join("sound");
+        let output_sound_dir = manifest.output_root.join("sound");
+
+        assert_eq!(
+            gems_sound_dir(&manifest),
+            output_sound_dir,
+            "play-native must load GEMS from the generated bundle; upstream source_root does not contain extracted sound binaries"
+        );
+        assert_ne!(
+            gems_sound_dir(&manifest),
+            source_sound_dir,
+            "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
+        );
+        Ok(())
     }
 }
