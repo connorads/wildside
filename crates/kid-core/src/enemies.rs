@@ -6525,6 +6525,15 @@ pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
 /// ASM Ninja.asm loc_3DB4E plays `stru_3D50A`: $14, $0A, then $2D ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const NINJA_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x2D;
+/// ASM Tank.asm loc_3B480 plays `stru_3B29A`: $10, $08, then $3C ticks
+/// before the shared delete tail at loc_3C46E.
+pub(crate) const TANK_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
+/// ASM Tank_Shooting.asm loc_3B6E6 plays `stru_3B518`: $10, $08, then $3C
+/// ticks before the shared delete tail at loc_3C46E.
+pub(crate) const TANK_SHOOTING_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
+/// ASM Robot.asm loc_3A9D2 plays `stru_3A74A`: two $09-tick frames before
+/// the shared delete tail at loc_3C46E.
+pub(crate) const ROBOT_DEATH_ANIMATION_FRAMES: u16 = 0x09 + 0x09;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6532,6 +6541,9 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Goat => Some(GOAT_DEATH_ANIMATION_FRAMES),
         EnemyFamily::MiniHoppingSkull => Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Ninja => Some(NINJA_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Robot => Some(ROBOT_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
         _ => None,
     }
 }

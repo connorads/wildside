@@ -8272,6 +8272,93 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tank_death_waits_for_stru_3b29a_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tank = test_enemy(EnemyFamily::Tank, 0x0080_0000, 0x0040_0000, 1);
+        tank.layout_index = 12;
+        let killed_identity = (tank.segment_index, tank.layout_index);
+        runtime.active_enemies = vec![tank];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tank.asm loc_3B480 hibernates through stru_3B29A before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TANK_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn tank_shooting_death_waits_for_stru_3b518_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0040_0000, 1);
+        tank.layout_index = 13;
+        let killed_identity = (tank.segment_index, tank.layout_index);
+        runtime.active_enemies = vec![tank];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tank_Shooting.asm loc_3B6E6 hibernates through stru_3B518 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TANK_SHOOTING_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn robot_death_waits_for_stru_3a74a_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut robot = test_enemy(EnemyFamily::Robot, 0x0080_0000, 0x0040_0000, 1);
+        robot.layout_index = 14;
+        let killed_identity = (robot.segment_index, robot.layout_index);
+        runtime.active_enemies = vec![robot];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Robot.asm loc_3A9D2 hibernates through stru_3A74A before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ROBOT_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 
