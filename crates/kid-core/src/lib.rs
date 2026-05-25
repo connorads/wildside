@@ -33,7 +33,7 @@ pub use scenario::{
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
-pub use combat::time_bonus_loc_d56e;
+pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 use std::collections::HashSet;
 use std::fs;
 #[cfg(test)]

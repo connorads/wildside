@@ -8144,17 +8144,14 @@ impl NativeRuntime {
             // ASM loc_C10A (kid.asm:15707): `cmpi.w #$FF,d0; ble.s loc_C10A;
             // move.w #$FF,d0` caps the value at 255, then
             // `move.b d0,(Level_completion_time).w` stores the result.
-            if level_idx < SPEED_BONUS_TABLE.len() {
-                let threshold = SPEED_BONUS_TABLE[level_idx];
-                if threshold > 0 {
-                    let elapsed_secs = LEVEL_TIMER_START_SECONDS
-                        .saturating_sub(self.level_timer.seconds)
-                        .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
-                    let completion_time = elapsed_secs.min(255) as u8;
-                    if completion_time <= threshold {
-                        self.add_score(10_000);
-                        self.level_speed_bonus_awarded = true;
-                    }
+            if let Some(threshold) = speed_bonus_threshold_loc_d660(self.current_level) {
+                let elapsed_secs = LEVEL_TIMER_START_SECONDS
+                    .saturating_sub(self.level_timer.seconds)
+                    .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                let completion_time = elapsed_secs.min(255) as u8;
+                if completion_time <= threshold {
+                    self.add_score(10_000);
+                    self.level_speed_bonus_awarded = true;
                 }
             }
         }
@@ -9438,6 +9435,20 @@ pub fn time_bonus_loc_d56e(seconds_remaining: u16) -> u32 {
     let minutes = u32::from(seconds_remaining / 60);
     let secs_in_minute = u32::from(seconds_remaining % 60);
     (minutes * 100 + secs_in_minute) * 10
+}
+
+/// ASM loc_D660 (kid.asm:16775): Speed Bonus uses
+/// `SpeedBonus_Values[Current_LevelID]` both as the award threshold and the
+/// number displayed by the "UNDER ... SECONDS" EOL row.
+pub fn speed_bonus_threshold_loc_d660(level_id: LevelId) -> Option<u8> {
+    if level_id.0 >= FIRST_ELSEWHERE_LEVEL_ID {
+        return None;
+    }
+
+    SPEED_BONUS_TABLE
+        .get(level_id.0 as usize)
+        .copied()
+        .filter(|threshold| *threshold > 0)
 }
 
 fn solid_overlap_resolution_sub_201c(

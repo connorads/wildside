@@ -1040,11 +1040,17 @@ mod gems_bgm {
 enum NativeBgmCue {
     TitleShell,
     Level(LevelId),
+    ScoreBoard,
 }
 
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
     match trace.game_mode {
         GameMode::TitleScreen | GameMode::OptionsMenu => Some(NativeBgmCue::TitleShell),
+        // ASM Score_Board (kid.asm:15838): after the flagpole transition
+        // sleeps, the EOL sequence queues bgm_Score_Board before loc_D55E.
+        GameMode::InGame | GameMode::DemoPlay if trace.level_complete => {
+            Some(NativeBgmCue::ScoreBoard)
+        }
         GameMode::InGame | GameMode::DemoPlay => Some(NativeBgmCue::Level(trace.current_level)),
         _ => None,
     }
@@ -1056,6 +1062,7 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
         NativeBgmCue::TitleShell => Some(gems_bgm::ICE),
         NativeBgmCue::Level(level) => resolved_level_header(manifest, level.0)
             .and_then(|header| theme_to_bgm(header.level_theme)),
+        NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
     }
 }
 
@@ -1785,6 +1792,37 @@ mod tests {
         );
         assert!(!contains_text(&scene, "TIME BONUS"));
         assert!(!contains_text(&scene, "SCORE:"));
+    }
+
+    #[test]
+    fn level_complete_speed_under_seconds_uses_loc_d660_threshold() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_timer_seconds = 180;
+        trace.level_damage_taken = true;
+        trace.level_prize_collected = true;
+        trace.level_speed_bonus_awarded = true;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let under_seconds_digits = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x, y, tile_sheet, ..
+                } if *y == 120 && *x >= 128 && *x <= 200 => {
+                    tile_sheet.tiles.first().map(|tile| tile.pixels[0])
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            under_seconds_digits,
+            vec![132, 130],
+            "ASM loc_D660 should display SpeedBonus_Values[0] = 20, not the remaining timer seconds"
+        );
     }
 
     fn has_guide_rect(scene: &Scene) -> bool {
@@ -5980,6 +6018,21 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::CAVE),
             "fixture level theme 0x08 should still route through ASM loc_12004 / unk_1201E"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn level_complete_scoreboard_bgm_uses_score_board_cue_loc_c21e() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&trace)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::SCORE_BOARD),
+            "ASM Score_Board should queue bgm_Score_Board for the EOL sequence"
         );
         Ok(())
     }

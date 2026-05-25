@@ -1484,13 +1484,11 @@ fn push_eol_score_overlay(
         push_eol_bonus_row(commands, eol, &eol.speed, y, 10_000);
         y += 14;
         push_sprite_frame_top_left(commands, &eol.under, &eol.palette, 56, y);
-        push_eol_number_sprites(
-            commands,
-            eol,
-            128,
-            y - 2,
-            u32::from(trace.level_timer_seconds),
-        );
+        // ASM loc_D660: the "UNDER ... SECONDS" number is the threshold byte
+        // loaded from SpeedBonus_Values[Current_LevelID], not remaining time.
+        let speed_threshold = kid_core::speed_bonus_threshold_loc_d660(trace.current_level)
+            .map_or(u32::from(trace.level_timer_seconds), u32::from);
+        push_eol_number_sprites(commands, eol, 128, y - 2, speed_threshold);
         push_sprite_frame_top_left(commands, &eol.seconds, &eol.palette, 184, y);
         y += 14;
     }
