@@ -6595,6 +6595,9 @@ pub(crate) const HAND_DEATH_ANIMATION_FRAMES: u16 = 6 * 11;
 /// $09, $03, $03, $09, $03, $03, then $09 ticks before loc_3243A.
 pub(crate) const TAR_MONSTER_DEATH_ANIMATION_FRAMES: u16 =
     0x09 + 0x09 + 0x03 + 0x03 + 0x09 + 0x03 + 0x03 + 0x09 + 0x03 + 0x03 + 0x09;
+/// ASM Drips.asm loc_338F8 plays `stru_33F06`: three 4-tick frames before
+/// loc_3392C clears movement and hibernates to the delete tail.
+pub(crate) const DRIPS_DEATH_ANIMATION_FRAMES: u16 = 4 + 4 + 4;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6606,6 +6609,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Diamond => Some(DIAMOND_DEATH_ANIMATION_FRAMES),
         EnemyFamily::DragonWalking => Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Driller => Some(DRILLER_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Drips => Some(DRIPS_DEATH_ANIMATION_FRAMES),
         EnemyFamily::EmoRock => Some(EMO_ROCK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Fireball => Some(FIREBALL_DEATH_ANIMATION_FRAMES),
         EnemyFamily::FireDemon => Some(FIRE_DEMON_DEATH_ANIMATION_FRAMES),

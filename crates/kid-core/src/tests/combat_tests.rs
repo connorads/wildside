@@ -8956,6 +8956,39 @@ mod chunk_03 {
     }
 
     #[test]
+    fn drips_death_waits_for_stru_33f06_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0080_0000, 0x0040_0000, 1);
+        drips.layout_index = 31;
+        drips.x_velocity = 0x0001_0000;
+        drips.y_velocity = -0x0001_0000;
+        let killed_identity = (drips.segment_index, drips.layout_index);
+        runtime.active_enemies = vec![drips];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Drips.asm loc_338F8 hibernates through stru_33F06 before loc_3392C deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(runtime.active_enemies[0].y_velocity, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRIPS_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 
