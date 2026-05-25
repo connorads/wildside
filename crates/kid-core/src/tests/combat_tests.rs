@@ -8816,6 +8816,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn archer_death_waits_for_stru_33fc2_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut archer = test_enemy(EnemyFamily::Archer, 0x0080_0000, 0x0040_0000, 1);
+        archer.layout_index = 28;
+        let killed_identity = (archer.segment_index, archer.layout_index);
+        runtime.active_enemies = vec![archer];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Archer.asm loc_3414A hibernates through stru_33FC2 before loc_34196 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ARCHER_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn dragon_flying_death_status_route_updates_native_enemy_status_table_loc_3492c() {
         let mut runtime = NativeRuntime::new(manifest());
 
