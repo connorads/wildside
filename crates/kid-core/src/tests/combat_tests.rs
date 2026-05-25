@@ -8140,6 +8140,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ufo_death_uses_loc_35174_parent_animation_before_delete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ufo = test_enemy(EnemyFamily::UFO, 0x0080_0000, 0x0040_0000, 1);
+        ufo.layout_index = 15;
+        ufo.x_velocity = 0x0001_8000;
+        ufo.y_velocity = -0x0001_0000;
+        ufo.ufo_beam_segments = 2;
+        ufo.ufo_beam_interval = 3;
+        let killed_identity = (ufo.segment_index, ufo.layout_index);
+        runtime.active_enemies = vec![ufo];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM UFO.asm loc_35174/loc_35180 keeps the parent saucer alive while `stru_34CA0` runs"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0x0001_8000);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity, 0x0003_0000,
+            "ASM UFO.asm loc_35180 forces parent y_vel to `$30000` for the death animation"
+        );
+        assert!(
+            runtime.active_enemies[0].ufo_beam_segments == 0
+                && runtime.active_enemies[0].ufo_beam_interval == 0,
+            "ASM UFO.asm loc_35174 clears `Some_UFO_Shooting` when this UFO was firing"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            UFO_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM UFO.asm loc_351B6 reaches the delete tail only after the parent animation finishes"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster[0].wait_timer,
+            Some(UFO_DEATH_ANIMATION_FRAMES)
+        );
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert!(
+            runtime.killed_enemies.contains(&killed_identity),
+            "ASM UFO.asm loc_351B6 delete tail should mark the layout killed after `stru_34CA0` finishes"
+        );
+    }
+
+    #[test]
     fn mini_hopping_skull_death_waits_for_loc_3f158_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 1);

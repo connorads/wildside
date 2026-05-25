@@ -6548,6 +6548,9 @@ pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;
 /// ASM Cloud.asm loc_35C0E plays `stru_35EBA`: three 7-tick frames before
 /// the loc_35C50 delete tail.
 pub(crate) const CLOUD_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
+/// ASM UFO.asm loc_35174/loc_35180 plays parent `stru_34CA0`: three
+/// 7-tick frames before loc_351B6 observes `$19(a3)` and deletes the saucer.
+pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
@@ -6620,6 +6623,7 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TarMonster => Some(TAR_MONSTER_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Tornado => Some(TORNADO_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::UFO => Some(UFO_DEATH_ANIMATION_FRAMES),
         _ => None,
     }
 }
@@ -38607,6 +38611,14 @@ impl NativeRuntime {
                         && enemy_death_animation_frames(enemy.family).is_some()
                         && enemy.wait_timer > 0
                     {
+                        if matches!(enemy.family, EnemyFamily::UFO) {
+                            // ASM UFO.asm loc_35180 sets `is_moved(a3)`,
+                            // preserves the saucer's existing x_vel, and
+                            // forces y_vel to `$30000` while loc_351B6
+                            // hibernates through the parent death animation.
+                            enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+                            enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
+                        }
                         // ASM death-animation tails hibernate until the
                         // family animation finishes before deletion.
                         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);

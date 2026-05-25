@@ -607,6 +607,17 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(8)
                 }
             }
+            // ASM UFO.asm loc_35174/loc_35180 runs parent `stru_34CA0`:
+            // C83B0, C83B8, C83C0 for 7 ticks each before loc_351B6 delete.
+            0x0F if enemy_visuals.frames.len() >= 3 => {
+                if remaining > 0x0E {
+                    Some(0)
+                } else if remaining > 0x07 {
+                    Some(1)
+                } else {
+                    Some(2)
+                }
+            }
             _ => None,
         };
         if let Some(frame_index) = death_frame {

@@ -7603,6 +7603,23 @@ impl NativeRuntime {
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
+        if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 && enemy.wait_timer == 0 {
+            let hurt_tail = ufo_hurt_tail_loc_35174(enemy.x_velocity, enemy.ufo_beam_segments != 0);
+            let enemy = &mut self.active_enemies[idx];
+            // ASM UFO.asm loc_35174/loc_35180: final hurt allocates a
+            // `loc_355E2` driver object, keeps the parent object alive with
+            // `stru_34CA0`, sets `is_moved(a3)`, and forces parent y_vel to
+            // `$30000` until loc_351B6 sees the animation-finished flag.
+            enemy.hit_points = 0;
+            if hurt_tail.some_ufo_shooting_cleared {
+                enemy.ufo_beam_segments = 0;
+                enemy.ufo_beam_interval = 0;
+            }
+            enemy.y_velocity = hurt_tail.parent_y_velocity;
+            enemy.wait_timer = UFO_DEATH_ANIMATION_FRAMES;
+            self.rebuild_active_enemy_roster();
+            return;
+        }
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
             && enemy.wait_timer == 0
