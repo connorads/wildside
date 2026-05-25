@@ -1980,9 +1980,27 @@ pub(super) fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
         .map_or(SKY_COLOUR, |colour| [colour.red, colour.green, colour.blue])
 }
 
-fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>) {
+fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>, level_visuals: &NativeLevelVisuals) {
     // ASM loc_C186 uploads MapEni_CC0E to Scroll B after the flag-touch
-    // hibernate, replacing the level playfield with the orange hologram room.
+    // hibernate. Scroll A stays live until the loc_C21E/sub_C254 reveal
+    // writes replace its foreground cells.
+    if let Some(hologram) = &level_visuals.eol_hologram {
+        let tile_sheet = Arc::new(hologram.tile_sheet.clone());
+        let palette = Arc::new(hologram.palette.clone());
+        for (row_index, row) in hologram.rows.iter().enumerate() {
+            for (col_index, tile) in row.iter().copied().enumerate() {
+                commands.push(DrawCommand::IndexedTile {
+                    x: (col_index * 8) as i32,
+                    y: (row_index * 8) as i32,
+                    tile_sheet: Arc::clone(&tile_sheet),
+                    tile,
+                    palette: Arc::clone(&palette),
+                });
+            }
+        }
+        return;
+    }
+
     commands.push(DrawCommand::Rect {
         x: 0,
         y: 0,
@@ -2095,14 +2113,14 @@ fn build_game_scene_filtered(
     let mut commands = Vec::new();
 
     if eol_hologram_visible {
-        push_eol_hologram_room(&mut commands);
+        push_eol_hologram_room(&mut commands, level_visuals);
     } else if filter.background {
         push_background_tiles(&mut commands, trace, level_visuals);
     }
-    if !eol_hologram_visible && filter.terrain {
+    if filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals);
     }
-    if !eol_hologram_visible && filter.block_overrides {
+    if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
     }
 

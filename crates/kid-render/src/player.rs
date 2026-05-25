@@ -1,4 +1,4 @@
-use crate::{Palette, TileSheet};
+use crate::{Palette, TileRef, TileSheet};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +95,13 @@ pub struct EolScoreVisuals {
     pub time: SpriteFrame,
     pub under: SpriteFrame,
     pub digits: Vec<SpriteFrame>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EolHologramVisuals {
+    pub palette: Palette,
+    pub tile_sheet: TileSheet,
+    pub rows: Vec<Vec<TileRef>>,
 }
 
 /// Enemy sprite visuals keyed by object_type (0x00..0x22).

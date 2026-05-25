@@ -20,9 +20,9 @@ pub use level::{
 };
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
-    AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
-    LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
-    PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
+    FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -41,6 +41,8 @@ mod tests {
     const LEVEL_ID: u8 = 0x00;
     const CAVE_THEME_ID: u8 = 0x08;
     const FOREST_THEME_ID: u8 = 0x09;
+    const ENIGMA_COMMON_RUN_FIXTURE: &[u8] =
+        &[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D, 0xFF, 0xE0, 0x00];
     const FLOATING_PRIZE_HELMET_FIXTURE_ASSETS: [(&str, &str, &str); 9] = [
         (
             "ingame/artunc_kid/skycutter_mask.bin",
@@ -478,6 +480,34 @@ mod tests {
     }
 
     #[test]
+    fn load_eol_hologram_visuals_returns_loc_c186_tilemap_and_art() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let hologram = visuals
+            .eol_hologram
+            .expect("ASM loc_C186 EOL hologram visuals");
+
+        assert_eq!(
+            hologram.palette.colours.len(),
+            15,
+            "ASM loc_C1BC copies the 15 visible words from Pal_D00C"
+        );
+        assert!(
+            hologram.tile_sheet.tiles.len() > 0x0409,
+            "ASM loc_C140 uploads HoloBlocks at tile $409 after HoloBG at tile $2FB"
+        );
+        assert_eq!(
+            hologram.rows[0][0].tile_index, 0x02FB,
+            "ASM loc_C140 decodes MapEni_CC0E with base tile word $42FB"
+        );
+        assert_eq!(
+            hologram.rows[0][0].palette_line, 0,
+            "the extracted Pal_D00C slice is standalone, so native normalises the ROM line-2 tile words to palette line 0 for rendering"
+        );
+    }
+
+    #[test]
     fn load_title_card_letters_returns_rom_letter_sheet_and_palette() {
         let fixture = TestBundle::new().expect("test bundle");
 
@@ -753,6 +783,21 @@ mod tests {
                         .map(|value| (value % 16) as u8)
                         .collect::<Vec<_>>(),
                 ),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Hologram_background.bin",
+                &direct_copy_saxman(&[0x11; 32 * 2]),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Hologram_blocks.bin",
+                &direct_copy_saxman(&[0x22; 32 * 2]),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/mapeni/hologram_background.bin",
+                ENIGMA_COMMON_RUN_FIXTURE,
             )?;
             write_file(
                 root.path(),
@@ -1163,6 +1208,9 @@ mod tests {
                 ],
                 scene_assets: vec![
                     asset_file(root.path(), "scenes/artcomp/End_level_stats_text.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Hologram_background.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Hologram_blocks.bin"),
+                    asset_file(root.path(), "scenes/mapeni/hologram_background.bin"),
                     asset_file(root.path(), "scenes/palette/Score_screen.bin"),
                     asset_file(root.path(), "scenes/artcomp/Title_card_letters.bin"),
                     asset_file(root.path(), "scenes/palette/Title_card_letters.bin"),

@@ -1859,7 +1859,7 @@ mod tests {
     }
 
     #[test]
-    fn level_complete_replaces_playfield_with_hologram_room_after_flag_hibernate() {
+    fn level_complete_draws_hologram_scroll_b_after_flag_hibernate() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
@@ -1880,7 +1880,42 @@ mod tests {
                     colour: [255, 112, 0],
                 } if *width == NATIVE_FRAME_WIDTH as i32
             )),
-            "ASM loc_C186 should replace gameplay terrain with the orange EOL hologram room after the flag hibernate"
+            "ASM loc_C186 should draw the orange EOL hologram room after the flag hibernate"
+        );
+    }
+
+    #[test]
+    fn level_complete_hologram_uses_mapeni_cc0e_tiles_when_loaded_and_keeps_scroll_a() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(2);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 112, 0)],
+            },
+            tile_sheet,
+            rows: vec![vec![TileRef::from_attr_word(0x0001)]],
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 1
+            )),
+            "ASM loc_C186 should draw decoded MapEni_CC0E tile words when EOL hologram art is loaded"
+        );
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::IndexedTile { tile, .. } if tile.tile_index == 12
+            )),
+            "ASM loc_C186 writes Scroll B only; existing Scroll A terrain must stay visible over the hologram"
         );
     }
 
@@ -2698,6 +2733,7 @@ mod tests {
             lava: None,
             platforms: sample_platform_visuals(),
             eol_score: Some(sample_eol_score_visuals()),
+            eol_hologram: None,
             title_card_letters: None,
         }
     }

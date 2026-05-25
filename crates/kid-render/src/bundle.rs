@@ -7,11 +7,11 @@ use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
-    AnimatedSpriteVisual, EnemyVisuals, EolScoreVisuals, FlagVisuals, FloatingPrizeVisuals,
-    LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
-    PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
+    FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
-use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
+use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
     AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
@@ -42,6 +42,12 @@ const MURDER_WALL_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
 const LAVA_ART_PATH: &str = "artcomp/Lava.bin";
 const LAVA_PALETTE_PATH: &str = "palette/lava.bin";
 const LAVA_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
+const EOL_HOLOGRAM_BACKGROUND_ART_PATH: &str = "artcomp/Hologram_background.bin";
+const EOL_HOLOGRAM_BLOCKS_ART_PATH: &str = "artcomp/Hologram_blocks.bin";
+const EOL_HOLOGRAM_TILEMAP_PATH: &str = "mapeni/hologram_background.bin";
+const EOL_HOLOGRAM_PALETTE_PATH: &str = "palette/Score_screen.bin";
+const EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
+const EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX: u16 = 0x0409;
 // Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
 const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
@@ -117,6 +123,12 @@ pub struct NativeLevelVisuals {
     /// ASM `loc_D55E` / `Load_Object_EOL_Text` / `Load_Object_EOL_Number`
     /// draw score-screen labels and digits from `End_level_stats_text`.
     pub eol_score: Option<EolScoreVisuals>,
+    /// ASM `CharacterCollision_TouchFlagpole` `loc_C186` decodes
+    /// `MapEni_CC0E` with base `$42FB` and uploads 40 words per row to Scroll
+    /// B. The paired art is `Hologram_background` at VRAM tile `$2FB` and
+    /// `Hologram_blocks` at tile `$409`; native keeps the absolute tile
+    /// indices so the renderer follows the ROM nametable directly.
+    pub eol_hologram: Option<EolHologramVisuals>,
     /// ASM `Load_TitleCard` `loc_1AB26` (kid.asm:28750) decompresses
     /// `ArtComp_19C68_TtlCardLetters` to VRAM tile `$8120` and copies
     /// `Pal_19C48` (16 colours, palette line 1) before the per-glyph
@@ -350,6 +362,12 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             }
             None
         }),
+        eol_hologram: load_eol_hologram_visuals(manifest).unwrap_or_else(|err| {
+            if !cfg!(test) {
+                eprintln!("warning: end-of-level hologram art unavailable: {err}");
+            }
+            None
+        }),
         title_card_letters: load_title_card_letters_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: title card letter art unavailable: {err}");
@@ -497,6 +515,97 @@ fn load_eol_score_visuals(manifest: &AssetManifest) -> Result<Option<EolScoreVis
             frame(fd(0x016, 0x00, 0x00, 0x0B, 0x0B)),
             frame(fd(0x061, 0x00, 0x00, 0x0B, 0x0B)),
         ],
+    }))
+}
+
+fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHologramVisuals>> {
+    let scenes_root = manifest.output_root.join("scenes");
+    let background_path = scenes_root.join(EOL_HOLOGRAM_BACKGROUND_ART_PATH);
+    let blocks_path = scenes_root.join(EOL_HOLOGRAM_BLOCKS_ART_PATH);
+    let tilemap_path = scenes_root.join(EOL_HOLOGRAM_TILEMAP_PATH);
+    let palette_path = scenes_root.join(EOL_HOLOGRAM_PALETTE_PATH);
+    if !background_path.is_file()
+        || !blocks_path.is_file()
+        || !tilemap_path.is_file()
+        || !palette_path.is_file()
+    {
+        return Ok(None);
+    }
+
+    let background_compressed = fs::read(&background_path).with_context(|| {
+        format!(
+            "failed to read EOL hologram background art: {}",
+            background_path.display()
+        )
+    })?;
+    let background_bytes = decode_saxman(&background_compressed)
+        .context("failed to decompress EOL hologram background art")?;
+    let background_tiles = TileSheet::from_4bpp_bytes(&background_bytes)
+        .context("failed to parse EOL hologram background tiles")?;
+
+    let blocks_compressed = fs::read(&blocks_path).with_context(|| {
+        format!(
+            "failed to read EOL hologram block art: {}",
+            blocks_path.display()
+        )
+    })?;
+    let blocks_bytes =
+        decode_saxman(&blocks_compressed).context("failed to decompress EOL hologram block art")?;
+    let block_tiles = TileSheet::from_4bpp_bytes(&blocks_bytes)
+        .context("failed to parse EOL hologram block tiles")?;
+
+    let mut tiles = vec![
+        Tile { pixels: [0; 64] };
+        usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX)
+            + block_tiles.tiles.len()
+    ];
+    for (index, tile) in background_tiles.tiles.into_iter().enumerate() {
+        let dest = usize::from(EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX) + index;
+        if dest < tiles.len() {
+            tiles[dest] = tile;
+        }
+    }
+    for (index, tile) in block_tiles.tiles.into_iter().enumerate() {
+        let dest = usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX) + index;
+        tiles[dest] = tile;
+    }
+
+    let tilemap_raw = fs::read(&tilemap_path).with_context(|| {
+        format!(
+            "failed to read EOL hologram tilemap: {}",
+            tilemap_path.display()
+        )
+    })?;
+    // ASM loc_C140: `move.w #$42FB,d0; lea MapEni_CC0E(pc),a0; jsr EniDec`.
+    let decoded_words =
+        decode_enigma(&tilemap_raw, 0x42FB).context("failed to decode EOL hologram tilemap")?;
+    let rows = decoded_words
+        .chunks(40)
+        .take(28)
+        .map(|row| {
+            row.iter()
+                .copied()
+                .map(|word| TileRef {
+                    palette_line: 0,
+                    ..TileRef::from_attr_word(word)
+                })
+                .collect()
+        })
+        .collect();
+
+    let palette_raw = fs::read(&palette_path).with_context(|| {
+        format!(
+            "failed to read EOL hologram palette: {}",
+            palette_path.display()
+        )
+    })?;
+    let palette =
+        Palette::from_bytes(&palette_raw).context("failed to parse EOL hologram palette")?;
+
+    Ok(Some(EolHologramVisuals {
+        palette,
+        tile_sheet: TileSheet { tiles },
+        rows,
     }))
 }
 
