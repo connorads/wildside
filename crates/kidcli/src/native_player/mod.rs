@@ -1079,8 +1079,8 @@ fn native_bgm_playback_command(
 fn apply_native_bgm_command(gems: &mut GemsAudioEngine, command: NativeBgmPlaybackCommand) {
     match command {
         NativeBgmPlaybackCommand::StopAllAndStart(bgm) => {
-            // GEMSPlay documents command $16 as stop-all and $10 as start
-            // sequence. The ROM's `j_PlaySound` calls rely on GEMS sequence
+            // GEMS command $16 consumes a sequence id byte; $FF means all
+            // sequences. The ROM's `j_PlaySound` calls rely on GEMS sequence
             // allocation to replace music contexts; native playback has to be
             // explicit or the title Ice sequence can keep playing underneath
             // level music and starve SFX channels.

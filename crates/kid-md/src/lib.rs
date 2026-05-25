@@ -2638,13 +2638,14 @@ impl GemsAudioEngine {
         self.queue_byte(sound_id);
     }
 
-    /// Stop all currently running sequences (GEMS command $16).
+    /// Stop all currently running sequences (GEMS command $16 with sequence $FF).
     pub fn stop_all_sequences(&mut self) {
         if !self.initialised {
             self.init();
         }
         self.queue_byte(0xFF);
         self.queue_byte(0x16);
+        self.queue_byte(0xFF);
     }
 
     /// Advance Z80 by one frame's worth of cycles.
@@ -3148,11 +3149,33 @@ mod tests {
         engine.init();
         engine.stop_all_sequences();
 
-        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..16];
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
         assert_eq!(
-            &queue[14..16],
-            [0xFF, 0x16],
-            "GEMSPlay documents command $16 as stop-all; native BGM transitions need it so the title sequence cannot carry into gameplay"
+            &queue[14..17],
+            [0xFF, 0x16, 0xFF],
+            "GEMS driver command $16 reads one more byte as the sequence id; $FF means stop all sequences"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_all_then_play_sound_keeps_start_command_intact() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+        engine.stop_all_sequences();
+        engine.play_sound(0x07);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..20];
+        assert_eq!(
+            &queue[14..20],
+            [0xFF, 0x16, 0xFF, 0xFF, 0x10, 0x07],
+            "ASM/GEMS command $16 consumes a sequence id byte; without the $FF id, the following PlaySound command marker is swallowed and level BGM never starts"
         );
     }
 }
