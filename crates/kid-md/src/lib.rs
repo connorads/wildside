@@ -2638,6 +2638,15 @@ impl GemsAudioEngine {
         self.queue_byte(sound_id);
     }
 
+    /// Stop all currently running sequences (GEMS command $16).
+    pub fn stop_all_sequences(&mut self) {
+        if !self.initialised {
+            self.init();
+        }
+        self.queue_byte(0xFF);
+        self.queue_byte(0x16);
+    }
+
     /// Advance Z80 by one frame's worth of cycles.
     /// Call once per game frame (60 Hz).
     pub fn step_frame(&mut self) {
@@ -3124,5 +3133,26 @@ mod tests {
         engine.step_frame();
         let output = engine.generate_samples(735);
         assert_eq!(output.len(), 735 * 2);
+    }
+
+    #[test]
+    fn gems_engine_stop_all_sequences_queues_command_16() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+        engine.stop_all_sequences();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..16];
+        assert_eq!(
+            &queue[14..16],
+            [0xFF, 0x16],
+            "GEMSPlay documents command $16 as stop-all; native BGM transitions need it so the title sequence cannot carry into gameplay"
+        );
     }
 }

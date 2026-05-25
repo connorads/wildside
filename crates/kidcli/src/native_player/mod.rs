@@ -421,6 +421,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             runtime = initialise_runtime(manifest, &session_assets, options);
             trace = runtime.trace_frame();
             current_level_id = trace.current_level.0;
+            active_bgm_cue = None;
             level_card_frames_remaining = 0;
             suppress_level_card_for_debug_warp = false;
         } else {
@@ -466,6 +467,44 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
+        // Trigger BGM before stepping audio so title/level transitions do not
+        // emit one more frame of stale music.
+        let level_changed = trace.current_level.0 != current_level_id;
+        if level_changed {
+            let new_level = trace.current_level.0;
+            // Reload presentation assets only — engine already set up the new level
+            // (advance_level calls reload_block_grid_for_level internally)
+            match load_native_session_assets(manifest, new_level) {
+                Ok(new_assets) => {
+                    session_assets = new_assets;
+                    current_level_id = new_level;
+                }
+                Err(error) => {
+                    eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
+                }
+            }
+            fade_alpha = 255;
+            fading_in = true;
+            if should_start_native_level_card_overlay_for_level_change(
+                &trace,
+                options.warp_level,
+                options.settled,
+                suppress_level_card_for_debug_warp,
+            ) {
+                level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
+            }
+            suppress_level_card_for_debug_warp = false;
+        }
+        if let Some((cue, command)) = native_bgm_playback_command(manifest, &trace, active_bgm_cue)
+        {
+            if let Some(ref mut gems) = gems_engine {
+                apply_native_bgm_command(gems, command);
+            }
+            active_bgm_cue = Some(cue);
+        } else if native_bgm_cue_for_trace(&trace).is_none() {
+            active_bgm_cue = None;
+        }
+
         let should_capture_audio = options.record_to.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
@@ -486,43 +525,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     let _ = aq.queue_audio(&samples);
                 }
             }
-        }
-
-        // Trigger BGM when entering a ROM music context or changing levels.
-        let level_changed = trace.current_level.0 != current_level_id;
-        let bgm_cue = native_bgm_cue_for_trace(&trace);
-        if level_changed || bgm_cue != active_bgm_cue {
-            let new_level = trace.current_level.0;
-            if level_changed {
-                // Reload presentation assets only — engine already set up the new level
-                // (advance_level calls reload_block_grid_for_level internally)
-                match load_native_session_assets(manifest, new_level) {
-                    Ok(new_assets) => {
-                        session_assets = new_assets;
-                        current_level_id = new_level;
-                    }
-                    Err(error) => {
-                        eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
-                    }
-                }
-                fade_alpha = 255;
-                fading_in = true;
-                if should_start_native_level_card_overlay_for_level_change(
-                    &trace,
-                    options.warp_level,
-                    options.settled,
-                    suppress_level_card_for_debug_warp,
-                ) {
-                    level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
-                }
-                suppress_level_card_for_debug_warp = false;
-            }
-            if let Some(ref mut gems) = gems_engine
-                && let Some(bgm) = bgm_cue.and_then(|cue| bgm_for_native_cue(manifest, cue))
-            {
-                gems.play_sound(bgm);
-            }
-            active_bgm_cue = bgm_cue;
         }
 
         let render_trace = if level_card_frames_remaining > 0 {
@@ -1043,6 +1045,11 @@ enum NativeBgmCue {
     ScoreBoard,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeBgmPlaybackCommand {
+    StopAllAndStart(u8),
+}
+
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
     match trace.game_mode {
         GameMode::TitleScreen | GameMode::OptionsMenu => Some(NativeBgmCue::TitleShell),
@@ -1053,6 +1060,33 @@ fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
         }
         GameMode::InGame | GameMode::DemoPlay => Some(NativeBgmCue::Level(trace.current_level)),
         _ => None,
+    }
+}
+
+fn native_bgm_playback_command(
+    manifest: &AssetManifest,
+    trace: &NativeTraceFrame,
+    active_bgm_cue: Option<NativeBgmCue>,
+) -> Option<(NativeBgmCue, NativeBgmPlaybackCommand)> {
+    let cue = native_bgm_cue_for_trace(trace)?;
+    if Some(cue) == active_bgm_cue {
+        return None;
+    }
+    let bgm = bgm_for_native_cue(manifest, cue)?;
+    Some((cue, NativeBgmPlaybackCommand::StopAllAndStart(bgm)))
+}
+
+fn apply_native_bgm_command(gems: &mut GemsAudioEngine, command: NativeBgmPlaybackCommand) {
+    match command {
+        NativeBgmPlaybackCommand::StopAllAndStart(bgm) => {
+            // GEMSPlay documents command $16 as stop-all and $10 as start
+            // sequence. The ROM's `j_PlaySound` calls rely on GEMS sequence
+            // allocation to replace music contexts; native playback has to be
+            // explicit or the title Ice sequence can keep playing underneath
+            // level music and starve SFX channels.
+            gems.stop_all_sequences();
+            gems.play_sound(bgm);
+        }
     }
 }
 
@@ -6095,6 +6129,40 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::CAVE),
             "fixture level theme 0x08 should still route through ASM loc_12004 / unk_1201E"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_bgm_transition_stops_previous_sequence_before_starting_level_music()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            native_bgm_playback_command(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
+            Some((
+                NativeBgmCue::Level(LevelId(0)),
+                NativeBgmPlaybackCommand::StopAllAndStart(gems_bgm::CAVE),
+            )),
+            "GEMS command $10 starts a sequence without stopping older music; title-to-gameplay must queue stop-all before the level BGM"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_bgm_transition_does_not_restart_same_context() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            native_bgm_playback_command(
+                &fixture.manifest,
+                &trace,
+                Some(NativeBgmCue::Level(LevelId(0)))
+            ),
+            None,
+            "steady gameplay should not spam stop/start commands every frame"
         );
         Ok(())
     }
