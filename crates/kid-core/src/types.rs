@@ -1143,6 +1143,9 @@ pub struct NativeTraceFrame {
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
     #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
     pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
+    /// Prize-block spawn flash effects: (x_px, y_px, remaining_frames).
+    #[serde(default)]
+    pub prize_block_spawn_flashes: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
@@ -1296,6 +1299,7 @@ impl Default for NativeTraceFrame {
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
+            prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             death_windup_elapsed: 0,
@@ -1411,6 +1415,13 @@ pub(crate) struct PrizeBlockWorkerTail {
     pub(crate) cell_x: u16,
     pub(crate) cell_y: u16,
     pub(crate) content: Option<terrain::PrizeContent>,
+    pub(crate) remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PrizeBlockSpawnFlash {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
     pub(crate) remaining: u8,
 }
 

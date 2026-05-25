@@ -881,6 +881,7 @@ mod tests {
             block_bounces: Vec::new(),
             floating_items: Vec::new(),
             block_destroy_effects: Vec::new(),
+            prize_block_spawn_flashes: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,

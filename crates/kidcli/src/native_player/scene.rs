@@ -11,6 +11,9 @@ const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
+const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
+const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
+    [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
 const BLOCK_DEBRIS_BASE_X_SUB_292E: [i16; 5] = [0, 0, 8, 8, 4];
 const BLOCK_DEBRIS_BASE_Y_SUB_292E: [i16; 5] = [0, 8, 8, 0, 4];
@@ -1629,6 +1632,51 @@ fn push_prize_block_wobble_sub_1007a(
     push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
 }
 
+fn prize_block_spawn_flash_frame_loc_102b8(
+    level_visuals: &NativeLevelVisuals,
+    remaining: u8,
+) -> Option<kid_render::SpriteFrame> {
+    let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
+    let mut frame_start = 0_u8;
+    // ASM loc_102B8/stru_102DE (kid.asm:21578) initialises four 24x24 sprite
+    // frames at block-art VRAM tiles $2CF, $2D8, $2E1, and $2EA.
+    for (duration, vram_tile) in PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE {
+        let frame_end = frame_start.saturating_add(duration);
+        if elapsed < frame_end || frame_end == 24 {
+            let tile_base_index = vram_tile.checked_sub(BLOCK_TILE_VRAM_BASE)?;
+            if usize::from(tile_base_index.saturating_add(8))
+                >= level_visuals.block_tiles.tiles.len()
+            {
+                return None;
+            }
+            return Some(kid_render::SpriteFrame {
+                origin_x: 0x0C,
+                origin_y: 0x0C,
+                width_px: 0x18,
+                height_px: 0x18,
+                tile_base_index,
+                tile_sheet: level_visuals.block_tiles.clone(),
+            });
+        }
+        frame_start = frame_end;
+    }
+    None
+}
+
+fn push_prize_block_spawn_flash_loc_102b8(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x: i32,
+    y: i32,
+    remaining: u8,
+) -> bool {
+    let Some(frame) = prize_block_spawn_flash_frame_loc_102b8(level_visuals, remaining) else {
+        return false;
+    };
+    push_sprite_frame(commands, &frame, &level_visuals.palettes.foreground, x, y);
+    true
+}
+
 pub(super) fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -2080,6 +2128,20 @@ fn build_game_scene_filtered(
                 height: 6,
                 colour: [180, 150, 110],
             });
+        }
+
+        for &(x_px, y_px, remaining) in &trace.prize_block_spawn_flashes {
+            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            let screen_x = i32::from(x_px) - camera_x_px;
+            let screen_y = i32::from(y_px) - camera_y_px;
+            push_prize_block_spawn_flash_loc_102b8(
+                &mut commands,
+                level_visuals,
+                screen_x,
+                screen_y,
+                remaining,
+            );
         }
 
         // Floating prize items: small coloured shape rising upward

@@ -104,10 +104,9 @@ pub struct NativeRuntime {
     /// wobble table has finished but before the coroutine's spawn hand-off
     /// deletes its object/gfx allocation.
     prize_block_worker_tails: Vec<PrizeBlockWorkerTail>,
-    /// ASM loc_102B8 count-only flash workers spawned by sub_1007A. Native
-    /// does not render the flash yet, but the object/gfx allocation affects
-    /// TAS trace counts during `stru_102DE`.
-    prize_block_spawn_flashes: Vec<u8>,
+    /// ASM loc_102B8 flash workers spawned by sub_1007A. Their position comes
+    /// from `cell_x * 16 + 8`, `cell_y * 16 - 8`, matching the ROM object.
+    prize_block_spawn_flashes: Vec<PrizeBlockSpawnFlash>,
     /// Block destruction fragment effects.
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// Floating prize items rising from blocks.

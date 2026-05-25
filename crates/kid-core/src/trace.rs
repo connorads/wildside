@@ -2381,7 +2381,13 @@ mod tests {
                 prize_content: None,
                 y_offset_px: 0,
             }));
-        runtime.prize_block_spawn_flashes.extend([1, 1, 1]);
+        runtime
+            .prize_block_spawn_flashes
+            .extend((0..3).map(|x_px| PrizeBlockSpawnFlash {
+                x_px,
+                y_px: 0,
+                remaining: 1,
+            }));
         runtime
             .block_destroy_effects
             .extend((0..5).map(|x_px| BlockDestroyEffect {
@@ -4825,6 +4831,11 @@ impl NativeRuntime {
                 .block_destroy_effects
                 .iter()
                 .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
+                .collect(),
+            prize_block_spawn_flashes: self
+                .prize_block_spawn_flashes
+                .iter()
+                .map(|f| (f.x_px, f.y_px, f.remaining))
                 .collect(),
             floating_items: self
                 .floating_items

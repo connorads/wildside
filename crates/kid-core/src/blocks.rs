@@ -2299,8 +2299,15 @@ impl NativeRuntime {
                                 // ASM sub_1007A reaches the post-wobble
                                 // animation/spawn hand-off while the original
                                 // #$2001 object/gfx allocation is still live.
-                                self.prize_block_spawn_flashes
-                                    .push(Self::PRIZE_BLOCK_SPAWN_FLASH_FRAMES);
+                                self.prize_block_spawn_flashes.push(PrizeBlockSpawnFlash {
+                                    // ASM sub_1007A (kid.asm:21512): after
+                                    // spawning loc_102B8, d1/d2 are converted
+                                    // to gfx coords with `lsl #4`, `+8` x and
+                                    // `-8` y before `stru_102DE` starts.
+                                    x_px: entry.col.saturating_mul(16).saturating_add(8),
+                                    y_px: entry.row.saturating_mul(16).saturating_sub(8),
+                                    remaining: Self::PRIZE_BLOCK_SPAWN_FLASH_FRAMES,
+                                });
                             }
                         }
                         true
@@ -3348,9 +3355,10 @@ impl NativeRuntime {
             .extend(finished_prize_bounce_tail_frames);
 
         for flash in &mut self.prize_block_spawn_flashes {
-            *flash = flash.saturating_sub(1);
+            flash.remaining = flash.remaining.saturating_sub(1);
         }
-        self.prize_block_spawn_flashes.retain(|flash| *flash > 0);
+        self.prize_block_spawn_flashes
+            .retain(|flash| flash.remaining > 0);
 
         for e in &mut self.block_destroy_effects {
             e.remaining = e.remaining.saturating_sub(1);

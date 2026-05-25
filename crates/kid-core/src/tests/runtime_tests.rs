@@ -8409,6 +8409,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn prize_block_spawn_flash_counts_down_and_is_traced_with_loc_102b8_position() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.prize_block_spawn_flashes.push(PrizeBlockSpawnFlash {
+            x_px: 56,
+            y_px: 24,
+            remaining: 2,
+        });
+
+        let frame = rt.trace_frame();
+        assert_eq!(
+            frame.prize_block_spawn_flashes,
+            vec![(56, 24, 2)],
+            "ASM sub_1007A loc_102B8 flash position must be available to the renderer"
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(rt.prize_block_spawn_flashes[0].remaining, 1);
+
+        rt.step_visual_effects();
+        assert!(
+            rt.prize_block_spawn_flashes.is_empty(),
+            "loc_102B8 flash worker should be removed after stru_102DE finishes"
+        );
+    }
+
+    #[test]
     fn enemy_death_effect_counts_down_and_is_removed() {
         let mut rt = NativeRuntime::new(manifest());
         rt.enemy_death_effects.push(EnemyDeathEffect {

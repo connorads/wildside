@@ -1526,6 +1526,7 @@ mod tests {
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
+            prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
@@ -4015,6 +4016,34 @@ mod tests {
         assert!(
             !has_rect(&scene, 37, 29, 6, 6, [180, 150, 110]),
             "block debris should use ASM sub_292E/sub_2A4C tile sprites when level art is loaded"
+        );
+    }
+
+    #[test]
+    fn prize_block_spawn_flash_uses_loc_102b8_stru_102de_tiles_above_block() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        // ASM sub_1007A places the loc_102B8 flash at cell_x*16+8,
+        // cell_y*16-8. With sample camera (16,8), world (56,24) draws a
+        // 24x24 frame at screen top-left (28,4).
+        trace.prize_block_spawn_flashes = vec![(0x0038, 0x0018, 25)];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let flash = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                tiles,
+                ..
+            } if *x == 28 && *y == 4 && tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        });
+        let tiles = flash.expect("ASM loc_102B8 spawn flash should render as a block-art sprite");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x00AF,
+            "ASM stru_102DE starts at VRAM tile $2CF, i.e. block sheet index $AF",
         );
     }
 
