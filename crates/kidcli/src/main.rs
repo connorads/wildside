@@ -2800,6 +2800,7 @@ AddrTbl_LevelNames:
             character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(true),
+            ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: vec![
                 NativeObjectSnapshot {

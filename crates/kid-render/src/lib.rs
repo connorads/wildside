@@ -214,6 +214,9 @@ mod tests {
         assert_eq!(kid.jump_rise.width_px, 0x16);
         assert_eq!(kid.jump_fall.origin_x, 0x09);
         assert_eq!(kid.jump_fall.width_px, 0x14);
+        assert_eq!(kid.pull_up.len(), 7);
+        assert_eq!(kid.pull_up[0].origin_x, 0x19);
+        assert_eq!(kid.pull_up[0].width_px, 0x1C);
         assert_eq!(kid.idle.tile_base_index, 0);
         assert_eq!(red_stealth.slash_ground.len(), 4);
         assert_eq!(red_stealth.slash_ground[0].origin_x, 0x0E);
@@ -871,6 +874,17 @@ mod tests {
                 "ingame/artunc_kid/kid_jumping_2.bin",
                 &vec![0x32; 32 * 12],
             )?;
+            for (path, tile_count, fill) in [
+                ("ingame/artunc_kid/kid_flip_1.bin", 16, 0x33),
+                ("ingame/artunc_kid/kid_flip_2.bin", 12, 0x34),
+                ("ingame/artunc_kid/kid_flip_3.bin", 16, 0x35),
+                ("ingame/artunc_kid/kid_flip_4.bin", 12, 0x36),
+                ("ingame/artunc_kid/kid_flip_5.bin", 16, 0x37),
+                ("ingame/artunc_kid/kid_flip_6.bin", 16, 0x38),
+                ("ingame/artunc_kid/kid_flip_7.bin", 12, 0x39),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * tile_count])?;
+            }
             write_file(
                 root.path(),
                 "ingame/artunc_kid/iron_knight.bin",
@@ -1180,6 +1194,13 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_7.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_2.bin"),

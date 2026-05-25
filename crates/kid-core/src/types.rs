@@ -1075,6 +1075,9 @@ pub struct NativeTraceFrame {
     pub character_movement: Option<u16>,
     pub kid_facing: Option<Direction>,
     pub kid_on_ground: Option<bool>,
+    /// Remaining frames in ASM `stru_8BB4` wall-grab pull-up animation.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub ledge_snap_cooldown: u8,
     /// Slope direction the player is standing on: 0 = flat, 1 = SlopeUp, -1 = SlopeDown.
     /// ASM sub_9386 / $FFFFFA26: used by renderer for per-column sprite tilt.
     #[serde(default)]
@@ -1258,6 +1261,7 @@ impl Default for NativeTraceFrame {
             character_movement: None,
             kid_facing: None,
             kid_on_ground: None,
+            ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
             camera_x_pos: 0,

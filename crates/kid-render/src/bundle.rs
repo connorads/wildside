@@ -725,6 +725,7 @@ struct PlayerFormSpec {
     slope_walk_left: &'static [PlayerFrameDescriptor],
     jump_rise: PlayerFrameDescriptor,
     jump_fall: PlayerFrameDescriptor,
+    pull_up: &'static [PlayerFrameDescriptor],
     slash_ground: &'static [PlayerFrameDescriptor],
     slash_air: &'static [PlayerFrameDescriptor],
     transform_palette: Option<(&'static str, &'static str)>,
@@ -1449,6 +1450,19 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     width_px: 0x14,
     height_px: 0x20,
 };
+
+// ASM stru_8BB4 (kid.asm:10014): Kid wall-grab pull-up / rollover animation,
+// seven frames, each held for three VBlanks before `loc_ABF0` returns to
+// MoveID_Standingstill.
+const KID_PULL_UP_FRAMES: [PlayerFrameDescriptor; 7] = [
+    pfd("artunc_kid/kid_flip_1.bin", 0x19, 0x0D, 0x1C, 0x1D),
+    pfd("artunc_kid/kid_flip_2.bin", 0x1A, 0x02, 0x20, 0x12),
+    pfd("artunc_kid/kid_flip_3.bin", 0x14, 0x01, 0x1E, 0x19),
+    pfd("artunc_kid/kid_flip_4.bin", 0x08, 0x01, 0x12, 0x1E),
+    pfd("artunc_kid/kid_flip_5.bin", 0x12, 0x01, 0x1F, 0x19),
+    pfd("artunc_kid/kid_flip_6.bin", 0x10, 0x01, 0x1F, 0x18),
+    pfd("artunc_kid/kid_flip_7.bin", 0x07, 0x01, 0x11, 0x1C),
+];
 
 // ASM stru_8B6A / stru_8B74: pre-drawn tilted slope walk frames.
 // Right-facing set (kid_slope_7..12) — dimensions from ROM sprite mappings.
@@ -2627,6 +2641,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: KID_JUMP_RISE_FRAME,
         jump_fall: KID_JUMP_FALL_FRAME,
+        pull_up: &KID_PULL_UP_FRAMES,
         slash_ground: &[],
         slash_air: &[],
         transform_palette: None,
@@ -2642,6 +2657,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: SKYCUTTER_IDLE_FRAME,
         jump_fall: SKYCUTTER_IDLE_FRAME,
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((
@@ -2660,6 +2676,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
         jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((CYCLONE_TRANSFORM_PALETTE_PATH, "Cyclone transform palette")),
@@ -2687,6 +2704,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
             0x15,
             0x25,
         ),
+        pull_up: &[],
         slash_ground: &RED_STEALTH_SLASH_GROUND_FRAMES,
         slash_air: &RED_STEALTH_SLASH_AIR_FRAMES,
         transform_palette: Some((
@@ -2705,6 +2723,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
         jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((
@@ -2723,6 +2742,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
         jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((
@@ -2741,6 +2761,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
         jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((
@@ -2759,6 +2780,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
         jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((MANIAXE_TRANSFORM_PALETTE_PATH, "Maniaxe transform palette")),
@@ -2774,6 +2796,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
         jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
         transform_palette: Some((
@@ -3044,6 +3067,7 @@ fn load_juggernaut_form_visuals_if_present(
                 ),
             ],
         )?,
+        pull_up: Vec::new(),
         slash_ground: Vec::new(),
         slash_air: Vec::new(),
         transform_palette: Some(transform_palette),
@@ -3108,6 +3132,7 @@ fn load_player_form_visuals(
             .collect(),
         jump_rise: load_player_frame(manifest, spec.jump_rise)?,
         jump_fall: load_player_frame(manifest, spec.jump_fall)?,
+        pull_up: load_player_frames(manifest, spec.pull_up)?,
         slash_ground: load_player_frames(manifest, spec.slash_ground)?,
         slash_air: load_player_frames(manifest, spec.slash_air)?,
         transform_palette,

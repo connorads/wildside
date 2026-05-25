@@ -38,6 +38,8 @@ pub struct PlayerFormVisuals {
     pub slope_walk_left: Vec<SpriteFrame>,
     pub jump_rise: SpriteFrame,
     pub jump_fall: SpriteFrame,
+    /// ASM `stru_8BB4`: The Kid wall-grab pull-up / rollover animation.
+    pub pull_up: Vec<SpriteFrame>,
     /// ASM `stru_8B3C` / `unk_B3520..unk_B3CB2`: Red Stealth grounded sword slash.
     pub slash_ground: Vec<SpriteFrame>,
     /// ASM `sub_B270` / `unk_B40DE..unk_B4870`: Red Stealth airborne downward slash.

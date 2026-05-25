@@ -366,6 +366,16 @@ pub(super) fn select_player_frame<'a>(
     let x_velocity = trace.kid_x_velocity.unwrap_or(0);
     let y_velocity = trace.kid_y_velocity.unwrap_or(0);
 
+    if trace.ledge_snap_cooldown > 0 && !player_visuals.pull_up.is_empty() {
+        // ASM loc_ABF0 (kid.asm:13449) starts `stru_8BB4`, then
+        // `Hibernate_UntilAnimFinished` holds seven rollover frames for three
+        // VBlanks each before returning to MoveID_Standingstill.
+        let total = player_visuals.pull_up.len() * 3;
+        let elapsed = total.saturating_sub(usize::from(trace.ledge_snap_cooldown));
+        let frame_index = (elapsed / 3).min(player_visuals.pull_up.len() - 1);
+        return &player_visuals.pull_up[frame_index];
+    }
+
     // ASM sub_B270 loc_B350/loc_B380 (kid.asm:14220-14248): the airborne
     // attack-down counter (`red_stealth_airborne_slash_counter`, 0→$7F)
     // selects one of four downward-slash phases via `counter >> 5`. Native

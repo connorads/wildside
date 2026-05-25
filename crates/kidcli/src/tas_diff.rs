@@ -823,6 +823,7 @@ mod tests {
             character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(false),
+            ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,

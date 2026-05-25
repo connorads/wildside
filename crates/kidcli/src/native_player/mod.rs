@@ -1476,6 +1476,7 @@ mod tests {
             character_movement: None,
             kid_facing: Some(Direction::Right),
             kid_on_ground: Some(true),
+            ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
             camera_x_pos: 0x0010_0000,
@@ -1947,6 +1948,15 @@ mod tests {
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(8),
                 jump_fall: sample_player_frame(9),
+                pull_up: vec![
+                    sample_player_frame(40),
+                    sample_player_frame(41),
+                    sample_player_frame(42),
+                    sample_player_frame(43),
+                    sample_player_frame(44),
+                    sample_player_frame(45),
+                    sample_player_frame(46),
+                ],
                 slash_ground: Vec::new(),
                 slash_air: Vec::new(),
                 transform_palette: None,
@@ -1972,6 +1982,7 @@ mod tests {
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
                 jump_fall: sample_player_frame(18),
+                pull_up: Vec::new(),
                 slash_ground: Vec::new(),
                 slash_air: Vec::new(),
                 transform_palette: Some(Palette {
@@ -2019,6 +2030,7 @@ mod tests {
                 ],
                 jump_rise: sample_player_frame(23),
                 jump_fall: sample_player_frame(24),
+                pull_up: Vec::new(),
                 slash_ground: vec![
                     sample_player_frame(30),
                     sample_player_frame(31),
@@ -4953,7 +4965,7 @@ mod tests {
     }
 
     fn is_player_test_signature(signature: u8) -> bool {
-        (1..=40).contains(&signature)
+        (1..=46).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
@@ -5277,6 +5289,34 @@ mod tests {
         assert_eq!(player_sprite_signature(&jump_rise_scene), Some(8));
         assert_eq!(player_sprite_signature(&jump_fall_scene), Some(9));
         assert!(!has_rect(&idle_scene, 8, 8, 16, 32, PLAYER_COLOUR));
+    }
+
+    #[test]
+    fn wall_grab_pullup_cooldown_renders_stru_8bb4_rollover_frames() {
+        let run_case = |remaining: u8| {
+            let mut trace = trace_with_player(0, 0);
+            trace.kid_x_velocity = Some(0);
+            trace.kid_y_velocity = Some(0);
+            trace.kid_on_ground = Some(true);
+            trace.ledge_snap_cooldown = remaining;
+            player_sprite_signature(&build_ingame_scene(&trace, false, None))
+        };
+
+        assert_eq!(
+            run_case(21),
+            Some(40),
+            "ASM loc_ABF0 starts `stru_8BB4` on kid_flip_1 for the first three VBlanks",
+        );
+        assert_eq!(
+            run_case(18),
+            Some(41),
+            "ASM `stru_8BB4` should advance to kid_flip_2 after three hibernated frames",
+        );
+        assert_eq!(
+            run_case(1),
+            Some(46),
+            "ASM `stru_8BB4` should still show kid_flip_7 on the final cooldown frame",
+        );
     }
 
     #[test]
