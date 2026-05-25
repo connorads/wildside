@@ -7455,7 +7455,84 @@ pub(crate) fn heady_metal_cleanup_sub_378C8(
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+struct LevelCompletionBonusTallyLocD468 {
+    amounts: [u32; 5],
+    count: usize,
+    path_bonus_amount: u32,
+    speed_bonus_awarded: bool,
+}
+
+impl LevelCompletionBonusTallyLocD468 {
+    fn push(&mut self, amount: u32) {
+        self.amounts[self.count] = amount;
+        self.count += 1;
+    }
+
+    fn amounts(&self) -> &[u32] {
+        &self.amounts[..self.count]
+    }
+}
+
 impl NativeRuntime {
+    #[allow(non_snake_case)]
+    fn level_completion_bonus_tally_loc_D468(&self) -> LevelCompletionBonusTallyLocD468 {
+        let mut tally = LevelCompletionBonusTallyLocD468::default();
+
+        tally.push(time_bonus_loc_d56e(self.level_timer.seconds));
+
+        // ASM loc_D5A0: NoHit_Bonus_Flag clear keeps the 5000-point row.
+        if !self.level_damage_taken {
+            tally.push(5000);
+        }
+
+        // ASM loc_D5D2: NoPrize_Bonus_Flag clear keeps the 5000-point row.
+        if !self.level_prize_collected {
+            tally.push(5000);
+        }
+
+        let level_idx = self.current_level.0 as usize;
+        if self.current_level.0 < FIRST_ELSEWHERE_LEVEL_ID {
+            if level_idx < PATH_BONUS_TABLE.len() {
+                let path_mult = PATH_BONUS_TABLE[level_idx] as u32;
+                if path_mult > 0 {
+                    tally.path_bonus_amount = path_mult * 1000;
+                    tally.push(tally.path_bonus_amount);
+                }
+            }
+
+            if let Some(threshold) = speed_bonus_threshold_loc_d660(self.current_level) {
+                let elapsed_secs = LEVEL_TIMER_START_SECONDS
+                    .saturating_sub(self.level_timer.seconds)
+                    .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                let completion_time = elapsed_secs.min(255) as u8;
+                if completion_time <= threshold {
+                    tally.speed_bonus_awarded = true;
+                    tally.push(10_000);
+                }
+            }
+        }
+
+        tally
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn level_complete_sequence_frames_loc_D770(&self) -> usize {
+        // Known fixed waits before the score counter starts:
+        // loc_C070 #$24, Score_Board #$14, loc_D702 #$5A,
+        // loc_D734 eight one-frame fade steps, and loc_D752 #$14. The
+        // flagpole scoreboard reveal scan remains a separate visual fidelity
+        // gap, so this is a conservative lower bound plus the real counter.
+        const FIXED_PRE_COUNTER_FRAMES: usize = 0x24 + 0x14 + 0x5A + 8 + 0x14;
+        let tally = self.level_completion_bonus_tally_loc_D468();
+        let counter = crate::level::eol_score_counter_duration_loc_D770(
+            self.progression.score,
+            tally.amounts(),
+        );
+
+        FIXED_PRE_COUNTER_FRAMES + counter.total_frames
+    }
+
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
     // the contact frame, so the queued native award needs to survive 33 frame
     // starts before the diamond count increments.
@@ -8097,63 +8174,11 @@ impl NativeRuntime {
 
     /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
     pub(crate) fn apply_level_completion_bonuses(&mut self) {
-        // Time bonus matches the ROM EOL tally at kid.asm:16692-16699:
-        //   d0 = secs_low + secs_high*10            ; (0..59)
-        //   d0 += minutes*100                       ; "M:SS" as decimal MSS
-        //   d0 *= 10
-        // i.e. the visible "minutes:seconds" reading interpreted as a
-        // decimal number and multiplied by 10.
-        self.add_score(time_bonus_loc_d56e(self.level_timer.seconds));
-
-        // No-hit bonus: 5000 points if no damage taken during level
-        if !self.level_damage_taken {
-            self.add_score(5000);
-        }
-
-        // ASM loc_D5D2 (kid.asm:16732): NoPrize_Bonus_Flag = 0 means bonus
-        // retained, so the EOL builder adds a 5000-point "No Prize" bonus.
-        if !self.level_prize_collected {
-            self.add_score(5000);
-        }
-
-        // Path and speed bonuses only apply to non-Elsewhere levels (< 0x49 in map order).
-        let level_idx = self.current_level.0 as usize;
-        if self.current_level.0 < FIRST_ELSEWHERE_LEVEL_ID {
-            // ASM loc_D60E (kid.asm:16750): before Elsewhere, index
-            // PathBonus_Values by Current_LevelID and multiply the byte by
-            // 1000; zero skips the Path Bonus object.
-            if level_idx < PATH_BONUS_TABLE.len() {
-                let path_mult = PATH_BONUS_TABLE[level_idx] as u32;
-                if path_mult > 0 {
-                    let path_bonus = path_mult * 1000;
-                    self.add_score(path_bonus);
-                    self.level_path_bonus_amount = path_bonus;
-                }
-            }
-
-            // ASM loc_D660 (kid.asm:16775): before Elsewhere, index
-            // SpeedBonus_Values by Current_LevelID and skip only when
-            // Level_completion_time is strictly greater than the threshold.
-            // Passing the gate allocates the 10,000-point Speed Bonus object.
-            //
-            // ASM loc_C0CC (kid.asm:15687): reconstruct remaining seconds from
-            // `Time_Seconds_low_digit + Time_Seconds_high_digit*$A +
-            // Time_Minutes*$3C`, then `neg.w d0; addi.w #$B4,d0` →
-            // elapsed = 180 - remaining.  `Clocks_collected * $B4` is added.
-            //
-            // ASM loc_C10A (kid.asm:15707): `cmpi.w #$FF,d0; ble.s loc_C10A;
-            // move.w #$FF,d0` caps the value at 255, then
-            // `move.b d0,(Level_completion_time).w` stores the result.
-            if let Some(threshold) = speed_bonus_threshold_loc_d660(self.current_level) {
-                let elapsed_secs = LEVEL_TIMER_START_SECONDS
-                    .saturating_sub(self.level_timer.seconds)
-                    .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
-                let completion_time = elapsed_secs.min(255) as u8;
-                if completion_time <= threshold {
-                    self.add_score(10_000);
-                    self.level_speed_bonus_awarded = true;
-                }
-            }
+        let tally = self.level_completion_bonus_tally_loc_D468();
+        self.level_path_bonus_amount = tally.path_bonus_amount;
+        self.level_speed_bonus_awarded = tally.speed_bonus_awarded;
+        for amount in tally.amounts() {
+            self.add_score(*amount);
         }
     }
 
@@ -9897,11 +9922,10 @@ impl NativeRuntime {
 
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(slice) {
+            let remaining_frames = self.level_complete_sequence_frames_loc_D770();
             self.apply_level_completion_bonuses();
             self.opening_slice = Some(*slice);
-            self.player_lifecycle = PlayerLifecycle::LevelComplete {
-                remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
-            };
+            self.player_lifecycle = PlayerLifecycle::LevelComplete { remaining_frames };
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::FlagTouch;
             return true;
         }

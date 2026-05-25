@@ -16858,6 +16858,14 @@ pub(crate) struct EolScoreCounterLoopTailLocD7E4 {
     pub(crate) chunk_quadrupled: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EolScoreCounterDurationLocD770 {
+    pub(crate) counter_frames: usize,
+    pub(crate) final_wait_frames: usize,
+    pub(crate) awards_extra_life: bool,
+    pub(crate) total_frames: usize,
+}
+
 /// ASM loc_D7E4 (kid.asm:16896): after each score-counter transfer, decrement
 /// the frame-delay word `d1`. A non-zero result loops with the same chunk;
 /// zero resets `d1` to `$78` and quadruples `d2` before looping.
@@ -16880,6 +16888,76 @@ pub(crate) fn eol_score_counter_loop_tail_loc_D7E4(
         frame_delay: 0x0078,
         transfer_chunk: transfer_chunk.wrapping_mul(4),
         chunk_quadrupled: true,
+    }
+}
+
+/// ASM loc_D770-loc_D7F4 (kid.asm:16855-16916): run one score-counter
+/// transfer per hibernated frame, quadrupling the transfer chunk every `$78`
+/// frames, then hibernate for `d0` before routing to Teleport/End_Credits.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_duration_loc_D770(
+    initial_score: u32,
+    bonus_amounts: &[u32],
+) -> EolScoreCounterDurationLocD770 {
+    if bonus_amounts.is_empty() {
+        return EolScoreCounterDurationLocD770 {
+            counter_frames: 0,
+            final_wait_frames: 0,
+            awards_extra_life: false,
+            total_frames: 0,
+        };
+    }
+
+    let mut score = initial_score;
+    let mut active_index = 0usize;
+    let mut active_number_count = bonus_amounts.len() as u16;
+    let mut remaining_amount = bonus_amounts[active_index];
+    let mut frame_delay = 0x78;
+    let mut transfer_chunk = 0x28;
+    let mut counter_frames = 0usize;
+    let mut final_wait_frames = 0x3Cusize;
+    let mut awards_extra_life = false;
+
+    loop {
+        counter_frames += 1;
+        let transfer = eol_score_counter_transfer_chunk_loc_D770(remaining_amount, transfer_chunk);
+        let applied = eol_score_counter_apply_loc_D77E(score, transfer);
+        score = applied.score;
+        if applied.awards_extra_life {
+            // ASM loc_D79E sets d0=$F0 when it spawns the extra-life icon;
+            // loc_D7F4 later uses that same d0 as the final hibernate count.
+            final_wait_frames = 0xF0;
+            awards_extra_life = true;
+        }
+
+        let drain = eol_score_counter_drain_current_number_loc_D7CE(
+            score,
+            remaining_amount,
+            transfer_chunk,
+            active_number_count,
+        );
+        if drain.all_numbers_complete {
+            break;
+        }
+        active_number_count = drain.active_number_count;
+        if drain.advances_to_next_number {
+            active_index += 1;
+            remaining_amount = bonus_amounts[active_index];
+        } else {
+            remaining_amount = drain.remaining_amount;
+        }
+
+        let tail = eol_score_counter_loop_tail_loc_D7E4(frame_delay, transfer_chunk);
+        frame_delay = tail.frame_delay;
+        transfer_chunk = tail.transfer_chunk;
+    }
+
+    EolScoreCounterDurationLocD770 {
+        counter_frames,
+        final_wait_frames,
+        awards_extra_life,
+        total_frames: counter_frames + final_wait_frames,
     }
 }
 

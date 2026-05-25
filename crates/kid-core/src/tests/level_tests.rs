@@ -7761,10 +7761,12 @@ mod chunk_02 {
 
         // Trigger flag touch
         runtime.step_frame(FrameInput::default());
-        assert!(matches!(
-            runtime.player_lifecycle,
-            PlayerLifecycle::LevelComplete { .. }
-        ));
+        let PlayerLifecycle::LevelComplete {
+            remaining_frames: frames_until_advance,
+        } = runtime.player_lifecycle
+        else {
+            panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
+        };
 
         // Record player position — input during LevelComplete should be ignored
         let pos_at_complete = runtime.opening_slice.unwrap().player.x_pos;
@@ -7784,8 +7786,8 @@ mod chunk_02 {
         // Still on level 0 during pause
         assert_eq!(runtime.current_level, LevelId(0));
 
-        // Advance through remaining LevelComplete frames
-        for _ in 0..LEVEL_COMPLETE_PAUSE_FRAMES {
+        // Advance through remaining LevelComplete frames.
+        for _ in 0..frames_until_advance {
             runtime.step_frame(FrameInput::default());
         }
 
@@ -7818,6 +7820,45 @@ mod chunk_02 {
         // Camera snaps to screen boundary: floor(pos / screen) * screen
         // floor(0x751 / 320) * 320 = 1600 = 0x640
         assert_eq!(slice.camera.x_pos, 0x0640_0000);
+    }
+
+    #[test]
+    fn level_complete_waits_for_eol_score_counter_before_advancing_loc_d770() {
+        const OLD_FIXED_LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120;
+
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        let PlayerLifecycle::LevelComplete { remaining_frames } = runtime.player_lifecycle else {
+            panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
+        };
+        assert!(
+            remaining_frames > OLD_FIXED_LEVEL_COMPLETE_PAUSE_FRAMES,
+            "ASM loc_D770-loc_D7F4 score-counter drain should extend the level-complete sequence beyond the old fixed pause"
+        );
+
+        for _ in 0..OLD_FIXED_LEVEL_COMPLETE_PAUSE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.current_level,
+            LevelId(0),
+            "runtime should still be draining/displaying the ROM EOL score counter after the old fixed pause"
+        );
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ));
     }
 
     #[test]
