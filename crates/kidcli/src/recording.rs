@@ -332,7 +332,14 @@ pub(crate) fn run_recorded_trace(
             script_index += 1;
             let previous_trace = trace.clone();
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
-            let recorded_frame = trace.clone();
+            let mut recorded_frame = trace.clone();
+            if start.settled && start.warp_level.is_some() {
+                // The oracle reaches settled warp recordings through the ROM
+                // level-skip cheat and leaves `LevelSkip_Cheat` armed. Preserve
+                // that reduced-scenario visual state so ASM loc_D468's
+                // completion-time digit sprites can be rendered.
+                recorded_frame.level_skip_cheat_enabled = 1;
+            }
 
             // Show level card when the engine first enters gameplay
             let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
@@ -1257,6 +1264,9 @@ mod tests {
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
             level_complete_initial_score: 0,
+            level_complete_score_rows_started: 0,
+            level_completion_time: 0,
+            level_skip_cheat_enabled: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,

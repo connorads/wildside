@@ -4743,6 +4743,19 @@ impl NativeRuntime {
                 }
                 _ => 0,
             },
+            level_complete_score_rows_started: match self.player_lifecycle {
+                PlayerLifecycle::LevelComplete {
+                    remaining_frames,
+                    total_frames,
+                } => {
+                    let elapsed = total_frames.saturating_sub(remaining_frames);
+                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
+                    let setup_frame =
+                        crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + reveal_frames;
+                    u8::from(elapsed.saturating_add(1) >= setup_frame)
+                }
+                _ => 0,
+            },
             level_complete_score_counter_elapsed_frames: match self.player_lifecycle {
                 PlayerLifecycle::LevelComplete {
                     remaining_frames,
@@ -4760,6 +4773,13 @@ impl NativeRuntime {
                 PlayerLifecycle::LevelComplete { .. } => self.level_complete_initial_score,
                 _ => 0,
             },
+            level_completion_time: {
+                let elapsed_secs = LEVEL_TIMER_START_SECONDS
+                    .saturating_sub(self.level_timer.seconds)
+                    .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                elapsed_secs.min(255) as u8
+            },
+            level_skip_cheat_enabled: 0,
             game_over: matches!(
                 self.player_lifecycle,
                 PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }

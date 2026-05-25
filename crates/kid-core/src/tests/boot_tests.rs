@@ -2327,6 +2327,33 @@ mod chunk_01 {
         );
     }
 
+    /// ASM Score_Board (kid.asm:15808): after the `loc_C21E` tile reveal
+    /// finishes, the ROM hibernates for `$14` frames before playing
+    /// `bgm_Score_Board` and entering `loc_D468`. Native keeps that wait in
+    /// the score-counter duration, while the renderer row-worker clock is
+    /// normalised to the oracle-visible row fly-in frame.
+    #[test]
+    #[allow(non_snake_case)]
+    fn score_board_bgm_wait_stays_out_of_visible_row_clock_but_in_counter_clock() {
+        assert_eq!(
+            EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
+            usize::from(TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070)
+                + EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC,
+            "native row fly-in trace clock should not include the Score_Board `$14` wait"
+        );
+        assert_eq!(
+            EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E, 0x14,
+            "ASM Score_Board hibernates `$14` frames before loc_D468"
+        );
+        assert_eq!(
+            EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
+            EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+                + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
+                + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
+            "the score counter still starts after Score_Board `$14`, loc_D702 `$5A`, loc_D734 eight fade frames, and loc_D752 `$14`"
+        );
+    }
+
     /// ASM loc_C21E: an empty 320x224 screen rectangle is 20x14 tiles, and
     /// empty cells cost 2 budget units. With `d7=$C`, each outer hibernate
     /// pass reveals seven empty cells, so 280 cells take 40 frames.

@@ -1568,6 +1568,9 @@ mod tests {
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
             level_complete_initial_score: 0,
+            level_complete_score_rows_started: 0,
+            level_completion_time: 0,
+            level_skip_cheat_enabled: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
@@ -2070,6 +2073,38 @@ mod tests {
             eol_number_digits_at(&scene, 178),
             eol_expected_digits(1_000 + 0x28),
             "ASM loc_D17E clears live score, but loc_D77E should draw from the copied EOL score seed"
+        );
+    }
+
+    #[test]
+    fn level_complete_overlay_draws_level_skip_time_digits_loc_d47e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_skip_cheat_enabled = 1;
+        trace.level_complete_score_rows_started = 1;
+        trace.level_completion_time = 1;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let digits = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x, y, tile_sheet, ..
+                } if *y == 210 && matches!(*x, 260 | 272 | 284) => tile_sheet
+                    .tiles
+                    .first()
+                    .and_then(|tile| tile.pixels[0].checked_sub(130))
+                    .map(|digit| (*x, digit)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            digits,
+            vec![(284, 1), (272, 0), (260, 0)],
+            "ASM loc_D47E should render Level_completion_time ones/tens/hundreds at x=$11C,$110,$104 before ordinary EOL rows"
         );
     }
 

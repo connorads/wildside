@@ -1440,6 +1440,28 @@ fn push_eol_number_sprites(
     }
 }
 
+fn push_eol_level_skip_time_digits_loc_d47e(
+    commands: &mut Vec<DrawCommand>,
+    eol: &kid_render::EolScoreVisuals,
+    trace: &NativeTraceFrame,
+) {
+    if trace.level_skip_cheat_enabled == 0 || trace.level_complete_score_rows_started == 0 {
+        return;
+    }
+
+    // ASM loc_D468/loc_D47E: when `LevelSkip_Cheat` is set, emit three
+    // completion-time digit gfx objects at camera-relative x `$11C`, `$110`,
+    // `$104`, y `$D4`, consuming ones/tens/hundreds by repeated `divu #$A`.
+    let mut remaining = trace.level_completion_time;
+    for x in [0x11C, 0x110, 0x104] {
+        let digit = remaining % 10;
+        remaining /= 10;
+        if let Some(frame) = eol.digits.get(usize::from(digit)) {
+            push_sprite_frame_top_left(commands, frame, &eol.palette, x, 0xD4 - 2);
+        }
+    }
+}
+
 fn eol_position_loc_c5a2(initial: i32, velocity: i32, timer: usize, elapsed: usize) -> i32 {
     // ASM Object_EOL_Text/Object_EOL_Number loc_C5A2 updates `$64/$68` by
     // `$6C/$70` until `$46` or `$A` reaches zero, then clears velocity and
@@ -1564,6 +1586,8 @@ fn push_eol_score_overlay(
     trace: &NativeTraceFrame,
     eol: &kid_render::EolScoreVisuals,
 ) {
+    push_eol_level_skip_time_digits_loc_d47e(commands, eol, trace);
+
     if trace.level_complete_score_rows_elapsed_frames == 0 {
         return;
     }

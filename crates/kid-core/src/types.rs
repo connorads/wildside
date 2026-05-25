@@ -1107,6 +1107,15 @@ pub struct NativeTraceFrame {
     /// ASM loc_D17E copied score value preserved for EOL score rendering.
     #[serde(default)]
     pub level_complete_initial_score: u32,
+    /// Non-zero once ASM `loc_D468` score-screen row setup has been reached.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub level_complete_score_rows_started: u8,
+    /// ASM loc_C0CC computed `Level_completion_time`, capped at `$FF`.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub level_completion_time: u8,
+    /// Non-zero when ASM `LevelSkip_Cheat` remains armed for the EOL digit path.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub level_skip_cheat_enabled: u8,
     pub game_over: bool,
     /// Continue countdown remaining frames (None if not in continue screen).
     pub continue_countdown: Option<usize>,
@@ -1299,6 +1308,9 @@ impl Default for NativeTraceFrame {
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
             level_complete_initial_score: 0,
+            level_complete_score_rows_started: 0,
+            level_completion_time: 0,
+            level_skip_cheat_enabled: 0,
             game_over: false,
             continue_countdown: None,
             game_complete: false,
