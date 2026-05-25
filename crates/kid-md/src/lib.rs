@@ -2612,11 +2612,11 @@ impl GemsAudioEngine {
         self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)] = next;
     }
 
-    /// Queue a 24-bit ROM address (big-endian, 3 bytes).
+    /// Queue a 24-bit ROM address in the low-to-high order used by ASM sub_E14AC.
     fn queue_24bit_addr(&mut self, addr: u32) {
-        self.queue_byte(((addr >> 16) & 0xFF) as u8);
-        self.queue_byte(((addr >> 8) & 0xFF) as u8);
         self.queue_byte((addr & 0xFF) as u8);
+        self.queue_byte(((addr >> 8) & 0xFF) as u8);
+        self.queue_byte(((addr >> 16) & 0xFF) as u8);
     }
 
     /// Play a sound effect by ID (GEMS command $10).
@@ -2687,9 +2687,9 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, MdRuntime, WORK_RAM_BASE,
-        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
-        probe_rom, scale_channel,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, GEMS_QUEUE_ADDR, MdBus, MdRuntime,
+        WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
+        cram_rgb, probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -3025,6 +3025,28 @@ mod tests {
             samples.len(),
             735 * 2,
             "should produce stereo interleaved samples"
+        );
+    }
+
+    #[test]
+    fn gems_engine_init_queues_data_pointers_low_to_high_like_sub_e14ac() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..14];
+        assert_eq!(
+            queue,
+            [
+                0xFF, 0x0B, 0x0E, 0x16, 0x0E, 0xEA, 0x25, 0x0E, 0x66, 0x27, 0x0E, 0x16, 0x87, 0x0E,
+            ],
+            "ASM sub_E14AC writes the low byte first, then shifts right before queueing the middle and high bytes",
         );
     }
 
