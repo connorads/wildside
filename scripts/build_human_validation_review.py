@@ -20,12 +20,19 @@ class ReviewImage:
 
 
 @dataclass(frozen=True)
+class ReviewAudio:
+    path: Path
+    caption: str
+
+
+@dataclass(frozen=True)
 class ReviewItem:
     backlog_row: str
     title: str
     verifier: str
     decision: str
     images: tuple[ReviewImage, ...]
+    audio: tuple[ReviewAudio, ...] = ()
     transcripts: tuple[Path, ...] = ()
     note: str | None = None
 
@@ -35,6 +42,35 @@ def repo_path(path: str) -> Path:
 
 
 REVIEW_ITEMS = (
+    ReviewItem(
+        backlog_row="#160",
+        title="Native music and sound effects",
+        verifier=(
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-160-audio-latest-validation --native-only"
+        ),
+        decision=(
+            "Listen for audible native gameplay music/SFX without the title "
+            "music carrying under gameplay."
+        ),
+        images=(),
+        audio=(
+            ReviewAudio(
+                repo_path(
+                    ".cache/recordings/issue-160-audio-latest-validation/audio.wav"
+                ),
+                "Fresh native Level 00 audio capture after the GEMS reset fix",
+            ),
+        ),
+        transcripts=(
+            repo_path(".cache/recordings/issue-160-audio-latest-validation/transcript.txt"),
+        ),
+        note=(
+            "Mechanical check on 2026-05-25: the WAV is 10.00s stereo at "
+            "44.1 kHz, RMS 0.052095, peak 0.367125, with all 100 0.1s "
+            "windows above 0.001 RMS."
+        ),
+    ),
     ReviewItem(
         backlog_row="#135",
         title="Level 1 background",
@@ -268,6 +304,9 @@ def validate_inputs() -> list[Path]:
         for image in item.images:
             if not image.path.is_file():
                 missing.append(image.path)
+        for audio in item.audio:
+            if not audio.path.is_file():
+                missing.append(audio.path)
         for transcript in item.transcripts:
             if not transcript.is_file():
                 missing.append(transcript)
@@ -283,6 +322,17 @@ def render_item(item: ReviewItem, output_dir: Path) -> str:
             f'<a href="{src}"><img src="{src}" alt="{html.escape(image.caption)}"></a>'
             f"<figcaption>{html.escape(image.caption)}"
             f"<br><code>{rel_from_repo(image.path)}</code></figcaption>"
+            "</figure>"
+        )
+
+    audio_html = []
+    for audio in item.audio:
+        src = rel_from_output(audio.path, output_dir)
+        audio_html.append(
+            "<figure>"
+            f'<audio controls preload="metadata" src="{src}"></audio>'
+            f"<figcaption>{html.escape(audio.caption)}"
+            f"<br><code>{rel_from_repo(audio.path)}</code></figcaption>"
             "</figure>"
         )
 
@@ -303,6 +353,9 @@ def render_item(item: ReviewItem, output_dir: Path) -> str:
   {note}
   <div class="images">
     {''.join(image_html)}
+  </div>
+  <div class="audio">
+    {''.join(audio_html)}
   </div>
   <h3>Transcript</h3>
   <ul>{''.join(transcript_links)}</ul>
@@ -344,6 +397,7 @@ def render_html(output_dir: Path) -> str:
       margin: 18px 0;
     }}
     figure {{ margin: 0; }}
+    audio {{ width: 100%; }}
     img {{
       border: 1px solid #9aa7b1;
       image-rendering: pixelated;

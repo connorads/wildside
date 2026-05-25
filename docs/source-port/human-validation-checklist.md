@@ -46,4 +46,4 @@ Open `.cache/human-validation/index.html` after generation.
 
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
-| _none_ | | | |
+| #160 Native music/SFX | `cargo run -q -p kidcli -- verify-recording --slug issue-160-audio-latest-validation --native-only` | `.cache/recordings/issue-160-audio-latest-validation/audio.wav` and `.cache/recordings/issue-160-audio-latest-validation/transcript.txt` | Gameplay has audible music/SFX and the title/menu music does not continue under gameplay. |
