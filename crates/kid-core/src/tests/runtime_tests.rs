@@ -9414,7 +9414,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_drop_terrain_hit_spawns_surface_crawler_loc_335d8() {
+    fn drips_pool_growth_splash_does_not_spawn_surface_crawler_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
         data[(2 * 5 + 2) * 2] = 0xE0;
@@ -9428,6 +9428,42 @@ mod chunk_09 {
             lifetime: DRIPS_DROP_LIFETIME,
             gravity: 0,
             terrain_kill: true,
+            drips_spawn_crawler_on_splash: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_3345C ends the falling child once terrain collision reaches loc_33488",
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
+            "ASM Drips.asm loc_33488 first writes off_33520 pool-growth sprites before loc_335D8 can allocate a crawler",
+        );
+    }
+
+    #[test]
+    fn drips_sentinel_splash_spawns_surface_crawler_loc_335d8() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0xE0;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            gravity: 0,
+            terrain_kill: true,
+            drips_spawn_crawler_on_splash: true,
             ..Default::default()
         });
 
@@ -9522,6 +9558,7 @@ mod chunk_09 {
             y_pos: 0x0020_0000,
             lifetime: DRIPS_DROP_LIFETIME,
             terrain_kill: true,
+            drips_spawn_crawler_on_splash: true,
             ..Default::default()
         });
 

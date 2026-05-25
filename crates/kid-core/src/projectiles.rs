@@ -1557,11 +1557,14 @@ impl NativeRuntime {
                 if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
                     if p.kind == EnemyProjectileKind::DripsDrop {
                         // ASM Drips.asm loc_33488 -> loc_335D8: after the
-                        // falling child splashes, the table sentinel path can
-                        // allocate a hostile surface crawler while
-                        // `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to +/-$3000
-                        // from `Get_RandomNumber_byte` bit 2.
-                        if drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488 {
+                        // first two falling-child splashes, `off_33520`
+                        // writes pool-growth sprites only. The negative
+                        // sentinel path can allocate a hostile surface crawler
+                        // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
+                        // +/-$3000 from `Get_RandomNumber_byte` bit 2.
+                        if p.drips_spawn_crawler_on_splash
+                            && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
+                        {
                             spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(
                                 p,
                                 rom_random.next_byte(),

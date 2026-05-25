@@ -6400,6 +6400,10 @@ pub(crate) struct ActiveEnemy {
     /// the position snaps and this flag flips true, after which the existing
     /// wait/drop cycle runs.
     pub(crate) drips_attached: bool,
+    /// Drips.asm loc_33488 advances through `off_33520` after each splash:
+    /// entries 0 and 1 are pool-growth sprites; entry 2 is the negative
+    /// sentinel that resets via loc_33506 and may allocate loc_335D8.
+    pub(crate) drips_surface_table_index: u8,
     pub(crate) tar_monster_state: TarMonsterState,
     pub(crate) spinning_twins_phase: SpinningTwinsPhase,
     pub(crate) spinning_twins_orbit_index: u8,
@@ -8177,6 +8181,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         orca_state: OrcaState::Walking,
         wall_pinned: false,
         drips_attached: false,
+        drips_surface_table_index: 0,
         tar_monster_state: TarMonsterState::default(),
         spinning_twins_phase: SpinningTwinsPhase::default(),
         spinning_twins_orbit_index: 0,
@@ -8906,6 +8911,7 @@ pub(crate) fn activate_enemies_with_rng(
                 orca_state: OrcaState::Walking,
                 wall_pinned: false,
                 drips_attached: false,
+                drips_surface_table_index: 0,
                 tar_monster_state: TarMonsterState::default(),
                 spinning_twins_phase: SpinningTwinsPhase::default(),
                 spinning_twins_orbit_index: 0,
@@ -9738,6 +9744,7 @@ fn cloud_projectile_spawn_loc_35df0(
         reaim_countdown: 0,
         current_angle: 0,
         terrain_kill: true,
+        drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::Generic,
         diamond_power_rain_tracking_word_3e: 0,
@@ -22028,6 +22035,15 @@ pub(crate) fn step_drips(
         enemy.wait_timer -= 1;
         return;
     }
+    let spawn_crawler_on_splash = if enemy.drips_surface_table_index < 2 {
+        enemy.drips_surface_table_index += 1;
+        false
+    } else {
+        // ASM Drips.asm loc_33488 reaches the negative `off_33520` sentinel,
+        // then loc_33506 resets the cursor before returning to loc_3340E.
+        enemy.drips_surface_table_index = 0;
+        true
+    };
     // ASM Drips.asm loc_33424/loc_3345C: the ROM reuses the preallocated
     // falling child object, starts it from rest, then accelerates downward
     // under `$2000` gravity until it reaches the floor.
@@ -22044,6 +22060,7 @@ pub(crate) fn step_drips(
         speed_cap: 0,
         wall_bounce: false,
         terrain_kill: true,
+        drips_spawn_crawler_on_splash: spawn_crawler_on_splash,
         ..Default::default()
     });
     // ASM loc_3350E branches back to loc_3340E after the drop/splash cycle.
@@ -23583,6 +23600,7 @@ pub(crate) fn step_archer(
         reaim_countdown: reaim,
         current_angle: angle as u8,
         terrain_kill: true,
+        drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::Generic,
         diamond_power_rain_tracking_word_3e: 0,
@@ -24546,6 +24564,7 @@ mod tests {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -33554,6 +33573,7 @@ mod tests {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,

@@ -319,6 +319,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -401,6 +402,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -544,6 +546,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -636,6 +639,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -731,6 +735,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4438,6 +4443,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4507,6 +4513,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4581,6 +4588,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4657,6 +4665,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4796,6 +4805,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4859,6 +4869,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -4933,6 +4944,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5008,6 +5020,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5585,6 +5598,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5653,6 +5667,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5727,6 +5742,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5806,6 +5822,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5893,6 +5910,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5974,6 +5992,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6059,6 +6078,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6146,6 +6166,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6227,6 +6248,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6380,6 +6402,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6443,6 +6466,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -6948,6 +6972,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7041,6 +7066,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7117,6 +7143,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7189,6 +7216,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7270,6 +7298,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7336,6 +7365,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7405,6 +7435,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7506,6 +7537,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -7699,6 +7731,7 @@ mod chunk_04 {
             orca_state: OrcaState::Walking,
             wall_pinned: false,
             drips_attached: false,
+            drips_surface_table_index: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -10142,6 +10175,41 @@ mod chunk_04 {
         assert_eq!(
             enemy.wait_timer, expected_wait_timer,
             "ASM Drips.asm loc_3350E branches back to loc_3340E after a drop, so the next dormant delay must be reseeded from RNG and Kid X",
+        );
+    }
+
+    #[test]
+    fn drips_pool_table_creates_crawler_only_after_two_splashes_loc_33488() {
+        // ASM Drips.asm loc_33488 walks `off_33520`: the first two splashes
+        // write pool sprite entries, then the negative sentinel path resets
+        // through loc_33506 and may allocate the loc_335D8 crawler.
+        let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
+        enemy.drips_attached = true;
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        for _ in 0..3 {
+            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+            enemy.wait_timer = 0;
+        }
+
+        assert_eq!(projectiles.len(), 3);
+        assert!(
+            !projectiles[0].drips_spawn_crawler_on_splash,
+            "ASM off_33520 entry 0 is a pool-growth sprite, not loc_335D8"
+        );
+        assert!(
+            !projectiles[1].drips_spawn_crawler_on_splash,
+            "ASM off_33520 entry 1 is a larger pool-growth sprite, not loc_335D8"
+        );
+        assert!(
+            projectiles[2].drips_spawn_crawler_on_splash,
+            "ASM off_33520 sentinel enters loc_335D8 after two pool-growth splashes"
+        );
+        assert_eq!(
+            enemy.drips_surface_table_index, 0,
+            "ASM loc_33506 resets the off_33520 cursor after the sentinel path"
         );
     }
 

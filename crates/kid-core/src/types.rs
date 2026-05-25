@@ -2253,6 +2253,9 @@ pub(crate) struct EnemyProjectile {
     /// ASM loc_342D6: Archer arrows check `$19(a3)` / `collision_type(a3)`.
     /// ASM loc_8ACC: Maniaxe axes branch to their terrain-hit delete path.
     pub(crate) terrain_kill: bool,
+    /// Drips.asm loc_33488/off_33520: true only for the splash that reaches
+    /// the negative table sentinel and may allocate a loc_335D8 crawler.
+    pub(crate) drips_spawn_crawler_on_splash: bool,
     /// Owning enemy identity for projectiles whose lifecycle feeds back into
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
