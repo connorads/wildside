@@ -707,6 +707,23 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(5)
                 }
             }
+            // ASM Dragon.asm loc_3CEFC runs `stru_3CCEC`: C755E/C75C6
+            // lead into the C7566/C756E smoke/body loop before deletion.
+            0x0D if enemy_visuals.frames.len() >= 10 => select_waited_sequence_frame(
+                remaining,
+                &[
+                    (0x07, 6),
+                    (0x06, 7),
+                    (0x03, 6),
+                    (0x16, 8),
+                    (0x05, 9),
+                    (0x04, 8),
+                    (0x04, 9),
+                    (0x0C, 8),
+                    (0x05, 9),
+                    (0x63, 8),
+                ],
+            ),
             // ASM Cloud.asm loc_35C0E runs `stru_35EBA`: C789E, C78A6,
             // then C78AE for seven ticks each before deletion.
             0x0E if enemy_visuals.frames.len() >= 9 => {
@@ -784,6 +801,17 @@ pub(super) fn select_enemy_frame<'a>(
                 if remaining > 0x0A + 0x2D {
                     Some(6)
                 } else if remaining > 0x2D {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
+            // ASM Lion.asm loc_3E378 runs `stru_3DF48`: C7E38, C7E40,
+            // then C7E48 for ten ticks each before deletion.
+            0x12 if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x0A + 0x0A {
+                    Some(6)
+                } else if remaining > 0x0A {
                     Some(7)
                 } else {
                     Some(8)

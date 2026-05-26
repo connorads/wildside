@@ -1324,6 +1324,12 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x09C, 0x10, 0x00, 0x20, 0x27),
             fd(0x0B0, 0x10, 0x00, 0x20, 0x28),
             fd(0x0C4, 0x10, 0x00, 0x1F, 0x27),
+            // ASM Dragon.asm loc_3CEFC / `stru_3CCEC`: C755E, C75C6,
+            // C7566, C756E are waited death/body frames before deletion.
+            fd(0x000, 0x10, 0x00, 0x20, 0x20),
+            fd(0x0D8, 0x10, 0x00, 0x20, 0x28),
+            fd(0x010, 0x10, 0x00, 0x20, 0x17),
+            fd(0x01C, 0x10, 0x00, 0x20, 0x17),
         ],
     },
     EnemyFamilySpec {
@@ -1409,6 +1415,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x1D8, 0x14, 0x00, 0x2D, 0x2D),
             fd(0x1FC, 0x15, 0x00, 0x28, 0x2E),
             fd(0x21A, 0x15, 0x00, 0x2B, 0x2E),
+            // ASM Lion.asm loc_3E378 / `stru_3DF48`: C7E38, C7E40,
+            // C7E48 are waited death/body frames before deletion.
+            fd(0x00C, 0x17, 0x00, 0x2E, 0x2E),
+            fd(0x030, 0x17, 0x00, 0x31, 0x30),
+            fd(0x05A, 0x17, 0x00, 0x30, 0x30),
         ],
     },
     EnemyFamilySpec {
@@ -4613,6 +4624,11 @@ mod tests {
             "ASM Crab.asm loc_3B094 / stru_3AF82 death frames C7C16/C7C06/C7C0E must be selectable"
         );
         assert_eq!(
+            death_tiles(0x0D, 6..10),
+            vec![0x0000, 0x00D8, 0x0010, 0x001C],
+            "ASM Dragon.asm loc_3CEFC / stru_3CCEC death frames C755E/C75C6/C7566/C756E must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x0A, 3..6),
             vec![0x0000, 0x0010, 0x006C],
             "ASM Tank.asm loc_3B480 / stru_3B29A death frames C7EB8/C7EC0/C7F18 must be selectable"
@@ -4631,6 +4647,11 @@ mod tests {
             death_tiles(0x11, 6..9),
             vec![0x0000, 0x0010, 0x0020],
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x12, 6..9),
+            vec![0x000C, 0x0030, 0x005A],
+            "ASM Lion.asm loc_3E378 / stru_3DF48 death frames C7E38/C7E40/C7E48 must be selectable"
         );
         assert_eq!(
             death_tiles(0x13, 6..9),

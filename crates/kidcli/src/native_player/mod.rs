@@ -3000,6 +3000,27 @@ mod tests {
             },
         );
         families.insert(
+            0x12,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(210, 160, 90)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(50, 0x2C, 0x2D, 0x16C),
+                    sample_object_frame_with_base(51, 0x2C, 0x2E, 0x190),
+                    sample_object_frame_with_base(52, 0x2B, 0x2E, 0x1B4),
+                    sample_object_frame_with_base(53, 0x2D, 0x2D, 0x1D8),
+                    sample_object_frame_with_base(54, 0x28, 0x2E, 0x1FC),
+                    sample_object_frame_with_base(55, 0x2B, 0x2E, 0x21A),
+                    sample_object_frame_with_base(56, 0x2E, 0x2E, 0x00C),
+                    sample_object_frame_with_base(57, 0x31, 0x30, 0x030),
+                    sample_object_frame_with_base(58, 0x30, 0x30, 0x05A),
+                ],
+                frame_duration: 7,
+            },
+        );
+        families.insert(
             0x0C,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -3014,6 +3035,28 @@ mod tests {
                     sample_object_frame(145, 24, 24),
                 ],
                 frame_duration: 7,
+            },
+        );
+        families.insert(
+            0x0D,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(210, 120, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(161, 0x1F, 0x26, 0x060),
+                    sample_object_frame_with_base(162, 0x1F, 0x27, 0x074),
+                    sample_object_frame_with_base(163, 0x20, 0x28, 0x088),
+                    sample_object_frame_with_base(164, 0x20, 0x27, 0x09C),
+                    sample_object_frame_with_base(165, 0x20, 0x28, 0x0B0),
+                    sample_object_frame_with_base(166, 0x1F, 0x27, 0x0C4),
+                    sample_object_frame_with_base(167, 0x20, 0x20, 0x000),
+                    sample_object_frame_with_base(168, 0x20, 0x28, 0x0D8),
+                    sample_object_frame_with_base(169, 0x20, 0x17, 0x010),
+                    sample_object_frame_with_base(170, 0x20, 0x17, 0x01C),
+                ],
+                frame_duration: 9,
             },
         );
         families.insert(
@@ -7110,6 +7153,74 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Tornado.asm loc_359B2 should alternate `stru_35B1E` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn walking_dragon_and_lion_death_snapshots_select_rom_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let walking_dragon_visuals = visuals
+            .enemies
+            .families
+            .get(&0x0D)
+            .expect("walking dragon visuals");
+        for (remaining, signature) in [
+            (167, 167),
+            (160, 168),
+            (154, 167),
+            (151, 169),
+            (129, 170),
+            (124, 169),
+            (120, 170),
+            (116, 169),
+            (104, 170),
+            (99, 169),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Dragon.asm loc_3CEFC should advance `stru_3CCEC` death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x12 };
+        let lion_visuals = visuals.enemies.families.get(&0x12).expect("lion visuals");
+        for (remaining, signature) in [(30, 56), (20, 57), (10, 58)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, lion_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Lion.asm loc_3E378 should advance `stru_3DF48` death frames"
             );
         }
     }
