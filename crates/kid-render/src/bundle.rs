@@ -1318,6 +1318,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         extra_palette_paths: &["palette_enemy/Dragon_2.bin", "palette_enemy/Dragon_3.bin"],
         frame_duration: 7,
         frames: &[
+            // ASM Dragon_Flying.asm loc_3492C runs shared `stru_345E4`:
+            // C8090/C8098/C80A0/C80A8 are two-tick death frames before deletion.
             fd(0x11D, 0x0D, 0x10, 0x2E, 0x1E),
             fd(0x135, 0x0D, 0x10, 0x30, 0x19),
             fd(0x14D, 0x0E, 0x10, 0x2F, 0x1A),
@@ -1538,6 +1540,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         ],
         frame_duration: 6,
         frames: &[
+            // ASM Fireball.asm Enemy19_Fireball_Kill reuses `stru_345E4`:
+            // C8090/C8098/C80A0/C80A8 are two-tick death frames before deletion.
             fd(0x064, 0x07, 0x00, 0x0E, 0x08),
             fd(0x066, 0x07, 0x00, 0x0D, 0x07),
             fd(0x068, 0x06, 0x00, 0x0C, 0x06),
@@ -4648,6 +4652,11 @@ mod tests {
             "ASM Crab.asm loc_3B094 / stru_3AF82 death frames C7C16/C7C06/C7C0E must be selectable"
         );
         assert_eq!(
+            death_tiles(0x0C, 0..4),
+            vec![0x011D, 0x0135, 0x014D, 0x0165],
+            "ASM Dragon_Flying.asm loc_3492C / stru_345E4 death frames C8090/C8098/C80A0/C80A8 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x0D, 6..10),
             vec![0x0000, 0x00D8, 0x0010, 0x001C],
             "ASM Dragon.asm loc_3CEFC / stru_3CCEC death frames C755E/C75C6/C7566/C756E must be selectable"
@@ -4713,6 +4722,11 @@ mod tests {
             "ASM Tornado.asm loc_359B2 / stru_35B1E death frames C783E/C7846 must be selectable"
         );
         assert_eq!(
+            death_tiles(0x19, 0..4),
+            vec![0x0064, 0x0066, 0x0068, 0x006A],
+            "ASM Fireball.asm Enemy19_Fireball_Kill / stru_345E4 death frames C8090/C8098/C80A0/C80A8 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x1A, 2..5),
             vec![0x0024, 0x001C, 0x0020],
             "ASM Driller.asm loc_3BF1C / stru_3BCD4 death frames C80D8/C80C8/C80D0 must be selectable"
@@ -4721,6 +4735,11 @@ mod tests {
             death_tiles(0x1B, 3..8),
             vec![0x0060, 0x007E, 0x0097, 0x00B5, 0x00C5],
             "ASM Emo_Rock.asm loc_36346 / stru_36468 death frames C7F68/C7F70/C7F78/C7F80/C7F88 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x1C, 6..8),
+            vec![0x0020, 0x0024],
+            "ASM Mini_Hopping_Skull.asm loc_3F158 / stru_3E9AC death frames C8040/C8048 must be selectable"
         );
         assert_eq!(
             death_tiles(0x1D, 1..5),
