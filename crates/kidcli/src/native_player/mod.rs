@@ -636,10 +636,17 @@ fn render_vdp_trace_overlay(
     level_visuals: &NativeLevelVisuals,
     frame: &mut [u8],
 ) {
-    if trace.boot_phase.as_deref() != Some("starting_level") {
+    if matches!(
+        trace.game_mode,
+        GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
+    ) {
+        render_intro_vdp_trace_overlay(trace, level_visuals, frame);
         return;
     }
-    if trace.game_mode != GameMode::LevelTransition {
+
+    if trace.boot_phase.as_deref() != Some("starting_level")
+        || trace.game_mode != GameMode::LevelTransition
+    {
         return;
     }
 
@@ -652,6 +659,47 @@ fn render_vdp_trace_overlay(
     if !overlay.commands.is_empty() {
         render_scene_overlay(&overlay, frame);
     }
+}
+
+fn render_intro_vdp_trace_overlay(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    frame: &mut [u8],
+) {
+    let (Some(x_pos), Some(y_pos)) = (trace.kid_x_pos, trace.kid_y_pos) else {
+        return;
+    };
+
+    // ASM Load_IntroSequence3 `loc_1AEEC` / Load_IntroSequence5 `loc_1BCD0`
+    // create live gfx-object poses on top of the VDP-built scene. The core
+    // trace already exposes the oracle-timed `kid_gfx` position; preserve it
+    // when the interactive player takes the VDP render path.
+    let object = NativeObjectSnapshot {
+        kind: NativeObjectKind::Player,
+        x_pos,
+        y_pos,
+        layout_index: None,
+        x_velocity: trace.kid_x_velocity,
+        y_velocity: trace.kid_y_velocity,
+        facing: trace.kid_facing,
+        on_ground: trace.kid_on_ground,
+        hit_points: None,
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: true,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
+    };
+    let mut overlay = Scene {
+        background: [0, 0, 0],
+        commands: Vec::new(),
+    };
+    push_player_sprite(&mut overlay.commands, &object, trace, level_visuals, false);
+    render_scene_overlay(&overlay, frame);
 }
 
 fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
@@ -4305,6 +4353,28 @@ mod tests {
         assert!(
             frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
             "VDP title-card shell should retain the animated title-letter overlay",
+        );
+    }
+
+    #[test]
+    fn vdp_intro_sequence_composites_oracle_timed_kid_pose() {
+        // ASM Load_IntroSequence3 `loc_1AEEC` allocates the visible kid_gfx
+        // descriptors after the VDP background is built. Native trace exposes
+        // that oracle-timed pose through kid_x/kid_y, so the VDP path must
+        // composite it instead of returning the bare tile planes.
+        let mut trace = sample_trace(GameMode::IntroSequence3);
+        trace.kid_x_pos = Some(0x0060_0000);
+        trace.kid_y_pos = Some(0x00D0_0000);
+        trace.kid_facing = Some(Direction::Left);
+        trace.kid_on_ground = Some(true);
+        let visuals = sample_level_visuals();
+        let mut frame = vec![12; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_vdp_trace_overlay(&trace, &visuals, &mut frame);
+
+        assert!(
+            frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
+            "VDP intro sequence shell should retain the ASM loc_1AEEC visible kid_gfx overlay",
         );
     }
 
