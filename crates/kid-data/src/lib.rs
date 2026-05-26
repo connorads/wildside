@@ -3782,23 +3782,18 @@ pub fn title_text_chameleon_tilemap_upload_sub_1B532(
     decoded_words: &[u16],
 ) -> Result<TitleTextChameleonTilemapUploadSub1B532> {
     // ASM sub_1B532 (kid.asm:29782): clear 8 longwords at VRAM $1780, then copy
-    // 28 rows of 64 words from the decoded `unk_2F840` tilemap to VRAM $E000,
-    // skipping one source word between rows via `addq.w #2,a4`.
+    // 28 rows to VRAM $E000. loc_1B568 writes `move.w (a4),(a6)` 64 times
+    // without post-incrementing `a4`; loc_1B56E advances `a4` once per row.
     const ROW_COUNT: usize = 28;
-    const SOURCE_STRIDE_WORDS: usize = 65;
 
-    let required_words = ROW_COUNT * SOURCE_STRIDE_WORDS;
-    if decoded_words.len() < required_words {
+    if decoded_words.len() < ROW_COUNT {
         bail!(
-            "sub_1B532 needs at least {required_words} decoded words for 28 source rows, got {}",
+            "sub_1B532 needs at least {ROW_COUNT} decoded words for 28 source rows, got {}",
             decoded_words.len()
         );
     }
 
-    let rows = core::array::from_fn(|row_index| {
-        let row_start = row_index * SOURCE_STRIDE_WORDS;
-        core::array::from_fn(|column_index| decoded_words[row_start + column_index])
-    });
+    let rows = core::array::from_fn(|row_index| core::array::from_fn(|_| decoded_words[row_index]));
 
     Ok(TitleTextChameleonTilemapUploadSub1B532 {
         clear_vram_word_address: 0x1780,
@@ -7772,10 +7767,10 @@ AddrTbl_LevelNames:   ;1A842
 
     #[test]
     fn sub_1b532_uses_the_title_clear_and_tilemap_vram_windows() {
-        let decoded_words = (0u16..(28 * 65) as u16).collect::<Vec<_>>();
+        let decoded_words = (0u16..28).collect::<Vec<_>>();
 
         let upload = title_text_chameleon_tilemap_upload_sub_1B532(&decoded_words)
-            .expect("ASM sub_1B532 should accept 28 source rows with the skipped trailer word");
+            .expect("ASM sub_1B532 should accept one source word per uploaded row");
 
         assert_eq!(upload.clear_vram_word_address, 0x1780);
         assert_eq!(
@@ -7786,34 +7781,37 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
-    fn sub_1b532_skips_one_decoded_word_between_each_uploaded_row() {
-        let decoded_words = (0u16..(28 * 65) as u16).collect::<Vec<_>>();
+    fn sub_1b532_repeats_one_decoded_word_across_each_uploaded_row() {
+        let decoded_words = (0u16..28).map(|word| 0x0331 + word).collect::<Vec<_>>();
 
         let upload = title_text_chameleon_tilemap_upload_sub_1B532(&decoded_words)
             .expect("ASM sub_1B532 should map the decoded tilemap into 28 uploaded rows");
 
-        assert_eq!(upload.rows[0][0], 0);
-        assert_eq!(upload.rows[0][63], 63);
+        assert_eq!(upload.rows[0][0], 0x0331);
         assert_eq!(
-            upload.rows[1][0], 65,
-            "ASM loc_1B566/loc_1B568 skips decoded word 64 before starting row 1"
+            upload.rows[0][63], 0x0331,
+            "ASM loc_1B568 does not increment a4 inside the 64-word row copy"
         );
-        assert_eq!(upload.rows[1][63], 128);
-        assert_eq!(upload.rows[27][0], 27 * 65);
-        assert_eq!(upload.rows[27][63], 27 * 65 + 63);
+        assert_eq!(
+            upload.rows[1][0], 0x0332,
+            "ASM loc_1B56E advances a4 once after the previous row"
+        );
+        assert_eq!(upload.rows[1][63], 0x0332);
+        assert_eq!(upload.rows[27][0], 0x0331 + 27);
+        assert_eq!(upload.rows[27][63], 0x0331 + 27);
     }
 
     #[test]
     fn sub_1b532_rejects_short_decoded_tilemaps() {
-        let decoded_words = vec![0_u16; 28 * 65 - 1];
+        let decoded_words = vec![0_u16; 27];
 
         let error = title_text_chameleon_tilemap_upload_sub_1B532(&decoded_words)
-            .expect_err("ASM sub_1B532 needs the skipped trailer word for every source row");
+            .expect_err("ASM sub_1B532 needs one decoded word for every source row");
 
         assert!(
             error
                 .to_string()
-                .contains("needs at least 1820 decoded words"),
+                .contains("needs at least 28 decoded words"),
             "short tilemaps should fail with the missing-row-stride detail: {error}"
         );
     }
