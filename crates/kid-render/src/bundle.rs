@@ -564,21 +564,7 @@ fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHolog
     let block_tiles = TileSheet::from_4bpp_bytes(&blocks_bytes)
         .context("failed to parse EOL hologram block tiles")?;
 
-    let mut tiles = vec![
-        Tile { pixels: [0; 64] };
-        usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX)
-            + block_tiles.tiles.len()
-    ];
-    for (index, tile) in background_tiles.tiles.into_iter().enumerate() {
-        let dest = usize::from(EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX) + index;
-        if dest < tiles.len() {
-            tiles[dest] = tile;
-        }
-    }
-    for (index, tile) in block_tiles.tiles.into_iter().enumerate() {
-        let dest = usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX) + index;
-        tiles[dest] = tile;
-    }
+    let tiles = combine_eol_hologram_tile_sheet(background_tiles, block_tiles);
 
     let tilemap_raw = fs::read(&tilemap_path).with_context(|| {
         format!(
@@ -614,9 +600,30 @@ fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHolog
 
     Ok(Some(EolHologramVisuals {
         palette,
-        tile_sheet: TileSheet { tiles },
+        tile_sheet: tiles,
         rows,
     }))
+}
+
+fn combine_eol_hologram_tile_sheet(
+    background_tiles: TileSheet,
+    block_tiles: TileSheet,
+) -> TileSheet {
+    let tile_count = (usize::from(EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX)
+        + background_tiles.tiles.len())
+    .max(usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX) + block_tiles.tiles.len());
+    let mut tiles = vec![Tile { pixels: [0; 64] }; tile_count];
+    for (index, tile) in background_tiles.tiles.into_iter().enumerate() {
+        let dest = usize::from(EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX) + index;
+        if dest < tiles.len() {
+            tiles[dest] = tile;
+        }
+    }
+    for (index, tile) in block_tiles.tiles.into_iter().enumerate() {
+        let dest = usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX) + index;
+        tiles[dest] = tile;
+    }
+    TileSheet { tiles }
 }
 
 fn resolve_theme_name(theme_id: u8) -> Option<&'static str> {
@@ -3856,8 +3863,8 @@ mod tests {
         FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,
         append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
         apply_layered_background_palette_fallback, bg_permutation_file, canvas_to_tiles,
-        compose_player_frame, fg_permutation_file, forest_enemy_art_permutation, frame_to_pixels,
-        load_palette_permutation,
+        combine_eol_hologram_tile_sheet, compose_player_frame, fg_permutation_file,
+        forest_enemy_art_permutation, frame_to_pixels, load_palette_permutation,
     };
     use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileQuad, TileRef, TileSheet};
     use kid_data::{AssetFile, AssetManifest, EnemyLayout};
@@ -3879,6 +3886,30 @@ mod tests {
         Tile {
             pixels: [pixel; 64],
         }
+    }
+
+    #[test]
+    fn eol_hologram_sheet_keeps_holobg_tiles_beyond_holoblocks_upload() {
+        let background_tiles = TileSheet {
+            tiles: (0..0x0120)
+                .map(|index| solid_tile((index & 0xFF) as u8))
+                .collect(),
+        };
+        let block_tiles = TileSheet {
+            tiles: vec![solid_tile(0xA0), solid_tile(0xA1)],
+        };
+
+        let sheet = combine_eol_hologram_tile_sheet(background_tiles, block_tiles);
+
+        assert_eq!(
+            sheet.tiles[0x0409].pixels[0], 0xA0,
+            "ASM loc_C10A uploads ArtComp_CAB2_HoloBlocks at VRAM tile $409, overlaying HoloBG there"
+        );
+        assert_eq!(
+            sheet.tiles[0x0417].pixels[0], 0x1C,
+            "ASM sub_C254/unk_C2EA can reveal tile word $4417, so native must keep the longer HoloBG art range instead of truncating at the two HoloBlocks tiles"
+        );
+        assert_eq!(sheet.tiles[0x041A].pixels[0], 0x1F);
     }
 
     fn enemy_layout_with_slots(enemy_type_slots: Vec<u16>) -> EnemyLayout {
