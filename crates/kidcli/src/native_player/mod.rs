@@ -2791,20 +2791,20 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(255, 120, 32)],
                 },
                 extra_palettes: vec![],
-                frames: vec![SpriteFrame {
-                    origin_x: 0x0E,
-                    origin_y: 0,
-                    width_px: 0x1A,
-                    height_px: 0x20,
-                    tile_base_index: 0,
-                    tile_sheet: TileSheet {
-                        tiles: (0..0xC0)
-                            .map(|index| Tile {
-                                pixels: [u8::try_from(index & 0xFF).expect("tile signature"); 64],
-                            })
-                            .collect(),
-                    },
-                }],
+                frames: vec![
+                    sample_object_frame_with_base(1, 0x1A, 0x20, 0x000),
+                    sample_object_frame_with_base(2, 0x1A, 0x20, 0x010),
+                    sample_object_frame_with_base(3, 0x1A, 0x20, 0x020),
+                    sample_object_frame_with_base(4, 0x1E, 0x20, 0x030),
+                    sample_object_frame_with_base(3, 0x1A, 0x20, 0x020),
+                    sample_object_frame_with_base(2, 0x1A, 0x20, 0x010),
+                    sample_object_frame_with_base(5, 0x1E, 0x20, 0x050),
+                    sample_object_frame_with_base(6, 0x1E, 0x20, 0x060),
+                    sample_object_frame_with_base(7, 0x1E, 0x1F, 0x070),
+                    sample_object_frame_with_base(8, 0x1E, 0x20, 0x080),
+                    sample_object_frame_with_base(9, 0x20, 0x20, 0x090),
+                    sample_object_frame_with_base(10, 0x1E, 0x1F, 0x0A0),
+                ],
                 frame_duration: 6,
             },
         );
@@ -2816,9 +2816,16 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![
-                    sample_object_frame(21, 20, 20),
-                    sample_object_frame(22, 20, 20),
-                    sample_object_frame(23, 20, 20),
+                    sample_object_frame_with_base(21, 0x14, 0x20, 0x02F),
+                    sample_object_frame_with_base(22, 0x14, 0x20, 0x03B),
+                    sample_object_frame_with_base(23, 0x14, 0x20, 0x047),
+                    sample_object_frame_with_base(24, 0x14, 0x20, 0x053),
+                    sample_object_frame_with_base(25, 0x14, 0x20, 0x05F),
+                    sample_object_frame_with_base(26, 0x14, 0x20, 0x023),
+                    sample_object_frame_with_base(27, 0x1D, 0x20, 0x000),
+                    sample_object_frame_with_base(28, 0x16, 0x18, 0x010),
+                    sample_object_frame_with_base(29, 0x11, 0x12, 0x019),
+                    sample_object_frame_with_base(30, 0x07, 0x07, 0x022),
                 ],
                 frame_duration: 6,
             },
@@ -2841,6 +2848,27 @@ mod tests {
                     sample_object_frame_with_base(98, 0x20, 0x20, 0x0CB),
                 ],
                 frame_duration: 9,
+            },
+        );
+        families.insert(
+            0x04,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 130, 90)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(41, 0x27, 0x17, 0x0A5),
+                    sample_object_frame_with_base(42, 0x28, 0x18, 0x0B4),
+                    sample_object_frame_with_base(43, 0x28, 0x18, 0x0C3),
+                    sample_object_frame_with_base(44, 0x28, 0x17, 0x0D2),
+                    sample_object_frame_with_base(45, 0x28, 0x18, 0x0E1),
+                    sample_object_frame_with_base(46, 0x28, 0x18, 0x0F0),
+                    sample_object_frame_with_base(47, 0x28, 0x14, 0x078),
+                    sample_object_frame_with_base(48, 0x28, 0x14, 0x087),
+                    sample_object_frame_with_base(49, 0x27, 0x18, 0x096),
+                ],
+                frame_duration: 11,
             },
         );
         families.insert(
@@ -6775,6 +6803,100 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Robot.asm loc_3A9D2 should step through stru_3A74A death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn fire_demon_diamond_and_armadillo_death_snapshots_select_rom_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x00 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x00 };
+        let fire_demon_visuals = visuals
+            .enemies
+            .families
+            .get(&0x00)
+            .expect("fire demon visuals");
+        for (remaining, signature) in [(21, 5), (18, 6), (15, 7), (12, 8), (8, 9), (4, 10)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, fire_demon_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Fire_Demon.asm loc_3A5A6 should advance `stru_3A378` death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x01 };
+        let diamond_visuals = visuals
+            .enemies
+            .families
+            .get(&0x01)
+            .expect("diamond visuals");
+        for (remaining, signature) in [(22, 26), (14, 27), (8, 28), (5, 29), (2, 30)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, diamond_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Diamond.asm loc_3AE28/loc_3AEE6 should advance `stru_3ACC4` death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x04 };
+        let armadillo_visuals = visuals
+            .enemies
+            .families
+            .get(&0x04)
+            .expect("armadillo visuals");
+        for (remaining, signature) in [
+            (0x30, 47),
+            (0x1A, 48),
+            (0x16, 47),
+            (0x12, 48),
+            (0x0F, 47),
+            (0x0C, 48),
+            (0x0A, 47),
+            (0x08, 48),
+            (0x07, 47),
+            (0x06, 48),
+            (0x05, 47),
+            (0x04, 48),
+            (0x03, 49),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, armadillo_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Armadillo.asm loc_3C886 should advance `stru_3C69A` death frames"
             );
         }
     }

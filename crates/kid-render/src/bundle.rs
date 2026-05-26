@@ -1107,6 +1107,14 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x030, 0x0C, 0x00, 0x1E, 0x20),
             fd(0x020, 0x0C, 0x00, 0x1A, 0x20),
             fd(0x010, 0x0D, 0x00, 0x1A, 0x20),
+            // ASM Fire_Demon.asm loc_3A5A6 / `stru_3A378`: C7746,
+            // C774E, C7756, C775E, C7766, C776E before deletion.
+            fd(0x050, 0x10, 0x00, 0x1E, 0x20),
+            fd(0x060, 0x0F, 0x00, 0x1E, 0x20),
+            fd(0x070, 0x10, 0x00, 0x1E, 0x1F),
+            fd(0x080, 0x11, 0x00, 0x1E, 0x20),
+            fd(0x090, 0x12, 0x00, 0x20, 0x20),
+            fd(0x0A0, 0x10, 0x00, 0x1E, 0x1F),
         ],
     },
     EnemyFamilySpec {
@@ -1121,6 +1129,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x047, 0x0A, 0x00, 0x14, 0x20),
             fd(0x053, 0x0A, 0x00, 0x14, 0x20),
             fd(0x05F, 0x0A, 0x00, 0x14, 0x20),
+            // ASM Diamond.asm loc_3AE28/loc_3AEE6 / `stru_3ACC4`:
+            // C8158, C8138, C8140, C8148, C8150 shrink the crystal.
+            fd(0x023, 0x0A, 0x00, 0x14, 0x20),
+            fd(0x000, 0x0A, 0x00, 0x1D, 0x20),
+            fd(0x010, 0x0A, 0x00, 0x16, 0x18),
+            fd(0x019, 0x0A, 0x00, 0x11, 0x12),
+            fd(0x022, 0x0A, 0x00, 0x07, 0x07),
         ],
     },
     EnemyFamilySpec {
@@ -1156,6 +1171,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0D2, 0x15, 0x00, 0x28, 0x17),
             fd(0x0E1, 0x15, 0x00, 0x28, 0x18),
             fd(0x0F0, 0x15, 0x00, 0x28, 0x18),
+            // ASM Armadillo.asm loc_3C886 / `stru_3C69A`: C76D6 and
+            // C76DE flash repeatedly, then C76E6 finishes the delete tail.
+            fd(0x078, 0x14, 0x00, 0x28, 0x14),
+            fd(0x087, 0x14, 0x00, 0x28, 0x14),
+            fd(0x096, 0x14, 0x00, 0x27, 0x18),
         ],
     },
     EnemyFamilySpec {
@@ -4558,9 +4578,24 @@ mod tests {
         };
 
         assert_eq!(
+            death_tiles(0x00, 6..12),
+            vec![0x0050, 0x0060, 0x0070, 0x0080, 0x0090, 0x00A0],
+            "ASM Fire_Demon.asm loc_3A5A6 / stru_3A378 death frames C7746/C774E/C7756/C775E/C7766/C776E must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x01, 5..10),
+            vec![0x0023, 0x0000, 0x0010, 0x0019, 0x0022],
+            "ASM Diamond.asm loc_3AE28/loc_3AEE6 / stru_3ACC4 death frames C8158/C8138/C8140/C8148/C8150 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x03, 6..8),
             vec![0x00BB, 0x00CB],
             "ASM Robot.asm loc_3A9D2 / stru_3A74A death frames C8318/C8320 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x04, 6..9),
+            vec![0x0078, 0x0087, 0x0096],
+            "ASM Armadillo.asm loc_3C886 / stru_3C69A death frames C76D6/C76DE/C76E6 must be selectable"
         );
         assert_eq!(
             death_tiles(0x06, 3..6),

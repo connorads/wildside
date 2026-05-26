@@ -567,6 +567,17 @@ fn enemy_palette_for_damage_flash(palette: &Palette, damage_flash: bool) -> Pale
     flash_palette
 }
 
+fn select_waited_sequence_frame(remaining: u16, sequence: &[(u16, usize)]) -> Option<usize> {
+    let mut rest = sequence.iter().map(|(duration, _)| *duration).sum::<u16>();
+    for &(duration, frame_index) in sequence {
+        if remaining > rest.saturating_sub(duration) {
+            return Some(frame_index);
+        }
+        rest = rest.saturating_sub(duration);
+    }
+    None
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -577,6 +588,39 @@ pub(super) fn select_enemy_frame<'a>(
         && let Some(remaining) = object.wait_timer
     {
         let death_frame = match object_type {
+            // ASM Fire_Demon.asm loc_3A5A6 runs `stru_3A378`: three
+            // 3-tick frames, then three 4-tick frames before deletion.
+            0x00 if enemy_visuals.frames.len() >= 12 => {
+                if remaining > 0x03 + 0x03 + 0x04 + 0x04 + 0x04 {
+                    Some(6)
+                } else if remaining > 0x03 + 0x04 + 0x04 + 0x04 {
+                    Some(7)
+                } else if remaining > 0x04 + 0x04 + 0x04 {
+                    Some(8)
+                } else if remaining > 0x04 + 0x04 {
+                    Some(9)
+                } else if remaining > 0x04 {
+                    Some(10)
+                } else {
+                    Some(11)
+                }
+            }
+            // ASM Diamond.asm loc_3AE28/loc_3AEE6 runs `stru_3ACC4`:
+            // C8158 for $08, C8138 for $06, C8140/C8148 for $03 each,
+            // then C8150 for $02 before the shared delete tail.
+            0x01 if enemy_visuals.frames.len() >= 10 => {
+                if remaining > 0x06 + 0x03 + 0x03 + 0x02 {
+                    Some(5)
+                } else if remaining > 0x03 + 0x03 + 0x02 {
+                    Some(6)
+                } else if remaining > 0x03 + 0x02 {
+                    Some(7)
+                } else if remaining > 0x02 {
+                    Some(8)
+                } else {
+                    Some(9)
+                }
+            }
             // ASM Robot.asm loc_3A9D2 runs `stru_3A74A`: C8318 for $09,
             // then C8320 for $09 before deletion.
             0x03 if enemy_visuals.frames.len() >= 8 => {
@@ -610,6 +654,26 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(9)
                 }
             }
+            // ASM Armadillo.asm loc_3C886 runs `stru_3C69A`: C76D6/C76DE
+            // flash with shrinking delays, then C76E6 for $03 before delete.
+            0x04 if enemy_visuals.frames.len() >= 9 => select_waited_sequence_frame(
+                remaining,
+                &[
+                    (0x16, 6),
+                    (0x04, 7),
+                    (0x04, 6),
+                    (0x03, 7),
+                    (0x03, 6),
+                    (0x02, 7),
+                    (0x02, 6),
+                    (0x01, 7),
+                    (0x01, 6),
+                    (0x01, 7),
+                    (0x01, 6),
+                    (0x01, 7),
+                    (0x03, 8),
+                ],
+            ),
             // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
             // C7C06 for $0A, then C7C0E for $1E before deletion.
             0x09 if enemy_visuals.frames.len() >= 9 => {
