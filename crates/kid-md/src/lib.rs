@@ -2977,6 +2977,7 @@ mod tests {
         assert_close(filter.a2, 0.218_544_25, 0.000_000_03);
         assert_close(filter.filter(1.0), 0.176_304_47, 0.000_000_02);
         assert_close(filter.filter(1.0), 0.619_415_16, 0.000_000_1);
+        assert_close(filter.filter(1.0), 0.984_649_7, 0.000_000_1);
     }
 
     #[test]
