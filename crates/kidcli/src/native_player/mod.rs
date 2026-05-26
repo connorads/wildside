@@ -2253,22 +2253,9 @@ mod tests {
         trace.level_complete_score_rows_elapsed_frames = 0x80;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
-        let under_seconds_digits = scene
-            .commands
-            .iter()
-            .filter_map(|command| match command {
-                DrawCommand::Sprite {
-                    x, y, tile_sheet, ..
-                } if *y == 106 && *x >= 124 && *x <= 200 => {
-                    tile_sheet.tiles.first().map(|tile| tile.pixels[0])
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-
         assert_eq!(
-            under_seconds_digits,
-            vec![132, 130],
+            eol_number_digits_at(&scene, 97),
+            vec![2, 0],
             "ASM loc_D660 should display SpeedBonus_Values[0] = 20, not the remaining timer seconds"
         );
     }
