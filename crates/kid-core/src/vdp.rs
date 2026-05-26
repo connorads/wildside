@@ -438,6 +438,9 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     intro_sequence_3_roster_index: usize,
 ) -> VdpState {
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
+    if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
+        overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp);
+    }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(&mut vdp, intro_sequence_3_roster_index);
     }
@@ -446,6 +449,41 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
+}
+
+const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
+
+#[allow(non_snake_case)]
+fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState) {
+    // ASM sub_1B8F4 -> sub_1C54A (kid.asm:30194,31288): after the Wild Side
+    // VDP setup, the controller allocates a fixed priority sprite using
+    // `unk_E109E` at VRAM tile `$140`. That art is the door/interior block
+    // uploaded by sub_1B850's `Wild_Side_door_and_inside.bin` DMA.
+    let prompt = crate::boot::title_menu_prompt_sprite_sub_1C54A();
+    let mut sprite_entries = Vec::new();
+    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+        &mut sprite_entries,
+        IntroGfxObjectForSpriteTable {
+            x_pos: prompt.x_pos,
+            y_pos: prompt.y_pos,
+            palette_line: 0,
+            vram_tile: prompt.vram_tile,
+            priority: u8::from(prompt.priority_flag),
+            x_direction: 0,
+        },
+        IntroSpriteFrameVram {
+            sprite_index: 0,
+            x_center: 0,
+            y_center: 0,
+            width: 0x3E,
+            height: 0x2F,
+        },
+    );
+    write_sprite_table_entries(
+        vdp,
+        sprite_table_base_byte_addr(&vdp.registers),
+        &sprite_entries,
+    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -773,7 +811,10 @@ fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             i32::from(gfx.x_pos) + i32::from(frame.x_center) - i32::from(chunk.x + chunk.width)
                 + 0x80
         };
-        let y_pos = i32::from(gfx.y_pos) + i32::from(frame.y_center) + i32::from(chunk.y) + 0x80;
+        let y_pos = i32::from(gfx.y_pos) - i32::from(frame.height)
+            + i32::from(frame.y_center)
+            + i32::from(chunk.y)
+            + 0x80;
         entries.push(HardwareSpriteEntry {
             y_pos: y_pos as u16,
             size_byte: sprite_size_byte(chunk.width, chunk.height),
@@ -1878,12 +1919,12 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x0150, 0x0F, 1, 0xA1D6, 0x0178),
+            (0x0120, 0x0F, 1, 0xA1D6, 0x0178),
             "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first 32x32 hardware sprite",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 1),
-            (0x0150, 0x07, 2, 0xA1E6, 0x0198),
+            (0x0120, 0x07, 2, 0xA1E6, 0x0198),
             "ASM Make_SpriteFromGfxObject should split the 48px-wide Wild Side kid frame into a linked 16x32 tail chunk with the next tile run",
         );
     }
@@ -1901,7 +1942,7 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x014C, 0x0F, 1, 0xA1D6, 0x0163),
+            (0x011D, 0x0F, 1, 0xA1D6, 0x0163),
             "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair",
         );
     }
@@ -1926,23 +1967,74 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    fn intro_sequence_1_sub_1C54A_writes_wild_side_door_sprite_table() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            0,
+            1,
+            INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A,
+            0,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x0119, 0x0F, 1, 0x8140, 0x0101),
+            "ASM sub_1C54A should draw unk_E109E's first 32x32 chunk from the Wild Side door/interior art at VRAM tile `$140`",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 1),
+            (0x0119, 0x0F, 2, 0x8150, 0x0121),
+            "ASM Make_SpriteFromGfxObject should split unk_E109E's 62px-wide top row into the linked right-hand chunk",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 2),
+            (0x0139, 0x0D, 3, 0x8160, 0x0101),
+            "ASM Make_SpriteFromGfxObject should continue unk_E109E's bottom row after the two 32px-high chunks",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 3),
+            (0x0139, 0x0D, 0, 0x8168, 0x0121),
+            "ASM Make_SpriteFromGfxObject should terminate the final linked chunk for sub_1C54A's fixed prompt sprite",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_1_sub_1C54A_is_hidden_before_controller_exposes_it() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            0,
+            1,
+            INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A - 1,
+            0,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0, 0, 0, 0, 0),
+            "ASM sub_1B850's raw VDP rebuild should not contain the sub_1C54A sprite before the intro controller allocates it",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BCD0_writes_five_static_gfx_slots_to_sprite_table() {
         let vdp =
             build_intro_sequence_vdp_with_title_variant_at_elapsed(&empty_intro_data(), 4, 1, 0, 0);
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x0100, 0x0F, 1, 0x426C, 0x00B0),
+            (0x00D0, 0x0F, 1, 0x426C, 0x00B0),
             "ASM loc_1BCD0 first gfx slot should draw unk_E1066 from VRAM tile $26C on palette line 2",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 1),
-            (0x0100, 0x07, 2, 0x427C, 0x00D0),
+            (0x00D0, 0x07, 2, 0x427C, 0x00D0),
             "ASM Make_SpriteFromGfxObject should link the first slot's 16x32 tail chunk after the 32x32 chunk",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 4),
-            (0x0100, 0x07, 5, 0x4290, 0x00E0),
+            (0x00CF, 0x07, 5, 0x4290, 0x00E0),
             "ASM loc_1BCD0 second gfx slot should start at x=$60/y=$80 with unk_E106E's 12x49 frame",
         );
     }
@@ -1972,12 +2064,12 @@ mod tests {
         );
         assert_eq!(
             sprite_entry_words(&after, 16),
-            (0x0100, 0x00, 17, 0x44F8, 0x0092),
+            (0x00F8, 0x00, 17, 0x44F8, 0x0092),
             "ASM loc_1BE3C should spawn the first unk_1BE18 falling particle from LnkTo_unk_E0F56 at x=$12/y=$78",
         );
         assert_eq!(
             sprite_entry_words(&after, 19),
-            (0x00F0, 0x0F, 20, 0xE5EB, 0x00B0),
+            (0x00B9, 0x0F, 20, 0xE5EB, 0x00B0),
             "ASM loc_1BE88 should spawn the FC82=1 centre particle on palette line 3 with priority and VRAM tile $5EB",
         );
     }
@@ -1995,7 +2087,7 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 16),
-            (0x0175, 0x00, 17, 0x44F8, 0x017C),
+            (0x016D, 0x00, 17, 0x44F8, 0x017C),
             "ASM loc_1BE74 should delete the two `$28` DBF particles after frame $28, leaving the longer unk_1BE24 particle as the first live particle",
         );
     }
@@ -2903,7 +2995,7 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x00C4, 0x00, 0, 0x454B, 0x00A8),
+            (0x00BC, 0x00, 0, 0x454B, 0x00A8),
             "ASM Obj_TitleMenu loc_1BB52/loc_1BC0E should expose cursor 2 as unk_E1196 at x=$28,y=$44"
         );
     }
