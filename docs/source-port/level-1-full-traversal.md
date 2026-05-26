@@ -79,7 +79,7 @@ cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 
 Fast gate policy:
 
-- `mise run verify-slice-fast` is the default pre-commit gate for gameplay/runtime work.
+- `mise run verify-slice-fast` is the pre-commit gate for gameplay/runtime work.
 - `mise run verify-slice-full` is the slice acceptance gate before calling a traversal/runtime step green.
 - If any traversal compare reopens, use the gameplay compare artefacts first before changing the default runtime path again.
 

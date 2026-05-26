@@ -41,13 +41,16 @@ hooks {
                 glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock", ".mise.toml")
                 check = "scripts/quiet-on-success.sh scripts/strict-rust.sh cargo check --workspace --all-targets"
             }
-            ["kid-core-timing-regressions"] {
-                glob = List("crates/kid-core/**/*.rs")
-                check = "scripts/quiet-on-success.sh cargo test -q -p kid-core timing_regression_"
-            }
-            ["kidcli-gameplay-regressions"] {
-                glob = List("crates/kidcli/**/*.rs", "hk.pkl", ".mise.toml")
-                check = "scripts/quiet-on-success.sh cargo test -q -p kidcli gameplay_regression_"
+            ["verify-slice-fast"] {
+                glob = List(
+                    "crates/**/*.rs",
+                    "tests/tas_frontier.json",
+                    "Cargo.toml",
+                    "Cargo.lock",
+                    ".mise.toml",
+                    "hk.pkl"
+                )
+                check = "scripts/quiet-on-success.sh mise run verify-slice-fast"
             }
         }
     }
