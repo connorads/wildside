@@ -2728,9 +2728,10 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, GEMS_QUEUE_ADDR, GemsBus, MdBus,
-        MdRuntime, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus,
-        Z80Shared, cram_rgb, probe_rom, scale_channel,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, FirstOrderFilter, GEMS_QUEUE_ADDR,
+        GemsBus, MdBus, MdRuntime, PsgRegisters, SecondOrderFilter, WORK_RAM_BASE,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
+        probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2747,6 +2748,13 @@ mod tests {
             chunk.copy_from_slice(&[0x4E, 0x71]);
         }
         rom
+    }
+
+    fn assert_close(actual: f32, expected: f32, epsilon: f32) {
+        assert!(
+            (actual - expected).abs() <= epsilon,
+            "expected {actual} to be within {epsilon} of {expected}",
+        );
     }
 
     #[test]
@@ -2925,6 +2933,101 @@ mod tests {
             peak < 0.02,
             "expected silent PSG reset output, got peak {peak}"
         );
+    }
+
+    #[test]
+    fn first_order_low_pass_uses_bilinear_transform_coefficients() {
+        // The Genesis audio model depends on this low-pass keeping the one-pole
+        // bilinear transform stable; arithmetic slips here survive through the
+        // mixer as broad tone-colour drift rather than obvious silence.
+        let mut filter = FirstOrderFilter::low_pass(3_390.0, 44_100.0);
+
+        assert_close(filter.b0, 0.197_627_22, 0.000_000_02);
+        assert_close(filter.b1, 0.197_627_22, 0.000_000_02);
+        assert_close(filter.a1, -0.604_745_57, 0.000_000_06);
+        assert_close(filter.filter(1.0), 0.197_627_22, 0.000_000_02);
+        assert_close(filter.filter(1.0), 0.514_768_6, 0.000_000_1);
+    }
+
+    #[test]
+    fn first_order_high_pass_preserves_dc_blocker_coefficients() {
+        // Keep the DC blocker as a high-pass filter: both feed-forward
+        // coefficients must oppose each other, otherwise sustained YM output
+        // leaks or amplifies as a bias.
+        let mut filter = FirstOrderFilter::high_pass(5.0, 44_100.0);
+
+        assert_close(filter.b0, 0.999_643_9, 0.000_000_06);
+        assert_close(filter.b1, -0.999_643_9, 0.000_000_06);
+        assert_close(filter.a1, -0.999_287_9, 0.000_000_1);
+        assert_close(filter.filter(1.0), 0.999_643_9, 0.000_000_06);
+        assert_close(filter.filter(1.0), 0.998_932_06, 0.000_000_1);
+    }
+
+    #[test]
+    fn second_order_low_pass_uses_biquad_bilinear_coefficients() {
+        // The YM path uses this extra low-pass to approximate the console
+        // output chain. Coefficients are pinned here because tiny arithmetic
+        // mistakes only show up as subtle high-frequency colour drift.
+        let mut filter = SecondOrderFilter::low_pass(7_973.0, 44_100.0);
+
+        assert_close(filter.b0, 0.176_304_47, 0.000_000_02);
+        assert_close(filter.b1, 0.352_608_95, 0.000_000_03);
+        assert_close(filter.b2, 0.176_304_47, 0.000_000_02);
+        assert_close(filter.a1, -0.513_326_35, 0.000_000_06);
+        assert_close(filter.a2, 0.218_544_25, 0.000_000_03);
+        assert_close(filter.filter(1.0), 0.176_304_47, 0.000_000_02);
+        assert_close(filter.filter(1.0), 0.619_415_16, 0.000_000_1);
+    }
+
+    #[test]
+    fn audio_events_report_original_z80_cycle() {
+        assert_eq!(
+            AudioEvent::Ym2612Write {
+                z80_cycles: 123,
+                port: 0,
+                value: 0,
+            }
+            .z80_cycles(),
+            123
+        );
+        assert_eq!(
+            AudioEvent::PsgWrite {
+                z80_cycles: 456,
+                value: 0,
+            }
+            .z80_cycles(),
+            456
+        );
+    }
+
+    #[test]
+    fn psg_register_writes_decode_latched_tone_volume_and_noise_data() {
+        let mut registers = PsgRegisters::default();
+
+        assert!(!registers.apply_write(0xA3));
+        assert_eq!(registers.latched_register, 2);
+        assert_eq!(registers.tone_periods[1], 0x003);
+        assert!(!registers.apply_write(0x15));
+        assert_eq!(registers.tone_periods[1], 0x153);
+
+        assert!(!registers.apply_write(0xC7));
+        assert_eq!(registers.latched_register, 4);
+        assert_eq!(registers.tone_periods[2], 0x007);
+        assert!(!registers.apply_write(0x3F));
+        assert_eq!(registers.tone_periods[2], 0x3F7);
+
+        assert!(!registers.apply_write(0x94));
+        assert_eq!(registers.latched_register, 1);
+        assert_eq!(registers.volumes[0], 0x04);
+        assert!(!registers.apply_write(0xF2));
+        assert_eq!(registers.latched_register, 7);
+        assert_eq!(registers.volumes[3], 0x02);
+
+        assert!(registers.apply_write(0xE6));
+        assert_eq!(registers.latched_register, 6);
+        assert_eq!(registers.noise_control, 0x06);
+        assert!(registers.apply_write(0x09));
+        assert_eq!(registers.noise_control, 0x01);
     }
 
     #[test]

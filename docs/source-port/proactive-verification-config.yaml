@@ -57,7 +57,8 @@ strategies:
     # were not part of the mutation rotation. kid-data level_layout.rs adds a
     # pure asset/layout extraction lane for ASM-backed source-port tooling.
     # kid-rom lib.rs covers deterministic ROM header validation used before
-    # oracle/source-port asset extraction.
+    # oracle/source-port asset extraction. kid-md lib.rs adds the Mega Drive
+    # boundary lane covering audio, VDP, controller, and GEMS integration.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -87,6 +88,7 @@ strategies:
       - hud.rs
       - kid-data:level_layout.rs
       - kid-rom:lib.rs
+      - kid-md:lib.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -115,6 +117,7 @@ strategies:
       - { module: hud.rs, package: kid-render, tier: 2 }
       - { module: level_layout.rs, package: kid-data, tier: 2 }
       - { module: lib.rs, package: kid-rom, tier: 2 }
+      - { module: lib.rs, package: kid-md, tier: 2 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
