@@ -1136,6 +1136,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x05A, 0x12, 0x00, 0x1D, 0x14),
             fd(0x066, 0x0A, 0x00, 0x15, 0x15),
             fd(0x06F, 0x10, 0x00, 0x1C, 0x15),
+            fd(0x0BB, 0x12, 0x00, 0x1E, 0x20),
+            fd(0x0CB, 0x12, 0x00, 0x20, 0x20),
         ],
     },
     EnemyFamilySpec {
@@ -1245,6 +1247,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x02C, 0x0F, 0x00, 0x1E, 0x08),
             fd(0x030, 0x0F, 0x00, 0x1E, 0x08),
             fd(0x034, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x000, 0x0F, 0x00, 0x1F, 0x1A),
+            fd(0x010, 0x0F, 0x00, 0x1F, 0x19),
+            fd(0x06C, 0x10, 0x00, 0x20, 0x14),
         ],
     },
     EnemyFamilySpec {
@@ -1260,6 +1265,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x02C, 0x0F, 0x00, 0x1E, 0x08),
             fd(0x030, 0x0F, 0x00, 0x1E, 0x08),
             fd(0x034, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x000, 0x0F, 0x00, 0x1F, 0x1A),
+            fd(0x010, 0x0F, 0x00, 0x1F, 0x19),
+            fd(0x03C, 0x10, 0x00, 0x20, 0x14),
         ],
     },
     EnemyFamilySpec {
@@ -4486,29 +4494,44 @@ mod tests {
 
     #[test]
     fn enemy_visual_specs_include_rom_waited_death_frames() {
-        let death_tiles = |object_type| {
+        let death_tiles = |object_type, range: std::ops::Range<usize>| {
             super::ENEMY_FAMILIES
                 .iter()
                 .find(|spec| spec.object_type == object_type)
                 .expect("enemy family spec")
-                .frames[6..9]
+                .frames[range]
                 .iter()
                 .map(|frame| frame.tile_base_index)
                 .collect::<Vec<_>>()
         };
 
         assert_eq!(
-            death_tiles(0x09),
+            death_tiles(0x03, 6..8),
+            vec![0x00BB, 0x00CB],
+            "ASM Robot.asm loc_3A9D2 / stru_3A74A death frames C8318/C8320 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x09, 6..9),
             vec![0x0020, 0x0000, 0x0010],
             "ASM Crab.asm loc_3B094 / stru_3AF82 death frames C7C16/C7C06/C7C0E must be selectable"
         );
         assert_eq!(
-            death_tiles(0x10),
+            death_tiles(0x0A, 3..6),
+            vec![0x0000, 0x0010, 0x006C],
+            "ASM Tank.asm loc_3B480 / stru_3B29A death frames C7EB8/C7EC0/C7F18 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x0B, 3..6),
+            vec![0x0000, 0x0010, 0x003C],
+            "ASM Tank_Shooting.asm loc_3B6E6 / stru_3B518 death frames C7EB8/C7EC0/C7EF8 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x10, 6..9),
             vec![0x0000, 0x0088, 0x0098],
             "ASM Goat.asm loc_3CB64 / stru_3C9EA death frames C7C56/C7C8E/C7C96 must be selectable"
         );
         assert_eq!(
-            death_tiles(0x11),
+            death_tiles(0x11, 6..9),
             vec![0x0000, 0x0010, 0x0020],
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
         );

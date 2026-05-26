@@ -2775,6 +2775,26 @@ mod tests {
             },
         );
         families.insert(
+            0x03,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 200, 230)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(91, 0x1D, 0x14, 0x039),
+                    sample_object_frame_with_base(92, 0x12, 0x15, 0x045),
+                    sample_object_frame_with_base(93, 0x1C, 0x15, 0x04E),
+                    sample_object_frame_with_base(94, 0x1D, 0x14, 0x05A),
+                    sample_object_frame_with_base(95, 0x15, 0x15, 0x066),
+                    sample_object_frame_with_base(96, 0x1C, 0x15, 0x06F),
+                    sample_object_frame_with_base(97, 0x1E, 0x20, 0x0BB),
+                    sample_object_frame_with_base(98, 0x20, 0x20, 0x0CB),
+                ],
+                frame_duration: 9,
+            },
+        );
+        families.insert(
             0x1C,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -2892,6 +2912,9 @@ mod tests {
                     sample_object_frame_with_base(81, 0x1E, 0x08, 0x02C),
                     sample_object_frame_with_base(82, 0x1E, 0x08, 0x030),
                     sample_object_frame_with_base(83, 0x1E, 0x08, 0x034),
+                    sample_object_frame_with_base(84, 0x1F, 0x1A, 0x000),
+                    sample_object_frame_with_base(85, 0x1F, 0x19, 0x010),
+                    sample_object_frame_with_base(86, 0x20, 0x14, 0x06C),
                 ],
                 frame_duration: 6,
             },
@@ -2905,6 +2928,9 @@ mod tests {
                     sample_object_frame_with_base(81, 0x1E, 0x08, 0x02C),
                     sample_object_frame_with_base(82, 0x1E, 0x08, 0x030),
                     sample_object_frame_with_base(83, 0x1E, 0x08, 0x034),
+                    sample_object_frame_with_base(84, 0x1F, 0x1A, 0x000),
+                    sample_object_frame_with_base(85, 0x1F, 0x19, 0x010),
+                    sample_object_frame_with_base(87, 0x20, 0x14, 0x03C),
                 ],
                 frame_duration: 6,
             },
@@ -6419,6 +6445,77 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Ninja.asm loc_3DB4E should step through stru_3D50A death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn tank_and_robot_death_snapshots_select_waited_body_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let tank_visuals = visuals.enemies.families.get(&0x0A).expect("tank visuals");
+        for (remaining, signature) in [(0x10 + 0x08 + 0x3C, 84), (0x08 + 0x3C, 85), (0x3C, 86)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, tank_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Tank.asm loc_3B480 should step through stru_3B29A death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x0B };
+        let shooting_tank_visuals = visuals
+            .enemies
+            .families
+            .get(&0x0B)
+            .expect("shooting tank visuals");
+        for (remaining, signature) in [(0x10 + 0x08 + 0x3C, 84), (0x08 + 0x3C, 85), (0x3C, 87)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, shooting_tank_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Tank_Shooting.asm loc_3B6E6 should step through stru_3B518 death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x03 };
+        let robot_visuals = visuals.enemies.families.get(&0x03).expect("robot visuals");
+        for (remaining, signature) in [(0x09 + 0x09, 97), (0x09, 98)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, robot_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Robot.asm loc_3A9D2 should step through stru_3A74A death frames"
             );
         }
     }

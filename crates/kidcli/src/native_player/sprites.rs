@@ -577,6 +577,15 @@ pub(super) fn select_enemy_frame<'a>(
         && let Some(remaining) = object.wait_timer
     {
         let death_frame = match object_type {
+            // ASM Robot.asm loc_3A9D2 runs `stru_3A74A`: C8318 for $09,
+            // then C8320 for $09 before deletion.
+            0x03 if enemy_visuals.frames.len() >= 8 => {
+                if remaining > 0x09 {
+                    Some(6)
+                } else {
+                    Some(7)
+                }
+            }
             // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
             // C7C06 for $0A, then C7C0E for $1E before deletion.
             0x09 if enemy_visuals.frames.len() >= 9 => {
@@ -586,6 +595,28 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(7)
                 } else {
                     Some(8)
+                }
+            }
+            // ASM Tank.asm loc_3B480 runs `stru_3B29A`: C7EB8 for $10,
+            // C7EC0 for $08, then C7F18 for $3C before deletion.
+            0x0A if enemy_visuals.frames.len() >= 6 => {
+                if remaining > 0x08 + 0x3C {
+                    Some(3)
+                } else if remaining > 0x3C {
+                    Some(4)
+                } else {
+                    Some(5)
+                }
+            }
+            // ASM Tank_Shooting.asm loc_3B6E6 runs `stru_3B518`: C7EB8
+            // for $10, C7EC0 for $08, then C7EF8 for $3C before deletion.
+            0x0B if enemy_visuals.frames.len() >= 6 => {
+                if remaining > 0x08 + 0x3C {
+                    Some(3)
+                } else if remaining > 0x3C {
+                    Some(4)
+                } else {
+                    Some(5)
                 }
             }
             // ASM Goat.asm loc_3CB64 runs `stru_3C9EA`: C7C56 for $1E,
