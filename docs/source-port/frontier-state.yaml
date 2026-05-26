@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-24T00:00:00Z",
+  "updated_at": "2026-05-26T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-clean-through-frame-37759",
@@ -77,6 +77,10 @@
       "reason": "`verify-tas --frame-start 0 --frame-end 37759 --checkpoint-interval 1 --bisect --frontier-kind gameplay` passes all 37759 recorded frames by CRC after the frame-36820 timeout-restart intro-sequence-2 Start-return deferral fix. There is no next published-TAS divergence until a longer recording is added."
     },
     "rejected_hypotheses": [
+      {
+        "name": "Recording `issue-160-audio-current-settled` is ready to reduce into an authoritative gameplay case",
+        "reason": "Rejected 2026-05-26. Fresh verification shows this recording is native-replayable but not oracle-authoritative: `cargo run -p kidcli -- verify-recording --slug issue-160-audio-current-settled` fails with oracle state/frame mismatches from the start, while `cargo run -p kidcli -- verify-recording --slug issue-160-audio-current-settled --native-only` passes. The requested 0..120 case derives and fails (`cargo run -p kidcli -- case derive --recording-slug issue-160-audio-current-settled --frame-start 0 --frame-end 120 --out .cache/cases/issue-160-audio-current-settled`; `cargo run -p kidcli -- case verify --case issue-160-audio-current-settled`), but `cargo run -p kidcli -- case reduce --case issue-160-audio-current-settled` blocks with `source recording replay drifted at frame 0; re-verify or re-record issue-160-audio-current-settled before treating this case as gameplay-authoritative`. Do not use this recording as a gameplay patch target until it is re-recorded or the oracle bootstrap mismatch is fixed."
+      },
       {
         "name": "The frame-3392 `kc_any_percent_2024` lower walking-dragon miss is caused by the patrol-timer turnaround itself",
         "reason": "Rejected 2026-05-18. ASM `Scorpion.asm loc_3DEA0`, reached by DragonWalking through `$6A(a5)=loc_3DEA0`, decrements `$54(a5)`, rotates the packed `$6E(a5)` timer pair, reloads `$54(a5)`, then branches by `x_direction(a3)` to the opposite grounded-loop entry (`beq.w loc_3E392`, otherwise `loc_3E546`), so native's `patrol_timer_turn` direction flip is consistent with the shared walker routine. `tas-diff --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3388 --frame-end 3394 --include-advisory --show-object-roster-on-match --frontier-kind enemy` shows native layout #02 already 12px behind oracle by frame 3388 (`native=0x01E68000`, `oracle=0x01F28000`) and still walking left through frame 3391 before the native timer expires on frame 3392. The root cause is earlier enemy-roster drift, not the timer-turn branch. `verify-tas --frame-start 3390 --frame-end 3410` remains CRC-clean, so this is advisory fidelity debt."
