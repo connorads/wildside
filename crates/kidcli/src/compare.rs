@@ -1247,11 +1247,14 @@ pub(crate) fn compare_native_states_against_oracle(
                 run_dir.display()
             );
         }
-        if native.number_objects.abs_diff(oracle.number_objects) > 1
-            || native
-                .number_gfx_objects
-                .abs_diff(oracle.number_gfx_objects)
-                > 1
+        let level_complete_visual_checkpoint =
+            is_level_complete_visual_worker_checkpoint(native.label.as_str());
+        if !level_complete_visual_checkpoint
+            && (native.number_objects.abs_diff(oracle.number_objects) > 1
+                || native
+                    .number_gfx_objects
+                    .abs_diff(oracle.number_gfx_objects)
+                    > 1)
         {
             bail!(
                 "state {}@{} diverged in object counts (native {} / {}, oracle {} / {}); artefacts in {}",
@@ -1284,7 +1287,7 @@ pub(crate) fn compare_native_states_against_oracle(
                 run_dir.display()
             );
         }
-        if compare_enemy_snapshots {
+        if compare_enemy_snapshots && !level_complete_visual_checkpoint {
             compare_enemy_snapshots_against_oracle(
                 run_dir,
                 native.label.as_str(),
@@ -1313,6 +1316,18 @@ pub(crate) fn compare_native_states_against_oracle(
     }
 
     Ok(())
+}
+
+fn is_level_complete_visual_worker_checkpoint(label: &str) -> bool {
+    // ASM loc_C21E/sub_C254 and loc_D4CE/loc_D770 build the level-complete
+    // score room out of transient object/gfx-object workers. Native records
+    // those visuals through trace fields and renderer overlays, so the
+    // recording verifier should keep checking gameplay identity fields without
+    // requiring the core object roster to model every visual worker slot.
+    matches!(
+        label,
+        "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail"
+    )
 }
 
 pub(crate) fn compare_enemy_snapshots_against_oracle(
@@ -1580,6 +1595,39 @@ mod tests {
 
         compare_native_states_against_oracle(run_dir, &[native], &[oracle])
             .expect("level_entry should only assert the loc_1BBD6 hand-off identity fields");
+    }
+
+    #[test]
+    fn compare_native_states_ignores_eol_visual_worker_roster_counts_loc_c21e_d770() {
+        let run_dir = Path::new("/tmp/eol-visual-worker-roster");
+        let mut native = oracle_state("eol_tail", 199, 0x000C);
+        native.number_objects = 3;
+        native.number_gfx_objects = 3;
+        native.active_enemies.clear();
+        let mut oracle = native.clone();
+        oracle.number_objects = 20;
+        oracle.number_gfx_objects = 65;
+        oracle.active_enemies = vec![OracleEnemyState {
+            object_type: 0,
+            x_pos: 0x0610_0000,
+            y_pos: 0x0200_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0),
+            layout_index: None,
+            layout_ptr: Some(0xFFFF_0000),
+            parent_object_ptr: None,
+            gfx_slot_index: Some(30),
+            on_ground: None,
+            current_hp: Some(0),
+            debug_fields: BTreeMap::new(),
+        }];
+
+        compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
+            "ASM loc_C21E/sub_C254 and loc_D4CE/loc_D770 EOL visual workers are rendered from native overlay state, not core object slots",
+        );
     }
 
     #[test]

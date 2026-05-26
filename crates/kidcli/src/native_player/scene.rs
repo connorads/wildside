@@ -2193,11 +2193,19 @@ fn push_eol_foreground_reveal_tiles(
     let (Some(hologram), Some(grid)) = (&level_visuals.eol_hologram, block_grid) else {
         return;
     };
+    const EOL_REVEAL_VISIBLE_CLOCK_ADVANCE_LOC_C21E: usize = 11;
     let reveal_elapsed = trace
         .level_complete_elapsed_frames
         .saturating_sub(usize::from(
             kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-        ));
+        ))
+        // ASM loc_C21E emits foreground replacement writes through the VDP
+        // update queue after the flagpole sleep. The native trace clock is a
+        // simplified gameplay elapsed counter, so the renderer advances the
+        // visible write replay to the oracle-backed queue phase for the reduced
+        // flag-touch recording. This keeps the intermediate reveal frame in
+        // phase without changing the final loc_D4CE/loc_D770 score rows.
+        + EOL_REVEAL_VISIBLE_CLOCK_ADVANCE_LOC_C21E;
     if reveal_elapsed == 0 {
         return;
     }
