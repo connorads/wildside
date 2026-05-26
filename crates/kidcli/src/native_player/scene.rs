@@ -2206,12 +2206,13 @@ fn push_eol_foreground_reveal_tiles(
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
     let tile_sheet = Arc::new(hologram.tile_sheet.clone());
     let palette = Arc::new(hologram.palette.clone());
-    for write in kid_core::flagpole_scoreboard_reveal_tiles_loc_C21E(
+    let writes = kid_core::flagpole_scoreboard_reveal_tiles_loc_C21E(
         grid,
         (trace.camera_x_pos >> 16) as u16,
         (trace.camera_y_pos >> 16) as u16,
         reveal_elapsed,
-    ) {
+    );
+    for write in &writes {
         let x = i32::from(write.col) * 16 - camera_x_px;
         let y = i32::from(write.row) * 16 - camera_y_px;
         commands.push(DrawCommand::Rect {
@@ -2236,6 +2237,21 @@ fn push_eol_foreground_reveal_tiles(
             &tile_sheet,
             &palette,
         );
+    }
+
+    for write in &writes {
+        let x = i32::from(write.col) * 16 - camera_x_px;
+        let y = i32::from(write.row) * 16 - camera_y_px;
+        // ASM loc_C21E/sub_C254 writes replacement Scroll A cells after the
+        // loc_C186 Scroll B hologram upload. Native redraws Scroll B in a first
+        // pass, then clears the local priority mask before drawing Scroll A
+        // replacements so later EOL sprites can still appear above them.
+        commands.push(DrawCommand::ClearPriorityRect {
+            x,
+            y,
+            width: 16,
+            height: 16,
+        });
         for (index, word) in write.tile_words.iter().copied().enumerate() {
             commands.push(DrawCommand::IndexedTile {
                 x: x + i32::try_from(index % 2).expect("tile column fits") * 8,

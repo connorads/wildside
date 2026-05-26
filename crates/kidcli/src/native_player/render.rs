@@ -24,6 +24,12 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
                 *height,
                 *colour,
             ),
+            DrawCommand::ClearPriorityRect {
+                x,
+                y,
+                width,
+                height,
+            } => clear_priority_rect(&mut high_priority_pixels, *x, *y, *width, *height),
             DrawCommand::Text {
                 x,
                 y,
@@ -224,6 +230,21 @@ pub(super) fn fill_rect(
     for py in y.max(0)..(y + height).min(FRAME_HEIGHT as i32) {
         for px in x.max(0)..(x + width).min(FRAME_WIDTH as i32) {
             set_pixel(rgb, high_priority_pixels, px, py, colour, None);
+        }
+    }
+}
+
+pub(super) fn clear_priority_rect(
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) {
+    for py in y.max(0)..(y + height).min(FRAME_HEIGHT as i32) {
+        for px in x.max(0)..(x + width).min(FRAME_WIDTH as i32) {
+            let pixel_index = (py as u32 * FRAME_WIDTH + px as u32) as usize;
+            high_priority_pixels[pixel_index] = false;
         }
     }
 }

@@ -84,6 +84,12 @@ enum DrawCommand {
         height: i32,
         colour: [u8; 3],
     },
+    ClearPriorityRect {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    },
     Text {
         x: i32,
         y: i32,
@@ -2144,6 +2150,49 @@ mod tests {
         assert!(
             clear_index < hologram_redraw_index && hologram_redraw_index < foreground_index,
             "ASM loc_C186 Scroll B redraw must sit above the clear and below loc_C21E/sub_C254 foreground tiles"
+        );
+    }
+
+    #[test]
+    fn level_complete_reveal_foreground_overrides_priority_hologram_pixels_loc_c21e() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x0420);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        tile_sheet.tiles[0x041A].pixels = [2; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 219, 0), colour(146, 146, 182)],
+            },
+            tile_sheet,
+            rows: vec![vec![
+                TileRef {
+                    tile_index: 1,
+                    palette_line: 0,
+                    priority: true,
+                    flip_x: false,
+                    flip_y: false,
+                };
+                2
+            ]],
+        });
+        let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x00));
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+        let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        let sample = pixel_at(&rgb, 8, 8);
+
+        assert_eq!(
+            sample,
+            [146, 146, 182],
+            "ASM loc_C21E/sub_C254 replaces Scroll A cells, so foreground reveal pixels must draw above the loc_C186 Scroll B redraw even when that redraw tile has priority"
         );
     }
 
