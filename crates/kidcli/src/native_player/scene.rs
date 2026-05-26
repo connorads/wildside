@@ -1435,7 +1435,7 @@ fn push_eol_number_sprites(
         started = true;
         if let Some(frame) = eol.digits.get(digit as usize) {
             // ASM Object_EOL_Number loc_C4E2 spaces seven digit workers 12px apart.
-            push_sprite_frame_top_left(commands, frame, &eol.palette, x + slot as i32 * 12, y);
+            push_sprite_frame(commands, frame, &eol.palette, x + slot as i32 * 12, y);
         }
     }
 }
@@ -1489,7 +1489,10 @@ fn push_eol_text_loc_c5a2(
     elapsed: usize,
 ) {
     let x = eol_position_loc_c5a2(initial_x, 8, timer, elapsed);
-    push_sprite_frame_top_left(commands, frame, &eol.palette, x, y);
+    // ASM Object_EOL_Text loc_C5A2 writes directly to the gfx object's
+    // x_pos/y_pos fields after adding the camera, so render from sprite
+    // coordinates rather than treating `$64/$68` as top-lefts.
+    push_sprite_frame(commands, frame, &eol.palette, x, y);
 }
 
 fn push_eol_number_loc_c5a2(
@@ -1503,7 +1506,9 @@ fn push_eol_number_loc_c5a2(
     value: u32,
 ) {
     let x = eol_number_position_loc_c48c(initial_x, velocity, timer, elapsed);
-    push_eol_number_sprites(commands, eol, x, y - 2, value);
+    // ASM Object_EOL_Number loc_C4E2 writes each digit worker's gfx-object
+    // x_pos/y_pos directly from `$64/$68`.
+    push_eol_number_sprites(commands, eol, x, y, value);
 }
 
 fn push_eol_bonus_row_loc_d468(

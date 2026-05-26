@@ -2065,12 +2065,12 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert_eq!(
-            eol_number_digits_at(&scene, 154),
+            eol_number_digits_at(&scene, 145),
             eol_expected_digits(time_bonus - 0x28),
             "ASM loc_D7CE should draw the active EOL bonus row after subtracting the first `$28` transfer"
         );
         assert_eq!(
-            eol_number_digits_at(&scene, 178),
+            eol_number_digits_at(&scene, 169),
             eol_expected_digits(1_000 + 0x28),
             "ASM loc_D17E clears live score, but loc_D77E should draw from the copied EOL score seed"
         );
@@ -2136,7 +2136,7 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 156 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+                    if *y == 148 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
         );
@@ -2144,7 +2144,7 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 154 && *x == 532 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 145 && *x == 532 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM Object_EOL_Number loc_C48C draws from the initial x before loc_C4E2 applies the first -8px fly-in step",
         );
@@ -2152,7 +2152,7 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 202 && *x == -52 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 193 && *x == -52 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM Object_EOL_Number loc_C48C leaves the CONTINUES number at x=$FF84 on the first visible row tick",
         );
@@ -2163,7 +2163,7 @@ mod tests {
             settled.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 156 && *x == 64 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
+                    if *y == 148 && *x == 64 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
             "ASM loc_D4CE increments d6 before TIME/BONUS, so after loc_C5A2 the time label should rest at x=$40",
         );
@@ -2171,7 +2171,7 @@ mod tests {
             settled.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 154 && *x == 252 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 145 && *x == 252 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
             "ASM Object_EOL_Number remains one tick before its settled x when text reaches its final x because loc_C48C draws before advancing `$64`",
         );
@@ -2372,6 +2372,21 @@ mod tests {
         SpriteFrame {
             tile_base_index,
             ..sample_object_frame(signature, width_px, height_px)
+        }
+    }
+
+    fn sample_eol_frame(
+        signature: u8,
+        width_px: u16,
+        height_px: u16,
+        tile_base_index: u16,
+        origin_x: i16,
+        origin_y: i16,
+    ) -> SpriteFrame {
+        SpriteFrame {
+            origin_x,
+            origin_y,
+            ..sample_object_frame_with_base(signature, width_px, height_px, tile_base_index)
         }
     }
 
@@ -2782,19 +2797,26 @@ mod tests {
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(220, 220, 255)],
             },
-            bonus: sample_object_frame_with_base(121, 0x40, 0x08, 0x000),
-            continues: sample_object_frame_with_base(120, 0x6C, 0x08, 0x008),
-            no_hit: sample_object_frame_with_base(122, 0x57, 0x08, 0x065),
-            no_prize: sample_object_frame_with_base(123, 0x6F, 0x08, 0x070),
-            path: sample_object_frame_with_base(124, 0x35, 0x08, 0x080),
-            score: sample_object_frame_with_base(125, 0x3D, 0x08, 0x091),
-            seconds: sample_object_frame_with_base(126, 0x5F, 0x08, 0x099),
-            speed: sample_object_frame_with_base(127, 0x3F, 0x08, 0x0AD),
-            time: sample_object_frame_with_base(128, 0x2D, 0x08, 0x0B9),
-            under: sample_object_frame_with_base(129, 0x40, 0x08, 0x0C3),
+            bonus: sample_eol_frame(121, 0x40, 0x08, 0x000, 0, 0),
+            continues: sample_eol_frame(120, 0x6C, 0x08, 0x008, 0, 0),
+            no_hit: sample_eol_frame(122, 0x57, 0x08, 0x065, 0, 0),
+            no_prize: sample_eol_frame(123, 0x6F, 0x08, 0x070, 0, 0),
+            path: sample_eol_frame(124, 0x35, 0x08, 0x080, 0, 0),
+            score: sample_eol_frame(125, 0x3D, 0x08, 0x091, 0, 0),
+            seconds: sample_eol_frame(126, 0x5F, 0x08, 0x099, 0, 0),
+            speed: sample_eol_frame(127, 0x3F, 0x08, 0x0AD, 0, 0),
+            time: sample_eol_frame(128, 0x2D, 0x08, 0x0B9, 0, 0),
+            under: sample_eol_frame(129, 0x40, 0x08, 0x0C3, 0, 0),
             digits: (0..10)
                 .map(|digit| {
-                    sample_object_frame_with_base(130 + digit, 0x0C, 0x0B, 0x0CB + digit as u16)
+                    sample_eol_frame(
+                        130 + digit,
+                        0x0C,
+                        0x0B,
+                        0x0CB + digit as u16,
+                        if digit == 1 { -3 } else { 0 },
+                        0,
+                    )
                 })
                 .collect(),
         }
