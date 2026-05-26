@@ -2968,6 +2968,27 @@ mod tests {
             },
         );
         families.insert(
+            0x0E,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(190, 220, 250)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(251, 0x1F, 0x1F, 0x095),
+                    sample_object_frame_with_base(252, 0x20, 0x1E, 0x0A5),
+                    sample_object_frame_with_base(253, 0x20, 0x1E, 0x0B5),
+                    sample_object_frame_with_base(254, 0x20, 0x1D, 0x0C5),
+                    sample_object_frame_with_base(253, 0x20, 0x1E, 0x0B5),
+                    sample_object_frame_with_base(252, 0x20, 0x1E, 0x0A5),
+                    sample_object_frame_with_base(255, 0x20, 0x1E, 0x065),
+                    sample_object_frame_with_base(200, 0x20, 0x20, 0x075),
+                    sample_object_frame_with_base(201, 0x1D, 0x1D, 0x085),
+                ],
+                frame_duration: 11,
+            },
+        );
+        families.insert(
             0x19,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -3020,6 +3041,42 @@ mod tests {
                     sample_object_frame_with_base(248, 0x1C, 0x06, 0x0C5),
                 ],
                 frame_duration: 20,
+            },
+        );
+        families.insert(
+            0x14,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(200, 190, 150)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(202, 0x40, 0x1F, 0x0A2),
+                    sample_object_frame_with_base(203, 0x34, 0x1F, 0x0C2),
+                    sample_object_frame_with_base(204, 0x1E, 0x1F, 0x0DE),
+                    sample_object_frame_with_base(205, 0x3D, 0x1F, 0x0EE),
+                    sample_object_frame_with_base(206, 0x1C, 0x20, 0x012),
+                    sample_object_frame_with_base(207, 0x1F, 0x1E, 0x022),
+                    sample_object_frame_with_base(208, 0x20, 0x12, 0x032),
+                ],
+                frame_duration: 6,
+            },
+        );
+        families.insert(
+            0x1D,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(230, 230, 210)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(209, 0x19, 0x20, 0x040),
+                    sample_object_frame_with_base(210, 0x1B, 0x1D, 0x000),
+                    sample_object_frame_with_base(211, 0x1C, 0x1D, 0x090),
+                    sample_object_frame_with_base(212, 0x1E, 0x1D, 0x0A0),
+                    sample_object_frame_with_base(213, 0x21, 0x10, 0x0B0),
+                ],
+                frame_duration: 80,
             },
         );
         families.insert(
@@ -6916,6 +6973,131 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Emo_Rock.asm loc_36346 should step through `stru_36468` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn cloud_death_snapshot_selects_loc_35c0e_frames() {
+        let visuals = sample_level_visuals();
+        let cloud_visuals = visuals.enemies.families.get(&0x0E).expect("cloud visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0E },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(7 + 7 + 7),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(21, 255), (14, 200), (7, 201)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, cloud_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Cloud.asm loc_35C0E should step through `stru_35EBA` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn spinning_twins_death_snapshot_selects_loc_3bc56_frames() {
+        let visuals = sample_level_visuals();
+        let twins_visuals = visuals
+            .enemies
+            .families
+            .get(&0x14)
+            .expect("spinning twins visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x14 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x19 + 0x0F + 0x14),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(0x3C, 206), (0x23, 207), (0x14, 208)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, twins_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Spinning_Twins.asm loc_3BC56 should step through `stru_3B83C` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn big_hopping_skull_death_snapshot_selects_loc_3664e_frames() {
+        let visuals = sample_level_visuals();
+        let skull_visuals = visuals
+            .enemies
+            .families
+            .get(&0x1D)
+            .expect("big hopping skull visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x18 + 0x0C + 0x0A + 0x64),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(0x8A, 210), (0x72, 211), (0x66, 212), (0x64, 213)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, skull_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Big_Hopping_Skull.asm loc_3664E should step through `stru_367FA` death frames"
             );
         }
     }

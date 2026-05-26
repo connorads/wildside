@@ -1319,6 +1319,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0C5, 0x10, -2, 0x20, 0x1D),
             fd(0x0B5, 0x10, -1, 0x20, 0x1E),
             fd(0x0A5, 0x10, -1, 0x20, 0x1E),
+            fd(0x065, 0x10, -1, 0x20, 0x1E),
+            fd(0x075, 0x10, 0x00, 0x20, 0x20),
+            fd(0x085, 0x0F, -2, 0x1D, 0x1D),
         ],
     },
     EnemyFamilySpec {
@@ -1420,6 +1423,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0C2, 0x19, 0x00, 0x34, 0x1F),
             fd(0x0DE, 0x0F, 0x00, 0x1E, 0x1F),
             fd(0x0EE, 0x1E, 0x00, 0x3D, 0x1F),
+            fd(0x012, 0x0F, 0x00, 0x1C, 0x20),
+            fd(0x022, 0x0F, 0x00, 0x1F, 0x1E),
+            fd(0x032, 0x10, 0x00, 0x20, 0x12),
         ],
     },
     EnemyFamilySpec {
@@ -1540,7 +1546,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             "palette_enemy/Big_Hopping_Skull_3.bin",
         ],
         frame_duration: 80,
-        frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
+        frames: &[
+            fd(0x040, 0x0D, 0x00, 0x19, 0x20),
+            fd(0x000, 0x0D, 0x00, 0x1B, 0x1D),
+            fd(0x090, 0x0D, 0x00, 0x1C, 0x1D),
+            fd(0x0A0, 0x0D, 0x00, 0x1E, 0x1D),
+            fd(0x0B0, 0x0D, 0x00, 0x21, 0x10),
+        ],
     },
     EnemyFamilySpec {
         object_type: 0x20, // Heady Metal (boss)
@@ -4560,6 +4572,16 @@ mod tests {
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
         );
         assert_eq!(
+            death_tiles(0x0E, 6..9),
+            vec![0x0065, 0x0075, 0x0085],
+            "ASM Cloud.asm loc_35C0E / stru_35EBA death frames C789E/C78A6/C78AE must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x14, 4..7),
+            vec![0x0012, 0x0022, 0x0032],
+            "ASM Spinning_Twins.asm loc_3BC56 / stru_3B83C death frames C7CDE/C7CE6/C7CEE must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x18, 3..5),
             vec![0x0000, 0x0014],
             "ASM Tornado.asm loc_359B2 / stru_35B1E death frames C783E/C7846 must be selectable"
@@ -4568,6 +4590,11 @@ mod tests {
             death_tiles(0x1B, 3..8),
             vec![0x0060, 0x007E, 0x0097, 0x00B5, 0x00C5],
             "ASM Emo_Rock.asm loc_36346 / stru_36468 death frames C7F68/C7F70/C7F78/C7F80/C7F88 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x1D, 1..5),
+            vec![0x0000, 0x0090, 0x00A0, 0x00B0],
+            "ASM Big_Hopping_Skull.asm loc_3664E / stru_367FA death frames C7FA0/C7FE8/C7FF0/C7FF8 must be selectable"
         );
     }
 

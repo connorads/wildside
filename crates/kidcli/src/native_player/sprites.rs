@@ -643,6 +643,17 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(5)
                 }
             }
+            // ASM Cloud.asm loc_35C0E runs `stru_35EBA`: C789E, C78A6,
+            // then C78AE for seven ticks each before deletion.
+            0x0E if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x0E {
+                    Some(6)
+                } else if remaining > 0x07 {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
             // ASM Goat.asm loc_3CB64 runs `stru_3C9EA`: C7C56 for $1E,
             // C7C8E for $0A, then C7C96 for $37 before deletion.
             0x10 if enemy_visuals.frames.len() >= 9 => {
@@ -652,6 +663,17 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(7)
                 } else {
                     Some(8)
+                }
+            }
+            // ASM Spinning_Twins.asm loc_3BC56 runs `stru_3B83C`:
+            // C7CDE for $19, C7CE6 for $0F, then C7CEE for $14.
+            0x14 if enemy_visuals.frames.len() >= 7 => {
+                if remaining > 0x0F + 0x14 {
+                    Some(4)
+                } else if remaining > 0x14 {
+                    Some(5)
+                } else {
+                    Some(6)
                 }
             }
             // ASM Ninja.asm loc_3DB4E runs `stru_3D50A`: C7D56 for $14,
@@ -734,6 +756,20 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(6)
                 } else {
                     Some(7)
+                }
+            }
+            // ASM Big_Hopping_Skull.asm loc_3664E runs `stru_367FA`:
+            // C7FA0 for $18, C7FE8 for $0C, C7FF0 for $0A, then C7FF8
+            // for $64 before deletion.
+            0x1D if enemy_visuals.frames.len() >= 5 => {
+                if remaining > 0x0C + 0x0A + 0x64 {
+                    Some(1)
+                } else if remaining > 0x0A + 0x64 {
+                    Some(2)
+                } else if remaining > 0x64 {
+                    Some(3)
+                } else {
+                    Some(4)
                 }
             }
             _ => None,
