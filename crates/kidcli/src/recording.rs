@@ -81,6 +81,8 @@ pub(crate) struct NativeRecording {
     pub(crate) trace: Vec<NativeTraceFrame>,
     #[serde(default, skip)]
     pub(crate) legacy_block_destroy_direction_frames: BTreeSet<usize>,
+    #[serde(default, skip)]
+    pub(crate) legacy_missing_played_sound_effect_ids_frames: BTreeSet<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -175,6 +177,7 @@ pub(crate) fn build_recording(
         },
         trace,
         legacy_block_destroy_direction_frames: BTreeSet::new(),
+        legacy_missing_played_sound_effect_ids_frames: BTreeSet::new(),
     })
 }
 
@@ -259,6 +262,8 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
     let trace = fs::read(record_dir.join("trace.json"))
         .with_context(|| format!("failed to read {}", record_dir.join("trace.json").display()))?;
     let legacy_block_destroy_direction_frames = legacy_block_destroy_direction_frames(&trace)?;
+    let legacy_missing_played_sound_effect_ids_frames =
+        legacy_missing_played_sound_effect_ids_frames(&trace)?;
     let mut recording = NativeRecording {
         manifest: serde_json::from_slice(&manifest).with_context(|| {
             format!(
@@ -273,6 +278,7 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
             )
         })?,
         legacy_block_destroy_direction_frames,
+        legacy_missing_played_sound_effect_ids_frames,
     };
     normalise_loaded_recording(&mut recording)?;
     Ok(recording)
@@ -293,6 +299,25 @@ fn legacy_block_destroy_direction_frames(trace: &[u8]) -> Result<BTreeSet<usize>
             effects
                 .iter()
                 .any(|effect| effect.as_array().is_some_and(|fields| fields.len() == 3))
+                .then_some(frame_index)
+        })
+        .collect())
+}
+
+fn legacy_missing_played_sound_effect_ids_frames(trace: &[u8]) -> Result<BTreeSet<usize>> {
+    let value: serde_json::Value =
+        serde_json::from_slice(trace).context("failed to inspect trace.json schema")?;
+    let Some(frames) = value.as_array() else {
+        return Ok(BTreeSet::new());
+    };
+
+    Ok(frames
+        .iter()
+        .enumerate()
+        .filter_map(|(frame_index, frame)| {
+            frame
+                .as_object()
+                .is_some_and(|fields| !fields.contains_key("played_sound_effect_ids"))
                 .then_some(frame_index)
         })
         .collect())
@@ -411,6 +436,7 @@ pub(crate) fn verify_recording(
         &recording.trace,
         &replay_trace,
         &recording.legacy_block_destroy_direction_frames,
+        &recording.legacy_missing_played_sound_effect_ids_frames,
         recording.manifest.start.settled && recording.manifest.start.warp_level.is_some(),
     );
     let trace_match = first_trace_drift.is_none();
@@ -773,17 +799,31 @@ fn first_trace_drift(
     recorded: &[NativeTraceFrame],
     replay: &[NativeTraceFrame],
     legacy_block_destroy_direction_frames: &BTreeSet<usize>,
+    legacy_missing_played_sound_effect_ids_frames: &BTreeSet<usize>,
     normalise_settled_level_skip_cheat: bool,
 ) -> Option<TraceDriftReport> {
     for (index, (expected, actual)) in recorded.iter().zip(replay).enumerate() {
+        let expected_for_match = if legacy_missing_played_sound_effect_ids_frames.contains(&index) {
+            let mut normalised_expected = expected.clone();
+            normalised_expected
+                .played_sound_effect_ids
+                .clone_from(&actual.played_sound_effect_ids);
+            normalised_expected
+        } else {
+            expected.clone()
+        };
         let matches = if legacy_block_destroy_direction_frames.contains(&index) {
             trace_frames_match_with_legacy_block_destroy_direction(
-                expected,
+                &expected_for_match,
                 actual,
                 normalise_settled_level_skip_cheat,
             )
         } else {
-            trace_frames_match(expected, actual, normalise_settled_level_skip_cheat)
+            trace_frames_match(
+                &expected_for_match,
+                actual,
+                normalise_settled_level_skip_cheat,
+            )
         };
         if !matches {
             return Some(TraceDriftReport {
@@ -819,8 +859,11 @@ fn trace_frames_match(
         // Settled warp recordings replay through the reduced oracle level-skip
         // path. ASM loc_D468 can still observe LevelSkip_Cheat for EOL digit
         // sprites, so `run_recorded_trace` preserves that compatibility bit;
-        // older/live-recorded play-native traces may omit it.
+        // older/live-recorded play-native traces may omit it. The same reduced
+        // path seeds `Level_completion_time` to one second for loc_D47E, while
+        // older visual-validation bundles recorded the default zero.
         normalised_expected.level_skip_cheat_enabled = actual.level_skip_cheat_enabled;
+        normalised_expected.level_completion_time = actual.level_completion_time;
     }
 
     if expected.game_mode == actual.game_mode
@@ -1347,7 +1390,14 @@ mod tests {
         let recorded = vec![sample_trace_frame(0), sample_trace_frame(1)];
         let mut replay = recorded.clone();
         replay[1].number_hitpoints = 1;
-        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new(), false).expect("drift");
+        let drift = first_trace_drift(
+            &recorded,
+            &replay,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        )
+        .expect("drift");
         assert_eq!(drift.frame_index, 1);
     }
 
@@ -1367,7 +1417,13 @@ mod tests {
             frame
         }];
 
-        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new(), false);
+        let drift = first_trace_drift(
+            &recorded,
+            &replay,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
 
         assert_eq!(
             drift, None,
@@ -1384,8 +1440,14 @@ mod tests {
         let mut replay = recorded.clone();
         replay.title_screen_ready = false;
 
-        let drift =
-            first_trace_drift(&[recorded], &[replay], &BTreeSet::new(), false).expect("drift");
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        )
+        .expect("drift");
 
         assert_eq!(drift.frame_index, 0);
     }
@@ -1397,7 +1459,13 @@ mod tests {
         let mut replay = sample_trace_frame(0);
         replay.block_destroy_effects = vec![(144, 196, 2, 0)];
 
-        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::from([0]), false);
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::from([0]),
+            &BTreeSet::new(),
+            false,
+        );
 
         assert_eq!(
             drift, None,
@@ -1406,25 +1474,77 @@ mod tests {
     }
 
     #[test]
-    fn first_trace_drift_accepts_settled_warp_level_skip_cheat_compatibility_bit() {
-        let mut recorded = sample_trace_frame(0);
-        recorded.level_skip_cheat_enabled = 0;
+    fn first_trace_drift_accepts_legacy_frames_missing_played_sound_effect_ids() {
+        let recorded = sample_trace_frame(0);
         let mut replay = recorded.clone();
-        replay.level_skip_cheat_enabled = 1;
+        replay.played_sound_effect_ids = vec![0x61];
 
         let strict_drift = first_trace_drift(
-            &[recorded.clone()],
-            &[replay.clone()],
+            std::slice::from_ref(&recorded),
+            std::slice::from_ref(&replay),
+            &BTreeSet::new(),
             &BTreeSet::new(),
             false,
         )
         .expect("strict comparison should drift");
         assert_eq!(strict_drift.frame_index, 0);
 
-        let settled_warp_drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::new(), true);
+        let legacy_drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::from([0]),
+            false,
+        );
+
+        assert_eq!(
+            legacy_drift, None,
+            "older visual-validation recordings predate played_sound_effect_ids, so replay verification should only normalise frames whose raw trace omitted that field"
+        );
+    }
+
+    #[test]
+    fn legacy_missing_played_sound_effect_ids_frames_detects_omitted_keys() {
+        let trace = br#"[
+            {"frame_index":0},
+            {"frame_index":1,"played_sound_effect_ids":[]},
+            {"frame_index":2}
+        ]"#;
+
+        let frames = legacy_missing_played_sound_effect_ids_frames(trace).expect("schema");
+
+        assert_eq!(frames, BTreeSet::from([0, 2]));
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_settled_warp_level_skip_cheat_compatibility_bit() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.level_skip_cheat_enabled = 0;
+        recorded.level_completion_time = 0;
+        let mut replay = recorded.clone();
+        replay.level_skip_cheat_enabled = 1;
+        replay.level_completion_time = 1;
+
+        let strict_drift = first_trace_drift(
+            &[recorded.clone()],
+            &[replay.clone()],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        )
+        .expect("strict comparison should drift");
+        assert_eq!(strict_drift.frame_index, 0);
+
+        let settled_warp_drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            true,
+        );
         assert_eq!(
             settled_warp_drift, None,
-            "settled warp recordings replay through the reduced oracle level-skip path, so the loc_D468 compatibility bit should not invalidate otherwise-identical traces"
+            "settled warp recordings replay through the reduced oracle level-skip path, so the loc_D468 compatibility bit/time seed should not invalidate otherwise-identical traces"
         );
     }
 

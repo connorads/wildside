@@ -924,6 +924,7 @@ fn oracle_scenario_for_case_recording(
         manifest,
         trace: Vec::new(),
         legacy_block_destroy_direction_frames: BTreeSet::default(),
+        legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
     })
 }
 
@@ -2330,6 +2331,7 @@ mod tests {
             },
             trace: vec![NativeTraceFrame::default()],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
         let replay_frame = NativeTraceFrame {
             game_mode_value: 0x000c,
@@ -2378,6 +2380,7 @@ mod tests {
             },
             trace: vec![NativeTraceFrame::default(), NativeTraceFrame::default()],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
 
         let reason = recording_replay_drift_reason(&recording, &[NativeTraceFrame::default()]);
@@ -2421,6 +2424,7 @@ mod tests {
             },
             trace: vec![NativeTraceFrame::default()],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
         let native = semantic_state_at_level(0x15, false);
         let oracle = semantic_state_at_level(0x00, true);
@@ -2470,6 +2474,7 @@ mod tests {
             },
             trace: vec![NativeTraceFrame::default()],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
         let native = semantic_state_at_level(0x01, false);
         let mut oracle = semantic_state_at_level(0x01, true);
