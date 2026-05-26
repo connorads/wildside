@@ -5897,7 +5897,7 @@ mod tests {
     }
 
     #[test]
-    fn kid_slope_down_render_facing_is_mirrored_after_loc_a13a_canonical_bank_selection() {
+    fn kid_slope_down_render_facing_uses_live_x_direction_after_loc_a13a_bank_selection() {
         let selected_flip = |facing: Direction| {
             let mut trace = trace_with_player(4, 0);
             trace.kid_x_velocity = Some(match facing {
@@ -5913,13 +5913,13 @@ mod tests {
 
         assert_eq!(
             selected_flip(Direction::Right),
-            Some(true),
-            "ASM loc_A13A flips SlopeDown through `$FA26`; native must mirror the selected slope bank for the top-left-to-bottom-right slope"
+            Some(false),
+            "ASM loc_A13A flips only the temporary d1 bank selector for SlopeDown; loc_1292 still draws clear live x_direction without x-flip"
         );
         assert_eq!(
             selected_flip(Direction::Left),
-            Some(false),
-            "ASM loc_A13A SlopeDown canonicalisation should mirror both traversal directions on the `$5000` slope"
+            Some(true),
+            "ASM loc_A13A does not rewrite x_direction; loc_1292 must still flip nonzero live x_direction on the `$5000` slope"
         );
     }
 

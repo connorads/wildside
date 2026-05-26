@@ -495,19 +495,10 @@ pub(super) fn push_player_sprite(
     damage_flash_white_phase: bool,
 ) {
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
-    let facing = trace.kid_facing.unwrap_or(Direction::Right);
-    let render_facing = if trace.kid_on_slope < 0 {
-        // ASM loc_A13A canonicalises SlopeDown through `$FFFFFA26` before
-        // selecting the slope frame bank. Mirror the selected bank on `$5000`
-        // slopes so the top-left-to-bottom-right surface uses the ROM-facing
-        // art instead of applying the live `x_direction` a second time.
-        match facing {
-            Direction::Left => Direction::Right,
-            Direction::Right => Direction::Left,
-        }
-    } else {
-        facing
-    };
+    // ASM loc_A13A flips only temporary d1 while choosing the SlopeDown frame
+    // bank; final sprite orientation still comes from live x_direction in
+    // loc_1292.
+    let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
