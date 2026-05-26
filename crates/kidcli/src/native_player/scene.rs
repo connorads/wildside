@@ -1158,6 +1158,11 @@ pub(super) fn push_background_tiles(
                 let row_width_px = i32::try_from(row.tiles.len())
                     .ok()
                     .and_then(|tiles| tiles.checked_mul(8));
+                let wrap_row = layered_background_row_wraps_for_trace_loc_3050a(
+                    trace,
+                    level_visuals,
+                    row_index,
+                );
                 for (column, tile) in row.tiles.iter().enumerate() {
                     let (mut screen_x, screen_y) = background_tile_screen_position(
                         trace,
@@ -1167,7 +1172,7 @@ pub(super) fn push_background_tiles(
                         camera_x_px,
                         camera_y_px,
                     );
-                    if let Some(row_width_px) = row_width_px {
+                    if wrap_row && let Some(row_width_px) = row_width_px {
                         screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
                     }
                     if screen_x <= -8
@@ -1814,22 +1819,53 @@ pub(super) fn background_tile_screen_position(
     let world_y_px = i32::from(y_tiles) * 8;
     // Plane B vertical scroll uses Camera_Y_pos >> 2 in the original game.
     let background_scroll_y_px = camera_y_px >> 2;
-    let Some(profile) = level_visuals.level.background_scroll.as_ref() else {
+    if level_visuals.level.background_scroll.is_none() {
         return (
             world_x_px.saturating_sub(camera_x_px),
             world_y_px.saturating_sub(background_scroll_y_px),
         );
-    };
+    }
 
-    let layer_speed = profile
-        .layer_speeds
-        .get(usize::from(y_tiles))
-        .copied()
-        .unwrap_or(0x10);
+    let layer_speed = background_layer_speed_loc_3050a(level_visuals, usize::from(y_tiles));
     (
         world_x_px.saturating_sub(background_scroll_x_px(trace, camera_x_px, layer_speed)),
         world_y_px.saturating_sub(background_scroll_y_px),
     )
+}
+
+fn background_layer_speed_loc_3050a(level_visuals: &NativeLevelVisuals, y_tiles: usize) -> u8 {
+    level_visuals
+        .level
+        .background_scroll
+        .as_ref()
+        .and_then(|profile| profile.layer_speeds.get(y_tiles).copied())
+        .unwrap_or(0x10)
+}
+
+pub(super) fn layered_background_row_wraps_loc_3050a(
+    level_visuals: &NativeLevelVisuals,
+    y_tiles: usize,
+) -> bool {
+    // ASM BackgroundScroll_ComputeShiftLayers loc_3050A resolves bgscroll rows
+    // from the per-level profile. Camera-parallax rows (`$18..$88`, step `$08`)
+    // are the rows that need Plane B repetition for long horizontal travel
+    // around the Level 1 bridge. Auto-scrolling forest rows (`$00/$08`) are
+    // left finite here; wrapping them paints scenery into the oracle's clear
+    // sky during the flagpole hand-off before loc_C0CC sets no-scroll mode.
+    let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
+    matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
+}
+
+pub(super) fn layered_background_row_wraps_for_trace_loc_3050a(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    y_tiles: usize,
+) -> bool {
+    // ASM CharacterCollision_TouchFlagpole loc_C070 hibernates before the
+    // score-room setup while native already reports `level_complete` for that
+    // frozen hand-off frame. Keep layered background rows finite there; normal
+    // gameplay keeps the camera-parallax repetition from loc_3050A.
+    !trace.level_complete && layered_background_row_wraps_loc_3050a(level_visuals, y_tiles)
 }
 
 pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) -> i32 {
@@ -1838,10 +1874,15 @@ pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px
     }
     // ASM loc_11B7A builds Plane B row pointers and the VDP scroll plane wraps
     // horizontally. Forest rows are composed as two 32-tile planes (64 tiles);
-    // without this wrap, parallax-scrolled rows disappear to the left and show
-    // only the backdrop colour around the Level 1 bridge.
-    let mut wrapped = screen_x_px.rem_euclid(row_width_px);
-    while wrapped >= FRAME_WIDTH as i32 {
+    // without this wrap, parallax-scrolled rows that move more than one full
+    // plane disappear to the left. Do not fold ordinary right-edge tiles back
+    // into the viewport until they cross the whole Plane B row; the ROM still
+    // leaves clear sky between x=320 and the 512px nametable wrap point.
+    let mut wrapped = screen_x_px;
+    while wrapped < -8 {
+        wrapped += row_width_px;
+    }
+    while wrapped >= row_width_px {
         wrapped -= row_width_px;
     }
     wrapped

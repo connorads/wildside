@@ -4914,8 +4914,60 @@ mod tests {
         );
         assert_eq!(
             super::scene::wrap_layered_background_x_loc_11b7a(400, 512),
-            -112,
-            "tiles just beyond the right side may still need to draw as the wrapped copy on the left",
+            400,
+            "ASM loc_11B7A wraps at the 64-tile Plane B row, not at the 320px viewport edge",
+        );
+        assert_eq!(
+            super::scene::wrap_layered_background_x_loc_11b7a(520, 512),
+            8,
+            "tiles that pass the full 512px row should wrap back into the visible Plane B range",
+        );
+    }
+
+    #[test]
+    fn layered_background_wraps_only_camera_parallax_rows_loc_3050a() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
+            layer_speeds: vec![0x00, 0x08, 0x10, 0x30],
+            has_terminator: true,
+        });
+
+        assert!(
+            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
+            "ASM loc_3050A auto-scrolling `$00` rows stay finite during the flagpole hand-off"
+        );
+        assert!(
+            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
+            "ASM loc_3050A auto-scrolling `$08` rows stay finite during the flagpole hand-off"
+        );
+        assert!(
+            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 2),
+            "ASM loc_3050A no-scroll `$10` rows do not need native row repetition"
+        );
+        assert!(
+            super::scene::layered_background_row_wraps_loc_3050a(&visuals, 3),
+            "ASM loc_3050A camera-parallax rows should repeat so long-travel forest rows do not disappear"
+        );
+    }
+
+    #[test]
+    fn layered_background_wrap_stops_during_flagpole_handoff_loc_c070() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
+            layer_speeds: vec![0x30],
+            has_terminator: true,
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+
+        assert!(
+            super::scene::layered_background_row_wraps_for_trace_loc_3050a(&trace, &visuals, 0),
+            "ordinary gameplay should keep camera-parallax row repetition for long forest levels"
+        );
+
+        trace.level_complete = true;
+        assert!(
+            !super::scene::layered_background_row_wraps_for_trace_loc_3050a(&trace, &visuals, 0),
+            "ASM loc_C070 freezes the pre-score-room hand-off before native should repeat layered background rows"
         );
     }
 
