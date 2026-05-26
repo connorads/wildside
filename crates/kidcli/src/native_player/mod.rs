@@ -2078,7 +2078,13 @@ mod tests {
 
     #[test]
     fn level_complete_overlay_draws_level_skip_time_digits_loc_d47e() {
-        let visuals = sample_level_visuals();
+        let mut visuals = sample_level_visuals();
+        let eol = visuals.eol_score.as_mut().expect("EOL visuals");
+        for frame in &mut eol.digits {
+            frame.origin_x = 0;
+            frame.origin_y = 0;
+        }
+        eol.digits[1].origin_x = -3;
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
         trace.level_skip_cheat_enabled = 1;
@@ -2092,7 +2098,7 @@ mod tests {
             .filter_map(|command| match command {
                 DrawCommand::Sprite {
                     x, y, tile_sheet, ..
-                } if *y == 210 && matches!(*x, 260 | 272 | 284) => tile_sheet
+                } if *y == 201 && matches!(*x, 260 | 272 | 287) => tile_sheet
                     .tiles
                     .first()
                     .and_then(|tile| tile.pixels[0].checked_sub(130))
@@ -2103,8 +2109,8 @@ mod tests {
 
         assert_eq!(
             digits,
-            vec![(284, 1), (272, 0), (260, 0)],
-            "ASM loc_D47E should render Level_completion_time ones/tens/hundreds at x=$11C,$110,$104 before ordinary EOL rows"
+            vec![(287, 1), (272, 0), (260, 0)],
+            "ASM loc_D47E writes gfx-object coordinates at x=$11C,$110,$104 and y=$D4 before ordinary EOL rows"
         );
     }
 

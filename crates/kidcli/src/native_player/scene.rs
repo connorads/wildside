@@ -1452,12 +1452,13 @@ fn push_eol_level_skip_time_digits_loc_d47e(
     // ASM loc_D468/loc_D47E: when `LevelSkip_Cheat` is set, emit three
     // completion-time digit gfx objects at camera-relative x `$11C`, `$110`,
     // `$104`, y `$D4`, consuming ones/tens/hundreds by repeated `divu #$A`.
+    // These are direct gfx-object coordinates, not pre-resolved top-lefts.
     let mut remaining = trace.level_completion_time;
     for x in [0x11C, 0x110, 0x104] {
         let digit = remaining % 10;
         remaining /= 10;
         if let Some(frame) = eol.digits.get(usize::from(digit)) {
-            push_sprite_frame_top_left(commands, frame, &eol.palette, x, 0xD4 - 2);
+            push_sprite_frame(commands, frame, &eol.palette, x, 0xD4);
         }
     }
 }
