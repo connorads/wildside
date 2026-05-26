@@ -439,10 +439,14 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
 ) -> VdpState {
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
-        overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp);
+        overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
     }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
-        overlay_intro_sequence_3_sprite_table_loc_1AEEC(&mut vdp, intro_sequence_3_roster_index);
+        overlay_intro_sequence_3_sprite_table_loc_1AEEC(
+            &mut vdp,
+            intro_sequence_3_roster_index,
+            elapsed - INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+        );
     }
     if segment == 4 {
         overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
@@ -454,15 +458,25 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
 const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 
 #[allow(non_snake_case)]
-fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState) {
+fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed: usize) {
+    let mut sprite_entries = Vec::new();
+    append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
+    write_sprite_table_entries(
+        vdp,
+        sprite_table_base_byte_addr(&vdp.registers),
+        &sprite_entries,
+    );
+}
+
+#[allow(non_snake_case)]
+fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSpriteEntry>) {
     // ASM sub_1B8F4 -> sub_1C54A (kid.asm:30194,31288): after the Wild Side
     // VDP setup, the controller allocates a fixed priority sprite using
     // `unk_E109E` at VRAM tile `$140`. That art is the door/interior block
     // uploaded by sub_1B850's `Wild_Side_door_and_inside.bin` DMA.
     let prompt = crate::boot::title_menu_prompt_sprite_sub_1C54A();
-    let mut sprite_entries = Vec::new();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        &mut sprite_entries,
+        entries,
         IntroGfxObjectForSpriteTable {
             x_pos: prompt.x_pos,
             y_pos: prompt.y_pos,
@@ -478,11 +492,6 @@ fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState) {
             width: 0x3E,
             height: 0x2F,
         },
-    );
-    write_sprite_table_entries(
-        vdp,
-        sprite_table_base_byte_addr(&vdp.registers),
-        &sprite_entries,
     );
 }
 
@@ -526,7 +535,11 @@ fn intro_sequence_3_sprite_frame_vram(addroffset_sprite: u16) -> Option<IntroSpr
 }
 
 #[allow(non_snake_case)]
-fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(vdp: &mut VdpState, roster_index: usize) {
+fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
+    vdp: &mut VdpState,
+    roster_index: usize,
+    visible_elapsed: usize,
+) {
     let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
     let mut sprite_entries = Vec::new();
     for descriptor_slot in 0..8 {
@@ -548,7 +561,50 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(vdp: &mut VdpState, roster_in
             frame,
         );
     }
+    append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
+    append_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_entries, visible_elapsed);
     write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
+}
+
+#[allow(non_snake_case)]
+fn append_intro_sequence_3_sliding_sprites_sub_1C572(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    visible_elapsed: usize,
+) {
+    // ASM Load_IntroSequence3 (kid.asm:29078-29088) allocates the Wild Side
+    // kid roster and then the paired sub_1C572/loc_1C58C sliding door sprites.
+    // Both door workers set their visible gfx slot immediately, hibernate for
+    // `$3C`, then move one pixel per frame for `#$41+1` iterations.
+    for sliding in crate::boot::title_menu_sliding_sprites_sub_1C572() {
+        let moving_elapsed =
+            visible_elapsed.saturating_sub(usize::from(sliding.initial_hibernate_frames));
+        let moved_frames = moving_elapsed.min(usize::from(sliding.moving_frames));
+        let x_pos = i32::from(sliding.x_pos)
+            + i32::from(sliding.x_velocity_per_frame) * moved_frames as i32;
+        let (sprite_index, width, height) = match sliding.sprite_label {
+            "unk_E10A6" => (0x030, 0x28, 0x30),
+            "unk_E10AE" => (0x04E, 0x28, 0x30),
+            _ => continue,
+        };
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos: x_pos as u16,
+                y_pos: sliding.y_pos,
+                palette_line: 0,
+                vram_tile: sliding.vram_tile,
+                priority: u8::from(sliding.priority_flag),
+                x_direction: 0,
+            },
+            IntroSpriteFrameVram {
+                sprite_index,
+                x_center: 0,
+                y_center: 0,
+                width,
+                height,
+            },
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1889,6 +1945,10 @@ mod tests {
         )
     }
 
+    fn sprite_table_contains(vdp: &VdpState, expected: (u16, u8, u8, u16, u16)) -> bool {
+        (0..80).any(|entry_index| sprite_entry_words(vdp, entry_index) == expected)
+    }
+
     #[test]
     fn vdp_state_new_has_correct_sizes() {
         let vdp = VdpState::new();
@@ -1962,6 +2022,61 @@ mod tests {
             sprite_entry_words(&vdp, 0),
             (0, 0, 0, 0, 0),
             "Trace-backed Load_IntroSequence3 hidden rebuild should not populate the sprite table before loc_1AEEC's visible roster frame",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_sub_1C54A_keeps_wild_side_door_sprite_visible() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+
+        assert!(
+            sprite_table_contains(&vdp, (0x0119, 0x0F, 21, 0x8140, 0x0101)),
+            "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, so the fixed Wild Side door/interior sprite should be present after the roster entries",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_sub_1C572_draws_and_slides_door_halves() {
+        let initial = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+
+        assert!(
+            sprite_table_contains(&initial, (0x0118, 0x0F, 25, 0x8170, 0x00BA)),
+            "ASM sub_1C572 should draw the left sliding Wild Side door half at x=$3A before the `$3C` hibernate expires",
+        );
+        assert!(
+            sprite_table_contains(&initial, (0x0118, 0x0F, 29, 0x818E, 0x015E)),
+            "ASM loc_1C58C should draw the right sliding Wild Side door half at x=$DE before the `$3C` hibernate expires",
+        );
+
+        let after_first_move = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES + 0x3D,
+            1,
+        );
+
+        assert!(
+            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 25, 0x8170, 0x00BB)),
+            "ASM loc_1C5BE should move the left door half right by one pixel after its first post-hibernate frame",
+        );
+        assert!(
+            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 29, 0x818E, 0x015D)),
+            "ASM loc_1C5BE should move the right door half left by one pixel after its first post-hibernate frame",
         );
     }
 
