@@ -1989,6 +1989,48 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_reveal_redraws_hologram_on_scroll_b_tile_grid() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x0420);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 112, 0)],
+            },
+            tile_sheet,
+            rows: vec![
+                vec![TileRef::from_attr_word(0x0001); 2],
+                vec![TileRef::from_attr_word(0x0001); 2],
+            ],
+        });
+        let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(0, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+        trace.camera_x_pos = 3 << 16;
+        trace.camera_y_pos = 1 << 16;
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+        let screen_aligned_hologram_tile_count = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 1
+                )
+            })
+            .count();
+
+        assert!(
+            screen_aligned_hologram_tile_count >= 2,
+            "ASM loc_C186 keeps the hologram on Scroll B screen tile coordinates; loc_C21E/sub_C254 reveal redraws must not inherit Scroll A's camera sub-tile offset"
+        );
+    }
+
+    #[test]
     fn level_complete_speed_under_seconds_uses_loc_d660_threshold() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

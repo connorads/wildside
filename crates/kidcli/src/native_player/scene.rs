@@ -2146,6 +2146,44 @@ fn push_eol_hologram_tile(
     });
 }
 
+fn push_eol_hologram_tiles_for_screen_rect(
+    commands: &mut Vec<DrawCommand>,
+    hologram: &kid_render::EolHologramVisuals,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    tile_sheet: &Arc<TileSheet>,
+    palette: &Arc<Palette>,
+) {
+    let start_col = x.div_euclid(8).max(0);
+    let end_col = (x + width - 1)
+        .div_euclid(8)
+        .min((FRAME_WIDTH as i32 - 1) / 8);
+    let start_row = y.div_euclid(8).max(0);
+    let end_row = (y + height - 1)
+        .div_euclid(8)
+        .min((FRAME_HEIGHT as i32 - 1) / 8);
+    if start_col > end_col || start_row > end_row {
+        return;
+    }
+
+    for tile_row in start_row..=end_row {
+        for tile_col in start_col..=end_col {
+            push_eol_hologram_tile(
+                commands,
+                hologram,
+                tile_col * 8,
+                tile_row * 8,
+                usize::try_from(tile_col).expect("screen tile column fits"),
+                usize::try_from(tile_row).expect("screen tile row fits"),
+                tile_sheet,
+                palette,
+            );
+        }
+    }
+}
+
 fn push_eol_foreground_reveal_tiles(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -2176,6 +2214,21 @@ fn push_eol_foreground_reveal_tiles(
     ) {
         let x = i32::from(write.col) * 16 - camera_x_px;
         let y = i32::from(write.row) * 16 - camera_y_px;
+        // ASM loc_C186 uploads the hologram as a Scroll B screen map. Redraw the
+        // visible screen-space tiles under the loc_C21E/sub_C254 foreground write.
+        // The foreground write is camera sub-tile aligned, but Scroll B is fixed
+        // to screen tile coordinates after Background_NoScrollFlag is set at
+        // loc_C0CC, so the replacement must stay on 8px screen boundaries.
+        push_eol_hologram_tiles_for_screen_rect(
+            commands,
+            hologram,
+            x,
+            y,
+            16,
+            16,
+            &tile_sheet,
+            &palette,
+        );
         commands.push(DrawCommand::Rect {
             x,
             y,
@@ -2183,50 +2236,6 @@ fn push_eol_foreground_reveal_tiles(
             height: 16,
             colour: [0, 0, 0],
         });
-        // ASM loc_C186 uploads the hologram as a Scroll B screen map. Redraw the
-        // visible screen-space tiles under the loc_C21E/sub_C254 foreground write.
-        let tile_col = usize::try_from(x.max(0) / 8).expect("screen tile column fits");
-        let tile_row = usize::try_from(y.max(0) / 8).expect("screen tile row fits");
-        push_eol_hologram_tile(
-            commands,
-            hologram,
-            x,
-            y,
-            tile_col,
-            tile_row,
-            &tile_sheet,
-            &palette,
-        );
-        push_eol_hologram_tile(
-            commands,
-            hologram,
-            x + 8,
-            y,
-            tile_col + 1,
-            tile_row,
-            &tile_sheet,
-            &palette,
-        );
-        push_eol_hologram_tile(
-            commands,
-            hologram,
-            x,
-            y + 8,
-            tile_col,
-            tile_row + 1,
-            &tile_sheet,
-            &palette,
-        );
-        push_eol_hologram_tile(
-            commands,
-            hologram,
-            x + 8,
-            y + 8,
-            tile_col + 1,
-            tile_row + 1,
-            &tile_sheet,
-            &palette,
-        );
         for (index, word) in write.tile_words.iter().copied().enumerate() {
             commands.push(DrawCommand::IndexedTile {
                 x: x + i32::try_from(index % 2).expect("tile column fits") * 8,
