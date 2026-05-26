@@ -1,8 +1,26 @@
 // === Game timing ===
 
-pub(crate) const SEGA_SCREEN_FRAMES: usize = 120;
-pub(crate) const INTRO_FIRST_SEGMENT_FRAMES: usize = 160;
+// ASM Load_SegaScreen `loc_12E6C` burns 11 VBlanks, then `loc_12E96` burns
+// another 129 VBlanks before writing `Game_Mode=$0004` at `loc_12EDE`.
+// Oracle cold-boot traces also include the hidden startup shell before the
+// logo object reaches those loops, so the first visible intro frame is 173.
+pub(crate) const SEGA_SCREEN_FRAMES: usize = 174;
+// ASM Load_IntroSequence1 `sub_1B8F4 -> sub_1C204 -> loc_1B924` uses the
+// shared 17-frame fade helper followed by the `$12B` inclusive DBF wait.
+// Oracle cold-boot probes keep mode `$0004` through frame 533 and enter
+// intro sequence 2 on frame 534.
+pub(crate) const INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
 pub(crate) const INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES: usize = 100;
+// ASM Load_IntroSequence2 `loc_1B9D0 -> loc_1B9F4 -> loc_1BA02` uses the
+// same fade/text shell plus the `$149` inclusive DBF loop. Oracle cold-boot
+// probes keep mode `$0018` through frame 982 and enter intro sequence 3 on
+// frame 983.
+pub(crate) const INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
+// ASM Load_IntroSequence3 `sub_1B93E -> sub_1C204 -> loc_1B96E` uses the
+// shared fade helper, then the `$EF` inclusive DBF loop. Oracle cold-boot
+// probes keep mode `$001C` through frame 1281 and enter intro sequence 4 on
+// frame 1282.
+pub(crate) const INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

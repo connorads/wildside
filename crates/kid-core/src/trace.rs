@@ -112,6 +112,77 @@ mod tests {
         assert_eq!(trace.boot_phase_elapsed, Some(30));
     }
 
+    #[test]
+    fn cold_boot_sega_screen_hands_off_to_intro_sequence_1_on_oracle_frame_173() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut frame_172 = None;
+        let mut frame_173 = None;
+
+        for frame_index in 0..=173 {
+            let trace = runtime.step_frame(FrameInput::default());
+            match frame_index {
+                172 => frame_172 = Some(trace.game_mode),
+                173 => frame_173 = Some(trace.game_mode),
+                _ => {}
+            }
+        }
+
+        // ASM Load_SegaScreen `loc_12E6C`/`loc_12E96` keeps polling Start until
+        // `loc_12EDE` writes `Game_Mode=$0004`; oracle issue-161 probes keep
+        // frame 172 in mode 0 and first expose intro sequence 1 on frame 173.
+        assert_eq!(frame_172, Some(GameMode::SegaScreen));
+        assert_eq!(frame_173, Some(GameMode::IntroSequence1));
+    }
+
+    #[test]
+    fn cold_boot_intro_sequences_1_and_2_follow_oracle_handoff_frames() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut frame_533 = None;
+        let mut frame_534 = None;
+        let mut frame_982 = None;
+        let mut frame_983 = None;
+
+        for frame_index in 0..=983 {
+            let trace = runtime.step_frame(FrameInput::default());
+            match frame_index {
+                533 => frame_533 = Some(trace.game_mode),
+                534 => frame_534 = Some(trace.game_mode),
+                982 => frame_982 = Some(trace.game_mode),
+                983 => frame_983 = Some(trace.game_mode),
+                _ => {}
+            }
+        }
+
+        // ASM sub_1B8F4 `loc_1B924` writes `Game_Mode=$0018` after the
+        // `$12B` DBF loop; ASM Load_IntroSequence2 `loc_1BA02` then writes
+        // `Game_Mode=$001C` after its `$149` DBF loop.
+        assert_eq!(frame_533, Some(GameMode::IntroSequence1));
+        assert_eq!(frame_534, Some(GameMode::IntroSequence2));
+        assert_eq!(frame_982, Some(GameMode::IntroSequence2));
+        assert_eq!(frame_983, Some(GameMode::IntroSequence3));
+    }
+
+    #[test]
+    fn cold_boot_intro_sequence_3_follows_oracle_handoff_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut frame_1281 = None;
+        let mut frame_1282 = None;
+
+        for frame_index in 0..=1282 {
+            let trace = runtime.step_frame(FrameInput::default());
+            match frame_index {
+                1281 => frame_1281 = Some(trace.game_mode),
+                1282 => frame_1282 = Some(trace.game_mode),
+                _ => {}
+            }
+        }
+
+        // ASM sub_1B93E `loc_1B96E` writes `Game_Mode=$0020` only after the
+        // shared fade and `$EF` inclusive DBF wait complete.
+        assert_eq!(frame_1281, Some(GameMode::IntroSequence3));
+        assert_eq!(frame_1282, Some(GameMode::IntroSequence4));
+    }
+
     fn manifest_with_flag(flag_x: u16, flag_y: u16) -> AssetManifest {
         let mut manifest = minimal_manifest();
         manifest.levels.push(kid_data::LevelRecord {

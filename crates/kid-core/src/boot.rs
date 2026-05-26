@@ -6594,8 +6594,8 @@ impl NativeRuntime {
                 *elapsed += 1;
                 let mut segment_frames = match *segment {
                     0 => intro_sequence_1_frames_override.unwrap_or(INTRO_FIRST_SEGMENT_FRAMES),
-                    1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
-                    2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
+                    1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SECOND_SEGMENT_FRAMES),
+                    2 => intro_sequence_3_frames_override.unwrap_or(INTRO_THIRD_SEGMENT_FRAMES),
                     3 => intro_sequence_4_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     4 => intro_sequence_5_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
