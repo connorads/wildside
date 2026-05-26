@@ -3250,6 +3250,23 @@ mod tests {
                 frame_duration: 6,
             },
         );
+        families.insert(
+            0x22,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(200, 80, 200)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(221, 0x40, 0x40, 0x0A4),
+                    sample_object_frame_with_base(222, 0x3B, 0x40, 0x0E4),
+                    sample_object_frame_with_base(223, 0x3C, 0x40, 0x124),
+                    sample_object_frame_with_base(224, 0x3F, 0x40, 0x164),
+                    sample_object_frame_with_base(225, 0x3C, 0x4F, 0x1A4),
+                ],
+                frame_duration: 12,
+            },
+        );
         let tank_palette = Palette {
             colours: vec![colour(0, 0, 0), colour(140, 188, 120)],
         };
@@ -6725,6 +6742,56 @@ mod tests {
             38,
             "ASM Mini_Hopping_Skull.asm loc_3F158 should render LnkTo_unk_C8048 for the final $1E ticks"
         );
+    }
+
+    #[test]
+    fn boss_head_death_snapshot_selects_loc_39ebe_spin_frames() {
+        let visuals = sample_level_visuals();
+        let boss_visuals = visuals
+            .enemies
+            .families
+            .get(&0x22)
+            .expect("boss head visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x22 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(120 + 10 * 17),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature, tile_base) in [
+            (120 + 10 * 17, 225, 0x1A4),
+            (120 + 10 * 17 - 6, 224, 0x164),
+            (10 * 17, 225, 0x1A4),
+            (10 * 17 - 1, 224, 0x164),
+            (10 * 17 - 5, 222, 0x0E4),
+        ] {
+            object.wait_timer = Some(remaining);
+            let frame = sprites::select_enemy_frame(&trace, boss_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM loc_39EBE/loc_39F7A should advance boss-head death frames from the remaining wait timer"
+            );
+            assert_eq!(
+                frame.tile_base_index, tile_base,
+                "ASM loc_39EBE/loc_39F7A should use the C8620/C8618/C8610/C8608/C8600 boss-head descriptors"
+            );
+        }
     }
 
     #[test]

@@ -125,6 +125,104 @@ const ROCK_TANK_SHOOTING_FAST_STRU_3B4D8: [TankTurretFrameSpec; 7] = [
     },
 ];
 
+const BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE: u16 = 120 + (10 * 17);
+
+fn boss_head_death_frame_loc_39ebe(remaining: u16) -> usize {
+    // ASM loc_39EBE plays eight sweep scripts, then loc_39F7A loops four
+    // one-tick spin scripts ten times before j_Delete_CurrentObject.
+    const INTRO: &[(u16, usize)] = &[
+        // stru_39FEE
+        (6, 4),
+        (6, 3),
+        (6, 2),
+        (6, 1),
+        (6, 0),
+        // stru_3A004
+        (6, 1),
+        (6, 2),
+        (6, 3),
+        (6, 4),
+        // stru_3A016
+        (4, 3),
+        (4, 2),
+        (4, 1),
+        (4, 0),
+        // stru_3A028
+        (4, 1),
+        (4, 2),
+        (4, 3),
+        (4, 4),
+        // stru_3A03A
+        (2, 4),
+        (2, 3),
+        (2, 2),
+        (2, 1),
+        (2, 0),
+        // stru_3A050
+        (2, 1),
+        (2, 2),
+        (2, 3),
+        (2, 4),
+        // stru_3A062
+        (2, 3),
+        (2, 2),
+        (2, 1),
+        (2, 0),
+        // stru_3A074
+        (2, 1),
+        (2, 2),
+        (2, 3),
+        (2, 4),
+    ];
+    const SPIN: &[(u16, usize)] = &[
+        // stru_3A086
+        (1, 4),
+        (1, 3),
+        (1, 2),
+        (1, 1),
+        (1, 0),
+        // stru_3A09C
+        (1, 1),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+        // stru_3A0AE
+        (1, 3),
+        (1, 2),
+        (1, 1),
+        (1, 0),
+        // stru_3A0C0
+        (1, 1),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+    ];
+
+    let mut elapsed =
+        usize::from(BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE.saturating_sub(remaining));
+    for &(duration, frame) in INTRO {
+        let duration = usize::from(duration);
+        if elapsed < duration {
+            return frame;
+        }
+        elapsed -= duration;
+    }
+
+    let spin_total = SPIN
+        .iter()
+        .map(|(duration, _)| usize::from(*duration))
+        .sum::<usize>();
+    let mut spin_elapsed = elapsed % spin_total;
+    for &(duration, frame) in SPIN {
+        let duration = usize::from(duration);
+        if spin_elapsed < duration {
+            return frame;
+        }
+        spin_elapsed -= duration;
+    }
+    4
+}
+
 const ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6: [TankTurretFrameSpec; 8] = [
     TankTurretFrameSpec {
         duration_frames: 0x37,
@@ -962,6 +1060,11 @@ pub(super) fn select_enemy_frame<'a>(
                 } else {
                     Some(4)
                 }
+            }
+            // ASM loc_39EBE/loc_39F7A shared boss-head death spin uses
+            // C8620/C8618/C8610/C8608/C8600 sweeps, then ten fast spin loops.
+            0x22 if enemy_visuals.frames.len() >= 5 => {
+                Some(boss_head_death_frame_loc_39ebe(remaining))
             }
             _ => None,
         };

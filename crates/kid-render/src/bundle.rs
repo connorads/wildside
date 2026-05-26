@@ -1661,6 +1661,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         extra_palette_paths: &[],
         frame_duration: 12,
         frames: &[
+            // ASM loc_39EBE/loc_39F7A shared boss-head death spin sweeps
+            // through C8600/C8608/C8610/C8618/C8620 before deletion.
             fd(0x0A4, 0x20, 0x00, 0x40, 0x40),
             fd(0x0E4, 0x20, 0x00, 0x3B, 0x40),
             fd(0x124, 0x20, 0x00, 0x3C, 0x40),
@@ -4745,6 +4747,11 @@ mod tests {
             death_tiles(0x1D, 1..5),
             vec![0x0000, 0x0090, 0x00A0, 0x00B0],
             "ASM Big_Hopping_Skull.asm loc_3664E / stru_367FA death frames C7FA0/C7FE8/C7FF0/C7FF8 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x22, 0..5),
+            vec![0x00A4, 0x00E4, 0x0124, 0x0164, 0x01A4],
+            "ASM loc_39EBE/loc_39F7A boss-head death frames C8600/C8608/C8610/C8618/C8620 must be selectable"
         );
     }
 
