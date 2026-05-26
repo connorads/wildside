@@ -1111,6 +1111,7 @@ enum NativeBgmCue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeBgmPlaybackCommand {
     Start(u8),
+    StopMusic,
     StopMusicThenStart(u8),
 }
 
@@ -1133,6 +1134,11 @@ fn native_bgm_state_after_trace(
     active_bgm_cue: Option<NativeBgmCue>,
 ) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
     let Some(cue) = native_bgm_cue_for_trace(trace) else {
+        if active_bgm_cue == Some(NativeBgmCue::TitleShell)
+            && trace.game_mode == GameMode::LevelTransition
+        {
+            return (None, Some(NativeBgmPlaybackCommand::StopMusic));
+        }
         return (active_bgm_cue, None);
     };
     if Some(cue) == active_bgm_cue {
@@ -1156,6 +1162,10 @@ fn apply_native_bgm_command(
     match command {
         NativeBgmPlaybackCommand::Start(bgm) => {
             gems.play_sound(bgm);
+            None
+        }
+        NativeBgmPlaybackCommand::StopMusic => {
+            gems.stop_music();
             None
         }
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm) => {
@@ -8442,7 +8452,7 @@ mod tests {
     }
 
     #[test]
-    fn play_native_bgm_gap_preserves_title_cue_before_level_music() -> anyhow::Result<()> {
+    fn play_native_title_start_stops_shell_before_level_music() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let transition = sample_trace(GameMode::LevelTransition);
         let level = sample_trace(GameMode::InGame);
@@ -8454,17 +8464,17 @@ mod tests {
         );
         assert_eq!(
             (active_after_gap, gap_command),
-            (Some(NativeBgmCue::TitleShell), None),
-            "the title-to-gameplay shell gap must preserve the previous BGM cue so the first gameplay frame still runs ASM StopMusic before replacing bgm_Ice",
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            "ASM Obj_TitleMenu calls StopMusic as soon as Start leaves the title shell, before the Blue Lake Woods level card and later Load_InGame BGM",
         );
 
         assert_eq!(
             native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
             (
                 Some(NativeBgmCue::Level(LevelId(0))),
-                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
-            "gameplay BGM after an intervening LevelTransition should still reset the carried title sequence before starting level music"
+            "after the title shell has already run ASM StopMusic, Load_InGame can queue the level BGM directly"
         );
         Ok(())
     }
