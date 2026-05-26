@@ -61,6 +61,10 @@ cargo test -q -p kid-core --lib -- --skip demo_ --skip published_tas --skip snap
 """
 description = "Broad kid-core --lib sweep plus kidcli gameplay regressions; the canonical green-gate check"
 
+[tasks.verify-slice-tas]
+depends = ["verify-slice-fast", "verify-tas-frontier"]
+description = "verify-slice-fast plus TAS frontier replay; oracle-aware gate run after each frontier fix and before pushing"
+
 [tasks.verify-slice-smoke]
 run = """
 scripts/strict-rust.sh sh -ec '
