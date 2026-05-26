@@ -597,6 +597,19 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(5)
                 }
             }
+            // ASM Archer.asm loc_3414A runs `stru_33FC2`: C81B8 for $05,
+            // C81F0 for $05, C81C8 for $05, then C81D0 for $23 before delete.
+            0x07 if enemy_visuals.frames.len() >= 10 => {
+                if remaining > 0x05 + 0x05 + 0x23 {
+                    Some(6)
+                } else if remaining > 0x05 + 0x23 {
+                    Some(7)
+                } else if remaining > 0x23 {
+                    Some(8)
+                } else {
+                    Some(9)
+                }
+            }
             // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
             // C7C06 for $0A, then C7C0E for $1E before deletion.
             0x09 if enemy_visuals.frames.len() >= 9 => {
@@ -689,6 +702,38 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(2)
                 } else {
                     Some(3)
+                }
+            }
+            // ASM Tornado.asm loc_359B2 runs `stru_35B1E`: C783E/C7846
+            // alternate across $06/$03/$04/$04/$03/$06 tick spans.
+            0x18 if enemy_visuals.frames.len() >= 5 => {
+                if remaining > 0x03 + 0x04 + 0x04 + 0x03 + 0x06 {
+                    Some(3)
+                } else if remaining > 0x04 + 0x04 + 0x03 + 0x06 {
+                    Some(4)
+                } else if remaining > 0x04 + 0x03 + 0x06 {
+                    Some(3)
+                } else if remaining > 0x03 + 0x06 {
+                    Some(4)
+                } else if remaining > 0x06 {
+                    Some(3)
+                } else {
+                    Some(4)
+                }
+            }
+            // ASM Emo_Rock.asm loc_36346 runs `stru_36468`: five 6-tick
+            // frames C7F68/C7F70/C7F78/C7F80/C7F88 before deletion.
+            0x1B if enemy_visuals.frames.len() >= 8 => {
+                if remaining > 0x18 {
+                    Some(3)
+                } else if remaining > 0x12 {
+                    Some(4)
+                } else if remaining > 0x0C {
+                    Some(5)
+                } else if remaining > 0x06 {
+                    Some(6)
+                } else {
+                    Some(7)
                 }
             }
             _ => None,

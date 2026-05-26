@@ -2882,6 +2882,28 @@ mod tests {
             },
         );
         families.insert(
+            0x07,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(210, 210, 210)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(181, 0x1D, 0x1F, 0x030),
+                    sample_object_frame_with_base(182, 0x1B, 0x20, 0x040),
+                    sample_object_frame_with_base(183, 0x1B, 0x20, 0x050),
+                    sample_object_frame_with_base(184, 0x1B, 0x1F, 0x060),
+                    sample_object_frame_with_base(185, 0x1B, 0x20, 0x070),
+                    sample_object_frame_with_base(186, 0x1B, 0x20, 0x080),
+                    sample_object_frame_with_base(187, 0x1E, 0x20, 0x060),
+                    sample_object_frame_with_base(188, 0x1B, 0x1E, 0x0A9),
+                    sample_object_frame_with_base(189, 0x1C, 0x1E, 0x080),
+                    sample_object_frame_with_base(190, 0x1F, 0x1E, 0x090),
+                ],
+                frame_duration: 8,
+            },
+        );
+        families.insert(
             0x09,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -2961,6 +2983,43 @@ mod tests {
                     sample_object_frame(176, 16, 16),
                 ],
                 frame_duration: 6,
+            },
+        );
+        families.insert(
+            0x18,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 210, 230)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(231, 0x1D, 0x28, 0x028),
+                    sample_object_frame_with_base(232, 0x1C, 0x27, 0x03C),
+                    sample_object_frame_with_base(233, 0x1C, 0x28, 0x050),
+                    sample_object_frame_with_base(234, 0x1D, 0x26, 0x000),
+                    sample_object_frame_with_base(235, 0x1B, 0x24, 0x014),
+                ],
+                frame_duration: 5,
+            },
+        );
+        families.insert(
+            0x1B,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(200, 120, 90)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(241, 0x1D, 0x20, 0x010),
+                    sample_object_frame_with_base(242, 0x1F, 0x1C, 0x040),
+                    sample_object_frame_with_base(243, 0x1F, 0x20, 0x050),
+                    sample_object_frame_with_base(244, 0x2A, 0x27, 0x060),
+                    sample_object_frame_with_base(245, 0x24, 0x24, 0x07E),
+                    sample_object_frame_with_base(246, 0x2B, 0x26, 0x097),
+                    sample_object_frame_with_base(247, 0x20, 0x20, 0x0B5),
+                    sample_object_frame_with_base(248, 0x1C, 0x06, 0x0C5),
+                ],
+                frame_duration: 20,
             },
         );
         families.insert(
@@ -6725,6 +6784,138 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Fireball.asm Enemy19_Fireball_Kill should advance `stru_345E4` every two ticks"
+            );
+        }
+    }
+
+    #[test]
+    fn archer_death_snapshot_selects_loc_3414a_frames() {
+        let visuals = sample_level_visuals();
+        let archer_visuals = visuals.enemies.families.get(&0x07).expect("archer visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x07 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x05 + 0x05 + 0x05 + 0x23),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(0x32, 187), (0x2D, 188), (0x28, 189), (0x23, 190)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, archer_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Archer.asm loc_3414A should advance `stru_33FC2` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn tornado_death_snapshot_selects_loc_359b2_frames() {
+        let visuals = sample_level_visuals();
+        let tornado_visuals = visuals
+            .enemies
+            .families
+            .get(&0x18)
+            .expect("tornado visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x18 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x06 + 0x03 + 0x04 + 0x04 + 0x03 + 0x06),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [
+            (0x1A, 234),
+            (0x14, 235),
+            (0x11, 234),
+            (0x0D, 235),
+            (0x09, 234),
+            (0x06, 235),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, tornado_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Tornado.asm loc_359B2 should alternate `stru_35B1E` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn emo_rock_death_snapshot_selects_loc_36346_frames() {
+        let visuals = sample_level_visuals();
+        let emo_rock_visuals = visuals
+            .enemies
+            .families
+            .get(&0x1B)
+            .expect("emo rock visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1B },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(6 * 5),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(30, 244), (24, 245), (18, 246), (12, 247), (6, 248)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, emo_rock_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Emo_Rock.asm loc_36346 should step through `stru_36468` death frames"
             );
         }
     }

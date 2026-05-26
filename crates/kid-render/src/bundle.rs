@@ -1200,6 +1200,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x060, 0x0E, 0x00, 0x1B, 0x1F),
             fd(0x070, 0x0E, 0x00, 0x1B, 0x20),
             fd(0x080, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x060, 0x0F, 0x00, 0x1E, 0x20),
+            fd(0x0A9, 0x10, 0x00, 0x1B, 0x1E),
+            fd(0x080, 0x10, 0x00, 0x1C, 0x1E),
+            fd(0x090, 0x10, 0x00, 0x1F, 0x1E),
         ],
     },
     EnemyFamilySpec {
@@ -1448,6 +1452,8 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x028, 0x0E, 0x00, 0x1D, 0x28),
             fd(0x03C, 0x0D, 0x00, 0x1C, 0x27),
             fd(0x050, 0x0D, 0x00, 0x1C, 0x28),
+            fd(0x000, 0x0F, 0x00, 0x1D, 0x26),
+            fd(0x014, 0x0E, 0x00, 0x1B, 0x24),
         ],
     },
     EnemyFamilySpec {
@@ -1492,6 +1498,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x010, 0x10, 0x00, 0x1D, 0x20),
             fd(0x040, 0x10, 0x00, 0x1F, 0x1C),
             fd(0x050, 0x10, 0x00, 0x1F, 0x20),
+            fd(0x060, 0x10, 0x00, 0x2A, 0x27),
+            fd(0x07E, 0x10, 0x00, 0x24, 0x24),
+            fd(0x097, 0x10, 0x00, 0x2B, 0x26),
+            fd(0x0B5, 0x10, 0x00, 0x20, 0x20),
+            fd(0x0C5, 0x10, 0x00, 0x1C, 0x06),
         ],
     },
     EnemyFamilySpec {
@@ -4519,6 +4530,11 @@ mod tests {
             "ASM Sphere.asm Enemy06_Sphere_Kill / stru_36182 death frames C8108/C8110/C8118 must be selectable"
         );
         assert_eq!(
+            death_tiles(0x07, 6..10),
+            vec![0x0060, 0x00A9, 0x0080, 0x0090],
+            "ASM Archer.asm loc_3414A / stru_33FC2 death frames C81B8/C81F0/C81C8/C81D0 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x09, 6..9),
             vec![0x0020, 0x0000, 0x0010],
             "ASM Crab.asm loc_3B094 / stru_3AF82 death frames C7C16/C7C06/C7C0E must be selectable"
@@ -4542,6 +4558,16 @@ mod tests {
             death_tiles(0x11, 6..9),
             vec![0x0000, 0x0010, 0x0020],
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x18, 3..5),
+            vec![0x0000, 0x0014],
+            "ASM Tornado.asm loc_359B2 / stru_35B1E death frames C783E/C7846 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x1B, 3..8),
+            vec![0x0060, 0x007E, 0x0097, 0x00B5, 0x00C5],
+            "ASM Emo_Rock.asm loc_36346 / stru_36468 death frames C7F68/C7F70/C7F78/C7F80/C7F88 must be selectable"
         );
     }
 
