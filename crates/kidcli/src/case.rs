@@ -900,6 +900,22 @@ fn settled_recording_oracle_bootstrap_block_reason(
             native.world.current_level_id, recording.manifest.slug
         ));
     }
+    if expected_level == Some(native.world.current_level_id)
+        && oracle.world.current_level_id == native.world.current_level_id
+        && native.world.game_mode == 0x000c
+        && oracle.world.game_mode == 0x000c
+        && !native.world.paused
+        && !oracle.world.paused
+        && (native.player != oracle.player
+            || native.camera != oracle.camera
+            || native.entities != oracle.entities
+            || native.events != oracle.events)
+    {
+        return Some(format!(
+            "settled recording oracle bootstrap reached gameplay with a different initial state on Level {:02X}; fix settled-recording oracle bootstrap before treating `{}` as gameplay-authoritative",
+            native.world.current_level_id, recording.manifest.slug
+        ));
+    }
 
     None
 }
@@ -2482,6 +2498,122 @@ mod tests {
 
         assert!(reason.contains("stayed on the Level 01 title card"));
         assert!(reason.contains("level2-walk-right"));
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_catches_target_gameplay_state_mismatch() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level12-walk-right"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0x0c),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level12-walk-right"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: None,
+                    warp_to_level: Some(0x0c),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let mut native = semantic_state_at_level(0x0c, false);
+        native.player.y_pos = Some(0x01e0_0000);
+        native.camera.y_pos = 0x0143_0000;
+        let mut oracle = semantic_state_at_level(0x0c, false);
+        oracle.player.y_pos = Some(0x01ff_0000);
+        oracle.camera.y_pos = 0x0163_0000;
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle])
+                .expect("blocked reason");
+
+        assert!(reason.contains("bootstrap reached gameplay with a different initial state"));
+        assert!(reason.contains("Level 0C"));
+        assert!(reason.contains("level12-walk-right"));
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_catches_target_entity_mismatch() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level18-walk-right"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0x12),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level18-walk-right"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: None,
+                    warp_to_level: Some(0x12),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let native = semantic_state_at_level(0x12, false);
+        let mut oracle = semantic_state_at_level(0x12, false);
+        oracle.entities.push(SemanticEntity {
+            identity: String::from("enemy:04:4:04de0000:01e00000"),
+            category: String::from("enemy"),
+            object_type: Some(0x04),
+            x_pos: 0x04de_0000,
+            y_pos: 0x01e0_0000,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(String::from("right")),
+            on_ground: None,
+            hit_points: None,
+        });
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle])
+                .expect("blocked reason");
+
+        assert!(reason.contains("bootstrap reached gameplay with a different initial state"));
+        assert!(reason.contains("Level 12"));
+        assert!(reason.contains("level18-walk-right"));
     }
 
     fn semantic_state_at_level(level: u16, paused: bool) -> SemanticGameState {
