@@ -482,6 +482,29 @@ mod tests {
             eol.digits[9].tile_base_index, 0x061,
             "ASM Spr_EOL_Digits_Index maps digit 9 to Spr_EOL_Digit9",
         );
+        let digit3 = &eol.digits[3];
+        let right_tile = digit3
+            .tile_sheet
+            .tiles
+            .get(usize::from(digit3.tile_base_index + 2))
+            .expect("digit 3 right tile should keep its ROM VRAM slot");
+        assert!(
+            (0..8).all(|row| right_tile.pixels[row * 8 + 3..row * 8 + 8]
+                .iter()
+                .all(|&pixel| pixel == 0)),
+            "ASM Spr_EOL_Digit3 is 11px wide, so native must not render packed score art past the declared bounds"
+        );
+        let bottom_tile = digit3
+            .tile_sheet
+            .tiles
+            .get(usize::from(digit3.tile_base_index + 1))
+            .expect("digit 3 bottom tile should keep its ROM VRAM slot");
+        assert!(
+            (3..8).all(|row| bottom_tile.pixels[row * 8..row * 8 + 8]
+                .iter()
+                .all(|&pixel| pixel == 0)),
+            "ASM Spr_EOL_Digit3 is 11px tall, so native must clear the rounded sprite tile tail"
+        );
     }
 
     #[test]

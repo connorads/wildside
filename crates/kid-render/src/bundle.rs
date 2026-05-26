@@ -493,13 +493,8 @@ fn load_eol_score_visuals(manifest: &AssetManifest) -> Result<Option<EolScoreVis
         )
     })?;
     let palette = Palette::from_bytes(&palette_raw).context("failed to parse EOL score palette")?;
-    let frame = |descriptor: SpriteFrameDescriptor| SpriteFrame {
-        origin_x: descriptor.origin_x,
-        origin_y: descriptor.origin_y,
-        width_px: descriptor.width_px,
-        height_px: descriptor.height_px,
-        tile_base_index: descriptor.tile_base_index,
-        tile_sheet: tile_sheet.clone(),
+    let frame = |descriptor: SpriteFrameDescriptor| {
+        crop_eol_score_frame_to_declared_bounds(&tile_sheet, descriptor)
     };
     Ok(Some(EolScoreVisuals {
         palette,
@@ -526,6 +521,57 @@ fn load_eol_score_visuals(manifest: &AssetManifest) -> Result<Option<EolScoreVis
             frame(fd(0x061, 0x00, 0x00, 0x0B, 0x0B)),
         ],
     }))
+}
+
+fn crop_eol_score_frame_to_declared_bounds(
+    source_sheet: &TileSheet,
+    descriptor: SpriteFrameDescriptor,
+) -> SpriteFrame {
+    let aligned_width = align_sprite_dimension(descriptor.width_px);
+    let aligned_height = align_sprite_dimension(descriptor.height_px);
+    let columns = aligned_width / 8;
+    let rows = aligned_height / 8;
+    let tile_count = columns.saturating_mul(rows);
+    let mut tiles = vec![
+        crate::Tile { pixels: [0; 64] };
+        usize::from(descriptor.tile_base_index.saturating_add(tile_count))
+    ];
+
+    for column in 0..columns {
+        for row in 0..rows {
+            let sprite_slot = column * rows + row;
+            let source_index = descriptor.tile_base_index.saturating_add(sprite_slot);
+            let Some(source) = source_sheet.tiles.get(usize::from(source_index)) else {
+                continue;
+            };
+            let Some(destination) = tiles.get_mut(usize::from(source_index)) else {
+                continue;
+            };
+            for pixel_y in 0..8 {
+                let frame_y = row * 8 + pixel_y;
+                if frame_y >= descriptor.height_px {
+                    continue;
+                }
+                for pixel_x in 0..8 {
+                    let frame_x = column * 8 + pixel_x;
+                    if frame_x >= descriptor.width_px {
+                        continue;
+                    }
+                    let pixel_index = usize::from(pixel_y * 8 + pixel_x);
+                    destination.pixels[pixel_index] = source.pixels[pixel_index];
+                }
+            }
+        }
+    }
+
+    SpriteFrame {
+        origin_x: descriptor.origin_x,
+        origin_y: descriptor.origin_y,
+        width_px: descriptor.width_px,
+        height_px: descriptor.height_px,
+        tile_base_index: descriptor.tile_base_index,
+        tile_sheet: TileSheet { tiles },
+    }
 }
 
 fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHologramVisuals>> {

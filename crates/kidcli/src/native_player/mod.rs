@@ -1925,7 +1925,7 @@ mod tests {
     }
 
     #[test]
-    fn level_complete_hologram_keeps_scroll_a_background_tiles() {
+    fn level_complete_hologram_suppresses_scroll_a_background_tiles() {
         let mut visuals = sample_level_visuals();
         let mut hologram_tiles = blank_tile_sheet(2);
         hologram_tiles.tiles[1].pixels = [1; 64];
@@ -1946,13 +1946,13 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert!(
-            scene.commands.iter().any(|command| matches!(
+            !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::IndexedTile { x: 0, y: 0, tile_sheet, tile, .. }
                     if tile_sheet.tiles.len() == visuals.background_tiles.tiles.len()
                         && tile.tile_index == 0
             )),
-            "ASM loc_C186 changes Scroll B for the hologram room; Scroll A background tiles stay in front until loc_C21E/sub_C254 replaces them"
+            "ASM loc_C186 installs the fixed EOL room; native should not redraw the ordinary level background over the score-room Scroll B image"
         );
     }
 
@@ -2187,6 +2187,34 @@ mod tests {
             eol_number_digits_at(&scene, 169),
             eol_expected_digits(1_000 + 0x28),
             "ASM loc_D17E clears live score, but loc_D77E should draw from the copied EOL score seed"
+        );
+    }
+
+    #[test]
+    fn level_complete_continues_row_uses_number_continues_digit_loc_c4d2() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_score_rows_elapsed_frames = 0x40;
+        trace.number_continues = 3;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let continues_digit = scene
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                    if *x == 172 && *y == 193 && !tiles.is_empty() =>
+                {
+                    Some(tiles[0].tile.tile_index)
+                }
+                _ => None,
+            })
+            .expect("CONTINUES digit should be drawn at the final slot");
+
+        assert_eq!(
+            continues_digit, 0x0CE,
+            "ASM Object_EOL_Number loc_C4D2 indexes Spr_EOL_Digits_Index with Number_Continues=3"
         );
     }
 
