@@ -51,6 +51,30 @@ pub(crate) enum QueuedSoundEffect {
     NavigateJingle,
 }
 
+impl QueuedSoundEffect {
+    pub(crate) fn sound_id(self) -> u8 {
+        match self {
+            // constants.asm: sfx_Mini_Hopping_Skull_screams = $3F.
+            Self::MiniHoppingSkullScream => 0x3F,
+            // ASM loc_B778 / constants.asm: sfx_Voice_ouch = $61.
+            Self::VoiceOuch => 0x61,
+            // ASM loc_B73C/loc_B750/loc_B764: the enemy-family-specific ouch
+            // takes are `$6B`, `$6C`, and `$6D`.
+            Self::VoiceOuch1 => 0x6B,
+            Self::VoiceOuch2 => 0x6C,
+            Self::VoiceOuch3 => 0x6D,
+            // constants.asm: Red Stealth ability SFX.
+            Self::RedStealthSwordSwinging => 0x23,
+            Self::RedStealthHittingTarget => 0x5A,
+            Self::RedStealthAttackDown => 0x13,
+            // constants.asm: sfx_Thunderstorm = $77.
+            Self::Thunderstorm => 0x77,
+            // constants.asm: sfx_Navigate_jingle = $2D.
+            Self::NavigateJingle => 0x2D,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PendingSoundEffect {
     pub(crate) effect: QueuedSoundEffect,

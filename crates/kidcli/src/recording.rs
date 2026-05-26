@@ -1272,6 +1272,7 @@ mod tests {
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,
+            played_sound_effect_ids: Vec::new(),
             sound_test_track: None,
             two_player: false,
             options_two_player_two_controllers: false,

@@ -999,12 +999,17 @@ mod gems_sfx {
     pub const REPLENISH_HEALTH: u8 = 0x2A;
     pub const COIN_PRIZE: u8 = 0x2C;
     pub const DIAMOND_PRIZE: u8 = 0x2D;
+    pub const NAVIGATE_JINGLE: u8 = 0x2D;
+    pub const MINI_HOPPING_SKULL_SCREAM: u8 = 0x3F;
     pub const JUMP_ON_ENEMY: u8 = 0x4C;
     pub const VOICE_NO_TIME: u8 = 0x51;
     pub const RUBBER_BLOCK: u8 = 0x56;
     pub const VOICE_DIE: u8 = 0x60;
     pub const VOICE_OUCH: u8 = 0x61;
     pub const VOICE_DIAMOND: u8 = 0x62;
+    pub const VOICE_OUCH_1: u8 = 0x6B;
+    pub const VOICE_OUCH_2: u8 = 0x6C;
+    pub const VOICE_OUCH_3: u8 = 0x6D;
     pub const TELEPORT: u8 = 0x76;
     pub const THUNDERSTORM: u8 = 0x77;
     // Helmet transforms
@@ -1019,7 +1024,9 @@ mod gems_sfx {
     pub const JUGGERNAUT_TRANSFORM: u8 = 0x34;
     // Helmet abilities
     pub const MANIAXE_THROW: u8 = 0x20;
+    pub const RED_STEALTH_ATTACK_DOWN: u8 = 0x13;
     pub const RED_STEALTH_SWORD: u8 = 0x23;
+    pub const RED_STEALTH_HITTING_TARGET: u8 = 0x5A;
     pub const EYECLOPS_BEAM: u8 = 0x35;
     pub const SKYCUTTER_FLIPBOARD: u8 = 0x17;
     pub const MICROMAX_STICK: u8 = 0x22;
@@ -1122,6 +1129,128 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
     }
 }
 
+fn queued_gems_sound_ids_since<'a>(
+    prev: &NativeTraceFrame,
+    curr: &'a NativeTraceFrame,
+) -> &'a [u8] {
+    if curr.played_sound_effect_ids.len() >= prev.played_sound_effect_ids.len() {
+        &curr.played_sound_effect_ids[prev.played_sound_effect_ids.len()..]
+    } else {
+        &curr.played_sound_effect_ids
+    }
+}
+
+fn is_ouch_sound_id(sound_id: u8) -> bool {
+    matches!(
+        sound_id,
+        gems_sfx::VOICE_OUCH
+            | gems_sfx::VOICE_OUCH_1
+            | gems_sfx::VOICE_OUCH_2
+            | gems_sfx::VOICE_OUCH_3
+    )
+}
+
+fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
+    let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
+    let mut sound_ids = queued_sound_ids.to_vec();
+
+    // Sound test: play the selected track when A/C pressed
+    if curr.sound_test_play_pending
+        && let Some(track) = curr.sound_test_track
+    {
+        sound_ids.push(track);
+    }
+
+    // Jump
+    if prev.kid_on_ground == Some(true)
+        && curr.kid_on_ground == Some(false)
+        && curr.kid_y_velocity.is_some_and(|v| v < 0)
+    {
+        sound_ids.push(gems_sfx::JUMP);
+    }
+
+    // Stomp enemy (score jumped by 1000+, not from diamond collection)
+    if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
+        sound_ids.push(gems_sfx::JUMP_ON_ENEMY);
+    }
+
+    // Diamond collected
+    if curr.diamond_count > prev.diamond_count {
+        sound_ids.push(gems_sfx::DIAMOND_PRIZE);
+    }
+
+    // Damage taken (HP decreased). ASM loc_B73C/loc_B750/loc_B764/loc_B778
+    // can queue enemy-family-specific ouch takes; keep the heuristic only for
+    // paths that have not yet promoted their exact core SFX into the trace.
+    if !queued_sound_ids.iter().copied().any(is_ouch_sound_id)
+        && curr.number_hitpoints < prev.number_hitpoints
+        && prev.number_hitpoints > 0
+    {
+        sound_ids.push(gems_sfx::VOICE_OUCH);
+    }
+
+    // Death (lives decreased)
+    if curr.number_lives < prev.number_lives {
+        sound_ids.push(gems_sfx::VOICE_DIE);
+    }
+
+    // Form change (helmet ID changed)
+    if curr.current_helmet_id != prev.current_helmet_id {
+        let sfx = match curr.current_helmet_id {
+            1 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
+            2 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
+            3 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
+            4 => Some(gems_sfx::CYCLONE_TRANSFORM),
+            5 => Some(gems_sfx::MANIAXE_TRANSFORM),
+            6 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
+            7 => Some(gems_sfx::EYECLOPS_TRANSFORM),
+            8 => Some(gems_sfx::MICROMAX_TRANSFORM),
+            9 => Some(gems_sfx::BERZERKER_TRANSFORM),
+            _ => None,
+        };
+        if let Some(id) = sfx {
+            sound_ids.push(id);
+        }
+    }
+
+    // Diamond Power activation
+    if curr.diamond_power_active && !prev.diamond_power_active {
+        sound_ids.push(gems_sfx::DIAMOND_POWER_AVAILABLE);
+    }
+
+    // Level complete (score counter ticking)
+    if curr.level_complete && !prev.level_complete {
+        sound_ids.push(gems_sfx::SCORE_COUNTER);
+    }
+
+    // Block headbutt
+    if curr.blocks_hit_this_frame > 0 {
+        sound_ids.push(gems_sfx::BLOCK_HIT);
+    }
+
+    // Block destroyed (new destroy effects appeared)
+    if curr.block_destroy_effects.len() > prev.block_destroy_effects.len() {
+        sound_ids.push(gems_sfx::DESTROY_BLOCK);
+    }
+
+    // Lava geyser erupted (new geysers appeared)
+    if curr.active_geysers.len() > prev.active_geysers.len() {
+        sound_ids.push(gems_sfx::LAVA_GEYSER);
+    }
+
+    // Game complete — ending music
+    if curr.game_complete && !prev.game_complete {
+        sound_ids.push(gems_bgm::ENDING);
+    }
+
+    // Clock pickup (timer jumped up)
+    if curr.level_timer_seconds > prev.level_timer_seconds + 5 {
+        sound_ids.push(gems_sfx::CLOCK_PRIZE);
+    }
+
+    sound_ids
+}
+
 /// Map level theme ID to GEMS BGM ID.
 fn theme_to_bgm(theme: u8) -> Option<u8> {
     // ASM loc_12004 indexes `unk_1201E` by Foreground_theme, then queues the
@@ -1148,93 +1277,8 @@ fn detect_gems_events(
     curr: &NativeTraceFrame,
     gems: &mut GemsAudioEngine,
 ) {
-    // Sound test: play the selected track when A/C pressed
-    if curr.sound_test_play_pending
-        && let Some(track) = curr.sound_test_track
-    {
-        gems.play_sound(track);
-    }
-
-    // Jump
-    if prev.kid_on_ground == Some(true)
-        && curr.kid_on_ground == Some(false)
-        && curr.kid_y_velocity.is_some_and(|v| v < 0)
-    {
-        gems.play_sound(gems_sfx::JUMP);
-    }
-
-    // Stomp enemy (score jumped by 1000+, not from diamond collection)
-    if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
-        gems.play_sound(gems_sfx::JUMP_ON_ENEMY);
-    }
-
-    // Diamond collected
-    if curr.diamond_count > prev.diamond_count {
-        gems.play_sound(gems_sfx::DIAMOND_PRIZE);
-    }
-
-    // Damage taken (HP decreased)
-    if curr.number_hitpoints < prev.number_hitpoints && prev.number_hitpoints > 0 {
-        gems.play_sound(gems_sfx::VOICE_OUCH);
-    }
-
-    // Death (lives decreased)
-    if curr.number_lives < prev.number_lives {
-        gems.play_sound(gems_sfx::VOICE_DIE);
-    }
-
-    // Form change (helmet ID changed)
-    if curr.current_helmet_id != prev.current_helmet_id {
-        let sfx = match curr.current_helmet_id {
-            1 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
-            2 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
-            3 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
-            4 => Some(gems_sfx::CYCLONE_TRANSFORM),
-            5 => Some(gems_sfx::MANIAXE_TRANSFORM),
-            6 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
-            7 => Some(gems_sfx::EYECLOPS_TRANSFORM),
-            8 => Some(gems_sfx::MICROMAX_TRANSFORM),
-            9 => Some(gems_sfx::BERZERKER_TRANSFORM),
-            _ => None,
-        };
-        if let Some(id) = sfx {
-            gems.play_sound(id);
-        }
-    }
-
-    // Diamond Power activation
-    if curr.diamond_power_active && !prev.diamond_power_active {
-        gems.play_sound(gems_sfx::DIAMOND_POWER_AVAILABLE);
-    }
-
-    // Level complete (score counter ticking)
-    if curr.level_complete && !prev.level_complete {
-        gems.play_sound(gems_sfx::SCORE_COUNTER);
-    }
-
-    // Block headbutt
-    if curr.blocks_hit_this_frame > 0 {
-        gems.play_sound(gems_sfx::BLOCK_HIT);
-    }
-
-    // Block destroyed (new destroy effects appeared)
-    if curr.block_destroy_effects.len() > prev.block_destroy_effects.len() {
-        gems.play_sound(gems_sfx::DESTROY_BLOCK);
-    }
-
-    // Lava geyser erupted (new geysers appeared)
-    if curr.active_geysers.len() > prev.active_geysers.len() {
-        gems.play_sound(gems_sfx::LAVA_GEYSER);
-    }
-
-    // Game complete — ending music
-    if curr.game_complete && !prev.game_complete {
-        gems.play_sound(gems_bgm::ENDING);
-    }
-
-    // Clock pickup (timer jumped up)
-    if curr.level_timer_seconds > prev.level_timer_seconds + 5 {
-        gems.play_sound(gems_sfx::CLOCK_PRIZE);
+    for sound_id in gems_event_sound_ids(prev, curr) {
+        gems.play_sound(sound_id);
     }
 }
 
@@ -1576,6 +1620,7 @@ mod tests {
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,
+            played_sound_effect_ids: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,
@@ -7025,6 +7070,54 @@ mod tests {
             "direct settled native play has no previous music context, so queueing stop-all before the first level BGM can silence the standalone GEMS start"
         );
         Ok(())
+    }
+
+    #[test]
+    fn play_native_replays_core_queued_menu_jingle_sub_1bc26() {
+        let mut prev = sample_trace(GameMode::TitleScreen);
+        let mut curr = sample_trace(GameMode::TitleScreen);
+        prev.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE];
+        curr.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::NAVIGATE_JINGLE];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::NAVIGATE_JINGLE],
+            "ASM sub_1BC26 queues sfx_Navigate_jingle through j_PlaySound; play-native must replay the newly queued core id"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_core_queued_sfx_after_trace_reset() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.played_sound_effect_ids = vec![
+            gems_sfx::NAVIGATE_JINGLE,
+            gems_sfx::VOICE_OUCH_1,
+            gems_sfx::VOICE_OUCH_2,
+        ];
+        curr.played_sound_effect_ids =
+            vec![gems_sfx::MINI_HOPPING_SKULL_SCREAM, gems_sfx::THUNDERSTORM];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::MINI_HOPPING_SKULL_SCREAM, gems_sfx::THUNDERSTORM],
+            "a restarted NativeRuntime resets the cumulative core sound list; the next trace frame must treat all current ASM-backed ids as new"
+        );
+    }
+
+    #[test]
+    fn play_native_keeps_asm_specific_ouch_without_generic_duplicate() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE];
+        curr.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::VOICE_OUCH_2];
+        curr.number_hitpoints = prev.number_hitpoints - 1;
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::VOICE_OUCH_2],
+            "ASM loc_B73C/loc_B750/loc_B764 selects special VoiceOuch takes for specific enemy families, so the damage heuristic must not add the generic $61 take"
+        );
     }
 
     #[test]

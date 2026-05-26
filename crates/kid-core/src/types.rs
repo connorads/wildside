@@ -1124,6 +1124,9 @@ pub struct NativeTraceFrame {
     pub ending_elapsed: Option<usize>,
     pub options_cursor: Option<u8>,
     pub sound_test_track: Option<u8>,
+    /// Cumulative GEMS sound ids queued through ASM-backed native core paths.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub played_sound_effect_ids: Vec<u8>,
     pub two_player: bool,
     pub options_two_player_two_controllers: bool,
     pub options_controls_scheme: u8,
@@ -1317,6 +1320,7 @@ impl Default for NativeTraceFrame {
             ending_elapsed: None,
             options_cursor: None,
             sound_test_track: None,
+            played_sound_effect_ids: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

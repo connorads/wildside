@@ -2892,6 +2892,7 @@ AddrTbl_LevelNames:
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
             options_cursor: None,
+            played_sound_effect_ids: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

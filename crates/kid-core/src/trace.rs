@@ -4803,6 +4803,11 @@ impl NativeRuntime {
                 BootState::SoundTest { track } => Some(track),
                 _ => None,
             },
+            played_sound_effect_ids: self
+                .played_sound_effects
+                .iter()
+                .map(|effect| effect.sound_id())
+                .collect(),
             two_player: self.two_player,
             options_two_player_two_controllers: self.options_two_player_two_controllers,
             options_controls_scheme: self.options_controls_scheme,
