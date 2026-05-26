@@ -629,6 +629,29 @@ mod chunk_08 {
     }
 
     #[test]
+    fn boss_head_death_animation_frames_match_loc_39ebe_and_loc_39f7a() {
+        // ASM loc_39EBE (kid.asm:43004): the first eight scripts consume
+        // 120 ticks. ASM loc_39F7A (kid.asm:43039): d0=$A loops a 17-tick
+        // spin set ten times before `j_Delete_CurrentObject`.
+        assert_eq!(BOSS_HEAD_DEATH_ANIMATION_FRAMES, 120 + (10 * 17));
+        assert_eq!(
+            enemy_death_animation_frames(EnemyFamily::Shishkaboss),
+            Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES),
+            "ASM Shishkaboss/BoomerangBosses/BagelBrothers collision exits branch to shared loc_39EBE",
+        );
+        assert_eq!(
+            enemy_death_animation_frames(EnemyFamily::BoomerangBosses),
+            Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES),
+            "ASM Shishkaboss/BoomerangBosses/BagelBrothers collision exits branch to shared loc_39EBE",
+        );
+        assert_eq!(
+            enemy_death_animation_frames(EnemyFamily::BagelBrothers),
+            Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES),
+            "ASM Shishkaboss/BoomerangBosses/BagelBrothers collision exits branch to shared loc_39EBE",
+        );
+    }
+
+    #[test]
     fn fire_demon_fragment_movement_step_loc_3a134_transitions_to_fade_when_counter_zero() {
         // ASM loc_3A134 (kid.asm:43185): when $40(a3)==0, clear x_vel, switch to
         // stru_3A1D6, and enter the fade loop at loc_3A14E.

@@ -8238,6 +8238,54 @@ mod chunk_03 {
     }
 
     #[test]
+    fn multi_head_boss_death_waits_for_loc_39ebe_animation_before_delete() {
+        for (layout_index, family) in [
+            EnemyFamily::Shishkaboss,
+            EnemyFamily::BoomerangBosses,
+            EnemyFamily::BagelBrothers,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut boss = test_enemy(family, 0x0080_0000, 0x0040_0000, 1);
+            boss.layout_index = layout_index;
+            let killed_identity = (boss.segment_index, boss.layout_index);
+            runtime.active_enemies = vec![boss];
+
+            runtime.remove_dead_enemy(0);
+
+            assert_eq!(
+                runtime.active_enemies.len(),
+                1,
+                "ASM {family:?} collision exit branches to loc_39EBE and hibernates before delete",
+            );
+            assert_eq!(runtime.active_enemies[0].hit_points, 0);
+            assert_eq!(
+                runtime.active_enemies[0].wait_timer, BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+                "ASM loc_39EBE/loc_39F7A should keep the boss head visible through its death spin"
+            );
+            assert!(
+                !runtime.killed_enemies.contains(&killed_identity),
+                "ASM loc_39EBE should not mark {family:?} killed until the animation reaches j_Delete_CurrentObject",
+            );
+            assert_eq!(
+                runtime.active_enemy_roster[0].wait_timer,
+                Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES)
+            );
+
+            runtime.active_enemies[0].wait_timer = 0;
+            runtime.remove_dead_enemy(0);
+
+            assert!(runtime.active_enemies.is_empty());
+            assert!(
+                runtime.killed_enemies.contains(&killed_identity),
+                "ASM loc_39F7A delete tail should mark {family:?} killed after the death spin",
+            );
+        }
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

@@ -6598,6 +6598,10 @@ pub(crate) const TAR_MONSTER_DEATH_ANIMATION_FRAMES: u16 =
 /// ASM Drips.asm loc_338F8 plays `stru_33F06`: three 4-tick frames before
 /// loc_3392C clears movement and hibernates to the delete tail.
 pub(crate) const DRIPS_DEATH_ANIMATION_FRAMES: u16 = 4 + 4 + 4;
+/// ASM loc_39EBE/loc_39F7A: boss heads play eight hibernate-until-finished
+/// animation scripts (120 ticks total), then loop four 1-tick sweep scripts
+/// ten times (17 ticks per loop) before `j_Delete_CurrentObject`.
+pub(crate) const BOSS_HEAD_DEATH_ANIMATION_FRAMES: u16 = 120 + (10 * 17);
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -6623,6 +6627,9 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
         EnemyFamily::Scorpion => Some(SCORPION_DEATH_ANIMATION_FRAMES),
         EnemyFamily::Sphere => Some(SPHERE_DEATH_ANIMATION_FRAMES),
         EnemyFamily::SpinningTwins => Some(SPINNING_TWINS_DEATH_ANIMATION_FRAMES),
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => {
+            Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES)
+        }
         EnemyFamily::Tank => Some(TANK_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TankShooting => Some(TANK_SHOOTING_DEATH_ANIMATION_FRAMES),
         EnemyFamily::TarMonster => Some(TAR_MONSTER_DEATH_ANIMATION_FRAMES),
