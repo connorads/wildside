@@ -631,7 +631,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     Ok(())
 }
 
-fn render_vdp_trace_overlay(
+pub(crate) fn render_vdp_trace_overlay(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     frame: &mut [u8],

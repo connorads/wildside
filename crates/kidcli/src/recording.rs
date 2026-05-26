@@ -3,13 +3,14 @@ use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene, load_session_assets,
-    render_scene,
+    render_scene, render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
 use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime};
+use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -454,8 +455,11 @@ pub(crate) fn verify_recording(
         )
     })?;
 
-    let native_frames =
-        render_dynamic_checkpoint_frames(manifest, &replay_trace, &recording.manifest.scenario)?;
+    let native_frames = render_dynamic_checkpoint_frames(
+        manifest,
+        &recording.manifest.start,
+        &recording.manifest.scenario,
+    )?;
     write_rendered_frames(&native_dir, &native_frames)?;
 
     let (oracle_state_match, oracle_frame_match, frame_diffs) = if native_only {
@@ -704,35 +708,121 @@ type RenderedFrame = (String, usize, usize, usize, Vec<u8>);
 
 fn render_dynamic_checkpoint_frames(
     manifest: &AssetManifest,
-    trace: &[NativeTraceFrame],
+    start: &RecordingStart,
     scenario: &DynamicScenario,
 ) -> Result<Vec<RenderedFrame>> {
-    scenario
-        .checkpoints
-        .iter()
-        .map(|checkpoint| {
-            let frame =
-                native_trace_at_checkpoint(trace, &checkpoint.label, checkpoint.frame_index)
-                    .ok_or_else(|| {
-                        anyhow!(
-                            "missing native frame {}@{}",
-                            checkpoint.label,
-                            checkpoint.frame_index
-                        )
-                    })?;
-            let (level_visuals, block_grid) = load_session_assets(manifest, frame.current_level.0)?;
-            let scene = build_scene(frame, false, Some(&level_visuals), Some(&block_grid));
-            let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
-            render_scene(&scene, &mut rgb);
-            Ok((
+    let initial_level_id = start.warp_level.unwrap_or(0x00);
+    let (mut level_visuals, block_grid) = load_session_assets(manifest, initial_level_id)?;
+    let mut runtime = NativeRuntime::new(manifest.clone());
+    runtime.set_block_grid(block_grid);
+    if let Some(level_id) = start.warp_level {
+        if start.settled {
+            runtime.enter_level_playtest(LevelId(level_id));
+        } else {
+            runtime.warp_to_level(LevelId(level_id));
+        }
+    } else if start.settled {
+        runtime.enter_level_playtest(LevelId(0));
+    }
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+
+    let mut current_level_id = runtime.trace_frame().current_level.0;
+    let mut checkpoints = scenario.checkpoints.iter().peekable();
+    let mut rendered_frames = Vec::with_capacity(scenario.checkpoints.len());
+    let mut script_index = 0usize;
+    let mut replay_frame_index = 0usize;
+    let mut level_card_frames_remaining = 0usize;
+
+    while script_index < scenario.script.len() {
+        if level_card_frames_remaining > 0 {
+            level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+            continue;
+        }
+
+        let previous_trace = runtime.trace_frame();
+        let buttons = scenario.script[script_index];
+        script_index += 1;
+        let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
+        if start.settled && start.warp_level.is_some() {
+            trace.level_skip_cheat_enabled = 1;
+        }
+
+        let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
+            && matches!(trace.game_mode, GameMode::InGame)
+            && start.warp_level.is_none()
+            && !start.settled;
+        if entered_gameplay {
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        let level_changed = trace.current_level.0 != current_level_id;
+        if level_changed {
+            current_level_id = trace.current_level.0;
+            let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
+            level_visuals = new_visuals;
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        if checkpoints
+            .peek()
+            .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
+        {
+            let checkpoint = checkpoints.next().expect("checkpoint should exist");
+            let mut render_trace = trace.clone();
+            if level_card_frames_remaining > 0 {
+                render_trace.game_mode = GameMode::LevelTransition;
+                render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            }
+            let rgb = render_runtime_checkpoint_frame(&runtime, &render_trace, &level_visuals);
+            rendered_frames.push((
                 checkpoint.label.clone(),
                 checkpoint.frame_index,
                 NATIVE_FRAME_WIDTH as usize,
                 NATIVE_FRAME_HEIGHT as usize,
                 rgb,
-            ))
-        })
-        .collect()
+            ));
+        }
+
+        level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+        replay_frame_index += 1;
+    }
+
+    if let Some(checkpoint) = checkpoints.peek() {
+        bail!(
+            "missing native frame {}@{}",
+            checkpoint.label,
+            checkpoint.frame_index
+        );
+    }
+
+    Ok(rendered_frames)
+}
+
+fn render_runtime_checkpoint_frame(
+    runtime: &NativeRuntime,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Vec<u8> {
+    let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+    if let Some(vdp) = runtime.vdp_state() {
+        // ASM intro/title loaders build the visible screen in VDP memory.
+        // Recording verification must use the same VDP renderer as play-native,
+        // otherwise intro checkpoints fall back to black trace-only placeholders.
+        let snapshot = kid_md::VdpSnapshot {
+            registers: vdp.registers,
+            vram: vdp.vram.clone(),
+            cram: vdp.cram.clone(),
+            vsram: vdp.vsram.clone(),
+        };
+        kid_md::render_vdp_into(&snapshot, &mut rgb);
+        render_vdp_trace_overlay(trace, level_visuals, &mut rgb);
+    } else {
+        let scene = build_scene(trace, false, Some(level_visuals), runtime.block_grid());
+        render_scene(&scene, &mut rgb);
+    }
+    rgb
 }
 
 fn write_rendered_frames(out_dir: &Path, frames: &[RenderedFrame]) -> Result<()> {
