@@ -411,6 +411,7 @@ pub(crate) fn verify_recording(
         &recording.trace,
         &replay_trace,
         &recording.legacy_block_destroy_direction_frames,
+        recording.manifest.start.settled && recording.manifest.start.warp_level.is_some(),
     );
     let trace_match = first_trace_drift.is_none();
 
@@ -772,12 +773,17 @@ fn first_trace_drift(
     recorded: &[NativeTraceFrame],
     replay: &[NativeTraceFrame],
     legacy_block_destroy_direction_frames: &BTreeSet<usize>,
+    normalise_settled_level_skip_cheat: bool,
 ) -> Option<TraceDriftReport> {
     for (index, (expected, actual)) in recorded.iter().zip(replay).enumerate() {
         let matches = if legacy_block_destroy_direction_frames.contains(&index) {
-            trace_frames_match_with_legacy_block_destroy_direction(expected, actual)
+            trace_frames_match_with_legacy_block_destroy_direction(
+                expected,
+                actual,
+                normalise_settled_level_skip_cheat,
+            )
         } else {
-            trace_frames_match(expected, actual)
+            trace_frames_match(expected, actual, normalise_settled_level_skip_cheat)
         };
         if !matches {
             return Some(TraceDriftReport {
@@ -799,20 +805,32 @@ fn first_trace_drift(
     None
 }
 
-fn trace_frames_match(expected: &NativeTraceFrame, actual: &NativeTraceFrame) -> bool {
+fn trace_frames_match(
+    expected: &NativeTraceFrame,
+    actual: &NativeTraceFrame,
+    normalise_settled_level_skip_cheat: bool,
+) -> bool {
     if expected == actual {
         return true;
+    }
+
+    let mut normalised_expected = expected.clone();
+    if normalise_settled_level_skip_cheat {
+        // Settled warp recordings replay through the reduced oracle level-skip
+        // path. ASM loc_D468 can still observe LevelSkip_Cheat for EOL digit
+        // sprites, so `run_recorded_trace` preserves that compatibility bit;
+        // older/live-recorded play-native traces may omit it.
+        normalised_expected.level_skip_cheat_enabled = actual.level_skip_cheat_enabled;
     }
 
     if expected.game_mode == actual.game_mode
         && !title_screen_ready_affects_recording_match(expected.game_mode)
     {
-        let mut normalised_expected = expected.clone();
         normalised_expected.title_screen_ready = actual.title_screen_ready;
         return &normalised_expected == actual;
     }
 
-    false
+    &normalised_expected == actual
 }
 
 fn title_screen_ready_affects_recording_match(game_mode: GameMode) -> bool {
@@ -822,8 +840,9 @@ fn title_screen_ready_affects_recording_match(game_mode: GameMode) -> bool {
 fn trace_frames_match_with_legacy_block_destroy_direction(
     expected: &NativeTraceFrame,
     actual: &NativeTraceFrame,
+    normalise_settled_level_skip_cheat: bool,
 ) -> bool {
-    if trace_frames_match(expected, actual) {
+    if trace_frames_match(expected, actual, normalise_settled_level_skip_cheat) {
         return true;
     }
     if expected.block_destroy_effects.len() != actual.block_destroy_effects.len() {
@@ -850,7 +869,11 @@ fn trace_frames_match_with_legacy_block_destroy_direction(
     normalised_expected
         .block_destroy_effects
         .clone_from(&actual.block_destroy_effects);
-    trace_frames_match(&normalised_expected, actual)
+    trace_frames_match(
+        &normalised_expected,
+        actual,
+        normalise_settled_level_skip_cheat,
+    )
 }
 
 fn unix_timestamp() -> String {
@@ -1324,7 +1347,7 @@ mod tests {
         let recorded = vec![sample_trace_frame(0), sample_trace_frame(1)];
         let mut replay = recorded.clone();
         replay[1].number_hitpoints = 1;
-        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new()).expect("drift");
+        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new(), false).expect("drift");
         assert_eq!(drift.frame_index, 1);
     }
 
@@ -1344,7 +1367,7 @@ mod tests {
             frame
         }];
 
-        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new());
+        let drift = first_trace_drift(&recorded, &replay, &BTreeSet::new(), false);
 
         assert_eq!(
             drift, None,
@@ -1361,7 +1384,8 @@ mod tests {
         let mut replay = recorded.clone();
         replay.title_screen_ready = false;
 
-        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::new()).expect("drift");
+        let drift =
+            first_trace_drift(&[recorded], &[replay], &BTreeSet::new(), false).expect("drift");
 
         assert_eq!(drift.frame_index, 0);
     }
@@ -1373,11 +1397,34 @@ mod tests {
         let mut replay = sample_trace_frame(0);
         replay.block_destroy_effects = vec![(144, 196, 2, 0)];
 
-        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::from([0]));
+        let drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::from([0]), false);
 
         assert_eq!(
             drift, None,
             "legacy recordings stored ASM sub_292E debris as (x,y,remaining), so replay verification must not fail only because current traces add d6 direction"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_settled_warp_level_skip_cheat_compatibility_bit() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.level_skip_cheat_enabled = 0;
+        let mut replay = recorded.clone();
+        replay.level_skip_cheat_enabled = 1;
+
+        let strict_drift = first_trace_drift(
+            &[recorded.clone()],
+            &[replay.clone()],
+            &BTreeSet::new(),
+            false,
+        )
+        .expect("strict comparison should drift");
+        assert_eq!(strict_drift.frame_index, 0);
+
+        let settled_warp_drift = first_trace_drift(&[recorded], &[replay], &BTreeSet::new(), true);
+        assert_eq!(
+            settled_warp_drift, None,
+            "settled warp recordings replay through the reduced oracle level-skip path, so the loc_D468 compatibility bit should not invalidate otherwise-identical traces"
         );
     }
 
