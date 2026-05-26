@@ -1,5 +1,12 @@
 # Kid Chameleon PC Port
 
+> **Disclaimer.** Kid Chameleon is a trademark of SEGA Corporation. This is an
+> independent, non-commercial reimplementation of the Kid Chameleon engine in
+> Rust. No game code, ROM data, or copyrighted assets are distributed with this
+> repository. You must own an original copy of the Kid Chameleon ROM to use
+> this software. SEGA is not affiliated with this project and has not
+> endorsed it.
+
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
 The current delivery frontier is 1P whole-game fidelity hardening on the native runtime path. `play-native` is the primary manual playtest surface, `1p-playable` is the primary project-health signal, and `1p-accurate` remains the parity-heavy supporting gate.
@@ -355,7 +362,7 @@ The current `Restart Run` option restarts the game from boot. It does not yet re
 
 Bundled SDL2 now uses the `cmake` version pinned in `.mise.toml` so it stays below the CMake 4.x compatibility break that SDL2 0.38.0 trips over.
 
-The FM core is vendored under `third_party/ymfm` from `aaronsgiles/ymfm` (BSD-3-Clause).
+The FM core is vendored under `third_party/ymfm` from `aaronsgiles/ymfm` (BSD-3-Clause, Copyright (c) 2021 Aaron Giles); the `ymfm-sys` Rust wrapper itself is MIT-licensed, so the crate is published as `MIT AND BSD-3-Clause`. The upstream notice is preserved at `third_party/ymfm/LICENSE`.
 
 The oracle loop currently builds `jgenesis` from source in `.cache/oracles/` without extra system packages. `BlastEm` is cloned there as well, but building it locally needs development packages that are not currently installed here:
 
