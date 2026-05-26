@@ -1407,6 +1407,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x094, 0x16, 0x00, 0x30, 0x1F),
             fd(0x0AC, 0x16, 0x00, 0x2F, 0x20),
             fd(0x0C4, 0x16, 0x00, 0x2F, 0x20),
+            // ASM Scorpion.asm loc_3DDEE / `stru_3DB80`: C7DD6, C7DC6,
+            // C7DCE are the waited death frames before deletion.
+            fd(0x034, 0x16, 0x00, 0x30, 0x20),
+            fd(0x000, 0x16, 0x00, 0x30, 0x1F),
+            fd(0x018, 0x16, 0x00, 0x31, 0x1B),
         ],
     },
     EnemyFamilySpec {
@@ -1438,6 +1443,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x000, 0x0C, 0x00, 0x0F, 0x0E),
             fd(0x004, 0x0A, 0x00, 0x0E, 0x0F),
             fd(0x008, 0x08, 0x00, 0x0F, 0x0F),
+            // ASM Drips.asm loc_3392C / `stru_33F06`: C7BC6, C7BCE,
+            // C7BD6 are the short drip death frames before deletion.
+            fd(0x0C5, 0x07, 0x07, 0x10, 0x10),
+            fd(0x0C9, 0x0A, 0x09, 0x17, 0x16),
+            fd(0x0D2, 0x0B, 0x0C, 0x18, 0x18),
         ],
     },
     EnemyFamilySpec {
@@ -1446,7 +1456,18 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         palette_path: "palette_enemy/Hand_1.bin",
         extra_palette_paths: &["palette_enemy/Hand_2.bin", "palette_enemy/Hand_3.bin"],
         frame_duration: 1,
-        frames: &[fd(0x03F, 0x10, 0x01, 0x20, 0x12)],
+        frames: &[
+            fd(0x03F, 0x10, 0x01, 0x20, 0x12),
+            // ASM Hand.asm loc_32AA2 / `stru_32B78`: C79E6/C79EE
+            // repeat three times, then C79F6/C79FE/C7A06/C7A0E/C7A16.
+            fd(0x04B, 0x12, 0x01, 0x28, 0x0C),
+            fd(0x055, 0x12, 0x01, 0x28, 0x0D),
+            fd(0x05F, 0x12, 0x01, 0x26, 0x08),
+            fd(0x064, 0x12, 0x01, 0x24, 0x07),
+            fd(0x069, 0x12, 0x01, 0x26, 0x04),
+            fd(0x06E, 0x12, 0x01, 0x26, 0x03),
+            fd(0x073, 0x12, 0x01, 0x1F, 0x01),
+        ],
     },
     EnemyFamilySpec {
         object_type: 0x18, // Tornado
@@ -1489,6 +1510,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         frames: &[
             fd(0x028, 0x08, 0x00, 0x10, 0x0F),
             fd(0x02C, 0x08, 0x00, 0x10, 0x0E),
+            // ASM Driller.asm loc_3BF1C / `stru_3BCD4`: C80D8,
+            // C80C8, C80D0 are the waited parent death frames.
+            fd(0x024, 0x08, 0x00, 0x10, 0x0E),
+            fd(0x01C, 0x08, 0x00, 0x10, 0x0E),
+            fd(0x020, 0x08, 0x00, 0x10, 0x0B),
         ],
     },
     EnemyFamilySpec {
@@ -4572,6 +4598,11 @@ mod tests {
             "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
         );
         assert_eq!(
+            death_tiles(0x13, 6..9),
+            vec![0x0034, 0x0000, 0x0018],
+            "ASM Scorpion.asm loc_3DDEE / stru_3DB80 death frames C7DD6/C7DC6/C7DCE must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x0E, 6..9),
             vec![0x0065, 0x0075, 0x0085],
             "ASM Cloud.asm loc_35C0E / stru_35EBA death frames C789E/C78A6/C78AE must be selectable"
@@ -4582,9 +4613,24 @@ mod tests {
             "ASM Spinning_Twins.asm loc_3BC56 / stru_3B83C death frames C7CDE/C7CE6/C7CEE must be selectable"
         );
         assert_eq!(
+            death_tiles(0x16, 3..6),
+            vec![0x00C5, 0x00C9, 0x00D2],
+            "ASM Drips.asm loc_3392C / stru_33F06 death frames C7BC6/C7BCE/C7BD6 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x17, 1..8),
+            vec![0x004B, 0x0055, 0x005F, 0x0064, 0x0069, 0x006E, 0x0073],
+            "ASM Hand.asm loc_32AA2 / stru_32B78 death frames C79E6/C79EE/C79F6/C79FE/C7A06/C7A0E/C7A16 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x18, 3..5),
             vec![0x0000, 0x0014],
             "ASM Tornado.asm loc_359B2 / stru_35B1E death frames C783E/C7846 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x1A, 2..5),
+            vec![0x0024, 0x001C, 0x0020],
+            "ASM Driller.asm loc_3BF1C / stru_3BCD4 death frames C80D8/C80C8/C80D0 must be selectable"
         );
         assert_eq!(
             death_tiles(0x1B, 3..8),

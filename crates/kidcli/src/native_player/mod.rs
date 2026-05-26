@@ -2951,6 +2951,27 @@ mod tests {
             },
         );
         families.insert(
+            0x13,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(190, 150, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(131, 0x30, 0x1F, 0x04C),
+                    sample_object_frame_with_base(132, 0x2E, 0x20, 0x064),
+                    sample_object_frame_with_base(133, 0x30, 0x20, 0x07C),
+                    sample_object_frame_with_base(134, 0x30, 0x1F, 0x094),
+                    sample_object_frame_with_base(135, 0x2F, 0x20, 0x0AC),
+                    sample_object_frame_with_base(136, 0x2F, 0x20, 0x0C4),
+                    sample_object_frame_with_base(137, 0x30, 0x20, 0x034),
+                    sample_object_frame_with_base(138, 0x30, 0x1F, 0x000),
+                    sample_object_frame_with_base(139, 0x31, 0x1B, 0x018),
+                ],
+                frame_duration: 6,
+            },
+        );
+        families.insert(
             0x0C,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -3143,15 +3164,52 @@ mod tests {
                     colours: vec![colour(0, 0, 0), colour(120, 200, 90)],
                 },
                 extra_palettes: vec![],
-                frames: vec![SpriteFrame {
-                    origin_x: 0x0C,
-                    origin_y: 0,
-                    width_px: 0x0F,
-                    height_px: 0x0E,
-                    tile_base_index: 0,
-                    tile_sheet: blank_tile_sheet(0x090),
-                }],
+                frames: vec![
+                    sample_object_frame_with_base(121, 0x0F, 0x0E, 0x000),
+                    sample_object_frame_with_base(122, 0x0E, 0x0F, 0x004),
+                    sample_object_frame_with_base(123, 0x0F, 0x0F, 0x008),
+                    sample_object_frame_with_base(124, 0x10, 0x10, 0x0C5),
+                    sample_object_frame_with_base(125, 0x17, 0x16, 0x0C9),
+                    sample_object_frame_with_base(126, 0x18, 0x18, 0x0D2),
+                ],
                 frame_duration: 8,
+            },
+        );
+        families.insert(
+            0x17,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 170, 150)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(141, 0x20, 0x12, 0x03F),
+                    sample_object_frame_with_base(142, 0x28, 0x0C, 0x04B),
+                    sample_object_frame_with_base(143, 0x28, 0x0D, 0x055),
+                    sample_object_frame_with_base(144, 0x26, 0x08, 0x05F),
+                    sample_object_frame_with_base(145, 0x24, 0x07, 0x064),
+                    sample_object_frame_with_base(146, 0x26, 0x04, 0x069),
+                    sample_object_frame_with_base(147, 0x26, 0x03, 0x06E),
+                    sample_object_frame_with_base(148, 0x1F, 0x01, 0x073),
+                ],
+                frame_duration: 1,
+            },
+        );
+        families.insert(
+            0x1A,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(190, 190, 170)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(151, 0x10, 0x0F, 0x028),
+                    sample_object_frame_with_base(152, 0x10, 0x0E, 0x02C),
+                    sample_object_frame_with_base(153, 0x10, 0x0E, 0x024),
+                    sample_object_frame_with_base(154, 0x10, 0x0E, 0x01C),
+                    sample_object_frame_with_base(155, 0x10, 0x0B, 0x020),
+                ],
+                frame_duration: 9,
             },
         );
         EnemyVisuals { families }
@@ -6930,6 +6988,95 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Tornado.asm loc_359B2 should alternate `stru_35B1E` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn more_waited_death_snapshots_select_rom_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x13 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        for (object_type, cases, message) in [
+            (
+                0x13,
+                &[(0x0A + 0x14 + 0x2D, 137), (0x14 + 0x2D, 138), (0x2D, 139)][..],
+                "ASM Scorpion.asm loc_3DDEE should advance `stru_3DB80` death frames",
+            ),
+            (
+                0x16,
+                &[(0x0C, 124), (0x08, 125), (0x04, 126)][..],
+                "ASM Drips.asm loc_3392C should advance `stru_33F06` death frames",
+            ),
+            (
+                0x1A,
+                &[(0x0A + 0x14 + 0x28, 153), (0x14 + 0x28, 154), (0x28, 155)][..],
+                "ASM Driller.asm loc_3BF1C should advance `stru_3BCD4` death frames",
+            ),
+        ] {
+            object.kind = NativeObjectKind::Enemy { object_type };
+            let enemy_visuals = visuals
+                .enemies
+                .families
+                .get(&object_type)
+                .expect("enemy visuals");
+
+            for (remaining, signature) in cases {
+                object.wait_timer = Some(*remaining);
+                assert_eq!(
+                    sprites::select_enemy_frame(&trace, enemy_visuals, &object)
+                        .tile_sheet
+                        .tiles[0]
+                        .pixels[0],
+                    *signature,
+                    "{message}"
+                );
+            }
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x17 };
+        let hand_visuals = visuals.enemies.families.get(&0x17).expect("hand visuals");
+        for (remaining, signature) in [
+            (0x42, 142),
+            (0x3C, 143),
+            (0x36, 142),
+            (0x30, 143),
+            (0x2A, 142),
+            (0x24, 143),
+            (0x1E, 144),
+            (0x18, 145),
+            (0x12, 146),
+            (0x0C, 147),
+            (0x06, 148),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, hand_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Hand.asm loc_32AA2 should advance `stru_32B78` death frames"
             );
         }
     }

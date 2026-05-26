@@ -676,10 +676,59 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(6)
                 }
             }
+            // ASM Drips.asm loc_3392C runs `stru_33F06`: C7BC6/C7BCE/C7BD6
+            // for four ticks each before the object deletes itself.
+            0x16 if enemy_visuals.frames.len() >= 6 => {
+                if remaining > 0x08 {
+                    Some(3)
+                } else if remaining > 0x04 {
+                    Some(4)
+                } else {
+                    Some(5)
+                }
+            }
+            // ASM Hand.asm loc_32AA2 runs `stru_32B78`: C79E6/C79EE repeat
+            // three times, then C79F6/C79FE/C7A06/C7A0E/C7A16.
+            0x17 if enemy_visuals.frames.len() >= 8 => {
+                if remaining > 0x3C {
+                    Some(1)
+                } else if remaining > 0x36 {
+                    Some(2)
+                } else if remaining > 0x30 {
+                    Some(1)
+                } else if remaining > 0x2A {
+                    Some(2)
+                } else if remaining > 0x24 {
+                    Some(1)
+                } else if remaining > 0x1E {
+                    Some(2)
+                } else if remaining > 0x18 {
+                    Some(3)
+                } else if remaining > 0x12 {
+                    Some(4)
+                } else if remaining > 0x0C {
+                    Some(5)
+                } else if remaining > 0x06 {
+                    Some(6)
+                } else {
+                    Some(7)
+                }
+            }
             // ASM Ninja.asm loc_3DB4E runs `stru_3D50A`: C7D56 for $14,
             // C7D5E for $0A, then C7D66 for $2D before deletion.
             0x11 if enemy_visuals.frames.len() >= 9 => {
                 if remaining > 0x0A + 0x2D {
+                    Some(6)
+                } else if remaining > 0x2D {
+                    Some(7)
+                } else {
+                    Some(8)
+                }
+            }
+            // ASM Scorpion.asm loc_3DDEE runs `stru_3DB80`: C7DD6 for
+            // $0A, C7DC6 for $14, then C7DCE for $2D before deletion.
+            0x13 if enemy_visuals.frames.len() >= 9 => {
+                if remaining > 0x14 + 0x2D {
                     Some(6)
                 } else if remaining > 0x2D {
                     Some(7)
@@ -756,6 +805,17 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(6)
                 } else {
                     Some(7)
+                }
+            }
+            // ASM Driller.asm loc_3BF1C runs parent `stru_3BCD4`: C80D8 for
+            // $0A, C80C8 for $14, then C80D0 for $28 before deletion.
+            0x1A if enemy_visuals.frames.len() >= 5 => {
+                if remaining > 0x14 + 0x28 {
+                    Some(2)
+                } else if remaining > 0x28 {
+                    Some(3)
+                } else {
+                    Some(4)
                 }
             }
             // ASM Big_Hopping_Skull.asm loc_3664E runs `stru_367FA`:
