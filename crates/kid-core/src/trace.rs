@@ -183,6 +183,27 @@ mod tests {
         assert_eq!(frame_1282, Some(GameMode::IntroSequence4));
     }
 
+    #[test]
+    fn cold_boot_intro_sequence_4_follows_oracle_handoff_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut frame_1875 = None;
+        let mut frame_1876 = None;
+
+        for frame_index in 0..=1876 {
+            let trace = runtime.step_frame(FrameInput::default());
+            match frame_index {
+                1875 => frame_1875 = Some(trace.game_mode),
+                1876 => frame_1876 = Some(trace.game_mode),
+                _ => {}
+            }
+        }
+
+        // ASM sub_1B988 `loc_1B9B6` writes `Game_Mode=$0024` only after the
+        // shared fade, camera hand-off, and `$21B` inclusive DBF wait complete.
+        assert_eq!(frame_1875, Some(GameMode::IntroSequence4));
+        assert_eq!(frame_1876, Some(GameMode::IntroSequence5));
+    }
+
     fn manifest_with_flag(flag_x: u16, flag_y: u16) -> AssetManifest {
         let mut manifest = minimal_manifest();
         manifest.levels.push(kid_data::LevelRecord {
@@ -504,60 +525,70 @@ mod tests {
     }
 
     #[test]
-    fn intro_sequence_4_timeout_restart_intro_3_pose_requires_carry_before_cutoff() {
-        fn uses_pose(
-            elapsed: usize,
-            segment: usize,
-            timeout_restart_intro_sequence_4_pose_carry: bool,
-        ) -> bool {
+    fn intro_sequence_4_intro_3_pose_carries_until_cutoff() {
+        fn uses_pose(elapsed: usize, segment: usize) -> bool {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::IntroSequence {
                 segment,
                 elapsed,
                 pending_title_skip: 0,
             };
-            runtime.timeout_restart_intro_sequence_4_pose_carry =
-                timeout_restart_intro_sequence_4_pose_carry;
-            runtime.intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose()
+            runtime.intro_sequence_4_uses_intro_sequence_3_pose()
         }
 
         // ASM loc_1B96A enters intro sequence 4 before Load_IntroSequence4 /
-        // sub_1B988 clears the timeout-restart intro-3 roster, so the old pose
-        // remains visible only while the carry latch is active and before the
-        // fixed handoff window expires.
-        assert!(uses_pose(26, 3, true));
-        assert!(!uses_pose(27, 3, true));
-        assert!(!uses_pose(26, 3, false));
-        assert!(!uses_pose(26, 2, true));
+        // sub_1B988 clears the intro-3 roster, so the old pose remains visible
+        // until the fixed handoff window expires.
+        assert!(uses_pose(26, 3));
+        assert!(!uses_pose(27, 3));
+        assert!(!uses_pose(26, 2));
     }
 
     #[test]
-    fn current_player_state_exposes_intro_4_timeout_restart_intro_3_pose_until_cutoff() {
+    fn current_player_state_exposes_intro_4_intro_3_pose_until_cutoff() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::IntroSequence {
             segment: 3,
-            elapsed: 26,
+            elapsed: 0,
             pending_title_skip: 0,
         };
-        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
         runtime.active_intro_sequence_3_roster_index = 1;
 
+        // ASM loc_1B96A writes mode `$20` before sub_1B988 clears the previous
+        // intro-3 roster; issue-161 oracle probes keep Kid and the roster
+        // counted at the cold frame-1282 hand-off.
         assert_eq!(
             runtime.current_player_state(),
             Some(PlayerState::intro_sequence_3_pose_for_roster(1))
         );
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (3, 0x000B));
 
         runtime.boot_state = BootState::IntroSequence {
             segment: 3,
-            elapsed: 27,
+            elapsed: TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES,
             pending_title_skip: 0,
         };
 
         assert_eq!(runtime.current_player_state(), None);
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (0, 0));
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES - 1,
+            pending_title_skip: 0,
+        };
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (1, 0));
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 3,
+            elapsed: TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES,
+            pending_title_skip: 0,
+        };
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (2, 0));
     }
 
     #[test]
-    fn timeout_restart_camera_handoff_spans_late_intro_4_and_early_intro_5() {
+    fn camera_handoff_spans_late_intro_4_and_timeout_restart_intro_5() {
         fn uses_camera(
             segment: usize,
             elapsed: usize,
@@ -577,23 +608,21 @@ mod tests {
         // ASM sub_1B988's `Camera_Y_pos=4` hand-off appears only after the
         // intro-3 pose carry clears, then survives into early intro sequence 5
         // because Load_IntroSequence5 does not call sub_1B222.
-        assert!(!uses_camera(3, 36, true));
-        assert!(uses_camera(3, 37, true));
+        assert!(!uses_camera(3, 36, false));
+        assert!(uses_camera(3, 37, false));
         assert!(uses_camera(4, 30, true));
         assert!(!uses_camera(4, 31, true));
-        assert!(!uses_camera(3, 37, false));
         assert!(!uses_camera(2, 37, true));
     }
 
     #[test]
-    fn camera_state_exposes_timeout_restart_intro_4_camera_handoff() {
+    fn camera_state_exposes_intro_4_camera_handoff() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::IntroSequence {
             segment: 3,
             elapsed: 37,
             pending_title_skip: 0,
         };
-        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
 
         assert_eq!(
             runtime.current_camera_state(),
@@ -798,56 +827,49 @@ mod tests {
     }
 
     #[test]
-    fn intro_sequence_5_timeout_restart_slot_2_pose_requires_carry_and_visible_elapsed() {
-        fn uses_pose(
-            elapsed: usize,
-            timeout_restart_intro_sequence_4_pose_carry: bool,
-            early_visibility: bool,
-        ) -> bool {
+    fn intro_sequence_5_slot_2_pose_uses_visible_elapsed() {
+        fn uses_pose(elapsed: usize, early_visibility: bool) -> bool {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::IntroSequence {
                 segment: 4,
                 elapsed,
                 pending_title_skip: 0,
             };
-            runtime.timeout_restart_intro_sequence_4_pose_carry =
-                timeout_restart_intro_sequence_4_pose_carry;
             runtime.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
                 early_visibility;
             runtime.intro_sequence_5_uses_timeout_restart_slot_2_pose()
         }
 
-        // ASM loc_1BCD0's slot-2 pose appears after the timeout-restart
-        // intro-sequence-5 visibility delay, with one earlier frame for the
-        // later Start-skip intro-return lineage.
-        assert!(!uses_pose(57, true, false));
-        assert!(uses_pose(58, true, false));
-        assert!(uses_pose(57, true, true));
-        assert!(!uses_pose(58, false, false));
+        // ASM loc_1BCD0's slot-2 pose appears after the intro-sequence-5
+        // visibility delay, with one earlier frame for the later Start-skip
+        // intro-return lineage.
+        assert!(!uses_pose(56, false));
+        assert!(uses_pose(57, false));
+        assert!(uses_pose(57, true));
     }
 
     #[test]
-    fn current_player_state_exposes_intro_5_timeout_restart_slot_2_pose_after_delay() {
+    fn current_player_state_exposes_cold_intro_5_slot_2_pose_after_delay() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.boot_state = BootState::IntroSequence {
-            segment: 4,
-            elapsed: 58,
-            pending_title_skip: 0,
-        };
-        runtime.timeout_restart_intro_sequence_4_pose_carry = true;
-
-        assert_eq!(
-            runtime.current_player_state(),
-            Some(PlayerState::intro_sequence_5_slot_2_pose())
-        );
-
         runtime.boot_state = BootState::IntroSequence {
             segment: 4,
             elapsed: 57,
             pending_title_skip: 0,
         };
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::intro_sequence_5_slot_2_pose())
+        );
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (4, 0));
+
+        runtime.boot_state = BootState::IntroSequence {
+            segment: 4,
+            elapsed: 56,
+            pending_title_skip: 0,
+        };
 
         assert_eq!(runtime.current_player_state(), None);
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (2, 0));
     }
 
     #[test]
@@ -4380,24 +4402,23 @@ impl NativeRuntime {
                 < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
     }
 
-    fn intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
+    fn intro_sequence_4_uses_intro_sequence_3_pose(&self) -> bool {
         matches!(
             self.boot_state,
             BootState::IntroSequence {
                 segment: 3,
                 elapsed,
                 ..
-            } if self.timeout_restart_intro_sequence_4_pose_carry
-                && elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
+            } if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
         )
     }
 
     fn intro_sequence_4_uses_timeout_restart_camera_handoff(&self) -> bool {
         matches!(
             self.boot_state,
-            // ASM sub_1B988: `move.w #4,(Camera_Y_pos).w`. The timeout-restart
-            // path exposes this only after the carried intro-sequence-3 pose
-            // has already cleared. ASM Load_IntroSequence5 only allocates
+            // ASM sub_1B988: `move.w #4,(Camera_Y_pos).w`. Oracle exposes
+            // this only after the carried intro-sequence-3 pose has already
+            // cleared. ASM Load_IntroSequence5 only allocates
             // `loc_1BA28` / `loc_1BCD0`; unlike Load_IntroSequence6 and
             // GfxObjects_Collision_BottomBoundary4 it does not call
             // `sub_1B222`, so oracle traces keep the carried camera only for
@@ -4407,8 +4428,7 @@ impl NativeRuntime {
                 segment: 3,
                 elapsed,
                 ..
-            } if self.timeout_restart_intro_sequence_4_pose_carry
-                && elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
+            } if elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
         ) || matches!(
             self.boot_state,
             BootState::IntroSequence {
@@ -4416,18 +4436,21 @@ impl NativeRuntime {
                 elapsed,
                 ..
             }
-                if self.timeout_restart_intro_sequence_4_pose_carry
-                    && elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES
+                if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES
         )
     }
 
     fn intro_sequence_5_uses_timeout_restart_slot_2_pose(&self) -> bool {
-        let visible_elapsed_frames =
-            if self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility {
-                TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1
-            } else {
-                TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
-            };
+        let visible_elapsed_frames = if self
+            .demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+            || self
+                .demo_auto_timeout_intro_sequence_5_frames_override
+                .is_none()
+        {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1
+        } else {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+        };
         matches!(
             self.boot_state,
             // ASM loc_1BCD0 allocates five title gfx slots and writes the
@@ -4443,8 +4466,7 @@ impl NativeRuntime {
                 segment: 4,
                 elapsed,
                 ..
-            } if self.timeout_restart_intro_sequence_4_pose_carry
-                && elapsed >= visible_elapsed_frames
+            } if elapsed >= visible_elapsed_frames
         )
     }
 
@@ -5715,10 +5737,10 @@ impl NativeRuntime {
             }
             // ASM loc_1B96A writes `Game_Mode=$20`, but Load_IntroSequence4 /
             // sub_1B988 do not clear the old intro-sequence-3 roster
-            // immediately. Oracle timeout-restart traces keep the previous
-            // roster pose visible through the early intro-sequence-4 frames.
+            // immediately. Oracle traces keep the previous roster pose visible
+            // through the early intro-sequence-4 frames.
             BootState::IntroSequence { segment: 3, .. }
-                if self.intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose() =>
+                if self.intro_sequence_4_uses_intro_sequence_3_pose() =>
             {
                 Some(PlayerState::intro_sequence_3_pose_for_roster(
                     self.active_intro_sequence_3_roster_index,
@@ -6372,6 +6394,69 @@ impl NativeRuntime {
                 42..=115 => (4, 0x000B),
                 _ => (3, 0x000B),
             };
+        }
+        if let BootState::IntroSequence {
+            segment: 3,
+            elapsed,
+            ..
+        } = self.boot_state
+        {
+            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES {
+                // ASM loc_1B96A writes `Game_Mode=$20`, but the previous
+                // Load_IntroSequence3/sub_1B93E roster remains counted until
+                // Load_IntroSequence4/sub_1B988's rebuild clears the hand-off.
+                return (3, 0x000B);
+            }
+            if elapsed + 1 == TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES {
+                // ASM sub_1B988 has cleared the roster but has not yet exposed
+                // the full `Camera_Y_pos=4` hand-off; oracle keeps only the
+                // controller object counted for this one cold-boot frame.
+                return (1, 0);
+            }
+            if elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES {
+                // ASM sub_1B988 owns the scene after writing Camera_Y_pos=4,
+                // exposing the controller plus intro-text worker counts.
+                return (2, 0);
+            }
+        }
+        if let BootState::IntroSequence {
+            segment: 4,
+            elapsed,
+            ..
+        } = self.boot_state
+            && self
+                .demo_auto_timeout_intro_sequence_5_frames_override
+                .is_none()
+            && elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES
+        {
+            // ASM Load_IntroSequence5 does not call sub_1B222, so the
+            // sub_1B988 camera hand-off and controller count survive the early
+            // intro-5 frames on the cold path too.
+            return (1, 0);
+        }
+        if let BootState::IntroSequence {
+            segment: 4,
+            elapsed,
+            ..
+        } = self.boot_state
+            && self
+                .demo_auto_timeout_intro_sequence_5_frames_override
+                .is_none()
+        {
+            let visible_elapsed_frames =
+                TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1;
+            if elapsed + 1 == visible_elapsed_frames {
+                // ASM loc_1BCD0 has not yet written the slot-2 pose, but the
+                // cold oracle count has the loc_1BA28 controller plus
+                // loc_1BC36 tile worker live for one frame.
+                return (2, 0);
+            }
+            if elapsed >= visible_elapsed_frames {
+                // ASM loc_1BCD0 allocates the title gfx-slot worker after the
+                // loc_1BA28/loc_1BC36 setup, exposing the slot-2 pose and four
+                // counted workers on the cold intro-5 path.
+                return (4, 0);
+            }
         }
         if let BootState::IntroSequence {
             segment: 4,

@@ -21,6 +21,12 @@ pub(crate) const INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
 // probes keep mode `$001C` through frame 1281 and enter intro sequence 4 on
 // frame 1282.
 pub(crate) const INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
+// ASM Load_IntroSequence4 `sub_1B988 -> sub_1C204 -> loc_1B9B6` exposes the
+// camera hand-off after the same 37-frame setup used by timeout restarts,
+// then waits through the shared fade and `$21B` inclusive DBF loop. Oracle
+// cold-boot probes keep mode `$0020` through frame 1875 and enter intro
+// sequence 5 on frame 1876.
+pub(crate) const INTRO_FOURTH_SEGMENT_FRAMES: usize = 594;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

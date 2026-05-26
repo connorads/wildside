@@ -3926,12 +3926,12 @@ mod chunk_02 {
     #[test]
     fn reaches_title_screen_without_input() {
         // ASM-backed cold boot timing: Sega (174), intro1 (361), intro2
-        // (449), intro3 (299), then the still-sketch intro4/5 windows
-        // (2 x 80) reach TitleScreen on frame 1442.
+        // (449), intro3 (299), intro4 (594), then the still-sketch intro5
+        // window (80) reaches TitleScreen on frame 1956.
         // enter_title_screen_from_intro_return adds a 150-frame settle window
         // before title_screen_ready, so kid position is None during that window.
-        let trace = run_script(manifest(), &[], 1_600);
-        let f = 1_442;
+        let trace = run_script(manifest(), &[], 2_120);
+        let f = 1_956;
         assert_eq!(trace[f].game_mode, GameMode::TitleScreen);
         assert_eq!(trace[f].current_level, LevelId(0));
         assert_eq!(trace[f].player_start_x, Some(0x0750));
@@ -3945,7 +3945,7 @@ mod chunk_02 {
         assert!(trace[f].active_objects.is_empty());
 
         // After settle window, kid and title objects are visible
-        let ready = 1_592;
+        let ready = 2_106;
         assert_eq!(trace[ready].game_mode, GameMode::TitleScreen);
         assert_eq!(trace[ready].kid_x_pos, Some(TITLE_KID_X_POS));
         assert_eq!(trace[ready].kid_y_pos, Some(TITLE_KID_Y_POS));
@@ -4242,27 +4242,27 @@ mod chunk_02 {
 
     #[test]
     fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
-        let mut script = vec![0u8; 1_227];
+        let mut script = vec![0u8; 1_741];
         script[33] = 0x80;
-        script[1_225] = 0x80;
+        script[1_739] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
-        let frame_1224 = &trace[1_224];
-        let frame_1225 = &trace[1_225];
-        let frame_1226 = &trace[1_226];
+        let frame_1738 = &trace[1_738];
+        let frame_1739 = &trace[1_739];
+        let frame_1740 = &trace[1_740];
 
-        assert_eq!(frame_1224.game_mode, GameMode::IntroSequence5);
+        assert_eq!(frame_1738.game_mode, GameMode::IntroSequence5);
         assert_eq!(
-            frame_1225.game_mode,
+            frame_1739.game_mode,
             GameMode::IntroSequence5,
             "ASM loc_1BA60 polls sub_1C246 from the intro-sequence-5 hibernate loop before loc_1C250 consumes the Start edge",
         );
         assert_eq!(
-            frame_1226.game_mode,
+            frame_1740.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C250: cmpi.w #$24,(Game_Mode).w; beq.s loc_1C264 branch targets loc_1C264 for intro sequence 5 (Game_Mode=$24)",
         );
         assert_eq!(
-            frame_1226.game_mode,
+            frame_1740.game_mode,
             GameMode::TitleScreen,
             "ASM loc_1C264: move.w #$2C,(Game_Mode).w writes TitleScreen mode when branching from either intro sequence 5 ($24) or 6 ($28)",
         );
