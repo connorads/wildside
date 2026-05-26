@@ -979,17 +979,19 @@ mod chunk_06 {
     // --- Mushroom block tests ---
 
     #[test]
-    fn mushroom_block_lands_player_without_bounce() {
-        // ASM off_933E index 9 (Mushroom) is a NOP — mushroom blocks do NOT bounce
-        // the player. They behave as normal solid floor.
+    fn mushroom_block_landing_queues_loc_11430_worker() {
+        let mut runtime = NativeRuntime::new(manifest());
         let w: u16 = 16;
         let h: u16 = 16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        // Mushroom at cell (2, 4): has_block=1, collision=Solid(6), block_type=Mushroom(9)
+        // ASM off_BB80 -> loc_BBC2 -> loc_11430: type 9 floor contact
+        // triggers the timed shooter-style block worker when $FFFFFA6A is clear.
+        // Level 3's first touch-to-shoot blocks are `$E919` cells.
         let idx = (4 * w + 2) as usize * 2;
         data[idx] = 0xE9;
-        data[idx + 1] = 0x00;
+        data[idx + 1] = 0x19;
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        runtime.set_block_grid(grid.clone());
 
         let bounds = LevelBounds {
             width_pixels: w * 16,
@@ -1008,6 +1010,29 @@ mod chunk_06 {
             "should land on mushroom like normal floor"
         );
         assert_eq!(slice.player.y_velocity, 0, "should stop on landing");
+        assert_eq!(
+            slice.shooter_block_hit,
+            Some((2, 4)),
+            "ASM loc_BBC2 should dispatch type 9 floor contact into loc_11430"
+        );
+
+        runtime.process_block_effects(&mut slice);
+
+        assert_eq!(
+            runtime.block_grid().expect("block grid").cell_at(2, 4),
+            terrain::Cell::from_be_bytes(0xE9, 0x19),
+            "ASM loc_1146E branches to loc_11496 after sub_1149C queues support workers, so the struck E919 cell stays intact"
+        );
+        assert_eq!(
+            runtime
+                .block_state
+                .shooter_headbutt_workers
+                .iter()
+                .filter(|worker| worker.kind == ShooterHeadbuttWorkerKind::Support)
+                .count(),
+            3,
+            "ASM sub_1149C should queue the three empty support cells above the struck type 9 block"
+        );
     }
 
     #[test]

@@ -5714,8 +5714,6 @@ impl OpeningSliceState {
                         self.player.wall_cling_direction = None;
                         return None;
                     }
-                    // ASM off_933E: Mushroom (index 9) is a NOP — no bounce.
-                    // Non-rubber block types land normally here.
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.wall_cling_direction = None;
@@ -5734,6 +5732,13 @@ impl OpeningSliceState {
                         let tp_col = (x_px / 16).max(0) as u16;
                         let tp_row = (probe.floor_y_px / 16).max(0) as u16;
                         self.teleporter_contact = Some((tp_col, tp_row));
+                    }
+                    if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Mushroom
+                    {
+                        // ASM off_BB80 -> loc_BBC2 -> loc_11430:
+                        // type 9 floor contact routes into the timed
+                        // shooter-style block worker when $FFFFFA6A is clear.
+                        self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =
