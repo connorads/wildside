@@ -275,6 +275,11 @@ pub(crate) struct IntroSub1B850Data {
     intro_sequence_5_palette_variant_2_overlay: Vec<u16>,
     /// IntroSequence5 tilemap (`MapEni_2E154`) decoded with base `$00BC`.
     intro_sequence_5_tilemap: Vec<u16>,
+    /// IntroSequence5 staged `loc_1BC36` / `sub_1C034` tile upload maps,
+    /// decoded with base `$A340`.
+    intro_sequence_5_frame_tilemaps: Vec<Vec<u16>>,
+    /// IntroSequence5 `sub_1C0EE` panel map (`unk_2FDA6`) decoded with base `$A340`.
+    intro_sequence_5_panel_tilemap: Vec<u16>,
 }
 
 /// Load and cache intro sub_1B850 assets from the asset bundle.
@@ -390,6 +395,31 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         .context("failed to read intro sequence 5 tilemap")?;
     let intro_sequence_5_tilemap = kid_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
         .context("failed to decode intro sequence 5 tilemap")?;
+    let mut intro_sequence_5_frame_tilemaps = Vec::new();
+    for frame_index in 0..8u16 {
+        let plan = kid_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
+            .context("failed to build intro sequence 5 frame upload plan")?;
+        let filename = asset_label_mapeni_filename(plan.tilemap_load.asset_label);
+        let raw = std::fs::read(scenes.join("mapeni").join(&filename)).with_context(|| {
+            format!("failed to read intro sequence 5 frame tilemap: {filename}")
+        })?;
+        let decoded = kid_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
+            .with_context(|| {
+                format!("failed to decode intro sequence 5 frame tilemap: {filename}")
+            })?;
+        intro_sequence_5_frame_tilemaps.push(decoded);
+    }
+    let panel_plan = kid_data::intro_sequence_5_panel_load_plan_sub_1C0EE(3, 0x13);
+    let panel_filename = asset_label_mapeni_filename(panel_plan.tilemap_load.asset_label);
+    let panel_raw =
+        std::fs::read(scenes.join("mapeni").join(&panel_filename)).with_context(|| {
+            format!("failed to read intro sequence 5 panel tilemap: {panel_filename}")
+        })?;
+    let intro_sequence_5_panel_tilemap =
+        kid_data::decode_enigma(&panel_raw, panel_plan.tilemap_load.vram_word_address)
+            .with_context(|| {
+                format!("failed to decode intro sequence 5 panel tilemap: {panel_filename}")
+            })?;
 
     Ok(IntroSub1B850Data {
         art_chunks,
@@ -409,6 +439,8 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         intro_sequence_5_palette_variant_1_overlay,
         intro_sequence_5_palette_variant_2_overlay,
         intro_sequence_5_tilemap,
+        intro_sequence_5_frame_tilemaps,
+        intro_sequence_5_panel_tilemap,
     })
 }
 
@@ -449,6 +481,7 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         );
     }
     if segment == 4 {
+        overlay_intro_sequence_5_tile_worker_loc_1BC36(&mut vdp, data, elapsed);
         overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
@@ -1349,6 +1382,151 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
     vdp
 }
 
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
+    (0, 0),
+    (0xA0, 1),
+    (0xA0 + 0x90, 2),
+    (0xA0 + 0x90 + 0x0B, 3),
+    (0xA0 + 0x90 + 0x0B + 0x0B, 4),
+    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B, 5),
+    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37, 6),
+    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08, 7),
+    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08 + 0x08, 6),
+    (
+        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08 + 0x08 + 0x0F,
+        5,
+    ),
+];
+const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize = 0xA0 + 0x90 + 0x0B + 0x0B;
+const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED + 0x0B;
+
+#[allow(non_snake_case)]
+fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
+    vdp: &mut VdpState,
+    data: &IntroSub1B850Data,
+    elapsed: usize,
+) {
+    // ASM loc_1BC36 (kid.asm:30516) calls sub_1C034 before each hibernate.
+    // sub_1C034 decodes one `off_1C126` map into a 16x25 staging buffer, then
+    // streams 25 fixed rows to VRAM `$A340..$A940`.
+    if let Some(frame_index) = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
+        .iter()
+        .rev()
+        .find_map(|(start_elapsed, frame_index)| {
+            (elapsed >= *start_elapsed).then_some(*frame_index)
+        })
+    {
+        apply_intro_sequence_5_sub_1C034_frame(vdp, data, frame_index);
+    }
+
+    if elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED {
+        apply_intro_sequence_5_blank_panel_sub_1C112(vdp, 3, 0x13);
+    } else if elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED {
+        apply_intro_sequence_5_panel_sub_1C0EE(vdp, data, 3, 0x13);
+    }
+}
+
+#[allow(non_snake_case)]
+fn apply_intro_sequence_5_sub_1C034_frame(
+    vdp: &mut VdpState,
+    data: &IntroSub1B850Data,
+    frame_index: u16,
+) {
+    let Ok(plan) = kid_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index) else {
+        return;
+    };
+    let Some(decoded_words) = data
+        .intro_sequence_5_frame_tilemaps
+        .get(usize::from(frame_index))
+    else {
+        return;
+    };
+    let mut staged_words = [0u16; 25 * 16];
+    let width = usize::from(plan.tilemap_load.width_words);
+    let height = usize::from(plan.tilemap_load.height_words);
+    let left_padding = usize::from(plan.tilemap_load.left_padding_words);
+    for row in 0..height.min(25) {
+        for col in 0..width.min(16usize.saturating_sub(left_padding)) {
+            if let Some(&word) = decoded_words.get(row * width + col) {
+                staged_words[row * 16 + left_padding + col] = word;
+            }
+        }
+    }
+
+    for row_write in plan.vram_rows {
+        let source_offset = usize::from(row_write.source_word_offset);
+        for word_offset in 0..usize::from(row_write.word_count) {
+            let Some(&word) = staged_words.get(source_offset + word_offset) else {
+                continue;
+            };
+            let byte_addr = usize::from(row_write.vram_word_address) + word_offset * 2;
+            vdp.write_vram_word(byte_addr, word);
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+fn apply_intro_sequence_5_panel_sub_1C0EE(
+    vdp: &mut VdpState,
+    data: &IntroSub1B850Data,
+    plane_cell_x: u16,
+    plane_cell_y: u16,
+) {
+    let plan = kid_data::intro_sequence_5_panel_load_plan_sub_1C0EE(plane_cell_x, plane_cell_y);
+    write_plane_rect_words(
+        vdp,
+        &data.intro_sequence_5_panel_tilemap,
+        usize::from(plan.plane_upload.plane_cell_x),
+        usize::from(plan.plane_upload.plane_cell_y),
+        usize::from(plan.plane_upload.width_words),
+        usize::from(plan.plane_upload.height_words),
+    );
+}
+
+#[allow(non_snake_case)]
+fn apply_intro_sequence_5_blank_panel_sub_1C112(
+    vdp: &mut VdpState,
+    plane_cell_x: u16,
+    plane_cell_y: u16,
+) {
+    let plan =
+        kid_data::intro_sequence_5_blank_panel_load_plan_sub_1C112(plane_cell_x, plane_cell_y);
+    let blank_words = vec![
+        0u16;
+        usize::from(plan.plane_upload.width_words)
+            * usize::from(plan.plane_upload.height_words)
+    ];
+    write_plane_rect_words(
+        vdp,
+        &blank_words,
+        usize::from(plan.plane_upload.plane_cell_x),
+        usize::from(plan.plane_upload.plane_cell_y),
+        usize::from(plan.plane_upload.width_words),
+        usize::from(plan.plane_upload.height_words),
+    );
+}
+
+fn write_plane_rect_words(
+    vdp: &mut VdpState,
+    words: &[u16],
+    plane_cell_x: usize,
+    plane_cell_y: usize,
+    width_words: usize,
+    height_words: usize,
+) {
+    for row in 0..height_words {
+        for col in 0..width_words {
+            let Some(&word) = words.get(row * width_words + col) else {
+                continue;
+            };
+            let byte_addr =
+                (plane_cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (plane_cell_x + col) * 2;
+            vdp.write_vram_word(byte_addr, word);
+        }
+    }
+}
+
 // ─── Title screen ───────────────────────────────────────────────────────────
 
 fn asset_label_mapeni_filename(label: &str) -> String {
@@ -1927,6 +2105,8 @@ mod tests {
             intro_sequence_5_palette_variant_1_overlay: vec![],
             intro_sequence_5_palette_variant_2_overlay: vec![],
             intro_sequence_5_tilemap: vec![],
+            intro_sequence_5_frame_tilemaps: vec![],
+            intro_sequence_5_panel_tilemap: vec![],
         }
     }
 
@@ -2825,6 +3005,110 @@ mod tests {
             u16::from_be_bytes([variant_2.cram[0x62], variant_2.cram[0x63]]),
             0x1C34,
             "ASM sub_1C512 overlays Pal_1C3D4 at Palette_Buffer_2+$62 for other non-zero FC82 values",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1bc36_streams_sub_1c034_frames_on_rom_hibernate_boundaries() {
+        let frame_tilemaps = (0..8u16)
+            .map(|frame_index| {
+                let plan = kid_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
+                    .expect("ASM sub_1C034 should accept all eight frame indices");
+                let word = 0x1100 | frame_index;
+                vec![
+                    word;
+                    usize::from(plan.tilemap_load.width_words)
+                        * usize::from(plan.tilemap_load.height_words)
+                ]
+            })
+            .collect::<Vec<_>>();
+        let data = IntroSub1B850Data {
+            intro_sequence_5_frame_tilemaps: frame_tilemaps,
+            ..empty_intro_data()
+        };
+
+        let first = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0, 0);
+        assert_eq!(
+            vram_word(&first, 0xA346),
+            0x1100,
+            "ASM loc_1BC36 calls sub_1C034(d4=0) before the first `$A0` hibernate; left padding is three words"
+        );
+
+        let before_second =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0 - 1, 0);
+        assert_eq!(
+            vram_word(&before_second, 0xA346),
+            0x1100,
+            "ASM loc_1BC36 should keep frame 0 visible through the `$A0` hibernate"
+        );
+
+        let second = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0, 0);
+        assert_eq!(
+            vram_word(&second, 0xA346),
+            0x1101,
+            "ASM loc_1BC36 resumes with sub_1C034(d4=1) exactly after the `$A0` hibernate"
+        );
+
+        let centred = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x16,
+            0,
+        );
+        assert_eq!(
+            vram_word(&centred, 0xA340),
+            0x1104,
+            "ASM off_1C126 frame 4 has zero left padding, so loc_1C0A4 starts writing at `$A340`"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1bc36_panel_blit_and_blank_follow_sub_1c0ee_order() {
+        let data = IntroSub1B850Data {
+            intro_sequence_5_frame_tilemaps: vec![vec![0x1111; 12 * 24]; 8],
+            intro_sequence_5_panel_tilemap: vec![0xCAFE; 10 * 10],
+            ..empty_intro_data()
+        };
+        let panel_byte_addr = 0x13 * NAMETABLE_ROW_STRIDE_BYTES + 3 * 2;
+
+        let before_panel = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x15,
+            0,
+        );
+        assert_ne!(
+            vram_word(&before_panel, panel_byte_addr),
+            0xCAFE,
+            "ASM loc_1BC36 does not call sub_1C0EE until after sub_1C034(d4=4)"
+        );
+
+        let panel = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x16,
+            0,
+        );
+        assert_eq!(
+            vram_word(&panel, panel_byte_addr),
+            0xCAFE,
+            "ASM loc_1BC36 calls sub_1C0EE(d4=3,d5=$13) immediately after sub_1C034(d4=4)"
+        );
+
+        let cleared = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x21,
+            0,
+        );
+        assert_eq!(
+            vram_word(&cleared, panel_byte_addr),
+            0,
+            "ASM loc_1BC36 calls sub_1C112 after the next `$B` hibernate, blanking the panel before frame 5"
         );
     }
 
