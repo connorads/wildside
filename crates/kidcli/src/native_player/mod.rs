@@ -4901,6 +4901,25 @@ mod tests {
     }
 
     #[test]
+    fn layered_background_rows_wrap_like_plane_b_loc_11b7a() {
+        assert_eq!(
+            super::scene::wrap_layered_background_x_loc_11b7a(-520, 512),
+            -8,
+            "ASM loc_11B7A backs Plane B row pointers; native must wrap the 64-tile forest row instead of letting it disappear offscreen",
+        );
+        assert_eq!(
+            super::scene::wrap_layered_background_x_loc_11b7a(-512, 512),
+            0,
+            "one full row of parallax scroll should return to the first background tile",
+        );
+        assert_eq!(
+            super::scene::wrap_layered_background_x_loc_11b7a(400, 512),
+            -112,
+            "tiles just beyond the right side may still need to draw as the wrapped copy on the left",
+        );
+    }
+
+    #[test]
     fn forest_ripple_starts_from_asm_screen_line_window() {
         assert_eq!(
             super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 135, 0x11, 0),

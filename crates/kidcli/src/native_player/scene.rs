@@ -1155,8 +1155,11 @@ pub(super) fn push_background_tiles(
         }
         kid_render::BackgroundVisuals::Layered(background) => {
             for (row_index, row) in background.rows.iter().enumerate() {
+                let row_width_px = i32::try_from(row.tiles.len())
+                    .ok()
+                    .and_then(|tiles| tiles.checked_mul(8));
                 for (column, tile) in row.tiles.iter().enumerate() {
-                    let (screen_x, screen_y) = background_tile_screen_position(
+                    let (mut screen_x, screen_y) = background_tile_screen_position(
                         trace,
                         level_visuals,
                         column as u16,
@@ -1164,6 +1167,9 @@ pub(super) fn push_background_tiles(
                         camera_x_px,
                         camera_y_px,
                     );
+                    if let Some(row_width_px) = row_width_px {
+                        screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
+                    }
                     if screen_x <= -8
                         || screen_y <= -8
                         || screen_x >= FRAME_WIDTH as i32
@@ -1824,6 +1830,21 @@ pub(super) fn background_tile_screen_position(
         world_x_px.saturating_sub(background_scroll_x_px(trace, camera_x_px, layer_speed)),
         world_y_px.saturating_sub(background_scroll_y_px),
     )
+}
+
+pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) -> i32 {
+    if row_width_px <= 0 {
+        return screen_x_px;
+    }
+    // ASM loc_11B7A builds Plane B row pointers and the VDP scroll plane wraps
+    // horizontally. Forest rows are composed as two 32-tile planes (64 tiles);
+    // without this wrap, parallax-scrolled rows disappear to the left and show
+    // only the backdrop colour around the Level 1 bridge.
+    let mut wrapped = screen_x_px.rem_euclid(row_width_px);
+    while wrapped >= FRAME_WIDTH as i32 {
+        wrapped -= row_width_px;
+    }
+    wrapped
 }
 
 pub(super) fn background_scroll_x_px(
