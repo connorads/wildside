@@ -5476,9 +5476,10 @@ impl NativeRuntime {
         self.title_screen_ready_frame = ready_frame;
     }
 
-    fn enter_intro_sequence_6_from_timeout_restart_intro_sequence_5(&mut self) {
-        let carry_timeout_restart_hidden_camera_wrap =
-            !self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff;
+    fn enter_intro_sequence_6_from_intro_sequence_5(
+        &mut self,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+    ) {
         self.enter_title_screen();
         self.boot_state = BootState::IntroSequence6 {
             cursor: 0,
@@ -6597,7 +6598,7 @@ impl NativeRuntime {
                     1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SECOND_SEGMENT_FRAMES),
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_THIRD_SEGMENT_FRAMES),
                     3 => intro_sequence_4_frames_override.unwrap_or(INTRO_FOURTH_SEGMENT_FRAMES),
-                    4 => intro_sequence_5_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
+                    4 => intro_sequence_5_frames_override.unwrap_or(INTRO_FIFTH_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
                 if *segment == 4
@@ -6749,9 +6750,16 @@ impl NativeRuntime {
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                         if intro_sequence_5_timeout_restart {
-                            self.enter_intro_sequence_6_from_timeout_restart_intro_sequence_5();
+                            self.enter_intro_sequence_6_from_intro_sequence_5(
+                                !self
+                                    .demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff,
+                            );
                         } else {
-                            self.enter_title_screen_from_intro_return(false);
+                            // ASM loc_1BA5C (kid.asm:30333) reaches
+                            // `move.w #$28,(Game_Mode).w` on natural timeout;
+                            // only sub_1C246/loc_1C264 Start-skip writes
+                            // `$2C` title mode from intro sequence 5.
+                            self.enter_intro_sequence_6_from_intro_sequence_5(false);
                         }
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =

@@ -27,6 +27,11 @@ pub(crate) const INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
 // cold-boot probes keep mode `$0020` through frame 1875 and enter intro
 // sequence 5 on frame 1876.
 pub(crate) const INTRO_FOURTH_SEGMENT_FRAMES: usize = 594;
+// ASM Load_IntroSequence5 `loc_1BA28 -> sub_1C204 -> loc_1BA5C` uses the
+// shared fade shell before the `$1BC` inclusive DBF loop. Cold-boot oracle
+// probes keep mode `$0024` through frame 2395 and enter intro sequence 6
+// (`Game_Mode=$0028`) on frame 2396.
+pub(crate) const INTRO_FIFTH_SEGMENT_FRAMES: usize = 520;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

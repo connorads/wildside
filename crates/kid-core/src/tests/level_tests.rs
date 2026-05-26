@@ -3924,33 +3924,18 @@ mod chunk_02 {
     }
 
     #[test]
-    fn reaches_title_screen_without_input() {
+    fn cold_boot_reaches_intro_sequence_6_without_input() {
         // ASM-backed cold boot timing: Sega (174), intro1 (361), intro2
-        // (449), intro3 (299), intro4 (594), then the still-sketch intro5
-        // window (80) reaches TitleScreen on frame 1956.
-        // enter_title_screen_from_intro_return adds a 150-frame settle window
-        // before title_screen_ready, so kid position is None during that window.
-        let trace = run_script(manifest(), &[], 2_120);
-        let f = 1_956;
-        assert_eq!(trace[f].game_mode, GameMode::TitleScreen);
+        // (449), intro3 (299), intro4 (594), and intro5 (520) reach
+        // IntroSequence6 on frame 2396 via ASM loc_1BA5C's
+        // `move.w #$28,(Game_Mode).w`.
+        let trace = run_script(manifest(), &[], 2_410);
+        let f = 2_396;
+        assert_eq!(trace[f - 1].game_mode, GameMode::IntroSequence5);
+        assert_eq!(trace[f].game_mode, GameMode::IntroSequence6);
         assert_eq!(trace[f].current_level, LevelId(0));
-        assert_eq!(trace[f].player_start_x, Some(0x0750));
-        assert_eq!(trace[f].flag_y, Some(0x0300));
-        assert_eq!(trace[f].level_enemy_object_count, Some(22));
-        assert_eq!(trace[f].active_enemy_object_count, 0);
-        assert_eq!(trace[f].active_platform_object_count, 0);
-        // Kid not yet visible during 150-frame settle window
-        assert_eq!(trace[f].kid_x_pos, None);
-        assert_eq!(trace[f].kid_y_pos, None);
-        assert!(trace[f].active_objects.is_empty());
-
-        // After settle window, kid and title objects are visible
-        let ready = 2_106;
-        assert_eq!(trace[ready].game_mode, GameMode::TitleScreen);
-        assert_eq!(trace[ready].kid_x_pos, Some(TITLE_KID_X_POS));
-        assert_eq!(trace[ready].kid_y_pos, Some(TITLE_KID_Y_POS));
-        assert_eq!(trace[ready].number_objects, 4);
-        assert_eq!(trace[ready].number_gfx_objects, 4);
+        assert_eq!(trace[f].kid_x_pos, Some(INTRO_SEQUENCE_5_SLOT_2_X_POS));
+        assert_eq!(trace[f].kid_y_pos, Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS));
     }
 
     #[test]
