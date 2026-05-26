@@ -1919,15 +1919,13 @@ mod tests {
     #[test]
     fn drips_parent_controller_is_not_rendered_as_floating_slime() {
         let visuals = sample_level_visuals();
-        let drips_sheet_len = visuals
+        let drips_palette = visuals
             .enemies
             .families
             .get(&0x16)
             .expect("sample visuals include Drips")
-            .frames[0]
-            .tile_sheet
-            .tiles
-            .len();
+            .palette
+            .clone();
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_objects = vec![NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x16 },
@@ -1956,8 +1954,11 @@ mod tests {
             scene.commands.iter().all(|command| {
                 !matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, .. }
-                        if tile_sheet.tiles.len() == drips_sheet_len
+                    DrawCommand::Sprite { palette, tiles, .. }
+                        if **palette == drips_palette
+                            && tiles
+                                .iter()
+                                .any(|tile| matches!(tile.tile.tile_index, 0x000 | 0x004 | 0x008))
                 )
             }),
             "ASM Drips.asm keeps the parent/controller gfx object hidden via `$13`; native should not render it as a floating slime",
