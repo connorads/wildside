@@ -14,6 +14,7 @@ use kid_data::AssetManifest;
 use crate::boot::{
     VDP_GAME_INIT_VALUES, intro_text_buggy_substitution_loc_1C7DC, title_text_word_writes_sub_1B7B6,
 };
+use crate::constants::INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES;
 
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
@@ -434,10 +435,183 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     segment: usize,
     title_variant: u8,
     elapsed: usize,
+    intro_sequence_3_roster_index: usize,
 ) -> VdpState {
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
+    if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
+        overlay_intro_sequence_3_sprite_table_loc_1AEEC(&mut vdp, intro_sequence_3_roster_index);
+    }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IntroSpriteFrameVram {
+    sprite_index: u16,
+    x_center: i16,
+    y_center: i16,
+    width: u16,
+    height: u16,
+}
+
+fn intro_sequence_3_sprite_frame_vram(addroffset_sprite: u16) -> Option<IntroSpriteFrameVram> {
+    // ASM Data_Index entries at kid.asm:48180 and `sprite_frame_vram` records
+    // at unk_E1066..unk_E10C6 provide the frame metadata consumed by
+    // Make_SpriteFromGfxObject for Load_IntroSequence3's loc_1AEEC objects.
+    let (sprite_index, width, height) = match addroffset_sprite {
+        0x1208 => (0x000, 0x30, 0x30),
+        0x120C => (0x024, 0x0C, 0x31),
+        0x1210 => (0x032, 0x30, 0x30),
+        0x1214 => (0x056, 0x0C, 0x39),
+        0x1218 => (0x066, 0x2A, 0x37),
+        0x121C => (0x090, 0x27, 0x2B),
+        0x1220 => (0x0AE, 0x3B, 0x1B),
+        0x1228 => (0x000, 0x3E, 0x2F),
+        0x122C => (0x030, 0x28, 0x30),
+        0x1230 => (0x04E, 0x28, 0x30),
+        0x1234 => (0x000, 0x34, 0x3D),
+        0x1238 => (0x000, 0x34, 0x4C),
+        0x123C => (0x000, 0x27, 0x37),
+        0x1224 => (0x0CC, 0x30, 0x30),
+        _ => return None,
+    };
+    Some(IntroSpriteFrameVram {
+        sprite_index,
+        x_center: 0,
+        y_center: 0,
+        width,
+        height,
+    })
+}
+
+#[allow(non_snake_case)]
+fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(vdp: &mut VdpState, roster_index: usize) {
+    let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
+    let mut sprite_entries = Vec::new();
+    for descriptor_slot in 0..8 {
+        let Some(descriptor) =
+            crate::movement::intro_sequence_3_descriptor_loc_1AEBA(roster_index, descriptor_slot)
+        else {
+            break;
+        };
+        let gfx = crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(descriptor);
+        if !gfx.display_enabled {
+            continue;
+        }
+        let Some(frame) = intro_sequence_3_sprite_frame_vram(gfx.addroffset_sprite) else {
+            continue;
+        };
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            &mut sprite_entries,
+            gfx,
+            frame,
+        );
+    }
+    write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HardwareSpriteEntry {
+    y_pos: u16,
+    size_byte: u8,
+    pattern: u16,
+    x_pos: u16,
+}
+
+#[allow(non_snake_case)]
+fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    gfx: crate::movement::IntroSequence3GfxObjectLoc1AEEC,
+    frame: IntroSpriteFrameVram,
+) {
+    let pattern_base = (u16::from(gfx.palette_line) << 13)
+        | if gfx.priority >= 1 { 0x8000 } else { 0 }
+        | if gfx.x_direction != 0 { 0x0800 } else { 0 }
+        | gfx.vram_tile
+        | frame.sprite_index;
+    let mut tile_offset = 0u16;
+    for chunk in sprite_chunks(frame.width, frame.height) {
+        let x_pos = if gfx.x_direction == 0 {
+            i32::from(gfx.x_pos) - i32::from(frame.x_center) + i32::from(chunk.x) + 0x80
+        } else {
+            i32::from(gfx.x_pos) + i32::from(frame.x_center) - i32::from(chunk.x + chunk.width)
+                + 0x80
+        };
+        let y_pos = i32::from(gfx.y_pos) + i32::from(frame.y_center) + i32::from(chunk.y) + 0x80;
+        entries.push(HardwareSpriteEntry {
+            y_pos: y_pos as u16,
+            size_byte: sprite_size_byte(chunk.width, chunk.height),
+            pattern: pattern_base.wrapping_add(tile_offset),
+            x_pos: x_pos as u16,
+        });
+        tile_offset = tile_offset.wrapping_add((chunk.width / 8) * (chunk.height / 8));
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SpriteChunk {
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+}
+
+fn sprite_chunks(width: u16, height: u16) -> Vec<SpriteChunk> {
+    let mut chunks = Vec::new();
+    let mut y = 0;
+    while y < height {
+        let chunk_height = (height - y).min(32);
+        let mut x = 0;
+        while x < width {
+            let chunk_width = (width - x).min(32);
+            chunks.push(SpriteChunk {
+                x,
+                y,
+                width: chunk_width,
+                height: chunk_height,
+            });
+            x += chunk_width;
+        }
+        y += chunk_height;
+    }
+    chunks
+}
+
+fn sprite_size_byte(width: u16, height: u16) -> u8 {
+    let width_tiles = width.div_ceil(8).saturating_sub(1);
+    let height_tiles = height.div_ceil(8).saturating_sub(1);
+    ((width_tiles << 2) | height_tiles) as u8
+}
+
+fn write_sprite_table_entries(
+    vdp: &mut VdpState,
+    sprite_table_base: usize,
+    entries: &[HardwareSpriteEntry],
+) {
+    for (index, entry) in entries.iter().enumerate().take(80) {
+        let entry_base = sprite_table_base + index * 8;
+        let link = if index + 1 < entries.len().min(80) {
+            (index + 1) as u8
+        } else {
+            0
+        };
+        vdp.write_vram_word(entry_base, entry.y_pos);
+        vdp.vram[entry_base + 2] = entry.size_byte;
+        vdp.vram[entry_base + 3] = link;
+        vdp.write_vram_word(entry_base + 4, entry.pattern);
+        vdp.write_vram_word(entry_base + 6, entry.x_pos);
+    }
+}
+
+fn sprite_table_base_byte_addr(registers: &[u8; 0x20]) -> usize {
+    // ASM VDPGameInitValues reg 5 = `$08`, selecting sprite table VRAM
+    // byte address `$1000` in H40 mode. This mirrors kid-md's renderer helper.
+    let mask = if registers[0x0C] & 0x81 != 0 {
+        0x7E
+    } else {
+        0x7F
+    };
+    usize::from(registers[5] & mask) << 9
 }
 
 fn build_intro_sequence_vdp_base_with_title_variant(
@@ -1243,6 +1417,17 @@ mod tests {
         u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
     }
 
+    fn sprite_entry_words(vdp: &VdpState, entry_index: usize) -> (u16, u8, u8, u16, u16) {
+        let entry_base = 0x1000 + entry_index * 8;
+        (
+            vram_word(vdp, entry_base),
+            vdp.vram[entry_base + 2],
+            vdp.vram[entry_base + 3],
+            vram_word(vdp, entry_base + 4),
+            vram_word(vdp, entry_base + 6),
+        )
+    }
+
     #[test]
     fn vdp_state_new_has_correct_sizes() {
         let vdp = VdpState::new();
@@ -1258,6 +1443,65 @@ mod tests {
         vdp.write_vram_word(0x100, 0x80BC);
         assert_eq!(vdp.vram[0x100], 0x80);
         assert_eq!(vdp.vram[0x101], 0xBC);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_loc_1AEEC_writes_rom_roster_sprite_table() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x0150, 0x0F, 1, 0xA1D6, 0x0178),
+            "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first 32x32 hardware sprite",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 1),
+            (0x0150, 0x07, 2, 0xA1E6, 0x0198),
+            "ASM Make_SpriteFromGfxObject should split the 48px-wide Wild Side kid frame into a linked 16x32 tail chunk with the next tile run",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_loc_1AEEC_uses_active_roster_index() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            2,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x014C, 0x0F, 1, 0xA1D6, 0x0163),
+            "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_loc_1AEEC_is_hidden_before_visible_elapsed() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES - 1,
+            1,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0, 0, 0, 0, 0),
+            "Trace-backed Load_IntroSequence3 hidden rebuild should not populate the sprite table before loc_1AEEC's visible roster frame",
+        );
     }
 
     #[test]
@@ -1279,6 +1523,7 @@ mod tests {
             0,
             1,
             first_glyph_elapsed - 1,
+            0,
         );
         assert_eq!(
             vram_word(&before, 0x0110),
@@ -1291,6 +1536,7 @@ mod tests {
             0,
             1,
             first_glyph_elapsed,
+            0,
         );
         assert_eq!(
             vram_word(&after, 0x0110),
@@ -1315,6 +1561,7 @@ mod tests {
             0,
             1,
             elapsed_before_third_line,
+            0,
         );
         assert_eq!(
             vram_word(&before, third_line_first_glyph_addr),
@@ -1327,6 +1574,7 @@ mod tests {
             0,
             1,
             elapsed_before_third_line + 1,
+            0,
         );
         assert_eq!(
             vram_word(&after, third_line_first_glyph_addr),

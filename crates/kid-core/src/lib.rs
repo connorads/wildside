@@ -1380,6 +1380,7 @@ impl NativeRuntime {
                     *segment,
                     self.title_screen_region_byte,
                     *elapsed,
+                    self.active_intro_sequence_3_roster_index,
                 )
             }),
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {

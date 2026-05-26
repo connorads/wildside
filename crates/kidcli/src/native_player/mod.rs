@@ -638,7 +638,7 @@ fn render_vdp_trace_overlay(
 ) {
     if matches!(
         trace.game_mode,
-        GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
+        GameMode::IntroSequence4 | GameMode::IntroSequence5
     ) {
         render_intro_vdp_trace_overlay(trace, level_visuals, frame);
         return;
@@ -4358,11 +4358,11 @@ mod tests {
 
     #[test]
     fn vdp_intro_sequence_composites_oracle_timed_kid_pose() {
-        // ASM Load_IntroSequence3 `loc_1AEEC` allocates the visible kid_gfx
+        // ASM Load_IntroSequence5 `loc_1BCD0` allocates the visible kid_gfx
         // descriptors after the VDP background is built. Native trace exposes
         // that oracle-timed pose through kid_x/kid_y, so the VDP path must
         // composite it instead of returning the bare tile planes.
-        let mut trace = sample_trace(GameMode::IntroSequence3);
+        let mut trace = sample_trace(GameMode::IntroSequence5);
         trace.kid_x_pos = Some(0x0060_0000);
         trace.kid_y_pos = Some(0x00D0_0000);
         trace.kid_facing = Some(Direction::Left);
@@ -4374,7 +4374,7 @@ mod tests {
 
         assert!(
             frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
-            "VDP intro sequence shell should retain the ASM loc_1AEEC visible kid_gfx overlay",
+            "VDP intro sequence shell should retain the ASM loc_1BCD0 visible kid_gfx overlay",
         );
     }
 
