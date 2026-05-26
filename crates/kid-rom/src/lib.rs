@@ -147,6 +147,7 @@ fn hex_sha1(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn make_test_rom() -> Vec<u8> {
         let mut rom = vec![0_u8; 0x200];
@@ -164,6 +165,100 @@ mod tests {
         rom[start..end].copy_from_slice(&bytes[..end - start]);
     }
 
+    fn temp_test_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("kid-rom-test-{unique}"));
+        fs::create_dir_all(&path).expect("test temp dir should be created");
+        path
+    }
+
+    #[test]
+    fn rom_identity_display_names_match_cli_output() {
+        assert_eq!(
+            RomIdentity::KnownKidChameleon.to_string(),
+            "known Kid Chameleon ROM"
+        );
+        assert_eq!(
+            RomIdentity::HeaderMatchesKidChameleon.to_string(),
+            "Kid Chameleon-compatible header"
+        );
+    }
+
+    #[test]
+    fn default_rom_candidates_use_repo_relative_search_order() {
+        let repo_root = Path::new("/repo");
+
+        assert_eq!(
+            default_rom_candidates(repo_root),
+            vec![
+                PathBuf::from("/repo/roms/kid.bin"),
+                PathBuf::from("/repo/kid.bin"),
+                PathBuf::from("/repo/kc.md"),
+            ],
+            "default ROM lookup should keep the documented repo-local search order"
+        );
+    }
+
+    #[test]
+    fn find_default_rom_returns_first_existing_candidate() {
+        let repo_root = temp_test_dir();
+        fs::create_dir_all(repo_root.join("roms")).expect("roms dir should be created");
+        fs::write(repo_root.join("kid.bin"), b"root").expect("root candidate should write");
+        fs::write(repo_root.join("kc.md"), b"md").expect("md candidate should write");
+
+        assert_eq!(
+            find_default_rom(&repo_root),
+            Some(repo_root.join("kid.bin"))
+        );
+
+        fs::write(repo_root.join("roms/kid.bin"), b"roms").expect("roms candidate should write");
+
+        assert_eq!(
+            find_default_rom(&repo_root),
+            Some(repo_root.join("roms/kid.bin")),
+            "roms/kid.bin should take priority once it exists"
+        );
+
+        fs::remove_dir_all(repo_root).expect("test temp dir should be removed");
+    }
+
+    #[test]
+    fn verify_rom_rejects_files_smaller_than_the_full_header_window() {
+        let repo_root = temp_test_dir();
+        let too_small = repo_root.join("too-small.bin");
+        fs::write(&too_small, vec![0_u8; HEADER_OFFSET + HEADER_LENGTH - 1])
+            .expect("too-small ROM should write");
+
+        assert!(matches!(verify_rom(&too_small), Err(RomError::TooSmall)));
+
+        fs::remove_dir_all(repo_root).expect("test temp dir should be removed");
+    }
+
+    #[test]
+    fn verify_rom_accepts_exact_header_window_and_reports_header_identity() {
+        let repo_root = temp_test_dir();
+        let rom_path = repo_root.join("kid-compatible.bin");
+        let rom = make_test_rom();
+        fs::write(&rom_path, &rom).expect("test ROM should write");
+
+        let verified = verify_rom(&rom_path).expect("compatible test ROM should verify");
+
+        assert_eq!(verified.path, rom_path);
+        assert_eq!(verified.size, HEADER_OFFSET + HEADER_LENGTH);
+        assert_eq!(verified.sha1, hex_sha1(&rom));
+        assert_eq!(verified.identity, RomIdentity::HeaderMatchesKidChameleon);
+
+        fs::remove_dir_all(repo_root).expect("test temp dir should be removed");
+    }
+
+    #[test]
+    fn known_sha1_exports_the_canonical_rom_hash() {
+        assert_eq!(known_sha1(), KNOWN_SHA1);
+    }
+
     #[test]
     fn parses_expected_header() {
         let rom = make_test_rom();
@@ -179,5 +274,31 @@ mod tests {
         let rom = vec![0_u8; 0x200];
         let error = parse_header(&rom).expect_err("empty ROM should be rejected");
         assert!(matches!(error, RomError::UnexpectedHeader));
+    }
+
+    #[test]
+    fn rejects_headers_with_any_required_kid_field_missing() {
+        let cases = [
+            (0x100, 0x10, "SEGA GENESIS"),
+            (0x120, 0x30, "OTHER GAME"),
+            (0x150, 0x30, "OTHER GAME"),
+            (0x180, 0x0E, "GM MK-9999"),
+        ];
+
+        for (start, len, replacement) in cases {
+            let mut rom = make_test_rom();
+            rom[start..start + len].fill(0);
+            write_ascii(&mut rom, start, len, replacement);
+
+            assert!(
+                matches!(parse_header(&rom), Err(RomError::UnexpectedHeader)),
+                "header should reject missing required field at ${start:04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn hex_sha1_matches_known_empty_input_digest() {
+        assert_eq!(hex_sha1(&[]), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
     }
 }
