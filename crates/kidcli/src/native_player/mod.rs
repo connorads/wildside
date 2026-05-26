@@ -7577,6 +7577,47 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_keeps_walking_dragon_visible_during_loc_3cefc_death_animation() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0020_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(0x12C),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(0),
+            wait_timer: Some(167),
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let death_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. }
+                if *x == 32 && *y == 24 && tiles[0].tile.tile_index == 0x000 =>
+            {
+                Some(tiles)
+            }
+            _ => None,
+        });
+        assert!(
+            death_sprite.is_some(),
+            "ASM Dragon.asm loc_3CEFC should keep the zero-HP walking dragon visible on `stru_3CCEC` instead of dropping the enemy draw command"
+        );
+    }
+
+    #[test]
     fn tar_monster_and_orca_death_snapshots_select_rom_frames() {
         let visuals = sample_level_visuals();
         let trace = sample_trace(GameMode::InGame);
