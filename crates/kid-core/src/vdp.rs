@@ -441,6 +441,9 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(&mut vdp, intro_sequence_3_roster_index);
     }
+    if segment == 4 {
+        overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp);
+    }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
 }
@@ -511,6 +514,83 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(vdp: &mut VdpState, roster_in
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IntroSequence5GfxObjectLoc1BCD0 {
+    x_pos: u16,
+    y_pos: u16,
+    vram_tile: u16,
+    frame: IntroSpriteFrameVram,
+}
+
+#[allow(non_snake_case)]
+fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(vdp: &mut VdpState) {
+    // ASM loc_1BCD0 (kid.asm:30567): allocates five visible gfx slots with
+    // palette line 2, VRAM tile `$26C`, and frame links unk_E1066/E106E/
+    // unk_E1076/unk_E1076/unk_E107E before hibernating the controller.
+    let objects = [
+        IntroSequence5GfxObjectLoc1BCD0 {
+            x_pos: 0x0030,
+            y_pos: 0x0080,
+            vram_tile: 0x026C,
+            frame: intro_sprite_frame_vram(0x000, 0x30, 0x30),
+        },
+        IntroSequence5GfxObjectLoc1BCD0 {
+            x_pos: 0x0060,
+            y_pos: 0x0080,
+            vram_tile: 0x026C,
+            frame: intro_sprite_frame_vram(0x024, 0x0C, 0x31),
+        },
+        IntroSequence5GfxObjectLoc1BCD0 {
+            x_pos: 0x0000,
+            y_pos: 0x00E0,
+            vram_tile: 0x026C,
+            frame: intro_sprite_frame_vram(0x032, 0x30, 0x30),
+        },
+        IntroSequence5GfxObjectLoc1BCD0 {
+            x_pos: 0x0030,
+            y_pos: 0x00B0,
+            vram_tile: 0x026C,
+            frame: intro_sprite_frame_vram(0x032, 0x30, 0x30),
+        },
+        IntroSequence5GfxObjectLoc1BCD0 {
+            x_pos: 0x0060,
+            y_pos: 0x00B0,
+            vram_tile: 0x026C,
+            frame: intro_sprite_frame_vram(0x056, 0x0C, 0x39),
+        },
+    ];
+    let mut sprite_entries = Vec::new();
+    for object in objects {
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            &mut sprite_entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos: object.x_pos,
+                y_pos: object.y_pos,
+                palette_line: 2,
+                vram_tile: object.vram_tile,
+                priority: 0,
+                x_direction: 0,
+            },
+            object.frame,
+        );
+    }
+    write_sprite_table_entries(
+        vdp,
+        sprite_table_base_byte_addr(&vdp.registers),
+        &sprite_entries,
+    );
+}
+
+fn intro_sprite_frame_vram(sprite_index: u16, width: u16, height: u16) -> IntroSpriteFrameVram {
+    IntroSpriteFrameVram {
+        sprite_index,
+        x_center: 0,
+        y_center: 0,
+        width,
+        height,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct HardwareSpriteEntry {
     y_pos: u16,
     size_byte: u8,
@@ -518,17 +598,41 @@ struct HardwareSpriteEntry {
     x_pos: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IntroGfxObjectForSpriteTable {
+    x_pos: u16,
+    y_pos: u16,
+    palette_line: u8,
+    vram_tile: u16,
+    priority: u8,
+    x_direction: u8,
+}
+
+impl From<crate::movement::IntroSequence3GfxObjectLoc1AEEC> for IntroGfxObjectForSpriteTable {
+    fn from(gfx: crate::movement::IntroSequence3GfxObjectLoc1AEEC) -> Self {
+        Self {
+            x_pos: gfx.x_pos,
+            y_pos: gfx.y_pos,
+            palette_line: gfx.palette_line,
+            vram_tile: gfx.vram_tile,
+            priority: gfx.priority,
+            x_direction: gfx.x_direction,
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
     entries: &mut Vec<HardwareSpriteEntry>,
-    gfx: crate::movement::IntroSequence3GfxObjectLoc1AEEC,
+    gfx: impl Into<IntroGfxObjectForSpriteTable>,
     frame: IntroSpriteFrameVram,
 ) {
-    let pattern_base = (u16::from(gfx.palette_line) << 13)
+    let gfx = gfx.into();
+    let pattern_base = ((u16::from(gfx.palette_line) << 13)
         | if gfx.priority >= 1 { 0x8000 } else { 0 }
         | if gfx.x_direction != 0 { 0x0800 } else { 0 }
-        | gfx.vram_tile
-        | frame.sprite_index;
+        | gfx.vram_tile)
+        .wrapping_add(frame.sprite_index);
     let mut tile_offset = 0u16;
     for chunk in sprite_chunks(frame.width, frame.height) {
         let x_pos = if gfx.x_direction == 0 {
@@ -544,7 +648,7 @@ fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             pattern: pattern_base.wrapping_add(tile_offset),
             x_pos: x_pos as u16,
         });
-        tile_offset = tile_offset.wrapping_add((chunk.width / 8) * (chunk.height / 8));
+        tile_offset = tile_offset.wrapping_add(chunk.width.div_ceil(8) * chunk.height.div_ceil(8));
     }
 }
 
@@ -1501,6 +1605,29 @@ mod tests {
             sprite_entry_words(&vdp, 0),
             (0, 0, 0, 0, 0),
             "Trace-backed Load_IntroSequence3 hidden rebuild should not populate the sprite table before loc_1AEEC's visible roster frame",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BCD0_writes_five_static_gfx_slots_to_sprite_table() {
+        let vdp =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&empty_intro_data(), 4, 1, 0, 0);
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x0100, 0x0F, 1, 0x426C, 0x00B0),
+            "ASM loc_1BCD0 first gfx slot should draw unk_E1066 from VRAM tile $26C on palette line 2",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 1),
+            (0x0100, 0x07, 2, 0x427C, 0x00D0),
+            "ASM Make_SpriteFromGfxObject should link the first slot's 16x32 tail chunk after the 32x32 chunk",
+        );
+        assert_eq!(
+            sprite_entry_words(&vdp, 4),
+            (0x0100, 0x07, 5, 0x4290, 0x00E0),
+            "ASM loc_1BCD0 second gfx slot should start at x=$60/y=$80 with unk_E106E's 12x49 frame",
         );
     }
 
