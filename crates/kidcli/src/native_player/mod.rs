@@ -2864,6 +2864,24 @@ mod tests {
             },
         );
         families.insert(
+            0x06,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 160, 220)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(151, 0x10, 0x10, 0x012),
+                    sample_object_frame_with_base(152, 0x10, 0x10, 0x016),
+                    sample_object_frame_with_base(153, 0x10, 0x10, 0x01A),
+                    sample_object_frame_with_base(154, 0x10, 0x10, 0x006),
+                    sample_object_frame_with_base(155, 0x10, 0x10, 0x00A),
+                    sample_object_frame_with_base(156, 0x10, 0x10, 0x00E),
+                ],
+                frame_duration: 9,
+            },
+        );
+        families.insert(
             0x09,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -2925,6 +2943,24 @@ mod tests {
                     sample_object_frame(145, 24, 24),
                 ],
                 frame_duration: 7,
+            },
+        );
+        families.insert(
+            0x19,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 130, 70)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame(171, 24, 24),
+                    sample_object_frame(172, 24, 24),
+                    sample_object_frame(173, 24, 24),
+                    sample_object_frame(174, 24, 24),
+                    sample_object_frame(175, 16, 16),
+                    sample_object_frame(176, 16, 16),
+                ],
+                frame_duration: 6,
             },
         );
         families.insert(
@@ -6604,6 +6640,91 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Dragon_Flying.asm loc_3492C should advance `stru_345E4` every two ticks"
+            );
+        }
+    }
+
+    #[test]
+    fn sphere_death_snapshot_selects_enemy06_kill_frames() {
+        let visuals = sample_level_visuals();
+        let sphere_visuals = visuals.enemies.families.get(&0x06).expect("sphere visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x06 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x0A + 0x0A + 0x0A),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature, tile_base) in
+            [(0x1E, 154, 0x006), (0x14, 155, 0x00A), (0x0A, 156, 0x00E)]
+        {
+            object.wait_timer = Some(remaining);
+            let frame = sprites::select_enemy_frame(&trace, sphere_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM Sphere.asm Enemy06_Sphere_Kill should step through `stru_36182` death frames"
+            );
+            assert_eq!(
+                frame.tile_base_index, tile_base,
+                "ASM `stru_36182` should use the disappearing Sphere descriptors, not normal `stru_36174`"
+            );
+        }
+    }
+
+    #[test]
+    fn fireball_death_snapshot_selects_enemy19_kill_frames() {
+        let visuals = sample_level_visuals();
+        let fireball_visuals = visuals
+            .enemies
+            .families
+            .get(&0x19)
+            .expect("fireball visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x19 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(8),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature) in [(8, 171), (6, 172), (4, 173), (2, 174)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, fireball_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Fireball.asm Enemy19_Fireball_Kill should advance `stru_345E4` every two ticks"
             );
         }
     }

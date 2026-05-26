@@ -1182,6 +1182,9 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x012, 0x08, 0x09, 0x10, 0x10),
             fd(0x016, 0x08, 0x09, 0x10, 0x10),
             fd(0x01A, 0x08, 0x09, 0x10, 0x10),
+            fd(0x006, 0x08, 0x09, 0x10, 0x10),
+            fd(0x00A, 0x08, 0x09, 0x10, 0x10),
+            fd(0x00E, 0x08, 0x09, 0x10, 0x10),
         ],
     },
     EnemyFamilySpec {
@@ -4509,6 +4512,11 @@ mod tests {
             death_tiles(0x03, 6..8),
             vec![0x00BB, 0x00CB],
             "ASM Robot.asm loc_3A9D2 / stru_3A74A death frames C8318/C8320 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x06, 3..6),
+            vec![0x0006, 0x000A, 0x000E],
+            "ASM Sphere.asm Enemy06_Sphere_Kill / stru_36182 death frames C8108/C8110/C8118 must be selectable"
         );
         assert_eq!(
             death_tiles(0x09, 6..9),

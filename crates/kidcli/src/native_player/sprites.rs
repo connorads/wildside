@@ -586,6 +586,17 @@ pub(super) fn select_enemy_frame<'a>(
                     Some(7)
                 }
             }
+            // ASM Sphere.asm Enemy06_Sphere_Kill runs `stru_36182`: C8108
+            // for $0A, C8110 for $0A, then C8118 for $0A before deletion.
+            0x06 if enemy_visuals.frames.len() >= 6 => {
+                if remaining > 0x14 {
+                    Some(3)
+                } else if remaining > 0x0A {
+                    Some(4)
+                } else {
+                    Some(5)
+                }
+            }
             // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
             // C7C06 for $0A, then C7C0E for $1E before deletion.
             0x09 if enemy_visuals.frames.len() >= 9 => {
@@ -656,6 +667,20 @@ pub(super) fn select_enemy_frame<'a>(
             // four 2-tick frames while the flying parent hibernates before
             // loc_349A6 deletes it.
             0x0C if enemy_visuals.frames.len() >= 4 => {
+                if remaining > 0x06 {
+                    Some(0)
+                } else if remaining > 0x04 {
+                    Some(1)
+                } else if remaining > 0x02 {
+                    Some(2)
+                } else {
+                    Some(3)
+                }
+            }
+            // ASM Fireball.asm Enemy19_Fireball_Kill reuses `stru_345E4`:
+            // four 2-tick frames while the fireball hibernates before
+            // loc_32ED8 deletes it.
+            0x19 if enemy_visuals.frames.len() >= 4 => {
                 if remaining > 0x06 {
                     Some(0)
                 } else if remaining > 0x04 {
