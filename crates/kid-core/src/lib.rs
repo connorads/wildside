@@ -1385,10 +1385,19 @@ impl NativeRuntime {
             }),
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
-                    vdp::build_title_screen_vdp_with_character_frame(
+                    let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
+                        match self.boot_state {
+                            BootState::TitleScreen { cursor } => Some(cursor),
+                            _ => Some(0),
+                        }
+                    } else {
+                        None
+                    };
+                    vdp::build_title_screen_vdp_with_character_frame_and_menu(
                         data,
                         self.title_screen_character_frame_index_sub_1bf24(),
                         self.title_screen_region_byte,
+                        menu_cursor,
                     )
                 })
             }

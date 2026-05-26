@@ -1271,6 +1271,8 @@ pub(crate) struct TitleScreenData {
     plane_a_tilemap: Vec<u16>,
     /// Plane-B title text tilemap rows from ASM `sub_1B532`.
     title_text_chameleon_rows: [[u16; 64]; 28],
+    /// Decoded interactive menu tilemap from ASM `Obj_TitleMenu loc_1BB52`.
+    title_menu_tilemap_words: Vec<u16>,
     /// Decoded title character frames from ASM `sub_1BF24`.
     character_frames: Vec<TitleScreenCharacterFrameData>,
     /// 32-word tile patch for VRAM $F000.
@@ -1401,6 +1403,15 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let title_text_chameleon_upload =
         kid_data::title_text_chameleon_tilemap_upload_sub_1B532(&chameleon_decoded_words)
             .context("failed to build title chameleon tilemap upload")?;
+    let title_menu_tilemap_path = scenes.join("mapeni/2EAAE.bin");
+    let title_menu_tilemap_raw = std::fs::read(&title_menu_tilemap_path).with_context(|| {
+        format!(
+            "failed to read title menu tilemap: {}",
+            title_menu_tilemap_path.display()
+        )
+    })?;
+    let title_menu_tilemap_words = kid_data::decode_enigma(&title_menu_tilemap_raw, 0x451B)
+        .context("failed to decode title menu tilemap")?;
     let mut character_frames = Vec::new();
     for region_byte in 0..=2u8 {
         for frame_index in 0..=7u8 {
@@ -1443,6 +1454,7 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         title_art_chunks,
         plane_a_tilemap,
         title_text_chameleon_rows: title_text_chameleon_upload.rows,
+        title_menu_tilemap_words,
         character_frames,
         tile_patch_words,
         palette_words,
@@ -1485,10 +1497,20 @@ pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCard
 ///
 /// ASM Load_TitleScreen: fill VRAM with `$20BC`, run sub_1B2A4, Load_TitleArt,
 /// sub_1BF24, then sub_1B532's plane-B title text upload.
-pub(crate) fn build_title_screen_vdp_with_character_frame(
+#[cfg(test)]
+fn build_title_screen_vdp_with_character_frame(
     data: &TitleScreenData,
     frame_index: u8,
     region_byte: u8,
+) -> VdpState {
+    build_title_screen_vdp_with_character_frame_and_menu(data, frame_index, region_byte, None)
+}
+
+pub(crate) fn build_title_screen_vdp_with_character_frame_and_menu(
+    data: &TitleScreenData,
+    frame_index: u8,
+    region_byte: u8,
+    menu_cursor: Option<u8>,
 ) -> VdpState {
     let mut vdp = VdpState::new();
 
@@ -1530,8 +1552,51 @@ pub(crate) fn build_title_screen_vdp_with_character_frame(
         vdp.write_vram_word(0x1780 + word_index * 2, 0);
     }
     write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
+    if let Some(cursor) = menu_cursor {
+        write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
+        write_title_menu_cursor_sprite_loc_1bb52(&mut vdp, cursor);
+    }
 
     vdp
+}
+
+#[allow(non_snake_case)]
+fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16]) {
+    // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): decode `unk_2EAAE` with
+    // base `$451B`, then call sub_1C5D0 with d4=$04,d5=$04,d6=$0D,d7=$05.
+    // That writes a 14x6 tile rectangle at cell (4,4), revealing the
+    // interactive 1P/2P/options menu after the first Start press.
+    write_tilemap_rect_at_cell(vdp, tilemap_words, 14, 6, 4, 4);
+}
+
+#[allow(non_snake_case)]
+fn write_title_menu_cursor_sprite_loc_1bb52(vdp: &mut VdpState, cursor: u8) {
+    // ASM Obj_TitleMenu loc_1BB52/loc_1BC0E (kid.asm:30438-30467) loads a
+    // visible gfx slot on palette line 2, VRAM tile `$54B`, frame
+    // `unk_E1196` (8x8), at x=$28 and y from word_1BC20.
+    let y_pos = match cursor.min(2) {
+        0 => 0x0030,
+        1 => 0x003A,
+        _ => 0x0044,
+    };
+    let mut sprite_entries = Vec::new();
+    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+        &mut sprite_entries,
+        IntroGfxObjectForSpriteTable {
+            x_pos: 0x0028,
+            y_pos,
+            palette_line: 2,
+            vram_tile: 0x054B,
+            priority: 0,
+            x_direction: 0,
+        },
+        intro_sprite_frame_vram(0, 8, 8),
+    );
+    write_sprite_table_entries(
+        vdp,
+        sprite_table_base_byte_addr(&vdp.registers),
+        &sprite_entries,
+    );
 }
 
 fn write_title_character_frame_sub_1bf24(
@@ -1567,17 +1632,69 @@ fn write_title_character_tilemap_rect(
     const CELL_X: usize = 0x15;
     const CELL_Y: usize = 1;
     let source_width = usize::from(source_width_words).min(TILEMAP_WIDTH);
-    for row in 0..TILEMAP_HEIGHT {
-        for col in 0..TILEMAP_WIDTH {
-            let word = if col < source_width {
+    write_tilemap_rect_at_cell_with_fill(
+        vdp,
+        tilemap_words,
+        TilemapRect {
+            source_width,
+            target_width: TILEMAP_WIDTH,
+            target_height: TILEMAP_HEIGHT,
+            cell_x: CELL_X,
+            cell_y: CELL_Y,
+        },
+        fill_word,
+    );
+}
+
+fn write_tilemap_rect_at_cell(
+    vdp: &mut VdpState,
+    tilemap_words: &[u16],
+    width: usize,
+    height: usize,
+    cell_x: usize,
+    cell_y: usize,
+) {
+    write_tilemap_rect_at_cell_with_fill(
+        vdp,
+        tilemap_words,
+        TilemapRect {
+            source_width: width,
+            target_width: width,
+            target_height: height,
+            cell_x,
+            cell_y,
+        },
+        0,
+    );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TilemapRect {
+    source_width: usize,
+    target_width: usize,
+    target_height: usize,
+    cell_x: usize,
+    cell_y: usize,
+}
+
+fn write_tilemap_rect_at_cell_with_fill(
+    vdp: &mut VdpState,
+    tilemap_words: &[u16],
+    rect: TilemapRect,
+    fill_word: u16,
+) {
+    for row in 0..rect.target_height {
+        for col in 0..rect.target_width {
+            let word = if col < rect.source_width {
                 tilemap_words
-                    .get(row * source_width + col)
+                    .get(row * rect.source_width + col)
                     .copied()
                     .unwrap_or(fill_word)
             } else {
                 fill_word
             };
-            let byte_addr = (CELL_Y + row) * NAMETABLE_ROW_STRIDE_BYTES + (CELL_X + col) * 2;
+            let byte_addr =
+                (rect.cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (rect.cell_x + col) * 2;
             vdp.write_vram_word(byte_addr, word);
         }
     }
@@ -2531,6 +2648,7 @@ mod tests {
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: tilemap,
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             tile_patch_words: [0; 32],
             palette_words: vec![],
@@ -2702,6 +2820,7 @@ mod tests {
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             tile_patch_words: patch,
             palette_words: vec![],
@@ -2725,6 +2844,7 @@ mod tests {
             ],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             tile_patch_words: [0; 32],
             palette_words: vec![],
@@ -2750,6 +2870,45 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn title_screen_vdp_obj_title_menu_loc_1bb52_writes_menu_and_cursor() {
+        let mut menu_words = vec![0u16; 14 * 6];
+        for row in 0..6u16 {
+            for col in 0..14u16 {
+                menu_words[(row as usize) * 14 + (col as usize)] = 0x4500 | (row << 4) | col;
+            }
+        }
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_menu_tilemap_words: menu_words,
+            character_frames: Vec::new(),
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let vdp = build_title_screen_vdp_with_character_frame_and_menu(&data, 0, 0, Some(2));
+
+        for &(row, col) in &[(0u16, 0u16), (0, 13), (5, 0), (5, 13), (3, 7)] {
+            let addr = (4 + row as usize) * 128 + (4 + col as usize) * 2;
+            let word = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            assert_eq!(
+                word,
+                0x4500 | (row << 4) | col,
+                "ASM Obj_TitleMenu loc_1BB52 writes menu cell row {row}, col {col}"
+            );
+        }
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x00C4, 0x00, 0, 0x454B, 0x00A8),
+            "ASM Obj_TitleMenu loc_1BB52/loc_1BC0E should expose cursor 2 as unk_E1196 at x=$28,y=$44"
+        );
+    }
+
+    #[test]
     fn title_screen_vdp_sub_1b532_writes_chameleon_plane_b_rows_after_clear() {
         let mut rows = [[0u16; 64]; 28];
         for row in 0..28u16 {
@@ -2768,6 +2927,7 @@ mod tests {
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: rows,
+            title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             tile_patch_words: [0; 32],
             palette_words: vec![],
@@ -2805,6 +2965,7 @@ mod tests {
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_menu_tilemap_words: vec![],
             character_frames: vec![TitleScreenCharacterFrameData {
                 frame_index: 7,
                 region_byte: 2,
