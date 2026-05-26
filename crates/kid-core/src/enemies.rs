@@ -15060,6 +15060,12 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
     let result = shared_walker_turnaround_loc_3c026(enemy.shared_walker_turnaround_counter);
     enemy.shared_walker_turnaround_counter = result.next_counter;
     if result.collision_type.is_some() {
+        if let Some(death_animation_frames) = enemy_death_animation_frames(enemy.family) {
+            // ASM loc_3C464 writes collision_type=$FFFF; family handlers such
+            // as Driller.asm loc_3BF02 and Dragon.asm loc_3CE9A route that
+            // word through their normal death-animation tails before delete.
+            enemy.wait_timer = death_animation_frames;
+        }
         enemy.hit_points = 0;
         true
     } else {
@@ -25834,6 +25840,10 @@ mod tests {
         assert_eq!(
             enemy.hit_points, 0,
             "ASM loc_3C464 -> Driller.asm loc_3BF02 routes $FFFF collision_type to the death path"
+        );
+        assert_eq!(
+            enemy.wait_timer, DRILLER_DEATH_ANIMATION_FRAMES,
+            "ASM Driller.asm loc_3BF1C should play the parent death animation instead of disappearing on the loc_3C464 route"
         );
         assert_eq!(enemy.shared_walker_turnaround_counter, 0);
     }
