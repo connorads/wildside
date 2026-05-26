@@ -302,7 +302,14 @@ pub(super) fn build_player_sprite_tiles(
     frame: &kid_render::SpriteFrame,
     facing: Direction,
 ) -> Vec<SpriteTile> {
-    build_sprite_tiles(frame, facing, 0)
+    build_player_sprite_tiles_with_flip(frame, matches!(facing, Direction::Left))
+}
+
+fn build_player_sprite_tiles_with_flip(
+    frame: &kid_render::SpriteFrame,
+    flip_x: bool,
+) -> Vec<SpriteTile> {
+    build_sprite_tiles_with_flip(frame, flip_x, 0)
 }
 
 pub(super) fn align_sprite_dimension(px: u16) -> u16 {
@@ -332,7 +339,14 @@ pub(super) fn build_sprite_tiles(
     facing: Direction,
     palette_line: u8,
 ) -> Vec<SpriteTile> {
-    let flip_x = matches!(facing, Direction::Left);
+    build_sprite_tiles_with_flip(frame, matches!(facing, Direction::Left), palette_line)
+}
+
+fn build_sprite_tiles_with_flip(
+    frame: &kid_render::SpriteFrame,
+    flip_x: bool,
+    palette_line: u8,
+) -> Vec<SpriteTile> {
     let aligned_width_px = align_sprite_dimension(frame.width_px);
     let aligned_height_px = align_sprite_dimension(frame.height_px);
     let mut tiles =
@@ -371,6 +385,33 @@ pub(super) fn build_sprite_tiles(
     }
 
     tiles
+}
+
+fn kid_slope_frame_intrinsic_facing(trace: &NativeTraceFrame) -> Option<Direction> {
+    if trace.current_helmet_id != PlayerForm::TheKid.helmet_id()
+        || trace.kid_on_ground != Some(true)
+        || trace.kid_x_velocity == Some(0)
+        || trace.kid_on_slope == 0
+    {
+        return None;
+    }
+
+    let facing = trace.kid_facing.unwrap_or(Direction::Right);
+    let canonical_reverse = match (trace.kid_on_slope < 0, facing) {
+        (false, Direction::Right) | (true, Direction::Left) => false,
+        (false, Direction::Left) | (true, Direction::Right) => true,
+    };
+
+    // ASM loc_A13A/off_A1B8 selects two pre-drawn Kid slope banks. The first
+    // half (`unk_A41FE..unk_A491C`, kid_slope_1..6) is right-facing art; the
+    // second half (`unk_A23CC..unk_A2B6A`, kid_slope_7..12) is left-facing art.
+    // `loc_1292` still mirrors from live x_direction, so native must flip only
+    // when the selected bank's built-in facing differs from that live facing.
+    Some(if canonical_reverse {
+        Direction::Left
+    } else {
+        Direction::Right
+    })
 }
 
 pub(super) fn append_sprite_band_tiles(
@@ -593,10 +634,8 @@ pub(super) fn push_player_sprite(
     damage_flash_white_phase: bool,
 ) {
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
-    // ASM loc_A13A flips only temporary d1 while choosing the SlopeDown frame
-    // bank; final sprite orientation still comes from live x_direction in
-    // loc_1292.
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
+    let intrinsic_slope_facing = kid_slope_frame_intrinsic_facing(trace);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
@@ -619,6 +658,9 @@ pub(super) fn push_player_sprite(
 
     let frame = select_player_frame(trace, form_visuals);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
+    let flip_x = intrinsic_slope_facing
+        .map(|intrinsic| intrinsic != render_facing)
+        .unwrap_or(matches!(render_facing, Direction::Left));
 
     commands.push(DrawCommand::Sprite {
         x: draw_x,
@@ -628,7 +670,7 @@ pub(super) fn push_player_sprite(
             &form_visuals.palette,
             damage_flash_white_phase,
         )),
-        tiles: build_player_sprite_tiles(frame, render_facing),
+        tiles: build_player_sprite_tiles_with_flip(frame, flip_x),
     });
 }
 

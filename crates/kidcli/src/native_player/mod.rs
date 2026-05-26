@@ -6601,29 +6601,39 @@ mod tests {
     }
 
     #[test]
-    fn kid_slope_down_render_facing_uses_live_x_direction_after_loc_a13a_bank_selection() {
-        let selected_flip = |facing: Direction| {
+    fn kid_slope_render_flip_accounts_for_predrawn_loc_a13a_banks() {
+        let selected_flip = |slope: i8, facing: Direction| {
             let mut trace = trace_with_player(4, 0);
             trace.kid_x_velocity = Some(match facing {
                 Direction::Right => 0x0001_0000,
                 Direction::Left => -0x0001_0000,
             });
             trace.kid_on_ground = Some(true);
-            trace.kid_on_slope = -1;
+            trace.kid_on_slope = slope;
             trace.kid_facing = Some(facing);
 
             player_sprite_first_flip_x(&build_ingame_scene(&trace, false, None))
         };
 
         assert_eq!(
-            selected_flip(Direction::Right),
+            selected_flip(1, Direction::Right),
             Some(false),
-            "ASM loc_A13A flips only the temporary d1 bank selector for SlopeDown; loc_1292 still draws clear live x_direction without x-flip"
+            "ASM loc_A13A/off_A1B8 selects Kid's first slope bank (`kid_slope_1..6`), whose art is already right-facing for clear x_direction"
         );
         assert_eq!(
-            selected_flip(Direction::Left),
+            selected_flip(1, Direction::Left),
+            Some(false),
+            "ASM loc_A13A/off_A1B8 selects Kid's second slope bank (`kid_slope_7..12`), whose art is already left-facing for set x_direction"
+        );
+        assert_eq!(
+            selected_flip(-1, Direction::Right),
             Some(true),
-            "ASM loc_A13A does not rewrite x_direction; loc_1292 must still flip nonzero live x_direction on the `$5000` slope"
+            "ASM loc_A13A selects the left-facing `kid_slope_7..12` bank on SlopeDown + clear x_direction; native must mirror that pre-drawn art to match loc_1292's right-facing result"
+        );
+        assert_eq!(
+            selected_flip(-1, Direction::Left),
+            Some(true),
+            "ASM loc_A13A selects the right-facing `kid_slope_1..6` bank on SlopeDown + set x_direction; native must mirror it to match loc_1292's left-facing result"
         );
     }
 
