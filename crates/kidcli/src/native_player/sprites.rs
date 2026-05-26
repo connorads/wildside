@@ -674,6 +674,45 @@ pub(super) fn select_enemy_frame<'a>(
                     (0x03, 8),
                 ],
             ),
+            // ASM Tar_Monster.asm loc_323E6 runs `stru_32700`: five
+            // shrinking submerge frames before the status/delete tail.
+            0x05 if enemy_visuals.frames.len() >= 7 => select_waited_sequence_frame(
+                remaining,
+                &[
+                    (0x09, 2),
+                    (0x09, 3),
+                    (0x03, 4),
+                    (0x03, 3),
+                    (0x09, 4),
+                    (0x03, 5),
+                    (0x03, 4),
+                    (0x09, 5),
+                    (0x03, 6),
+                    (0x03, 5),
+                    (0x09, 6),
+                ],
+            ),
+            // ASM Orca.asm loc_3D268/loc_3D4BC runs `stru_3D11E`: C7656
+            // and C7696 lead into shrinking C763E/C7646 flashes, then C764E.
+            0x08 if enemy_visuals.frames.len() >= 11 => select_waited_sequence_frame(
+                remaining,
+                &[
+                    (0x09, 6),
+                    (0x04, 7),
+                    (0x03, 6),
+                    (0x11, 8),
+                    (0x04, 9),
+                    (0x04, 8),
+                    (0x03, 9),
+                    (0x03, 8),
+                    (0x02, 9),
+                    (0x02, 8),
+                    (0x02, 9),
+                    (0x02, 8),
+                    (0x02, 9),
+                    (0x63, 10),
+                ],
+            ),
             // ASM Crab.asm loc_3B094 runs `stru_3AF82`: C7C16 for $14,
             // C7C06 for $0A, then C7C0E for $1E before deletion.
             0x09 if enemy_visuals.frames.len() >= 9 => {

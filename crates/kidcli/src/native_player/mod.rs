@@ -2872,6 +2872,25 @@ mod tests {
             },
         );
         families.insert(
+            0x05,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(80, 80, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(59, 0x1B, 0x20, 0x0AC),
+                    sample_object_frame_with_base(60, 0x1B, 0x20, 0x044),
+                    sample_object_frame_with_base(61, 0x1F, 0x1F, 0x074),
+                    sample_object_frame_with_base(62, 0x1F, 0x1F, 0x084),
+                    sample_object_frame_with_base(63, 0x1F, 0x18, 0x094),
+                    sample_object_frame_with_base(64, 0x20, 0x10, 0x0A0),
+                    sample_object_frame_with_base(65, 0x20, 0x07, 0x0A8),
+                ],
+                frame_duration: 3,
+            },
+        );
+        families.insert(
             0x1C,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -2929,6 +2948,29 @@ mod tests {
                     sample_object_frame_with_base(190, 0x1F, 0x1E, 0x090),
                 ],
                 frame_duration: 8,
+            },
+        );
+        families.insert(
+            0x08,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(70, 90, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(66, 0x1C, 0x25, 0x05C),
+                    sample_object_frame_with_base(67, 0x1C, 0x26, 0x070),
+                    sample_object_frame_with_base(68, 0x1D, 0x26, 0x084),
+                    sample_object_frame_with_base(69, 0x1E, 0x25, 0x098),
+                    sample_object_frame_with_base(70, 0x1C, 0x26, 0x0AC),
+                    sample_object_frame_with_base(71, 0x1C, 0x26, 0x0C0),
+                    sample_object_frame_with_base(72, 0x1C, 0x1D, 0x024),
+                    sample_object_frame_with_base(73, 0x1C, 0x26, 0x0C0),
+                    sample_object_frame_with_base(74, 0x1D, 0x1A, 0x000),
+                    sample_object_frame_with_base(75, 0x1B, 0x13, 0x010),
+                    sample_object_frame_with_base(76, 0x20, 0x0C, 0x01C),
+                ],
+                frame_duration: 9,
             },
         );
         families.insert(
@@ -7221,6 +7263,90 @@ mod tests {
                     .pixels[0],
                 signature,
                 "ASM Lion.asm loc_3E378 should advance `stru_3DF48` death frames"
+            );
+        }
+    }
+
+    #[test]
+    fn tar_monster_and_orca_death_snapshots_select_rom_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x05 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let tar_visuals = visuals
+            .enemies
+            .families
+            .get(&0x05)
+            .expect("tar monster visuals");
+        for (remaining, signature) in [
+            (63, 61),
+            (54, 62),
+            (45, 63),
+            (42, 62),
+            (39, 63),
+            (30, 64),
+            (27, 63),
+            (24, 64),
+            (15, 65),
+            (12, 64),
+            (9, 65),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, tar_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Tar_Monster.asm loc_323E6 should advance `stru_32700` death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x08 };
+        let orca_visuals = visuals.enemies.families.get(&0x08).expect("orca visuals");
+        for (remaining, signature) in [
+            (156, 72),
+            (147, 73),
+            (143, 72),
+            (140, 74),
+            (123, 75),
+            (119, 74),
+            (115, 75),
+            (112, 74),
+            (109, 75),
+            (107, 74),
+            (105, 75),
+            (103, 74),
+            (101, 75),
+            (99, 76),
+        ] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, orca_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Orca.asm loc_3D268/loc_3D4BC should advance `stru_3D11E` death frames"
             );
         }
     }

@@ -1190,6 +1190,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         frames: &[
             fd(0x0AC, 0x11, 0x00, 0x1B, 0x20),
             fd(0x044, 0x10, 0x00, 0x1B, 0x20),
+            // ASM Tar_Monster.asm loc_323E6 / `stru_32700`: C77EE,
+            // C77F6, C77FE, C7806, C780E are the submerge death tail.
+            fd(0x074, 0x13, 0x00, 0x1F, 0x1F),
+            fd(0x084, 0x13, 0x00, 0x1F, 0x1F),
+            fd(0x094, 0x11, 0x00, 0x1F, 0x18),
+            fd(0x0A0, 0x11, 0x00, 0x20, 0x10),
+            fd(0x0A8, 0x11, 0x00, 0x20, 0x07),
         ],
     },
     EnemyFamilySpec {
@@ -1239,6 +1246,13 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x098, 0x10, 0x00, 0x1E, 0x25),
             fd(0x0AC, 0x10, 0x00, 0x1C, 0x26),
             fd(0x0C0, 0x10, 0x00, 0x1C, 0x26),
+            // ASM Orca.asm loc_3D268/loc_3D4BC / `stru_3D11E`:
+            // these waited frames play before the shared delete tail.
+            fd(0x024, 0x10, 0x00, 0x1C, 0x1D),
+            fd(0x0C0, 0x10, 0x00, 0x1C, 0x26),
+            fd(0x000, 0x0F, 0x00, 0x1D, 0x1A),
+            fd(0x010, 0x0F, 0x00, 0x1B, 0x13),
+            fd(0x01C, 0x0F, 0x00, 0x20, 0x0C),
         ],
     },
     EnemyFamilySpec {
@@ -4609,6 +4623,11 @@ mod tests {
             "ASM Armadillo.asm loc_3C886 / stru_3C69A death frames C76D6/C76DE/C76E6 must be selectable"
         );
         assert_eq!(
+            death_tiles(0x05, 2..7),
+            vec![0x0074, 0x0084, 0x0094, 0x00A0, 0x00A8],
+            "ASM Tar_Monster.asm loc_323E6 / stru_32700 death frames C77EE/C77F6/C77FE/C7806/C780E must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x06, 3..6),
             vec![0x0006, 0x000A, 0x000E],
             "ASM Sphere.asm Enemy06_Sphere_Kill / stru_36182 death frames C8108/C8110/C8118 must be selectable"
@@ -4617,6 +4636,11 @@ mod tests {
             death_tiles(0x07, 6..10),
             vec![0x0060, 0x00A9, 0x0080, 0x0090],
             "ASM Archer.asm loc_3414A / stru_33FC2 death frames C81B8/C81F0/C81C8/C81D0 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x08, 6..11),
+            vec![0x0024, 0x00C0, 0x0000, 0x0010, 0x001C],
+            "ASM Orca.asm loc_3D268/loc_3D4BC / stru_3D11E death frames C7656/C7696/C763E/C7646/C764E must be selectable"
         );
         assert_eq!(
             death_tiles(0x09, 6..9),
