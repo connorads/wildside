@@ -892,6 +892,44 @@ fn first_trace_drift(
     legacy_missing_played_sound_effect_ids_frames: &BTreeSet<usize>,
     normalise_settled_level_skip_cheat: bool,
 ) -> Option<TraceDriftReport> {
+    first_trace_drift_inner(
+        recorded,
+        replay,
+        legacy_block_destroy_direction_frames,
+        legacy_missing_played_sound_effect_ids_frames,
+        normalise_settled_level_skip_cheat,
+        TraceLengthMode::Exact,
+    )
+}
+
+pub(crate) fn first_trace_prefix_drift(
+    recording: &NativeRecording,
+    replay: &[NativeTraceFrame],
+) -> Option<TraceDriftReport> {
+    first_trace_drift_inner(
+        &recording.trace,
+        replay,
+        &recording.legacy_block_destroy_direction_frames,
+        &recording.legacy_missing_played_sound_effect_ids_frames,
+        recording.manifest.start.settled && recording.manifest.start.warp_level.is_some(),
+        TraceLengthMode::ReplayPrefix,
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TraceLengthMode {
+    Exact,
+    ReplayPrefix,
+}
+
+fn first_trace_drift_inner(
+    recorded: &[NativeTraceFrame],
+    replay: &[NativeTraceFrame],
+    legacy_block_destroy_direction_frames: &BTreeSet<usize>,
+    legacy_missing_played_sound_effect_ids_frames: &BTreeSet<usize>,
+    normalise_settled_level_skip_cheat: bool,
+    length_mode: TraceLengthMode,
+) -> Option<TraceDriftReport> {
     for (index, (expected, actual)) in recorded.iter().zip(replay).enumerate() {
         let expected_for_match = if legacy_missing_played_sound_effect_ids_frames.contains(&index) {
             let mut normalised_expected = expected.clone();
@@ -922,7 +960,11 @@ fn first_trace_drift(
             });
         }
     }
-    if recorded.len() != replay.len() {
+    let length_drifted = match length_mode {
+        TraceLengthMode::Exact => recorded.len() != replay.len(),
+        TraceLengthMode::ReplayPrefix => replay.len() > recorded.len(),
+    };
+    if length_drifted {
         return Some(TraceDriftReport {
             frame_index: recorded.len().min(replay.len()),
             reason: format!(

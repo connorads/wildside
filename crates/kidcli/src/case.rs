@@ -6,7 +6,8 @@ use crate::oracle::{
     OracleEnemyState, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture_dynamic,
 };
 use crate::recording::{
-    NativeRecording, load_recording, oracle_scenario_for_recording, run_recorded_trace,
+    NativeRecording, first_trace_prefix_drift, load_recording, oracle_scenario_for_recording,
+    run_recorded_trace,
 };
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario, GameplayScenario};
 use anyhow::{Context, Result, anyhow, bail};
@@ -842,23 +843,12 @@ fn recording_replay_drift_reason(
     recording: &NativeRecording,
     replay: &[NativeTraceFrame],
 ) -> Option<String> {
-    for (index, (expected, actual)) in recording.trace.iter().zip(replay).enumerate() {
-        if expected != actual {
-            return Some(format!(
-                "source recording replay drifted at frame {index}; re-verify or re-record `{}` before treating this case as gameplay-authoritative",
-                recording.manifest.slug
-            ));
-        }
-    }
-    if replay.len() > recording.trace.len() {
-        return Some(format!(
-            "source recording replay length drifted (recorded {}, replay {}); re-verify or re-record `{}` before treating this case as gameplay-authoritative",
-            recording.trace.len(),
-            replay.len(),
-            recording.manifest.slug
-        ));
-    }
-    None
+    first_trace_prefix_drift(recording, replay).map(|drift| {
+        format!(
+            "source recording replay drifted at frame {}; re-verify or re-record `{}` before treating this case as gameplay-authoritative",
+            drift.frame_index, recording.manifest.slug
+        )
+    })
 }
 
 fn recording_oracle_bootstrap_block_reason(
@@ -2345,7 +2335,7 @@ mod tests {
     }
 
     #[test]
-    fn recording_replay_drift_reason_accepts_case_prefix() {
+    fn recording_replay_drift_reason_accepts_normalised_case_prefix() {
         let recording = NativeRecording {
             manifest: crate::recording::NativeRecordingManifest {
                 bundle_version: 4,
@@ -2382,8 +2372,13 @@ mod tests {
             legacy_block_destroy_direction_frames: BTreeSet::default(),
             legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
+        let replay_frame = NativeTraceFrame {
+            level_skip_cheat_enabled: 1,
+            level_completion_time: 60,
+            ..NativeTraceFrame::default()
+        };
 
-        let reason = recording_replay_drift_reason(&recording, &[NativeTraceFrame::default()]);
+        let reason = recording_replay_drift_reason(&recording, &[replay_frame]);
 
         assert_eq!(reason, None);
     }
