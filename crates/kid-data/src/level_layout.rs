@@ -204,6 +204,24 @@ mod tests {
     }
 
     #[test]
+    fn sub_12752_class_40_at_right_edge_does_not_wrap_to_next_row() {
+        let mut layout = vec![0u8; 4 * 4 * 2];
+
+        mark_background_corner_neighbours_sub_12752(&mut layout, 4, 4, 3, 1, 0x40);
+
+        assert_eq!(
+            cell_hi(&layout, 4, 0, 2),
+            0x00,
+            "ASM sub_12792 should reject col >= width instead of wrapping the right neighbour into the next row"
+        );
+        assert_eq!(
+            cell_hi(&layout, 4, 3, 2),
+            0x01,
+            "ASM sub_12752 should still mark the below neighbour for class $40"
+        );
+    }
+
+    #[test]
     fn sub_127a8_marks_layout_cell_and_copies_terrain_byte() {
         let mut layout = vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66];
         let terrain_layout = [0x90, 0x91, 0x92];
@@ -214,6 +232,20 @@ mod tests {
             layout,
             vec![0x11, 0x22, 0x20, 0x91, 0x55, 0x66],
             "ASM sub_127A8 should write $20 to the high byte and copy the terrain byte from the matching cell index"
+        );
+    }
+
+    #[test]
+    fn sub_127a8_accepts_final_two_byte_layout_cell() {
+        let mut layout = vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66];
+        let terrain_layout = [0x90, 0x91, 0x92];
+
+        prepare_background_layout_cell_sub_127A8(&mut layout, &terrain_layout, 4);
+
+        assert_eq!(
+            layout,
+            vec![0x11, 0x22, 0x33, 0x44, 0x20, 0x92],
+            "ASM sub_127A8 copies exactly the final two-byte layout cell at offset 4"
         );
     }
 

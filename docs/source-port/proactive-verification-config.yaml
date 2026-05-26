@@ -54,7 +54,8 @@ strategies:
     # after the next package still reported all-exhausted while trace helpers
     # had concrete cargo-mutants candidates. hud.rs extends the renderer visual
     # lane after HUD icons/pips received several source-port fidelity fixes but
-    # were not part of the mutation rotation.
+    # were not part of the mutation rotation. kid-data level_layout.rs adds a
+    # pure asset/layout extraction lane for ASM-backed source-port tooling.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -82,6 +83,7 @@ strategies:
       - palette.rs
       - tiles.rs
       - hud.rs
+      - kid-data:level_layout.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -108,6 +110,7 @@ strategies:
       - { module: palette.rs, package: kid-render, tier: 2 }
       - { module: tiles.rs, package: kid-render, tier: 2 }
       - { module: hud.rs, package: kid-render, tier: 2 }
+      - { module: level_layout.rs, package: kid-data, tier: 2 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
