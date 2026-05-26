@@ -7466,6 +7466,87 @@ mod tests {
     }
 
     #[test]
+    fn live_walking_dragon_uses_rom_walk_sequence_not_death_frames() {
+        let visuals = sample_level_visuals();
+        let walking_dragon_visuals = visuals
+            .enemies
+            .families
+            .get(&0x0D)
+            .expect("walking dragon visuals");
+        let mut trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(0x12C),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(0),
+            wait_timer: Some(0x12C),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        for (frame_index, signature) in [
+            (0, 161),
+            (9, 162),
+            (18, 163),
+            (27, 164),
+            (36, 165),
+            (45, 166),
+            (54, 161),
+            (63, 162),
+            (72, 163),
+            (81, 164),
+            (90, 168),
+            (99, 166),
+        ] {
+            trace.frame_index = frame_index;
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Dragon.asm loc_3CE48 `stru_3CC5E` should cycle live walking-dragon frames without using `loc_3CEFC` death/smoke frames"
+            );
+        }
+
+        object.hit_points = Some(3);
+        for (frame_index, signature) in [(0, 161), (6, 162), (60, 168), (66, 166)] {
+            trace.frame_index = frame_index;
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Dragon.asm loc_3CDFC HP-3 `stru_3CC90` should use the same live frame sequence with six-tick timing"
+            );
+        }
+
+        object.hit_points = Some(0);
+        object.wait_timer = Some(167);
+        trace.frame_index = 54;
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            167,
+            "actual zero-HP snapshots should still use ASM Dragon.asm loc_3CEFC death frames"
+        );
+    }
+
+    #[test]
     fn tar_monster_and_orca_death_snapshots_select_rom_frames() {
         let visuals = sample_level_visuals();
         let trace = sample_trace(GameMode::InGame);

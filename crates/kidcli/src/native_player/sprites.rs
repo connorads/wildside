@@ -718,6 +718,30 @@ fn select_waited_sequence_frame(remaining: u16, sequence: &[(u16, usize)]) -> Op
     None
 }
 
+fn select_live_walking_dragon_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0D })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 8
+    {
+        return None;
+    }
+
+    // ASM Dragon.asm loc_3CE48/loc_3CDFC installs `stru_3CC5E` for normal
+    // walking dragons and `stru_3CC90` for HP-3 dragons. The extracted native
+    // sheet appends `loc_3CEFC` death/smoke frames after the live frames, so
+    // live animation must follow the ROM sequence rather than cycling every
+    // frame in the sheet.
+    let live_sequence = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 7, 5];
+    let frame_duration = if object.hit_points == Some(3) { 6 } else { 9 };
+    let offset = object.layout_index.unwrap_or(0) * 3;
+    let phase = ((trace.frame_index + offset) / frame_duration) % live_sequence.len();
+    Some(&enemy_visuals.frames[live_sequence[phase]])
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -1128,6 +1152,9 @@ pub(super) fn select_enemy_frame<'a>(
         matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x01 });
     if object.stationary && !diamond_base_animation {
         return &enemy_visuals.frames[0];
+    }
+    if let Some(frame) = select_live_walking_dragon_frame(trace, enemy_visuals, object) {
+        return frame;
     }
     // Offset animation by layout_index so enemies of the same type don't
     // animate in lockstep. ASM uses per-object animation counters at
