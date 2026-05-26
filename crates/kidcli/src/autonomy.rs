@@ -5085,12 +5085,15 @@ fn inspect_mutation_run(output_root_abs: &Path) -> MutationRunInspection {
     } else {
         None
     };
+    let candidate_count_from_mutants = mutation_candidate_count(&mutants_path);
     let mutants_hash = trimmed_file(&mutants_path);
     let missed = trimmed_file(&missed_path);
     let timed_out = trimmed_file(&timeout_path);
     let survivor_detail = format!("{missed}\n{timed_out}");
 
-    let status = if !outcomes_path.exists() {
+    let status = if !outcomes_path.exists() && candidate_count_from_mutants == Some(0) {
+        MutationRunStatus::Complete
+    } else if !outcomes_path.exists() {
         MutationRunStatus::NotRun
     } else if let Some(detail) = mutation_debug_failure(&debug_log_path) {
         MutationRunStatus::Incomplete { detail }
@@ -5135,7 +5138,9 @@ fn inspect_mutation_run(output_root_abs: &Path) -> MutationRunInspection {
         mutants_path,
         missed_path,
         timeout_path,
-        candidate_count: counts.map(|(candidate_count, _)| candidate_count),
+        candidate_count: counts
+            .map(|(candidate_count, _)| candidate_count)
+            .or(candidate_count_from_mutants),
         outcome_count: counts.map(|(_, outcome_count)| outcome_count),
         mutants_hash: (!mutants_hash.is_empty()).then(|| stable_short_hash(&mutants_hash)),
         survivor_hash: (!survivor_detail.trim().is_empty())
@@ -14238,6 +14243,48 @@ mod tests {
         assert!(
             task.title.contains("combat.rs"),
             "complete modules with no survivors should be skipped"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_treats_zero_candidate_run_as_complete() {
+        let temp_dir = source_port_repo();
+        let run_dir = temp_dir.path().join(".cache/mutants/hud/mutants.out");
+        fs::create_dir_all(&run_dir).expect("mutation run dir should exist");
+        fs::write(run_dir.join("mutants.json"), "[]\n").expect("mutants.json should write");
+        fs::write(run_dir.join("missed.txt"), "").expect("missed.txt should write");
+        fs::write(run_dir.join("timeout.txt"), "").expect("timeout.txt should write");
+        fs::write(
+            run_dir.join("debug.log"),
+            "WARN cargo_mutants::lab: No mutants found under the active filters\n",
+        )
+        .expect("debug.log should write");
+
+        let targets = vec![
+            mutation_target_in_package("kid-render", "hud.rs", 2),
+            mutation_target_in_package("kid-render", "palette.rs", 2),
+        ];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            None,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+        )
+        .expect("next renderer task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:palette:run"
+        );
+        assert!(
+            task.title.contains("palette.rs"),
+            "zero-candidate cargo-mutants output should be treated as completed, not re-run"
         );
     }
 

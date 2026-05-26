@@ -52,7 +52,9 @@ strategies:
     # cover visual-fidelity code paths where remaining source-port debt is
     # expected to surface. trace.rs extends the source-port fidelity rotation
     # after the next package still reported all-exhausted while trace helpers
-    # had concrete cargo-mutants candidates.
+    # had concrete cargo-mutants candidates. hud.rs extends the renderer visual
+    # lane after HUD icons/pips received several source-port fidelity fixes but
+    # were not part of the mutation rotation.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -79,6 +81,7 @@ strategies:
       - player.rs
       - palette.rs
       - tiles.rs
+      - hud.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -104,6 +107,7 @@ strategies:
       - { module: player.rs, package: kid-render, tier: 2 }
       - { module: palette.rs, package: kid-render, tier: 2 }
       - { module: tiles.rs, package: kid-render, tier: 2 }
+      - { module: hud.rs, package: kid-render, tier: 2 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
