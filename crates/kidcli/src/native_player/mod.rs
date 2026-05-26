@@ -3123,6 +3123,21 @@ mod tests {
             },
         );
         families.insert(
+            0x0F,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 200, 230)],
+                },
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(214, 0x20, 0x1D, 0x15A),
+                    sample_object_frame_with_base(215, 0x20, 0x1E, 0x16A),
+                    sample_object_frame_with_base(216, 0x20, 0x1F, 0x17A),
+                ],
+                frame_duration: 5,
+            },
+        );
+        families.insert(
             0x19,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -7063,6 +7078,48 @@ mod tests {
             assert_eq!(
                 frame.tile_base_index, tile_base,
                 "ASM `stru_36182` should use the disappearing Sphere descriptors, not normal `stru_36174`"
+            );
+        }
+    }
+
+    #[test]
+    fn ufo_death_snapshot_selects_loc_35174_frames() {
+        let visuals = sample_level_visuals();
+        let ufo_visuals = visuals.enemies.families.get(&0x0F).expect("ufo visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0F },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x15),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+
+        for (remaining, signature, tile_base) in
+            [(0x15, 214, 0x15A), (0x0E, 215, 0x16A), (0x07, 216, 0x17A)]
+        {
+            object.wait_timer = Some(remaining);
+            let frame = sprites::select_enemy_frame(&trace, ufo_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM UFO.asm loc_35174/loc_35180 should advance parent `stru_34CA0` death frames"
+            );
+            assert_eq!(
+                frame.tile_base_index, tile_base,
+                "ASM UFO.asm `stru_34CA0` should reuse the three parent UFO animation frames before loc_351B6 deletes it"
             );
         }
     }

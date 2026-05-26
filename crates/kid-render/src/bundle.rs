@@ -4688,6 +4688,11 @@ mod tests {
             "ASM Cloud.asm loc_35C0E / stru_35EBA death frames C789E/C78A6/C78AE must be selectable"
         );
         assert_eq!(
+            death_tiles(0x0F, 0..3),
+            vec![0x015A, 0x016A, 0x017A],
+            "ASM UFO.asm loc_35174/loc_35180 / stru_34CA0 death frames C83B0/C83B8/C83C0 must be selectable"
+        );
+        assert_eq!(
             death_tiles(0x14, 4..7),
             vec![0x0012, 0x0022, 0x0032],
             "ASM Spinning_Twins.asm loc_3BC56 / stru_3B83C death frames C7CDE/C7CE6/C7CEE must be selectable"
