@@ -879,6 +879,8 @@ const INTRO_TEXT_3_BYTES: &[u8] = b"\xFE\x20EVERYBODY PLAYED IT\x66\xFF";
 const INTRO_TEXT_4_BYTES: &[u8] = b"\xFE\x20BUT IT WAS A LITTLE TOO REAL\x66\xFD\xFD\xFE\x40THE BOSS ESCAPED\x68 AND BEGAN\xFDCAPTURING KIDS BY DEFEATING\xFDTHEM AT THE GAME\x66\xFF";
 const INTRO_TEXT_5_BYTES: &[u8] = b"\xFE\x20THIS IS THE\xFDSTORY OF\xFDSOMEONE TOO\xFDTOUGH TO BEAT\x66\xFD\xFD\xFE\x60SOMEONE KNOWN\xFDAS\x66\x66\x66\xFF";
 
+const INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0: u16 = 0x67C0;
+
 const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     67, // ASM sub_1B8F4/loc_1C7A0; frame-360 oracle text writes lag the object-count exposure by 22 frames.
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
@@ -979,7 +981,15 @@ fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTex
                     y_pos,
                     0,
                 );
-                vdp.write_vram_word(usize::from(write.vram_word_address), 0);
+                // Native-only cleanup for extracted maps must not use tile
+                // word 0: Scroll A's nametable also lives at VRAM $0000, so
+                // tile index 0 samples nametable bytes as pattern data and
+                // produces the orange bars seen before ASM loc_1C7A0 writes
+                // real glyphs via sub_1C7F6.
+                vdp.write_vram_word(
+                    usize::from(write.vram_word_address),
+                    INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
+                );
                 x_pos = x_pos.wrapping_add(1);
             }
         }
@@ -1839,7 +1849,7 @@ mod tests {
         );
         assert_eq!(
             vram_word(&before, 0x0110),
-            0,
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
             "ASM loc_1C7A0/loc_1C7D2 should leave the first IntroText1 glyph hidden until the initial hibernate and `$FE,$20` delay expire",
         );
 
@@ -1877,7 +1887,7 @@ mod tests {
         );
         assert_eq!(
             vram_word(&before, third_line_first_glyph_addr),
-            0,
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
             "ASM IntroText1's second `$FE,$20` pause should stop the third line being pre-rendered",
         );
 
@@ -1892,6 +1902,30 @@ mod tests {
             vram_word(&after, third_line_first_glyph_addr),
             0x67E6,
             "ASM loc_1C7D2 should reveal the third line immediately after the second `$FE,$20` delay expires",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_text_cleanup_uses_blank_pattern_not_tile_zero() {
+        let mut baked_text_tilemap = vec![0u16; 40 * 28];
+        baked_text_tilemap[2 * 40 + 8] = 0x67E6;
+        let data = IntroSub1B850Data {
+            plane_a_tilemap: baked_text_tilemap,
+            ..empty_intro_data()
+        };
+
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            0,
+            1,
+            INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[0] - 1,
+            0,
+        );
+
+        assert_eq!(
+            vram_word(&vdp, 0x0110),
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
+            "ASM loc_1C7A0/sub_1C7F6 writes runtime glyphs later; native's baked-map cleanup must use a zeroed pattern tile instead of tile 0, because plane-A nametable bytes occupy tile 0's pattern slot",
         );
     }
 
