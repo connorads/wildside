@@ -2031,6 +2031,78 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_reveal_keeps_hologram_redraw_above_clear_loc_c21e() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x0420);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        tile_sheet.tiles[0x0417].pixels = [2; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(255, 112, 0), colour(144, 152, 184)],
+            },
+            tile_sheet,
+            rows: vec![vec![TileRef::from_attr_word(0x0001); 2]],
+        });
+        let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(0, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames =
+            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+        let clear_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect {
+                        x: 0,
+                        y: 0,
+                        width: 16,
+                        height: 16,
+                        colour: [0, 0, 0],
+                    }
+                )
+            })
+            .expect("EOL foreground clear");
+        let hologram_redraw_index = scene
+            .commands
+            .iter()
+            .enumerate()
+            .skip(clear_index + 1)
+            .find_map(|(index, command)| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 1
+                )
+                .then_some(index)
+            })
+            .expect("EOL hologram redraw");
+        let foreground_index = scene
+            .commands
+            .iter()
+            .enumerate()
+            .skip(hologram_redraw_index + 1)
+            .find_map(|(index, command)| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 0x0417
+                )
+                .then_some(index)
+            })
+            .expect("EOL foreground write");
+
+        assert!(
+            clear_index < hologram_redraw_index && hologram_redraw_index < foreground_index,
+            "ASM loc_C186 Scroll B redraw must sit above the clear and below loc_C21E/sub_C254 foreground tiles"
+        );
+    }
+
+    #[test]
     fn level_complete_speed_under_seconds_uses_loc_d660_threshold() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

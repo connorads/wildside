@@ -2214,6 +2214,13 @@ fn push_eol_foreground_reveal_tiles(
     ) {
         let x = i32::from(write.col) * 16 - camera_x_px;
         let y = i32::from(write.row) * 16 - camera_y_px;
+        commands.push(DrawCommand::Rect {
+            x,
+            y,
+            width: 16,
+            height: 16,
+            colour: [0, 0, 0],
+        });
         // ASM loc_C186 uploads the hologram as a Scroll B screen map. Redraw the
         // visible screen-space tiles under the loc_C21E/sub_C254 foreground write.
         // The foreground write is camera sub-tile aligned, but Scroll B is fixed
@@ -2229,13 +2236,6 @@ fn push_eol_foreground_reveal_tiles(
             &tile_sheet,
             &palette,
         );
-        commands.push(DrawCommand::Rect {
-            x,
-            y,
-            width: 16,
-            height: 16,
-            colour: [0, 0, 0],
-        });
         for (index, word) in write.tile_words.iter().copied().enumerate() {
             commands.push(DrawCommand::IndexedTile {
                 x: x + i32::try_from(index % 2).expect("tile column fits") * 8,

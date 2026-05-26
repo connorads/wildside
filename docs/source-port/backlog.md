@@ -209,6 +209,8 @@ For newly opened items, capture these facts in the investigation notes:
 
 Note 2026-05-26 for #175: native `loc_C21E` / `sub_C254` reveal redraws now keep `loc_C186` Scroll B on 8px screen tile coordinates instead of inheriting Scroll A's camera sub-tile offset. Refreshed `.cache/recordings/issue-175-eol-flag-touch-level12` MAE improves to reveal 10.439, counter 16.513, tail 15.334. Remaining mismatch is mostly foreground reveal tile colour/holes and smaller stat-row pixels.
 
+Note 2026-05-26 for #175: the `loc_C21E` reveal clear now runs before the `loc_C186` Scroll B redraw instead of after it, so transparent pixels in the scoreboard foreground write expose the hologram redraw rather than a black rectangle. Refreshed `.cache/recordings/issue-175-eol-flag-touch-level12` MAE improves to reveal 7.832, counter 11.110, tail 10.438; `oracle_state_match` remains false, so the level-complete sequence stays open.
+
 Correction 2026-05-06, folded into the table rows on 2026-05-18: the long #139/#140 rows used to contain old prose saying no proposed-fix commit had landed. The patch did land in `f75b09f8` (`render: index block mappings by skin byte`); the detailed "139 / 140 — Block_Mappings renderer indexing" note below is the current evidence. #139 and #140 are now validated against deterministic PNG bundles.
 
 Correction 2026-05-06: #136 no longer needs the "wire native floating-item rendering to that spec" follow-up. Native rendering resolves the content byte through `PrizeContent::from_id`, consumes the exported `floating_prize_graphics_spec` table from `kid-core`, and pins diamond/Skycutter renderer metadata against `PrizeDiamond_Init` / `sub_10CB0`.
