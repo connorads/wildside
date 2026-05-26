@@ -2795,6 +2795,19 @@ mod tests {
             },
         );
         families.insert(
+            0x09,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 140, 100)],
+                },
+                extra_palettes: vec![],
+                frames: (211..=219)
+                    .map(|signature| sample_object_frame(signature, 16, 16))
+                    .collect(),
+                frame_duration: 8,
+            },
+        );
+        families.insert(
             0x10,
             AnimatedSpriteVisual {
                 palette: Palette {
@@ -2813,6 +2826,19 @@ mod tests {
                     sample_object_frame(119, 16, 16),
                 ],
                 frame_duration: 6,
+            },
+        );
+        families.insert(
+            0x11,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(180, 180, 210)],
+                },
+                extra_palettes: vec![],
+                frames: (221..=229)
+                    .map(|signature| sample_object_frame(signature, 16, 16))
+                    .collect(),
+                frame_duration: 8,
             },
         );
         families.insert(
@@ -6342,6 +6368,59 @@ mod tests {
             119,
             "ASM Goat.asm loc_3CB64 should render LnkTo_unk_C7C96 for the final $37 ticks of stru_3C9EA"
         );
+    }
+
+    #[test]
+    fn crab_and_ninja_death_snapshots_select_waited_body_frames() {
+        let visuals = sample_level_visuals();
+        let trace = sample_trace(GameMode::InGame);
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x09 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let crab_visuals = visuals.enemies.families.get(&0x09).expect("crab visuals");
+        for (remaining, signature) in [(0x14 + 0x0A + 0x1E, 217), (0x1E + 1, 218), (0x1E, 219)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, crab_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Crab.asm loc_3B094 should step through stru_3AF82 death frames"
+            );
+        }
+
+        object.kind = NativeObjectKind::Enemy { object_type: 0x11 };
+        let ninja_visuals = visuals.enemies.families.get(&0x11).expect("ninja visuals");
+        for (remaining, signature) in [(0x14 + 0x0A + 0x2D, 227), (0x2D + 1, 228), (0x2D, 229)] {
+            object.wait_timer = Some(remaining);
+            assert_eq!(
+                sprites::select_enemy_frame(&trace, ninja_visuals, &object)
+                    .tile_sheet
+                    .tiles[0]
+                    .pixels[0],
+                signature,
+                "ASM Ninja.asm loc_3DB4E should step through stru_3D50A death frames"
+            );
+        }
     }
 
     #[test]

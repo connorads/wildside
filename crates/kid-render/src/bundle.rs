@@ -1225,6 +1225,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x060, 0x0E, 0x00, 0x1B, 0x1F),
             fd(0x070, 0x0E, 0x00, 0x1B, 0x20),
             fd(0x080, 0x0E, 0x00, 0x1B, 0x20),
+            // ASM Crab.asm loc_3B094 / `stru_3AF82`: C7C16, C7C06,
+            // C7C0E are the three waited death frames before deletion.
+            fd(0x020, 0x00, 0x00, 0x1D, 0x1B),
+            fd(0x000, 0x00, 0x00, 0x1E, 0x1D),
+            fd(0x010, 0x00, 0x00, 0x20, 0x1C),
         ],
     },
     EnemyFamilySpec {
@@ -1326,6 +1331,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0D8, 0x11, 0x00, 0x20, 0x1F),
             fd(0x0E8, 0x10, 0x00, 0x1F, 0x20),
             fd(0x0F8, 0x0F, 0x00, 0x1E, 0x1F),
+            // ASM Goat.asm loc_3CB64 / `stru_3C9EA`: C7C56, C7C8E,
+            // C7C96 are selected while the dead body hibernates.
+            fd(0x000, 0x10, 0x00, 0x1F, 0x20),
+            fd(0x088, 0x0F, 0x00, 0x1E, 0x1E),
+            fd(0x098, 0x10, 0x00, 0x1F, 0x1D),
         ],
     },
     EnemyFamilySpec {
@@ -1341,6 +1351,11 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0A4, 0x0A, 0x00, 0x17, 0x1F),
             fd(0x0B0, 0x0A, 0x00, 0x18, 0x20),
             fd(0x0BC, 0x0D, 0x00, 0x1C, 0x20),
+            // ASM Ninja.asm loc_3DB4E / `stru_3D50A`: C7D56, C7D5E,
+            // C7D66 are the three waited death frames before deletion.
+            fd(0x000, 0x11, 0x00, 0x1F, 0x1C),
+            fd(0x010, 0x11, 0x00, 0x1D, 0x19),
+            fd(0x020, 0x10, 0x00, 0x1D, 0x0F),
         ],
     },
     EnemyFamilySpec {
@@ -4466,6 +4481,36 @@ mod tests {
         assert_eq!(
             kid.slope_walk[5].origin_y, -0x02,
             "ASM unk_A2B6A / kid_slope_12 keeps the right-facing slope bank two pixels higher"
+        );
+    }
+
+    #[test]
+    fn enemy_visual_specs_include_rom_waited_death_frames() {
+        let death_tiles = |object_type| {
+            super::ENEMY_FAMILIES
+                .iter()
+                .find(|spec| spec.object_type == object_type)
+                .expect("enemy family spec")
+                .frames[6..9]
+                .iter()
+                .map(|frame| frame.tile_base_index)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            death_tiles(0x09),
+            vec![0x0020, 0x0000, 0x0010],
+            "ASM Crab.asm loc_3B094 / stru_3AF82 death frames C7C16/C7C06/C7C0E must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x10),
+            vec![0x0000, 0x0088, 0x0098],
+            "ASM Goat.asm loc_3CB64 / stru_3C9EA death frames C7C56/C7C8E/C7C96 must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x11),
+            vec![0x0000, 0x0010, 0x0020],
+            "ASM Ninja.asm loc_3DB4E / stru_3D50A death frames C7D56/C7D5E/C7D66 must be selectable"
         );
     }
 
