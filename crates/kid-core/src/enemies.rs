@@ -10327,6 +10327,7 @@ pub(crate) fn step_ufo_beam(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                kind: EnemyProjectileKind::DragonWalkingBreath,
                 ..Default::default()
             });
         }

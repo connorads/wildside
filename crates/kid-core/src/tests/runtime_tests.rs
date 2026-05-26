@@ -9338,6 +9338,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn dragon_walking_breath_projectile_projects_to_trace_loc_3d02a() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0064_0000,
+            y_pos: 0x00D0_0000,
+            lifetime: 68,
+            friendly: false,
+            kind: EnemyProjectileKind::DragonWalkingBreath,
+            ..Default::default()
+        });
+
+        let trace = rt.trace_frame();
+
+        assert_eq!(
+            trace.active_projectiles,
+            vec![(0x0064_0000, 0x00D0_0000, false)]
+        );
+        assert_eq!(trace.active_projectile_details.len(), 1);
+        assert_eq!(
+            trace.active_projectile_details[0].kind,
+            ActiveProjectileKind::DragonWalkingBreath,
+            "ASM Dragon.asm loc_3D02A breath child should remain typed through the trace so the player renders `stru_3CCC8` instead of a generic projectile dot"
+        );
+        assert_eq!(trace.active_projectile_details[0].remaining_frames, 68);
+    }
+
+    #[test]
     fn fire_demon_legacy_projectile_trace_signature_requires_all_gates_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

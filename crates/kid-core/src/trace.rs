@@ -31,6 +31,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
     }
+    if projectile.kind == EnemyProjectileKind::DragonWalkingBreath {
+        return ActiveProjectileKind::DragonWalkingBreath;
+    }
     if projectile.kind == EnemyProjectileKind::DripsDrop {
         return ActiveProjectileKind::DripsDrop;
     }

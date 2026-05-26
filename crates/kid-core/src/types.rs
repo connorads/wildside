@@ -74,6 +74,9 @@ pub enum ActiveProjectileKind {
     #[default]
     Generic,
     FireDemonDeathTrail,
+    /// Walking Dragon breath child: ASM `Dragon.asm loc_3D02A` initialises
+    /// `stru_3CCC8` as a stationary hostile GfxObject at the dragon mouth.
+    DragonWalkingBreath,
     /// Drips slime drop: ASM `Drips.asm loc_33424`/`loc_3345C` spawn a falling
     /// child object that accelerates under `$2000` gravity.
     DripsDrop,
@@ -2242,6 +2245,7 @@ pub(crate) struct EnemyProjectileOwner {
 pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
+    DragonWalkingBreath,
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,

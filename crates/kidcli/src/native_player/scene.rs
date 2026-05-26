@@ -8,7 +8,9 @@ const FRIENDLY_PROJECTILE_COLOUR: [u8; 3] = [100, 255, 100];
 const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
 const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
+const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
+const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
@@ -92,6 +94,32 @@ fn drips_drop_child_frame(
         width_px: 0x05,
         height_px: 0x0A,
         tile_base_index: 0x082,
+        tile_sheet,
+    })
+}
+
+fn dragon_walking_breath_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let elapsed_frames = DRAGON_WALKING_BREATH_LIFETIME.saturating_sub(remaining_frames);
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = if elapsed_frames < 8 {
+        // ASM Dragon.asm `stru_3CCC8`: first frame `LnkTo_unk_C7576`.
+        (0x028, 0x0B, 0x00, 0x1B, 0x13)
+    } else if ((elapsed_frames - 8) / 10).is_multiple_of(2) {
+        // ASM Dragon.asm `stru_3CCC8`: alternating frame `LnkTo_unk_C757E`.
+        (0x034, 0x0A, 0x00, 0x20, 0x15)
+    } else {
+        // ASM Dragon.asm `stru_3CCC8`: alternating frame `LnkTo_unk_C7586`.
+        (0x040, 0x0A, 0x00, 0x20, 0x16)
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
         tile_sheet,
     })
 }
@@ -2547,6 +2575,36 @@ fn build_game_scene_filtered(
                         projectile.remaining_frames,
                     ) {
                         push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
+                    }
+                }
+                ActiveProjectileKind::DragonWalkingBreath => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&WALKING_DRAGON_OBJECT_TYPE)
+                        .and_then(|dragon_visuals| {
+                            let frame = dragon_walking_breath_child_frame(
+                                dragon_visuals,
+                                projectile.remaining_frames,
+                            )?;
+                            push_sprite_frame(
+                                &mut commands,
+                                &frame,
+                                &dragon_visuals.palette,
+                                sx,
+                                sy,
+                            );
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 3,
+                            width: 4,
+                            height: 5,
+                            colour: [255, 90, 20],
+                        });
                     }
                 }
                 ActiveProjectileKind::DripsDrop | ActiveProjectileKind::DripsSurfaceCrawler => {

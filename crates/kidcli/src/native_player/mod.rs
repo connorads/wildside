@@ -1826,6 +1826,36 @@ mod tests {
     }
 
     #[test]
+    fn dragon_walking_breath_uses_rom_child_sprite_frame_loc_3d02a_stru_3ccc8() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 68,
+            kind: ActiveProjectileKind::DragonWalkingBreath,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let breath_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 21 && *y == 5 => Some(tiles),
+            _ => None,
+        });
+        let tiles = breath_sprite
+            .expect("ASM Dragon.asm loc_3D02A should render breath as a ROM sprite child");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x028,
+            "ASM Dragon.asm `stru_3CCC8` first frame uses `unk_C7576: sprite_frame_vram $028,$0B,$00,$1B,$13`",
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "walking-dragon breath should not render as the generic enemy projectile dot",
+        );
+    }
+
+    #[test]
     fn drips_drop_uses_rom_child_sprite_frame_loc_33424() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
