@@ -2965,6 +2965,55 @@ mod tests {
         sample_level_visuals_with_background([33, 66, 99])
     }
 
+    #[test]
+    fn diamond_enemy_animates_while_stationary_stru_3aca8() {
+        let mut trace = sample_trace(GameMode::InGame);
+        let visuals = sample_level_visuals();
+        let diamond_visuals = visuals
+            .enemies
+            .families
+            .get(&0x01)
+            .expect("sample Diamond visuals");
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x01 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        trace.frame_index = 0;
+        let first = sprites::select_enemy_frame(&trace, diamond_visuals, &object);
+        trace.frame_index = 6;
+        let second = sprites::select_enemy_frame(&trace, diamond_visuals, &object);
+
+        assert_eq!(
+            first.tile_base_index, 0,
+            "ASM Diamond.asm Enemy01_Diamond_Init starts base animation `stru_3ACA8` on its first frame"
+        );
+        assert_eq!(
+            second.tile_base_index, 0,
+            "sample frames share tile-base zero; tile sheet identity below distinguishes the animation frame"
+        );
+        assert_ne!(
+            first.tile_sheet.tiles[0].pixels, second.tile_sheet.tiles[0].pixels,
+            "ASM Diamond.asm `stru_3ACA8` advances every 6 ticks even though the low-HP Diamond uses the shared ledge-walker path"
+        );
+    }
+
     fn sample_foreground_layout_bytes() -> Vec<u8> {
         let mut bytes = vec![0; 20 * 14];
         bytes[0] = 0;
