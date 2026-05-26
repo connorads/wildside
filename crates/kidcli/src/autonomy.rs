@@ -593,6 +593,18 @@ struct RecordingQueueCandidate {
     has_notes: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+struct RejectedRecordingFilters {
+    slugs: BTreeSet<String>,
+    prefixes: BTreeSet<String>,
+}
+
+impl RejectedRecordingFilters {
+    fn contains(&self, slug: &str) -> bool {
+        self.slugs.contains(slug) || self.prefixes.iter().any(|prefix| slug.starts_with(prefix))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BacklogIssueFocus {
     Playability,
@@ -5824,6 +5836,7 @@ fn load_untriaged_recordings(
     cases: &[CaseQueueCandidate],
 ) -> Result<Vec<RecordingQueueCandidate>> {
     let recordings_dir = repo_root.join(SOURCE_PORT_RECORDINGS_CACHE_PATH);
+    let rejected_recordings = load_rejected_recording_slugs(repo_root)?;
     let mut out = Vec::new();
     let entries = match fs::read_dir(&recordings_dir) {
         Ok(entries) => entries,
@@ -5860,7 +5873,7 @@ fn load_untriaged_recordings(
         let already_covered = cases
             .iter()
             .any(|candidate| candidate.source_kind == "recording" && candidate.source_slug == slug);
-        if already_covered {
+        if already_covered || rejected_recordings.contains(&slug) {
             continue;
         }
         out.push(RecordingQueueCandidate {
@@ -5877,6 +5890,35 @@ fn load_untriaged_recordings(
     }
     out.sort_by(|left, right| left.slug.cmp(&right.slug));
     Ok(out)
+}
+
+fn load_rejected_recording_slugs(repo_root: &Path) -> Result<RejectedRecordingFilters> {
+    let path = repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH);
+    if !path.is_file() {
+        return Ok(RejectedRecordingFilters::default());
+    }
+    let state = load_source_port_frontier_state(repo_root)?;
+    let mut filters = RejectedRecordingFilters::default();
+    for hypothesis in &state.active_frontier.rejected_hypotheses {
+        if hypothesis
+            .reason
+            .contains("before treating this case as gameplay-authoritative")
+            || hypothesis.reason.contains("Do not use this recording")
+        {
+            if let Some(rest) = hypothesis.name.strip_prefix("Recording `")
+                && let Some((slug, _)) = rest.split_once('`')
+            {
+                filters.slugs.insert(slug.to_owned());
+            }
+            if let Some((_, rest)) = hypothesis.reason.split_once("case queue keeps selecting `")
+                && let Some((prefix, suffix)) = rest.split_once('`')
+                && suffix.trim_start().starts_with("variants")
+            {
+                filters.prefixes.insert(prefix.to_owned());
+            }
+        }
+    }
+    Ok(filters)
 }
 
 fn nested_single_directory_or_self(path: &Path) -> Result<PathBuf> {
@@ -15429,6 +15471,46 @@ strategies:
             .expect("selected recording should exist");
         assert_eq!(recording.slug, "level1-tree-break");
         assert_eq!(recording.frame_count, 180);
+    }
+
+    #[test]
+    fn case_queue_skips_recordings_rejected_as_stale_in_frontier_state() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(temp_dir.path(), "issue-161-native-frame169", true);
+        write_recording(temp_dir.path(), "issue-161-native-frame217b", true);
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let mut state: serde_json::Value = serde_json::from_slice(
+            &fs::read(temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH))
+                .expect("frontier state should read"),
+        )
+        .expect("frontier state should parse");
+        state["active_frontier"]["rejected_hypotheses"]
+            .as_array_mut()
+            .expect("rejected hypotheses should be an array")
+            .push(serde_json::json!({
+                "name": "Recording `issue-161-native-frame169` is ready to reduce into an authoritative gameplay case",
+                "reason": "Rejected 2026-05-26. `cargo run -p kidcli -- case reduce --case issue-161-native-frame169` blocks with `source recording replay drifted at frame 119; re-verify or re-record issue-161-native-frame169 before treating this case as gameplay-authoritative`. If the case queue keeps selecting `issue-161` variants, first refresh the recordings against current native."
+            }));
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            serde_json::to_vec_pretty(&state).expect("frontier state should serialise"),
+        )
+        .expect("frontier state should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(
+            queue
+                .untriaged_recordings
+                .iter()
+                .all(|recording| !recording.slug.starts_with("issue-161"))
+        );
+        let recording = queue
+            .selected_recording
+            .expect("fresh recording should be selected");
+        assert_eq!(recording.slug, "level1-tree-break");
     }
 
     #[test]
