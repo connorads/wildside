@@ -442,7 +442,7 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(&mut vdp, intro_sequence_3_roster_index);
     }
     if segment == 4 {
-        overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp);
+        overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
@@ -522,7 +522,11 @@ struct IntroSequence5GfxObjectLoc1BCD0 {
 }
 
 #[allow(non_snake_case)]
-fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(vdp: &mut VdpState) {
+fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
+    vdp: &mut VdpState,
+    title_variant: u8,
+    elapsed: usize,
+) {
     // ASM loc_1BCD0 (kid.asm:30567): allocates five visible gfx slots with
     // palette line 2, VRAM tile `$26C`, and frame links unk_E1066/E106E/
     // unk_E1076/unk_E1076/unk_E107E before hibernating the controller.
@@ -573,11 +577,139 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(vdp: &mut VdpState) {
             object.frame,
         );
     }
+    if let Some(particle_elapsed) =
+        elapsed.checked_sub(INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0)
+    {
+        append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
+        append_intro_sequence_5_center_particle_loc_1BE88(
+            &mut sprite_entries,
+            title_variant,
+            particle_elapsed,
+        );
+    }
     write_sprite_table_entries(
         vdp,
         sprite_table_base_byte_addr(&vdp.registers),
         &sprite_entries,
     );
+}
+
+const INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0: usize = 0x01A0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IntroSequence5ParticleLoc1BE3C {
+    x_pos: i32,
+    y_pos: i32,
+    x_vel: i32,
+    y_vel: i32,
+    loop_count: usize,
+}
+
+#[allow(non_snake_case)]
+fn append_intro_sequence_5_particles_loc_1BE3C(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    particle_elapsed: usize,
+) {
+    // ASM loc_1BE3C/loc_1BE74 (kid.asm:30667): after loc_1BCD0's `$1A0`
+    // hibernate, three workers load `unk_1BE18/24/30`, use addroffset
+    // `$11C8` (LnkTo_unk_E0F56-Data_Index), then add `$4000` to y_vel once
+    // per frame until DBF deletes them.
+    let particles = [
+        IntroSequence5ParticleLoc1BE3C {
+            x_pos: 0x0012_0000,
+            y_pos: 0x0078_0000,
+            x_vel: -0x0004_0000,
+            y_vel: -0x0002_0000,
+            loop_count: 0x28,
+        },
+        IntroSequence5ParticleLoc1BE3C {
+            x_pos: 0x0058_0000,
+            y_pos: 0x0068_0000,
+            x_vel: 0x0004_0000,
+            y_vel: -0x0002_0000,
+            loop_count: 0x3C,
+        },
+        IntroSequence5ParticleLoc1BE3C {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0080_0000,
+            x_vel: 0,
+            y_vel: 0x0004_0000,
+            loop_count: 0x28,
+        },
+    ];
+    for particle in particles {
+        if particle_elapsed > particle.loop_count {
+            continue;
+        }
+        let frames = particle_elapsed as i32;
+        let y_gravity = 0x0000_4000 * frames.saturating_mul(frames + 1) / 2;
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos: fixed_to_u16_px(particle.x_pos + particle.x_vel.saturating_mul(frames)),
+                y_pos: fixed_to_u16_px(
+                    particle.y_pos + particle.y_vel.saturating_mul(frames) + y_gravity,
+                ),
+                palette_line: 2,
+                vram_tile: 0x026C,
+                priority: 0,
+                x_direction: 0,
+            },
+            IntroSpriteFrameVram {
+                sprite_index: 0x028C,
+                x_center: 0,
+                y_center: 8,
+                width: 8,
+                height: 8,
+            },
+        );
+    }
+}
+
+#[allow(non_snake_case)]
+fn append_intro_sequence_5_center_particle_loc_1BE88(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    title_variant: u8,
+    particle_elapsed: usize,
+) {
+    // ASM loc_1BE88/loc_1BF0A (kid.asm:30689): the centre helmet particle uses
+    // palette line 3, priority 1, a FC82-selected frame on VRAM tile `$5EB`,
+    // and keeps hibernating forever after the 28-frame velocity loop.
+    let (x_seed, y_seed, frame) = match title_variant {
+        0 => (
+            0x002A_0000,
+            0x0074_0000,
+            intro_sprite_frame_vram(0, 0x34, 0x3D),
+        ),
+        1 => (
+            0x0030_0000,
+            0x0070_0000,
+            intro_sprite_frame_vram(0, 0x27, 0x37),
+        ),
+        _ => (
+            0x002A_0000,
+            0x0074_0000,
+            intro_sprite_frame_vram(0, 0x34, 0x4C),
+        ),
+    };
+    let moving_frames = particle_elapsed.min(0x1C) as i32;
+    let y_gravity = 0x0000_9000 * moving_frames.saturating_mul(moving_frames + 1) / 2;
+    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+        entries,
+        IntroGfxObjectForSpriteTable {
+            x_pos: fixed_to_u16_px(x_seed + 0x0002_F000 * moving_frames),
+            y_pos: fixed_to_u16_px(y_seed - 0x0008_F000 * moving_frames + y_gravity),
+            palette_line: 3,
+            vram_tile: 0x05EB,
+            priority: 1,
+            x_direction: 0,
+        },
+        frame,
+    );
+}
+
+fn fixed_to_u16_px(value: i32) -> u16 {
+    (value >> 16) as u16
 }
 
 fn intro_sprite_frame_vram(sprite_index: u16, width: u16, height: u16) -> IntroSpriteFrameVram {
@@ -1628,6 +1760,59 @@ mod tests {
             sprite_entry_words(&vdp, 4),
             (0x0100, 0x07, 5, 0x4290, 0x00E0),
             "ASM loc_1BCD0 second gfx slot should start at x=$60/y=$80 with unk_E106E's 12x49 frame",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE3C_particles_spawn_after_loc_1BCD0_hibernate() {
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            4,
+            1,
+            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0 - 1,
+            0,
+        );
+        assert_eq!(
+            sprite_entry_words(&before, 16),
+            (0, 0, 0, 0, 0),
+            "ASM loc_1BCD0 should not allocate loc_1BE3C particles until the `$1A0` hibernate expires",
+        );
+
+        let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            4,
+            1,
+            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0,
+            0,
+        );
+        assert_eq!(
+            sprite_entry_words(&after, 16),
+            (0x0100, 0x00, 17, 0x44F8, 0x0092),
+            "ASM loc_1BE3C should spawn the first unk_1BE18 falling particle from LnkTo_unk_E0F56 at x=$12/y=$78",
+        );
+        assert_eq!(
+            sprite_entry_words(&after, 19),
+            (0x00F0, 0x0F, 20, 0xE5EB, 0x00B0),
+            "ASM loc_1BE88 should spawn the FC82=1 centre particle on palette line 3 with priority and VRAM tile $5EB",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE3C_deletes_short_lived_particles_by_dbf_count() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            4,
+            1,
+            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0 + 0x29,
+            0,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 16),
+            (0x0175, 0x00, 17, 0x44F8, 0x017C),
+            "ASM loc_1BE74 should delete the two `$28` DBF particles after frame $28, leaving the longer unk_1BE24 particle as the first live particle",
         );
     }
 
