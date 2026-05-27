@@ -289,7 +289,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         manifest,
         header.level_theme,
         level_bundle.parsed_enemy_layout.as_ref(),
-        &fg_palette,
+        &bg_palette,
     );
     let floating_prizes = load_floating_prize_visuals(manifest, &fg_palette, &hud_diamond_tiles)?;
     let flag = load_flag_visuals(manifest, &fg_palette)?;
@@ -3167,7 +3167,7 @@ fn load_enemy_visuals(
     manifest: &AssetManifest,
     level_theme: u8,
     enemy_layout: Option<&EnemyLayout>,
-    foreground_palette: &Palette,
+    background_palette: &Palette,
 ) -> EnemyVisuals {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
@@ -3198,7 +3198,7 @@ fn load_enemy_visuals(
         let palette = if forest_enemy_art_permutation(level_theme, enemy_layout, spec.object_type)
             .is_some()
         {
-            forest_enemy_palette_with_borrowed_slots(&palette, foreground_palette)
+            forest_enemy_palette_with_borrowed_slots(&palette, background_palette)
         } else {
             enemy_palette_with_cleared_slot_eight(&palette)
         };
@@ -3212,7 +3212,7 @@ fn load_enemy_visuals(
                         if forest_enemy_art_permutation(level_theme, enemy_layout, spec.object_type)
                             .is_some()
                         {
-                            forest_enemy_palette_with_borrowed_slots(&extra, foreground_palette)
+                            forest_enemy_palette_with_borrowed_slots(&extra, background_palette)
                         } else {
                             enemy_palette_with_cleared_slot_eight(&extra)
                         }
@@ -3284,18 +3284,19 @@ fn enemy_palette_with_cleared_slot_eight(enemy_palette: &Palette) -> Palette {
 
 fn forest_enemy_palette_with_borrowed_slots(
     enemy_palette: &Palette,
-    foreground_palette: &Palette,
+    background_palette: &Palette,
 ) -> Palette {
-    if enemy_palette.colours.len() != 7 || foreground_palette.colours.len() < 15 {
+    if enemy_palette.colours.len() != 7 || background_palette.colours.len() < 8 {
         return enemy_palette.clone();
     }
 
     let mut palette = enemy_palette_with_cleared_slot_eight(enemy_palette);
     // ASM Load_EnemyArtPaletteToVRAM copies only slots 1..7 for the first
-    // forest enemy, clears slot 8, then `loc_36E24` remaps art pixels through
-    // `unk_36E54`/`unk_36E64`. Slots 9..15 therefore keep the foreground CRAM
-    // colours already in that palette line instead of becoming transparent.
-    palette.colours[9..16].copy_from_slice(&foreground_palette.colours[8..15]);
+    // forest enemy and clears slot 8. Level-load ASM `loc_11E16` has already
+    // copied background palette words 1..7 into palette-line 1 slots 9..15,
+    // so the forest RAM remap (`loc_36E24`, `unk_36E54`/`unk_36E64`) must
+    // borrow those background colours rather than the foreground line.
+    palette.colours[9..16].copy_from_slice(&background_palette.colours[1..8]);
     palette
 }
 
@@ -4290,15 +4291,15 @@ mod tests {
     }
 
     #[test]
-    fn forest_enemy_palette_keeps_borrowed_foreground_slots_after_art_remap() {
+    fn forest_enemy_palette_keeps_borrowed_background_slots_after_art_remap() {
         let enemy_palette = Palette {
             colours: (1..=7).map(MdColour::from_word).collect(),
         };
-        let foreground_palette = Palette {
-            colours: (0x10..=0x1E).map(MdColour::from_word).collect(),
+        let background_palette = Palette {
+            colours: (0x20..=0x27).map(MdColour::from_word).collect(),
         };
 
-        let palette = forest_enemy_palette_with_borrowed_slots(&enemy_palette, &foreground_palette);
+        let palette = forest_enemy_palette_with_borrowed_slots(&enemy_palette, &background_palette);
 
         assert_eq!(
             palette.colours[1..8],
@@ -4312,8 +4313,8 @@ mod tests {
         );
         assert_eq!(
             palette.colours[9..16],
-            foreground_palette.colours[8..15],
-            "ASM loc_36E24 remaps forest enemy pixels into slots 9..15, which the ROM leaves borrowed from the existing foreground CRAM line"
+            background_palette.colours[1..8],
+            "ASM loc_11E16 fills palette-line 1 slots 9..15 from background palette words 1..7 before loc_36E24 remaps forest enemy pixels into those slots"
         );
     }
 
