@@ -7592,6 +7592,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_2_ec2f_shooter_registers_as_right_facing_loc_f106() {
+        // ASM sub_F096 loc_F106/loc_F1DE accepts layout words with block
+        // nibble `$C`, then stores `(word & $00FF) - $2D` as direction bits.
+        // Highwater Pass 2's exposed shooter cells include `$EC2F`, so they
+        // must fire right (`$2F - $2D = $02`) when Kid enters the scan column.
+        let mut rt = NativeRuntime::new(manifest());
+        let w = 40u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (3usize * usize::from(w) + 5usize) * 2;
+        data[offset] = 0xEC;
+        data[offset + 1] = 0x2F;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+        rt.block_state.shooter_last_scanned_col = 1;
+        rt.block_state.shooter_last_scanned_row = 3;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+        rt.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_F106 should register one shooter object for the `$EC2F` cell"
+        );
+        let speed: i32 = 4 << 16;
+        assert_eq!(
+            (rt.projectiles[0].x_velocity, rt.projectiles[0].y_velocity),
+            (speed, 0),
+            "ASM loc_F106 should decode `$EC2F` as right-facing direction bit `$02`"
+        );
+        assert_eq!(rt.block_state.shooter_blocks.len(), 1);
+        assert_eq!(rt.block_state.shooter_blocks[0].directions, 0x02);
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());

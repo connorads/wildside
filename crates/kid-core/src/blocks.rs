@@ -435,15 +435,26 @@ pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
 }
 
 impl NativeRuntime {
-    fn is_shooter_slot_source_cell_loc_11430(cell: terrain::Cell) -> bool {
+    #[allow(non_snake_case)]
+    fn shooter_direction_bits_loc_F106(cell: terrain::Cell) -> Option<u8> {
+        // ASM sub_F096 loc_F106/loc_F1DE (kid.asm:19673/19789): visible
+        // shooter scan accepts layout words whose block-type nibble is `$C`,
+        // then stores `(word & $00FF) - $2D` as the direction bitfield. The
+        // first Highwater Pass 2 right-facing shooters are `$EC2F`, so the
+        // stored direction is `$02`.
+        if cell.has_block && cell.block_type == terrain::BlockType::Drill && cell.skin >= 0x2D {
+            return Some(cell.skin.wrapping_sub(0x2D));
+        }
+
         // ASM off_BB80[9] -> loc_BBC2 -> loc_11430: Level 3 type-9 `$E919`
         // blocks are restored by the touch worker and then use the same
         // timed shooter-slot lifecycle as visible Shooter cells in native.
-        cell.has_block
+        (cell.has_block
             && matches!(
                 cell.block_type,
                 terrain::BlockType::Shooter | terrain::BlockType::Mushroom
-            )
+            ))
+        .then_some(cell.skin)
     }
 
     fn high_word_from_i32(value: i32) -> u16 {
@@ -2610,8 +2621,8 @@ impl NativeRuntime {
             // then add `d3*2` to address the entering column.
             for row in start_row..=end_row {
                 let cell = grid.cell_at(entering_col, row);
-                if Self::is_shooter_slot_source_cell_loc_11430(cell) {
-                    queue_scan(entering_col, row, cell.skin);
+                if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
+                    queue_scan(entering_col, row, directions);
                 }
             }
         }
@@ -2626,8 +2637,8 @@ impl NativeRuntime {
             let end_col = (kid_block_col + 3).min(max_col) as u16;
             for col in start_col..=end_col {
                 let cell = grid.cell_at(col, entering_row);
-                if Self::is_shooter_slot_source_cell_loc_11430(cell) {
-                    queue_scan(col, entering_row, cell.skin);
+                if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
+                    queue_scan(col, entering_row, directions);
                 }
             }
         }
@@ -2654,7 +2665,7 @@ impl NativeRuntime {
 
         self.block_state.shooter_blocks.retain_mut(|entry| {
             let still_shooter =
-                Self::is_shooter_slot_source_cell_loc_11430(grid.cell_at(entry.col, entry.row));
+                Self::shooter_direction_bits_loc_F106(grid.cell_at(entry.col, entry.row)).is_some();
             if !still_shooter {
                 return false;
             }
