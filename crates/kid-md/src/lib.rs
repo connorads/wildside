@@ -615,8 +615,9 @@ pub fn probe_rom_with_script(
         let pc_before = runtime.core.pc;
         let cycles = runtime.step();
         let pc_after = runtime.core.pc;
-        while runtime.synthetic_vblanks as usize > frame_index {
-            frame_index += 1;
+        let rendered_frame_count = runtime.synthetic_vblanks as usize;
+        if rendered_frame_count != frame_index {
+            frame_index = rendered_frame_count;
             runtime
                 .core
                 .mem
@@ -2750,6 +2751,12 @@ mod tests {
         rom
     }
 
+    fn rom_with_code_at_reset(code: &[u8]) -> Vec<u8> {
+        let mut rom = nop_rom();
+        rom[8..8 + code.len()].copy_from_slice(code);
+        rom
+    }
+
     fn assert_close(actual: f32, expected: f32, epsilon: f32) {
         assert!(
             (actual - expected).abs() <= epsilon,
@@ -2772,6 +2779,45 @@ mod tests {
         assert_eq!(probe.final_pc, 0x0000_000C);
         assert_eq!(probe.steps.len(), 2);
         assert!(!probe.accesses.is_empty());
+    }
+
+    #[test]
+    fn probe_rom_reports_nonzero_just_received_damage_as_true() {
+        // Probe ROM: `move.b #1,($FFFFFA73).l; nop`. $FFFFFA73 is the
+        // `Just_received_damage` byte exported by CpuProbe.
+        let rom =
+            rom_with_code_at_reset(&[0x13, 0xFC, 0x00, 0x01, 0x00, 0xFF, 0xFA, 0x73, 0x4E, 0x71]);
+
+        let probe = probe_rom(&rom, 2).expect("probe should execute byte write");
+
+        assert!(probe.just_received_damage);
+    }
+
+    #[test]
+    fn probe_rom_controller_script_advances_once_per_rendered_frame() {
+        // Probe ROM:
+        //   move.b #$7E,($00A10009).l        ; controller ctrl masks every data bit except bit 0
+        // loop:
+        //   move.b ($00A10003).l,($FFFFFA73).l
+        //   bra.s loop
+        //
+        // With active-low controller input, script frame 0 (no buttons) writes 1
+        // and script frame 1 (button bit 0 held) writes 0. The run length is
+        // chosen to cross exactly one synthetic rendered frame, so advancing the
+        // script too early or more than once leaves the final byte non-zero.
+        let rom = rom_with_code_at_reset(&[
+            0x13, 0xFC, 0x00, 0x7E, 0x00, 0xA1, 0x00, 0x09, 0x13, 0xF9, 0x00, 0xA1, 0x00, 0x03,
+            0x00, 0xFF, 0xFA, 0x73, 0x60, 0xF4,
+        ]);
+
+        let probe = super::probe_rom_with_script(&rom, 12_500, &[0x00, 0x01])
+            .expect("probe should run through one rendered frame");
+
+        assert_eq!(probe.synthetic_vblanks, 1);
+        assert!(
+            !probe.just_received_damage,
+            "script frame 1 should hold button bit 0 after exactly one rendered frame"
+        );
     }
 
     #[test]
