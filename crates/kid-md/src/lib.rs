@@ -1466,8 +1466,8 @@ impl MdBus {
 
     fn dma_source_address(&self) -> u32 {
         (((u32::from(self.vdp.registers[0x17] & 0x7F)) << 16)
-            | (u32::from(self.vdp.registers[0x16]) << 8)
-            | u32::from(self.vdp.registers[0x15]))
+            + (u32::from(self.vdp.registers[0x16]) << 8)
+            + u32::from(self.vdp.registers[0x15]))
             << 1
     }
 
@@ -3248,6 +3248,54 @@ mod tests {
         bus.write_vdp_data_word(0xCCDD);
         assert_eq!(bus.vdp.vram[0xFFFF], 0xCC);
         assert_eq!(bus.vdp.vram[0], 0xDD);
+    }
+
+    #[test]
+    fn md_vdp_dma_copies_68k_words_and_fill_values() {
+        // ASM dma68kToVDP emits register $13-$17 DMA setup followed by a
+        // vdpComm(..., VRAM, DMA) control longword.
+        let mut rom = vec![0; 0x200];
+        rom[0x100..0x104].copy_from_slice(&[0x12, 0x34, 0x56, 0x78]);
+        let mut bus = MdBus::with_fresh_z80(&rom);
+        bus.vdp.registers[0x0F] = 2;
+        bus.vdp.registers[0x13] = 2;
+        bus.vdp.registers[0x14] = 0;
+        bus.vdp.registers[0x15] = 0x80;
+        bus.vdp.registers[0x16] = 0;
+        bus.vdp.registers[0x17] = 0;
+        bus.vdp.data_port_code = 0x21;
+        bus.vdp.data_port_address = 0x0020;
+
+        assert_eq!(bus.dma_length_words(), 2);
+        assert_eq!(bus.dma_source_address(), 0x100);
+        assert_eq!(bus.dma_mode(), 0);
+        assert!(MdBus::is_dma_command(0x21));
+        assert!(MdBus::is_dma_command(0x23));
+        assert!(MdBus::is_dma_command(0x25));
+        assert!(!MdBus::is_dma_command(0x01));
+
+        bus.execute_vdp_dma();
+
+        assert_eq!(&bus.vdp.vram[0x20..0x24], &[0x12, 0x34, 0x56, 0x78]);
+        assert_eq!(bus.vdp.data_port_address, 0x0024);
+
+        bus.vdp.registers[0x15] = 0x03;
+        bus.vdp.registers[0x16] = 0x02;
+        bus.vdp.registers[0x17] = 0x01;
+        assert_eq!(bus.dma_source_address(), 0x020406);
+
+        bus.vdp.registers[0x13] = 2;
+        bus.vdp.registers[0x14] = 0;
+        bus.vdp.registers[0x17] = 0x80;
+        bus.vdp.data_port_code = 0x21;
+        bus.vdp.data_port_address = 0x0030;
+        bus.vdp.data_writes.push(0xBEEF);
+
+        assert_eq!(bus.dma_mode(), 2);
+        bus.execute_vdp_dma();
+
+        assert_eq!(&bus.vdp.vram[0x30..0x34], &[0xBE, 0xEF, 0xBE, 0xEF]);
+        assert_eq!(bus.vdp.data_port_address, 0x0034);
     }
 
     #[test]
