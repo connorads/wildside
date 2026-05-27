@@ -8633,6 +8633,110 @@ mod chunk_03 {
     }
 
     #[test]
+    fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 120 << 16, 1);
+        dragon.layout_index = 16;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped);
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEFC hibernates through stru_3CCEC after a lethal stomp instead of deleting immediately"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRAGON_WALKING_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+        assert!(
+            runtime.active_enemy_roster.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0D })
+                    && object.hit_points == Some(0)
+                    && object.wait_timer == Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES)
+            }),
+            "the trace roster should still contain the zero-HP walking dragon so the renderer can draw loc_3CEFC"
+        );
+    }
+
+    #[test]
+    fn stomp_kill_keeps_flying_dragon_death_animation_visible_for_loc_3492c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut dragon = test_enemy(EnemyFamily::Dragon, 100 << 16, 120 << 16, 1);
+        dragon.layout_index = 17;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped);
+        assert!(
+            runtime.active_enemies.is_empty(),
+            "ASM Dragon_Flying.asm loc_3492C removes the interactive parent immediately"
+        );
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(runtime.pending_dragon_death_children.len(), 1);
+        assert_eq!(runtime.pending_dragon_death_animations.len(), 1);
+        assert!(
+            runtime.active_enemy_roster.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0C })
+                    && object.hit_points == Some(0)
+                    && object.wait_timer == Some(DRAGON_FLYING_DEATH_ANIMATION_FRAMES)
+            }),
+            "the trace roster should contain the dying flying dragon so the renderer can draw Dragon_Flying.asm loc_3492C/stru_345E4"
+        );
+    }
+
+    #[test]
     fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);
