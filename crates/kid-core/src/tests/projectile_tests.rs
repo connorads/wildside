@@ -2884,6 +2884,51 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_floor_impact_sub_b000_dispatches_prize_ice_and_metal_entries() {
+        let cases = [
+            (
+                terrain::Cell::from_be_bytes(0xE1, 0x01),
+                RedStealthFloorImpactKindSubB000::Prize,
+                4,
+                "ASM off_B058 entry `$1`: `j_loc_1002E` prize-block helper",
+            ),
+            (
+                terrain::Cell::from_be_bytes(0xE2, 0x02),
+                RedStealthFloorImpactKindSubB000::Ice,
+                5,
+                "ASM off_B058 entry `$2`: `j_IceBlock_SmashAndLoadBullets`",
+            ),
+            (
+                terrain::Cell::from_be_bytes(0xE5, 0x05),
+                RedStealthFloorImpactKindSubB000::MetalBounce,
+                6,
+                "ASM off_B058 entry `$5`: `j_loc_110D0` metal bounce helper",
+            ),
+        ];
+
+        for (cell, expected_kind, col, asm_label) in cases {
+            let mut grid = grid_with_floor_at_row(10);
+            grid.set_cell_at(col, 2, cell);
+
+            let impact = red_stealth_floor_impact_sub_B000(
+                PlayerForm::RedStealth,
+                true,
+                &grid,
+                i32::from(col) * 16 + 8,
+                2 * 16 - 1,
+            );
+
+            assert_eq!(impact.kind, expected_kind, "{asm_label}");
+            assert_eq!(impact.block_col, col, "{asm_label}");
+            assert_eq!(impact.block_row, 2, "{asm_label}");
+            assert_eq!(
+                impact.bounce_y_velocity, -0x0003_8000,
+                "ASM sub_B000 common tail after off_B058 dispatch: `move.l #$FFFC8000,y_vel(a3)`"
+            );
+        }
+    }
+
+    #[test]
     fn red_stealth_floor_impact_sub_b000_bounces_on_teleporters_without_breaking_them() {
         let mut grid = grid_with_floor_at_row(10);
         grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0xE4, 0x11));
