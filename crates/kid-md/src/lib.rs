@@ -4699,6 +4699,166 @@ mod tests {
     }
 
     #[test]
+    fn scanline_sprite_pixel_rgb_applies_priority_bounds_and_local_offsets() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 0, 1, 1, 2);
+        set_tile_pixel(&mut vdp.vram, 40, 3, 2, 3);
+        set_tile_pixel(&mut vdp.vram, 41, 0, 2, 4);
+        set_tile_pixel(&mut vdp.vram, 41, 3, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_cram_colour(&mut vdp.cram, 0x10 + 4, 0xE00);
+        write_sprite_entry(
+            &mut vdp.vram,
+            0x100,
+            0,
+            4,
+            0x0001,
+            0x8000 | 0x2000 | 0x0028,
+            10,
+        );
+        write_sprite_entry(&mut vdp.vram, 0x100, 1, 12, 0x0002, 0x8000, 20);
+        write_sprite_entry(&mut vdp.vram, 0x100, 2, 14, 0x0000, 0x0000, 30);
+        let scan = SpriteLineScan::build(&vdp.vram, 0x100, 16);
+        let line_sprites = scan.sprites_on_line(6);
+
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 6, true),
+            Some([0xFF, 0x00, 0x00]),
+            "VDP sprite pixels should use local x/y offsets after the screen-space hit test"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 6, false),
+            None,
+            "VDP sprite priority bit must reject the opposite priority pass"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 9, 6, true),
+            None,
+            "VDP sprite left edge is inclusive but pixels before it must miss"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 18, 6, true),
+            None,
+            "VDP sprite right edge is exclusive"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 3, true),
+            None,
+            "VDP sprite top edge is inclusive but pixels above it must miss"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 12, true),
+            None,
+            "VDP sprite bottom edge is exclusive"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, scan.sprites_on_line(13), 21, 13, true),
+            Some([0x00, 0xFF, 0x00]),
+            "A high-priority sprite with no other pattern bits still has its priority bit tested by mask"
+        );
+        assert_eq!(
+            super::scanline_sprite_pixel_rgb(&vdp, &scan, scan.sprites_on_line(15), 31, 15, false),
+            Some([0x00, 0xFF, 0x00]),
+            "A low-priority sprite with no other pattern bits must remain visible in the low-priority pass"
+        );
+    }
+
+    #[test]
+    fn sprite_tile_pixel_rgb_decodes_palette_column_major_tiles_and_flip_bits() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 13, 1, 2, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        let pattern = 0x4000 | 0x000A;
+
+        assert_eq!(
+            super::sprite_tile_pixel_rgb(&vdp, pattern, 2, 2, 9, 10),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP multi-tile sprites are indexed by column then row from the base pattern"
+        );
+        assert_eq!(
+            super::sprite_tile_pixel_rgb(&vdp, pattern | 0x0800, 2, 2, 6, 10),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP sprite hflip mirrors local x across the full sprite width"
+        );
+        assert_eq!(
+            super::sprite_tile_pixel_rgb(&vdp, pattern | 0x1000, 2, 2, 9, 5),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP sprite vflip mirrors local y across the full sprite height"
+        );
+    }
+
+    #[test]
+    fn tile_pixel_rgb_applies_entry_flip_bits() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 8, 6, 5, 4);
+        write_cram_colour(&mut vdp.cram, 0x20 + 4, 0xE00);
+        let entry = 0x4000 | 8;
+
+        assert_eq!(
+            super::tile_pixel_rgb(&vdp, entry | 0x0800, 1, 5),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP tile hflip mirrors x within the 8x8 tile"
+        );
+        assert_eq!(
+            super::tile_pixel_rgb(&vdp, entry | 0x1000, 6, 2),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP tile vflip mirrors y within the 8x8 tile"
+        );
+    }
+
+    #[test]
+    fn vdp_window_and_sprite_table_registers_decode_masks_and_shifts() {
+        let mut registers = [0; 0x20];
+        registers[0x0C] = 0x81;
+        registers[3] = 0xBF;
+        registers[5] = 0xFF;
+        assert_eq!(super::window_plane_base(&registers), 0x3E << 10);
+        assert_eq!(super::sprite_table_base(&registers), 0x7E << 9);
+
+        registers[0x0C] = 0x00;
+        registers[3] = 0xBF;
+        registers[5] = 0xFF;
+        assert_eq!(super::window_plane_base(&registers), 0x3C << 10);
+        assert_eq!(super::sprite_table_base(&registers), 0x7F << 9);
+    }
+
+    #[test]
+    fn window_region_decodes_left_right_top_bottom_and_empty_regions() {
+        let mut registers = [0; 0x20];
+        registers[0x11] = 0x82;
+        registers[0x12] = 0x83;
+        assert_eq!(
+            super::window_region(&registers, 80, 64),
+            Some(WindowRegion {
+                left: 32,
+                top: 24,
+                width: 48,
+                height: 40,
+            }),
+            "VDP right/bottom window bits make the window start at the encoded cell position"
+        );
+
+        registers[0x11] = 0x02;
+        registers[0x12] = 0x03;
+        assert_eq!(
+            super::window_region(&registers, 80, 64),
+            Some(WindowRegion {
+                left: 0,
+                top: 0,
+                width: 32,
+                height: 24,
+            }),
+            "VDP left/top window mode covers the leading screen region up to the encoded position"
+        );
+
+        registers[0x11] = 0x80 | 0x1F;
+        registers[0x12] = 0x01;
+        assert_eq!(super::window_region(&registers, 80, 64), None);
+    }
+
+    #[test]
     fn plane_dimensions_decode_vdp_size_register_axes_independently() {
         assert_eq!(super::plane_dimensions(0x00), (32, 32));
         assert_eq!(super::plane_dimensions(0x01), (64, 32));
