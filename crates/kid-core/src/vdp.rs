@@ -482,6 +482,13 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 1 {
         overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed);
     }
+    if segment == 2 && elapsed < INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
+        // ASM Load_IntroSequence3 -> sub_1B93E enters the shared sub_1C204
+        // fade shell before loc_1AEEC's roster objects are visible. The VRAM
+        // rebuild exists, but oracle frames remain black until the hidden
+        // fade/rebuild window reaches the first visible roster frame.
+        vdp.cram.fill(0);
+    }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(
             &mut vdp,
@@ -2181,6 +2188,11 @@ mod tests {
         u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
     }
 
+    fn cram_word(vdp: &VdpState, word_offset: usize) -> u16 {
+        let byte_addr = word_offset * 2;
+        u16::from_be_bytes([vdp.cram[byte_addr], vdp.cram[byte_addr + 1]])
+    }
+
     fn sprite_entry_words(vdp: &VdpState, entry_index: usize) -> (u16, u8, u8, u16, u16) {
         let entry_base = 0x1000 + entry_index * 8;
         (
@@ -2269,6 +2281,41 @@ mod tests {
             sprite_entry_words(&vdp, 0),
             (0, 0, 0, 0, 0),
             "Trace-backed Load_IntroSequence3 hidden rebuild should not populate the sprite table before loc_1AEEC's visible roster frame",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_sub_1C204_keeps_palette_black_before_visible_elapsed() {
+        let data = IntroSub1B850Data {
+            palette_segment_0: vec![0x0EEE; 0x40],
+            ..empty_intro_data()
+        };
+
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES - 4,
+            1,
+        );
+        assert_eq!(
+            cram_word(&before, 1),
+            0,
+            "ASM sub_1B93E enters sub_1C204's hidden fade shell before loc_1AEEC exposes the Wild Side roster, so early intro-sequence-3 CRAM should stay black",
+        );
+
+        let visible = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+        assert_eq!(
+            cram_word(&visible, 1),
+            0x0EEE,
+            "ASM loc_1AEEC's first visible roster frame should use the loaded Pal_1C28A colours rather than the hidden sub_1C204 black palette",
         );
     }
 
