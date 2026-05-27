@@ -3467,6 +3467,32 @@ mod tests {
     }
 
     #[test]
+    fn z80_reset_count_edges_and_busack_truth_table_are_explicit() {
+        // ASM Stop_z80/Start_z80 use $A11100 bus request, while boot reset
+        // handling toggles $A11200; busack is visible only when request is set
+        // and reset is released.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.set_z80_reset(true);
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert!(!bus.z80_busack());
+
+        bus.set_z80_reset(false);
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert!(!bus.z80_busack());
+
+        bus.set_z80_reset(false);
+        assert_eq!(bus.z80_reset_count(), 0);
+
+        bus.set_z80_busreq(true);
+        assert!(bus.z80_busack());
+
+        bus.set_z80_reset(true);
+        assert_eq!(bus.z80_reset_count(), 1);
+        assert!(!bus.z80_busack());
+    }
+
+    #[test]
     fn z80_reset_does_not_reset_sound_chip_state() {
         let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
