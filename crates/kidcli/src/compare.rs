@@ -1006,6 +1006,7 @@ pub(crate) fn native_trace_to_oracle_state(
     frame_index: usize,
     frame: &NativeTraceFrame,
 ) -> OracleState {
+    let hidden_player = frame.kid_x_pos.is_none() || frame.kid_y_pos.is_none();
     let main_menu_option = match frame.game_mode {
         kid_core::GameMode::TitleScreen => frame.options_cursor,
         kid_core::GameMode::OptionsMenu => frame.options_cursor,
@@ -1038,9 +1039,13 @@ pub(crate) fn native_trace_to_oracle_state(
         number_diamonds: frame.diamond_count,
         diamond_power_active: frame.diamond_power_active,
         murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
-        kid_x_vel: frame.kid_x_velocity,
-        kid_y_vel: frame.kid_y_velocity,
-        character_movement: frame.character_movement,
+        // ASM WRAM keeps the player position/motion mirrors allocated during
+        // hidden boot/title shells. Native trace hides the player pose as
+        // `None`, so normalise the raw motion mirrors to the same zeroes used
+        // by the oracle instead of mixing zero position with absent movement.
+        kid_x_vel: frame.kid_x_velocity.or(hidden_player.then_some(0)),
+        kid_y_vel: frame.kid_y_velocity.or(hidden_player.then_some(0)),
+        character_movement: frame.character_movement.or(hidden_player.then_some(0)),
         just_received_damage: Some(frame.just_received_damage),
         kid_collision_type: None,
         kid_collision_source: None,
@@ -1132,9 +1137,9 @@ pub(crate) fn compare_native_states_against_oracle(
 ) -> Result<()> {
     const ENEMY_POSITION_TOLERANCE: u32 = 0x0010_0000;
     const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
-    let compare_enemy_snapshots = oracle_states
-        .iter()
-        .any(|state| !state.active_enemies.is_empty());
+    let compare_enemy_snapshots = oracle_states.iter().any(|state| {
+        gameplay_object_roster_is_authoritative(state) && !state.active_enemies.is_empty()
+    });
     let native_enemy_labels = native_states
         .iter()
         .filter(|state| !state.active_enemies.is_empty())
@@ -1250,6 +1255,7 @@ pub(crate) fn compare_native_states_against_oracle(
         let level_complete_visual_checkpoint =
             is_level_complete_visual_worker_checkpoint(native.label.as_str());
         if !level_complete_visual_checkpoint
+            && gameplay_object_roster_is_authoritative(oracle)
             && (native.number_objects.abs_diff(oracle.number_objects) > 1
                 || native
                     .number_gfx_objects
@@ -1287,7 +1293,10 @@ pub(crate) fn compare_native_states_against_oracle(
                 run_dir.display()
             );
         }
-        if compare_enemy_snapshots && !level_complete_visual_checkpoint {
+        if compare_enemy_snapshots
+            && !level_complete_visual_checkpoint
+            && gameplay_object_roster_is_authoritative(oracle)
+        {
             compare_enemy_snapshots_against_oracle(
                 run_dir,
                 native.label.as_str(),
@@ -1328,6 +1337,12 @@ fn is_level_complete_visual_worker_checkpoint(label: &str) -> bool {
         label,
         "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail"
     )
+}
+
+fn gameplay_object_roster_is_authoritative(state: &OracleState) -> bool {
+    let in_game = kid_core::GameMode::InGame.as_disassembly_value();
+    let demo_play = kid_core::GameMode::DemoPlay.as_disassembly_value();
+    matches!(state.game_mode, mode if mode == in_game || mode == demo_play)
 }
 
 pub(crate) fn compare_enemy_snapshots_against_oracle(
@@ -1628,6 +1643,37 @@ mod tests {
         compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
             "ASM loc_C21E/sub_C254 and loc_D4CE/loc_D770 EOL visual workers are rendered from native overlay state, not core object slots",
         );
+    }
+
+    #[test]
+    fn compare_native_states_ignores_intro_object_roster_counts() {
+        let run_dir = Path::new("/tmp/boot-title-idle10s");
+        let mut native = oracle_state("title_tail", 599, 0x0004);
+        native.number_objects = 0;
+        native.number_gfx_objects = 0;
+        let mut oracle = native.clone();
+        oracle.number_objects = 2;
+        oracle.number_gfx_objects = 0;
+
+        compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
+            "ASM Load_IntroSequence1 title workers are not authoritative gameplay roster counts",
+        );
+    }
+
+    #[test]
+    fn compare_native_states_still_rejects_gameplay_object_roster_counts() {
+        let run_dir = Path::new("/tmp/gameplay-object-roster");
+        let mut native = oracle_state("level_settle", 719, 0x000C);
+        native.number_objects = 0;
+        native.number_gfx_objects = 0;
+        let mut oracle = native.clone();
+        oracle.number_objects = 3;
+        oracle.number_gfx_objects = 3;
+
+        let error = compare_native_states_against_oracle(run_dir, &[native], &[oracle])
+            .expect_err("gameplay object-count drift should still fail");
+
+        assert!(format!("{error:#}").contains("object counts"));
     }
 
     #[test]

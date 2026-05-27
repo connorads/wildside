@@ -2724,10 +2724,19 @@ AddrTbl_LevelNames:
         frame_index: usize,
         active_enemies: Vec<OracleEnemyState>,
     ) -> OracleState {
+        oracle_state_with_game_mode(label, frame_index, 0x000C, active_enemies)
+    }
+
+    fn oracle_state_with_game_mode(
+        label: &str,
+        frame_index: usize,
+        game_mode: u16,
+        active_enemies: Vec<OracleEnemyState>,
+    ) -> OracleState {
         OracleState {
             label: label.to_owned(),
             frame_index,
-            game_mode: 0x000C,
+            game_mode,
             boot_phase: None,
             boot_phase_elapsed: None,
             title_screen_ready: false,
@@ -2910,6 +2919,23 @@ AddrTbl_LevelNames:
         assert_eq!(state.active_enemies[1].facing, EnemyFacing::Left);
         assert_eq!(state.character_movement, None);
         assert_eq!(state.just_received_damage, Some(false));
+
+        let mut hidden_frame = frame.clone();
+        hidden_frame.kid_x_pos = None;
+        hidden_frame.kid_y_pos = None;
+        hidden_frame.kid_x_velocity = None;
+        hidden_frame.kid_y_velocity = None;
+        hidden_frame.character_movement = None;
+        let hidden_state = native_trace_to_oracle_state("title", 360, &hidden_frame);
+        assert_eq!(hidden_state.kid_x_pos, 0);
+        assert_eq!(hidden_state.kid_y_pos, 0);
+        assert_eq!(hidden_state.kid_x_vel, Some(0));
+        assert_eq!(hidden_state.kid_y_vel, Some(0));
+        assert_eq!(
+            hidden_state.character_movement,
+            Some(0),
+            "ASM WRAM keeps hidden boot/title motion mirrors as standingstill; native oracle-state export should match the gameplay capture normalisation",
+        );
     }
 
     #[test]
@@ -3019,6 +3045,56 @@ AddrTbl_LevelNames:
 
         compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
             .expect("missing oracle enemy snapshots should skip the per-enemy compare");
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_ignores_intro_gfx_object_snapshots() {
+        let run_dir = TempDir::new().expect("run dir");
+        let native = vec![oracle_state_with_game_mode(
+            "title",
+            360,
+            GameMode::IntroSequence1.as_disassembly_value(),
+            Vec::new(),
+        )];
+        let oracle = vec![oracle_state_with_game_mode(
+            "title",
+            360,
+            GameMode::IntroSequence1.as_disassembly_value(),
+            vec![oracle_enemy(
+                0x30,
+                0x0000_0000,
+                0x0000_0000,
+                0,
+                0,
+                EnemyFacing::Left,
+            )],
+        )];
+
+        compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
+            .expect("ASM Load_IntroSequence1 title gfx workers are not gameplay enemy snapshots");
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_still_rejects_gameplay_enemy_count() {
+        let run_dir = TempDir::new().expect("run dir");
+        let native = vec![oracle_state("enemy_window_open", 810, Vec::new())];
+        let oracle = vec![oracle_state(
+            "enemy_window_open",
+            810,
+            vec![oracle_enemy(
+                0x1C,
+                0x0030_0000,
+                0x0010_0000,
+                -0x0001_8000,
+                -0x0002_0000,
+                EnemyFacing::Left,
+            )],
+        )];
+
+        let error = compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
+            .expect_err("gameplay enemy count drift should still fail");
+
+        assert!(format!("{error:#}").contains("enemy count"));
     }
 
     #[test]
