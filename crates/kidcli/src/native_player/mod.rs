@@ -2739,6 +2739,7 @@ mod tests {
                     sample_player_frame(6),
                     sample_player_frame(7),
                 ],
+                charge: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(25),
                     sample_player_frame(26),
@@ -2788,6 +2789,7 @@ mod tests {
                     sample_player_frame(15),
                     sample_player_frame(16),
                 ],
+                charge: Vec::new(),
                 slope_walk: Vec::new(),
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
@@ -2823,6 +2825,7 @@ mod tests {
                 },
                 idle: sample_player_frame(21),
                 walk: vec![sample_player_frame(22)],
+                charge: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(38),
                     sample_player_frame(39),
@@ -2878,6 +2881,14 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            charge: vec![
+                sample_player_frame(40),
+                sample_player_frame(41),
+                sample_player_frame(42),
+                sample_player_frame(43),
+                sample_player_frame(44),
+                sample_player_frame(45),
+            ],
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -2899,7 +2910,7 @@ mod tests {
         let frame = sprites::select_player_frame(&trace, &visuals);
 
         assert_eq!(
-            frame.tile_sheet.tiles[0].pixels[0], 13,
+            frame.tile_sheet.tiles[0].pixels[0], 43,
             "ASM sub_942A loc_9564: off_9688 index is `$FFFFF8F0 >> 8`, so $0308 selects phase 3"
         );
     }
@@ -2919,6 +2930,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            charge: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),

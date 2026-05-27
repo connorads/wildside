@@ -2702,6 +2702,14 @@ const BERZERKER_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/berzerker_walk_5.bin", 0x0F, 0x01, 0x1B, 0x23),
     pfd("artunc_kid/berzerker_walk_6.bin", 0x0F, 0x01, 0x1B, 0x23),
 ];
+const BERZERKER_CHARGE_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/berzerker_run_1.bin", 0x14, 0x01, 0x28, 0x1B),
+    pfd("artunc_kid/berzerker_run_2.bin", 0x14, -0x01, 0x27, 0x1A),
+    pfd("artunc_kid/berzerker_run_3.bin", 0x14, 0x01, 0x27, 0x1A),
+    pfd("artunc_kid/berzerker_run_4.bin", 0x14, 0x01, 0x28, 0x1B),
+    pfd("artunc_kid/berzerker_run_5.bin", 0x14, -0x01, 0x27, 0x1A),
+    pfd("artunc_kid/berzerker_run_6.bin", 0x14, 0x01, 0x27, 0x1A),
+];
 const BERZERKER_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 10] = [
     tfd(15, KID_WALK_4_FRAME),
     tfd(
@@ -3484,6 +3492,7 @@ fn load_juggernaut_form_visuals_if_present(
             .zip(JUGGERNAUT_BOTTOM_WALK_FRAMES.iter())
             .map(|(&head, &bottom)| load_composite_player_frame(manifest, &[head, bottom]))
             .collect::<Result<Vec<_>>>()?,
+        charge: Vec::new(),
         slope_walk: Vec::new(),
         slope_walk_left: Vec::new(),
         jump_rise: load_composite_player_frame(
@@ -3564,6 +3573,13 @@ fn load_player_form_visuals(
             .copied()
             .map(|descriptor| load_player_frame(manifest, descriptor))
             .collect::<Result<Vec<_>>>()?,
+        charge: if spec.form_id == PLAYER_FORM_BERZERKER {
+            // ASM loc_9564 indexes off_9688, which is a separate Berzerker
+            // run/head-forward table rather than the normal off_967C walk art.
+            load_player_frames(manifest, &BERZERKER_CHARGE_FRAMES)?
+        } else {
+            Vec::new()
+        },
         slope_walk: spec
             .slope_walk
             .iter()

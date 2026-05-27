@@ -566,14 +566,20 @@ pub(super) fn select_player_frame<'a>(
             };
             let frame_index = (trace.frame_index / 4) % slope_frames.len();
             &slope_frames[frame_index]
+        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+            && trace.berzerker_charging
+            && !player_visuals.charge.is_empty()
+        {
+            // ASM loc_9564: Berzerker charge indexes off_9688
+            // (`berzerker_run_*`), not the normal off_967C walk table.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
+            &player_visuals.charge[frame_index]
         } else {
-            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id()
-                || (trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-                    && trace.berzerker_charging)
-            {
-                // ASM loc_94B4/loc_97E8 (Juggernaut) and loc_9564
-                // (Berzerker charge) index their walking/head-forward tables
-                // with `$FFFFF8F0 >> 8`.
+            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {
+                // ASM loc_94B4/loc_97E8: Juggernaut indexes the
+                // walking/head-forward companion tables with
+                // `$FFFFF8F0 >> 8`.
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len()
             } else {
                 (trace.frame_index / 4) % player_visuals.walk.len()
