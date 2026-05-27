@@ -3605,6 +3605,29 @@ mod tests {
     }
 
     #[test]
+    fn z80_banked_read_trace_stops_at_limit() {
+        // Z80 banked 68k probes feed oracle comparison traces; the trace cap
+        // must stop exactly at TRACE_LIMIT, not one read later.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut
+                .banked_68k_reads
+                .resize(TRACE_LIMIT - 1, (0x0000_0000, 0));
+        }
+        let z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0xA5; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0xA5);
+        assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
+        assert_eq!(z80_bus.read_byte(0x8001), 0xA5);
+        assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
+    }
+
+    #[test]
     fn z80_io_ports_are_not_wired_to_the_psg() {
         let shared = Rc::new(RefCell::new(Z80Shared::default()));
         let mut bus = Z80Bus {
