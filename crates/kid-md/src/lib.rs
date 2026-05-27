@@ -1438,9 +1438,9 @@ impl MdBus {
     }
 
     fn configure_vdp_command(&mut self, first_word: u16, second_word: u16) {
-        let command = (u32::from(first_word) << 16) | u32::from(second_word);
-        let code = (((command >> 30) & 0x3) as u8) | (((command >> 2) & 0xFC) as u8);
-        let address = (((command >> 16) & 0x3FFF) as u16) | (((command & 0x3) as u16) << 14);
+        let command = (u32::from(first_word) << 16) + u32::from(second_word);
+        let code = (((command >> 30) & 0x3) as u8) + (((command >> 2) & 0xFC) as u8);
+        let address = (((command >> 16) & 0x3FFF) as u16) + (((command & 0x3) as u16) << 14);
         self.vdp.data_port_code = code;
         self.vdp.data_port_address = address;
 
@@ -3217,6 +3217,37 @@ mod tests {
         bus.write_vdp_byte(0x00C0_0006, 0x8F);
         assert_eq!(bus.vdp_control_writes(), vec![0x8F8F]);
         assert_eq!(bus.vdp.registers[0x0F], 0x8F);
+    }
+
+    #[test]
+    fn md_vdp_command_words_decode_address_code_and_data_writes() {
+        // ASM VDPGameInitValues writes vdpComm(..., VRAM/CRAM/VSRAM, WRITE)
+        // longwords to VDP_control_port before sending data to VDP_data_port.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.configure_vdp_command(0x4123, 0x0002);
+        assert_eq!(bus.vdp.data_port_code, 0x01);
+        assert_eq!(bus.vdp.data_port_address, 0x8123);
+
+        bus.vdp.registers[0x0F] = 4;
+        bus.write_vdp_data_word(0xA1B2);
+        assert_eq!(bus.vdp_data_writes(), vec![0xA1B2]);
+        assert_eq!(bus.vdp.vram[0x8123], 0xA1);
+        assert_eq!(bus.vdp.vram[0x8124], 0xB2);
+        assert_eq!(bus.vdp.data_port_address, 0x8127);
+
+        bus.configure_vdp_command(0xC000, 0x0000);
+        bus.write_vdp_data_raw(0x0EEE);
+        assert_eq!(&bus.vdp.cram[0..2], &[0x0E, 0xEE]);
+
+        bus.configure_vdp_command(0x4000, 0x0010);
+        bus.write_vdp_data_raw(0x0014);
+        assert_eq!(&bus.vdp.vsram[0..2], &[0x00, 0x14]);
+
+        bus.configure_vdp_command(0x7FFF, 0x0003);
+        bus.write_vdp_data_word(0xCCDD);
+        assert_eq!(bus.vdp.vram[0xFFFF], 0xCC);
+        assert_eq!(bus.vdp.vram[0], 0xDD);
     }
 
     #[test]
