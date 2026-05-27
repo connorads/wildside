@@ -918,7 +918,7 @@ impl MdRuntime {
             self.z80.clr_irq();
             return;
         }
-        while remaining_cycles > 0 {
+        loop {
             self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_cursor;
             if self.z80_vblank_irq_cycles_remaining != 0 {
                 self.z80.assert_irq(0xFF);
@@ -934,7 +934,7 @@ impl MdRuntime {
             if elapsed_budget >= remaining_cycles {
                 break;
             }
-            remaining_cycles -= elapsed_budget;
+            remaining_cycles = remaining_cycles.saturating_sub(elapsed_budget);
         }
         self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
         if self.z80_vblank_irq_cycles_remaining == 0 {
@@ -2892,6 +2892,55 @@ mod tests {
 
         assert_eq!(samples.len(), 128);
         assert!(samples.iter().all(|sample| sample.abs() <= f32::EPSILON));
+    }
+
+    #[test]
+    fn step_z80_reset_path_advances_audio_clock_and_latches_reset() {
+        // ASM $00025C/WaitForZ80 writes Z80_Reset while boot code polls Z80_Bus_Request.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        runtime.step_z80(0);
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 1);
+        assert!(runtime.z80_reset_asserted);
+        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 0);
+
+        runtime.step_z80(15);
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 8);
+    }
+
+    #[test]
+    fn step_z80_bus_request_advances_audio_clock_without_running_cpu() {
+        // ASM Stop_z80/Start_z80 use $A11100 bus request to pause and resume Z80 ownership.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        {
+            let mut shared = runtime.core.mem.z80_shared.borrow_mut();
+            shared.reset = false;
+            shared.busreq = true;
+            shared.z80_cycles = 10;
+        }
+        runtime.z80_reset_asserted = true;
+
+        runtime.step_z80(30);
+
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 24);
+        assert!(!runtime.z80_reset_asserted);
+    }
+
+    #[test]
+    fn step_z80_running_path_consumes_budget_and_counts_down_vblank_irq() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        {
+            let mut shared = runtime.core.mem.z80_shared.borrow_mut();
+            shared.reset = false;
+            shared.busreq = false;
+            shared.z80_cycles = 0;
+        }
+        runtime.z80_vblank_irq_cycles_remaining = 3;
+
+        runtime.step_z80(30);
+
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 14);
+        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 0);
     }
 
     #[test]
