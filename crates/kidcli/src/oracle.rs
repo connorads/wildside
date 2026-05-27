@@ -610,3 +610,19 @@ fn quote_argument(value: &OsStr) -> String {
         format!("{rendered:?}")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::HELPER_TEMPLATE;
+
+    #[test]
+    fn helper_settles_level_zero_recording_oracles() {
+        assert!(
+            HELPER_TEMPLATE.contains("if target_level == 0")
+                && HELPER_TEMPLATE.contains("settle_title_card_target_level")
+                && HELPER_TEMPLATE.contains("ASM loc_1AE2E")
+                && HELPER_TEMPLATE.contains("read_game_mode(emulator) != 0x0008"),
+            "settled Level 00 recording oracles must dismiss the title card before scenario frame 0"
+        );
+    }
+}

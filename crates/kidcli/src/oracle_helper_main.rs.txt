@@ -1269,6 +1269,19 @@ fn boot_and_warp_oracle(
         tick_one_frame(emulator, renderer, audio, &inputs, save_writer)?;
     }
 
+    if target_level == 0 {
+        if settle_oracle_warp {
+            settle_title_card_target_level(
+                emulator,
+                renderer,
+                audio,
+                save_writer,
+                target_level,
+            )?;
+        }
+        return Ok(());
+    }
+
     // Only warp if target is not level 0 (we're already there after boot).
     if target_level != 0 {
         // Enable the level skip cheat by writing directly to work RAM.
@@ -1441,6 +1454,68 @@ fn boot_and_warp_oracle(
                 tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
             }
         }
+    }
+
+    Ok(())
+}
+
+fn settle_title_card_target_level(
+    emulator: &mut GenesisEmulator,
+    renderer: &mut CaptureRenderer,
+    audio: &mut AudioCollector,
+    save_writer: &mut NullSaveWriter,
+    target_level: u8,
+) -> Result<()> {
+    let no_input = GenesisInputs::default();
+
+    // Settled recording oracles must mirror native `enter_level_playtest`,
+    // which starts from live gameplay. Booting to level 0 stops on the title
+    // card. ASM loc_1AE2E waits on `bclr #Button_Start,(Ctrl_Pressed)`
+    // before writing Game_Mode=$000C, so keep pulsing Start until that
+    // object has consumed a real pressed edge.
+    for _ in 0..120 {
+        tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+    }
+
+    let start_input = GenesisInputs {
+        p1: GenesisJoypadState {
+            start: true,
+            ..GenesisJoypadState::default()
+        },
+        p2: GenesisJoypadState::default(),
+    };
+    clear_input_latches(emulator);
+    for _ in 0..120 {
+        if read_game_mode(emulator) != 0x0008 {
+            break;
+        }
+        tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
+    }
+    clear_input_latches(emulator);
+
+    let mut stable_target_frames = 0usize;
+    for _ in 0..900 {
+        if read_game_mode(emulator) == 0x000C
+            && read_current_level_id(emulator) == u16::from(target_level)
+            && !read_game_paused(emulator)
+        {
+            stable_target_frames += 1;
+            if stable_target_frames >= 60 {
+                break;
+            }
+        } else {
+            stable_target_frames = 0;
+        }
+        if read_game_mode(emulator) == 0x000C
+            && read_current_level_id(emulator) == u16::from(target_level)
+            && read_game_paused(emulator)
+        {
+            tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
+            clear_input_latches(emulator);
+            stable_target_frames = 0;
+        }
+        tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+        clear_input_latches(emulator);
     }
 
     Ok(())
