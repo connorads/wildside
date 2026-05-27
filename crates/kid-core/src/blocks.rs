@@ -2043,7 +2043,13 @@ impl NativeRuntime {
         let trigger = self
             .block_grid
             .as_ref()
-            .and_then(|grid| Self::evanescent_hitbox_trigger_loc_EAE4(slice, grid))
+            .and_then(|grid| {
+                Self::evanescent_hitbox_trigger_loc_EAE4(
+                    slice,
+                    grid,
+                    self.progression.current_form.half_width(),
+                )
+            })
             .filter(|(col, row, _)| {
                 !self
                     .block_state
@@ -2086,6 +2092,7 @@ impl NativeRuntime {
     fn evanescent_hitbox_trigger_loc_EAE4(
         slice: &OpeningSliceState,
         grid: &terrain::BlockGrid,
+        collision_half_width: i32,
     ) -> Option<(u16, u16, u8)> {
         let grid_width_pixels = u16::try_from(grid.width_pixels()).ok()?;
         let grid_height_pixels = u16::try_from(grid.height_pixels()).ok()?;
@@ -2108,9 +2115,11 @@ impl NativeRuntime {
         }
         let vertical_rows =
             crate::level::evanescent_bullet_vertical_rows_loc_EB0C(top_px, bottom_px);
-        let left_px = u16::try_from((x_px - PLAYER_HALF_WIDTH).saturating_sub(1).max(0)).ok()?;
+        // ASM loc_EAE4 scans `Kid_hitbox_left/right`, whose horizontal half-width
+        // comes from sub_B41C/unk_B408 for the current helmet form.
+        let left_px = u16::try_from((x_px - collision_half_width).saturating_sub(1).max(0)).ok()?;
         let right_px = crate::level::evanescent_bullet_right_clamp_loc_EB2A(
-            u16::try_from((x_px + PLAYER_HALF_WIDTH).max(0)).ok()?,
+            u16::try_from((x_px + collision_half_width).max(0)).ok()?,
             level_width_pixels,
         )
         .right_px;

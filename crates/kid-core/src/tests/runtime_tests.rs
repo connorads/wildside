@@ -7629,6 +7629,35 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_juggernaut_touch_reaches_ea1e_evanescent_shooter_loc_eae4() {
+        // ASM loc_EAE4 scans the live `Kid_hitbox_left/right` words, which
+        // already include sub_B41C's per-form half-width. Highwater Pass 1's
+        // first touch-then-shoot column includes `$EA1E`; Juggernaut's `$17`
+        // half-width reaches it while The Kid's `$05` half-width would not.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xEA, 0x1E)]));
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = 56 << 16;
+        slice.player.y_pos = 64 << 16;
+        rt.step_evanescent_blocks(&slice);
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_EAE4 should use Juggernaut's live hitbox width and trigger the adjacent `$EA1E` shooter"
+        );
+        assert_eq!(rt.projectiles[0].x_velocity, 4 << 16);
+        assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert_eq!(
+            rt.block_grid.as_ref().unwrap().cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0xE3, 0x1E),
+            "ASM EvanescentBlock_Trigger rewrites the triggered shooter high byte to `$E3` while preserving the direction skin"
+        );
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());
