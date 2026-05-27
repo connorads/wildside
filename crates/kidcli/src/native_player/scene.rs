@@ -1907,11 +1907,12 @@ pub(super) fn layered_background_row_wraps_for_trace_loc_3050a(
     level_visuals: &NativeLevelVisuals,
     y_tiles: usize,
 ) -> bool {
-    // ASM CharacterCollision_TouchFlagpole loc_C070 hibernates before the
-    // score-room setup while native already reports `level_complete` for that
-    // frozen hand-off frame. Keep layered background rows finite there; normal
-    // gameplay keeps the camera-parallax repetition from loc_3050A.
-    !trace.level_complete && layered_background_row_wraps_loc_3050a(level_visuals, y_tiles)
+    // ASM CharacterCollision_TouchFlagpole loc_C070 starts a frozen flagpole
+    // hand-off. Native reports `level_complete` on the same flag-touch trace
+    // tick, but oracle pixels still contain the previous Scroll B frame only
+    // for elapsed=0; later hand-off frames stop repeating the forest rows.
+    (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
+        && layered_background_row_wraps_loc_3050a(level_visuals, y_tiles)
 }
 
 pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) -> i32 {
@@ -2442,11 +2443,13 @@ fn build_game_scene_filtered(
 
     if eol_hologram_visible {
         push_eol_hologram_room(&mut commands, level_visuals);
-    } else if filter.background && !trace.level_complete {
-        // ASM CharacterCollision_TouchFlagpole loc_C070 writes VDP register
-        // $8407 before the $24-frame hibernate, moving Scroll B to the
-        // score-room nametable. Do not redraw ordinary level background rows
-        // during that frozen hand-off.
+    } else if filter.background
+        && (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
+    {
+        // ASM CharacterCollision_TouchFlagpole loc_C070 starts the flagpole
+        // hand-off, but the oracle frame at native `level_complete_elapsed=0`
+        // still contains the previous Scroll B frame. Suppress ordinary Scroll
+        // B during the later pre-hologram hibernate frames.
         push_background_tiles(&mut commands, trace, level_visuals);
     }
     if filter.terrain {
@@ -2527,7 +2530,7 @@ fn build_game_scene_filtered(
     }
 
     if !eol_hologram_visible && filter.effects {
-        if !trace.level_complete
+        if (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
             && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
         {
             // ASM Flagpole_Boss (kid.asm:15592) allocates exactly two

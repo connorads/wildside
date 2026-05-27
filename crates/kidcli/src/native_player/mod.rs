@@ -5014,7 +5014,7 @@ mod tests {
     }
 
     #[test]
-    fn level_complete_handoff_suppresses_level_background_scroll_b_loc_c070() {
+    fn level_complete_handoff_keeps_flag_touch_background_for_first_frame_loc_c070() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
@@ -5036,13 +5036,25 @@ mod tests {
         trace.level_complete_elapsed_frames = 0;
         let handoff_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
         assert!(
-            !handoff_scene.commands.iter().any(|command| {
+            handoff_scene.commands.iter().any(|command| {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { .. } | DrawCommand::IndexedTileRow { .. }
                 )
             }),
-            "ASM loc_C070 switches Scroll B to the score-room nametable before the $24-frame hibernate, so native must not redraw ordinary level background during the flag-touch hand-off"
+            "ASM loc_C070 begins the flagpole hand-off, but oracle pixels at native elapsed=0 still show the previous Scroll B frame"
+        );
+
+        trace.level_complete_elapsed_frames = 1;
+        let pre_hologram_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
+        assert!(
+            !pre_hologram_scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { .. } | DrawCommand::IndexedTileRow { .. }
+                )
+            }),
+            "later loc_C070/loc_C0CC hand-off frames should not keep repeating ordinary Scroll B before loc_C186 draws the EOL room"
         );
     }
 
@@ -5126,9 +5138,40 @@ mod tests {
         );
 
         trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+        assert!(
+            super::scene::layered_background_row_wraps_for_trace_loc_3050a(&trace, &visuals, 0),
+            "oracle flag-touch pixels still show wrapped forest Scroll B rows at elapsed=0"
+        );
+
+        trace.level_complete_elapsed_frames = 1;
         assert!(
             !super::scene::layered_background_row_wraps_for_trace_loc_3050a(&trace, &visuals, 0),
-            "ASM loc_C070 freezes the pre-score-room hand-off before native should repeat layered background rows"
+            "later pre-hologram flagpole frames stop repeating forest Scroll B rows"
+        );
+    }
+
+    #[test]
+    fn level_complete_handoff_keeps_flag_sprite_for_first_frame_loc_c070() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0730_0000;
+        trace.camera_y_pos = 0x02D0_0000;
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 120)
+            }),
+            "ASM loc_C070 has just entered the flagpole hand-off, so the oracle still shows the waving flag sprite on elapsed=0"
+        );
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4)
+            }),
+            "ASM Flagpole_Boss pole-bottom sprite remains visible on the elapsed=0 flag-touch frame"
         );
     }
 
