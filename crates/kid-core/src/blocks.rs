@@ -435,6 +435,17 @@ pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
 }
 
 impl NativeRuntime {
+    fn is_shooter_slot_source_cell_loc_11430(cell: terrain::Cell) -> bool {
+        // ASM off_BB80[9] -> loc_BBC2 -> loc_11430: Level 3 type-9 `$E919`
+        // blocks are restored by the touch worker and then use the same
+        // timed shooter-slot lifecycle as visible Shooter cells in native.
+        cell.has_block
+            && matches!(
+                cell.block_type,
+                terrain::BlockType::Shooter | terrain::BlockType::Mushroom
+            )
+    }
+
     fn high_word_from_i32(value: i32) -> u16 {
         let bytes = value.to_be_bytes();
         u16::from_be_bytes([bytes[0], bytes[1]])
@@ -2599,7 +2610,7 @@ impl NativeRuntime {
             // then add `d3*2` to address the entering column.
             for row in start_row..=end_row {
                 let cell = grid.cell_at(entering_col, row);
-                if cell.has_block && cell.block_type == terrain::BlockType::Shooter {
+                if Self::is_shooter_slot_source_cell_loc_11430(cell) {
                     queue_scan(entering_col, row, cell.skin);
                 }
             }
@@ -2615,7 +2626,7 @@ impl NativeRuntime {
             let end_col = (kid_block_col + 3).min(max_col) as u16;
             for col in start_col..=end_col {
                 let cell = grid.cell_at(col, entering_row);
-                if cell.has_block && cell.block_type == terrain::BlockType::Shooter {
+                if Self::is_shooter_slot_source_cell_loc_11430(cell) {
                     queue_scan(col, entering_row, cell.skin);
                 }
             }
@@ -2642,14 +2653,8 @@ impl NativeRuntime {
             );
 
         self.block_state.shooter_blocks.retain_mut(|entry| {
-            let still_shooter = matches!(
-                grid.cell_at(entry.col, entry.row),
-                terrain::Cell {
-                    has_block: true,
-                    block_type: terrain::BlockType::Shooter,
-                    ..
-                }
-            );
+            let still_shooter =
+                Self::is_shooter_slot_source_cell_loc_11430(grid.cell_at(entry.col, entry.row));
             if !still_shooter {
                 return false;
             }

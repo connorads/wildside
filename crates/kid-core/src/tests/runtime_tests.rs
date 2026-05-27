@@ -7554,6 +7554,44 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level3_type9_mushroom_block_uses_shooter_slot_path_after_touch() {
+        // ASM off_BB80[9] -> loc_BBC2 -> loc_11430 restores Level 3's
+        // touch-grown block cells as `$E919`. Native must keep those type-9
+        // cells in the same shooter slot path as visible shooter blocks, or
+        // the first Highwater Pass 2 touch-then-shoot blocks never fire.
+        let mut rt = NativeRuntime::new(manifest());
+        let w = 40u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (3usize * usize::from(w) + 5usize) * 2;
+        data[offset] = 0xE9;
+        data[offset + 1] = 0x19;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+        rt.block_state.shooter_last_scanned_col = 1;
+        rt.block_state.shooter_last_scanned_row = 3;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+        rt.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            rt.projectiles.len(),
+            2,
+            "ASM loc_11430-restored `$E919` should use low byte $19 as shooter direction bits"
+        );
+        assert_eq!(rt.block_state.shooter_blocks.len(), 1);
+        let velocities: Vec<(i32, i32)> = rt
+            .projectiles
+            .iter()
+            .map(|p| (p.x_velocity, p.y_velocity))
+            .collect();
+        let speed: i32 = 4 << 16;
+        assert!(velocities.contains(&(0, -speed)), "missing up projectile");
+        assert!(velocities.contains(&(-speed, 0)), "missing left projectile");
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());
