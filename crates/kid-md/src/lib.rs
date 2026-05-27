@@ -3169,6 +3169,31 @@ mod tests {
     }
 
     #[test]
+    fn md_bus_timing_step_ticks_controllers_and_ym_status_decay() {
+        // ASM Joypad_ReadFromHardware depends on TH phase timing, while the Z80
+        // GEMS driver polls the YM2612 busy flag through the MD bus.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.io.p1_port.th_flip_count = 2;
+        bus.io.p1_port.flip_reset_counter = 4;
+        bus.io.p2_port.th_flip_count = 3;
+        bus.io.p2_port.flip_reset_counter = 4;
+        {
+            let mut shadow = bus.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+            let _ = shadow.read_port(0);
+        }
+
+        bus.tick_controller_ports(4);
+        bus.advance_ym2612_shadow(YM2612_STATUS_DECAY_CLOCKS);
+
+        assert_eq!(bus.io.p1_port.th_flip_count, 0);
+        assert_eq!(bus.io.p2_port.th_flip_count, 0);
+        assert_eq!(bus.ym2612_shadow.borrow().status_decay_clocks_remaining, 0);
+    }
+
+    #[test]
     fn vdp_nonzero_byte_counts_are_plane_specific() {
         // ASM init/DMA writes VRAM, CRAM, and VSRAM through distinct VDP command
         // modes; native probes keep separate non-zero counters for each plane.
