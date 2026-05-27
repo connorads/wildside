@@ -19559,6 +19559,34 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_B43A loc_B4FA -> loc_B514: a solid block with bit 15 set only
+    /// enters the telepad countdown when its block type is `$400`; other block
+    /// types still count as floor support but reset `Telepad_timer` after the scan.
+    #[test]
+    fn sub_b43a_solid_non_telepad_block_support_skips_telepad_countdown() {
+        let grid = grid_with_cells(8, 8, &[(2, 4, 0xE0, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.x_pos = 39 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.telepad_timer = 2;
+
+        assert!(
+            slice.walking_floor_support_exists_at_current_position(&grid, PLAYER_HALF_WIDTH),
+            "sub_B43A loc_B514: non-telepad solid blocks still return d7=1 floor support",
+        );
+        assert_eq!(
+            slice.telepad_timer, 0x5A,
+            "sub_B43A loc_B514: scan completion resets Telepad_timer instead of entering loc_B522",
+        );
+        assert_eq!(
+            slice.teleporter_contact, None,
+            "sub_B43A loc_B4FA: block types other than `$400` must not queue teleporter contact",
+        );
+    }
+
     /// ASM sub_B43A loc_B4FA -> loc_B522: a Solid telepad floor cell keeps
     /// returning floor support while `Telepad_timer` is nonzero, and only queues
     /// the later loc_BC80 teleporter lookup when the countdown reaches zero.
