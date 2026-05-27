@@ -2542,7 +2542,6 @@ const JUGGERNAUT_HEAD_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
 const JUGGERNAUT_BOTTOM_IDLE_FRAME: PlayerFrameDescriptor =
     pfd("artunc_kid/juggernaut_bottom.bin", 0x17, 0x01, 0x2F, 0x0D);
 const JUGGERNAUT_BOTTOM_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
-    JUGGERNAUT_BOTTOM_IDLE_FRAME,
     pfd(
         "artunc_kid/juggernaut_bottom_move_1.bin",
         0x17,
@@ -2573,6 +2572,13 @@ const JUGGERNAUT_BOTTOM_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     ),
     pfd(
         "artunc_kid/juggernaut_bottom_move_1.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_2.bin",
         0x17,
         0x01,
         0x30,
@@ -4948,6 +4954,27 @@ mod tests {
         assert_eq!(
             maniaxe.jump_fall.origin_y, -0x02,
             "ASM Maniaxe jump-fall sprite descriptor stores origin_y=-$02"
+        );
+    }
+
+    #[test]
+    fn juggernaut_walk_body_cycle_matches_asm_off_94e6() {
+        let body_paths: Vec<&str> = super::JUGGERNAUT_BOTTOM_WALK_FRAMES
+            .iter()
+            .map(|frame| frame.relative_path)
+            .collect();
+
+        assert_eq!(
+            body_paths,
+            vec![
+                "artunc_kid/juggernaut_bottom_move_1.bin",
+                "artunc_kid/juggernaut_bottom_move_2.bin",
+                "artunc_kid/juggernaut_bottom_move_3.bin",
+                "artunc_kid/juggernaut_bottom_move_4.bin",
+                "artunc_kid/juggernaut_bottom_move_1.bin",
+                "artunc_kid/juggernaut_bottom_move_2.bin",
+            ],
+            "ASM loc_94B4/off_94E6 selects C0246,C03CC,C0552,C06D8,C0246,C03CC for Juggernaut body phases; the idle body is standing-only"
         );
     }
 }
