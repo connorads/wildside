@@ -3192,7 +3192,7 @@ fn load_enemy_visuals(
         {
             forest_enemy_palette_with_borrowed_slots(&palette, foreground_palette)
         } else {
-            palette
+            enemy_palette_with_cleared_slot_eight(&palette)
         };
         let extra_palettes = spec
             .extra_palette_paths
@@ -3206,7 +3206,7 @@ fn load_enemy_visuals(
                         {
                             forest_enemy_palette_with_borrowed_slots(&extra, foreground_palette)
                         } else {
-                            extra
+                            enemy_palette_with_cleared_slot_eight(&extra)
                         }
                     })
             })
@@ -3260,6 +3260,20 @@ fn apply_enemy_art_permutation(frames: &mut [SpriteFrame], permutation: &[u8; 16
     }
 }
 
+fn enemy_palette_with_cleared_slot_eight(enemy_palette: &Palette) -> Palette {
+    if enemy_palette.colours.len() != 7 {
+        return enemy_palette.clone();
+    }
+
+    let mut colours = vec![MdColour::from_word(0); 16];
+    colours[1..8].copy_from_slice(&enemy_palette.colours);
+    // ASM Load_EnemyArtPaletteToVRAM copies seven enemy colours into visible
+    // slots 1..7, then clears slot 8 (`clr.w Palette_Buffer+$30/$50`).
+    // Sprite pixel index 8 is therefore opaque black on hardware, not
+    // transparent like native's previous out-of-range seven-colour lookup.
+    Palette { colours }
+}
+
 fn forest_enemy_palette_with_borrowed_slots(
     enemy_palette: &Palette,
     foreground_palette: &Palette,
@@ -3268,14 +3282,13 @@ fn forest_enemy_palette_with_borrowed_slots(
         return enemy_palette.clone();
     }
 
-    let mut colours = vec![MdColour::from_word(0); 16];
-    colours[1..8].copy_from_slice(&enemy_palette.colours);
+    let mut palette = enemy_palette_with_cleared_slot_eight(enemy_palette);
     // ASM Load_EnemyArtPaletteToVRAM copies only slots 1..7 for the first
     // forest enemy, clears slot 8, then `loc_36E24` remaps art pixels through
     // `unk_36E54`/`unk_36E64`. Slots 9..15 therefore keep the foreground CRAM
     // colours already in that palette line instead of becoming transparent.
-    colours[9..16].copy_from_slice(&foreground_palette.colours[8..15]);
-    Palette { colours }
+    palette.colours[9..16].copy_from_slice(&foreground_palette.colours[8..15]);
+    palette
 }
 
 fn load_floating_prize_visuals(
@@ -4107,9 +4120,9 @@ mod tests {
         FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,
         append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
         apply_layered_background_palette_fallback, bg_permutation_file, canvas_to_tiles,
-        combine_eol_hologram_tile_sheet, compose_player_frame, fg_permutation_file,
-        forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
-        load_palette_permutation,
+        combine_eol_hologram_tile_sheet, compose_player_frame,
+        enemy_palette_with_cleared_slot_eight, fg_permutation_file, forest_enemy_art_permutation,
+        forest_enemy_palette_with_borrowed_slots, frame_to_pixels, load_palette_permutation,
     };
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
@@ -4236,6 +4249,27 @@ mod tests {
         assert_eq!(
             frames[0].tile_sheet.tiles[0].pixels, [0x0A; 64],
             "ASM unk_36E54 maps pixel index 8 to $A before forest enemy art is rendered"
+        );
+    }
+
+    #[test]
+    fn seven_colour_enemy_palette_keeps_rom_slot_eight_opaque_black() {
+        let enemy_palette = Palette {
+            colours: (1..=7).map(MdColour::from_word).collect(),
+        };
+
+        let palette = enemy_palette_with_cleared_slot_eight(&enemy_palette);
+
+        assert_eq!(palette.colours.len(), 16);
+        assert_eq!(
+            palette.colours[1..8],
+            enemy_palette.colours,
+            "ASM Load_EnemyArtPaletteToVRAM copies the seven enemy colours into slots 1..7"
+        );
+        assert_eq!(
+            palette.colours[8],
+            MdColour::from_word(0),
+            "ASM Load_EnemyArtPaletteToVRAM clears slot 8, but sprite pixel index 8 remains an opaque black colour"
         );
     }
 
