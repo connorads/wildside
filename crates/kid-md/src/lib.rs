@@ -2743,8 +2743,8 @@ mod tests {
         ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
         MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, VdpSnapshot,
         WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
-        cram_rgb, max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, probe_rom,
-        render_vdp_into, scale_channel, ym_sample_cycle_end,
+        cram_rgb, max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, noise_reload,
+        probe_rom, render_vdp_into, scale_channel, ym_sample_cycle_end,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -3872,6 +3872,28 @@ mod tests {
         assert_eq!(registers.noise_control, 0x06);
         assert!(registers.apply_write(0x09));
         assert_eq!(registers.noise_control, 0x01);
+    }
+
+    #[test]
+    fn psg_noise_reload_uses_control_period_or_tone_2_period() {
+        // ASM PSGInitLoop resets all PSG volumes through PSG_input; the native PSG
+        // model then follows the SN76489 noise-control period table.
+        let mut registers = PsgRegisters {
+            tone_periods: [3, 5, 7],
+            ..PsgRegisters::default()
+        };
+
+        registers.noise_control = 0x00;
+        assert_eq!(noise_reload(&registers), 0x10);
+        registers.noise_control = 0x01;
+        assert_eq!(noise_reload(&registers), 0x20);
+        registers.noise_control = 0x02;
+        assert_eq!(noise_reload(&registers), 0x40);
+        registers.noise_control = 0x03;
+        assert_eq!(noise_reload(&registers), 7);
+
+        registers.tone_periods[2] = 0;
+        assert_eq!(noise_reload(&registers), 1);
     }
 
     #[test]
