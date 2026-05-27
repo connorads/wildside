@@ -1654,20 +1654,21 @@ impl Z80Bus {
         }
     }
 
-    fn record_ym2612_write(&self, address: u16, value: u8) {
+    fn record_ym2612_write(&self, port: u16, value: u8) {
+        debug_assert!(port <= 3);
         self.ym2612_shadow
             .borrow_mut()
-            .write_port((address & 0x0003) as u8, value);
+            .write_port(port as u8, value);
         let mut shared = self.shared.borrow_mut();
         let z80_cycles = shared.z80_cycles;
-        match address & 0x0003 {
+        match port {
             0 => shared.ym2612_port_latches[0] = Some(u16::from(value)),
             1 => {
                 if shared.ym2612_port_latches[0] == Some(0x0028) {
                     shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
                 }
             }
-            2 => shared.ym2612_port_latches[1] = Some(0x0100 | u16::from(value)),
+            2 => shared.ym2612_port_latches[1] = Some(0x0100 + u16::from(value)),
             3 => {
                 if shared.ym2612_port_latches[1] == Some(0x0128) {
                     shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
@@ -1677,11 +1678,11 @@ impl Z80Bus {
         }
         shared.ym2612_write_count = shared.ym2612_write_count.saturating_add(1);
         if shared.ym2612_writes.len() < TRACE_LIMIT {
-            shared.ym2612_writes.push((address, value));
+            shared.ym2612_writes.push((port, value));
         }
         shared.audio_events.push_back(AudioEvent::Ym2612Write {
             z80_cycles,
-            port: (address & 0x0003) as u8,
+            port: port as u8,
             value,
         });
     }
@@ -1702,7 +1703,7 @@ impl Z80Bus {
     fn write_bank_register(&self, value: u8) {
         let mut shared = self.shared.borrow_mut();
         let current_bank = shared.bank_address >> 15;
-        let next_bank = ((current_bank >> 1) | (u32::from(value & 1) << 8)) & 0x01FF;
+        let next_bank = ((current_bank >> 1) + (u32::from(value & 1) << 8)) & 0x01FF;
         shared.bank_address = next_bank << 15;
     }
 }
@@ -3625,6 +3626,62 @@ mod tests {
         assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
         assert_eq!(z80_bus.read_byte(0x8001), 0xA5);
         assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
+    }
+
+    #[test]
+    fn z80_write_side_traces_and_ym_ports_are_bounded_and_decoded() {
+        // The Z80 GEMS driver writes banked 68k memory, YM2612 ports $4000-$4003,
+        // and PSG port $7F11; these are the native trace surfaces used for oracle
+        // feedback.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut.bank_address = WORK_RAM_BASE;
+            shared_mut
+                .banked_68k_writes
+                .resize(TRACE_LIMIT - 1, (0x0000_0000, 0));
+        }
+        let mut z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        z80_bus.write_byte(0x8000, 0x11);
+        z80_bus.write_byte(0x8001, 0x22);
+        assert_eq!(shared.borrow().banked_68k_writes.len(), TRACE_LIMIT);
+        assert_eq!(shared.borrow().m68k_work_ram[0], 0x11);
+        assert_eq!(shared.borrow().m68k_work_ram[1], 0x22);
+
+        shared.borrow_mut().ym2612_writes.clear();
+        z80_bus.write_byte(0x4000, 0x28);
+        z80_bus.write_byte(0x4001, 0xF0);
+        z80_bus.write_byte(0x4002, 0x28);
+        z80_bus.write_byte(0x4003, 0xF0);
+        {
+            let shared_ref = shared.borrow();
+            assert_eq!(
+                shared_ref.ym2612_writes,
+                vec![(0, 0x28), (1, 0xF0), (2, 0x28), (3, 0xF0)]
+            );
+            assert_eq!(shared_ref.ym2612_port_latches, [Some(0x0028), Some(0x0128)]);
+            assert_eq!(shared_ref.ym2612_key_on_count, 2);
+        }
+
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut
+                .ym2612_writes
+                .resize(TRACE_LIMIT - 1, (0x0000, 0));
+            shared_mut.psg_writes.resize(TRACE_LIMIT - 1, 0);
+        }
+        z80_bus.write_byte(0x4000, 0x30);
+        z80_bus.write_byte(0x4001, 0x7F);
+        z80_bus.write_byte(0x7F11, 0x90);
+        z80_bus.write_byte(0x7F11, 0x9F);
+
+        assert_eq!(shared.borrow().ym2612_writes.len(), TRACE_LIMIT);
+        assert_eq!(shared.borrow().psg_writes.len(), TRACE_LIMIT);
     }
 
     #[test]
