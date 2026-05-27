@@ -772,6 +772,12 @@ fn select_live_walking_dragon_frame<'a>(
     // sheet appends `loc_3CEFC` death/smoke frames after the live frames, so
     // live animation must follow the ROM sequence rather than cycling every
     // frame in the sheet.
+    if object.walk_phase == Some(1) && enemy_visuals.frames.len() > 10 {
+        // ASM Dragon.asm loc_3CF90 starts `stru_3CCC2` on the parent while
+        // the child breath object (`stru_3CCC8`) is active.
+        return Some(&enemy_visuals.frames[10]);
+    }
+
     let live_sequence = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 7, 5];
     let frame_duration = if object.hit_points == Some(3) { 6 } else { 9 };
     let offset = object.layout_index.unwrap_or(0) * 3;

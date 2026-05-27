@@ -1347,6 +1347,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
             fd(0x0D8, 0x10, 0x00, 0x20, 0x28),
             fd(0x010, 0x10, 0x00, 0x20, 0x17),
             fd(0x01C, 0x10, 0x00, 0x20, 0x17),
+            // ASM Dragon.asm loc_3CF90 switches the parent to `stru_3CCC2`
+            // while the breath child runs. Append C758E after the indexed
+            // death frames so their renderer indices stay stable.
+            fd(0x04C, 0x10, 0x00, 0x20, 0x27),
         ],
     },
     EnemyFamilySpec {
@@ -4703,6 +4707,11 @@ mod tests {
             death_tiles(0x0D, 6..10),
             vec![0x0000, 0x00D8, 0x0010, 0x001C],
             "ASM Dragon.asm loc_3CEFC / stru_3CCEC death frames C755E/C75C6/C7566/C756E must be selectable"
+        );
+        assert_eq!(
+            death_tiles(0x0D, 10..11),
+            vec![0x004C],
+            "ASM Dragon.asm loc_3CF90 / stru_3CCC2 breath parent frame C758E must be selectable without shifting death-frame indices"
         );
         assert_eq!(
             death_tiles(0x0A, 3..6),

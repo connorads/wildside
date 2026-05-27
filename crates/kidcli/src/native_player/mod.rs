@@ -3257,6 +3257,7 @@ mod tests {
                     sample_object_frame_with_base(168, 0x20, 0x28, 0x0D8),
                     sample_object_frame_with_base(169, 0x20, 0x17, 0x010),
                     sample_object_frame_with_base(170, 0x20, 0x17, 0x01C),
+                    sample_object_frame_with_base(171, 0x20, 0x27, 0x04C),
                 ],
                 frame_duration: 9,
             },
@@ -7732,6 +7733,44 @@ mod tests {
                 .pixels[0],
             167,
             "actual zero-HP snapshots should still use ASM Dragon.asm loc_3CEFC death frames"
+        );
+    }
+
+    #[test]
+    fn live_walking_dragon_breath_phase_uses_parent_mouth_frame_loc_3cf90() {
+        let visuals = sample_level_visuals();
+        let walking_dragon_visuals = visuals
+            .enemies
+            .families
+            .get(&0x0D)
+            .expect("walking dragon visuals");
+        let trace = sample_trace(GameMode::InGame);
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(0x12C),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(1),
+            wait_timer: Some(0x01F4),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let frame = sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object);
+
+        assert_eq!(
+            frame.tile_base_index, 0x04C,
+            "ASM Dragon.asm loc_3CF90 starts parent animation `stru_3CCC2`, whose only frame is `unk_C758E: sprite_frame_vram $04C,$10,$00,$20,$27`",
         );
     }
 

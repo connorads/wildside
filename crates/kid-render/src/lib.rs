@@ -445,8 +445,12 @@ mod tests {
             .families
             .get(&0x01)
             .expect("diamond visuals");
-        assert_eq!(diamond.frames.len(), 5);
+        assert_eq!(diamond.frames.len(), 10);
         assert_eq!(diamond.frames[0].tile_base_index, 0x002F);
+        assert_eq!(
+            diamond.frames[5].tile_base_index, 0x0023,
+            "ASM Diamond.asm loc_3AE28/loc_3AEE6 death frames stay appended after the live cycle"
+        );
         let dragon = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
         assert_eq!(dragon.frames.len(), 5);
         assert_eq!(dragon.frames[0].tile_base_index, 0x011D);
@@ -463,8 +467,8 @@ mod tests {
                 .iter()
                 .map(|frame| frame.origin_y)
                 .collect::<Vec<_>>(),
-            vec![0, -1, -1, -2, -1, -1],
-            "ASM Enemy0E Cloud frame table keeps the bobbing offsets in the sprite descriptors"
+            vec![0, -1, -1, -2, -1, -1, -1, 0, -2],
+            "ASM Enemy0E Cloud live and death frame tables keep the bobbing offsets in the sprite descriptors"
         );
         assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
         assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
