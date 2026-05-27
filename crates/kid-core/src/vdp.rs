@@ -251,7 +251,7 @@ pub(crate) struct IntroSub1B850Data {
     palette_segment_0: Vec<u16>,
     /// Segment 1 palette words (Pal_1C2F0 — intro2_sky.bin).
     palette_segment_1: Vec<u16>,
-    /// Segment 2+ palette words (Pal_1C346 — intro3_alley.bin).
+    /// Segment 4 palette words (Pal_1C346 — intro3_alley.bin).
     palette_segment_2: Vec<u16>,
     /// Shared Hologram_background art used by Load_IntroSequence2/4.
     hologram_background_art: Vec<u8>,
@@ -1227,7 +1227,8 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
     }
 
     // Load segment-specific palette to CRAM.
-    // ASM: segment 0 → Pal_1C28A (0x33 words), segments 2+ → Pal_1C346.
+    // ASM Load_IntroSequence1/sub_1B8F4 and Load_IntroSequence3/sub_1B93E
+    // both call sub_1C4EA, so segment 2 reuses Pal_1C28A.
     // Segment 1 (Load_IntroSequence2) and segments 3/4 (Load_IntroSequence4/5)
     // route through their dedicated build_intro_sequence_{2,4,5}_vdp helpers
     // before this fn runs, so this match only fires for segments 0, 2, and any
@@ -1235,14 +1236,7 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
     let palette = match segment {
         // ASM loc_1C4F6 (kid.asm:31232): `move.w (a0)+,(a1)+; dbf`
         // copies 0x33 words from Pal_1C28A into Palette_Buffer_2.
-        0 => &data.palette_segment_0,
-        // ASM loc_1C51E (kid.asm:31262): `move.w (a0)+,(a1)+; dbf`
-        // copies 0x40 words from Pal_1C346 into Palette_Buffer_2.
-        // ASM loc_1C540 (kid.asm:31273): non-zero region variants seed
-        // `d0=#$D` for a 14-word overlay after this base palette copy; this
-        // native loader currently follows the default FC82==0 path.
-        // ASM loc_1C542 (kid.asm:31276): the overlay itself is the inclusive
-        // `move.w (a0)+,(a1)+; dbf` loop into Palette_Buffer_2+$62.
+        0 | 2 => &data.palette_segment_0,
         _ => &data.palette_segment_2,
     };
     vdp.write_cram_words(0, palette);
@@ -2883,8 +2877,8 @@ mod tests {
         let vdp2 = build_intro_sequence_vdp(&data, 2);
         assert_eq!(
             u16::from_be_bytes([vdp2.cram[0], vdp2.cram[1]]),
-            0x0333,
-            "segment 2+ uses intro3_alley palette"
+            0x0111,
+            "ASM Load_IntroSequence3 -> sub_1B93E calls sub_1C4EA, so segment 2 reuses intro1_wildside palette"
         );
     }
 
