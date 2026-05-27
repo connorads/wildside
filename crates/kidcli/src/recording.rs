@@ -459,6 +459,7 @@ pub(crate) fn verify_recording(
         manifest,
         &recording.manifest.start,
         &recording.manifest.scenario,
+        recording_visual_frame_offset(&recording.manifest.start),
     )?;
     write_rendered_frames(&native_dir, &native_frames)?;
 
@@ -678,6 +679,14 @@ fn normalise_oracle_manifest_frame_indices(
     oracle
 }
 
+fn recording_visual_frame_offset(start: &RecordingStart) -> usize {
+    if start.settled && start.warp_level.is_some() {
+        RECORDING_SETTLED_ORACLE_PREFIX_FRAMES
+    } else {
+        0
+    }
+}
+
 fn capture_dynamic_checkpoint_states(
     trace: &[NativeTraceFrame],
     scenario: &DynamicScenario,
@@ -710,6 +719,7 @@ fn render_dynamic_checkpoint_frames(
     manifest: &AssetManifest,
     start: &RecordingStart,
     scenario: &DynamicScenario,
+    visual_frame_offset: usize,
 ) -> Result<Vec<RenderedFrame>> {
     let initial_level_id = start.warp_level.unwrap_or(0x00);
     let (mut level_visuals, block_grid) = load_session_assets(manifest, initial_level_id)?;
@@ -775,6 +785,7 @@ fn render_dynamic_checkpoint_frames(
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
             }
+            render_trace.frame_index = render_trace.frame_index.saturating_add(visual_frame_offset);
             let rgb = render_runtime_checkpoint_frame(&runtime, &render_trace, &level_visuals);
             rendered_frames.push((
                 checkpoint.label.clone(),
@@ -1757,6 +1768,41 @@ mod tests {
         assert_eq!(&oracle_scenario.script[prefix..], &[1, 2, 3]);
         assert_eq!(oracle_scenario.checkpoints[0].label, "start");
         assert_eq!(oracle_scenario.checkpoints[0].frame_index, prefix);
+    }
+
+    #[test]
+    fn settled_warp_recording_rendering_uses_oracle_prefix_phase() {
+        let start = RecordingStart {
+            warp_level: Some(0x12),
+            settled: true,
+            record_frames: None,
+        };
+
+        assert_eq!(
+            recording_visual_frame_offset(&start),
+            RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
+            "settled warp recording screenshots compare against oracle frames after the bootstrap prefix, so render-only animation phase must use the same prefix"
+        );
+    }
+
+    #[test]
+    fn non_settled_recording_rendering_keeps_local_phase() {
+        assert_eq!(
+            recording_visual_frame_offset(&RecordingStart {
+                warp_level: Some(0x12),
+                settled: false,
+                record_frames: None,
+            }),
+            0
+        );
+        assert_eq!(
+            recording_visual_frame_offset(&RecordingStart {
+                warp_level: None,
+                settled: true,
+                record_frames: None,
+            }),
+            0
+        );
     }
 
     #[test]

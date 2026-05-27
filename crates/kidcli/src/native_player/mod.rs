@@ -8488,12 +8488,12 @@ mod tests {
 
         assert_eq!(
             diamond_sheet_len(&frame_0),
-            Some(16),
-            "ASM sub_44DC `unk_461C` starts by DMAing diamond_1 into HUD diamond VRAM $6EA"
+            Some(17),
+            "ASM sub_44B0 seeds the diamond countdown to 1, so the first gameplay trace frame has already advanced to the second `unk_461C` HUD diamond page"
         );
         assert_eq!(
             diamond_sheet_len(&frame_6),
-            Some(17),
+            Some(18),
             "ASM sub_44DC advances `unk_461C` after 6 VBlanks, so native must not keep the HUD diamond static"
         );
     }

@@ -217,7 +217,10 @@ fn hud_diamond_animation_frame_index(frame_index: usize, frame_count: usize) -> 
     if frame_count == 0 {
         return 0;
     }
-    (frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION) % frame_count
+    // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1, so the
+    // first gameplay trace frame has already run sub_44DC once and DMAed
+    // the second `unk_461C` diamond page.
+    ((frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION) + 1) % frame_count
 }
 
 pub(super) fn push_game_hud(
