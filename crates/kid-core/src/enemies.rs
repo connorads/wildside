@@ -10321,14 +10321,8 @@ pub(crate) fn step_ufo_beam(
             projectiles.push(EnemyProjectile {
                 x_pos: enemy.x_pos,
                 y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
-                x_velocity: 0,
                 y_velocity: UFO_BEAM_Y_VELOCITY,
                 lifetime: 60,
-                gravity: 0,
-                friendly: false,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
                 kind: EnemyProjectileKind::DragonWalkingBreath,
                 ..Default::default()
             });

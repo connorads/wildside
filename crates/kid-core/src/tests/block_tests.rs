@@ -7795,6 +7795,38 @@ mod chunk_04 {
             projectiles.iter().all(|p| p.y_velocity > 0),
             "beams go downward"
         );
+        let first_beam = &projectiles[0];
+        assert_eq!(
+            first_beam.x_pos, enemy.x_pos,
+            "ASM UFO.asm loc_34FD6 allocates each beam segment from the shooting UFO; native projectile bridge keeps the launcher X origin"
+        );
+        assert_eq!(
+            first_beam.y_pos,
+            enemy.y_pos + (10 << 16),
+            "ASM UFO.asm Enemy0F_UFOBeam_Init adds `$A` to the source Y before the beam loop"
+        );
+        assert_eq!(
+            first_beam.x_velocity, 0,
+            "ASM UFO.asm Enemy0F_UFOBeam_Init only seeds beam y_vel"
+        );
+        assert_eq!(
+            first_beam.y_velocity, 0x3_0000,
+            "ASM UFO.asm Enemy0F_UFOBeam_Init seeds beam y_vel with `$30000`"
+        );
+        assert_eq!(
+            first_beam.lifetime, 60,
+            "native projectile bridge gives UFO beam segments a bounded lifetime while preserving loc_355D4 collision deletion"
+        );
+        assert_eq!(first_beam.gravity, 0);
+        assert!(!first_beam.friendly);
+        assert_eq!(first_beam.homing_accel, 0);
+        assert_eq!(first_beam.speed_cap, 0);
+        assert!(!first_beam.wall_bounce);
+        assert_eq!(
+            first_beam.kind,
+            EnemyProjectileKind::DragonWalkingBreath,
+            "native bridge keeps UFO beam segments in the hostile beam projectile bucket"
+        );
     }
 
     #[test]
