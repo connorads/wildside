@@ -265,6 +265,8 @@ pub(crate) struct IntroSub1B850Data {
     intro_sequence_4_hologram_tilemap: Vec<u16>,
     /// IntroSequence2 foreground tilemap (`unk_2E7C6`) decoded with base `$00BC`.
     intro_sequence_2_tilemap: Vec<u16>,
+    /// IntroSequence2 sky/castle art (`byte_243D5`) staged in `Level_Layout`.
+    intro_sequence_2_sky_castle_art: Vec<u8>,
     /// Load_IntroSequence5 common art uploads in ROM order.
     intro_sequence_5_common_art_chunks: [(usize, Vec<u8>); 3],
     /// Load_IntroSequence5 helmet art variants selected by `$FFFFFC82`.
@@ -355,6 +357,9 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         .context("failed to read intro sequence 2 tilemap")?;
     let intro_sequence_2_tilemap = kid_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
         .context("failed to decode intro sequence 2 tilemap")?;
+    let intro_sequence_2_sky_castle_art = intro_sequence_2_special_sky_art_loc_1B00A(
+        load_saxman_art(&scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"))?,
+    );
 
     let intro_sequence_5_common_art_files: [(u16, &str); 3] = [
         (0x1780, "artcomp/Dark_alley_from_intro.bin"),
@@ -434,6 +439,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         intro_sequence_2_hologram_tilemap,
         intro_sequence_4_hologram_tilemap,
         intro_sequence_2_tilemap,
+        intro_sequence_2_sky_castle_art,
         intro_sequence_5_common_art_chunks,
         intro_sequence_5_helmet_art_variants,
         intro_sequence_5_palette_variant_1_overlay,
@@ -473,6 +479,9 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
         overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
     }
+    if segment == 1 {
+        overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed);
+    }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(
             &mut vdp,
@@ -489,6 +498,8 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
 }
 
 const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
+const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C;
+const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
 
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed: usize) {
@@ -526,6 +537,49 @@ fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSprit
             height: 0x2F,
         },
     );
+}
+
+#[allow(non_snake_case)]
+fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
+    vdp: &mut VdpState,
+    data: &IntroSub1B850Data,
+    elapsed: usize,
+) {
+    // ASM loc_1B9D0 -> loc_1B9F4 hibernates `$3C` frames after the shared
+    // intro-text/fade shell, then loc_1BA02 calls sub_1C1A2 twice and
+    // sub_1C180 once per frame. `d1` starts at `-$40`, so the first 32 frames
+    // only increment through the negative selector range before visible sky
+    // columns begin replacing the hologram-room art at VRAM `$1780`.
+    let Some(loop_elapsed) =
+        elapsed.checked_sub(INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02)
+    else {
+        return;
+    };
+    if data.intro_sequence_2_sky_castle_art.is_empty() {
+        return;
+    }
+
+    let loop_frames = loop_elapsed.min(INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02 - 1) + 1;
+    let mut level_layout = data.intro_sequence_2_sky_castle_art.clone();
+    let shadow_layout = level_layout.clone();
+    let mut selector = -0x40i16;
+    for _ in 0..loop_frames {
+        kid_data::mask_level_layout_column_sub_1C1A2(&mut level_layout, selector);
+        selector = selector.saturating_add(1);
+        kid_data::mask_level_layout_column_sub_1C1A2(&mut level_layout, selector);
+        selector = selector.saturating_add(1);
+    }
+
+    let Ok(upload) =
+        kid_data::level_layout_xor_vram_upload_sub_1C180(&level_layout, &shadow_layout)
+    else {
+        return;
+    };
+    let mut bytes = Vec::with_capacity(upload.longwords.len() * 4);
+    for longword in upload.longwords {
+        bytes.extend_from_slice(&longword.to_be_bytes());
+    }
+    vdp.write_vram(usize::from(upload.vram_word_address), &bytes);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1340,6 +1394,24 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
     vdp
 }
 
+#[allow(non_snake_case)]
+fn intro_sequence_2_special_sky_art_loc_1B00A(art: Vec<u8>) -> Vec<u8> {
+    // ASM Load_IntroSequence2 loc_1B00A enters DecompressToVRAM_Special with
+    // `a3 = unk_1C336`, so loc_1434A maps each packed 4bpp nibble through this
+    // permutation before the art is staged in `Level_Layout` and VRAM `$1780`.
+    const PERMUTATION: [u8; 16] = [
+        0x02, 0x01, 0x03, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F,
+    ];
+    art.into_iter()
+        .map(|byte| {
+            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
+            let low = PERMUTATION[usize::from(byte & 0x0F)];
+            high | low
+        })
+        .collect()
+}
+
 fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> VdpState {
     let mut vdp = intro_sequence_base_vdp();
 
@@ -2094,6 +2166,7 @@ mod tests {
             intro_sequence_2_hologram_tilemap: vec![],
             intro_sequence_4_hologram_tilemap: vec![],
             intro_sequence_2_tilemap: vec![],
+            intro_sequence_2_sky_castle_art: vec![],
             intro_sequence_5_common_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
             intro_sequence_5_helmet_art_variants: [vec![], vec![], vec![]],
             intro_sequence_5_palette_variant_1_overlay: vec![],
@@ -2903,6 +2976,7 @@ mod tests {
             intro_sequence_2_hologram_tilemap: intro2_hologram,
             intro_sequence_4_hologram_tilemap: vec![0x20BC; 40 * 28],
             intro_sequence_2_tilemap: vec![0x00BC; 40 * 28],
+            intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
             intro_sequence_5_common_art_chunks: [
                 (0x1780, vec![0xD4]),
                 (0x4D80, vec![0xE5]),
@@ -2955,6 +3029,51 @@ mod tests {
             u16::from_be_bytes([intro5.vram[0xE000], intro5.vram[0xE001]]),
             0x0ABC,
             "ASM Load_IntroSequence5 should upload MapEni_2E154 through sub_1CD88",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_2_loc_1BA02_reveals_sky_art_after_negative_selector_preroll() {
+        let data = IntroSub1B850Data {
+            intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
+            ..empty_intro_data()
+        };
+
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 30,
+            0,
+        );
+        assert_eq!(
+            vram_word(&before, 0x1780),
+            0,
+            "ASM loc_1BA02 starts d1 at -$40; after 31 frames of two sub_1C1A2 calls, the selector is still negative and sub_1C180 uploads no XORed sky art",
+        );
+
+        let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 32,
+            0,
+        );
+        assert_ne!(
+            vram_word(&after, 0x1780),
+            0,
+            "ASM loc_1BA02 calls sub_1C1A2 twice per frame; once d1 reaches zero, sub_1C180 should upload XORed sky/castle art to VRAM $1780",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_2_loc_1B00A_applies_special_sky_art_nibble_permutation() {
+        assert_eq!(
+            intro_sequence_2_special_sky_art_loc_1B00A(vec![0x01, 0x23, 0xF0]),
+            vec![0x21, 0x33, 0xF2],
+            "ASM Load_IntroSequence2 loc_1B00A passes unk_1C336 into DecompressToVRAM_Special, so each sky/castle art nibble should be remapped before VRAM $1780 receives it",
         );
     }
 

@@ -3703,7 +3703,7 @@ pub fn mask_level_layout_column_sub_1C1A2(level_layout: &mut [u8], selector: i16
     // ASM sub_1C1A2 (kid.asm:31014): increment the signed selector, reject any
     // value outside `0..$3F`, then map that 6-bit column id through
     // `byte_1C1F4`. ASM sub_1C1D2 (kid.asm:31043) applies the resulting nibble
-    // mask down 16 rows at a fixed `$20`-byte stride across `Level_Layout`.
+    // mask down 88 rows at a fixed `$20`-byte stride across `Level_Layout`.
     let adjusted_selector = selector.saturating_add(1);
     if !(0..0x40).contains(&adjusted_selector) {
         return;
@@ -3734,7 +3734,7 @@ fn apply_level_layout_nibble_mask_sub_1C1D2(level_layout: &mut [u8], encoded_off
     };
     let base_offset = usize::from(encoded_offset >> 1);
 
-    for row in 0..16usize {
+    for row in 0..0x58usize {
         let offset = base_offset + row * 0x20;
         let Some(cell) = level_layout.get_mut(offset) else {
             break;
@@ -7683,11 +7683,11 @@ AddrTbl_LevelNames:   ;1A842
 
     #[test]
     fn mask_level_layout_column_sub_1c1a2_keeps_the_low_nibble_for_selector_minus_1() {
-        let mut level_layout = vec![0xAB; 16 * 0x20];
+        let mut level_layout = vec![0xAB; 0x58 * 0x20];
 
         mask_level_layout_column_sub_1C1A2(&mut level_layout, -1);
 
-        for row in 0..16usize {
+        for row in 0..0x58usize {
             assert_eq!(
                 level_layout[row * 0x20],
                 0x0B,
@@ -7702,11 +7702,11 @@ AddrTbl_LevelNames:   ;1A842
 
     #[test]
     fn mask_level_layout_column_sub_1c1a2_keeps_the_high_nibble_for_selector_15() {
-        let mut level_layout = vec![0xAB; 16 * 0x20];
+        let mut level_layout = vec![0xAB; 0x58 * 0x20];
 
         mask_level_layout_column_sub_1C1A2(&mut level_layout, 15);
 
-        for row in 0..16usize {
+        for row in 0..0x58usize {
             assert_eq!(
                 level_layout[4 + row * 0x20],
                 0xA0,
