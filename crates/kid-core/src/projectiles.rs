@@ -21,6 +21,7 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
     drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
     drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_velocity_apply_loc_33546, drips_velocity_deltas_loc_33526,
     drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
     tank_bullet_loop_route_loc_3b7ba,
 };
@@ -126,24 +127,64 @@ fn drips_surface_crawler_from_drop_loc_335d8(
     let queued_x_word = drop_x_word.wrapping_add(1);
     let queued_y_word = drop_y_word.wrapping_add(0x000A) & 0xFFF0;
     // ASM loc_335D8 copies `$44/$45` from the parent Drips state into the
-    // crawler. Native does not yet persist those parent bytes on the simplified
-    // projectile carrier, so the initial loc_33526 velocity-doubling gate is
-    // neutral until the full crawler turn-script state is integrated.
-    let init =
-        drips_surface_crawler_init_loc_335d8(queued_x_word, queued_y_word, 0, 0, random_byte);
+    // crawler before loc_33630 tails through loc_33526.
+    let init = drips_surface_crawler_init_loc_335d8(
+        queued_x_word,
+        queued_y_word,
+        drop.drips_child_byte_44,
+        drop.drips_child_byte_45,
+        random_byte,
+    );
+    let startup_deltas =
+        drips_velocity_deltas_loc_33526(init.child_byte_44, init.child_byte_45, init.x_velocity, 0);
+    let startup_velocity = drips_velocity_apply_loc_33546(
+        init.x_velocity,
+        0,
+        startup_deltas.x_delta,
+        startup_deltas.y_delta,
+    );
 
     EnemyProjectile {
         kind: EnemyProjectileKind::DripsSurfaceCrawler,
         x_pos: u32::from(init.x_pos_word) << 16,
         y_pos: u32::from(init.y_pos_word) << 16,
-        x_velocity: init.x_velocity,
-        y_velocity: 0,
+        x_velocity: startup_velocity.x_velocity,
+        y_velocity: startup_velocity.y_velocity,
         lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
         friendly: false,
         gravity: 0,
         terrain_kill: false,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+        drips_surface_crawler_x_direction_flipped: init.x_direction != 0,
+        drips_child_byte_44: init.child_byte_44,
+        drips_child_byte_45: init.child_byte_45,
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod drips_surface_crawler_tests {
+    use super::*;
+
+    #[test]
+    fn drips_surface_crawler_spawn_applies_parent_velocity_gate_loc_33526() {
+        let drop = EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0123_0000,
+            y_pos: 0x00E6_0000,
+            drips_child_byte_44: 0xFF,
+            drips_child_byte_45: 0xFF,
+            ..Default::default()
+        };
+
+        let crawler = drips_surface_crawler_from_drop_loc_335d8(&drop, 0);
+
+        assert_eq!(
+            crawler.x_velocity, 0x0000_9000,
+            "ASM Drips.asm loc_335D8 copies `$44/$45`; loc_33630 tails through loc_33526, so both non-zero bytes add two extra `$3000` x-velocity deltas to the initial crawler speed"
+        );
+        assert_eq!(crawler.drips_child_byte_44, 0xFF);
+        assert_eq!(crawler.drips_child_byte_45, 0xFF);
     }
 }
 

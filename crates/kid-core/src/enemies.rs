@@ -9883,6 +9883,8 @@ fn cloud_projectile_spawn_loc_35df0(
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
         drips_surface_crawler_x_direction_flipped: false,
+        drips_child_byte_44: 0,
+        drips_child_byte_45: 0,
     }
 }
 
@@ -22126,6 +22128,16 @@ const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 5;
 /// visible slime sprite frame, so using a 1px probe leaves the slime embedded.
 const DRIPS_CEILING_PROBE_HEIGHT: i32 = 0x1F;
 
+pub(crate) fn drips_child_state_bytes_loc_3333e(enemy_level: u8) -> (u8, u8) {
+    // ASM Enemy16_Drip_Init loc_3333E: `move.w 2(a0),d7; add.w d7,d7`
+    // indexes `unk_33338` and copies two bytes into `$44(a5)`/`$45(a5)`.
+    match enemy_level.min(2) {
+        0 => (0x00, 0x00),
+        1 => (0xFF, 0x00),
+        _ => (0xFF, 0xFF),
+    }
+}
+
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
@@ -22184,6 +22196,8 @@ pub(crate) fn step_drips(
     // ASM Drips.asm loc_33424/loc_3345C: the ROM reuses the preallocated
     // falling child object, starts it from rest, then accelerates downward
     // under `$2000` gravity until it reaches the floor.
+    let (drips_child_byte_44, drips_child_byte_45) =
+        drips_child_state_bytes_loc_3333e(enemy.enemy_level);
     projectiles.push(EnemyProjectile {
         kind: EnemyProjectileKind::DripsDrop,
         x_pos: enemy.x_pos,
@@ -22198,6 +22212,8 @@ pub(crate) fn step_drips(
         wall_bounce: false,
         terrain_kill: true,
         drips_spawn_crawler_on_splash: false,
+        drips_child_byte_44,
+        drips_child_byte_45,
         owner: Some(EnemyProjectileOwner {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
@@ -23751,6 +23767,8 @@ pub(crate) fn step_archer(
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
         drips_surface_crawler_x_direction_flipped: false,
+        drips_child_byte_44: 0,
+        drips_child_byte_45: 0,
     });
 }
 
@@ -31016,6 +31034,55 @@ mod tests {
             drips_wait_timer_with_rng_loc_3340e(&mut rng, 0x0123_0000),
             0x0013,
             "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Kid integer X low byte `$23`"
+        );
+    }
+
+    #[test]
+    fn drips_child_state_bytes_match_init_table_loc_3333e() {
+        assert_eq!(
+            drips_child_state_bytes_loc_3333e(0),
+            (0x00, 0x00),
+            "ASM Enemy16_Drip_Init loc_3333E entry 0 of `unk_33338` is `$0000`"
+        );
+        assert_eq!(
+            drips_child_state_bytes_loc_3333e(1),
+            (0xFF, 0x00),
+            "ASM Enemy16_Drip_Init loc_3333E entry 1 of `unk_33338` is `$FF00`"
+        );
+        assert_eq!(
+            drips_child_state_bytes_loc_3333e(2),
+            (0xFF, 0xFF),
+            "ASM Enemy16_Drip_Init loc_3333E entry 2 of `unk_33338` is `$FFFF`"
+        );
+        assert_eq!(
+            drips_child_state_bytes_loc_3333e(3),
+            (0xFF, 0xFF),
+            "Native clamps unexpected Drips layout variants to the final ASM table entry"
+        );
+    }
+
+    #[test]
+    fn drips_drop_carries_parent_state_bytes_loc_3333e() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            enemy_level: 2,
+            drips_attached: true,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].drips_child_byte_44, 0xFF,
+            "ASM Enemy16_Drip_Init loc_3333E copies `$44(a5)` from `unk_33338`; loc_335D8 later forwards it to the crawler"
+        );
+        assert_eq!(
+            projectiles[0].drips_child_byte_45, 0xFF,
+            "ASM Enemy16_Drip_Init loc_3333E copies `$45(a5)` from `unk_33338`; loc_33526 uses it for the doubled startup delta"
         );
     }
 

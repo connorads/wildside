@@ -2323,6 +2323,13 @@ pub(crate) struct EnemyProjectile {
     /// with `not.b` on script flip bytes, and labels such as `loc_336D0` branch
     /// on whether the byte is zero.
     pub(crate) drips_surface_crawler_x_direction_flipped: bool,
+    /// Drips.asm loc_335D8 copies parent state byte `$44(a5)` into the surface
+    /// crawler; loc_33526 uses it to decide whether the startup tail reapplies
+    /// the current velocity.
+    pub(crate) drips_child_byte_44: u8,
+    /// Drips.asm loc_335D8 copies parent state byte `$45(a5)` into the surface
+    /// crawler; loc_33526 doubles the startup velocity delta when this is set.
+    pub(crate) drips_child_byte_45: u8,
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.
