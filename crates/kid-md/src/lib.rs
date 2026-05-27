@@ -2735,9 +2735,9 @@ mod tests {
         AudioEvent, AudioLevels, AudioMixer, BusAccess, BusAccessKind,
         CONTROLLER_FLIP_COUNTER_CYCLES, CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES,
         ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
-        MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, WORK_RAM_BASE,
-        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
-        probe_rom, scale_channel,
+        MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, VdpSnapshot,
+        WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
+        cram_rgb, probe_rom, render_vdp_into, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2760,6 +2760,25 @@ mod tests {
         let mut rom = nop_rom();
         rom[8..8 + code.len()].copy_from_slice(code);
         rom
+    }
+
+    fn blank_vdp_snapshot() -> VdpSnapshot {
+        VdpSnapshot {
+            registers: [0; 0x20],
+            vram: vec![0; 0x1_0000],
+            cram: vec![0; 0x80],
+            vsram: vec![0; 0x50],
+        }
+    }
+
+    fn write_tile_entry(vram: &mut [u8], base: usize, cell: usize, entry: u16) {
+        let [hi, lo] = entry.to_be_bytes();
+        vram[base + cell * 2] = hi;
+        vram[base + cell * 2 + 1] = lo;
+    }
+
+    fn make_tile_opaque(vram: &mut [u8], tile_index: usize, colour_nibble: u8) {
+        vram[tile_index * 32..tile_index * 32 + 32].fill((colour_nibble << 4) | colour_nibble);
     }
 
     fn assert_close(actual: f32, expected: f32, epsilon: f32) {
@@ -2882,6 +2901,57 @@ mod tests {
         runtime.render_into(&mut rgb);
 
         assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_plane_a_name_table_base_mask() {
+        // ASM VDP setup writes register 2 as the plane A name-table base; only
+        // bits 3..5 form the Mega Drive base address used by rendering.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0xC8;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_plane_b_name_table_base_mask() {
+        // ASM VDP setup writes register 4 as the plane B name-table base; only
+        // bits 0..2 form the Mega Drive base address used by rendering.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[4] = 0x81;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_hscroll_table_base() {
+        // ASM VDP setup uses register $0D as the horizontal-scroll table base;
+        // shifting by 10 selects the correct VRAM table for per-plane scroll.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        vdp.registers[0x0D] = 1;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        vdp.vram[0x0400..0x0402].copy_from_slice(&8u16.to_be_bytes());
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0x00, 0x00, 0x00]);
+        assert_eq!(&rgb[8 * 3..8 * 3 + 3], &[0xFF, 0xFF, 0xFF]);
     }
 
     #[test]
