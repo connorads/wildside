@@ -1407,7 +1407,6 @@ impl MdBus {
         match address & 0x1F {
             0x04 | 0x06 => (self.vdp.status >> 8) as u8,
             0x05 | 0x07 => self.vdp.status as u8,
-            0x08..=0x0B => 0x00,
             0x0C..=0x1F => 0xFF,
             _ => 0x00,
         }
@@ -3191,6 +3190,33 @@ mod tests {
         assert_eq!(bus.io.p1_port.th_flip_count, 0);
         assert_eq!(bus.io.p2_port.th_flip_count, 0);
         assert_eq!(bus.ym2612_shadow.borrow().status_decay_clocks_remaining, 0);
+    }
+
+    #[test]
+    fn md_vdp_byte_ports_decode_status_data_and_control() {
+        // ASM init tests VDP_control_port, then uses a6=$C00000 so 4(a6) is
+        // VDP_control_port and the base address is VDP_data_port.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.vdp.status = 0xABCD;
+
+        assert_eq!(bus.read_vdp_byte(0x00C0_0004), 0xAB);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0006), 0xAB);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0005), 0xCD);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0007), 0xCD);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0008), 0x00);
+        assert_eq!(bus.read_vdp_byte(0x00C0_000B), 0x00);
+        assert_eq!(bus.read_vdp_byte(0x00C0_000C), 0xFF);
+        assert_eq!(bus.read_vdp_byte(0x00C0_001F), 0xFF);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0000), 0x00);
+
+        bus.write_vdp_byte(0x00C0_0000, 0x12);
+        assert_eq!(bus.vdp_data_writes(), vec![0x1212]);
+        assert_eq!(&bus.vdp.vram[0..2], &[0x12, 0x12]);
+        assert_eq!(bus.vdp.data_port_address, 2);
+
+        bus.write_vdp_byte(0x00C0_0006, 0x8F);
+        assert_eq!(bus.vdp_control_writes(), vec![0x8F8F]);
+        assert_eq!(bus.vdp.registers[0x0F], 0x8F);
     }
 
     #[test]
