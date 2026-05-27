@@ -1130,8 +1130,14 @@ pub struct NativeTraceFrame {
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub level_skip_cheat_enabled: u8,
     pub game_over: bool,
+    /// ASM loc_D25E no-continues / pre-continue GAME OVER visual elapsed frames.
+    #[serde(default, skip_serializing_if = "is_zero_usize")]
+    pub game_over_elapsed_frames: usize,
     /// Continue countdown remaining frames (None if not in continue screen).
     pub continue_countdown: Option<usize>,
+    /// ASM Continue_Screen visual elapsed frames (0 outside continue screen).
+    #[serde(default, skip_serializing_if = "is_zero_usize")]
+    pub continue_countdown_elapsed_frames: usize,
     pub game_complete: bool,
     /// Ending credits sequence elapsed frames (None if not in ending).
     pub ending_elapsed: Option<usize>,
@@ -1330,7 +1336,9 @@ impl Default for NativeTraceFrame {
             level_completion_time: 0,
             level_skip_cheat_enabled: 0,
             game_over: false,
+            game_over_elapsed_frames: 0,
             continue_countdown: None,
+            continue_countdown_elapsed_frames: 0,
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,
@@ -1378,6 +1386,11 @@ fn is_zero_u8(value: &u8) -> bool {
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_zero_u16(value: &u16) -> bool {
+    *value == 0
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_usize(value: &usize) -> bool {
     *value == 0
 }
 

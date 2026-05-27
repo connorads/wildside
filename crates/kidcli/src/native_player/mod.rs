@@ -1683,7 +1683,9 @@ mod tests {
             level_completion_time: 0,
             level_skip_cheat_enabled: 0,
             game_over: false,
+            game_over_elapsed_frames: 0,
             continue_countdown: None,
+            continue_countdown_elapsed_frames: 0,
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,
@@ -3639,8 +3641,10 @@ mod tests {
             },
             bonus: sample_eol_frame(121, 0x40, 0x08, 0x000, 0, 0),
             continues: sample_eol_frame(120, 0x6C, 0x08, 0x008, 0, 0),
+            game: sample_eol_frame(140, 0x5D, 0x10, 0x031, 0, 0),
             no_hit: sample_eol_frame(122, 0x57, 0x08, 0x065, 0, 0),
             no_prize: sample_eol_frame(123, 0x6F, 0x08, 0x070, 0, 0),
+            over: sample_eol_frame(141, 0x60, 0x10, 0x049, 0, 0),
             path: sample_eol_frame(124, 0x35, 0x08, 0x080, 0, 0),
             score: sample_eol_frame(125, 0x3D, 0x08, 0x091, 0, 0),
             seconds: sample_eol_frame(126, 0x5F, 0x08, 0x099, 0, 0),
@@ -5637,6 +5641,93 @@ mod tests {
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == ENEMY_FLASH_COLOUR || *colour == PLATFORM_COLOUR)
         }));
+    }
+
+    #[test]
+    fn game_over_with_remaining_continues_does_not_render_invented_panel_loc_d25e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.game_over = true;
+        trace.number_continues = 3;
+        trace.game_over_elapsed_frames = 12;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            !contains_text(&scene, "GAME OVER"),
+            "ASM loc_D25E branches to Continue_Screen when Number_Continues is non-zero; native must not show the old text-panel GAME OVER interstitial"
+        );
+    }
+
+    #[test]
+    fn continue_countdown_uses_rom_eol_continues_sprites_loc_d25e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.game_over = true;
+        trace.number_continues = 3;
+        trace.continue_countdown = Some(291);
+        trace.continue_countdown_elapsed_frames = 8;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let has_continues_label = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x008)
+            )
+        });
+        let has_continue_count_digit = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x0CE)
+            )
+        });
+
+        assert!(
+            has_continues_label,
+            "ASM Continue_Screen should draw Spr_EOL_Continues from EOL score art"
+        );
+        assert!(
+            has_continue_count_digit,
+            "ASM Continue_Screen Object_EOL_Number should draw the Number_Continues digit"
+        );
+        assert!(
+            !contains_text(&scene, "CONTINUE"),
+            "native should not draw the invented CONTINUE? / CONTINUES LEFT text overlay when ROM EOL assets are loaded"
+        );
+    }
+
+    #[test]
+    fn no_continue_game_over_uses_rom_game_over_sprites_loc_d25e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.game_over = true;
+        trace.number_continues = 0;
+        trace.game_over_elapsed_frames = 8;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let has_game = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x031)
+            )
+        });
+        let has_over = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x049)
+            )
+        });
+
+        assert!(
+            has_game && has_over,
+            "ASM loc_D25E no-continues path should draw Spr_EOL_GAME and Spr_EOL_OVER instead of native text"
+        );
     }
 
     #[test]

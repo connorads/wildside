@@ -3220,12 +3220,23 @@ mod tests {
         let trace = runtime.trace_frame();
         assert!(trace.game_over);
         assert_eq!(trace.continue_countdown, Some(123));
+        assert_eq!(
+            trace.continue_countdown_elapsed_frames,
+            CONTINUE_COUNTDOWN_FRAMES - 123,
+            "ASM Continue_Screen visual workers should expose elapsed countdown time to the renderer"
+        );
 
         runtime.player_lifecycle = PlayerLifecycle::GameOver {
             remaining_frames: 123,
         };
 
-        assert_eq!(runtime.trace_frame().continue_countdown, None);
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.continue_countdown, None);
+        assert_eq!(
+            trace.game_over_elapsed_frames,
+            PLAYER_GAME_OVER_HOLD_FRAMES - 123,
+            "ASM loc_D25E GAME/OVER workers should expose elapsed hold time to the renderer"
+        );
     }
 
     #[test]
@@ -4893,9 +4904,21 @@ impl NativeRuntime {
                 self.player_lifecycle,
                 PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }
             ),
+            game_over_elapsed_frames: match self.player_lifecycle {
+                PlayerLifecycle::GameOver { remaining_frames } => {
+                    PLAYER_GAME_OVER_HOLD_FRAMES.saturating_sub(remaining_frames)
+                }
+                _ => 0,
+            },
             continue_countdown: match self.player_lifecycle {
                 PlayerLifecycle::ContinueCountdown { remaining_frames } => Some(remaining_frames),
                 _ => None,
+            },
+            continue_countdown_elapsed_frames: match self.player_lifecycle {
+                PlayerLifecycle::ContinueCountdown { remaining_frames } => {
+                    CONTINUE_COUNTDOWN_FRAMES.saturating_sub(remaining_frames)
+                }
+                _ => 0,
             },
             game_complete: self.game_complete,
             ending_elapsed: match self.boot_state {
