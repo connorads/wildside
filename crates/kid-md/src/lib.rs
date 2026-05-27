@@ -3003,6 +3003,8 @@ mod tests {
 
     #[test]
     fn step_z80_running_path_consumes_budget_and_counts_down_vblank_irq() {
+        // ASM VInt handling raises the Z80 IRQ line for the leading VBlank window;
+        // the line must remain asserted while the window still has cycles left.
         let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
         {
             let mut shared = runtime.core.mem.z80_shared.borrow_mut();
@@ -3010,12 +3012,14 @@ mod tests {
             shared.busreq = false;
             shared.z80_cycles = 0;
         }
-        runtime.z80_vblank_irq_cycles_remaining = 3;
+        runtime.z80_vblank_irq_cycles_remaining = 30;
 
         runtime.step_z80(30);
 
         assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 14);
-        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 0);
+        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 16);
+        assert_ne!(runtime.z80.irq_pending, 0);
+        assert_eq!(runtime.z80.irq_data, 0xFF);
     }
 
     #[test]
