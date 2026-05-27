@@ -2729,7 +2729,7 @@ impl GemsAudioEngine {
 mod tests {
     use super::{
         AudioEvent, AudioLevels, AudioMixer, BusAccessKind, FirstOrderFilter, GEMS_QUEUE_ADDR,
-        GemsBus, MdBus, MdRuntime, PsgRegisters, SecondOrderFilter, WORK_RAM_BASE,
+        GemsBus, MdBus, MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, WORK_RAM_BASE,
         YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
         probe_rom, scale_channel,
     };
@@ -3031,6 +3031,35 @@ mod tests {
         assert_eq!(registers.noise_control, 0x06);
         assert!(registers.apply_write(0x09));
         assert_eq!(registers.noise_control, 0x01);
+    }
+
+    #[test]
+    fn psg_noise_reset_restores_initial_lfsr_and_output() {
+        let mut synth = PsgSynth {
+            noise_lfsr: 0x0000,
+            noise_output_high: true,
+            ..PsgSynth::default()
+        };
+
+        synth.reset_noise_lfsr();
+
+        assert_eq!(synth.noise_lfsr, super::PSG_INITIAL_LFSR);
+        assert!(!synth.noise_output_high);
+    }
+
+    #[test]
+    fn ym2612_shadow_reset_clears_status_latch_and_busy_state() {
+        let mut shadow = Ym2612Shadow::new();
+        shadow.write_port(0, 0x30);
+        shadow.write_port(1, 0xFF);
+        let status = shadow.read_port(0);
+        assert_ne!(status & 0x80, 0, "expected busy flag before reset");
+
+        shadow.reset();
+
+        assert_eq!(shadow.status_decay_clocks_remaining, 0);
+        assert_eq!(shadow.last_status_read, 0);
+        assert_eq!(shadow.read_port(1), 0);
     }
 
     #[test]
