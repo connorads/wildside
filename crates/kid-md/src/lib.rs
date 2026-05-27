@@ -5004,6 +5004,37 @@ mod tests {
     }
 
     #[test]
+    fn gems_engine_places_sound_data_at_rom_pointer_addresses() {
+        // ASM StopMusic queues these exact ROM pointers through sub_E14AC; the
+        // standalone virtual ROM must place each extracted GEMS blob there.
+        let engine = super::GemsAudioEngine::new(
+            &[0; 64],
+            &[0xA1, 0xA2, 0xA3],
+            &[0xB1, 0xB2],
+            &[0xC1, 0xC2, 0xC3, 0xC4],
+            &[0xD1, 0xD2, 0xD3],
+        );
+        let rom = &engine.z80.io.virtual_rom;
+
+        assert_eq!(
+            &rom[super::GEMS_PATCH_ADDR as usize..][..3],
+            &[0xA1, 0xA2, 0xA3]
+        );
+        assert_eq!(
+            &rom[super::GEMS_ENVELOPE_ADDR as usize..][..2],
+            &[0xB1, 0xB2]
+        );
+        assert_eq!(
+            &rom[super::GEMS_SEQUENCE_ADDR as usize..][..4],
+            &[0xC1, 0xC2, 0xC3, 0xC4]
+        );
+        assert_eq!(
+            &rom[super::GEMS_SAMPLE_ADDR as usize..][..3],
+            &[0xD1, 0xD2, 0xD3]
+        );
+    }
+
+    #[test]
     fn gems_engine_init_queues_data_pointers_low_to_high_like_sub_e14ac() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
@@ -5026,7 +5057,7 @@ mod tests {
     }
 
     #[test]
-    fn gems_engine_play_sound_does_not_panic() {
+    fn gems_engine_play_sound_auto_inits_then_queues_command_10() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
         let envelopes = vec![0u8; 16];
@@ -5035,15 +5066,18 @@ mod tests {
 
         let mut engine =
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
-        // play_sound will auto-init, which runs step_z80_frame multiple times
-        engine.play_sound(0x17); // sfx_Jump
-        engine.step_frame();
-        let output = engine.generate_samples(735);
-        assert_eq!(output.len(), 735 * 2);
+        engine.play_sound(0x17);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x10, 0x17],
+            "ASM PlaySound/sub_E151C writes command marker $FF, command $10, then the sound id after auto-init"
+        );
     }
 
     #[test]
-    fn gems_engine_stop_all_sequences_queues_command_16() {
+    fn gems_engine_play_sound2_auto_inits_then_queues_command_12() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
         let envelopes = vec![0u8; 16];
@@ -5052,7 +5086,26 @@ mod tests {
 
         let mut engine =
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
-        engine.init();
+        engine.play_sound2(0x23);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x12, 0x23],
+            "ASM PlaySound2/sub_E153E differs from PlaySound only by queueing command $12"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_all_sequences_auto_inits_then_queues_command_16() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
         engine.stop_all_sequences();
 
         let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
