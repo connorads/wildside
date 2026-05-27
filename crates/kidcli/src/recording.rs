@@ -16,7 +16,6 @@ use std::collections::BTreeSet;
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
-const RECORDING_SETTLED_ORACLE_PREFIX_FRAMES: usize = 60;
 const RECORDING_BUNDLE_VERSION: u32 = 4;
 
 const RECORDING_NOTES_FILENAME: &str = "notes.txt";
@@ -632,32 +631,19 @@ pub(crate) fn oracle_scenario_for_recording(
         return (recording.manifest.scenario.clone(), 0);
     }
 
-    let mut script = vec![0; RECORDING_SETTLED_ORACLE_PREFIX_FRAMES];
-    script.extend_from_slice(&recording.manifest.scenario.script);
-    let checkpoints = recording
-        .manifest
-        .scenario
-        .checkpoints
-        .iter()
-        .map(|checkpoint| DynamicCheckpoint {
-            label: checkpoint.label.clone(),
-            frame_index: checkpoint.frame_index + RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
-        })
-        .collect::<Vec<_>>();
-
     (
         DynamicScenario {
             slug: format!(
                 "{}_settled_recording_oracle",
                 recording.manifest.scenario.slug
             ),
-            frame_count: script.len(),
-            script,
-            checkpoints,
+            frame_count: recording.manifest.scenario.frame_count,
+            script: recording.manifest.scenario.script.clone(),
+            checkpoints: recording.manifest.scenario.checkpoints.clone(),
             start_position: recording.manifest.scenario.start_position,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
         },
-        RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
+        0,
     )
 }
 
@@ -679,12 +665,8 @@ fn normalise_oracle_manifest_frame_indices(
     oracle
 }
 
-fn recording_visual_frame_offset(start: &RecordingStart) -> usize {
-    if start.settled && start.warp_level.is_some() {
-        RECORDING_SETTLED_ORACLE_PREFIX_FRAMES
-    } else {
-        0
-    }
+fn recording_visual_frame_offset(_start: &RecordingStart) -> usize {
+    0
 }
 
 fn capture_dynamic_checkpoint_states(
@@ -1734,7 +1716,7 @@ mod tests {
     }
 
     #[test]
-    fn settled_recordings_translate_to_oracle_warp_with_prefix() {
+    fn settled_recordings_translate_to_oracle_warp_without_extra_gameplay_prefix() {
         let recording = build_recording(
             &fixture_manifest(),
             "level1-tree-bug",
@@ -1754,26 +1736,20 @@ mod tests {
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
-        assert_eq!(prefix, RECORDING_SETTLED_ORACLE_PREFIX_FRAMES);
+        assert_eq!(prefix, 0);
         assert_eq!(
             oracle_scenario.slug, "level1-tree-bug_settled_recording_oracle",
             "settled recording oracle scenarios must opt into the helper's live/unpaused target-level settle path",
         );
         assert_eq!(oracle_scenario.warp_to_level, Some(0));
-        assert_eq!(oracle_scenario.frame_count, 63);
-        assert_eq!(oracle_scenario.script.len(), 63);
-        assert!(
-            oracle_scenario.script[..prefix]
-                .iter()
-                .all(|input| *input == 0)
-        );
-        assert_eq!(&oracle_scenario.script[prefix..], &[1, 2, 3]);
+        assert_eq!(oracle_scenario.frame_count, 3);
+        assert_eq!(oracle_scenario.script, vec![1, 2, 3]);
         assert_eq!(oracle_scenario.checkpoints[0].label, "start");
-        assert_eq!(oracle_scenario.checkpoints[0].frame_index, prefix);
+        assert_eq!(oracle_scenario.checkpoints[0].frame_index, 0);
     }
 
     #[test]
-    fn settled_warp_recording_rendering_uses_oracle_prefix_phase() {
+    fn settled_warp_recording_rendering_uses_recorded_script_phase() {
         let start = RecordingStart {
             warp_level: Some(0x12),
             settled: true,
@@ -1782,8 +1758,8 @@ mod tests {
 
         assert_eq!(
             recording_visual_frame_offset(&start),
-            RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
-            "settled warp recording screenshots compare against oracle frames after the bootstrap prefix, so render-only animation phase must use the same prefix"
+            0,
+            "the oracle helper already settles to live gameplay before frame 0, so render-only animation phase must stay aligned to the recorded script"
         );
     }
 
@@ -1808,7 +1784,7 @@ mod tests {
     }
 
     #[test]
-    fn settled_recording_oracle_prefix_preserves_probe_start_position() {
+    fn settled_recording_oracle_scenario_preserves_probe_start_position() {
         let mut recording = build_recording(
             &fixture_manifest(),
             "issue-175-eol-flag-touch",
@@ -1826,11 +1802,11 @@ mod tests {
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
-        assert_eq!(prefix, RECORDING_SETTLED_ORACLE_PREFIX_FRAMES);
+        assert_eq!(prefix, 0);
         assert_eq!(
             oracle_scenario.start_position,
             Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 }),
-            "the oracle helper must patch the same live Kid position after its settle prefix"
+            "the oracle helper must patch the same live Kid position after it settles to gameplay"
         );
     }
 
