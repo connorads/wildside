@@ -2900,6 +2900,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn juggernaut_walk_frame_uses_walk_visual_accumulator_loc_94b4() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(10),
+                sample_player_frame(11),
+                sample_player_frame(12),
+                sample_player_frame(13),
+                sample_player_frame(14),
+                sample_player_frame(15),
+            ],
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Juggernaut.helmet_id();
+        trace.frame_index = 0;
+        trace.kid_x_velocity = Some(0x0002_0000);
+        trace.kid_on_ground = Some(true);
+        trace.walk_visual_accumulator = 0x0308;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 13,
+            "ASM loc_94B4/loc_97E8: Juggernaut walk/support mappings use `$FFFFF8F0 >> 8`, so $0308 selects phase 3"
+        );
+    }
+
     fn sample_enemy_visuals() -> EnemyVisuals {
         use std::collections::HashMap;
         let mut families = HashMap::new();

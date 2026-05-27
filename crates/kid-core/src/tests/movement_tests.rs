@@ -8671,6 +8671,53 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9484/loc_949C/loc_94AA: Juggernaut walking advances
+    /// `$FFFFF8F0` from abs(x_vel) using `swap; rol.l #4`, then wraps at `$600`.
+    #[test]
+    fn loc_949c_juggernaut_walk_visual_accumulator_advances_from_velocity() {
+        assert_eq!(
+            juggernaut_walk_visual_accumulator_loc_9484(0x0100, 0x0001_8000),
+            0x0118,
+            "ASM loc_949C: x_vel=$18000 gives a $18 phase increment"
+        );
+        assert_eq!(
+            juggernaut_walk_visual_accumulator_loc_9484(0x05F0, -0x0002_0000),
+            0x0010,
+            "ASM loc_94AA: negative x_vel uses abs(), then $5F0+$20 wraps once at $600"
+        );
+    }
+
+    /// ASM loc_8E4E -> loc_9484: live Juggernaut walking frames store the
+    /// advanced phase back to `$FFFFF8F0` for the body/head-forward mappings.
+    #[test]
+    fn loc_9484_grounded_juggernaut_motion_stores_walk_visual_accumulator() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 512,
+            height_pixels: 224,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.walk_visual_accumulator = 0x0100;
+
+        let moved = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            None,
+            false,
+        );
+
+        assert!(moved);
+        assert_eq!(
+            slice.walk_visual_accumulator,
+            juggernaut_walk_visual_accumulator_loc_9484(0x0100, slice.player.x_velocity),
+            "ASM loc_9484/loc_94B4: grounded Juggernaut walking must persist the advanced `$FFFFF8F0` phase"
+        );
+    }
+
     /// ASM loc_949C: Micromax double-speed branch is dead code.
     /// `cmpi.w #9,d1 / bne.s loc_94AA` — d1 is always 5 (Juggernaut) because
     /// loc_9484 gates on `cmpi.w #5,d1`.  ORIGINAL_QUIRK.

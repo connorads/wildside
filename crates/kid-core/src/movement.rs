@@ -1491,6 +1491,24 @@ pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_walk_visual_accumulator_loc_9484(
+    current_accumulator: u16,
+    x_velocity: i32,
+) -> u16 {
+    // ASM loc_9484/loc_949C/loc_94AA (kid.asm:10910): Juggernaut takes
+    // abs(x_vel), then `swap; rol.l #4` to derive the phase increment for
+    // `$FFFFF8F0`, wrapping once at `$600`.
+    let speed = x_velocity.unsigned_abs();
+    let delta = (speed.rotate_left(20) & 0xFFFF) as u16;
+    let next = current_accumulator.wrapping_add(delta);
+    if next >= 0x0600 {
+        next.wrapping_sub(0x0600)
+    } else {
+        next
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
@@ -3475,7 +3493,9 @@ impl OpeningSliceState {
                 //     `d2 >> 8` by sprite phase to choose the walking frame.
                 //     Native: visual-only.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
-                // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
+                // refresh_grounded_helmet_state_sub_78E8; Juggernaut's
+                // `$FFFFF8F0` phase is persisted for rendering, while the
+                // companion GFX object remains visual-only.
                 //
                 // ASM loc_8E80 (kid.asm:10249): slope dispatch after sub_9386 NE.
                 // Positive: Skycutter(1)/Juggernaut(5) → loc_8E4E (continue walking);
@@ -4464,6 +4484,7 @@ impl OpeningSliceState {
         };
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
+        self.advance_juggernaut_walk_visual_accumulator_loc_9484(form);
         true
     }
 
@@ -4615,6 +4636,15 @@ impl OpeningSliceState {
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
     }
 
+    fn advance_juggernaut_walk_visual_accumulator_loc_9484(&mut self, form: PlayerForm) {
+        if form == PlayerForm::Juggernaut && self.player.on_ground && self.player.x_velocity != 0 {
+            self.walk_visual_accumulator = juggernaut_walk_visual_accumulator_loc_9484(
+                self.walk_visual_accumulator,
+                self.player.x_velocity,
+            );
+        }
+    }
+
     /// Physics-driven horizontal movement using speed tables.
     /// Uses ground tables when on_ground, air tables when airborne.
     pub(crate) fn update_horizontal_motion(
@@ -4706,6 +4736,7 @@ impl OpeningSliceState {
         };
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
+        self.advance_juggernaut_walk_visual_accumulator_loc_9484(form);
 
         let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
