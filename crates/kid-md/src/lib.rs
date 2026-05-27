@@ -1738,9 +1738,7 @@ impl Z80_io for Z80Bus {
         0xFF
     }
 
-    fn port_out(&mut self, address: u16, value: u8) {
-        let _ = (address, value);
-    }
+    fn port_out(&mut self, _address: u16, _value: u8) {}
 }
 
 impl PsgSynth {
@@ -3682,6 +3680,45 @@ mod tests {
 
         assert_eq!(shared.borrow().ym2612_writes.len(), TRACE_LIMIT);
         assert_eq!(shared.borrow().psg_writes.len(), TRACE_LIMIT);
+    }
+
+    #[test]
+    fn z80_bus_dispatch_reads_writes_and_ports_are_explicit() {
+        // The Z80 sound driver lives in the $0000-$1FFF RAM window, reads YM2612
+        // status at $4000-$5FFF, and reaches the 68k bus through $8000-$FFFF.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        shared.borrow_mut().ram[0] = 0x12;
+        shared.borrow_mut().ram[0x1FFF] = 0x34;
+        let mut z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0xA5; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x0000), 0x12);
+        assert_eq!(z80_bus.read_byte(0x1FFF), 0x34);
+        assert_eq!(z80_bus.read_byte(0x2000), 0xFF);
+
+        z80_bus.write_byte(0x0001, 0x56);
+        z80_bus.write_byte(0x1FFE, 0x78);
+        z80_bus.write_byte(0x2000, 0x9A);
+        assert_eq!(shared.borrow().ram[0x0001], 0x56);
+        assert_eq!(shared.borrow().ram[0x1FFE], 0x78);
+        assert_eq!(shared.borrow().ram[0x0000], 0x12);
+
+        z80_bus.write_byte(0x4000, 0x30);
+        z80_bus.write_byte(0x4001, 0xFF);
+        let status = z80_bus.read_byte(0x4000);
+        assert_ne!(status, 0xFF);
+        assert_ne!(status & 0x80, 0);
+        assert_eq!(z80_bus.read_byte(0x4001), status);
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0xA5);
+        z80_bus.write_byte(0x7F11, 0x90);
+        assert_eq!(shared.borrow().psg_writes, vec![0x90]);
+        assert_eq!(z80_bus.port_in(0x1234), 0xFF);
+        z80_bus.port_out(0x1234, 0x56);
+        assert_eq!(shared.borrow().psg_writes, vec![0x90]);
     }
 
     #[test]
