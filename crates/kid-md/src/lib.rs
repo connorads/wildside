@@ -1070,39 +1070,38 @@ impl ControllerPortState {
 
         let mut controller_byte = match (self.th_flip_count, self.controller_th) {
             (0..=2, true) => {
-                (u8::from(!button_pressed(self.buttons, 5)) << 5)
-                    | (u8::from(!button_pressed(self.buttons, 4)) << 4)
-                    | (u8::from(!button_pressed(self.buttons, 3)) << 3)
-                    | (u8::from(!button_pressed(self.buttons, 2)) << 2)
-                    | (u8::from(!button_pressed(self.buttons, 1)) << 1)
-                    | u8::from(!button_pressed(self.buttons, 0))
+                unpressed_button_bit(self.buttons, 5, 5)
+                    + unpressed_button_bit(self.buttons, 4, 4)
+                    + unpressed_button_bit(self.buttons, 3, 3)
+                    + unpressed_button_bit(self.buttons, 2, 2)
+                    + unpressed_button_bit(self.buttons, 1, 1)
+                    + unpressed_button_bit(self.buttons, 0, 0)
             }
             (0..=1, false) => {
-                (u8::from(!button_pressed(self.buttons, 7)) << 5)
-                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
-                    | (u8::from(!button_pressed(self.buttons, 1)) << 1)
-                    | u8::from(!button_pressed(self.buttons, 0))
+                unpressed_button_bit(self.buttons, 7, 5)
+                    + unpressed_button_bit(self.buttons, 6, 4)
+                    + unpressed_button_bit(self.buttons, 1, 1)
+                    + unpressed_button_bit(self.buttons, 0, 0)
             }
             (3, true) => {
-                (u8::from(!button_pressed(self.buttons, 5)) << 5)
-                    | (u8::from(!button_pressed(self.buttons, 4)) << 4)
-                    | 0b0000_1111
+                unpressed_button_bit(self.buttons, 5, 5)
+                    + unpressed_button_bit(self.buttons, 4, 4)
+                    + 0b0000_1111
             }
             (2, false) => {
-                (u8::from(!button_pressed(self.buttons, 7)) << 5)
-                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
+                unpressed_button_bit(self.buttons, 7, 5) + unpressed_button_bit(self.buttons, 6, 4)
             }
             (3, false) => {
-                (u8::from(!button_pressed(self.buttons, 7)) << 5)
-                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
-                    | 0b0000_1111
+                unpressed_button_bit(self.buttons, 7, 5)
+                    + unpressed_button_bit(self.buttons, 6, 4)
+                    + 0b0000_1111
             }
             _ => 0x3F,
         };
-        controller_byte |= u8::from(self.controller_th) << CONTROLLER_TH_BIT;
+        controller_byte += u8::from(self.controller_th) << CONTROLLER_TH_BIT;
         controller_byte &= !self.last_ctrl_write;
         let outputs_byte = self.last_data_write & (self.last_ctrl_write | 0x80);
-        controller_byte | outputs_byte
+        controller_byte + outputs_byte
     }
 
     fn read_ctrl(&self) -> u8 {
@@ -2338,6 +2337,10 @@ fn button_pressed(buttons: u8, button_bit: u8) -> bool {
     buttons & (1 << button_bit) != 0
 }
 
+fn unpressed_button_bit(buttons: u8, button_bit: u8, output_bit: u8) -> u8 {
+    u8::from(!button_pressed(buttons, button_bit)) << output_bit
+}
+
 fn ctrl_bit_set(value: u8, bit: u8) -> bool {
     value & (1 << bit) != 0
 }
@@ -2729,10 +2732,11 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, FirstOrderFilter, GEMS_QUEUE_ADDR,
-        GemsBus, MdBus, MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, WORK_RAM_BASE,
-        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
-        probe_rom, scale_channel,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, CONTROLLER_FLIP_COUNTER_CYCLES,
+        CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES, ControllerPortState, ControllerType,
+        FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus, MdRuntime, PsgRegisters, PsgSynth,
+        SecondOrderFilter, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE,
+        Z80Bus, Z80Shared, cram_rgb, probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2964,6 +2968,105 @@ mod tests {
             access.kind == BusAccessKind::WriteWord && access.address == 0x00C0_0004
         }));
         assert_eq!(bus.vdp_control_writes(), vec![0x8134]);
+    }
+
+    #[test]
+    fn controller_read_data_matches_th_phase_matrix() {
+        // ASM Joypad_ReadFromHardware reads $A10003 with TH low, then high, and
+        // inverts the active-low button bits into Kid's held-button byte.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 0;
+        port.controller_th = true;
+        assert_eq!(port.read_data(), 0x52);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x7F);
+        port.set_buttons(0b1010_1101);
+
+        port.controller_th = false;
+        assert_eq!(port.read_data(), 0x12);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x33);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 2;
+        assert_eq!(port.read_data(), 0x10);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x30);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 3;
+        assert_eq!(port.read_data(), 0x1F);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x3F);
+        port.set_buttons(0b1010_1101);
+
+        port.controller_th = true;
+        assert_eq!(port.read_data(), 0x5F);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x7F);
+
+        assert_eq!(
+            ControllerPortState::new(ControllerType::None).read_data(),
+            0xFF
+        );
+    }
+
+    #[test]
+    fn controller_data_and_ctrl_registers_mask_inputs_and_drive_outputs() {
+        // ASM Joypad_ReadFromHardware samples only input pins; configured output
+        // pins must come from the last data write instead of controller state.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.last_ctrl_write = 0x7E;
+        port.last_data_write = 0xC0;
+
+        assert_eq!(port.read_ctrl(), 0x7E);
+        assert_eq!(port.read_data(), 0xC1);
+
+        port.last_ctrl_write = 0x80;
+        port.last_data_write = 0x80;
+        assert_eq!(port.read_data(), 0xFF);
+    }
+
+    #[test]
+    fn controller_th_writes_and_ticks_advance_six_button_phase() {
+        // ASM Joypad_ReadFromHardware's TH low/high writes are enough for Kid's
+        // three-button path, but the runtime must still emulate six-button
+        // phase flips for probes and future games.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.write_ctrl(1 << CONTROLLER_TH_BIT);
+
+        port.write_data(0);
+        assert!(!port.controller_th);
+        assert_eq!(port.th_flip_count, 0);
+
+        port.write_data(1 << CONTROLLER_TH_BIT);
+        assert!(port.controller_th);
+        assert_eq!(port.th_flip_count, 1);
+        assert_eq!(port.flip_reset_counter, CONTROLLER_FLIP_COUNTER_CYCLES);
+
+        port.write_data(0);
+        port.write_data(1 << CONTROLLER_TH_BIT);
+        assert_eq!(port.th_flip_count, 2);
+
+        port.write_data(0);
+        port.write_ctrl(0);
+        assert!(!port.controller_th);
+        assert_eq!(port.cycles_until_th_high, CONTROLLER_TH_HIGH_DELAY_CYCLES);
+
+        port.tick(CONTROLLER_TH_HIGH_DELAY_CYCLES - 1);
+        assert!(!port.controller_th);
+        assert_eq!(port.th_flip_count, 2);
+
+        port.tick(1);
+        assert!(port.controller_th);
+
+        port.flip_reset_counter = 2;
+        port.tick(1);
+        assert_eq!(port.th_flip_count, 2);
+        port.tick(1);
+        assert_eq!(port.th_flip_count, 0);
     }
 
     #[test]
