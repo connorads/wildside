@@ -1965,13 +1965,11 @@ fn ym_sample_cycle_end(ym_samples_emitted: u64, z80_cycles_per_ym: f64) -> u64 {
 
 fn plane_dimensions(size_register: u8) -> (usize, usize) {
     let width_cells = match size_register & 0x03 {
-        0x00 => 32,
         0x01 => 64,
         0x03 => 128,
         _ => 32,
     };
     let height_cells = match (size_register >> 4) & 0x03 {
-        0x00 => 32,
         0x01 => 64,
         0x03 => 128,
         _ => 32,
@@ -4502,6 +4500,18 @@ mod tests {
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 2, 0x02), 0x058);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 0, 0x03), 0x068);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 2, 0x03), 0x078);
+    }
+
+    #[test]
+    fn plane_dimensions_decode_vdp_size_register_axes_independently() {
+        assert_eq!(super::plane_dimensions(0x00), (32, 32));
+        assert_eq!(super::plane_dimensions(0x01), (64, 32));
+        assert_eq!(super::plane_dimensions(0x03), (128, 32));
+        assert_eq!(super::plane_dimensions(0x10), (32, 64));
+        assert_eq!(super::plane_dimensions(0x30), (32, 128));
+        assert_eq!(super::plane_dimensions(0x31), (64, 128));
+        assert_eq!(super::plane_dimensions(0x33), (128, 128));
+        assert_eq!(super::plane_dimensions(0x22), (32, 32));
     }
 
     #[test]
