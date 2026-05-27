@@ -4540,6 +4540,48 @@ mod tests {
     }
 
     #[test]
+    fn standalone_gems_bus_decodes_ram_sound_ports_bank_and_open_ports() {
+        // ASM sub_E13DA loads the GEMS driver into $A00000-$A01FFF, while
+        // sub_E143A/sub_E149C/sub_E14AC queue commands through that same Z80 RAM.
+        let mut virtual_rom = vec![0xFF; 0x10_000];
+        virtual_rom[0x8000] = 0x5A;
+        virtual_rom[0x8003] = 0x6D;
+        let mut bus = GemsBus::new(&[0x11, 0x22, 0x33], virtual_rom);
+        bus.z80_cycles = 123;
+
+        assert_eq!(bus.read_byte(0x0002), 0x33);
+        bus.write_byte(0x0002, 0x44);
+        assert_eq!(bus.read_byte(0x0002), 0x44);
+
+        bus.write_byte(0x4002, 0xA7);
+        assert_eq!(
+            bus.audio_events.back(),
+            Some(&AudioEvent::Ym2612Write {
+                z80_cycles: 123,
+                port: 2,
+                value: 0xA7,
+            })
+        );
+
+        for bit in [1, 0, 0, 0, 0, 0, 0, 0, 0] {
+            bus.write_byte(0x6000, bit);
+        }
+        assert_eq!(bus.read_byte(0x8000), 0x5A);
+        assert_eq!(bus.read_byte(0x8003), 0x6D);
+
+        bus.write_byte(0x7F11, 0x90);
+        assert_eq!(
+            bus.audio_events.back(),
+            Some(&AudioEvent::PsgWrite {
+                z80_cycles: 123,
+                value: 0x90,
+            })
+        );
+        assert_eq!(bus.port_in(0x00), 0xFF);
+        assert_eq!(bus.read_byte(0x7000), 0xFF);
+    }
+
+    #[test]
     fn standalone_gems_frame_step_advances_ym2612_status_decay() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
