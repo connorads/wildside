@@ -5470,10 +5470,11 @@ impl OpeningSliceState {
                         self.metal_block_hit =
                             Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }
-                    terrain::BlockType::Shooter => {
-                        // ASM loc_BBC2 -> loc_11430 routes shooter ceiling
-                        // hits into the deleted-tile worker coroutines instead
-                        // of clearing the block immediately.
+                    terrain::BlockType::Shooter | terrain::BlockType::Mushroom => {
+                        // ASM off_BB80 entry 9: Level 3 `$E919` type-9 blocks
+                        // branch through loc_BBC2 -> loc_11430 into the timed
+                        // worker coroutines used by native's shooter_block_hit
+                        // path.
                         self.shooter_block_hit =
                             Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }

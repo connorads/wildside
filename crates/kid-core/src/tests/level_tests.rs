@@ -16606,7 +16606,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn metal_and_shooter_ceiling_headbutts_queue_block_effects() {
+    fn metal_shooter_and_mushroom_ceiling_headbutts_queue_block_effects() {
         let mut metal_grid = grid_with_blocks();
         let mut metal_hit = OpeningSliceState::new(LevelBounds {
             width_pixels: 320,
@@ -16663,6 +16663,34 @@ mod chunk_02 {
             shooter_hit.shooter_block_hit,
             Some((2, 2)),
             "ASM loc_BBC2 -> loc_11430: Shooter ceiling headbutt should queue the shooter block effect at the hit cell",
+        );
+
+        let mut mushroom_data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        set_cell(&mut mushroom_data, 2, 2, 0xE9, 0x19);
+        for col in 0..6 {
+            set_cell(&mut mushroom_data, col, 3, 0x60, 0x01);
+        }
+        let mut mushroom_grid = terrain::BlockGrid::from_level_layout(&mushroom_data, w, h);
+        let mut mushroom_hit = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        mushroom_hit.player.x_pos = 40 << 16;
+        mushroom_hit.player.y_pos = 63 << 16;
+        mushroom_hit.player.y_velocity = -0x0011_0000;
+
+        mushroom_hit.apply_ceiling_collision(
+            Some(&mut mushroom_grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            mushroom_hit.shooter_block_hit,
+            Some((2, 2)),
+            "ASM loc_BBC2 -> loc_11430: Level 3 `$E919` type-9 ceiling touch blocks should queue the same timed shooter-style block effect"
         );
     }
 
