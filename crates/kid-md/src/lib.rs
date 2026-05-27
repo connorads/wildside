@@ -2991,6 +2991,78 @@ mod tests {
     }
 
     #[test]
+    fn bus_trace_accessors_report_vdp_audio_and_z80_side_effects() {
+        // ASM init writes VDP ports, Z80_Reset, and GEMS/YM/PSG-backed sound
+        // hardware. These trace accessors are the native feedback surface for
+        // comparing those hardware side effects against oracle probes.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert_eq!(bus.ym2612_key_on_count(), 0);
+        assert_eq!(bus.psg_write_count(), 0);
+
+        bus.write_word(SUPERVISOR_DATA, 0x00C0_0000, 0xBEEF);
+        assert_eq!(bus.vdp_data_writes(), vec![0xBEEF]);
+
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+        assert_eq!(bus.z80_reset_count(), 1);
+
+        bus.vdp.registers[1] = 0x20;
+        assert!(bus.vint_enabled());
+        bus.vdp.registers[1] = 0x00;
+        assert!(!bus.vint_enabled());
+
+        bus.write_byte(SUPERVISOR_DATA, WORK_RAM_BASE, 0x5A);
+        let mut z80_bus = Z80Bus {
+            shared: bus.z80_shared.clone(),
+            ym2612_shadow: bus.ym2612_shadow.clone(),
+            rom: vec![0; 0x20_0000],
+        };
+        {
+            let mut shared = bus.z80_shared.borrow_mut();
+            shared.bank_address = WORK_RAM_BASE;
+            shared.z80_cycles = 77;
+        }
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0x5A);
+        z80_bus.write_byte(0x8001, 0x6B);
+        z80_bus.write_byte(0x4000, 0x28);
+        z80_bus.write_byte(0x4001, 0xF0);
+        z80_bus.write_byte(0x7F11, 0x90);
+
+        assert_eq!(bus.banked_68k_reads(), vec![(WORK_RAM_BASE, 0x5A)]);
+        assert_eq!(bus.banked_68k_writes(), vec![(WORK_RAM_BASE + 1, 0x6B)]);
+        assert_eq!(bus.ym2612_write_count(), 2);
+        assert_eq!(bus.ym2612_key_on_count(), 1);
+        assert_eq!(bus.ym2612_writes(), vec![(0, 0x28), (1, 0xF0)]);
+        assert_eq!(bus.psg_write_count(), 1);
+        assert_eq!(bus.psg_writes(), vec![0x90]);
+
+        let events: Vec<_> = bus.drain_audio_events().into_iter().collect();
+        assert_eq!(
+            events,
+            vec![
+                AudioEvent::Ym2612Write {
+                    z80_cycles: 77,
+                    port: 0,
+                    value: 0x28,
+                },
+                AudioEvent::Ym2612Write {
+                    z80_cycles: 77,
+                    port: 1,
+                    value: 0xF0,
+                },
+                AudioEvent::PsgWrite {
+                    z80_cycles: 77,
+                    value: 0x90,
+                },
+            ]
+        );
+        assert!(bus.drain_audio_events().is_empty());
+    }
+
+    #[test]
     fn controller_read_data_matches_th_phase_matrix() {
         // ASM Joypad_ReadFromHardware reads $A10003 with TH low, then high, and
         // inverts the active-low button bits into Kid's held-button byte.
