@@ -2739,9 +2739,10 @@ mod tests {
         AudioEvent, AudioLevels, AudioMixer, BusAccess, BusAccessKind,
         CONTROLLER_FLIP_COUNTER_CYCLES, CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES,
         ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
-        MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, VdpSnapshot,
-        WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
-        cram_rgb, max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, noise_reload,
+        MdRuntime, PsgRegisters, PsgSynth, ScrollPlane, SecondOrderFilter, SpriteLineScan,
+        TRACE_LIMIT, VdpSnapshot, WORK_RAM_BASE, WindowPlane, WindowRegion,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
+        max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, noise_reload,
         probe_rom, render_vdp_into, scale_channel, ym_sample_cycle_end,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
@@ -2784,6 +2785,37 @@ mod tests {
 
     fn make_tile_opaque(vram: &mut [u8], tile_index: usize, colour_nibble: u8) {
         vram[tile_index * 32..tile_index * 32 + 32].fill((colour_nibble << 4) | colour_nibble);
+    }
+
+    fn set_tile_pixel(vram: &mut [u8], tile_index: usize, x: usize, y: usize, colour_nibble: u8) {
+        let byte = &mut vram[tile_index * 32 + y * 4 + x / 2];
+        if x & 1 == 0 {
+            *byte = (*byte & 0x0F) | (colour_nibble << 4);
+        } else {
+            *byte = (*byte & 0xF0) | colour_nibble;
+        }
+    }
+
+    fn write_cram_colour(cram: &mut [u8], palette_index: usize, colour: u16) {
+        let [hi, lo] = colour.to_be_bytes();
+        cram[palette_index * 2] = hi;
+        cram[palette_index * 2 + 1] = lo;
+    }
+
+    fn write_sprite_entry(
+        vram: &mut [u8],
+        sprite_table_base: usize,
+        sprite_index: usize,
+        ypos: i32,
+        size_link: u16,
+        pattern: u16,
+        xpos: i32,
+    ) {
+        let base = sprite_table_base + sprite_index * 8;
+        vram[base..base + 2].copy_from_slice(&((ypos + 128) as u16).to_be_bytes());
+        vram[base + 2..base + 4].copy_from_slice(&size_link.to_be_bytes());
+        vram[base + 4..base + 6].copy_from_slice(&pattern.to_be_bytes());
+        vram[base + 6..base + 8].copy_from_slice(&((xpos + 128) as u16).to_be_bytes());
     }
 
     fn assert_close(actual: f32, expected: f32, epsilon: f32) {
@@ -4491,6 +4523,7 @@ mod tests {
         ]);
         vram[0x120..0x124].copy_from_slice(&[0x00, 0x48, 0x00, 0x58]);
         vram[0x140..0x144].copy_from_slice(&[0x00, 0x68, 0x00, 0x78]);
+        vram[0x160..0x164].copy_from_slice(&[0x00, 0x88, 0x00, 0x98]);
 
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 3, 0, 0x00), 0x008);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 3, 2, 0x00), 0x018);
@@ -4498,8 +4531,171 @@ mod tests {
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 10, 2, 0x01), 0x058);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 0, 0x02), 0x048);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 2, 0x02), 0x058);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 24, 0, 0x02), 0x088);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 24, 2, 0x02), 0x098);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 0, 0x03), 0x068);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 2, 0x03), 0x078);
+    }
+
+    #[test]
+    fn plane_pixel_rgb_uses_wrapped_scroll_cell_priority_and_palette() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 4, 1, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 15, 0x8000 | 0x2000 | 4);
+        let plane = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 9,
+            vscroll: 7,
+        };
+
+        assert_eq!(
+            super::plane_pixel_rgb(&vdp, &plane, 2, 20, true),
+            Some([0xFF, 0x00, 0x00]),
+            "VDP plane sampling should wrap the scrolled world coordinate before selecting the tile cell and palette"
+        );
+        assert_eq!(
+            super::plane_pixel_rgb(&vdp, &plane, 2, 20, false),
+            None,
+            "VDP priority bit must reject the opposite priority pass"
+        );
+    }
+
+    #[test]
+    fn plane_a_or_window_pixel_rgb_uses_window_region_offsets_and_exclusive_edges() {
+        let mut vdp = blank_vdp_snapshot();
+        make_tile_opaque(&mut vdp.vram, 2, 2);
+        set_tile_pixel(&mut vdp.vram, 5, 0, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_tile_entry(&mut vdp.vram, 0x2000, 4, 2);
+        write_tile_entry(&mut vdp.vram, 0x2000, 14, 2);
+        write_tile_entry(&mut vdp.vram, 0x3000, 33, 5);
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let window = WindowPlane {
+            base: 0x3000,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        assert_eq!(
+            super::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 24, 16, false),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP window pixels should use screen coordinates relative to the window origin"
+        );
+        assert_eq!(
+            super::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 32, 8, false),
+            Some([0x00, 0xFF, 0x00]),
+            "VDP window right edge is exclusive, so the plane should show at x == left + width"
+        );
+        assert_eq!(
+            super::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 16, 24, false),
+            Some([0x00, 0xFF, 0x00]),
+            "VDP window bottom edge is exclusive, so the plane should show at y == top + height"
+        );
+    }
+
+    #[test]
+    fn window_pixel_rgb_uses_h40_window_row_stride_and_priority() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[0x0C] = 0x81;
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 65, 0x8000 | 0x4000 | 6);
+
+        assert_eq!(
+            super::window_pixel_rgb(&vdp, 0x3400, 8, 8, true),
+            Some([0xFF, 0xFF, 0xFF]),
+            "H40 VDP window rows are 64 cells wide, not the H32 32-cell layout"
+        );
+        assert_eq!(
+            super::window_pixel_rgb(&vdp, 0x3400, 8, 8, false),
+            None,
+            "VDP window priority bit must reject the opposite priority pass"
+        );
+    }
+
+    #[test]
+    fn sprite_line_scan_follows_vdp_link_size_position_and_visible_lines() {
+        let mut vram = vec![0; 0x400];
+        write_sprite_entry(&mut vram, 0x100, 0, 5, 0x0601, 0x0123, 7);
+        write_sprite_entry(&mut vram, 0x100, 1, -4, 0x0101, 0x0456, 11);
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 24);
+
+        assert_eq!(
+            scan.entries.len(),
+            2,
+            "VDP sprite scan should follow the link field and stop when it reaches an already visited sprite"
+        );
+        assert_eq!(scan.entries[0].xpos, 7);
+        assert_eq!(scan.entries[0].ypos, 5);
+        assert_eq!(scan.entries[0].width_tiles, 2);
+        assert_eq!(scan.entries[0].height_tiles, 3);
+        assert_eq!(scan.entries[0].width_pixels, 16);
+        assert_eq!(scan.entries[0].height_pixels, 24);
+        assert_eq!(scan.entries[0].pattern, 0x0123);
+        assert_eq!(scan.entries[1].xpos, 11);
+        assert_eq!(scan.entries[1].ypos, -4);
+        assert_eq!(scan.entries[1].width_tiles, 1);
+        assert_eq!(scan.entries[1].height_tiles, 2);
+        assert_eq!(scan.entries[1].width_pixels, 8);
+        assert_eq!(scan.entries[1].height_pixels, 16);
+        assert_eq!(scan.entries[1].pattern, 0x0456);
+        assert_eq!(scan.sprites_on_line(4), &[1]);
+        assert_eq!(scan.sprites_on_line(5), &[0, 1]);
+        assert_eq!(scan.sprites_on_line(12), &[0]);
+        assert_eq!(scan.sprites_on_line(23), &[0]);
+    }
+
+    #[test]
+    fn sprite_line_scan_caps_each_scanline_at_vdp_h40_limit() {
+        let mut vram = vec![0; 0x500];
+        for sprite_index in 0..=super::MAX_SPRITES_PER_LINE {
+            let next_link = if sprite_index == super::MAX_SPRITES_PER_LINE {
+                0
+            } else {
+                u16::try_from(sprite_index + 1).expect("test sprite index fits in VDP link field")
+            };
+            write_sprite_entry(
+                &mut vram,
+                0x100,
+                sprite_index,
+                0,
+                next_link,
+                u16::try_from(sprite_index).expect("test sprite index fits in pattern word"),
+                i32::try_from(sprite_index * 8).expect("test sprite x fits in i32"),
+            );
+        }
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 8);
+
+        assert_eq!(
+            scan.entries.len(),
+            super::MAX_SPRITES_PER_LINE + 1,
+            "VDP sprite link traversal should still parse sprites after a scanline reaches its render cap"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0).len(),
+            super::MAX_SPRITES_PER_LINE,
+            "H40 VDP scanlines expose at most 20 sprites; the 21st linked sprite must be dropped from the line list"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0).last(),
+            Some(&u8::try_from(super::MAX_SPRITES_PER_LINE - 1).expect("cap fits in u8"))
+        );
     }
 
     #[test]
