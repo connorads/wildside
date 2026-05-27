@@ -1782,7 +1782,7 @@ impl PsgSynth {
         } else {
             self.noise_lfsr & 1
         };
-        self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
+        self.noise_lfsr = (self.noise_lfsr >> 1) + (feedback << 15);
     }
 
     fn sample(&self, registers: &PsgRegisters) -> f32 {
@@ -3859,6 +3859,123 @@ mod tests {
 
         assert_eq!(synth.noise_lfsr, super::PSG_INITIAL_LFSR);
         assert!(!synth.noise_output_high);
+    }
+
+    #[test]
+    fn psg_clock_reloads_tone_and_noise_counters() {
+        let registers = PsgRegisters {
+            tone_periods: [4, 5, 6],
+            noise_control: 0,
+            ..PsgRegisters::default()
+        };
+        let mut synth = PsgSynth {
+            tone_counters: [1, 2, 3],
+            tone_outputs_high: [false, true, false],
+            noise_counter: 1,
+            noise_clock_high: false,
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+
+        synth.clock(&registers);
+
+        assert_eq!(synth.tone_counters, [4, 1, 2]);
+        assert_eq!(synth.tone_outputs_high, [true, true, false]);
+        assert_eq!(synth.noise_counter, 0x10);
+        assert!(synth.noise_clock_high);
+        assert!(synth.noise_output_high);
+        assert_eq!(synth.noise_lfsr, 0x8000);
+    }
+
+    #[test]
+    fn psg_noise_lfsr_uses_periodic_or_white_feedback() {
+        let mut periodic = PsgSynth {
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+        periodic.shift_noise_lfsr(0x00);
+        assert!(periodic.noise_output_high);
+        assert_eq!(periodic.noise_lfsr, 0x8000);
+
+        let mut periodic_with_clear_low_bit = PsgSynth {
+            noise_lfsr: 0x0002,
+            ..PsgSynth::default()
+        };
+        periodic_with_clear_low_bit.shift_noise_lfsr(0x00);
+        assert!(!periodic_with_clear_low_bit.noise_output_high);
+        assert_eq!(periodic_with_clear_low_bit.noise_lfsr, 0x0001);
+
+        let mut periodic_ignores_bit_three = PsgSynth {
+            noise_lfsr: 0x0009,
+            ..PsgSynth::default()
+        };
+        periodic_ignores_bit_three.shift_noise_lfsr(0x00);
+        assert!(periodic_ignores_bit_three.noise_output_high);
+        assert_eq!(periodic_ignores_bit_three.noise_lfsr, 0x8004);
+
+        let mut white_uses_low_bit = PsgSynth {
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+        white_uses_low_bit.shift_noise_lfsr(0x04);
+        assert!(white_uses_low_bit.noise_output_high);
+        assert_eq!(white_uses_low_bit.noise_lfsr, 0x8000);
+
+        let mut white_uses_bit_three = PsgSynth {
+            noise_lfsr: 0x0008,
+            ..PsgSynth::default()
+        };
+        white_uses_bit_three.shift_noise_lfsr(0x04);
+        assert!(!white_uses_bit_three.noise_output_high);
+        assert_eq!(white_uses_bit_three.noise_lfsr, 0x8004);
+
+        let mut white = PsgSynth {
+            noise_lfsr: 0x0009,
+            ..PsgSynth::default()
+        };
+        white.shift_noise_lfsr(0x04);
+        assert!(white.noise_output_high);
+        assert_eq!(white.noise_lfsr, 0x0004);
+    }
+
+    #[test]
+    fn psg_sample_mixes_signed_tone_and_noise_channels() {
+        let registers = PsgRegisters {
+            volumes: [0x00, 0x02, 0x0F, 0x01],
+            ..PsgRegisters::default()
+        };
+        let synth = PsgSynth {
+            tone_outputs_high: [true, false, true],
+            noise_output_high: false,
+            ..PsgSynth::default()
+        };
+
+        assert_close(synth.sample(&registers), -0.106_321_39, 0.000_000_02);
+    }
+
+    #[test]
+    fn psg_dc_blocker_uses_previous_input_and_output() {
+        let mut synth = PsgSynth::default();
+
+        assert_close(synth.apply_dc_block(0.5), 0.5, 0.000_000_01);
+        assert_close(synth.apply_dc_block(0.5), 0.497_5, 0.000_000_03);
+        assert_close(synth.apply_dc_block(0.0), -0.004_987_51, 0.000_000_02);
+    }
+
+    #[test]
+    fn psg_render_sample_advances_exact_psg_clock_window() {
+        let registers = PsgRegisters {
+            volumes: [0x00, 0x0F, 0x0F, 0x0F],
+            ..PsgRegisters::default()
+        };
+        let mut synth = PsgSynth::default();
+
+        let sample = synth.render_sample(&registers, 223_721);
+
+        assert_close(sample, 0.25, 0.000_000_01);
+        assert!(synth.pending_psg_clocks < 0.000_01);
+        assert_eq!(synth.tone_counters[0], 1);
+        assert!(synth.tone_outputs_high[0]);
     }
 
     #[test]
