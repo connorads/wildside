@@ -1357,24 +1357,36 @@ fn semantic_entity_from_native(snapshot: &NativeObjectSnapshot) -> Option<Semant
 }
 
 fn semantic_entity_from_oracle(enemy: &OracleEnemyState) -> SemanticEntity {
+    let object_type = oracle_enemy_semantic_type(enemy);
     SemanticEntity {
         identity: format!(
             "enemy:{:02x}:{}:{:08x}:{:08x}:{:08x}",
-            enemy.object_type,
+            object_type,
             enemy.layout_index.unwrap_or(usize::MAX),
             enemy.layout_ptr.unwrap_or(u32::MAX),
             enemy.x_pos,
             enemy.y_pos
         ),
         category: String::from("enemy"),
-        object_type: Some(enemy.object_type),
+        object_type: Some(object_type),
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
         x_velocity: Some(enemy.x_velocity),
         y_velocity: Some(enemy.y_velocity),
         facing: Some(format!("{:?}", enemy.facing).to_lowercase()),
         on_ground: enemy.on_ground,
-        hit_points: None,
+        hit_points: enemy.current_hp,
+    }
+}
+
+fn oracle_enemy_semantic_type(enemy: &OracleEnemyState) -> u8 {
+    if enemy.object_type == 0
+        && let Some(collision_source) = enemy.collision_source
+        && let Ok(collision_source) = u8::try_from(collision_source)
+    {
+        collision_source
+    } else {
+        enemy.object_type
     }
 }
 
@@ -2722,6 +2734,33 @@ mod tests {
         assert!(reason.contains("entities native=0 oracle=1"));
         assert!(reason.contains("Level 12"));
         assert!(reason.contains("level18-walk-right"));
+    }
+
+    #[test]
+    fn semantic_oracle_entity_uses_collision_source_for_gfx_proxy_enemy() {
+        let enemy = OracleEnemyState {
+            object_type: 0,
+            x_pos: 0x0123_8000,
+            y_pos: 0x00bf_0000,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0x17),
+            layout_index: Some(1),
+            layout_ptr: Some(0x0040_0001),
+            parent_object_ptr: None,
+            gfx_slot_index: Some(4),
+            on_ground: None,
+            current_hp: Some(1),
+            debug_fields: BTreeMap::new(),
+        };
+
+        let semantic = semantic_entity_from_oracle(&enemy);
+
+        assert_eq!(semantic.object_type, Some(0x17));
+        assert!(semantic.identity.starts_with("enemy:17:"));
+        assert_eq!(semantic.hit_points, Some(1));
     }
 
     fn semantic_state_at_level(level: u16, paused: bool) -> SemanticGameState {
