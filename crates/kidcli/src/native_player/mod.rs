@@ -1279,8 +1279,12 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::DIAMOND_POWER_AVAILABLE);
     }
 
-    // Level complete (score counter ticking)
-    if curr.level_complete && !prev.level_complete {
+    // ASM loc_D752/loc_D770: Score_Board BGM and EOL rows appear before the
+    // `sfx_Score_counter` cue; only start it when the ROM counter drain begins.
+    if curr.level_complete
+        && curr.level_complete_score_counter_elapsed_frames > 0
+        && prev.level_complete_score_counter_elapsed_frames == 0
+    {
         sound_ids.push(gems_sfx::SCORE_COUNTER);
     }
 
@@ -8911,6 +8915,30 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::VOICE_OUCH_2],
             "ASM loc_B73C/loc_B750/loc_B764 selects special VoiceOuch takes for specific enemy families, so the damage heuristic must not add the generic $61 take"
+        );
+    }
+
+    #[test]
+    fn play_native_delays_eol_score_counter_sfx_until_loc_d770() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut scoreboard_setup = sample_trace(GameMode::InGame);
+        prev.level_complete = true;
+        scoreboard_setup.level_complete = true;
+        scoreboard_setup.level_complete_score_rows_started = 1;
+        scoreboard_setup.level_complete_score_rows_elapsed_frames = 1;
+
+        assert!(
+            !gems_event_sound_ids(&prev, &scoreboard_setup).contains(&gems_sfx::SCORE_COUNTER),
+            "ASM loc_D702/loc_D734/loc_D752 delays `sfx_Score_counter` until after the EOL rows and Score_Board wait"
+        );
+
+        let mut counter_started = scoreboard_setup.clone();
+        counter_started.level_complete_score_counter_elapsed_frames = 1;
+
+        assert_eq!(
+            gems_event_sound_ids(&scoreboard_setup, &counter_started),
+            vec![gems_sfx::SCORE_COUNTER],
+            "ASM loc_D752 queues `sfx_Score_counter` immediately before loc_D770 starts draining the score rows"
         );
     }
 
