@@ -51,7 +51,6 @@ const TRACE_LIMIT: usize = 256;
 const PSG_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
-const YM2612_GAIN: f32 = 1.0;
 const PSG_GAIN: f32 = 0.446_683_6;
 const AUDIO_DC_BLOCK_CUTOFF_HZ: f64 = 5.0;
 const GENESIS_LPF_CUTOFF_HZ: f64 = 3_390.0;
@@ -1874,10 +1873,10 @@ impl AudioMixer {
                 self.psg_synth
                     .render_sample(&self.psg_registers, sample_rate),
             );
-            let left = ((ym_sample[0] * YM2612_GAIN * self.levels.ym2612)
+            let left = ((ym_sample[0] * self.levels.ym2612)
                 + (psg_sample * PSG_GAIN * self.levels.psg))
                 * self.levels.master;
-            let right = ((ym_sample[1] * YM2612_GAIN * self.levels.ym2612)
+            let right = ((ym_sample[1] * self.levels.ym2612)
                 + (psg_sample * PSG_GAIN * self.levels.psg))
                 * self.levels.master;
             let left = left.clamp(-1.0, 1.0);
@@ -2771,6 +2770,11 @@ mod tests {
             (actual - expected).abs() <= epsilon,
             "expected {actual} to be within {epsilon} of {expected}",
         );
+    }
+
+    fn write_ym_register(mixer: &mut AudioMixer, register: u8, value: u8) {
+        mixer.ym2612.write_port(0, register);
+        mixer.ym2612.write_port(1, value);
     }
 
     #[test]
@@ -4093,6 +4097,207 @@ mod tests {
         assert!(
             saw_change,
             "expected PSG tone writes to vary generated audio"
+        );
+    }
+
+    #[test]
+    fn audio_mixer_queues_events_in_cycle_order() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 3,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles: 7,
+            port: 1,
+            value: 0x2A,
+        });
+
+        mixer.push_events(events);
+
+        assert_eq!(
+            mixer.pending_events.pop_front(),
+            Some(AudioEvent::PsgWrite {
+                z80_cycles: 3,
+                value: 0x90
+            })
+        );
+        assert_eq!(
+            mixer.pending_events.pop_front(),
+            Some(AudioEvent::Ym2612Write {
+                z80_cycles: 7,
+                port: 1,
+                value: 0x2A
+            })
+        );
+    }
+
+    #[test]
+    fn audio_mixer_refreshes_psg_filter_only_when_sample_rate_changes() {
+        let mut mixer = AudioMixer::default();
+        let original_b0 = mixer.psg_low_pass_filter.b0;
+
+        mixer.ensure_psg_filter(22_050);
+        assert_eq!(mixer.psg_output_sample_rate, 22_050);
+        assert_ne!(mixer.psg_low_pass_filter.b0, original_b0);
+
+        let refreshed_b0 = mixer.psg_low_pass_filter.b0;
+        mixer.psg_low_pass_filter.x1 = 0.25;
+        mixer.psg_low_pass_filter.y1 = -0.125;
+        mixer.ensure_psg_filter(22_050);
+
+        assert_eq!(mixer.psg_low_pass_filter.b0, refreshed_b0);
+        assert_close(mixer.psg_low_pass_filter.x1, 0.25, 0.000_000_01);
+        assert_close(mixer.psg_low_pass_filter.y1, -0.125, 0.000_000_01);
+    }
+
+    #[test]
+    fn audio_mixer_generate_empty_requests_do_not_advance_state() {
+        let mut mixer = AudioMixer::default();
+
+        assert!(mixer.generate(0, 8).is_empty());
+        assert!(mixer.generate(44_100, 0).is_empty());
+        assert_eq!(mixer.output_samples_emitted, 0);
+        assert_eq!(mixer.ym_samples_emitted, 0);
+    }
+
+    #[test]
+    fn audio_mixer_generate_applies_exact_first_output_cycle_boundary() {
+        let mut mixer = AudioMixer::default();
+        mixer.set_levels(AudioLevels {
+            master: 1.0,
+            ym2612: 0.0,
+            psg: 1.0,
+        });
+        mixer.psg_output_sample_rate = mixer.ym2612.sample_rate_hz();
+        mixer.psg_low_pass_filter = FirstOrderFilter {
+            b0: 1.0,
+            b1: 0.0,
+            a1: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        };
+        let sample_rate = mixer.ym2612.sample_rate_hz();
+        let first_output_cycle = (super::Z80_CLOCK_HZ / f64::from(sample_rate)).floor() as u64;
+        mixer.push_events(VecDeque::from([AudioEvent::PsgWrite {
+            z80_cycles: first_output_cycle + 1,
+            value: 0x90,
+        }]));
+
+        let samples = mixer.generate(sample_rate, 1);
+
+        assert_eq!(samples, vec![0.0, 0.0]);
+        assert_eq!(mixer.pending_events.len(), 1);
+        assert_eq!(mixer.output_samples_emitted, 1);
+        assert_eq!(mixer.ym_samples_emitted, 1);
+    }
+
+    #[test]
+    fn audio_mixer_generate_steps_ym_once_per_native_sample_at_ym_rate() {
+        let mut mixer = AudioMixer::default();
+        let sample_rate = mixer.ym2612.sample_rate_hz();
+
+        let samples = mixer.generate(sample_rate, 3);
+
+        assert_eq!(samples.len(), 6);
+        assert_eq!(mixer.output_samples_emitted, 3);
+        assert_eq!(mixer.ym_samples_emitted, 3);
+    }
+
+    #[test]
+    fn audio_mixer_generate_scales_existing_stereo_ym_sample() {
+        let mut mixer = AudioMixer {
+            last_ym_sample: [0.4, -0.25],
+            ..AudioMixer::default()
+        };
+        mixer.set_levels(AudioLevels {
+            master: 0.5,
+            ym2612: 0.25,
+            psg: 0.0,
+        });
+
+        let samples = mixer.generate(1_000_000, 2);
+
+        assert_eq!(samples.len(), 4);
+        assert_close(samples[0], 0.05, 0.000_000_01);
+        assert_close(samples[1], -0.031_25, 0.000_000_01);
+        assert_close(samples[2], 0.05, 0.000_000_01);
+        assert_close(samples[3], -0.031_25, 0.000_000_01);
+        assert_eq!(mixer.output_samples_emitted, 2);
+        assert_eq!(mixer.ym_samples_emitted, 0);
+    }
+
+    #[test]
+    fn audio_mixer_applies_psg_event_at_output_cycle_boundary() {
+        let mut mixer = AudioMixer::default();
+        mixer.set_levels(AudioLevels {
+            master: 1.0,
+            ym2612: 0.0,
+            psg: 1.0,
+        });
+        mixer.psg_output_sample_rate = 223_721;
+        mixer.psg_low_pass_filter = FirstOrderFilter {
+            b0: 1.0,
+            b1: 0.0,
+            a1: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        };
+        mixer.push_events(VecDeque::from([AudioEvent::PsgWrite {
+            z80_cycles: 16,
+            value: 0x90,
+        }]));
+
+        let samples = mixer.generate(223_721, 1);
+
+        assert!(mixer.pending_events.is_empty());
+        assert_eq!(mixer.psg_registers.volumes[0], 0);
+        assert_close(samples[0], 0.111_670_9, 0.000_000_1);
+        assert_close(samples[1], 0.111_670_9, 0.000_000_1);
+    }
+
+    #[test]
+    fn audio_mixer_generate_ym_sample_returns_chip_output() {
+        let mut mixer = AudioMixer::default();
+
+        write_ym_register(&mut mixer, 0x22, 0x00);
+        write_ym_register(&mut mixer, 0x27, 0x00);
+        write_ym_register(&mut mixer, 0x2B, 0x00);
+        write_ym_register(&mut mixer, 0xB0, 0x07);
+        write_ym_register(&mut mixer, 0xB4, 0xC0);
+        for register in [0x30, 0x34, 0x38, 0x3C] {
+            write_ym_register(&mut mixer, register, 0x01);
+        }
+        for register in [0x40, 0x44, 0x48, 0x4C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x50, 0x54, 0x58, 0x5C] {
+            write_ym_register(&mut mixer, register, 0x1F);
+        }
+        for register in [0x60, 0x64, 0x68, 0x6C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x70, 0x74, 0x78, 0x7C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x80, 0x84, 0x88, 0x8C] {
+            write_ym_register(&mut mixer, register, 0x0F);
+        }
+        for register in [0x90, 0x94, 0x98, 0x9C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        write_ym_register(&mut mixer, 0xA4, 0x22);
+        write_ym_register(&mut mixer, 0xA0, 0x69);
+        write_ym_register(&mut mixer, 0x28, 0xF0);
+
+        let samples: Vec<[f32; 2]> = (0..256).map(|_| mixer.generate_ym_sample()).collect();
+
+        assert!(
+            samples
+                .iter()
+                .any(|sample| sample[0].abs() > 0.000_001 || sample[1].abs() > 0.000_001),
+            "expected keyed-on YM2612 channel to generate non-zero samples"
         );
     }
 
