@@ -3093,6 +3093,66 @@ mod tests {
     }
 
     #[test]
+    fn address_bus_long_accesses_split_into_big_endian_words_and_trace_both_halves() {
+        // 68k longword bus cycles are two big-endian word accesses; oracle bus
+        // probes compare those word-sized side effects, not a synthetic long access.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.write_long(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010, 0x1234_5678);
+        assert_eq!(
+            bus.read_long(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010),
+            0x1234_5678
+        );
+
+        assert_eq!(
+            bus.accesses(),
+            vec![
+                BusAccess {
+                    kind: BusAccessKind::WriteWord,
+                    address: WORK_RAM_BASE + 0x0010,
+                    value: 0x1234,
+                },
+                BusAccess {
+                    kind: BusAccessKind::WriteWord,
+                    address: WORK_RAM_BASE + 0x0012,
+                    value: 0x5678,
+                },
+                BusAccess {
+                    kind: BusAccessKind::ReadWord,
+                    address: WORK_RAM_BASE + 0x0010,
+                    value: 0x1234,
+                },
+                BusAccess {
+                    kind: BusAccessKind::ReadWord,
+                    address: WORK_RAM_BASE + 0x0012,
+                    value: 0x5678,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn address_bus_copy_from_clones_runtime_visible_state() {
+        let mut source = MdBus::with_fresh_z80(&[0x12, 0x34, 0x56, 0x78]);
+        let mut target = MdBus::with_fresh_z80(&[]);
+        source.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0020, 0xCAFE);
+        source.write_word(SUPERVISOR_DATA, 0x00C0_0004, 0x8124);
+        source.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        source.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+
+        target.copy_from(&source);
+
+        assert_eq!(target.accesses(), source.accesses());
+        assert_eq!(target.read_byte(SUPERVISOR_DATA, 0), 0x12);
+        assert_eq!(
+            target.read_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0020),
+            0xCAFE
+        );
+        assert_eq!(target.vdp.registers[1], 0x24);
+        assert_eq!(target.z80_reset_count(), 1);
+    }
+
+    #[test]
     fn controller_and_vdp_accesses_are_traced() {
         let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, 0x00A1_0003, 0x0040);
@@ -4512,6 +4572,17 @@ mod tests {
                 < YM2612_STATUS_DECAY_CLOCKS,
             "standalone GEMS frame stepping must age YM status reads like MdRuntime::step"
         );
+    }
+
+    #[test]
+    fn write_rgb_indexes_rows_by_width_then_rgb_channels() {
+        let mut rgb = vec![0; 4 * 3 * 3];
+
+        super::write_rgb(&mut rgb, 4, 2, 1, [0x12, 0x34, 0x56]);
+
+        assert_eq!(&rgb[18..21], &[0x12, 0x34, 0x56]);
+        assert!(rgb[..18].iter().all(|value| *value == 0));
+        assert!(rgb[21..].iter().all(|value| *value == 0));
     }
 
     #[test]
