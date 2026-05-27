@@ -3195,7 +3195,9 @@ fn forest_enemy_art_permutation(
         return None;
     }
     let first_slot = *enemy_layout?.enemy_type_slots.first()?;
-    if first_slot == 0xFFFF || first_slot & 0x0FFF != u16::from(object_type) {
+    if first_slot == 0xFFFF
+        || !forest_enemy_slot_uses_same_art(first_slot & 0x0FFF, u16::from(object_type))
+    {
         return None;
     }
     if object_type == 0x05 {
@@ -3203,6 +3205,15 @@ fn forest_enemy_art_permutation(
     } else {
         Some(&FOREST_ENEMY_ART_PERMUTATION)
     }
+}
+
+fn forest_enemy_slot_uses_same_art(first_slot_type: u16, object_type: u16) -> bool {
+    first_slot_type == object_type
+        // ASM Load_EnemyArtToVRAM loc_36E24 remaps the first forest enemy art
+        // upload, not each native enemy family wrapper. RockTank/TankShooting
+        // and Dragon/DragonWalking share art files, so both native visuals
+        // must inherit the first slot's RAM pixel remap.
+        || matches!((first_slot_type, object_type), (0x0A | 0x0B, 0x0A | 0x0B) | (0x0C | 0x0D, 0x0C | 0x0D))
 }
 
 fn apply_enemy_art_permutation(frames: &mut [SpriteFrame], permutation: &[u8; 16]) {
@@ -4114,9 +4125,21 @@ mod tests {
             "ASM Load_EnemyArtToVRAM loc_36E24 remaps the first forest enemy slot"
         );
         assert_eq!(
+            forest_enemy_art_permutation(FOREST_THEME_ID, Some(&dragon_first), 0x0D),
+            Some(&FOREST_ENEMY_ART_PERMUTATION),
+            "ASM loc_36E24 remaps the shared Dragon art upload; DragonWalking uses that same native sheet"
+        );
+        assert_eq!(
             forest_enemy_art_permutation(FOREST_THEME_ID, Some(&dragon_first), 0x1C),
             None,
             "ASM only routes d7=0, the first loaded enemy art slot, through the forest RAM remap"
+        );
+
+        let shooting_tank_first = enemy_layout_with_slots(vec![0x000B, 0x0016, 0xFFFF]);
+        assert_eq!(
+            forest_enemy_art_permutation(FOREST_THEME_ID, Some(&shooting_tank_first), 0x0A),
+            Some(&FOREST_ENEMY_ART_PERMUTATION),
+            "ASM loc_36E24 remaps the shared RockTank art upload, covering both tank object ids"
         );
 
         let tar_first = enemy_layout_with_slots(vec![0x0005, 0xFFFF, 0xFFFF]);
