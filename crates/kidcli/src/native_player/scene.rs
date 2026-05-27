@@ -2406,7 +2406,11 @@ fn build_game_scene_filtered(
 
     if eol_hologram_visible {
         push_eol_hologram_room(&mut commands, level_visuals);
-    } else if filter.background {
+    } else if filter.background && !trace.level_complete {
+        // ASM CharacterCollision_TouchFlagpole loc_C070 writes VDP register
+        // $8407 before the $24-frame hibernate, moving Scroll B to the
+        // score-room nametable. Do not redraw ordinary level background rows
+        // during that frozen hand-off.
         push_background_tiles(&mut commands, trace, level_visuals);
     }
     if filter.terrain {

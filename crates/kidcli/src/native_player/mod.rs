@@ -4978,6 +4978,39 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_handoff_suppresses_level_background_scroll_b_loc_c070() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let visuals = sample_level_visuals();
+        let filter = LayerFilter::solo("background");
+
+        let gameplay_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
+        assert!(
+            gameplay_scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { .. } | DrawCommand::IndexedTileRow { .. }
+                )
+            }),
+            "ordinary gameplay should render Scroll B level background tiles"
+        );
+
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+        let handoff_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
+        assert!(
+            !handoff_scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { .. } | DrawCommand::IndexedTileRow { .. }
+                )
+            }),
+            "ASM loc_C070 switches Scroll B to the score-room nametable before the $24-frame hibernate, so native must not redraw ordinary level background during the flag-touch hand-off"
+        );
+    }
+
+    #[test]
     fn forest_parallax_uses_asm_scroll_divisor() {
         let trace = sample_trace(GameMode::InGame);
         let camera_x_px = 307;
