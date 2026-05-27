@@ -906,10 +906,7 @@ fn settled_recording_oracle_bootstrap_block_reason(
         && oracle.world.game_mode == 0x000c
         && !native.world.paused
         && !oracle.world.paused
-        && (native.player != oracle.player
-            || native.camera != oracle.camera
-            || native.entities != oracle.entities
-            || native.events != oracle.events)
+        && first_semantic_failure(native, oracle).is_some()
     {
         let mismatch_summary = settled_bootstrap_mismatch_summary(native, oracle);
         return Some(format!(
@@ -927,10 +924,10 @@ fn settled_bootstrap_mismatch_summary(
 ) -> String {
     let mut mismatches = Vec::new();
     if native.player != oracle.player {
-        mismatches.push(format!(
-            "player fields={}",
-            player_mismatch_fields(&native.player, &oracle.player)
-        ));
+        let fields = player_mismatch_fields(&native.player, &oracle.player);
+        if !fields.is_empty() {
+            mismatches.push(format!("player fields={fields}"));
+        }
     }
     if native.camera != oracle.camera {
         mismatches.push(format!(
@@ -965,10 +962,10 @@ fn player_mismatch_fields(native: &SemanticPlayerState, oracle: &SemanticPlayerS
     if native.y_velocity != oracle.y_velocity {
         fields.push("y_velocity");
     }
-    if native.facing != oracle.facing {
-        fields.push("facing");
-    }
-    if native.on_ground != oracle.on_ground {
+    if native.on_ground.is_some()
+        && oracle.on_ground.is_some()
+        && native.on_ground != oracle.on_ground
+    {
         fields.push("on_ground");
     }
     if native.movement_state != oracle.movement_state {
@@ -979,12 +976,6 @@ fn player_mismatch_fields(native: &SemanticPlayerState, oracle: &SemanticPlayerS
     }
     if native.hitpoints != oracle.hitpoints {
         fields.push("hitpoints");
-    }
-    if native.invulnerable_frames != oracle.invulnerable_frames {
-        fields.push("invulnerable_frames");
-    }
-    if native.collision_type != oracle.collision_type {
-        fields.push("collision_type");
     }
     fields.join("|")
 }
@@ -2734,6 +2725,62 @@ mod tests {
         assert!(reason.contains("entities native=0 oracle=1"));
         assert!(reason.contains("Level 12"));
         assert!(reason.contains("level18-walk-right"));
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_ignores_unknown_player_metadata() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level3-touch-shoot"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0x03),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level3-touch-shoot"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: None,
+                    warp_to_level: Some(0x03),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let mut native = semantic_state_at_level(0x03, false);
+        native.player.facing = Some(String::from("right"));
+        native.player.on_ground = Some(true);
+        native.player.collision_type = None;
+        let mut oracle = semantic_state_at_level(0x03, false);
+        oracle.player.facing = None;
+        oracle.player.on_ground = None;
+        oracle.player.collision_type = Some(0);
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle]);
+
+        assert_eq!(
+            reason, None,
+            "recording cases should not be blocked solely by player metadata fields that compare_semantic_states intentionally treats as unknown when one side is None"
+        );
     }
 
     #[test]
