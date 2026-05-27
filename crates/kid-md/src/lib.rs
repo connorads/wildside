@@ -1332,7 +1332,7 @@ impl MdBus {
 
     fn read_work_ram_long(&self, address: u32) -> u32 {
         (u32::from(self.read_work_ram_word(address)) << 16)
-            | u32::from(self.read_work_ram_word(address.wrapping_add(2)))
+            + u32::from(self.read_work_ram_word(address.wrapping_add(2)))
     }
 
     fn write_work_ram_byte(&mut self, address: u32, value: u8) {
@@ -2953,6 +2953,26 @@ mod tests {
         bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE, 0x1234);
         assert_eq!(bus.read_word(SUPERVISOR_DATA, WORK_RAM_BASE), 0x1234);
         assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00FF_0000), 0x1234);
+    }
+
+    #[test]
+    fn z80_ram_window_indexes_wrap_within_8k() {
+        // ASM header vectors list Z80_RAM, and Z80StartupCodeBegin copies into
+        // the Mega Drive's 8 KiB Z80 RAM window mirrored across $A00000-$A0FFFF.
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x1234), 0x1234);
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x3234), 0x1234);
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x1FFF), 0x1FFF);
+    }
+
+    #[test]
+    fn work_ram_long_reads_are_68k_big_endian() {
+        // ASM $02F2 uses `move.l (Options_Suboption_2PController).w,d7`;
+        // long reads from mirrored work RAM must preserve 68k big-endian order.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010, 0x1234);
+        bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0012, 0x5678);
+
+        assert_eq!(bus.read_work_ram_long(WORK_RAM_BASE + 0x0010), 0x1234_5678);
     }
 
     #[test]
