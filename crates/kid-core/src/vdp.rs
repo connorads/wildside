@@ -636,6 +636,10 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
 ) {
     let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
     let mut sprite_entries = Vec::new();
+    // ASM sub_1C54A allocates gfx slot `$01000000`, before the `$01FF/$0200/$0201`
+    // intro roster and sliding-door slots, so emit it first to preserve hardware
+    // sprite ordering.
+    append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
     for descriptor_slot in 0..8 {
         let Some(descriptor) =
             crate::movement::intro_sequence_3_descriptor_loc_1AEBA(roster_index, descriptor_slot)
@@ -655,7 +659,6 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
             frame,
         );
     }
-    append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
     append_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_entries, visible_elapsed);
     write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
 }
@@ -2237,13 +2240,13 @@ mod tests {
         );
 
         assert_eq!(
-            sprite_entry_words(&vdp, 0),
-            (0x0120, 0x0F, 1, 0xA1D6, 0x0178),
+            sprite_entry_words(&vdp, 4),
+            (0x0120, 0x0F, 5, 0xA1D6, 0x0178),
             "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first 32x32 hardware sprite",
         );
         assert_eq!(
-            sprite_entry_words(&vdp, 1),
-            (0x0120, 0x07, 2, 0xA1E6, 0x0198),
+            sprite_entry_words(&vdp, 5),
+            (0x0120, 0x07, 6, 0xA1E6, 0x0198),
             "ASM Make_SpriteFromGfxObject should split the 48px-wide Wild Side kid frame into a linked 16x32 tail chunk with the next tile run",
         );
     }
@@ -2259,10 +2262,9 @@ mod tests {
             2,
         );
 
-        assert_eq!(
-            sprite_entry_words(&vdp, 0),
-            (0x011D, 0x0F, 1, 0xA1D6, 0x0163),
-            "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair",
+        assert!(
+            sprite_table_contains(&vdp, (0x011D, 0x0F, 5, 0xA1D6, 0x0163)),
+            "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair, even though lower gfx slots render before the roster",
         );
     }
 
@@ -2331,8 +2333,26 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&vdp, (0x0119, 0x0F, 21, 0x8140, 0x0101)),
-            "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, so the fixed Wild Side door/interior sprite should be present after the roster entries",
+            sprite_table_contains(&vdp, (0x0119, 0x0F, 1, 0x8140, 0x0101)),
+            "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, so the fixed Wild Side door/interior sprite should be present before the roster entries",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_3_sprite_order_follows_gfx_slot_order() {
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            2,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&vdp, 0),
+            (0x0119, 0x0F, 1, 0x8140, 0x0101),
+            "ASM Load_IntroSequence3 allocates sub_1C54A into gfx slot `$01000000`, before the `$01FF/$0200/$0201` roster and sliding-door slots, so its hardware sprite should lead the table",
         );
     }
 
