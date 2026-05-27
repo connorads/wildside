@@ -2739,6 +2739,7 @@ impl NativeRuntime {
                             x_velocity: xv,
                             y_velocity: yv,
                             lifetime: 120,
+                            kind: EnemyProjectileKind::ShooterBlock,
                             // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
                             // stores a plain shooter object: no gravity, homing,
                             // friendly damage, or wall bounce metadata.

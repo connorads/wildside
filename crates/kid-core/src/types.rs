@@ -83,6 +83,9 @@ pub enum ActiveProjectileKind {
     /// Drips surface crawler: ASM `Drips.asm loc_335D8` allocates a hostile
     /// child after selected splash cycles.
     DripsSurfaceCrawler,
+    /// Shooter block bullet: ASM `Process_ShooterObjects` (kid.asm:19394)
+    /// emits a hostile 1x1 sprite from the shooter-object slot.
+    ShooterBlock,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -2260,6 +2263,7 @@ pub(crate) enum EnemyProjectileKind {
     DripsSurfaceCrawler,
     Hail,
     TankBullet,
+    ShooterBlock,
     ManiaxeAxe,
     DiamondPowerRain,
     FireDemonDeathTrail,

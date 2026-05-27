@@ -7626,6 +7626,13 @@ mod chunk_09 {
                 .any(|projectile| projectile.x_velocity != 0 || projectile.y_velocity != 0),
             "ASM loc_11430/sub_114F4 should make the first Highwater Pass 2 `$E919` touch block fire after its support worker wakes"
         );
+        assert!(
+            rt.trace_frame()
+                .active_projectile_details
+                .iter()
+                .any(|projectile| { projectile.kind == ActiveProjectileKind::ShooterBlock }),
+            "ASM Process_ShooterObjects should keep Highwater shooter bullets typed through the trace so the renderer does not treat them as generic dots"
+        );
     }
 
     #[test]
@@ -7660,6 +7667,11 @@ mod chunk_09 {
             (rt.projectiles[0].x_velocity, rt.projectiles[0].y_velocity),
             (speed, 0),
             "ASM loc_F106 should decode `$EC2F` as right-facing direction bit `$02`"
+        );
+        assert_eq!(
+            rt.projectiles[0].kind,
+            EnemyProjectileKind::ShooterBlock,
+            "ASM loc_EC76 allocates a shooter-object bullet, not a generic enemy projectile"
         );
         assert_eq!(rt.block_state.shooter_blocks.len(), 1);
         assert_eq!(rt.block_state.shooter_blocks[0].directions, 0x02);

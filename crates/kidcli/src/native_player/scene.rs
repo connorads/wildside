@@ -6,6 +6,7 @@ const HEADYMETAL_WOBBLE_STAGE_3: u16 = 0x0096;
 const HEADYMETAL_WOBBLE_STAGE_4: u16 = 0x0064;
 const FRIENDLY_PROJECTILE_COLOUR: [u8; 3] = [100, 255, 100];
 const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
+const SHOOTER_BLOCK_PROJECTILE_COLOUR: [u8; 3] = [255, 216, 72];
 const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
@@ -2596,8 +2597,9 @@ fn build_game_scene_filtered(
             }
         }
 
-        // Projectiles: generic shots stay coloured dots; the Fire Demon
-        // death trail renders ROM sprite frames via
+        // Projectiles: generic shots stay coloured dots; shooter-block
+        // bullets keep the ROM's 1x1-sprite footprint visibly distinct; the
+        // Fire Demon death trail renders ROM sprite frames via
         // `push_fire_demon_trail_sprite` (ASM Fire_Demon `loc_3A63C` cycling
         // `stru_3A622` -> `unk_C7776..unk_C779E`). Missing-asset states fall
         // back to a single placeholder rect in `push_fire_demon_trail`.
@@ -2632,6 +2634,20 @@ fn build_game_scene_filtered(
                         ENEMY_PROJECTILE_COLOUR
                     },
                 }),
+                ActiveProjectileKind::ShooterBlock => {
+                    // ASM Process_ShooterObjects_MakeSprite (kid.asm:19475):
+                    // shooter slots emit a hostile 1x1 sprite. Native does
+                    // not yet reconstruct the foreground-pattern tile words
+                    // `$8A96/$8295/$8296/$9295`, so keep the ROM footprint as
+                    // an explicit 8x8 placeholder instead of the tiny generic dot.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 4,
+                        y: sy - 4,
+                        width: 8,
+                        height: 8,
+                        colour: SHOOTER_BLOCK_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::FireDemonDeathTrail => {
                     if !push_fire_demon_trail_sprite(
                         &mut commands,

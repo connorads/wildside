@@ -1770,6 +1770,29 @@ mod tests {
     }
 
     #[test]
+    fn shooter_block_projectile_uses_visible_one_tile_render_loc_ef62() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 120,
+            kind: ActiveProjectileKind::ShooterBlock,
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_rect(&scene, 28, 20, 8, 8, [255, 216, 72]),
+            "ASM Process_ShooterObjects_MakeSprite (kid.asm:19475) emits a 1x1 shooter sprite, so native must not render Highwater shooter bullets as tiny generic dots"
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "typed shooter bullets should use the shooter-block placeholder rather than the generic projectile path"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_falls_back_to_placeholder_without_rom_visuals() {
         // Removing the Fire Demon visuals forces the degraded-asset path.
         // The previous flame-footprint approximation invented per-phase rect
