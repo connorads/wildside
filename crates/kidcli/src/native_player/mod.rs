@@ -2034,8 +2034,7 @@ mod tests {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -2069,8 +2068,7 @@ mod tests {
         });
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -2104,8 +2102,7 @@ mod tests {
         });
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070);
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -2139,7 +2136,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
         trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -2174,7 +2171,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
         trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
         trace.camera_x_pos = 3 << 16;
         trace.camera_y_pos = 1 << 16;
 
@@ -2214,7 +2211,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
         trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -2295,7 +2292,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
         trace.level_complete_elapsed_frames =
-            usize::from(kid_core::TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070) + 1;
+            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 

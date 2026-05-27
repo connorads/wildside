@@ -4844,9 +4844,10 @@ impl NativeRuntime {
                 } => {
                     let elapsed = total_frames.saturating_sub(remaining_frames);
                     let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
-                    elapsed.saturating_sub(
-                        crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + reveal_frames,
-                    )
+                    let visible_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+                        + reveal_frames
+                        + crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE;
+                    elapsed.saturating_sub(visible_frame)
                 }
                 _ => 0,
             },
@@ -4857,9 +4858,10 @@ impl NativeRuntime {
                 } => {
                     let elapsed = total_frames.saturating_sub(remaining_frames);
                     let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
-                    let setup_frame =
-                        crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468 + reveal_frames;
-                    u8::from(elapsed.saturating_add(1) >= setup_frame)
+                    let visible_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+                        + reveal_frames
+                        + crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE;
+                    u8::from(elapsed.saturating_add(1) >= visible_frame)
                 }
                 _ => 0,
             },

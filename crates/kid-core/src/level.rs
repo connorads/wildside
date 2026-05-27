@@ -16951,6 +16951,15 @@ pub const EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC: usize = 1 + 0x11;
 pub const EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468: usize =
     0x24 + EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC;
 pub const EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E: usize = 0x14;
+/// Oracle-backed visual phase for the first visible Scroll B hologram frame.
+/// ASM loc_C070 writes the plane registers before the `$24` hibernate, then
+/// loc_C0CC/loc_C1D0 load and fade the hologram; the renderer should not show
+/// the fully lit room on the earlier register-write frame.
+pub const EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE: usize = 0x46;
+/// Oracle-backed visible row-worker phase. ASM loc_D468 allocates the EOL row
+/// objects before loc_D702 hibernates and fades; on hardware they are still
+/// off-screen/dim for the first `$3C` native trace ticks.
+pub const EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE: usize = 0x3C;
 pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
 pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
     + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
