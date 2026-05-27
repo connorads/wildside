@@ -3063,6 +3063,56 @@ mod tests {
     }
 
     #[test]
+    fn md_runtime_setters_write_observable_work_ram_and_controller_state() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        runtime.set_controller_1(0b0010_0001);
+        runtime.set_level_skip_cheat_enabled(true);
+        runtime.set_current_level(0x1234);
+        runtime.set_game_mode(0x0042);
+        runtime.set_current_helmet(0x0007);
+        runtime.set_lives(9);
+        runtime.set_hitpoints(6);
+
+        assert_eq!(runtime.core.mem.io.p1_port.buttons, 0b0010_0001);
+        assert_eq!(
+            runtime
+                .core
+                .mem
+                .read_work_ram_byte(super::LEVEL_SKIP_CHEAT_ADDR),
+            u8::MAX
+        );
+        assert_eq!(
+            runtime.read_work_ram_word(super::CURRENT_LEVEL_ID_ADDR),
+            0x1234
+        );
+        assert_eq!(
+            runtime.read_work_ram_word(super::PLAYER_1_LEVEL_ID_ADDR),
+            0x1234
+        );
+        assert_eq!(runtime.read_work_ram_word(super::GAME_MODE_ADDR), 0x0042);
+        assert_eq!(
+            runtime.read_work_ram_word(super::CURRENT_HELMET_ID_ADDR),
+            0x0007
+        );
+        assert_eq!(runtime.read_work_ram_word(super::NUMBER_LIVES_ADDR), 9);
+        assert_eq!(runtime.read_work_ram_word(super::NUMBER_HITPOINTS_ADDR), 6);
+        assert_eq!(
+            runtime.read_work_ram_range(super::NUMBER_LIVES_ADDR, 4),
+            vec![0x00, 0x09, 0x00, 0x06]
+        );
+
+        runtime.set_level_skip_cheat_enabled(false);
+        assert_eq!(
+            runtime
+                .core
+                .mem
+                .read_work_ram_byte(super::LEVEL_SKIP_CHEAT_ADDR),
+            0
+        );
+    }
+
+    #[test]
     fn scale_channel_matches_megadrive_rgb_rounding() {
         let expanded: Vec<u8> = (0..=7).map(scale_channel).collect();
 
