@@ -381,7 +381,7 @@ impl PsgRegisters {
         match register {
             0 | 2 | 4 => {
                 let channel = usize::from(register / 2);
-                self.tone_periods[channel] = (self.tone_periods[channel] & !0x0F) | u16::from(data);
+                self.tone_periods[channel] = (self.tone_periods[channel] & !0x0F) + u16::from(data);
                 false
             }
             1 | 3 | 5 | 7 => {
@@ -401,7 +401,7 @@ impl PsgRegisters {
             0 | 2 | 4 => {
                 let channel = usize::from(register / 2);
                 self.tone_periods[channel] =
-                    (self.tone_periods[channel] & 0x0F) | (u16::from(data & 0x3F) << 4);
+                    (self.tone_periods[channel] & 0x0F) + (u16::from(data & 0x3F) << 4);
                 false
             }
             6 => {
@@ -3016,6 +3016,8 @@ mod tests {
         assert_eq!(registers.tone_periods[2], 0x007);
         assert!(!registers.apply_write(0x3F));
         assert_eq!(registers.tone_periods[2], 0x3F7);
+        assert!(!registers.apply_write(0xC2));
+        assert_eq!(registers.tone_periods[2], 0x3F2);
 
         assert!(!registers.apply_write(0x94));
         assert_eq!(registers.latched_register, 1);
