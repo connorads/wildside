@@ -230,6 +230,14 @@ mod tests {
         assert_eq!(kid.jump_rise.width_px, 0x16);
         assert_eq!(kid.jump_fall.origin_x, 0x09);
         assert_eq!(kid.jump_fall.width_px, 0x14);
+        let death = kid.death.as_ref().expect("Kid death frame");
+        assert_eq!(death.origin_x, 0x0F);
+        assert_eq!(death.origin_y, 0x03);
+        assert_eq!(death.width_px, 0x1C);
+        assert_eq!(
+            death.height_px, 0x1B,
+            "ASM Death loc_B7FA installs unk_A3FF8 / kid_death.bin for the visible tumble"
+        );
         assert_eq!(kid.pull_up.len(), 7);
         assert_eq!(kid.pull_up[0].origin_x, 0x19);
         assert_eq!(kid.pull_up[0].width_px, 0x1C);
@@ -975,6 +983,11 @@ mod tests {
                 "ingame/artunc_kid/kid_jumping_2.bin",
                 &vec![0x32; 32 * 12],
             )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_death.bin",
+                &vec![0x3A; 32 * 12],
+            )?;
             for (path, tile_count, fill) in [
                 ("ingame/artunc_kid/kid_flip_1.bin", 16, 0x33),
                 ("ingame/artunc_kid/kid_flip_2.bin", 12, 0x34),
@@ -1307,6 +1320,7 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_death.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_flip_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_flip_2.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_flip_3.bin"),

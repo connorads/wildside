@@ -2753,6 +2753,7 @@ mod tests {
                 ],
                 jump_rise: sample_player_frame(8),
                 jump_fall: sample_player_frame(9),
+                death: Some(sample_player_frame(47)),
                 pull_up: vec![
                     sample_player_frame(40),
                     sample_player_frame(41),
@@ -2787,6 +2788,7 @@ mod tests {
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
                 jump_fall: sample_player_frame(18),
+                death: None,
                 pull_up: Vec::new(),
                 slash_ground: Vec::new(),
                 slash_air: Vec::new(),
@@ -2835,6 +2837,7 @@ mod tests {
                 ],
                 jump_rise: sample_player_frame(23),
                 jump_fall: sample_player_frame(24),
+                death: None,
                 pull_up: Vec::new(),
                 slash_ground: vec![
                     sample_player_frame(30),
@@ -2875,6 +2878,7 @@ mod tests {
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
             jump_fall: sample_player_frame(21),
+            death: None,
             pull_up: Vec::new(),
             slash_ground: Vec::new(),
             slash_air: Vec::new(),
@@ -6601,7 +6605,7 @@ mod tests {
     }
 
     fn is_player_test_signature(signature: u8) -> bool {
-        (1..=46).contains(&signature)
+        (1..=47).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
@@ -8323,9 +8327,17 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert_eq!(
-            sprite_position(&scene, 1),
+            sprite_position(&scene, 47),
             Some((8, 24)),
-            "ASM loc_B7FA/loc_B80C already advances the death tumble in engine state; the renderer must not add the old parabolic y-offset"
+            "ASM Death loc_B7FA/loc_B80C uses unk_A3FF8/kid_death.bin at the engine-driven tumble position"
+        );
+
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        let helmeted_scene = build_ingame_scene(&trace, false, None);
+        assert_eq!(
+            sprite_position(&helmeted_scene, 47),
+            Some((8, 24)),
+            "ASM Death loc_B7EA runs Kid_Transform before loc_B7FA, so helmeted deaths must still render Kid's death frame during the visible tumble"
         );
     }
 

@@ -38,6 +38,9 @@ pub struct PlayerFormVisuals {
     pub slope_walk_left: Vec<SpriteFrame>,
     pub jump_rise: SpriteFrame,
     pub jump_fall: SpriteFrame,
+    /// ASM `Death` (kid.asm:14749) installs `unk_A3FF8` / `kid_death.bin`
+    /// for the visible tumble before `lose_life`.
+    pub death: Option<SpriteFrame>,
     /// ASM `stru_8BB4`: The Kid wall-grab pull-up / rollover animation.
     pub pull_up: Vec<SpriteFrame>,
     /// ASM `stru_8B3C` / `unk_B3520..unk_B3CB2`: Red Stealth grounded sword slash.

@@ -642,6 +642,33 @@ pub(super) fn push_player_sprite(
     level_visuals: &NativeLevelVisuals,
     damage_flash_white_phase: bool,
 ) {
+    if trace.death_windup_elapsed > 0
+        && let Some(kid_visuals) = level_visuals.player.forms.get(&0)
+        && let Some(frame) = kid_visuals.death.as_ref()
+    {
+        // ASM Death loc_B7EA/loc_B7FA: helmeted deaths first run
+        // Kid_Transform, then loc_B7FA installs `unk_A3FF8` (`kid_death.bin`)
+        // for the tumble loop. Use Kid's death art/palette even if the trace
+        // still carries the pre-death form until the hidden `lose_life` shell.
+        let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
+        let (screen_x, screen_y) = player_screen_position(object, trace);
+        let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
+        commands.push(DrawCommand::Sprite {
+            x: draw_x,
+            y: draw_y,
+            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            palette: Arc::new(player_palette_for_damage_phase(
+                &kid_visuals.palette,
+                damage_flash_white_phase,
+            )),
+            tiles: build_player_sprite_tiles_with_flip(
+                frame,
+                matches!(render_facing, Direction::Left),
+            ),
+        });
+        return;
+    }
+
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
     let intrinsic_slope_facing = kid_slope_frame_intrinsic_facing(trace);

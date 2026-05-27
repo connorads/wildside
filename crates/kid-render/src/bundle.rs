@@ -907,6 +907,7 @@ struct PlayerFormSpec {
     slope_walk_left: &'static [PlayerFrameDescriptor],
     jump_rise: PlayerFrameDescriptor,
     jump_fall: PlayerFrameDescriptor,
+    death: Option<PlayerFrameDescriptor>,
     pull_up: &'static [PlayerFrameDescriptor],
     slash_ground: &'static [PlayerFrameDescriptor],
     slash_air: &'static [PlayerFrameDescriptor],
@@ -1780,6 +1781,9 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     width_px: 0x14,
     height_px: 0x20,
 };
+
+const KID_DEATH_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/kid_death.bin", 0x0F, 0x03, 0x1C, 0x1B);
 
 // ASM stru_8BB4 (kid.asm:10014): Kid wall-grab pull-up / rollover animation,
 // seven frames, each held for three VBlanks before `loc_ABF0` returns to
@@ -2971,6 +2975,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: KID_JUMP_RISE_FRAME,
         jump_fall: KID_JUMP_FALL_FRAME,
+        death: Some(KID_DEATH_FRAME),
         pull_up: &KID_PULL_UP_FRAMES,
         slash_ground: &[],
         slash_air: &[],
@@ -2987,6 +2992,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: SKYCUTTER_IDLE_FRAME,
         jump_fall: SKYCUTTER_IDLE_FRAME,
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3006,6 +3012,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
         jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3034,6 +3041,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
             0x15,
             0x25,
         ),
+        death: None,
         pull_up: &[],
         slash_ground: &RED_STEALTH_SLASH_GROUND_FRAMES,
         slash_air: &RED_STEALTH_SLASH_AIR_FRAMES,
@@ -3053,6 +3061,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
         jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3072,6 +3081,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
         jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3091,6 +3101,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
         jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3110,6 +3121,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
         jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3126,6 +3138,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
         jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        death: None,
         pull_up: &[],
         slash_ground: &[],
         slash_air: &[],
@@ -3443,6 +3456,7 @@ fn load_juggernaut_form_visuals_if_present(
                 ),
             ],
         )?,
+        death: None,
         pull_up: Vec::new(),
         slash_ground: Vec::new(),
         slash_air: Vec::new(),
@@ -3508,6 +3522,10 @@ fn load_player_form_visuals(
             .collect(),
         jump_rise: load_player_frame(manifest, spec.jump_rise)?,
         jump_fall: load_player_frame(manifest, spec.jump_fall)?,
+        death: spec
+            .death
+            .map(|descriptor| load_player_frame(manifest, descriptor))
+            .transpose()?,
         pull_up: load_player_frames(manifest, spec.pull_up)?,
         slash_ground: load_player_frames(manifest, spec.slash_ground)?,
         slash_air: load_player_frames(manifest, spec.slash_air)?,
