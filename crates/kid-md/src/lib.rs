@@ -4617,6 +4617,67 @@ mod tests {
     }
 
     #[test]
+    fn standalone_gems_step_frame_consumes_budget_and_drains_audio_events() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.z80.iff1 = true;
+        engine.z80.iff2 = true;
+        engine.z80.interrupt_mode = 1;
+        engine.z80.io.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 7,
+            value: 0x90,
+        });
+
+        engine.step_frame();
+
+        assert_eq!(
+            engine.z80.io.z80_cycles,
+            u64::from(super::GEMS_Z80_CYCLES_PER_FRAME),
+            "standalone GEMS step_frame must consume one NTSC frame of Z80 cycles"
+        );
+        assert_eq!(engine.vblank_irq_cycles_remaining, 0);
+        assert!(
+            !engine.z80.iff1,
+            "the leading VBlank IRQ window must be asserted so the Z80 consumes one interrupt"
+        );
+        assert_eq!(engine.z80.irq_pending, 0);
+        assert!(engine.z80.io.audio_events.is_empty());
+        assert_eq!(
+            engine.mixer.pending_events,
+            VecDeque::from([AudioEvent::PsgWrite {
+                z80_cycles: 7,
+                value: 0x90,
+            }])
+        );
+    }
+
+    #[test]
+    fn gems_engine_set_levels_clamps_and_applies_to_mixer() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+
+        engine.set_levels(AudioLevels {
+            master: 1.5,
+            ym2612: -0.25,
+            psg: 0.25,
+        });
+
+        assert_eq!(engine.mixer.levels.master, 1.0);
+        assert_eq!(engine.mixer.levels.ym2612, 0.0);
+        assert_eq!(engine.mixer.levels.psg, 0.25);
+    }
+
+    #[test]
     fn write_rgb_indexes_rows_by_width_then_rgb_channels() {
         let mut rgb = vec![0; 4 * 3 * 3];
 
