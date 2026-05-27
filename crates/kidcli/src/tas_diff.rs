@@ -824,6 +824,8 @@ mod tests {
             character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(false),
+            walk_visual_accumulator: 0,
+            berzerker_charging: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             death_windup_elapsed: 0,

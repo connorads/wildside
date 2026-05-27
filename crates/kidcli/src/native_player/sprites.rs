@@ -567,7 +567,16 @@ pub(super) fn select_player_frame<'a>(
             let frame_index = (trace.frame_index / 4) % slope_frames.len();
             &slope_frames[frame_index]
         } else {
-            let frame_index = (trace.frame_index / 4) % player_visuals.walk.len();
+            let frame_index = if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+                && trace.berzerker_charging
+            {
+                // ASM sub_942A loc_9564 indexes off_9688 with
+                // `$FFFFF8F0 >> 8`; this is Berzerker's head-forward charge
+                // pose selection path.
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len()
+            } else {
+                (trace.frame_index / 4) % player_visuals.walk.len()
+            };
             &player_visuals.walk[frame_index]
         }
     } else if y_velocity < 0 {

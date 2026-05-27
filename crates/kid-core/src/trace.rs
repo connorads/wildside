@@ -4797,6 +4797,14 @@ impl NativeRuntime {
             character_movement: player_state.map(|state| self.current_character_movement(state)),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),
+            walk_visual_accumulator: self
+                .opening_slice
+                .map_or(0, |slice| slice.walk_visual_accumulator),
+            berzerker_charging: if hidden_boot_progression {
+                false
+            } else {
+                self.helmet.berzerker_charging
+            },
             ledge_snap_cooldown: player_state.map_or(0, |state| state.ledge_snap_cooldown),
             kid_on_slope: player_state
                 .filter(|state| state.on_ground)

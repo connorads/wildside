@@ -2389,7 +2389,7 @@ impl NativeRuntime {
         self.step_red_stealth_airborne_slash(&slice, input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
-        self.step_berzerker_charge(&slice);
+        self.step_berzerker_charge(&mut slice);
         self.step_juggernaut_skull(&slice, input);
         let player_before_micromax_stick = slice.player;
         self.step_micromax_stick(&mut slice, input);

@@ -1660,6 +1660,8 @@ mod tests {
             character_movement: None,
             kid_facing: Some(Direction::Right),
             kid_on_ground: Some(true),
+            walk_visual_accumulator: 0,
+            berzerker_charging: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
@@ -2852,6 +2854,46 @@ mod tests {
         );
 
         PlayerVisuals { forms }
+    }
+
+    #[test]
+    fn berzerker_charge_frame_uses_walk_visual_accumulator_loc_9564() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(10),
+                sample_player_frame(11),
+                sample_player_frame(12),
+                sample_player_frame(13),
+                sample_player_frame(14),
+                sample_player_frame(15),
+            ],
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Berzerker.helmet_id();
+        trace.kid_x_velocity = Some(0x0002_0000);
+        trace.kid_on_ground = Some(true);
+        trace.berzerker_charging = true;
+        trace.walk_visual_accumulator = 0x0308;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 13,
+            "ASM sub_942A loc_9564: off_9688 index is `$FFFFF8F0 >> 8`, so $0308 selects phase 3"
+        );
     }
 
     fn sample_enemy_visuals() -> EnemyVisuals {

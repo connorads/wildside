@@ -1460,6 +1460,8 @@ mod tests {
             character_movement: None,
             kid_facing: Some(NativeDirection::Right),
             kid_on_ground: Some(true),
+            walk_visual_accumulator: 0,
+            berzerker_charging: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),

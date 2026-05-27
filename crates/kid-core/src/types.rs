@@ -1082,6 +1082,13 @@ pub struct NativeTraceFrame {
     pub character_movement: Option<u16>,
     pub kid_facing: Option<Direction>,
     pub kid_on_ground: Option<bool>,
+    /// ROM `$FFFFF8F0`: visual walk/crawl/slope animation phase.
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub walk_visual_accumulator: u16,
+    /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
+    /// Berzerker/Cyclone walk accumulator carries.
+    #[serde(default)]
+    pub berzerker_charging: bool,
     /// Remaining frames in ASM `stru_8BB4` wall-grab pull-up animation.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub ledge_snap_cooldown: u8,
@@ -1301,6 +1308,8 @@ impl Default for NativeTraceFrame {
             character_movement: None,
             kid_facing: None,
             kid_on_ground: None,
+            walk_visual_accumulator: 0,
+            berzerker_charging: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),

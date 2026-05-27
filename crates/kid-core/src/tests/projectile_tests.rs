@@ -7150,13 +7150,32 @@ mod chunk_06 {
 
         // Accumulator builds by $10 each frame — needs 16 frames to overflow
         for _ in 0..15 {
-            rt.step_berzerker_charge(&slice);
+            rt.step_berzerker_charge(&mut slice);
             assert!(!rt.helmet.berzerker_charging, "should not be charging yet");
         }
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
         assert!(
             rt.helmet.berzerker_charging,
             "should start charging after overflow"
+        );
+    }
+
+    /// ASM sub_942A loc_9534/loc_9564 (kid.asm:10993-11013): Berzerker
+    /// accumulator carry advances `$FFFFF8F0`, then off_9688 uses
+    /// `$FFFFF8F0 >> 8` for the head-forward charge pose.
+    #[test]
+    fn berzerker_charge_overflow_advances_walk_visual_accumulator_loc_9564() {
+        let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
+        let mut slice =
+            berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
+        slice.walk_visual_accumulator = 0x02E0;
+
+        rt.step_berzerker_charge(&mut slice);
+
+        assert!(rt.helmet.berzerker_charging);
+        assert_eq!(
+            slice.walk_visual_accumulator, 0x0308,
+            "ASM loc_9534: speed $20000 yields delta $28, then loc_9564 stores $0308"
         );
     }
 
@@ -7171,9 +7190,10 @@ mod chunk_06 {
                 ..FrameInput::default()
             },
         );
-        let slice = berzerker_charge_slice(-0x2_0000, Direction::Right, true, TerrainType::Normal);
+        let mut slice =
+            berzerker_charge_slice(-0x2_0000, Direction::Right, true, TerrainType::Normal);
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             !rt.helmet.berzerker_charging,
@@ -7190,9 +7210,9 @@ mod chunk_06 {
     #[test]
     fn berzerker_charge_clears_on_ice_without_direction_loc_9512() {
         let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
-        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
+        let mut slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             !rt.helmet.berzerker_charging,
@@ -7205,9 +7225,10 @@ mod chunk_06 {
     #[test]
     fn berzerker_charge_non_ice_allows_no_direction_loc_9512() {
         let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
-        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
+        let mut slice =
+            berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             rt.helmet.berzerker_charging,
@@ -7230,9 +7251,10 @@ mod chunk_06 {
             },
         ] {
             let mut rt = berzerker_charge_runtime(0xF0, input);
-            let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
+            let mut slice =
+                berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
 
-            rt.step_berzerker_charge(&slice);
+            rt.step_berzerker_charge(&mut slice);
 
             assert!(
                 rt.helmet.berzerker_charging,
@@ -7247,9 +7269,10 @@ mod chunk_06 {
     #[test]
     fn berzerker_charge_threshold_equality_builds_loc_9526() {
         let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
-        let slice = berzerker_charge_slice(0x1_0000, Direction::Right, true, TerrainType::Normal);
+        let mut slice =
+            berzerker_charge_slice(0x1_0000, Direction::Right, true, TerrainType::Normal);
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             rt.helmet.berzerker_charging,
@@ -7269,9 +7292,10 @@ mod chunk_06 {
                 ..FrameInput::default()
             },
         );
-        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, false, TerrainType::Normal);
+        let mut slice =
+            berzerker_charge_slice(0x2_0000, Direction::Right, false, TerrainType::Normal);
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             rt.helmet.berzerker_charging,
@@ -7294,7 +7318,7 @@ mod chunk_06 {
         slice.player.on_ground = true;
         slice.player.x_velocity = 0x8000; // below threshold
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(
             !rt.helmet.berzerker_charging,
@@ -7315,7 +7339,7 @@ mod chunk_06 {
         slice.player.on_ground = true;
         slice.player.x_velocity = 0x2_0000;
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
 
         assert!(!rt.helmet.berzerker_charging);
     }
@@ -7511,7 +7535,7 @@ mod chunk_06 {
             1,
         ));
 
-        rt.step_berzerker_charge(&slice);
+        rt.step_berzerker_charge(&mut slice);
         rt.process_berzerker_charge_hits(&mut slice);
 
         assert!(

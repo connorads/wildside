@@ -5483,7 +5483,7 @@ impl NativeRuntime {
     }
 
     /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
-    pub(crate) fn step_berzerker_charge(&mut self, slice: &OpeningSliceState) {
+    pub(crate) fn step_berzerker_charge(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.current_form != PlayerForm::Berzerker {
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
@@ -5527,19 +5527,30 @@ impl NativeRuntime {
             .berzerker_charge_accum
             .overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
         if overflow {
-            // ASM loc_9556 (kid.asm:11004): on ice, the carried byte
-            // accumulator adds a fixed `$40` to the visual walk counter instead
-            // of the non-ice velocity-scaled delta. Native keeps the gameplay
-            // flag and leaves that sprite counter visual-only.
-            // ASM loc_955A (kid.asm:11007): both ice and non-ice visual-counter
-            // paths wrap at `$600` before the shared tail stores the counter
-            // and sets the Berzerker/Cyclone charge flag represented here.
-            // ASM loc_9564 (kid.asm:11012): `move.w d2,($FFFFF8F0).w` stores
-            // that visual counter, then `st (Berzerker_charging).w`.
+            // ASM loc_9534/loc_9556/loc_9564 (kid.asm:10993-11013): carried
+            // `$FFFFFA13` advances `$FFFFF8F0`, stores it, then indexes
+            // off_9688 for the Berzerker walk/charge pose. Native exposes the
+            // stored phase to the renderer so the head-forward frames are not
+            // lost behind a global frame-index cycle.
+            let delta = if slice.terrain.floor_terrain_type == TerrainType::Ice {
+                0x40
+            } else {
+                let speed = vel_abs as u32;
+                let scaled = speed.rotate_left(2).wrapping_add(speed.rotate_left(4));
+                ((scaled >> 16) & 0xFFFF) as u16
+            };
+            let mut visual_accumulator = slice.walk_visual_accumulator.wrapping_add(delta);
+            if visual_accumulator >= 0x0600 {
+                visual_accumulator = visual_accumulator.wrapping_sub(0x0600);
+            }
+            slice.walk_visual_accumulator = visual_accumulator;
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
         } else {
             self.helmet.berzerker_charge_accum = new_accum;
+            // ASM `addi.b #$10,($FFFFFA13); bcc.s loc_9580` clears
+            // `(Berzerker_charging).w` until the byte accumulator carries.
+            self.helmet.berzerker_charging = false;
         }
     }
 
