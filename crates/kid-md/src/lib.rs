@@ -2869,6 +2869,32 @@ mod tests {
     }
 
     #[test]
+    fn render_into_uses_runtime_vdp_background_colour() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.core.mem.vdp.cram[0..2].copy_from_slice(&[0x0E, 0xEE]);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        runtime.render_into(&mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn runtime_audio_generation_uses_levels_and_requested_sample_count() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.set_audio_levels(AudioLevels {
+            master: 0.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        });
+
+        let samples = runtime.generate_audio_samples(44_100, 64);
+
+        assert_eq!(samples.len(), 128);
+        assert!(samples.iter().all(|sample| sample.abs() <= f32::EPSILON));
+    }
+
+    #[test]
     fn work_ram_is_mirrored_across_upper_address_space() {
         let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE, 0x1234);
