@@ -785,6 +785,30 @@ fn select_live_walking_dragon_frame<'a>(
     Some(&enemy_visuals.frames[live_sequence[phase]])
 }
 
+fn select_live_rock_tank_body_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(
+        object.kind,
+        NativeObjectKind::Enemy {
+            object_type: 0x0A | 0x0B
+        }
+    ) || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 3
+    {
+        return None;
+    }
+
+    // ASM Tank.asm `stru_3B270` and Tank_Shooting.asm `stru_3B4CA` animate
+    // the body through only C7ED0/C7ED8/C7EE0. Native appends death frames
+    // after those three entries, so live cycling must not include them.
+    let offset = object.layout_index.unwrap_or(0) * 3;
+    let phase = ((trace.frame_index + offset) / enemy_visuals.frame_duration.max(1)) % 3;
+    Some(&enemy_visuals.frames[phase])
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -1197,6 +1221,9 @@ pub(super) fn select_enemy_frame<'a>(
         return &enemy_visuals.frames[0];
     }
     if let Some(frame) = select_live_walking_dragon_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_rock_tank_body_frame(trace, enemy_visuals, object) {
         return frame;
     }
     // Offset animation by layout_index so enemies of the same type don't

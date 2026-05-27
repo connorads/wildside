@@ -6230,8 +6230,8 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 30;
         let visuals = sample_level_visuals();
-        let body = NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+        let make_body = |object_type| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
             x_pos: 0x00B3_8000,
             y_pos: 0x00E0_0000,
             layout_index: Some(1),
@@ -6250,6 +6250,7 @@ mod tests {
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
+        let body = make_body(0x0A);
         let child = NativeObjectSnapshot {
             y_pos: 0x00D8_0000,
             hit_points: None,
@@ -6276,6 +6277,18 @@ mod tests {
             sprite_tiles(&commands[1])[0].tile.tile_index,
             0x020,
             "ASM `stru_3B27E` child snapshot renders the RockTank turret frame"
+        );
+
+        let shooting_body = make_body(0x0B);
+        assert_eq!(
+            sprites::select_enemy_frame(
+                &trace,
+                visuals.enemies.families.get(&0x0B).expect("shooting tank"),
+                &shooting_body,
+            )
+            .tile_base_index,
+            0x034,
+            "ASM Tank_Shooting.asm `stru_3B4CA` uses the same three live body frames and must not cycle into appended death frames",
         );
     }
 
