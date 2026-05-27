@@ -3463,13 +3463,18 @@ fn collect_rejected_mutation_shards(state: Option<&SourcePortFrontierState>) -> 
 fn rejected_mutation_shard_key(entry: &HypothesisSummary) -> Option<String> {
     let name = entry.name.to_ascii_lowercase();
     let reason = entry.reason.to_ascii_lowercase();
-    if !reason.contains("treat shard") || !reason.contains("as exhausted") {
+    if !reason.contains("treat") || !reason.contains("shard") || !reason.contains("as exhausted") {
         return None;
     }
 
-    let marker = " mutation shard ";
+    let marker = if name.contains(" mutation shard ") {
+        " mutation shard "
+    } else {
+        " shard "
+    };
     let marker_start = name.find(marker)?;
-    let module = name[..marker_start].split_whitespace().last()?;
+    let prefix = name[..marker_start].trim();
+    let module = rejected_mutation_module_stem(prefix)?;
     let label_start = marker_start + marker.len();
     let label = name[label_start..]
         .split_whitespace()
@@ -3479,6 +3484,39 @@ fn rejected_mutation_shard_key(entry: &HypothesisSummary) -> Option<String> {
         return None;
     }
     Some(format!("{module}:{label}"))
+}
+
+fn rejected_mutation_module_stem(prefix: &str) -> Option<String> {
+    let tokens: Vec<&str> = prefix.split_whitespace().collect();
+    let last = tokens.last()?;
+    if *last == "mutation" {
+        return tokens
+            .iter()
+            .rev()
+            .skip(1)
+            .find(|token| **token != "mutation")
+            .map(|token| (*token).to_owned());
+    }
+
+    let Some(module) = last.strip_suffix(".rs") else {
+        return Some((*last).to_owned());
+    };
+    if module.is_empty() {
+        return None;
+    }
+    let Some(package) = tokens
+        .iter()
+        .rev()
+        .skip(1)
+        .find(|token| token.contains('-'))
+    else {
+        return Some(module.to_owned());
+    };
+    if *package == "kid-core" {
+        Some(module.to_owned())
+    } else {
+        Some(format!("{package}-{module}"))
+    }
 }
 
 fn source_port_records_proactive_exhaustion(frontier: &ActiveFrontierState) -> bool {
@@ -14685,6 +14723,22 @@ mod tests {
     }
 
     #[test]
+    fn rejected_package_mutation_shard_records_output_stem_skip_key() {
+        let rejected = super::HypothesisSummary {
+            name: "kid-md lib.rs shard 7/7 still has broad actionable survivors".to_owned(),
+            reason: "Treat kid-md lib.rs shard 7/7 as exhausted unless the helpers are widened."
+                .to_owned(),
+            fingerprint: None,
+        };
+
+        assert_eq!(
+            super::rejected_mutation_shard_key(&rejected).as_deref(),
+            Some("kid-md-lib:7/7"),
+            "package-prefixed shard rejections should match the duplicate-module output stem",
+        );
+    }
+
+    #[test]
     fn mutation_testing_strategy_honours_rejected_mutation_shards() {
         let temp_dir = source_port_repo();
         write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
@@ -14713,6 +14767,42 @@ mod tests {
             read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
             Some("deferred_repeated"),
             "frontier-documented exhausted shard should be marked deferred_repeated"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_honours_package_prefixed_rejected_mutation_shards() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "lib", 1, 1, "", "", "");
+        write_mutation_run(temp_dir.path(), "kid-md-lib", 201, 0, "", "", "");
+        let targets = vec![
+            mutation_target("lib.rs", 1),
+            mutation_target_in_package("kid-md", "lib.rs", 1),
+        ];
+
+        let mut skipped_shards = BTreeSet::new();
+        skipped_shards.insert("kid-md-lib:1/2".to_owned());
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+            &BTreeSet::new(),
+            &skipped_shards,
+        )
+        .expect("strategy should advance past the package-prefixed exhausted shard");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:kid-md-lib:run:shard-2/2"
+        );
+        assert_eq!(
+            read_mutation_ledger_status(temp_dir.path(), "lib.rs", "kid-md", 1, 2).as_deref(),
+            Some("deferred_repeated"),
+            "package-prefixed exhausted shard should be marked deferred_repeated"
         );
     }
 
