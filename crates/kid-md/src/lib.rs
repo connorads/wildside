@@ -2732,11 +2732,12 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, CONTROLLER_FLIP_COUNTER_CYCLES,
-        CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES, ControllerPortState, ControllerType,
-        FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus, MdRuntime, PsgRegisters, PsgSynth,
-        SecondOrderFilter, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE,
-        Z80Bus, Z80Shared, cram_rgb, probe_rom, scale_channel,
+        AudioEvent, AudioLevels, AudioMixer, BusAccess, BusAccessKind,
+        CONTROLLER_FLIP_COUNTER_CYCLES, CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES,
+        ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
+        MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, WORK_RAM_BASE,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
+        probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -3060,6 +3061,48 @@ mod tests {
             ]
         );
         assert!(bus.drain_audio_events().is_empty());
+    }
+
+    #[test]
+    fn vdp_nonzero_byte_counts_are_plane_specific() {
+        // ASM init/DMA writes VRAM, CRAM, and VSRAM through distinct VDP command
+        // modes; native probes keep separate non-zero counters for each plane.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.vram_nonzero_bytes(), 0);
+        assert_eq!(bus.cram_nonzero_bytes(), 0);
+        assert_eq!(bus.vsram_nonzero_bytes(), 0);
+
+        bus.vdp.vram[0] = 0x12;
+        bus.vdp.vram[1] = 0x34;
+        bus.vdp.cram[2] = 0x56;
+        bus.vdp.vsram[4] = 0x78;
+
+        assert_eq!(bus.vram_nonzero_bytes(), 2);
+        assert_eq!(bus.cram_nonzero_bytes(), 1);
+        assert_eq!(bus.vsram_nonzero_bytes(), 1);
+    }
+
+    #[test]
+    fn bus_access_trace_stops_at_limit() {
+        // Hardware probes can generate huge bus traces; keeping TRACE_LIMIT
+        // entries makes oracle comparisons bounded and deterministic.
+        let bus = MdBus::with_fresh_z80(&[]);
+
+        for address in 0..=TRACE_LIMIT as u32 {
+            bus.record_access(BusAccessKind::ReadByte, address, address);
+        }
+
+        let accesses = bus.accesses();
+        assert_eq!(accesses.len(), TRACE_LIMIT);
+        assert_eq!(
+            accesses.last(),
+            Some(&BusAccess {
+                kind: BusAccessKind::ReadByte,
+                address: (TRACE_LIMIT - 1) as u32,
+                value: (TRACE_LIMIT - 1) as u32,
+            })
+        );
     }
 
     #[test]
