@@ -94,7 +94,6 @@ struct PendingDripsSplash {
 enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
     Loop,
     Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
-    Exit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -556,37 +555,33 @@ fn drips_surface_crawler_side_column_step_loc_33650(
                 drips_surface_crawler_turn_script_loc_33a2c(),
             );
         }
-        if column.current_row != 0x6000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_33982(),
-            );
+        if column.current_row == 0x6000 {
+            return DripsSurfaceCrawlerSideColumnStepLoc33650::Loop;
         }
-    } else {
-        if column.one_row_up == 0x4000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_339dc(),
-            );
-        }
-        if column.one_row_up == 0x6000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_33996(),
-            );
-        }
+        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_33982(),
+        );
     }
 
-    if column.current_row == 0x6000 {
-        DripsSurfaceCrawlerSideColumnStepLoc33650::Loop
-    } else if projectile.x_velocity >= 0 && column.current_row == 0x5000 {
-        DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_33a18(),
-        )
-    } else if projectile.x_velocity >= 0 {
-        DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_339c8(),
-        )
-    } else {
-        DripsSurfaceCrawlerSideColumnStepLoc33650::Exit
+    if column.one_row_up == 0x4000 {
+        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_339dc(),
+        );
     }
+    if column.one_row_up == 0x6000 {
+        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_33996(),
+        );
+    }
+    if column.current_row == 0x6000 {
+        return DripsSurfaceCrawlerSideColumnStepLoc33650::Loop;
+    }
+    if column.current_row == 0x5000 {
+        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_33a18(),
+        );
+    }
+    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(drips_surface_crawler_turn_script_loc_339c8())
 }
 
 fn drips_surface_crawler_add_word_delta_loc_33af6(pos: u32, delta: i16) -> u32 {
@@ -1484,12 +1479,6 @@ impl NativeRuntime {
                         // projectile mover does not add an extra frame.
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
-                    }
-                    DripsSurfaceCrawlerSideColumnStepLoc33650::Exit => {
-                        // TODO(fidelity): wire the remaining loc_33650/loc_336AA
-                        // turn-script targets instead of ending the simplified
-                        // crawler.
-                        return false;
                     }
                 }
             }

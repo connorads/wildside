@@ -9885,6 +9885,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_leftward_current_solid_loops_loc_33650() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0x60;
+        data[(2 * 5 + 1) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0025_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33650 loops when loc_331F6 d5 is `$6000`");
+        assert_eq!(
+            crawler.x_pos, 0x0024_D000,
+            "ASM loc_33650 current-row `$6000` branch should keep normal leftward crawler movement"
+        );
+        assert_eq!(crawler.y_pos, 0x0020_0000);
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650,
+            "ASM loc_33650 `cmpi.w #$6000,d5; beq.s loc_33650` stays in horizontal movement"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_leftward_upper_solid_runs_loc_3393c_turn_script() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
