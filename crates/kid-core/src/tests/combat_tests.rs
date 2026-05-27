@@ -10936,7 +10936,7 @@ mod chunk_05 {
 
     #[test]
     fn evanescent_block_triggers_when_player_stands_on_it() {
-        let grid = grid_with_evanescent(2, 3, 0);
+        let grid = grid_with_evanescent(2, 3, 0x1E);
         let mut runtime = runtime_with_evanescent_grid(grid);
 
         // Player standing on the evanescent block: feet at row 3 floor (y=47px)
@@ -10995,17 +10995,24 @@ mod chunk_05 {
         );
         assert_eq!(runtime.block_state.evanescent_blocks[0].col, 2);
         assert_eq!(runtime.block_state.evanescent_blocks[0].row, 3);
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM loc_EB72 -> loc_EC76 should fire the evanescent block's skin-minus-$1C direction bits immediately"
+        );
+        assert_eq!(runtime.projectiles[0].x_velocity, 4 << 16);
+        assert_eq!(runtime.projectiles[0].y_velocity, 0);
     }
 
     #[test]
-    fn evanescent_block_not_triggered_when_airborne() {
-        let grid = grid_with_evanescent(2, 3, 0);
+    fn evanescent_block_not_triggered_when_airborne_outside_expanded_hitbox() {
+        let grid = grid_with_evanescent(2, 3, 0x1E);
         let mut runtime = runtime_with_evanescent_grid(grid);
 
         let slice = OpeningSliceState {
             player: PlayerState {
                 x_pos: (2 * 16 + 8) << 16,
-                y_pos: (3 * 16 - 5) << 16, // above the block
+                y_pos: 16 << 16, // above the block's expanded hitbox scan
                 x_velocity: 0,
                 y_velocity: -0x1_0000, // moving upward
                 facing: Direction::Right,
@@ -11051,8 +11058,69 @@ mod chunk_05 {
         runtime.step_evanescent_blocks(&slice);
         assert!(
             runtime.block_state.evanescent_blocks.is_empty(),
-            "airborne player should not trigger evanescent block"
+            "airborne player outside ASM loc_EAE4's expanded hitbox scan should not trigger evanescent block"
         );
+    }
+
+    #[test]
+    fn evanescent_block_triggers_from_airborne_hitbox_contact_and_fires() {
+        let grid = grid_with_evanescent(2, 3, 0x1F);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16 + 8) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        slice.player.y_velocity = -0x1_0000;
+        slice.level_bounds = LevelBounds {
+            width_pixels: 96,
+            height_pixels: 96,
+        };
+
+        runtime.step_evanescent_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.evanescent_blocks,
+            vec![EvanescentEntry {
+                col: 2,
+                row: 3,
+                timer: 4,
+            }],
+            "ASM loc_EAE4 -> loc_EB72 should trigger the type-$A block when it overlaps Kid's expanded airborne hitbox; native advances the active evanescent timer in the same frame"
+        );
+        assert_eq!(
+            runtime.projectiles.len(),
+            2,
+            "ASM loc_EC76 should load one shooter object for each set skin-minus-$1C direction bit"
+        );
+        let velocities = runtime
+            .projectiles
+            .iter()
+            .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
+            .collect::<Vec<_>>();
+        assert!(velocities.contains(&(0, -(4 << 16))));
+        assert!(velocities.contains(&(4 << 16, 0)));
+    }
+
+    #[test]
+    fn evanescent_block_scan_skips_when_synthetic_bounds_cannot_cover_hitbox() {
+        let grid = grid_with_evanescent(2, 3, 0x1F);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16 + 8) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        slice.level_bounds = LevelBounds {
+            width_pixels: 16,
+            height_pixels: 16,
+        };
+
+        runtime.step_evanescent_blocks(&slice);
+
+        assert!(
+            runtime.block_state.evanescent_blocks.is_empty(),
+            "synthetic native bounds that sit before ASM loc_EAE4's top/left scan window must not wrap the DBF counters into a huge empty scan"
+        );
+        assert!(runtime.projectiles.is_empty());
     }
 
     #[test]

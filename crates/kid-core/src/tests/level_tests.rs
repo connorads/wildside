@@ -17157,9 +17157,24 @@ mod chunk_02 {
         let cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
         assert_eq!(
             cell,
-            terrain::Cell::from_be_bytes(0xEA, 0x1E),
-            "ASM sub_E3C6 should reveal the ROM-mapped tile from the hidden-block metadata instead of preserving the placeholder cell"
+            terrain::Cell::from_be_bytes(0xE3, 0x1E),
+            "ASM sub_E3C6 reveals the ROM-mapped evanescent tile, then loc_EAE4 sees Kid still overlapping it and EvanescentBlock_Trigger rewrites the high byte to #$E3 in the same frame"
         );
+        assert_eq!(
+            runtime.block_state.evanescent_blocks,
+            vec![EvanescentEntry {
+                col: 2,
+                row: 2,
+                timer: 3,
+            }]
+        );
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM loc_EC76 should immediately load the skin-minus-$1C rightward bullet from the revealed hidden evanescent block"
+        );
+        assert_eq!(runtime.projectiles[0].x_velocity, 4 << 16);
+        assert_eq!(runtime.projectiles[0].y_velocity, 0);
     }
 
     #[test]

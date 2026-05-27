@@ -2015,33 +2015,35 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
-        // Trigger: if the player is on ground, check the floor cell
-        if slice.player.on_ground
-            && let Some(grid) = &self.block_grid
-        {
-            let x_px = (slice.player.x_pos >> 16) as i32;
-            let y_px = (slice.player.y_pos >> 16) as i32;
-            let probe = terrain::probe_floor(grid, x_px, y_px);
-            if probe.on_ground && probe.cell.block_type == terrain::BlockType::Evanescent {
-                let col = terrain::pixel_to_cell(x_px).max(0) as u16;
-                // The floor cell is the one the player is standing ON (below feet)
-                let row = terrain::pixel_to_cell(probe.floor_y_px).max(0) as u16;
-                let already_tracked = self
+        // ASM loc_EAE4 -> loc_EB72 scans Kid's expanded hitbox for the first
+        // bit-15 type-$A block. The trigger is body contact, not just standing
+        // on the cell; Highwater Pass' first evanescent shooters depend on this.
+        let trigger = self
+            .block_grid
+            .as_ref()
+            .and_then(|grid| Self::evanescent_hitbox_trigger_loc_EAE4(slice, grid))
+            .filter(|(col, row, _)| {
+                !self
                     .block_state
                     .evanescent_blocks
                     .iter()
-                    .any(|e| e.col == col && e.row == row);
-                if !already_tracked
+                    .any(|entry| entry.col == *col && entry.row == *row)
                     && self.block_state.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES
-                {
-                    let initial_timer = i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
-                    self.block_state.evanescent_blocks.push(EvanescentEntry {
-                        col,
-                        row,
-                        timer: initial_timer,
-                    });
-                }
+            });
+
+        if let Some((col, row, skin)) = trigger {
+            if let Some(grid) = &mut self.block_grid {
+                // ASM EvanescentBlock_Trigger writes `#$E3` to the high byte
+                // immediately, preserving the low skin byte for later redraws.
+                grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, skin));
             }
+            let initial_timer = i16::from(skin) - EVANESCENT_SKIN_OFFSET;
+            self.block_state.evanescent_blocks.push(EvanescentEntry {
+                col,
+                row,
+                timer: initial_timer,
+            });
+            self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
         }
 
         // Tick timers and remove expired blocks
@@ -2055,6 +2057,83 @@ impl NativeRuntime {
                     true
                 }
             });
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_hitbox_trigger_loc_EAE4(
+        slice: &OpeningSliceState,
+        grid: &terrain::BlockGrid,
+    ) -> Option<(u16, u16, u8)> {
+        let grid_width_pixels = u16::try_from(grid.width_pixels()).ok()?;
+        let grid_height_pixels = u16::try_from(grid.height_pixels()).ok()?;
+        let level_width_pixels = slice.level_bounds.width_pixels.min(grid_width_pixels);
+        let level_height_pixels = slice.level_bounds.height_pixels.min(grid_height_pixels);
+        if level_width_pixels == 0 || level_height_pixels == 0 {
+            return None;
+        }
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let foot_y_px = (slice.player.y_pos >> 16) as i32;
+        let top_px = u16::try_from((foot_y_px - PLAYER_HEIGHT).saturating_sub(1).max(0)).ok()?;
+        let bottom_px = crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(
+            u16::try_from(foot_y_px.max(0)).ok()?,
+            level_height_pixels,
+        )
+        .bottom_px;
+        if bottom_px < top_px {
+            return None;
+        }
+        let vertical_rows =
+            crate::level::evanescent_bullet_vertical_rows_loc_EB0C(top_px, bottom_px);
+        let left_px = u16::try_from((x_px - PLAYER_HALF_WIDTH).saturating_sub(1).max(0)).ok()?;
+        let right_px = crate::level::evanescent_bullet_right_clamp_loc_EB2A(
+            u16::try_from((x_px + PLAYER_HALF_WIDTH).max(0)).ok()?,
+            level_width_pixels,
+        )
+        .right_px;
+        if right_px < left_px {
+            return None;
+        }
+        let horizontal_columns =
+            crate::level::evanescent_bullet_horizontal_columns_loc_EB3E(left_px, right_px);
+        let hit = crate::level::evanescent_bullet_scan_rows_loc_EB48(
+            grid,
+            vertical_rows.top_row,
+            vertical_rows.row_dbf_counter,
+            horizontal_columns.left_col,
+            horizontal_columns.col_dbf_counter,
+        )?;
+        let skin = grid.cell_at(hit.col, hit.row).skin;
+        Some((hit.col, hit.row, skin))
+    }
+
+    #[allow(non_snake_case)]
+    fn fire_evanescent_block_projectiles_loc_EC76(&mut self, col: u16, row: u16, skin: u8) {
+        // ASM EvanescentBlock_Trigger stores low-byte `skin - $1C` as the
+        // direction bitfield, then loc_EC76 loads bullets for bits 3..0.
+        let skin_offset =
+            u8::try_from(EVANESCENT_SKIN_OFFSET).expect("evanescent skin offset fits in u8");
+        let directions = skin.wrapping_sub(skin_offset);
+        let block_x = u32::from(col) * 16 + 8;
+        let block_y = u32::from(row) * 16 + 8;
+        let speed = Self::SHOOTER_PROJECTILE_SPEED;
+        for (mask, xv, yv) in [
+            (0x08, -speed, 0),
+            (0x04, 0, speed),
+            (0x02, speed, 0),
+            (0x01, 0, -speed),
+        ] {
+            if directions & mask != 0 {
+                self.projectiles.push(EnemyProjectile {
+                    x_pos: block_x << 16,
+                    y_pos: block_y << 16,
+                    x_velocity: xv,
+                    y_velocity: yv,
+                    lifetime: 120,
+                    ..Default::default()
+                });
+            }
         }
     }
 
