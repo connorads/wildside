@@ -7592,6 +7592,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_2_first_e919_touch_block_spawns_shooter_projectiles() {
+        // ASM off_BB80[9] -> loc_BBC2 -> loc_11430: Highwater Pass 2's first
+        // `$E919` touch blocks queue sub_1149C support workers; sub_114F4
+        // restores the empty cells above as `$E919`, which sub_F096 then treats
+        // as shooter direction bits. This guards the real level-3 route the
+        // synthetic type-9 cell test can miss.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        let mut data = vec![0u8; 40 * 16 * 2];
+        let offset = (9usize * 40 + 20usize) * 2;
+        data[offset] = 0xE9;
+        data[offset + 1] = 0x19;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, 40, 16));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.progression.number_hitpoints = PlayerForm::Juggernaut.max_hitpoints();
+        rt.projectiles.clear();
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = ((20 * 16 + 8) as u32) << 16;
+        slice.player.y_pos = ((9 * 16 - 1) as u32) << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        for _ in 0..24 {
+            rt.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity != 0 || projectile.y_velocity != 0),
+            "ASM loc_11430/sub_114F4 should make the first Highwater Pass 2 `$E919` touch block fire after its support worker wakes"
+        );
+    }
+
+    #[test]
     fn highwater_pass_2_ec2f_shooter_registers_as_right_facing_loc_f106() {
         // ASM sub_F096 loc_F106/loc_F1DE accepts layout words with block
         // nibble `$C`, then stores `(word & $00FF) - $2D` as direction bits.
@@ -7654,6 +7691,38 @@ mod chunk_09 {
             rt.block_grid.as_ref().unwrap().cell_at(5, 3),
             terrain::Cell::from_be_bytes(0xE3, 0x1E),
             "ASM EvanescentBlock_Trigger rewrites the triggered shooter high byte to `$E3` while preserving the direction skin"
+        );
+    }
+
+    #[test]
+    fn highwater_pass_1_actual_ea24_column_fires_left_loc_eae4() {
+        // ASM loc_EAE4 -> loc_EB72 scans body contact against the live level
+        // layout, then EvanescentBlock_Trigger stores `skin - $1C` as direction
+        // bits for loc_EC76. Highwater Pass 1's first post-rhino shooter column
+        // is `$EA24` at (47,44), which must fire left (`$24 - $1C = $08`).
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.projectiles.clear();
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.level_bounds = default_bounds();
+        slice.level_bounds.width_pixels = 60 * 16;
+        slice.level_bounds.height_pixels = 112 * 16;
+        slice.player.x_pos = ((47 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((44 * 16 + 8) as u32) << 16;
+        rt.step_evanescent_blocks(&slice);
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity == -(4 << 16) && projectile.y_velocity == 0),
+            "ASM loc_EC76 should fire a leftward shot from Highwater Pass 1's `$EA24` column"
+        );
+        assert_eq!(
+            rt.block_grid.as_ref().unwrap().cell_at(47, 44),
+            terrain::Cell::from_be_bytes(0xE3, 0x24),
+            "ASM EvanescentBlock_Trigger should rewrite the actual `$EA24` cell to `$E324`"
         );
     }
 
