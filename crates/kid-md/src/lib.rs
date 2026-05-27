@@ -4,6 +4,7 @@ use r68k_emu::interrupts::AutoInterruptController;
 use r68k_emu::ram::{AddressBus, AddressSpace};
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::num::NonZeroU32;
 use std::rc::Rc;
 use thiserror::Error;
 use ymfm_sys::Ym2612;
@@ -1744,8 +1745,10 @@ impl PsgSynth {
     fn render_sample(&mut self, registers: &PsgRegisters, sample_rate: u32) -> f32 {
         let psg_clocks_per_sample = (PSG_CLOCK_HZ / PSG_DIVIDER) / f64::from(sample_rate);
         self.pending_psg_clocks += psg_clocks_per_sample;
-        while self.pending_psg_clocks >= 1.0 {
-            self.pending_psg_clocks -= 1.0;
+        let psg_clocks_to_run = (self.pending_psg_clocks.floor() as u32)
+            .min(max_psg_clocks_per_output_sample(sample_rate));
+        self.pending_psg_clocks -= f64::from(psg_clocks_to_run);
+        for _ in 0..psg_clocks_to_run {
             self.clock(registers);
         }
 
@@ -1841,9 +1844,13 @@ impl AudioMixer {
     }
 
     fn generate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
-        if sample_rate == 0 || sample_count == 0 {
+        let Some(sample_rate) = NonZeroU32::new(sample_rate) else {
+            return Vec::new();
+        };
+        if sample_count == 0 {
             return Vec::new();
         }
+        let sample_rate = sample_rate.get();
 
         self.ensure_psg_filter(sample_rate);
         let ym_sample_rate = f64::from(self.ym2612.sample_rate_hz());
@@ -1855,13 +1862,16 @@ impl AudioMixer {
             let output_cycle_end =
                 (((self.output_samples_emitted + 1) as f64) * z80_cycles_per_output).floor() as u64;
 
-            loop {
-                let ym_cycle_end =
-                    (((self.ym_samples_emitted + 1) as f64) * z80_cycles_per_ym).floor() as u64;
-                if ym_cycle_end > output_cycle_end {
-                    break;
-                }
-
+            let target_ym_samples = (((output_cycle_end + 1) as f64 / z80_cycles_per_ym).ceil()
+                as u64)
+                .saturating_sub(1)
+                .saturating_sub(self.ym_samples_emitted)
+                .min(max_ym_samples_per_output_sample(
+                    sample_rate,
+                    ym_sample_rate,
+                ));
+            for _ in 0..target_ym_samples {
+                let ym_cycle_end = ym_sample_cycle_end(self.ym_samples_emitted, z80_cycles_per_ym);
                 self.apply_events_up_to(ym_cycle_end);
                 self.last_ym_sample = self.generate_ym_sample();
                 self.ym_samples_emitted += 1;
@@ -1939,6 +1949,18 @@ fn noise_reload(registers: &PsgRegisters) -> u16 {
         2 => 0x40,
         _ => registers.tone_periods[2].max(1),
     }
+}
+
+fn max_psg_clocks_per_output_sample(sample_rate: u32) -> u32 {
+    (((PSG_CLOCK_HZ / PSG_DIVIDER) as u32) / sample_rate.max(1)).saturating_add(2)
+}
+
+fn max_ym_samples_per_output_sample(sample_rate: u32, ym_sample_rate: f64) -> u64 {
+    ((ym_sample_rate as u32) / sample_rate.max(1)).saturating_add(2) as u64
+}
+
+fn ym_sample_cycle_end(ym_samples_emitted: u64, z80_cycles_per_ym: f64) -> u64 {
+    (((ym_samples_emitted + 1) as f64) * z80_cycles_per_ym).floor() as u64
 }
 
 fn plane_dimensions(size_register: u8) -> (usize, usize) {
@@ -2721,7 +2743,8 @@ mod tests {
         ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
         MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, VdpSnapshot,
         WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
-        cram_rgb, probe_rom, render_vdp_into, scale_channel,
+        cram_rgb, max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, probe_rom,
+        render_vdp_into, scale_channel, ym_sample_cycle_end,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -3968,6 +3991,8 @@ mod tests {
 
     #[test]
     fn psg_render_sample_advances_exact_psg_clock_window() {
+        // ASM PSGInitLoop writes the reset bytes to PSG_input; native rendering keeps
+        // the same latched PSG state advancing at the console PSG clock divider.
         let registers = PsgRegisters {
             volumes: [0x00, 0x0F, 0x0F, 0x0F],
             ..PsgRegisters::default()
@@ -3980,6 +4005,14 @@ mod tests {
         assert!(synth.pending_psg_clocks < 0.000_01);
         assert_eq!(synth.tone_counters[0], 1);
         assert!(synth.tone_outputs_high[0]);
+    }
+
+    #[test]
+    fn psg_render_sample_bounds_clock_iterations_by_output_rate() {
+        assert_eq!(max_psg_clocks_per_output_sample(223_721), 3);
+        assert_eq!(max_psg_clocks_per_output_sample(44_100), 7);
+        assert_eq!(max_psg_clocks_per_output_sample(1), 223_723);
+        assert_eq!(max_psg_clocks_per_output_sample(0), 223_723);
     }
 
     #[test]
@@ -4203,6 +4236,30 @@ mod tests {
         assert_eq!(samples.len(), 6);
         assert_eq!(mixer.output_samples_emitted, 3);
         assert_eq!(mixer.ym_samples_emitted, 3);
+    }
+
+    #[test]
+    fn audio_mixer_bounds_ym_iterations_by_output_rate() {
+        let mixer = AudioMixer::default();
+        let ym_sample_rate = f64::from(mixer.ym2612.sample_rate_hz());
+
+        assert_eq!(
+            max_ym_samples_per_output_sample(mixer.ym2612.sample_rate_hz(), ym_sample_rate),
+            3
+        );
+        assert_eq!(max_ym_samples_per_output_sample(44_100, ym_sample_rate), 3);
+        assert_eq!(
+            max_ym_samples_per_output_sample(1_000_000, ym_sample_rate),
+            2
+        );
+        assert_eq!(max_ym_samples_per_output_sample(0, ym_sample_rate), 53_269);
+    }
+
+    #[test]
+    fn audio_mixer_ym_sample_cycle_end_uses_next_sample_index() {
+        assert_eq!(ym_sample_cycle_end(0, 10.25), 10);
+        assert_eq!(ym_sample_cycle_end(1, 10.25), 20);
+        assert_eq!(ym_sample_cycle_end(2, 10.25), 30);
     }
 
     #[test]
