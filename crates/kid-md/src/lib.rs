@@ -3138,6 +3138,37 @@ mod tests {
     }
 
     #[test]
+    fn md_io_registers_decode_controller_ports_like_readjoypad() {
+        // ASM ReadJoypad loads $A10003 and $A10005, then Joypad_ReadFromHardware
+        // writes TH low/high through the same data ports before sampling bits.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.read_io_register(0x00A1_0000), 0x20);
+        assert_eq!(bus.read_io_register(0x00A1_0001), 0x20);
+        assert_eq!(bus.read_io_register(0x00A1_0003), 0x7F);
+        assert_eq!(bus.read_io_register(0x00A1_0005), 0xFF);
+
+        bus.write_io_register(0x00A1_0008, 0x40);
+        bus.write_io_register(0x00A1_0003, 0x00);
+        assert_eq!(bus.read_io_register(0x00A1_0002), 0x33);
+        assert_eq!(bus.read_io_register(0x00A1_0008), 0x40);
+        bus.write_io_register(0x00A1_0003, 0x40);
+        assert_eq!(bus.read_io_register(0x00A1_0003), 0x7F);
+
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.write_io_register(0x00A1_000A, 0x40);
+        bus.write_io_register(0x00A1_0005, 0x00);
+        assert_eq!(bus.read_io_register(0x00A1_0004), 0x33);
+        assert_eq!(bus.read_io_register(0x00A1_000A), 0x40);
+        bus.write_io_register(0x00A1_0005, 0x40);
+        assert_eq!(bus.read_io_register(0x00A1_0005), 0x7F);
+        assert_eq!(bus.read_io_register(0x00A1_000E), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_0014), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_001A), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_0010), 0x00);
+    }
+
+    #[test]
     fn vdp_nonzero_byte_counts_are_plane_specific() {
         // ASM init/DMA writes VRAM, CRAM, and VSRAM through distinct VDP command
         // modes; native probes keep separate non-zero counters for each plane.
