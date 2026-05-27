@@ -7720,6 +7720,47 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_headbutt_restored_support_cell_registers_without_new_scan_boundary() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+        rt.block_state.shooter_last_scanned_col = 2;
+        rt.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        slice.shooter_block_hit = Some((5, 4));
+        rt.process_block_effects(&mut slice);
+
+        for _ in 0..=16 {
+            rt.step_shooter_headbutt_workers();
+        }
+
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0xE9, 0x19),
+            "ASM sub_114F4 restores `$E919`; native must not require Kid to cross a fresh sub_F096 scan boundary before the restored touch-then-shoot cell becomes live"
+        );
+
+        rt.step_shooter_blocks(&slice);
+
+        let speed: i32 = 4 << 16;
+        let velocities: Vec<(i32, i32)> = rt
+            .projectiles
+            .iter()
+            .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
+            .collect();
+        assert!(
+            velocities.contains(&(0, -speed)),
+            "ASM loc_11430/sub_114F4 restored `$E919` should fire its up bit even when Kid's scan row/col did not change"
+        );
+        assert!(
+            velocities.contains(&(-speed, 0)),
+            "ASM loc_11430/sub_114F4 restored `$E919` should fire its left bit even when Kid's scan row/col did not change"
+        );
+    }
+
+    #[test]
     fn shooter_headbutt_support_worker_loc_1152c_deletes_when_target_refills_before_wake() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));

@@ -435,6 +435,74 @@ pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
 }
 
 impl NativeRuntime {
+    fn shooter_has_support_loc_f106(
+        grid: &terrain::BlockGrid,
+        col: u16,
+        row: u16,
+        directions: u8,
+    ) -> bool {
+        let max_col = grid.width_cells.saturating_sub(1);
+        let max_row = grid.height_cells.saturating_sub(1);
+        let left = col
+            .checked_sub(1)
+            .is_some_and(|left_col| grid.cell_at(left_col, row).skin != 0);
+        let right = col
+            .checked_add(1)
+            .filter(|right_col| *right_col <= max_col)
+            .is_some_and(|right_col| grid.cell_at(right_col, row).skin != 0);
+        let up = row
+            .checked_sub(1)
+            .is_some_and(|up_row| grid.cell_at(col, up_row).skin != 0);
+        let down = row
+            .checked_add(1)
+            .filter(|down_row| *down_row <= max_row)
+            .is_some_and(|down_row| grid.cell_at(col, down_row).skin != 0);
+
+        (directions & 0x01 != 0 && up)
+            || (directions & 0x02 != 0 && right)
+            // ASM loc_F22E (kid.asm:19806): after shifting to the down
+            // shooter bit, `add.w Level_width_tiles,a4; tst.b 1(a4)` marks
+            // the slot negative when the lower neighbour has skin.
+            || (directions & 0x04 != 0 && down)
+            // ASM loc_F23E (kid.asm:19814): after shifting to the left
+            // shooter bit, `tst.b -1(a1)` marks the slot negative when the
+            // left neighbour's skin byte is non-zero.
+            || (directions & 0x08 != 0 && left)
+    }
+
+    fn register_shooter_block_entry_loc_f106(
+        &mut self,
+        grid: &terrain::BlockGrid,
+        col: u16,
+        row: u16,
+        directions: u8,
+    ) {
+        if self.block_state.shooter_blocks.len() >= Self::SHOOTER_SLOT_COUNT {
+            // ASM loc_F254 (kid.asm:19827): when `$FFFFF8C4` has no free
+            // shooter slot, the candidate allocation is skipped.
+            return;
+        }
+        if self
+            .block_state
+            .shooter_blocks
+            .iter()
+            .any(|entry| entry.col == col && entry.row == row)
+        {
+            return;
+        }
+
+        self.block_state.shooter_blocks.push(ShooterBlockEntry {
+            col,
+            row,
+            directions,
+            supported_by_neighbour: Self::shooter_has_support_loc_f106(grid, col, row, directions),
+            // ASM loc_F24E (kid.asm:19823): initialise the new shooter slot
+            // with delay `$0100` and state word zero. Native folds the slot
+            // tick into step_shooter_blocks, so age zero fires on that tick.
+            age: 0,
+        });
+    }
+
     #[allow(non_snake_case)]
     fn shooter_direction_bits_loc_F106(cell: terrain::Cell) -> Option<u8> {
         // ASM sub_F096 loc_F106/loc_F1DE (kid.asm:19673/19789): visible
@@ -2556,33 +2624,6 @@ impl NativeRuntime {
         let previous_col = self.block_state.shooter_last_scanned_col;
         let previous_row = self.block_state.shooter_last_scanned_row;
         let mut pending_entries = Vec::new();
-        let shooter_has_support = |col: u16, row: u16, directions: u8| {
-            let left = col
-                .checked_sub(1)
-                .is_some_and(|left_col| grid.cell_at(left_col, row).skin != 0);
-            let right = col
-                .checked_add(1)
-                .filter(|right_col| *right_col <= u16::try_from(max_col).unwrap_or(u16::MAX))
-                .is_some_and(|right_col| grid.cell_at(right_col, row).skin != 0);
-            let up = row
-                .checked_sub(1)
-                .is_some_and(|up_row| grid.cell_at(col, up_row).skin != 0);
-            let down = row
-                .checked_add(1)
-                .filter(|down_row| *down_row <= u16::try_from(max_row).unwrap_or(u16::MAX))
-                .is_some_and(|down_row| grid.cell_at(col, down_row).skin != 0);
-
-            (directions & 0x01 != 0 && up)
-                || (directions & 0x02 != 0 && right)
-                // ASM loc_F22E (kid.asm:19806): after shifting to the down
-                // shooter bit, `add.w Level_width_tiles,a4; tst.b 1(a4)`
-                // marks the slot negative when the lower neighbour has skin.
-                || (directions & 0x04 != 0 && down)
-                // ASM loc_F23E (kid.asm:19814): after shifting to the left
-                // shooter bit, `tst.b -1(a1)` marks the slot negative when
-                // the left neighbour's skin byte is non-zero.
-                || (directions & 0x08 != 0 && left)
-        };
         let mut queue_scan = |col: u16, row: u16, skin: u8| {
             if self.block_state.shooter_blocks.len() + pending_entries.len()
                 >= Self::SHOOTER_SLOT_COUNT
@@ -2663,7 +2704,9 @@ impl NativeRuntime {
                         col,
                         row,
                         directions,
-                        supported_by_neighbour: shooter_has_support(col, row, directions),
+                        supported_by_neighbour: Self::shooter_has_support_loc_f106(
+                            grid, col, row, directions,
+                        ),
                         // ASM loc_F24E (kid.asm:19823): initialise the new
                         // shooter slot with delay `$0100` and state word zero.
                         // Native folds the slot tick into this scan, so age
@@ -2719,6 +2762,7 @@ impl NativeRuntime {
             return;
         };
 
+        let mut restored_shooter_cells = Vec::new();
         self.block_state
             .shooter_headbutt_workers
             .retain_mut(|worker| {
@@ -2775,11 +2819,9 @@ impl NativeRuntime {
                             );
                         }
                         age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
-                            grid.set_cell_at(
-                                worker.col,
-                                worker.row,
-                                Self::shooter_support_tile_for_sub_114f4(),
-                            );
+                            let restored_cell = Self::shooter_support_tile_for_sub_114f4();
+                            grid.set_cell_at(worker.col, worker.row, restored_cell);
+                            restored_shooter_cells.push((worker.col, worker.row, restored_cell));
                             return false;
                         }
                         _ => {}
@@ -2789,6 +2831,20 @@ impl NativeRuntime {
                 worker.age = worker.age.saturating_add(1);
                 true
             });
+
+        let grid_snapshot = self.block_grid.clone();
+        if let Some(grid) = grid_snapshot.as_ref() {
+            for (col, row, cell) in restored_shooter_cells {
+                if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
+                    // ASM sub_114F4 (kid.asm:23459) restores support cells as
+                    // `$E919`. Native represents those restored Highwater Pass
+                    // touch cells in the same shooter-slot list used by
+                    // sub_F096, so queue them as soon as the worker finishes
+                    // instead of waiting for an unrelated movement scan edge.
+                    self.register_shooter_block_entry_loc_f106(grid, col, row, directions);
+                }
+            }
+        }
     }
 
     #[allow(non_snake_case)]
