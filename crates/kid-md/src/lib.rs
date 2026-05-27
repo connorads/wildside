@@ -1596,17 +1596,6 @@ impl MdBus {
                 }
             }
             0x00A1_0000..=0x00A1_001F => u16::from(self.read_io_register(address)),
-            0x00A1_1100..=0x00A1_1101 => {
-                let byte = u8::from(!self.z80_busack());
-                u16::from_be_bytes([byte, byte])
-            }
-            0x00A1_1200..=0x00A1_1201 => {
-                let byte = u8::from(!self.io.z80_reset);
-                u16::from_be_bytes([byte, byte])
-            }
-            0x00C0_0000..=0x00C0_0003 => 0,
-            0x00C0_0004..=0x00C0_0007 => self.vdp.status,
-            0x00C0_0008..=0x00C0_000F => 0,
             _ => u16::from_be_bytes([
                 self.read_byte_internal(address),
                 self.read_byte_internal(address.wrapping_add(1)),
@@ -1622,12 +1611,10 @@ impl MdBus {
             0x00A1_1200..=0x00A1_1201 => self.set_z80_reset((value & 0x0100) == 0),
             0x00C0_0000..=0x00C0_0003 => self.write_vdp_data_word(value),
             0x00C0_0004..=0x00C0_0007 => self.apply_vdp_control_write(value),
-            WORK_RAM_BASE..=WORK_RAM_END => {
-                self.write_work_ram_word(address, value);
-            }
             _ => {
-                self.write_byte_internal(address, (value >> 8) as u8);
-                self.write_byte_internal(address.wrapping_add(1), value as u8);
+                let [hi, lo] = value.to_be_bytes();
+                self.write_byte_internal(address, hi);
+                self.write_byte_internal(address.wrapping_add(1), lo);
             }
         }
     }
@@ -3490,6 +3477,63 @@ mod tests {
         bus.set_z80_reset(true);
         assert_eq!(bus.z80_reset_count(), 1);
         assert!(!bus.z80_busack());
+    }
+
+    #[test]
+    fn md_bus_dispatches_byte_and_word_hardware_windows() {
+        // ASM init touches $A11100/$A11200 for Z80 bus control and uses
+        // $C00000/$C00004 as VDP data/control ports; these address windows must
+        // dispatch before generic byte fallback.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.vdp.status = 0x4567;
+
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 0);
+        assert_eq!(bus.read_byte_internal(0x00C0_0004), 0x45);
+
+        bus.write_byte_internal(0x00A1_1200, 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 1);
+        bus.write_byte_internal(0x00A1_1200, 0);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 0);
+        bus.write_byte_internal(0x00A1_1200, 1);
+        bus.write_byte_internal(0x00A1_1100, 0);
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 1);
+        bus.write_byte_internal(0x00A1_1100, 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 0);
+
+        bus.write_byte_internal(Z80_RAM_BASE, 0x5A);
+        assert_eq!(bus.read_byte_internal(Z80_RAM_BASE), 0x5A);
+        bus.write_byte_internal(0x00C0_0004, 0x8F);
+        assert_eq!(bus.vdp.registers[0x0F], 0x8F);
+
+        bus.write_word_internal(0x00A1_1100, 0x0000);
+        assert_eq!(bus.read_word_internal(0x00A1_1100), 0x0101);
+        bus.write_word_internal(0x00A1_1100, 0x0100);
+        assert_eq!(bus.read_word_internal(0x00A1_1100), 0x0000);
+        bus.write_word_internal(0x00A1_1200, 0x0100);
+        assert_eq!(bus.read_word_internal(0x00A1_1200), 0x0101);
+        bus.write_word_internal(0x00A1_1200, 0x0000);
+        assert_eq!(bus.read_word_internal(0x00A1_1200), 0x0000);
+
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.write_word_internal(0x00A1_0003, 0x0040);
+        assert_eq!(bus.io.p1_port.last_data_write, 0x40);
+        assert_eq!(bus.io.p2_port.last_data_write, 0x00);
+        assert_eq!(bus.read_word_internal(0x00A1_0003), 0x007F);
+        bus.write_word_internal(0x00C0_0000, 0xCAFE);
+        assert_eq!(bus.vdp_data_writes().last(), Some(&0xCAFE));
+        assert_eq!(bus.read_word_internal(0x00C0_0000), 0);
+        assert_eq!(bus.read_word_internal(0x00C0_0004), 0x4567);
+        assert_eq!(bus.read_word_internal(0x00C0_0008), 0);
+
+        bus.write_word_internal(0x00A1_1200, 0x0100);
+        bus.write_word_internal(0x00A1_1100, 0x0100);
+        bus.z80_shared.borrow_mut().ram[1] = 0x3C;
+        bus.write_word_internal(Z80_RAM_BASE, 0xA55A);
+        assert_eq!(bus.z80_shared.borrow().ram[0], 0xA5);
+        assert_eq!(bus.z80_shared.borrow().ram[1], 0x3C);
+        bus.write_word_internal(WORK_RAM_BASE + 0x20, 0x1234);
+        assert_eq!(bus.read_word_internal(WORK_RAM_BASE + 0x20), 0x1234);
     }
 
     #[test]
