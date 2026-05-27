@@ -911,13 +911,118 @@ fn settled_recording_oracle_bootstrap_block_reason(
             || native.entities != oracle.entities
             || native.events != oracle.events)
     {
+        let mismatch_summary = settled_bootstrap_mismatch_summary(native, oracle);
         return Some(format!(
-            "settled recording oracle bootstrap reached gameplay with a different initial state on Level {:02X}; fix settled-recording oracle bootstrap before treating `{}` as gameplay-authoritative",
-            native.world.current_level_id, recording.manifest.slug
+            "settled recording oracle bootstrap reached gameplay with a different initial state on Level {:02X} ({}); fix settled-recording oracle bootstrap before treating `{}` as gameplay-authoritative",
+            native.world.current_level_id, mismatch_summary, recording.manifest.slug
         ));
     }
 
     None
+}
+
+fn settled_bootstrap_mismatch_summary(
+    native: &SemanticGameState,
+    oracle: &SemanticGameState,
+) -> String {
+    let mut mismatches = Vec::new();
+    if native.player != oracle.player {
+        mismatches.push(format!(
+            "player fields={}",
+            player_mismatch_fields(&native.player, &oracle.player)
+        ));
+    }
+    if native.camera != oracle.camera {
+        mismatches.push(format!(
+            "camera fields={}",
+            camera_mismatch_fields(&native.camera, &oracle.camera)
+        ));
+    }
+    if native.entities != oracle.entities {
+        mismatches.push(entity_mismatch_summary(&native.entities, &oracle.entities));
+    }
+    if native.events != oracle.events {
+        mismatches.push(format!(
+            "events native={} oracle={}",
+            native.events.len(),
+            oracle.events.len()
+        ));
+    }
+    mismatches.join(", ")
+}
+
+fn player_mismatch_fields(native: &SemanticPlayerState, oracle: &SemanticPlayerState) -> String {
+    let mut fields = Vec::new();
+    if native.x_pos != oracle.x_pos {
+        fields.push("x_pos");
+    }
+    if native.y_pos != oracle.y_pos {
+        fields.push("y_pos");
+    }
+    if native.x_velocity != oracle.x_velocity {
+        fields.push("x_velocity");
+    }
+    if native.y_velocity != oracle.y_velocity {
+        fields.push("y_velocity");
+    }
+    if native.facing != oracle.facing {
+        fields.push("facing");
+    }
+    if native.on_ground != oracle.on_ground {
+        fields.push("on_ground");
+    }
+    if native.movement_state != oracle.movement_state {
+        fields.push("movement_state");
+    }
+    if native.current_form != oracle.current_form {
+        fields.push("current_form");
+    }
+    if native.hitpoints != oracle.hitpoints {
+        fields.push("hitpoints");
+    }
+    if native.invulnerable_frames != oracle.invulnerable_frames {
+        fields.push("invulnerable_frames");
+    }
+    if native.collision_type != oracle.collision_type {
+        fields.push("collision_type");
+    }
+    fields.join("|")
+}
+
+fn camera_mismatch_fields(native: &SemanticCameraState, oracle: &SemanticCameraState) -> String {
+    let mut fields = Vec::new();
+    if native.x_pos != oracle.x_pos {
+        fields.push("x_pos");
+    }
+    if native.y_pos != oracle.y_pos {
+        fields.push("y_pos");
+    }
+    fields.join("|")
+}
+
+fn entity_mismatch_summary(native: &[SemanticEntity], oracle: &[SemanticEntity]) -> String {
+    let mut summary = format!("entities native={} oracle={}", native.len(), oracle.len());
+    if let (Some(native_first), Some(oracle_first)) = (native.first(), oracle.first()) {
+        let _ = write!(
+            summary,
+            " first native={}@{:08X},{:08X} oracle={}@{:08X},{:08X}",
+            native_first
+                .object_type
+                .map_or(String::from("none"), |object_type| format!(
+                    "{object_type:02X}"
+                )),
+            native_first.x_pos,
+            native_first.y_pos,
+            oracle_first
+                .object_type
+                .map_or(String::from("none"), |object_type| format!(
+                    "{object_type:02X}"
+                )),
+            oracle_first.x_pos,
+            oracle_first.y_pos
+        );
+    }
+    summary
 }
 
 fn oracle_scenario_for_case_recording(
@@ -2550,6 +2655,8 @@ mod tests {
                 .expect("blocked reason");
 
         assert!(reason.contains("bootstrap reached gameplay with a different initial state"));
+        assert!(reason.contains("player fields=y_pos"));
+        assert!(reason.contains("camera fields=y_pos"));
         assert!(reason.contains("Level 0C"));
         assert!(reason.contains("level12-walk-right"));
     }
@@ -2612,6 +2719,7 @@ mod tests {
                 .expect("blocked reason");
 
         assert!(reason.contains("bootstrap reached gameplay with a different initial state"));
+        assert!(reason.contains("entities native=0 oracle=1"));
         assert!(reason.contains("Level 12"));
         assert!(reason.contains("level18-walk-right"));
     }
