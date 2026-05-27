@@ -2836,6 +2836,39 @@ mod tests {
     }
 
     #[test]
+    fn run_until_vblank_reports_timeout_and_counter_change() {
+        // Probe ROM: `move.l #1,($FFFFF806).l; nop`. $FFFFF806 is the
+        // VInt counter observed by MdRuntime::run_until_vblank.
+        let rom = rom_with_code_at_reset(&[
+            0x23, 0xFC, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFF, 0xF8, 0x06, 0x4E, 0x71,
+        ]);
+        let mut runtime = MdRuntime::new(&rom).expect("runtime should boot counter probe ROM");
+
+        assert!(!runtime.run_until_vblank(0));
+        assert!(runtime.run_until_vblank(1));
+    }
+
+    #[test]
+    fn run_until_frame_rendered_reports_timeout_and_synthetic_frame() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        assert!(!runtime.run_until_frame_rendered(0));
+        assert!(!runtime.run_until_frame_rendered(1));
+        assert!(runtime.run_until_frame_rendered(200_000));
+    }
+
+    #[test]
+    fn cpu_probe_reports_nonzero_just_received_damage_as_true() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime
+            .core
+            .mem
+            .write_work_ram_byte(super::JUST_RECEIVED_DAMAGE_ADDR, 1);
+
+        assert!(runtime.snapshot().just_received_damage);
+    }
+
+    #[test]
     fn work_ram_is_mirrored_across_upper_address_space() {
         let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE, 0x1234);
