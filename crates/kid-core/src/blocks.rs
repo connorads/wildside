@@ -2230,6 +2230,10 @@ impl NativeRuntime {
                     x_velocity: xv,
                     y_velocity: yv,
                     lifetime: 120,
+                    kind: EnemyProjectileKind::ShooterBlock,
+                    // ASM loc_EC76 allocates through the same shooter-object
+                    // free list as visible shooter blocks, so traces/rendering
+                    // must keep touch-triggered Highwater shots in that family.
                     ..Default::default()
                 });
             }

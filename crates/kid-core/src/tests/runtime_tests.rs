@@ -7699,6 +7699,13 @@ mod chunk_09 {
         );
         assert_eq!(rt.projectiles[0].x_velocity, 4 << 16);
         assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert!(
+            rt.trace_frame()
+                .active_projectile_details
+                .iter()
+                .any(|projectile| projectile.kind == ActiveProjectileKind::ShooterBlock),
+            "ASM loc_EAE4 -> loc_EC76 should keep touch-triggered Highwater shooter bullets typed as shooter-block projectiles"
+        );
         assert_eq!(
             rt.block_grid.as_ref().unwrap().cell_at(5, 3),
             terrain::Cell::from_be_bytes(0xE3, 0x1E),
@@ -7728,8 +7735,15 @@ mod chunk_09 {
         assert!(
             rt.projectiles
                 .iter()
-                .any(|projectile| projectile.x_velocity == -(4 << 16) && projectile.y_velocity == 0),
+            .any(|projectile| projectile.x_velocity == -(4 << 16) && projectile.y_velocity == 0),
             "ASM loc_EC76 should fire a leftward shot from Highwater Pass 1's `$EA24` column"
+        );
+        assert!(
+            rt.trace_frame()
+                .active_projectile_details
+                .iter()
+                .any(|projectile| projectile.kind == ActiveProjectileKind::ShooterBlock),
+            "ASM loc_EAE4 -> loc_EC76 should keep Highwater Pass 1 touch-triggered bullets typed as shooter-block projectiles"
         );
         assert_eq!(
             rt.block_grid.as_ref().unwrap().cell_at(47, 44),
