@@ -111,7 +111,25 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) frame_index: usize,
     pub(crate) mean_absolute_error: f32,
     pub(crate) max_channel_delta: u8,
+    #[serde(default)]
+    pub(crate) changed_pixel_count: usize,
+    #[serde(default)]
+    pub(crate) changed_bounds: Option<PixelDiffBounds>,
     pub(crate) diff_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PixelDiffBounds {
+    pub(crate) min_x: usize,
+    pub(crate) min_y: usize,
+    pub(crate) max_x: usize,
+    pub(crate) max_y: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PixelDiffSummary {
+    changed_pixel_count: usize,
+    changed_bounds: Option<PixelDiffBounds>,
 }
 
 pub(crate) fn recording_start_from_options(options: &NativePlayOptions) -> RecordingStart {
@@ -848,6 +866,7 @@ fn compare_recording_frames(
             .ok_or_else(|| anyhow!("missing oracle frame {label}@{frame_index}"))?;
         let oracle_rgb = load_png_rgb(&oracle_frame.png_path)?;
         let frame_diff = compare_rgb_frames(native_rgb, &oracle_rgb)?;
+        let pixel_diff_summary = summarize_pixel_diffs(native_rgb, &oracle_rgb, *width, *height)?;
         let (diff_width, diff_height, mut diff_rgb) =
             generate_diff_composite(native_rgb, &oracle_rgb, *width as u32, *height as u32);
         annotate_diff(
@@ -872,10 +891,73 @@ fn compare_recording_frames(
             frame_index: *frame_index,
             mean_absolute_error: frame_diff.mean_absolute_error,
             max_channel_delta: frame_diff.max_channel_delta,
+            changed_pixel_count: pixel_diff_summary.changed_pixel_count,
+            changed_bounds: pixel_diff_summary.changed_bounds,
             diff_path,
         });
     }
     Ok(diffs)
+}
+
+fn summarize_pixel_diffs(
+    native_rgb: &[u8],
+    oracle_rgb: &[u8],
+    width: usize,
+    height: usize,
+) -> Result<PixelDiffSummary> {
+    if native_rgb.len() != oracle_rgb.len() {
+        bail!(
+            "frame size mismatch: native {} bytes vs oracle {} bytes",
+            native_rgb.len(),
+            oracle_rgb.len()
+        );
+    }
+    let expected_len = width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(3))
+        .ok_or_else(|| anyhow!("frame dimensions overflow: {width}x{height}"))?;
+    if native_rgb.len() != expected_len {
+        bail!(
+            "frame dimensions {}x{} imply {} RGB bytes, got {}",
+            width,
+            height,
+            expected_len,
+            native_rgb.len()
+        );
+    }
+
+    let mut changed_pixel_count = 0usize;
+    let mut bounds: Option<PixelDiffBounds> = None;
+    for (pixel_index, (native_pixel, oracle_pixel)) in native_rgb
+        .chunks_exact(3)
+        .zip(oracle_rgb.chunks_exact(3))
+        .enumerate()
+    {
+        if native_pixel != oracle_pixel {
+            changed_pixel_count += 1;
+            let x = pixel_index % width;
+            let y = pixel_index / width;
+            bounds = Some(match bounds {
+                Some(existing) => PixelDiffBounds {
+                    min_x: existing.min_x.min(x),
+                    min_y: existing.min_y.min(y),
+                    max_x: existing.max_x.max(x),
+                    max_y: existing.max_y.max(y),
+                },
+                None => PixelDiffBounds {
+                    min_x: x,
+                    min_y: y,
+                    max_x: x,
+                    max_y: y,
+                },
+            });
+        }
+    }
+
+    Ok(PixelDiffSummary {
+        changed_pixel_count,
+        changed_bounds: bounds,
+    })
 }
 
 fn first_trace_drift(
@@ -1784,6 +1866,40 @@ mod tests {
             }),
             0
         );
+    }
+
+    #[test]
+    fn summarize_pixel_diffs_reports_changed_count_and_bounds() {
+        let native_rgb = vec![
+            0, 0, 0, 1, 1, 1, 2, 2, 2, //
+            3, 3, 3, 4, 4, 4, 5, 5, 5,
+        ];
+        let mut oracle_rgb = native_rgb.clone();
+        oracle_rgb[3..6].copy_from_slice(&[9, 9, 9]);
+        oracle_rgb[12..15].copy_from_slice(&[8, 8, 8]);
+
+        let summary = summarize_pixel_diffs(&native_rgb, &oracle_rgb, 3, 2).expect("summary");
+
+        assert_eq!(summary.changed_pixel_count, 2);
+        assert_eq!(
+            summary.changed_bounds,
+            Some(PixelDiffBounds {
+                min_x: 1,
+                min_y: 0,
+                max_x: 1,
+                max_y: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn summarize_pixel_diffs_leaves_bounds_empty_when_frames_match() {
+        let rgb = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
+
+        let summary = summarize_pixel_diffs(&rgb, &rgb, 3, 1).expect("summary");
+
+        assert_eq!(summary.changed_pixel_count, 0);
+        assert_eq!(summary.changed_bounds, None);
     }
 
     #[test]
