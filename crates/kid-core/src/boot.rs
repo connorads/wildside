@@ -6807,8 +6807,8 @@ impl NativeRuntime {
                     };
                     return;
                 }
-                let up_pressed = input.up && !self.prior_input.up;
-                let down_pressed = input.down && !self.prior_input.down;
+                let up_pressed = input.up && !self.previous_input.up;
+                let down_pressed = input.down && !self.previous_input.down;
 
                 if self.title_menu_selection_pending.is_some()
                     && self.title_menu_selection_delay_frames > 0
@@ -6944,8 +6944,8 @@ impl NativeRuntime {
                     };
                     return;
                 }
-                let up_pressed = input.up && !self.prior_input.up;
-                let down_pressed = input.down && !self.prior_input.down;
+                let up_pressed = input.up && !self.previous_input.up;
+                let down_pressed = input.down && !self.previous_input.down;
 
                 if self.title_menu_selection_pending.is_some()
                     && self.title_menu_selection_delay_frames > 0
@@ -7061,9 +7061,9 @@ impl NativeRuntime {
                 }
             }
             BootState::OptionsMenu { cursor } => {
-                let b_pressed = input.b && !self.prior_input.b;
-                let left_pressed = input.left && !self.prior_input.left;
-                let right_pressed = input.right && !self.prior_input.right;
+                let b_pressed = input.b && !self.previous_input.b;
+                let left_pressed = input.left && !self.previous_input.left;
+                let right_pressed = input.right && !self.previous_input.right;
                 // ASM loc_1CB88 (kid.asm:31684): loop entry that steps panel
                 // animation (sub_1CC88) then checks Start to exit. Native
                 // omits the intro-loop camera scroll and enters directly.
@@ -7082,13 +7082,13 @@ impl NativeRuntime {
                 // 2 = SPEED BUTTON (normal/fast), 3 = EXIT.
                 // ASM loc_1CBF2 (kid.asm:31727): branch target when Up not pressed
                 // or cursor already at 0; continues to check Down below.
-                if input.up && !self.prior_input.up && *cursor > 0 {
+                if input.up && !self.previous_input.up && *cursor > 0 {
                     play_navigate_jingle = true;
                     *cursor -= 1;
                 }
                 // ASM loc_1CC0E (kid.asm:31736): branch target when Down not pressed
                 // or cursor already at 3; continues to check Left/Right below.
-                if input.down && !self.prior_input.down && *cursor < 3 {
+                if input.down && !self.previous_input.down && *cursor < 3 {
                     play_navigate_jingle = true;
                     *cursor += 1;
                 }
@@ -7154,19 +7154,19 @@ impl NativeRuntime {
                 self.title_screen_elapsed_frames += 1;
             }
             BootState::SoundTest { track } => {
-                let b_pressed = input.b && !self.prior_input.b;
-                let a_pressed = input.a && !self.prior_input.a;
-                let c_pressed = input.c && !self.prior_input.c;
-                if input.right && !self.prior_input.right {
+                let b_pressed = input.b && !self.previous_input.b;
+                let a_pressed = input.a && !self.previous_input.a;
+                let c_pressed = input.c && !self.previous_input.c;
+                if input.right && !self.previous_input.right {
                     *track = track.wrapping_add(1);
                 }
-                if input.left && !self.prior_input.left {
+                if input.left && !self.previous_input.left {
                     *track = track.wrapping_sub(1);
                 }
-                if input.up && !self.prior_input.up {
+                if input.up && !self.previous_input.up {
                     *track = track.wrapping_add(16);
                 }
-                if input.down && !self.prior_input.down {
+                if input.down && !self.previous_input.down {
                     *track = track.wrapping_sub(16);
                 }
                 // A/C plays the current track (handled by renderer via sound_test_track)

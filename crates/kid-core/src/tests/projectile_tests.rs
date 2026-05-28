@@ -8133,7 +8133,17 @@ mod chunk_06 {
             "right on cursor 0 should toggle the ROM's one-controller/two-controller option"
         );
 
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            runtime.options_two_player_two_controllers,
+            "ASM loc_1CC3E consumes Ctrl_1_Pressed as a one-frame edge; holding Right must not toggle the option again",
+        );
+
         runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
         runtime.step_frame(FrameInput {
             left: true,
             ..FrameInput::default()
@@ -8141,6 +8151,44 @@ mod chunk_06 {
         assert!(
             !runtime.options_two_player_two_controllers,
             "left on cursor 0 should toggle the option back"
+        );
+    }
+
+    #[test]
+    fn sound_test_track_buttons_only_repeat_after_released() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::SoundTest { track: 0x10 };
+
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 0x11 },
+            "ASM SoundTest reads Ctrl_1_Pressed for right-step input",
+        );
+
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 0x11 },
+            "ASM SoundTest consumes direction buttons as one-frame edges; holding Right must not keep incrementing",
+        );
+
+        runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
+        runtime.step_frame(FrameInput {
+            left: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 0x10 },
+            "releasing then pressing Left should step the selected sound back down",
         );
     }
 
@@ -8277,7 +8325,23 @@ mod chunk_06 {
             "ASM Obj_TitleMenu loc_1BBF6 should call sub_1BC26 when Down actually moves the cursor",
         );
 
+        runtime.step_frame(FrameInput {
+            down: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 1 },
+            "ASM Obj_TitleMenu loc_1BBF6 consumes Ctrl_1_Pressed as a one-frame edge; holding Down must not skip from row 1 to row 2",
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::NavigateJingle],
+            "ASM Obj_TitleMenu should not call sub_1BC26 again until Down is released and pressed again",
+        );
+
         runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
         runtime.step_frame(FrameInput {
             down: true,
             ..FrameInput::default()
@@ -8427,6 +8491,7 @@ mod chunk_06 {
 
         runtime.played_sound_effects.clear();
         runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
         runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
         runtime.step_frame(FrameInput {
             right: true,
@@ -8573,6 +8638,7 @@ mod chunk_06 {
         // Compare to cursor 1 where Up should decrement
         runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
         runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
         runtime.step_frame(FrameInput {
             up: true,
             ..FrameInput::default()
@@ -8619,6 +8685,7 @@ mod chunk_06 {
         // Compare to cursor 2 where Down should increment
         runtime.boot_state = BootState::OptionsMenu { cursor: 2 };
         runtime.prior_input = FrameInput::default();
+        runtime.previous_input = FrameInput::default();
         runtime.step_frame(FrameInput {
             down: true,
             ..FrameInput::default()
