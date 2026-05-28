@@ -555,18 +555,19 @@ pub(super) fn select_player_frame<'a>(
     }
 
     if on_ground {
-        if x_velocity == 0 {
-            &player_visuals.idle
-        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+        if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
             && (trace.berzerker_charging || trace.berzerker_charge_pose)
             && !player_visuals.charge.is_empty()
         {
             // ASM loc_9564 writes off_9688 (`berzerker_run_*`) immediately
-            // after the charge accumulator carries. This explicit sprite
-            // mapping wins over the later generic slope-walk art selection.
+            // after the charge accumulator carries. That sprite write survives
+            // loc_9326 clearing Berzerker_charging after wall contact, so the
+            // latched pose must also win over idle when native velocity stops.
             let frame_index =
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
             &player_visuals.charge[frame_index]
+        } else if x_velocity == 0 {
+            &player_visuals.idle
         } else if trace.kid_on_slope != 0 {
             // ASM loc_A13A / off_A190: slope animation table selection first
             // canonicalises x_direction through $FFFFFA26. SlopeUp keeps the

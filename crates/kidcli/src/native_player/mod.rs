@@ -3363,6 +3363,56 @@ mod tests {
     }
 
     #[test]
+    fn berzerker_charge_pose_latch_overrides_idle_after_wall_stop_loc_9564_9326() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(10),
+                sample_player_frame(11),
+                sample_player_frame(12),
+                sample_player_frame(13),
+                sample_player_frame(14),
+                sample_player_frame(15),
+            ],
+            charge: vec![
+                sample_player_frame(40),
+                sample_player_frame(41),
+                sample_player_frame(42),
+                sample_player_frame(43),
+                sample_player_frame(44),
+                sample_player_frame(45),
+            ],
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Berzerker.helmet_id();
+        trace.kid_x_velocity = Some(0);
+        trace.kid_on_ground = Some(true);
+        trace.berzerker_charging = false;
+        trace.berzerker_charge_pose = true;
+        trace.walk_visual_accumulator = 0x0308;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 43,
+            "ASM loc_9564 writes the off_9688 head-forward sprite before loc_9326 clears Berzerker_charging; a same-frame wall stop must not fall back to idle"
+        );
+    }
+
+    #[test]
     fn berzerker_charge_pose_overrides_slope_walk_loc_9564() {
         let visuals = PlayerFormVisuals {
             palette: Palette {
