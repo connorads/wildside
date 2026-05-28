@@ -2,8 +2,8 @@ use super::*;
 use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
-    NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene, load_session_assets,
-    render_scene, render_vdp_trace_overlay,
+    LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene,
+    build_scene_filtered, load_session_assets, render_scene, render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -479,6 +479,13 @@ pub(crate) fn verify_recording(
         recording_visual_frame_offset(&recording.manifest.start),
     )?;
     write_rendered_frames(&native_dir, &native_frames)?;
+    write_dynamic_checkpoint_layer_frames(
+        manifest,
+        &recording.manifest.start,
+        &recording.manifest.scenario,
+        recording_visual_frame_offset(&recording.manifest.start),
+        &native_dir.join("layers"),
+    )?;
 
     let (oracle_state_match, oracle_frame_match, frame_diffs) = if native_only {
         (true, true, Vec::new())
@@ -857,6 +864,132 @@ fn write_rendered_frames(out_dir: &Path, frames: &[RenderedFrame]) -> Result<()>
         )
         .with_context(|| format!("failed to write {}", path.display()))?;
     }
+    Ok(())
+}
+
+fn write_dynamic_checkpoint_layer_frames(
+    manifest: &AssetManifest,
+    start: &RecordingStart,
+    scenario: &DynamicScenario,
+    visual_frame_offset: usize,
+    out_dir: &Path,
+) -> Result<()> {
+    const LAYERS: [&str; 8] = [
+        "background",
+        "terrain",
+        "block_overrides",
+        "platforms",
+        "enemies",
+        "player",
+        "effects",
+        "hud",
+    ];
+
+    let initial_level_id = start.warp_level.unwrap_or(0x00);
+    let (mut level_visuals, block_grid) = load_session_assets(manifest, initial_level_id)?;
+    let mut runtime = NativeRuntime::new(manifest.clone());
+    runtime.set_block_grid(block_grid);
+    if let Some(level_id) = start.warp_level {
+        if start.settled {
+            runtime.enter_level_playtest(LevelId(level_id));
+        } else {
+            runtime.warp_to_level(LevelId(level_id));
+        }
+    } else if start.settled {
+        runtime.enter_level_playtest(LevelId(0));
+    }
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+
+    let mut current_level_id = runtime.trace_frame().current_level.0;
+    let mut checkpoints = scenario.checkpoints.iter().peekable();
+    let mut script_index = 0usize;
+    let mut replay_frame_index = 0usize;
+    let mut level_card_frames_remaining = 0usize;
+
+    while script_index < scenario.script.len() {
+        if level_card_frames_remaining > 0 {
+            level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+            continue;
+        }
+
+        let previous_trace = runtime.trace_frame();
+        let buttons = scenario.script[script_index];
+        script_index += 1;
+        let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
+        if start.settled && start.warp_level.is_some() {
+            apply_settled_warp_oracle_visual_compatibility(&mut trace);
+        }
+
+        let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
+            && matches!(trace.game_mode, GameMode::InGame)
+            && start.warp_level.is_none()
+            && !start.settled;
+        if entered_gameplay {
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        let level_changed = trace.current_level.0 != current_level_id;
+        if level_changed {
+            current_level_id = trace.current_level.0;
+            let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
+            level_visuals = new_visuals;
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        if checkpoints
+            .peek()
+            .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
+        {
+            let checkpoint = checkpoints.next().expect("checkpoint should exist");
+            let mut render_trace = trace.clone();
+            if level_card_frames_remaining > 0 {
+                render_trace.game_mode = GameMode::LevelTransition;
+                render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            }
+            render_trace.frame_index = render_trace.frame_index.saturating_add(visual_frame_offset);
+            for layer in LAYERS {
+                let scene = build_scene_filtered(
+                    &render_trace,
+                    false,
+                    Some(&level_visuals),
+                    runtime.block_grid(),
+                    LayerFilter::solo(layer),
+                );
+                let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+                render_scene(&scene, &mut rgb);
+                let layer_dir = out_dir.join(layer);
+                fs::create_dir_all(&layer_dir)
+                    .with_context(|| format!("failed to create {}", layer_dir.display()))?;
+                let path = layer_dir.join(format!(
+                    "{:06}_{}.png",
+                    checkpoint.frame_index, checkpoint.label
+                ));
+                image::save_buffer_with_format(
+                    &path,
+                    &rgb,
+                    NATIVE_FRAME_WIDTH,
+                    NATIVE_FRAME_HEIGHT,
+                    ColorType::Rgb8,
+                    ImageFormat::Png,
+                )
+                .with_context(|| format!("failed to write {}", path.display()))?;
+            }
+        }
+
+        level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+        replay_frame_index += 1;
+    }
+
+    if let Some(checkpoint) = checkpoints.peek() {
+        bail!(
+            "missing native layer frame {}@{}",
+            checkpoint.label,
+            checkpoint.frame_index
+        );
+    }
+
     Ok(())
 }
 
