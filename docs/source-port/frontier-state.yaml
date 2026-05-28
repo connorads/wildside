@@ -202,6 +202,18 @@
         "reason": "Rejected 2026-05-28. `verify-recording` now emits `native_background_samples` for top strict-diff pixels. The dominant samples map to native Scroll B tile indices 67/72/77, palette line 1, palette indices 8/9, matching the oracle's stale Plane B forest nametable words (`37xx/27xx`) and CRAM line-1 slots `$18/$19`. The oracle combined pixels look like line-0 greens at those coordinates, so the next pass should inspect stale Plane A priority/composition over the latched Plane B frame rather than mutating the background palette."
       },
       {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` lower flag-touch pixels are caused by a missing preserved sprite",
+        "reason": "Rejected 2026-05-28. Extending `eol_vdp_pixel_samples_loc_c070` to scan the `$1000` hardware sprite table reports `S=none` for the dominant lower samples `(159,125)` and `(160,125)`: Plane A is transparent when sampled with VSRAM A, Plane B is the native-matching green `(0,146,36)`, and no linked sprite has an opaque pixel there. The oracle combined PNG still shows brown (`73,36,0`), so this is not a stale enemy/flag/Kid sprite omission. Continue by reconciling exact VDP frame timing or Plane A/scroll composition, not by adding another native sprite."
+      },
+      {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` top HUD pixels are fixed by hiding the ordinary HUD once `level_complete` is true",
+        "reason": "Rejected 2026-05-28. Temporarily changing `build_scene_filtered` to skip `push_game_hud` for all `trace.level_complete` frames made the focused verifier worse: `flag_touch` changed from MAE 1.7392718 / 1,130 changed pixels to MAE 2.0177317 / 1,329, and `eol_reveal` worsened to MAE 0.92832494 / 485. The white/black HUD-looking diffs are not solved by a broad HUD suppressor; keep the normal HUD path until a narrower VDP priority/window explanation is proven."
+      },
+      {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` first hand-off frame should render with the current camera instead of the previous scroll latch",
+        "reason": "Rejected 2026-05-28. Temporarily disabling `render_trace_with_loc_c070_latched_scroll_camera` for `level_complete_elapsed_frames == 0` regressed the strict `flag_touch` checkpoint from MAE 1.7392718 / 1,130 changed pixels to MAE 45.647614 / 46,396. The previous-scroll latch remains required by ASM `CharacterCollision_TouchFlagpole loc_C070` timing; the remaining small clusters need exact Plane A/priority/composition work, not a broad camera-timing reversal."
+      },
+      {
         "name": "Recording `issue-title-card-colour` is ready to reduce into an authoritative gameplay case",
         "reason": "Rejected 2026-05-26. Fresh verification shows this title-card colour recording is stale against current native state: `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour` and `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour --native-only` both fail with `recording replay drifted at frame 119 (native trace frame mismatch)`. The requested 0..120 case derives and fails (`cargo run -p kidcli -- case derive --recording-slug issue-title-card-colour --frame-start 0 --frame-end 120 --out .cache/cases/issue-title-card-colour`; `cargo run -p kidcli -- case verify --case issue-title-card-colour`), but `cargo run -p kidcli -- case reduce --case issue-title-card-colour` blocks with `source recording replay drifted at frame 119; re-verify or re-record issue-title-card-colour before treating this case as gameplay-authoritative`. Do not use this recording as a gameplay patch target until it is refreshed."
       },

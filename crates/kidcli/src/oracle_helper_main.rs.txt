@@ -1324,13 +1324,16 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
     const PLANE_A_BASE_LOC_C070: usize = 0x0000;
     const PLANE_B_BASE_LOC_C070: usize = 0xE000;
     const H_SCROLL_TABLE_BASE_LOC_C070: usize = 0x1400;
+    const SPRITE_TABLE_BASE_LOC_C070: usize = 0x1000;
     const PLANE_WIDTH_CELLS: usize = 64;
     const PLANE_HEIGHT_CELLS: usize = 32;
-    const SAMPLES: [(usize, usize); 8] = [
+    const SAMPLES: [(usize, usize); 10] = [
         (69, 44),
         (77, 52),
         (110, 44),
         (125, 52),
+        (159, 125),
+        (160, 125),
         (292, 125),
         (294, 125),
         (72, 133),
@@ -1353,7 +1356,7 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
                 read_wram_u16(&vram, H_SCROLL_TABLE_BASE_LOC_C070 + y * 4 + 2) & 0x03FF,
             );
             format!(
-                "{x}/{y}:hA={h_a:03X},hB={h_b:03X},A={};B={}",
+                "{x}/{y}:hA={h_a:03X},hB={h_b:03X},A={};A0={};B={};S={}",
                 eol_vdp_plane_pixel_sample(
                     &vram,
                     &cram,
@@ -1368,6 +1371,17 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
                 eol_vdp_plane_pixel_sample(
                     &vram,
                     &cram,
+                    PLANE_A_BASE_LOC_C070,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    0,
+                    x,
+                    y,
+                ),
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
                     PLANE_B_BASE_LOC_C070,
                     PLANE_WIDTH_CELLS,
                     PLANE_HEIGHT_CELLS,
@@ -1375,11 +1389,116 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
                     vs_b,
                     x,
                     y,
-                )
+                ),
+                eol_vdp_sprite_pixel_sample_loc_c070(
+                    &vram,
+                    &cram,
+                    SPRITE_TABLE_BASE_LOC_C070,
+                    x,
+                    y,
+                ),
             )
         })
         .collect::<Vec<_>>()
         .join(";")
+}
+
+fn eol_vdp_sprite_pixel_sample_loc_c070(
+    vram: &[u8],
+    cram: &[u8],
+    sprite_table_base: usize,
+    screen_x: usize,
+    screen_y: usize,
+) -> String {
+    let mut sprite_index = 0usize;
+    let mut visited = [false; 80];
+    for ordinal in 0..80 {
+        if sprite_index >= visited.len() || visited[sprite_index] {
+            break;
+        }
+        visited[sprite_index] = true;
+
+        let entry_base = sprite_table_base + sprite_index * 8;
+        let y_pos = i32::from(read_wram_u16(vram, entry_base)) - 128;
+        let size_link = read_wram_u16(vram, entry_base + 2);
+        let pattern = read_wram_u16(vram, entry_base + 4);
+        let x_pos = i32::from(read_wram_u16(vram, entry_base + 6)) - 128;
+        let width_tiles = usize::from(((size_link >> 10) & 0x03) + 1);
+        let height_tiles = usize::from(((size_link >> 8) & 0x03) + 1);
+        let width_pixels = (width_tiles * 8) as i32;
+        let height_pixels = (height_tiles * 8) as i32;
+        let local_x = screen_x as i32 - x_pos;
+        let local_y = screen_y as i32 - y_pos;
+        if (0..width_pixels).contains(&local_x)
+            && (0..height_pixels).contains(&local_y)
+            && let Some(sample) = eol_vdp_sprite_entry_pixel_sample_loc_c070(
+                vram,
+                cram,
+                pattern,
+                width_tiles,
+                height_tiles,
+                local_x as usize,
+                local_y as usize,
+            )
+        {
+            return format!(
+                "#{sprite_index:02X}/ord={ordinal}:xy={x_pos}/{y_pos},size={width_tiles}x{height_tiles},link={:02X},pat={pattern:04X},{sample}",
+                size_link & 0x7F,
+            );
+        }
+
+        let next_link = usize::from(size_link & 0x7F);
+        if next_link == 0 {
+            break;
+        }
+        sprite_index = next_link;
+    }
+    "none".to_string()
+}
+
+fn eol_vdp_sprite_entry_pixel_sample_loc_c070(
+    vram: &[u8],
+    cram: &[u8],
+    pattern: u16,
+    width_tiles: usize,
+    height_tiles: usize,
+    local_x: usize,
+    local_y: usize,
+) -> Option<String> {
+    let hflip = pattern & 0x0800 != 0;
+    let vflip = pattern & 0x1000 != 0;
+    let palette_line = usize::from((pattern >> 13) & 0x03);
+    let priority = if pattern & 0x8000 != 0 { 1 } else { 0 };
+    let base_tile = usize::from(pattern & 0x07FF);
+    let local_x = if hflip {
+        width_tiles * 8 - 1 - local_x
+    } else {
+        local_x
+    };
+    let local_y = if vflip {
+        height_tiles * 8 - 1 - local_y
+    } else {
+        local_y
+    };
+    let tile_col = local_x / 8;
+    let tile_row = local_y / 8;
+    let tile_index = base_tile + tile_col * height_tiles + tile_row;
+    let tile_x = local_x & 7;
+    let tile_y = local_y & 7;
+    let tile_byte = read_wram_u8(vram, tile_index * 32 + tile_y * 4 + tile_x / 2);
+    let colour_index = if tile_x & 1 == 0 {
+        tile_byte >> 4
+    } else {
+        tile_byte & 0x0F
+    };
+    if colour_index == 0 {
+        return None;
+    }
+    let rgb = md_cram_rgb(cram, palette_line * 16 + usize::from(colour_index));
+    Some(format!(
+        "tile={tile_index:03X},px={tile_x}/{tile_y},pal={palette_line},idx={colour_index:X},pri={priority},rgb={:03}/{:03}/{:03}",
+        rgb[0], rgb[1], rgb[2],
+    ))
 }
 
 fn eol_vdp_plane_pixel_sample(
