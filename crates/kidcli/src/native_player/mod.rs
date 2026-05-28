@@ -3117,12 +3117,12 @@ mod tests {
                     sample_player_frame(39),
                 ],
                 slope_walk_left: vec![
-                    sample_player_frame(38),
-                    sample_player_frame(39),
-                    sample_player_frame(39),
-                    sample_player_frame(38),
-                    sample_player_frame(39),
-                    sample_player_frame(39),
+                    sample_player_frame(40),
+                    sample_player_frame(41),
+                    sample_player_frame(41),
+                    sample_player_frame(40),
+                    sample_player_frame(41),
+                    sample_player_frame(41),
                 ],
                 jump_rise: sample_player_frame(23),
                 jump_fall: sample_player_frame(24),
@@ -7559,8 +7559,36 @@ mod tests {
 
         assert_eq!(
             player_sprite_signature(&scene),
-            Some(39),
-            "ASM off_A23C selects `unk_B7150` for Red Stealth's second slope animation slot instead of the generic walk frame"
+            Some(41),
+            "ASM loc_A13A/off_A190 selects helmet 3's first bank at off_A230, which points at Eyeclops slope art for this canonical-forward Red Stealth slot"
+        );
+    }
+
+    #[test]
+    fn red_stealth_slope_render_flip_accounts_for_predrawn_loc_a13a_banks() {
+        let selected_flip = |slope: i8, facing: Direction| {
+            let mut trace = trace_with_player(4, 0);
+            trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+            trace.kid_x_velocity = Some(match facing {
+                Direction::Right => 0x0001_0000,
+                Direction::Left => -0x0001_0000,
+            });
+            trace.kid_on_ground = Some(true);
+            trace.kid_on_slope = slope;
+            trace.kid_facing = Some(facing);
+
+            player_sprite_first_flip_x(&build_ingame_scene(&trace, false, None))
+        };
+
+        assert_eq!(
+            selected_flip(1, Direction::Left),
+            Some(false),
+            "ASM loc_A13A selects Red Stealth's pre-drawn reverse bank before loc_1292's left-facing draw; native should not mirror that bank again"
+        );
+        assert_eq!(
+            selected_flip(-1, Direction::Right),
+            Some(true),
+            "ASM loc_A13A selects the reverse bank on SlopeDown + clear x_direction; native must mirror it to match loc_1292's right-facing draw"
         );
     }
 

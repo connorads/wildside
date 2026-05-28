@@ -1,5 +1,6 @@
 use super::*;
 use crate::scenarios::DynamicCheckpoint;
+use kid_render::PlayerFormVisuals;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TankTurretFrameSpec {
@@ -387,11 +388,19 @@ fn build_sprite_tiles_with_flip(
     tiles
 }
 
-fn kid_slope_frame_intrinsic_facing(trace: &NativeTraceFrame) -> Option<Direction> {
-    if trace.current_helmet_id != PlayerForm::TheKid.helmet_id()
-        || trace.kid_on_ground != Some(true)
+fn slope_frame_intrinsic_facing(
+    trace: &NativeTraceFrame,
+    form_visuals: &PlayerFormVisuals,
+) -> Option<Direction> {
+    if trace.kid_on_ground != Some(true)
         || trace.kid_x_velocity == Some(0)
         || trace.kid_on_slope == 0
+        || (form_visuals.slope_walk.is_empty() && form_visuals.slope_walk_left.is_empty())
+    {
+        return None;
+    }
+    if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+        && (trace.berzerker_charging || trace.berzerker_charge_pose)
     {
         return None;
     }
@@ -402,12 +411,10 @@ fn kid_slope_frame_intrinsic_facing(trace: &NativeTraceFrame) -> Option<Directio
         (false, Direction::Left) | (true, Direction::Right) => true,
     };
 
-    // ASM loc_A13A/off_A1B8 selects two six-frame Kid slope banks after
-    // canonicalising x_direction through $FFFFFA26. Native's extracted frames
-    // preserve those bank orientations: first half (`kid_slope_1..6`) is
-    // right-facing, second half (`kid_slope_7..12`) is left-facing. Compare
-    // the selected bank's built-in facing against the live loc_1292 facing so
-    // downhill-left movement on SlopeUp does not get mirrored twice.
+    // ASM loc_A13A/off_A190 selects two six-frame pre-drawn slope banks after
+    // canonicalising x_direction through $FFFFFA26; loc_1292 still flips only
+    // from the live x_direction. Compare the bank's built-in facing against
+    // that live draw facing so slope descent does not mirror the art twice.
     Some(if canonical_reverse {
         Direction::Left
     } else {
@@ -705,7 +712,7 @@ pub(super) fn push_player_sprite_with_priority_override(
 
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
-    let intrinsic_slope_facing = kid_slope_frame_intrinsic_facing(trace);
+    let intrinsic_slope_facing = slope_frame_intrinsic_facing(trace, form_visuals);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);

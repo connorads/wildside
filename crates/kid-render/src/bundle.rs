@@ -1878,6 +1878,48 @@ const IRON_KNIGHT_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
         height_px: 0x25,
     },
 ];
+// ASM loc_A13A/off_A190 indexes helmet 6 through off_A200. The first
+// six-entry bank is used before loc_A16C's `$C(a0)` reverse-bank advance.
+const IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd(
+        "artunc_kid/iron_knight_slope_1.bin",
+        0x12,
+        -0x01,
+        0x1E,
+        0x22,
+    ),
+    pfd("artunc_kid/iron_knight_slope_2.bin", 0x12, 0x01, 0x1E, 0x25),
+    pfd("artunc_kid/iron_knight_slope_3.bin", 0x12, 0x02, 0x1E, 0x26),
+    pfd("artunc_kid/iron_knight_slope_4.bin", 0x13, 0x03, 0x1F, 0x25),
+    pfd("artunc_kid/iron_knight_slope_5.bin", 0x13, 0x00, 0x1E, 0x23),
+    pfd("artunc_kid/iron_knight_slope_6.bin", 0x13, 0x02, 0x1E, 0x25),
+];
+const IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/iron_knight_slope_7.bin", 0x0F, 0x06, 0x1A, 0x28),
+    pfd("artunc_kid/iron_knight_slope_8.bin", 0x0F, 0x05, 0x1B, 0x26),
+    pfd("artunc_kid/iron_knight_slope_9.bin", 0x0F, 0x04, 0x1B, 0x24),
+    pfd(
+        "artunc_kid/iron_knight_slope_10.bin",
+        0x0F,
+        0x07,
+        0x1B,
+        0x27,
+    ),
+    pfd(
+        "artunc_kid/iron_knight_slope_11.bin",
+        0x10,
+        0x02,
+        0x1B,
+        0x24,
+    ),
+    pfd(
+        "artunc_kid/iron_knight_slope_12.bin",
+        0x11,
+        0x03,
+        0x1C,
+        0x25,
+    ),
+];
 
 const IRON_KNIGHT_JUMP_RISE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     relative_path: "artunc_kid/iron_knight_jumping_1.bin",
@@ -2249,10 +2291,18 @@ const RED_STEALTH_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/red_stealth_walk_5.bin", 0x0F, 0x01, 0x18, 0x24),
     pfd("artunc_kid/red_stealth_walk_6.bin", 0x0F, 0x01, 0x18, 0x22),
 ];
-// ASM off_A23C: Red Stealth slope animation repeats two pre-drawn tilted
-// frames in a six-step cycle. The ROM only has one Red Stealth slope art set;
-// native uses the same set for both facing buckets and applies sprite H-flip.
-const RED_STEALTH_SLOPE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+// ORIGINAL_QUIRK: ASM loc_A13A/off_A190 points Red Stealth's first slope bank
+// at off_A230, which is the two-frame Eyeclops slope cycle. The reverse bank
+// advances to off_A23C and uses Red Stealth's own slope art.
+const RED_STEALTH_SLOPE_WALK_LEFT_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/eyeclops_slope_1.bin", 0x0C, 0x01, 0x1A, 0x21),
+    pfd("artunc_kid/eyeclops_slope_2.bin", 0x0B, 0x01, 0x1A, 0x20),
+    pfd("artunc_kid/eyeclops_slope_2.bin", 0x0B, 0x01, 0x1A, 0x20),
+    pfd("artunc_kid/eyeclops_slope_1.bin", 0x0C, 0x01, 0x1A, 0x21),
+    pfd("artunc_kid/eyeclops_slope_2.bin", 0x0B, 0x01, 0x1A, 0x20),
+    pfd("artunc_kid/eyeclops_slope_2.bin", 0x0B, 0x01, 0x1A, 0x20),
+];
+const RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/red_stealth_slope_1.bin", 0x0B, 0x05, 0x1D, 0x21),
     pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
     pfd("artunc_kid/red_stealth_slope_2.bin", 0x0C, 0x04, 0x1C, 0x22),
@@ -2710,6 +2760,23 @@ const BERZERKER_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/berzerker_walk_5.bin", 0x0F, 0x01, 0x1B, 0x23),
     pfd("artunc_kid/berzerker_walk_6.bin", 0x0F, 0x01, 0x1B, 0x23),
 ];
+// ASM loc_A13A/off_A190 indexes helmet 7 through off_A1E8.
+const BERZERKER_SLOPE_WALK_LEFT_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/berzerker_slope_1.bin", 0x0F, 0x02, 0x18, 0x23),
+    pfd("artunc_kid/berzerker_slope_2.bin", 0x0F, 0x04, 0x18, 0x26),
+    pfd("artunc_kid/berzerker_slope_3.bin", 0x10, 0x05, 0x1B, 0x27),
+    pfd("artunc_kid/berzerker_slope_4.bin", 0x0F, 0x05, 0x1A, 0x27),
+    pfd("artunc_kid/berzerker_slope_5.bin", 0x10, 0x03, 0x1B, 0x25),
+    pfd("artunc_kid/berzerker_slope_6.bin", 0x0F, 0x04, 0x18, 0x26),
+];
+const BERZERKER_SLOPE_WALK_RIGHT_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/berzerker_slope_7.bin", 0x10, 0x03, 0x19, 0x23),
+    pfd("artunc_kid/berzerker_slope_8.bin", 0x10, 0x02, 0x19, 0x23),
+    pfd("artunc_kid/berzerker_slope_9.bin", 0x10, 0x03, 0x19, 0x23),
+    pfd("artunc_kid/berzerker_slope_10.bin", 0x0E, 0x05, 0x17, 0x25),
+    pfd("artunc_kid/berzerker_slope_11.bin", 0x0F, 0x01, 0x18, 0x22),
+    pfd("artunc_kid/berzerker_slope_12.bin", 0x10, 0x01, 0x19, 0x22),
+];
 const BERZERKER_CHARGE_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/berzerker_run_1.bin", 0x14, 0x01, 0x28, 0x1B),
     pfd("artunc_kid/berzerker_run_2.bin", 0x14, -0x01, 0x27, 0x1A),
@@ -3046,8 +3113,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Red Stealth palette",
         idle: RED_STEALTH_IDLE_FRAME,
         walk: &RED_STEALTH_WALK_FRAMES,
-        slope_walk: &RED_STEALTH_SLOPE_WALK_FRAMES,
-        slope_walk_left: &RED_STEALTH_SLOPE_WALK_FRAMES,
+        slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
+        slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: pfd(
             "artunc_kid/red_stealth_jumping_1.bin",
             0x0B,
@@ -3098,8 +3165,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Iron Knight palette",
         idle: IRON_KNIGHT_IDLE_FRAME,
         walk: &IRON_KNIGHT_WALK_FRAMES,
-        slope_walk: &[],
-        slope_walk_left: &[],
+        slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
+        slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
         jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
         death: None,
@@ -3118,8 +3185,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Berzerker palette",
         idle: BERZERKER_IDLE_FRAME,
         walk: &BERZERKER_WALK_FRAMES,
-        slope_walk: &[],
-        slope_walk_left: &[],
+        slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
+        slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
         jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
         death: None,
@@ -4724,7 +4791,7 @@ mod tests {
     }
 
     #[test]
-    fn red_stealth_visual_spec_includes_rom_slope_cycle_off_a23c() {
+    fn red_stealth_visual_spec_follows_loc_a13a_off_a190_slope_banks() {
         let red_stealth = super::PLAYER_FORM_SPECS
             .iter()
             .find(|spec| spec.form_id == super::PLAYER_FORM_RED_STEALTH)
@@ -4732,13 +4799,17 @@ mod tests {
 
         assert_eq!(
             red_stealth.slope_walk,
-            &super::RED_STEALTH_SLOPE_WALK_FRAMES,
-            "ASM off_A23C uses Red Stealth slope frames `unk_B6ECA, unk_B7150, unk_B7150` twice"
+            &super::RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
+            "ASM loc_A13A+off_A190 indexes helmet 3 through off_A230+$0C for the reverse bank, reaching Red Stealth frames at off_A23C"
         );
         assert_eq!(
             red_stealth.slope_walk_left,
-            &super::RED_STEALTH_SLOPE_WALK_FRAMES,
-            "native mirrors the one ROM Red Stealth slope art set by H-flipping the sprite"
+            &super::RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
+            "ASM loc_A13A+off_A190 indexes helmet 3 through off_A230 for the forward bank, reaching Eyeclops slope frames"
+        );
+        assert_eq!(
+            red_stealth.slope_walk_left[0].relative_path,
+            "artunc_kid/eyeclops_slope_1.bin"
         );
         assert_eq!(
             red_stealth.slope_walk[0].relative_path,
@@ -4747,6 +4818,36 @@ mod tests {
         assert_eq!(
             red_stealth.slope_walk[1].relative_path,
             "artunc_kid/red_stealth_slope_2.bin"
+        );
+    }
+
+    #[test]
+    fn helmet_slope_visual_specs_follow_loc_a13a_off_a190_tables() {
+        let form = |form_id| {
+            super::PLAYER_FORM_SPECS
+                .iter()
+                .find(|spec| spec.form_id == form_id)
+                .expect("player form spec")
+        };
+
+        let iron_knight = form(super::PLAYER_FORM_IRON_KNIGHT);
+        assert_eq!(
+            iron_knight.slope_walk_left[0].relative_path, "artunc_kid/iron_knight_slope_1.bin",
+            "ASM off_A200 first bank is Iron Knight slope_1..6"
+        );
+        assert_eq!(
+            iron_knight.slope_walk[0].relative_path, "artunc_kid/iron_knight_slope_7.bin",
+            "ASM off_A200+$0C reverse bank is Iron Knight slope_7..12"
+        );
+
+        let berzerker = form(super::PLAYER_FORM_BERZERKER);
+        assert_eq!(
+            berzerker.slope_walk_left[0].relative_path, "artunc_kid/berzerker_slope_1.bin",
+            "ASM off_A1E8 first bank is Berzerker slope_1..6"
+        );
+        assert_eq!(
+            berzerker.slope_walk[0].relative_path, "artunc_kid/berzerker_slope_7.bin",
+            "ASM off_A1E8+$0C reverse bank is Berzerker slope_7..12"
         );
     }
 
