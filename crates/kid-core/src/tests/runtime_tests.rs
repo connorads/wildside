@@ -7816,6 +7816,39 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
+        // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
+        // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater
+        // Pass 1 `$EA1E` touch shooter sits just outside Berzerker's narrow
+        // standing half-width, so this must use the live charge-pose hitbox.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charge_pose = true;
+        rt.projectiles.clear();
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.level_bounds.width_pixels = 60 * 16;
+        slice.level_bounds.height_pixels = 112 * 16;
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
+
+        rt.step_evanescent_blocks(&slice);
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity == 4 << 16 && projectile.y_velocity == 0),
+            "ASM loc_EAE4 should let Berzerker's charge-pose hitbox touch the `$EA1E` shooter"
+        );
+        assert_eq!(
+            rt.block_grid.as_ref().unwrap().cell_at(11, 97),
+            terrain::Cell::from_be_bytes(0xE3, 0x1E),
+            "ASM EvanescentBlock_Trigger should rewrite the touched `$EA1E` cell to `$E31E`"
+        );
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());

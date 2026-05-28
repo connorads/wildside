@@ -358,6 +358,10 @@ pub(crate) const SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4: [i16; 8] =
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188: [i16; 4] = [-2, -2, -2, -2];
+/// ASM loc_9564 selects the Berzerker head-forward `off_9688` mappings before
+/// loc_EAE4 scans the live Kid_hitbox words. Those charge mappings reach the
+/// Highwater Pass touch-shooter cells that the standing Berzerker body misses.
+const BERZERKER_CHARGE_HITBOX_HALF_WIDTH_LOC_9564_EAE4: i32 = 23;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2108,15 +2112,12 @@ impl NativeRuntime {
         // ASM loc_EAE4 -> loc_EB72 scans Kid's expanded hitbox for the first
         // bit-15 type-$A block. The trigger is body contact, not just standing
         // on the cell; Highwater Pass' first evanescent shooters depend on this.
+        let collision_half_width = self.evanescent_hitbox_half_width_loc_EAE4();
         let trigger = self
             .block_grid
             .as_ref()
             .and_then(|grid| {
-                Self::evanescent_hitbox_trigger_loc_EAE4(
-                    slice,
-                    grid,
-                    self.progression.current_form.half_width(),
-                )
+                Self::evanescent_hitbox_trigger_loc_EAE4(slice, grid, collision_half_width)
             })
             .filter(|(col, row, _)| {
                 !self
@@ -2153,6 +2154,21 @@ impl NativeRuntime {
                     true
                 }
             });
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_hitbox_half_width_loc_EAE4(&self) -> i32 {
+        if self.progression.current_form == PlayerForm::Berzerker
+            && (self.helmet.berzerker_charge_pose || self.helmet.berzerker_charging)
+        {
+            // ASM loc_9564 writes one of the `off_9688` head-forward mappings
+            // before loc_EAE4 reads Kid_hitbox_left/right for evanescent
+            // touch-shooter contact. The ordinary Berzerker half-width from
+            // unk_B408 is only the narrow movement body, not this live pose.
+            BERZERKER_CHARGE_HITBOX_HALF_WIDTH_LOC_9564_EAE4
+        } else {
+            self.progression.current_form.half_width()
         }
     }
 
