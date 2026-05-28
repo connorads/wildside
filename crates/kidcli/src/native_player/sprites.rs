@@ -564,7 +564,13 @@ pub(super) fn select_player_frame<'a>(
                 true if !player_visuals.slope_walk.is_empty() => &player_visuals.slope_walk,
                 _ => &player_visuals.walk,
             };
-            let frame_index = (trace.frame_index / 4) % slope_frames.len();
+            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {
+                // ASM loc_94B4/loc_97E8: Juggernaut has no separate slope-head
+                // table; the companion head still follows `$FFFFF8F0 >> 8`.
+                usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len()
+            } else {
+                (trace.frame_index / 4) % slope_frames.len()
+            };
             &slope_frames[frame_index]
         } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
             && (trace.berzerker_charging || trace.berzerker_charge_pose)
