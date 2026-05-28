@@ -396,22 +396,12 @@ fn kid_slope_frame_intrinsic_facing(trace: &NativeTraceFrame) -> Option<Directio
         return None;
     }
 
-    let facing = trace.kid_facing.unwrap_or(Direction::Right);
-    let canonical_reverse = match (trace.kid_on_slope < 0, facing) {
-        (false, Direction::Right) | (true, Direction::Left) => false,
-        (false, Direction::Left) | (true, Direction::Right) => true,
-    };
-
-    // ASM loc_A13A/off_A1B8 selects two pre-drawn Kid slope banks. The first
-    // half (`unk_A41FE..unk_A491C`, kid_slope_1..6) is right-facing art; the
-    // second half (`unk_A23CC..unk_A2B6A`, kid_slope_7..12) is left-facing art.
-    // `loc_1292` still mirrors from live x_direction, so native must flip only
-    // when the selected bank's built-in facing differs from that live facing.
-    Some(if canonical_reverse {
-        Direction::Left
-    } else {
-        Direction::Right
-    })
+    // ASM loc_A13A/off_A1B8 can choose either tilted slope bank after
+    // canonicalising through $FFFFFA26, but Make_SpriteFromGfxObject loc_1292
+    // still mirrors the emitted sprite from the live x_direction byte. Native
+    // therefore treats the selected Kid slope frame as right-facing and lets
+    // the usual facing comparison apply the left-facing mirror.
+    Some(Direction::Right)
 }
 
 pub(super) fn append_sprite_band_tiles(

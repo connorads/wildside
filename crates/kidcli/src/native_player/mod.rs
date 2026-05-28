@@ -7285,22 +7285,22 @@ mod tests {
         assert_eq!(
             selected_flip(1, Direction::Right),
             Some(false),
-            "ASM loc_A13A/off_A1B8 selects Kid's first slope bank (`kid_slope_1..6`), whose art is already right-facing for clear x_direction"
+            "ASM loc_A13A/off_A1B8 selects Kid's first slope bank (`kid_slope_1..6`), then loc_1292 leaves it unflipped for clear x_direction"
         );
         assert_eq!(
             selected_flip(1, Direction::Left),
-            Some(false),
-            "ASM loc_A13A/off_A1B8 selects Kid's second slope bank (`kid_slope_7..12`), whose art is already left-facing for set x_direction"
+            Some(true),
+            "ASM loc_A13A/off_A1B8 selects Kid's second slope bank (`kid_slope_7..12`), then loc_1292 still mirrors it for set x_direction"
         );
         assert_eq!(
             selected_flip(-1, Direction::Right),
-            Some(true),
-            "ASM loc_A13A selects the left-facing `kid_slope_7..12` bank on SlopeDown + clear x_direction; native must mirror that pre-drawn art to match loc_1292's right-facing result"
+            Some(false),
+            "ASM loc_A13A selects the second slope bank on SlopeDown + clear x_direction; loc_1292 does not mirror clear x_direction"
         );
         assert_eq!(
             selected_flip(-1, Direction::Left),
             Some(true),
-            "ASM loc_A13A selects the right-facing `kid_slope_1..6` bank on SlopeDown + set x_direction; native must mirror it to match loc_1292's left-facing result"
+            "ASM loc_A13A selects the first slope bank on SlopeDown + set x_direction; loc_1292 mirrors set x_direction"
         );
     }
 
