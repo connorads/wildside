@@ -3494,12 +3494,17 @@ fn load_juggernaut_form_visuals_if_present(
         palette,
         idle: load_composite_player_frame(
             manifest,
-            &[JUGGERNAUT_HEAD_IDLE_FRAME, JUGGERNAUT_BOTTOM_IDLE_FRAME],
+            &[JUGGERNAUT_BOTTOM_IDLE_FRAME, JUGGERNAUT_HEAD_IDLE_FRAME],
         )?,
         walk: JUGGERNAUT_HEAD_WALK_FRAMES
             .iter()
             .zip(JUGGERNAUT_BOTTOM_WALK_FRAMES.iter())
-            .map(|(&head, &bottom)| load_composite_player_frame(manifest, &[head, bottom]))
+            .map(|(&head, &bottom)| {
+                // ASM loc_94B4 selects the Juggernaut body on Kid's object,
+                // then sub_975C updates the companion head object. Preserve
+                // that draw intent by compositing the head over the body.
+                load_composite_player_frame(manifest, &[bottom, head])
+            })
             .collect::<Result<Vec<_>>>()?,
         charge: Vec::new(),
         slope_walk: Vec::new(),
@@ -3507,7 +3512,6 @@ fn load_juggernaut_form_visuals_if_present(
         jump_rise: load_composite_player_frame(
             manifest,
             &[
-                JUGGERNAUT_HEAD_IDLE_FRAME,
                 pfd(
                     "artunc_kid/juggernaut_bottom_jumping_1.bin",
                     0x17,
@@ -3515,12 +3519,12 @@ fn load_juggernaut_form_visuals_if_present(
                     0x30,
                     0x14,
                 ),
+                JUGGERNAUT_HEAD_IDLE_FRAME,
             ],
         )?,
         jump_fall: load_composite_player_frame(
             manifest,
             &[
-                JUGGERNAUT_HEAD_IDLE_FRAME,
                 pfd(
                     "artunc_kid/juggernaut_bottom_jumping_3.bin",
                     0x17,
@@ -3528,6 +3532,7 @@ fn load_juggernaut_form_visuals_if_present(
                     0x2F,
                     0x12,
                 ),
+                JUGGERNAUT_HEAD_IDLE_FRAME,
             ],
         )?,
         death: None,

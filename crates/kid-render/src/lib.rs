@@ -257,6 +257,10 @@ mod tests {
         assert_eq!(juggernaut.idle.tile_sheet.tiles.len(), 24);
         assert_eq!(juggernaut.walk.len(), 6);
         assert_eq!(
+            juggernaut.walk[3].tile_sheet.tiles[12].pixels[13], 0x01,
+            "ASM loc_94B4 writes the Juggernaut body sprite first and sub_975C keeps the companion head visible over it"
+        );
+        assert_eq!(
             juggernaut.jump_rise.height_px, 0x25,
             "ASM unk_BFAE0 pairs the taller rising body with the shared head"
         );
