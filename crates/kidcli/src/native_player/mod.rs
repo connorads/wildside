@@ -2720,14 +2720,14 @@ mod tests {
             "ASM Object_EOL_Text loc_C5A2 hibernates before the first visible TIME row update"
         );
 
-        trace.level_complete_score_rows_elapsed_frames = 1;
+        trace.level_complete_score_rows_elapsed_frames = 7;
         let fade_hidden = build_scene(&trace, false, Some(&visuals), None);
         assert!(
             !has_sprite_signature(&fade_hidden, 128),
             "ASM loc_D734's eight one-frame fade steps keep native EOL rows visually hidden before the loc_C5A2 row fly-in is visible",
         );
 
-        trace.level_complete_score_rows_elapsed_frames = 9;
+        trace.level_complete_score_rows_elapsed_frames = 8;
         let early = build_scene(&trace, false, Some(&visuals), None);
         assert!(
             early.commands.iter().any(|command| matches!(
@@ -2735,7 +2735,7 @@ mod tests {
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
                     if *y == 148 && *x < 0 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 128)
             )),
-            "ASM loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
+            "ASM loc_D734 falls through after the eighth fade tick, so Object_EOL_Text loc_C5A2 should start EOL text rows off-screen left before their +8px/frame fly-in",
         );
         assert!(
             early.commands.iter().any(|command| matches!(

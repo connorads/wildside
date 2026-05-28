@@ -1779,7 +1779,7 @@ fn push_eol_score_overlay(
     push_eol_level_skip_time_digits_loc_d47e(commands, eol, trace);
 
     if trace.level_complete_score_rows_elapsed_frames
-        <= EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
+        < EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
     {
         return;
     }
