@@ -33,6 +33,9 @@ const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
+const AUDIO_SAMPLES_PER_FRAME: usize = 735;
+const AUDIO_QUEUE_TARGET_FRAMES: usize = 1;
+const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
@@ -244,7 +247,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             let desired = sdl2::audio::AudioSpecDesired {
                 freq: Some(44_100),
                 channels: Some(audio_channels),
-                samples: Some(1024),
+                samples: Some(SDL_AUDIO_CALLBACK_SAMPLES),
             };
             match audio.open_queue::<f32, _>(None, &desired) {
                 Ok(queue) => Some(queue),
@@ -525,16 +528,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 }
                 detect_gems_events(&prev_trace, &trace, gems);
                 gems.step_frame();
-                Some(gems.generate_samples(735))
+                Some(gems.generate_samples(AUDIO_SAMPLES_PER_FRAME))
             } else {
-                Some(sfx_engine.generate(735))
+                Some(sfx_engine.generate(AUDIO_SAMPLES_PER_FRAME))
             };
             if let Some(samples) = maybe_samples {
                 if should_capture_audio {
                     recorded_audio.extend_from_slice(&samples);
                 }
                 if let Some(ref aq) = audio_queue
-                    && aq.size() < 8192
+                    && should_queue_audio_frame(aq.size(), samples.len())
                 {
                     let _ = aq.queue_audio(&samples);
                 }
@@ -1034,6 +1037,17 @@ fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
 
 fn gems_sound_dir(manifest: &AssetManifest) -> PathBuf {
     manifest.output_root.join("sound")
+}
+
+fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) -> bool {
+    let queued_bytes = usize::try_from(queued_bytes).unwrap_or(usize::MAX);
+    // SDL_GetQueuedAudioSize reports bytes, while `generate_samples` returns
+    // interleaved f32 samples. Keep only a small live queue so gameplay SFX
+    // detected from the current trace frame are not heard multiple frames late.
+    let target_bytes = generated_sample_count
+        .saturating_mul(std::mem::size_of::<f32>())
+        .saturating_mul(AUDIO_QUEUE_TARGET_FRAMES);
+    queued_bytes < target_bytes
 }
 
 /// GEMS sound IDs for Kid Chameleon (from constants.asm).
@@ -9550,6 +9564,27 @@ mod tests {
             "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
         );
         Ok(())
+    }
+
+    #[test]
+    fn play_native_audio_queue_cap_is_measured_in_generated_frames() {
+        let generated_stereo_samples = AUDIO_SAMPLES_PER_FRAME * 2;
+        let one_generated_frame_bytes = generated_stereo_samples * std::mem::size_of::<f32>();
+
+        assert!(
+            should_queue_audio_frame(
+                u32::try_from(one_generated_frame_bytes - 1).expect("fits u32"),
+                generated_stereo_samples,
+            ),
+            "SDL_GetQueuedAudioSize reports bytes; just under one generated frame should accept the next low-latency audio frame"
+        );
+        assert!(
+            !should_queue_audio_frame(
+                u32::try_from(one_generated_frame_bytes).expect("fits u32"),
+                generated_stereo_samples,
+            ),
+            "play-native should not keep multiple generated frames queued ahead, because pickup and block SFX then lag behind the visual frame"
+        );
     }
 
     #[test]
