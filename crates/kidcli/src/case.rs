@@ -1256,8 +1256,12 @@ fn semantic_from_oracle(
     let player = SemanticPlayerState {
         x_pos: Some(state.kid_x_pos),
         y_pos: Some(state.kid_y_pos),
-        x_velocity: state.kid_x_vel,
-        y_velocity: state.kid_y_vel,
+        // Oracle helper captures WRAM at VBlank, while native traces are
+        // post-frame. `oracle_helper_main.rs.txt` excludes velocity from CRC
+        // for the same reason; positions and movement state remain
+        // authoritative for these helper-backed cases.
+        x_velocity: None,
+        y_velocity: None,
         facing: None,
         on_ground: None,
         movement_state: state
@@ -2967,6 +2971,63 @@ mod tests {
         );
         assert_eq!(semantic.player.collision_type, Some(0));
         assert!(semantic.entities.is_empty());
+    }
+
+    #[test]
+    fn semantic_from_oracle_treats_vblank_velocity_as_unknown() {
+        let state = OracleState {
+            label: String::from("frame_00062"),
+            frame_index: 62,
+            game_mode: 0x000c,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0x0020_1000,
+            kid_y_pos: 0x010f_0000,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: Some(0x1000),
+            kid_y_vel: Some(0),
+            character_movement: Some(2),
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: None,
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0),
+            level_special_effects: Some(0),
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        };
+
+        let semantic = semantic_from_oracle(&state, None);
+
+        assert_eq!(semantic.player.x_pos, Some(0x0020_1000));
+        assert_eq!(
+            semantic.player.movement_state.as_deref(),
+            Some("movement_0002")
+        );
+        assert_eq!(
+            semantic.player.x_velocity, None,
+            "oracle helper VBlank velocity is advisory; oracle_helper_main excludes it from CRC"
+        );
+        assert_eq!(semantic.player.y_velocity, None);
     }
 
     #[test]
