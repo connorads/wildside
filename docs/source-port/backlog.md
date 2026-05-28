@@ -97,6 +97,17 @@ For newly opened items, capture these facts in the investigation notes:
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
 | 065 | [x] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | Shooter blocks now register per visible cell, fire on entry, and recycle after the ROM's 22-frame slot lifetime |
+
+Note 2026-05-28 for #065: latest Highwater Pass playtest still reported the
+Level 3 touch-and-shoot blocks as broken. Core activation is now covered by
+`highwater_pass_1_berzerker_charge_pose_fires_ea1e_through_frame_loop`: the
+test drives the real Berzerker/Rhino charge-pose path through ASM `loc_9564`,
+fires the `$EA1E` rightward shooter via `loc_EAE4 -> loc_EC76`, and verifies the
+frame loop clears the first ice barrier through `loc_EE2A -> loc_F00A`.
+Remaining report is visual: native may still render the shooter projectile as a
+fallback square instead of the ROM one-tile spike from `Process_ShooterObjects`
+`loc_EE52/loc_EF62` (`$8A96` => block-art tile `$296`). Continue from renderer
+tile/art resolution, not shooter activation or barrier collision.
 | 066 | [x] | P3 | block | SoftPlatform bounce moves platform object | Fixed — native now models ASM SoftPlatform object state (`SoftPlatform_Init`/`SoftPlatform_BounceLoop`) instead of inline player-only bounce |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [x] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | Fixed: native now queues an ASM `loc_11364`/`sub_113C0` visual worker that rises from the source row while preserving the immediate collision grid swap |
