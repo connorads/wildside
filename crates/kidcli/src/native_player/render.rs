@@ -349,11 +349,14 @@ pub(super) fn resolve_palette_colour(
         return None;
     }
 
-    let colour = if palette.colours.len() == 16 && selected_palette_line == 0 {
-        // ASM loc_1AB40 copies Pal_19C48 as a complete 16-word palette line
-        // for title-card letters. Unlike 15-colour visible-only level
-        // palettes, slot 0 is present in the data, so non-zero tile indices
-        // address their matching MD palette slot directly.
+    let colour = if palette.colours.len() == 16 {
+        // ASM loc_1AB40 copies Pal_19C48 as a complete 16-word title-card
+        // palette line; Load_EnemyArtPaletteToVRAM loc_36D16 similarly
+        // selects an enemy CRAM line before native stores it as one local
+        // 16-slot Palette. Unlike 15-colour visible-only level palettes,
+        // slot 0 is present in the data, so non-zero tile indices address
+        // their matching MD palette slot directly without reapplying the
+        // sprite's hardware palette-line bits.
         palette.colours.get(usize::from(palette_index))
     } else if palette.colours.len() == 8 {
         match selected_palette_line {
@@ -392,4 +395,31 @@ pub(super) fn set_pixel(
     let rgb_index = pixel_index * 3;
     rgb[rgb_index..rgb_index + 3].copy_from_slice(&colour);
     high_priority_pixels[pixel_index] = matches!(priority, Some(true));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_colour(slot: u16) -> MdColour {
+        MdColour {
+            red: slot as u8,
+            green: slot.saturating_mul(2) as u8,
+            blue: slot.saturating_mul(3) as u8,
+            raw_word: slot,
+        }
+    }
+
+    #[test]
+    fn expanded_enemy_palette_slots_ignore_sprite_palette_line_loc_36d16() {
+        // ASM Load_EnemyArtPaletteToVRAM loc_36D16 selects the enemy CRAM
+        // line, while native stores the selected line as one 16-slot Palette.
+        // Offsetting that local palette again by the sprite's palette_line
+        // makes valid enemy pixels disappear.
+        let palette = Palette {
+            colours: (0..16).map(test_colour).collect(),
+        };
+
+        assert_eq!(resolve_palette_colour(&palette, 1, 8), Some([8, 16, 24]));
+    }
 }
