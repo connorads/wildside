@@ -42,6 +42,15 @@
       "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
     },
     {
+      "key": "eol_visible_gfx_slots_loc_d468",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-175-eol-overlay",
+      "first_added_commit": "e4d738ee",
+      "intended_meaning": "Oracle visible gfx object slots relevant to the loc_D468 end-of-level overlay path: slot, word x/y, sprite reference, VRAM tile, palette line, and priority.",
+      "promotion_trigger": "Promote if EOL pixel parity or checked-in regression assertions start depending on typed overlay slot state."
+    },
+    {
       "key": "pending_prize_diamond_awards",
       "scope": "frame",
       "status": "exploratory",
