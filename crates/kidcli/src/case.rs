@@ -935,7 +935,7 @@ fn settled_bootstrap_mismatch_summary(
             camera_mismatch_fields(&native.camera, &oracle.camera)
         ));
     }
-    if native.entities != oracle.entities {
+    if !semantic_entities_match(&native.entities, &oracle.entities) {
         mismatches.push(entity_mismatch_summary(&native.entities, &oracle.entities));
     }
     if native.events != oracle.events {
@@ -1513,7 +1513,7 @@ fn semantic_matching_fields(
     if native_states
         .iter()
         .zip(oracle_states)
-        .all(|(native, oracle)| native.entities == oracle.entities)
+        .all(|(native, oracle)| semantic_entities_match(&native.entities, &oracle.entities))
     {
         matching_fields.push(String::from("entities"));
     }
@@ -1681,7 +1681,7 @@ fn compare_entities(
     native: &[SemanticEntity],
     oracle: &[SemanticEntity],
 ) -> Option<CaseFailure> {
-    if native == oracle {
+    if semantic_entities_match(native, oracle) {
         return None;
     }
     Some(CaseFailure {
@@ -1690,6 +1690,33 @@ fn compare_entities(
         native_value: serde_json::to_string(native).unwrap_or_else(|_| String::from("[]")),
         oracle_value: serde_json::to_string(oracle).unwrap_or_else(|_| String::from("[]")),
     })
+}
+
+fn semantic_entities_match(native: &[SemanticEntity], oracle: &[SemanticEntity]) -> bool {
+    native.len() == oracle.len()
+        && native
+            .iter()
+            .zip(oracle)
+            .all(|(native, oracle)| semantic_entity_matches(native, oracle))
+}
+
+fn semantic_entity_matches(native: &SemanticEntity, oracle: &SemanticEntity) -> bool {
+    native.category == oracle.category
+        && native.object_type == oracle.object_type
+        && native.x_pos == oracle.x_pos
+        && native.y_pos == oracle.y_pos
+        && optional_entity_field_matches(native.x_velocity.as_ref(), oracle.x_velocity.as_ref())
+        && optional_entity_field_matches(native.y_velocity.as_ref(), oracle.y_velocity.as_ref())
+        && optional_entity_field_matches(native.facing.as_deref(), oracle.facing.as_deref())
+        && optional_entity_field_matches(native.on_ground.as_ref(), oracle.on_ground.as_ref())
+        && optional_entity_field_matches(native.hit_points.as_ref(), oracle.hit_points.as_ref())
+}
+
+fn optional_entity_field_matches<T: PartialEq + ?Sized>(
+    native: Option<&T>,
+    oracle: Option<&T>,
+) -> bool {
+    native.is_none() || oracle.is_none() || native == oracle
 }
 
 fn classify_subsystems(field: &str) -> Vec<String> {
@@ -2220,6 +2247,63 @@ mod tests {
             report.likely_subsystems,
             vec!["spawn order", "entity lifecycle"]
         );
+    }
+
+    #[test]
+    fn compare_semantic_states_ignores_entity_identity_and_unknown_metadata() {
+        let native = SemanticGameState {
+            frame_index: 12,
+            player: SemanticPlayerState {
+                x_pos: Some(10),
+                y_pos: Some(20),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: None,
+                on_ground: Some(true),
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(2),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 5, y_pos: 7 },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: 0,
+                player_1_level_id: 0,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: None,
+            },
+            entities: vec![SemanticEntity {
+                identity: String::from("enemy:0d:2:00aa8000:01100000"),
+                category: String::from("enemy"),
+                object_type: Some(0x0d),
+                x_pos: 0x00aa_8000,
+                y_pos: 0x0110_0000,
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(String::from("left")),
+                on_ground: Some(true),
+                hit_points: Some(1),
+            }],
+            events: vec![],
+        };
+        let mut oracle = native.clone();
+        oracle.entities[0].identity = String::from("enemy:0d:2:0007930a:00aa8000:01100000");
+        oracle.entities[0].on_ground = None;
+
+        let report =
+            compare_semantic_states(String::from("sample"), &[native], &[oracle]).expect("report");
+
+        assert!(
+            report.passed,
+            "native cannot observe oracle layout pointers, and oracle may leave entity on-ground metadata unknown; case semantics should compare shared gameplay fields"
+        );
+        assert!(report.matching_fields.contains(&String::from("entities")));
     }
 
     #[test]
