@@ -1620,7 +1620,7 @@ mod tests {
     };
     use kid_data::{
         AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader,
-        LevelRecord, LevelResources,
+        LevelRecord, LevelResources, load_manifest,
     };
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
@@ -1809,6 +1809,53 @@ mod tests {
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
             "typed shooter bullets should not use the generic projectile path"
+        );
+    }
+
+    #[test]
+    fn highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62() {
+        let manifest = cached_generated_manifest();
+        let visuals = load_level_visuals(&manifest, 0x02).expect("Highwater Pass visuals");
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x02);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 120,
+            kind: ActiveProjectileKind::ShooterBlock,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let shooter_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                tiles,
+                ..
+            } if *x == 32 && *y == 20 => Some((tile_sheet, tiles)),
+            _ => None,
+        });
+        let (tile_sheet, tiles) =
+            shooter_sprite.expect("ASM Process_ShooterObjects loc_EF62 should draw a sprite");
+        let tile = tiles[0].tile;
+        assert_eq!(
+            tile.tile_index, 0x076,
+            "ASM loc_EE52 writes `$8A96`, i.e. block VRAM tile `$296` minus base `$220`"
+        );
+        assert!(tile.flip_x, "ASM `$8A96` sets the horizontal flip bit");
+        let pixels = &tile_sheet.tiles[usize::from(tile.tile_index)].pixels;
+        assert!(
+            pixels.contains(&0) && pixels.iter().any(|pixel| *pixel != 0),
+            "generated ArtComp_992E4_Blocks tile `$76` should be a transparent spike tile, not a filled fallback square"
+        );
+        assert!(
+            !has_rect(&scene, 28, 20, 8, 8, [255, 216, 72]),
+            "real Highwater assets must resolve the ROM shooter tile instead of the square fallback"
         );
     }
 
@@ -3960,6 +4007,17 @@ mod tests {
 
     fn sample_level_visuals() -> NativeLevelVisuals {
         sample_level_visuals_with_background([33, 66, 99])
+    }
+
+    fn cached_generated_manifest() -> AssetManifest {
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("kidcli crate should live under <repo>/crates/kidcli");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        load_manifest(&manifest_path).expect("load cached generated asset manifest")
     }
 
     #[test]

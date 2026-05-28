@@ -108,6 +108,15 @@ Remaining report is visual: native may still render the shooter projectile as a
 fallback square instead of the ROM one-tile spike from `Process_ShooterObjects`
 `loc_EE52/loc_EF62` (`$8A96` => block-art tile `$296`). Continue from renderer
 tile/art resolution, not shooter activation or barrier collision.
+
+Follow-up 2026-05-28: the normal generated-asset scene path does resolve the
+Highwater projectile to the ROM spike tile. Regression
+`highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62`
+loads Level 0x02 visuals from the generated manifest, renders a typed
+`ShooterBlock` projectile, and verifies the sprite uses transparent block-art
+tile `$76` rather than the `[255,216,72]` fallback square. If live play still
+shows squares, investigate live-session asset loading or stale/legacy
+`active_projectiles` traces that bypass `active_projectile_details`.
 | 066 | [x] | P3 | block | SoftPlatform bounce moves platform object | Fixed — native now models ASM SoftPlatform object state (`SoftPlatform_Init`/`SoftPlatform_BounceLoop`) instead of inline player-only bounce |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [x] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | Fixed: native now queues an ASM `loc_11364`/`sub_113C0` visual worker that rises from the source row while preserving the immediate collision grid swap |
