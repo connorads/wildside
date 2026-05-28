@@ -522,7 +522,7 @@ fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed
 #[allow(non_snake_case)]
 fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSpriteEntry>) {
     // ASM sub_1B8F4 -> sub_1C54A (kid.asm:30194,31288): after the Wild Side
-    // VDP setup, the controller allocates a fixed priority sprite using
+    // VDP setup, the controller allocates a fixed visible sprite using
     // `unk_E109E` at VRAM tile `$140`. That art is the door/interior block
     // uploaded by sub_1B850's `Wild_Side_door_and_inside.bin` DMA.
     let prompt = crate::boot::title_menu_prompt_sprite_sub_1C54A();
@@ -533,7 +533,7 @@ fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSprit
             y_pos: prompt.y_pos,
             palette_line: 0,
             vram_tile: prompt.vram_tile,
-            priority: u8::from(prompt.priority_flag),
+            priority: 0,
             x_direction: 0,
         },
         IntroSpriteFrameVram {
@@ -690,7 +690,7 @@ fn append_intro_sequence_3_sliding_sprites_sub_1C572(
                 y_pos: sliding.y_pos,
                 palette_line: 0,
                 vram_tile: sliding.vram_tile,
-                priority: u8::from(sliding.priority_flag),
+                priority: 0,
                 x_direction: 0,
             },
             IntroSpriteFrameVram {
@@ -2333,8 +2333,8 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&vdp, (0x0119, 0x0F, 1, 0x8140, 0x0101)),
-            "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, so the fixed Wild Side door/interior sprite should be present before the roster entries",
+            sprite_table_contains(&vdp, (0x0119, 0x0F, 1, 0x0140, 0x0101)),
+            "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, but sub_1C54A only sets display byte `$13(a1)`, not priority `$10(a1)`",
         );
     }
 
@@ -2351,8 +2351,8 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x0119, 0x0F, 1, 0x8140, 0x0101),
-            "ASM Load_IntroSequence3 allocates sub_1C54A into gfx slot `$01000000`, before the `$01FF/$0200/$0201` roster and sliding-door slots, so its hardware sprite should lead the table",
+            (0x0119, 0x0F, 1, 0x0140, 0x0101),
+            "ASM Load_IntroSequence3 allocates sub_1C54A into gfx slot `$01000000`, before the `$01FF/$0200/$0201` roster and sliding-door slots, so its low-priority hardware sprite should lead the table",
         );
     }
 
@@ -2368,12 +2368,12 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&initial, (0x0118, 0x0F, 25, 0x8170, 0x00BA)),
-            "ASM sub_1C572 should draw the left sliding Wild Side door half at x=$3A before the `$3C` hibernate expires",
+            sprite_table_contains(&initial, (0x0118, 0x0F, 25, 0x0170, 0x00BA)),
+            "ASM sub_1C572 should draw the low-priority left Wild Side door half at x=$3A before the `$3C` hibernate expires",
         );
         assert!(
-            sprite_table_contains(&initial, (0x0118, 0x0F, 29, 0x818E, 0x015E)),
-            "ASM loc_1C58C should draw the right sliding Wild Side door half at x=$DE before the `$3C` hibernate expires",
+            sprite_table_contains(&initial, (0x0118, 0x0F, 29, 0x018E, 0x015E)),
+            "ASM loc_1C58C should draw the low-priority right Wild Side door half at x=$DE before the `$3C` hibernate expires",
         );
 
         let after_first_move = build_intro_sequence_vdp_with_title_variant_at_elapsed(
@@ -2385,11 +2385,11 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 25, 0x8170, 0x00BB)),
+            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 25, 0x0170, 0x00BB)),
             "ASM loc_1C5BE should move the left door half right by one pixel after its first post-hibernate frame",
         );
         assert!(
-            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 29, 0x818E, 0x015D)),
+            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 29, 0x018E, 0x015D)),
             "ASM loc_1C5BE should move the right door half left by one pixel after its first post-hibernate frame",
         );
     }
@@ -2407,22 +2407,22 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x0119, 0x0F, 1, 0x8140, 0x0101),
-            "ASM sub_1C54A should draw unk_E109E's first 32x32 chunk from the Wild Side door/interior art at VRAM tile `$140`",
+            (0x0119, 0x0F, 1, 0x0140, 0x0101),
+            "ASM sub_1C54A should draw low-priority unk_E109E's first 32x32 chunk from the Wild Side door/interior art at VRAM tile `$140`",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 1),
-            (0x0119, 0x0F, 2, 0x8150, 0x0121),
+            (0x0119, 0x0F, 2, 0x0150, 0x0121),
             "ASM Make_SpriteFromGfxObject should split unk_E109E's 62px-wide top row into the linked right-hand chunk",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 2),
-            (0x0139, 0x0D, 3, 0x8160, 0x0101),
+            (0x0139, 0x0D, 3, 0x0160, 0x0101),
             "ASM Make_SpriteFromGfxObject should continue unk_E109E's bottom row after the two 32px-high chunks",
         );
         assert_eq!(
             sprite_entry_words(&vdp, 3),
-            (0x0139, 0x0D, 0, 0x8168, 0x0121),
+            (0x0139, 0x0D, 0, 0x0168, 0x0121),
             "ASM Make_SpriteFromGfxObject should terminate the final linked chunk for sub_1C54A's fixed prompt sprite",
         );
     }

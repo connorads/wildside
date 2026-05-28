@@ -1969,7 +1969,7 @@ pub(crate) struct TitleTextBurstSpriteSub1B652 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleMenuPromptSpriteSub1C54A {
     pub(crate) gfx_slot_base: u32,
-    pub(crate) priority_flag: bool,
+    pub(crate) display_enabled: bool,
     pub(crate) x_pos: u16,
     pub(crate) y_pos: u16,
     pub(crate) sprite_label: &'static str,
@@ -1979,7 +1979,7 @@ pub(crate) struct TitleMenuPromptSpriteSub1C54A {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleMenuSlidingSpriteSub1C572 {
     pub(crate) gfx_slot_base: u32,
-    pub(crate) priority_flag: bool,
+    pub(crate) display_enabled: bool,
     pub(crate) x_pos: u16,
     pub(crate) y_pos: u16,
     pub(crate) sprite_label: &'static str,
@@ -2616,11 +2616,11 @@ pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B65
 #[allow(dead_code)]
 pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C54A {
     // ASM sub_1C54A (kid.asm:31288): allocate gfx slot `$1000000`, set the
-    // sprite priority flag at `$13(a1)`, then seed the fixed title prompt
-    // sprite at `(x,y)=(#$81,#$C8)` with tile `$140` and `unk_E109E`.
+    // display flag at `$13(a1)`, then seed the fixed title prompt sprite at
+    // `(x,y)=(#$81,#$C8)` with tile `$140` and `unk_E109E`.
     TitleMenuPromptSpriteSub1C54A {
         gfx_slot_base: 0x0100_0000,
-        priority_flag: true,
+        display_enabled: true,
         x_pos: 0x0081,
         y_pos: 0x00C8,
         sprite_label: "unk_E109E",
@@ -2638,7 +2638,7 @@ pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteS
     [
         TitleMenuSlidingSpriteSub1C572 {
             gfx_slot_base: 0x0200_0004,
-            priority_flag: true,
+            display_enabled: true,
             x_pos: 0x003A,
             y_pos: 0x00C8,
             sprite_label: "unk_E10A6",
@@ -2649,7 +2649,7 @@ pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteS
         },
         TitleMenuSlidingSpriteSub1C572 {
             gfx_slot_base: 0x0200_0004,
-            priority_flag: true,
+            display_enabled: true,
             x_pos: 0x00DE,
             y_pos: 0x00C8,
             sprite_label: "unk_E10AE",
@@ -7713,10 +7713,7 @@ mod tests {
         let sprite = title_menu_prompt_sprite_sub_1C54A();
 
         assert_eq!(sprite.gfx_slot_base, 0x0100_0000);
-        assert!(
-            sprite.priority_flag,
-            "ASM sub_1C54A sets `$13(a1)` immediately after allocating the title prompt sprite",
-        );
+        assert!(sprite.display_enabled);
         assert_eq!(sprite.x_pos, 0x0081);
         assert_eq!(sprite.y_pos, 0x00C8);
         assert_eq!(
@@ -7739,10 +7736,7 @@ mod tests {
         assert_eq!(left.sprite_label, "unk_E10A6");
         assert_eq!(left.vram_tile, 0x0140);
         assert_eq!(left.x_velocity_per_frame, 1);
-        assert!(
-            left.priority_flag,
-            "ASM loc_1C5A4 sets `$13(a3)` for the left sliding title sprite",
-        );
+        assert!(left.display_enabled);
 
         assert_eq!(right.gfx_slot_base, 0x0200_0004);
         assert_eq!(right.x_pos, 0x00DE);
@@ -7750,10 +7744,7 @@ mod tests {
         assert_eq!(right.sprite_label, "unk_E10AE");
         assert_eq!(right.vram_tile, 0x0140);
         assert_eq!(right.x_velocity_per_frame, -1);
-        assert!(
-            right.priority_flag,
-            "ASM loc_1C5A4 sets `$13(a3)` for the right sliding title sprite after loc_1C58C",
-        );
+        assert!(right.display_enabled);
     }
 
     #[test]
