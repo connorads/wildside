@@ -46,7 +46,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-175-eol-overlay",
-      "first_added_commit": "e4d738ee",
+      "first_added_commit": "380d8ad2",
       "intended_meaning": "Oracle visible gfx object slots relevant to the loc_D468 end-of-level overlay path: slot, word x/y, sprite reference, VRAM tile, palette line, and priority.",
       "promotion_trigger": "Promote if EOL pixel parity or checked-in regression assertions start depending on typed overlay slot state."
     },
