@@ -4,7 +4,7 @@ use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     BackgroundPixelSample, LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions,
     build_scene, build_scene_filtered, load_session_assets, render_scene,
-    render_trace_with_loc_c070_latched_scroll_camera, render_vdp_trace_overlay,
+    render_trace_with_loc_c070_latched_sprite_state, render_vdp_trace_overlay,
     sample_background_pixel_loc_c070,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
@@ -403,7 +403,8 @@ pub(crate) fn run_recorded_trace(
     start: RecordingStart,
     scenario: &DynamicScenario,
 ) -> Result<Vec<NativeTraceFrame>> {
-    let (mut runtime, _) = initialise_recording_runtime(manifest, start, scenario)?;
+    let RecordingRuntimeInit { mut runtime, .. } =
+        initialise_recording_runtime(manifest, start, scenario)?;
 
     let mut trace = runtime.trace_frame();
     let mut current_level_id = trace.current_level.0;
@@ -454,11 +455,17 @@ pub(crate) fn run_recorded_trace(
     Ok(replay)
 }
 
+struct RecordingRuntimeInit {
+    runtime: NativeRuntime,
+    level_visuals: NativeLevelVisuals,
+    pre_probe_render_trace: Option<NativeTraceFrame>,
+}
+
 fn initialise_recording_runtime(
     manifest: &AssetManifest,
     start: RecordingStart,
     scenario: &DynamicScenario,
-) -> Result<(NativeRuntime, NativeLevelVisuals)> {
+) -> Result<RecordingRuntimeInit> {
     let initial_level_id = start.warp_level.unwrap_or(0x00);
     let mut runtime = if start.settled && start.warp_level.is_some() {
         NativeRuntime::with_generated_level_layout(manifest.clone())
@@ -481,13 +488,21 @@ fn initialise_recording_runtime(
         runtime.enter_level_playtest(LevelId(0));
     }
 
+    let pre_probe_render_trace = scenario
+        .start_position
+        .is_some()
+        .then(|| runtime.trace_frame());
     if let Some(position) = scenario.start_position {
         runtime.set_player_probe_position(position.x, position.y);
     }
 
     let current_level_id = runtime.trace_frame().current_level.0;
     let (level_visuals, _) = load_session_assets(manifest, current_level_id)?;
-    Ok((runtime, level_visuals))
+    Ok(RecordingRuntimeInit {
+        runtime,
+        level_visuals,
+        pre_probe_render_trace,
+    })
 }
 
 pub(crate) fn verify_recording(
@@ -779,6 +794,27 @@ fn recording_visual_frame_offset(_start: &RecordingStart) -> usize {
     0
 }
 
+fn loc_c070_render_latch_trace<'a>(
+    trace: &NativeTraceFrame,
+    replay_frame_index: usize,
+    pre_probe_render_trace: Option<&'a NativeTraceFrame>,
+    previous_trace: &'a NativeTraceFrame,
+) -> &'a NativeTraceFrame {
+    if replay_frame_index == 0
+        && trace.level_complete
+        && trace.level_complete_elapsed_frames == 0
+        && let Some(pre_probe_render_trace) = pre_probe_render_trace
+    {
+        // ASM CharacterCollision_TouchFlagpole loc_C070 runs after the frame's
+        // VDP sprite table has already been presented. Probe recordings patch
+        // Kid's live object position just before input, matching the oracle
+        // helper's `apply_probe_start_position`, but that WRAM edit does not
+        // rewrite the already-latched sprite table until the next frame.
+        return pre_probe_render_trace;
+    }
+    previous_trace
+}
+
 fn capture_dynamic_checkpoint_states(
     trace: &[NativeTraceFrame],
     scenario: &DynamicScenario,
@@ -813,8 +849,11 @@ fn render_dynamic_checkpoint_frames(
     scenario: &DynamicScenario,
     visual_frame_offset: usize,
 ) -> Result<Vec<RenderedFrame>> {
-    let (mut runtime, mut level_visuals) =
-        initialise_recording_runtime(manifest, *start, scenario)?;
+    let RecordingRuntimeInit {
+        mut runtime,
+        mut level_visuals,
+        pre_probe_render_trace,
+    } = initialise_recording_runtime(manifest, *start, scenario)?;
 
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
@@ -858,8 +897,14 @@ fn render_dynamic_checkpoint_frames(
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
             let checkpoint = checkpoints.next().expect("checkpoint should exist");
+            let render_latch = loc_c070_render_latch_trace(
+                &trace,
+                replay_frame_index,
+                pre_probe_render_trace.as_ref(),
+                &previous_trace,
+            );
             let mut render_trace =
-                render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
+                render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -957,8 +1002,11 @@ fn write_dynamic_checkpoint_layer_frames(
         "hud",
     ];
 
-    let (mut runtime, mut level_visuals) =
-        initialise_recording_runtime(manifest, *start, scenario)?;
+    let RecordingRuntimeInit {
+        mut runtime,
+        mut level_visuals,
+        pre_probe_render_trace,
+    } = initialise_recording_runtime(manifest, *start, scenario)?;
 
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
@@ -1001,8 +1049,14 @@ fn write_dynamic_checkpoint_layer_frames(
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
             let checkpoint = checkpoints.next().expect("checkpoint should exist");
+            let render_latch = loc_c070_render_latch_trace(
+                &trace,
+                replay_frame_index,
+                pre_probe_render_trace.as_ref(),
+                &previous_trace,
+            );
             let mut render_trace =
-                render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
+                render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1076,8 +1130,11 @@ fn attach_native_background_samples(
         return Ok(());
     }
 
-    let (mut runtime, mut level_visuals) =
-        initialise_recording_runtime(manifest, *start, scenario)?;
+    let RecordingRuntimeInit {
+        mut runtime,
+        mut level_visuals,
+        pre_probe_render_trace,
+    } = initialise_recording_runtime(manifest, *start, scenario)?;
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
     let mut script_index = 0usize;
@@ -1123,8 +1180,14 @@ fn attach_native_background_samples(
             let checkpoint = checkpoints.next().expect("checkpoint should exist");
             let key = (checkpoint.frame_index, checkpoint.label.clone());
             if let Some(pixels) = sample_requests.get(&key) {
+                let render_latch = loc_c070_render_latch_trace(
+                    &trace,
+                    replay_frame_index,
+                    pre_probe_render_trace.as_ref(),
+                    &previous_trace,
+                );
                 let mut render_trace =
-                    render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
+                    render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
                 if level_card_frames_remaining > 0 {
                     render_trace.game_mode = GameMode::LevelTransition;
                     render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();

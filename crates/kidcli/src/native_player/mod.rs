@@ -172,7 +172,7 @@ use sprites::*;
 pub(crate) use render::render_scene;
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
-    render_trace_with_loc_c070_latched_scroll_camera, sample_background_pixel_loc_c070,
+    render_trace_with_loc_c070_latched_sprite_state, sample_background_pixel_loc_c070,
 };
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;
@@ -553,7 +553,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             trace.clone()
         };
         let render_trace =
-            render_trace_with_loc_c070_latched_scroll_camera(&base_render_trace, Some(&prev_trace));
+            render_trace_with_loc_c070_latched_sprite_state(&base_render_trace, Some(&prev_trace));
 
         if let Some(vdp) = runtime.vdp_state() {
             // Non-gameplay mode with VDP state: render directly using the
@@ -5723,28 +5723,64 @@ mod tests {
     }
 
     #[test]
-    fn loc_c070_first_render_frame_uses_previous_scroll_latch() {
+    fn loc_c070_first_render_frame_uses_previous_vdp_latch() {
         let mut previous = sample_trace(GameMode::InGame);
         previous.camera_x_pos = 0x055D_0000;
         previous.camera_y_pos = 0x0173_0000;
+        previous.frame_index = 719;
+        previous.level_timer_seconds = 179;
+        previous.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: 0x0558_0000,
+            y_pos: 0x0140_0000,
+            layout_index: None,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
         let mut trace = previous.clone();
         trace.camera_x_pos = 0x0563_0000;
         trace.camera_y_pos = 0x0171_0000;
+        trace.frame_index = 720;
+        trace.level_timer_seconds = 178;
+        trace.active_objects.clear();
         trace.level_complete = true;
         trace.level_complete_elapsed_frames = 0;
 
-        let render_trace =
-            render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous));
+        let render_trace = render_trace_with_loc_c070_latched_sprite_state(&trace, Some(&previous));
 
         assert_eq!(
-            (render_trace.camera_x_pos, render_trace.camera_y_pos),
-            (previous.camera_x_pos, previous.camera_y_pos),
-            "ASM loc_C070 switches to LevelComplete after the frame's scroll transfer, so the first visible hand-off frame must keep the previous VDP scroll latch"
+            (
+                render_trace.camera_x_pos,
+                render_trace.camera_y_pos,
+                render_trace.frame_index,
+                render_trace.level_timer_seconds,
+                render_trace.active_objects.len()
+            ),
+            (
+                previous.camera_x_pos,
+                previous.camera_y_pos,
+                previous.frame_index,
+                previous.level_timer_seconds,
+                previous.active_objects.len()
+            ),
+            "ASM loc_C070 switches to LevelComplete after the frame's VDP transfer, so the first visible hand-off frame must keep the previous scroll, sprite, and HUD latches"
         );
 
         trace.level_complete_elapsed_frames = 1;
         let later_render_trace =
-            render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous));
+            render_trace_with_loc_c070_latched_sprite_state(&trace, Some(&previous));
         assert_eq!(
             (
                 later_render_trace.camera_x_pos,

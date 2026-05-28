@@ -393,25 +393,42 @@ pub(crate) fn build_scene(
     )
 }
 
-pub(crate) fn render_trace_with_loc_c070_latched_scroll_camera(
+pub(crate) fn render_trace_with_loc_c070_latched_sprite_state(
     trace: &NativeTraceFrame,
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
     let mut render_trace = trace.clone();
-    if matches!(
-        render_trace.game_mode,
-        GameMode::InGame | GameMode::DemoPlay
-    ) && render_trace.level_complete
-        && render_trace.level_complete_elapsed_frames == 0
+    if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+        && trace.level_complete
+        && trace.level_complete_elapsed_frames == 0
         && let Some(previous_trace) = previous_trace
     {
         // ASM loc_C070 enters the flagpole hand-off after the frame's scroll
         // transfer has already latched Camera_X_pos/Camera_Y_pos into VDP
         // h/v-scroll state, so the first visible hand-off frame uses the
-        // previous scroll latch while gameplay state has already switched to
-        // LevelComplete.
+        // previous scroll/sprite latch while gameplay state has already
+        // switched to LevelComplete and loc_C070 is about to clear object
+        // links.
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
+        render_trace
+            .active_objects
+            .clone_from(&previous_trace.active_objects);
+        render_trace.frame_index = previous_trace.frame_index;
+        render_trace.current_helmet_id = previous_trace.current_helmet_id;
+        render_trace.kid_facing = previous_trace.kid_facing;
+        render_trace.kid_on_ground = previous_trace.kid_on_ground;
+        render_trace.kid_on_slope = previous_trace.kid_on_slope;
+        render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
+        render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+        render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
+        render_trace.invulnerable_frames = previous_trace.invulnerable_frames;
+        render_trace.death_windup_elapsed = previous_trace.death_windup_elapsed;
+        render_trace.number_hitpoints = previous_trace.number_hitpoints;
+        render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
+        render_trace.number_lives = previous_trace.number_lives;
+        render_trace.diamond_count = previous_trace.diamond_count;
+        render_trace.level_timer_seconds = previous_trace.level_timer_seconds;
     }
     render_trace
 }
