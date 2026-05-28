@@ -79,7 +79,7 @@
     "rejected_hypotheses": [
       {
         "name": "Issue #175 lower Forest flag-touch mismatch is fixed by a plain Forest ripple phase offset",
-        "reason": "Rejected 2026-05-28. After adding row-offset native samples and extending `eol_vdp_pixel_samples_loc_c070` to the lower dominant pixels, the reduced `issue-175-eol-flag-touch-level12` bundle shows native applying row offsets `+4` at `y=125` and `+8` at `y=133`, while oracle Plane B H-scroll is `$160` at `y=125` and `$15B` at `y=133`. Plain `Time_Frames >> 2` phase offsets do not explain both rows: `+1` worsens `flag_touch` to MAE 1.8521438 / 1,802 changed pixels, `+2` only nudges it to 1.8497349 / 1,785, and `+3` worsens it to 1.8543806 / 1,811. Keep ASM `BackgroundScroll_ApplyForestWaterRipple loc_30598/loc_3060A` phase unchanged until the row base scroll or extracted-row wrapping mismatch is isolated."
+        "reason": "Rejected 2026-05-28. After adding row-offset native samples and extending `eol_vdp_pixel_samples_loc_c070` to the lower dominant pixels, the reduced `issue-175-eol-flag-touch-level12` bundle shows native applying row offsets `+4` at `y=125` and `+8` at `y=133`, while oracle Plane B H-scroll is `$160` at `y=125` and `$15B` at `y=133`. Plain small `Time_Frames >> 2` phase offsets do not explain both rows: `+1` worsens `flag_touch` to MAE 1.8521438 / 1,802 changed pixels, `+2` only nudges it to 1.8497349 / 1,785, and `+3` worsens it to 1.8543806 / 1,811. The follow-up fix is not a generic table nudge: native now feeds `loc_305E6` a named 52-VBlank settled-warp `Time_Frames` offset only while the ROM level-skip visual phase is armed."
       },
       {
         "name": "Recording `debug-slope-level1` is ready to reduce into an authoritative slope gameplay case",

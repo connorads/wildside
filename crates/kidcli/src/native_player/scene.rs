@@ -1308,6 +1308,11 @@ pub(super) fn push_background_tiles(
 pub(crate) struct BackgroundPixelSample {
     pub(crate) screen_x: i32,
     pub(crate) screen_y: i32,
+    pub(crate) tile_origin_x: i32,
+    pub(crate) tile_origin_y: i32,
+    pub(crate) background_row_index: Option<usize>,
+    pub(crate) background_row_selector: Option<u8>,
+    pub(crate) background_column: Option<usize>,
     pub(crate) tile_index: u16,
     pub(crate) palette_line: u8,
     pub(crate) palette_index: u8,
@@ -1366,6 +1371,11 @@ pub(crate) fn sample_background_pixel_loc_c070(
                             sample_y,
                             None,
                             None,
+                            screen_x,
+                            screen_y,
+                            Some(usize::from(placement.y_tiles + row)),
+                            None,
+                            Some(usize::from(placement.x_tiles + column)),
                         ) {
                             sample = Some(hit);
                         }
@@ -1403,6 +1413,9 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         camera_y_px,
                         screen_x,
                         screen_y,
+                        row_index,
+                        row.selector,
+                        column,
                         *tile,
                         sample_x,
                         sample_y,
@@ -1425,6 +1438,9 @@ fn sample_layered_background_tile_pixel(
     camera_y_px: i32,
     screen_x: i32,
     screen_y: i32,
+    background_row_index: usize,
+    background_row_selector: u8,
+    background_column: usize,
     tile: TileRef,
     sample_x: i32,
     sample_y: i32,
@@ -1440,6 +1456,11 @@ fn sample_layered_background_tile_pixel(
             sample_y,
             None,
             None,
+            screen_x,
+            screen_y,
+            Some(background_row_index),
+            Some(background_row_selector),
+            Some(background_column),
         );
     };
     if level_visuals.level.background_theme_id != 9 {
@@ -1453,12 +1474,17 @@ fn sample_layered_background_tile_pixel(
             sample_y,
             None,
             None,
+            screen_x,
+            screen_y,
+            Some(background_row_index),
+            Some(background_row_selector),
+            Some(background_column),
         );
     }
 
     for row in 0..8 {
         let offset = forest_water_ripple_offset_for_screen_y_sub_30598(
-            trace.frame_index,
+            forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
             screen_y + row,
             effect_start_row_selector,
             camera_y_px,
@@ -1474,6 +1500,11 @@ fn sample_layered_background_tile_pixel(
             sample_y,
             Some(row as u8),
             Some(offset),
+            screen_x,
+            screen_y,
+            Some(background_row_index),
+            Some(background_row_selector),
+            Some(background_column),
         ) {
             return Some(sample);
         }
@@ -1491,6 +1522,11 @@ fn sample_background_tile_pixel(
     sample_y: i32,
     row_override: Option<u8>,
     row_offset: Option<i32>,
+    tile_origin_x: i32,
+    tile_origin_y: i32,
+    background_row_index: Option<usize>,
+    background_row_selector: Option<u8>,
+    background_column: Option<usize>,
 ) -> Option<BackgroundPixelSample> {
     if sample_x < screen_x || sample_x >= screen_x + 8 {
         return None;
@@ -1517,6 +1553,11 @@ fn sample_background_tile_pixel(
         } else {
             screen_y
         },
+        tile_origin_x,
+        tile_origin_y,
+        background_row_index,
+        background_row_selector,
+        background_column,
         tile_index: tile_ref.tile_index,
         palette_line: tile_ref.palette_line,
         palette_index,
@@ -1563,7 +1604,7 @@ fn push_layered_background_tile(
     let row_offsets = (0..8)
         .map(|row| {
             forest_water_ripple_offset_for_screen_y_sub_30598(
-                trace.frame_index,
+                forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
                 screen_y + row,
                 effect_start_row_selector,
                 camera_y_px,
@@ -2192,6 +2233,23 @@ const FOREST_RIPPLE: [i8; 64] = [
     0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2, 2,
     1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
+const SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6: usize = 52;
+
+pub(super) fn forest_water_ripple_time_frames_for_trace_loc_305e6(
+    trace: &NativeTraceFrame,
+) -> usize {
+    // ASM loc_305E6 uses the global `Time_Frames` counter, not the
+    // recording-local frame index. Settled warp recordings replay through the
+    // ROM level-skip path and keep `LevelSkip_Cheat` armed; their visible
+    // forest ripple is 52 VBlanks ahead of the rebased native recording clock.
+    if trace.level_skip_cheat_enabled != 0 {
+        trace
+            .frame_index
+            .saturating_add(SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6)
+    } else {
+        trace.frame_index
+    }
+}
 
 pub(super) fn forest_water_ripple_offset_for_screen_y_sub_30598(
     frame_index: usize,

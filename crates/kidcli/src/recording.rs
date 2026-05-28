@@ -165,6 +165,14 @@ pub(crate) struct NativeBackgroundPixelDiagnostic {
 pub(crate) struct NativeBackgroundPixelSample {
     pub(crate) screen_x: i32,
     pub(crate) screen_y: i32,
+    pub(crate) tile_origin_x: i32,
+    pub(crate) tile_origin_y: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) background_row_index: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) background_row_selector: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) background_column: Option<usize>,
     pub(crate) tile_index: u16,
     pub(crate) palette_line: u8,
     pub(crate) palette_index: u8,
@@ -1166,6 +1174,11 @@ impl From<BackgroundPixelSample> for NativeBackgroundPixelSample {
         Self {
             screen_x: sample.screen_x,
             screen_y: sample.screen_y,
+            tile_origin_x: sample.tile_origin_x,
+            tile_origin_y: sample.tile_origin_y,
+            background_row_index: sample.background_row_index,
+            background_row_selector: sample.background_row_selector,
+            background_column: sample.background_column,
             tile_index: sample.tile_index,
             palette_line: sample.palette_line,
             palette_index: sample.palette_index,

@@ -5897,6 +5897,24 @@ mod tests {
     }
 
     #[test]
+    fn forest_ripple_uses_rom_time_frames_for_settled_warp_loc_305e6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 44;
+        trace.level_skip_cheat_enabled = 1;
+
+        assert_eq!(
+            super::scene::forest_water_ripple_time_frames_for_trace_loc_305e6(&trace),
+            96,
+            "ASM loc_305E6 uses global Time_Frames; settled warp recordings keep the ROM level-skip visual phase instead of the rebased trace clock"
+        );
+        assert_eq!(
+            super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(96, 125, 0x1B, 369),
+            Some(6),
+            "issue-175 oracle hB=$160 at y=125 requires the loc_30598 ripple byte from the ROM Time_Frames phase"
+        );
+    }
+
+    #[test]
     fn build_game_scene_emits_level_layout_terrain_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
