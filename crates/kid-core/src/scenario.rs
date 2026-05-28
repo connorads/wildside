@@ -72,6 +72,7 @@ impl NativeRuntime {
         self.progression.number_hitpoints = self.progression.current_form.max_hitpoints();
         self.just_received_damage = false;
         self.death_shell_snapshot = None;
+        self.level_complete_gfx_snapshot = None;
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
     }
@@ -84,6 +85,7 @@ impl NativeRuntime {
             self.level_respawn_slice(level_id)
         });
         self.player_lifecycle = PlayerLifecycle::Alive;
+        self.level_complete_gfx_snapshot = None;
         self.progression.invulnerable_frames = 0;
         self.refresh_active_roster();
         self.trace_frame()

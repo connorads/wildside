@@ -5911,6 +5911,7 @@ impl NativeRuntime {
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
         self.level_complete_initial_score = 0;
+        self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
@@ -5948,6 +5949,7 @@ impl NativeRuntime {
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
         self.level_complete_initial_score = 0;
+        self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
@@ -7421,6 +7423,7 @@ impl NativeRuntime {
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
             self.death_shell_snapshot = None;
+            self.level_complete_gfx_snapshot = None;
             return false;
         }
 

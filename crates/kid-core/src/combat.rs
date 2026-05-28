@@ -8250,6 +8250,28 @@ impl NativeRuntime {
         self.enemy_death_effects.clear();
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn build_flagpole_stale_gfx_snapshot_loc_C056(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> LevelCompleteGfxSnapshot {
+        let frozen_active_objects = self.active_objects();
+        let (frozen_number_objects, base_number_gfx_objects) = self.object_counts_from_roster(
+            &frozen_active_objects,
+            slice.camera.x_pos,
+            slice.camera.y_pos,
+        );
+        LevelCompleteGfxSnapshot {
+            frozen_active_objects,
+            frozen_number_objects,
+            // ASM Flagpole_Boss allocates flag gfx slots outside native's
+            // gameplay roster. Oracle WRAM keeps one of them count-visible in
+            // the loc_C056/loc_C070 hand-off after non-Kid object gfx links
+            // have been detached.
+            frozen_number_gfx_objects: base_number_gfx_objects.saturating_add(1),
+        }
+    }
+
     /// Check if the player is standing on a teleporter block and return the destination.
     ///
     /// ASM loc_BC80 (kid.asm:15219): telepad destination lookup entry.
@@ -9991,9 +10013,12 @@ impl NativeRuntime {
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(slice) {
             let remaining_frames = self.level_complete_sequence_frames_loc_D770();
+            let level_complete_gfx_snapshot =
+                self.build_flagpole_stale_gfx_snapshot_loc_C056(slice);
             self.apply_level_completion_bonuses();
             self.clear_flagpole_deleted_objects_loc_C070();
             self.opening_slice = Some(*slice);
+            self.level_complete_gfx_snapshot = Some(level_complete_gfx_snapshot);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames,
                 total_frames: remaining_frames,

@@ -7754,7 +7754,7 @@ mod chunk_02 {
             slice.player.on_ground = true;
         }
 
-        runtime.step_frame(FrameInput::default());
+        let flag_touch_trace = runtime.step_frame(FrameInput::default());
 
         assert!(
             matches!(
@@ -7772,17 +7772,44 @@ mod chunk_02 {
             runtime.active_enemy_roster.is_empty(),
             "trace roster should mirror loc_C070 Delete_AllButCurrentObject"
         );
+        assert_eq!(
+            (
+                flag_touch_trace.number_objects,
+                flag_touch_trace.number_gfx_objects
+            ),
+            (5, 6),
+            "ASM CharacterCollision_TouchFlagpole loc_C056 clears non-Kid gfx links before loc_C070 deletes object slots, preserving stale gfx slots on the touch frame"
+        );
+        assert!(
+            flag_touch_trace
+                .active_objects
+                .iter()
+                .any(|object| matches!(object.kind, NativeObjectKind::Enemy { .. })),
+            "ASM loc_C056/loc_C070 leaves stale enemy gfx objects render-visible even though enemy object threads are deleted"
+        );
         assert!(
             runtime.projectiles.is_empty(),
             "non-Kid object children should not survive the flagpole cleanup"
         );
 
+        let mut cleanup_trace = flag_touch_trace;
         for _ in 0..60 {
-            runtime.step_frame(FrameInput::default());
+            cleanup_trace = runtime.step_frame(FrameInput::default());
         }
         assert!(
             runtime.active_enemy_roster.is_empty(),
             "ASM loc_C070 has deleted object threads, so enemy loading must not repopulate the EOL trace roster"
+        );
+        assert_eq!(
+            cleanup_trace.number_gfx_objects, 1,
+            "oracle-backed loc_C0B6 cleanup boundary has deallocated every non-Kid gfx slot"
+        );
+        assert!(
+            cleanup_trace
+                .active_objects
+                .iter()
+                .all(|object| !matches!(object.kind, NativeObjectKind::Enemy { .. })),
+            "stale enemy gfx objects should disappear once loc_C0B6 cleanup is visible"
         );
     }
 

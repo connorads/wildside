@@ -6220,6 +6220,16 @@ impl NativeRuntime {
         }
     }
 
+    fn level_complete_elapsed_frames(&self) -> usize {
+        match self.player_lifecycle {
+            PlayerLifecycle::LevelComplete {
+                remaining_frames,
+                total_frames,
+            } => total_frames.saturating_sub(remaining_frames),
+            _ => 0,
+        }
+    }
+
     pub(crate) fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
         if self.level_skip_resume_hold {
             return self.level_skip_resume_active_objects();
@@ -6257,6 +6267,16 @@ impl NativeRuntime {
             objects.extend(self.active_enemy_roster.iter().cloned());
             objects.extend(self.active_platform_roster.iter().cloned());
             return objects;
+        }
+        if let Some(snapshot) = self.level_complete_gfx_snapshot.as_ref()
+            && self.level_complete_elapsed_frames()
+                < crate::level::TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE
+        {
+            // ASM CharacterCollision_TouchFlagpole loc_C056 clears each
+            // non-Kid object's gfx-slot links before loc_C070 deletes its
+            // object slot. The old gfx list is still rendered until loc_C0B6
+            // walks `Addr_FirstGfxObjectSlot` and deallocates non-Kid slots.
+            return snapshot.frozen_active_objects.clone();
         }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
@@ -6785,6 +6805,21 @@ impl NativeRuntime {
                 snapshot.frozen_number_objects,
                 snapshot.frozen_number_gfx_objects,
             );
+        }
+        if let Some(snapshot) = self.level_complete_gfx_snapshot.as_ref()
+            && matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. })
+        {
+            let elapsed = self.level_complete_elapsed_frames();
+            if elapsed == 0 {
+                return (
+                    snapshot.frozen_number_objects,
+                    snapshot.frozen_number_gfx_objects,
+                );
+            }
+            if elapsed < crate::level::TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE {
+                return (3, snapshot.frozen_number_gfx_objects);
+            }
+            return (3, 1);
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);

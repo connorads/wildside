@@ -452,8 +452,9 @@ pub(crate) struct FlagpoleFadeStepLocC1D0 {
 ///           clr.l $36(a0); clr.l $3A(a0); clr.l $3E(a0)
 ///           bra.s loc_C056
 /// ```
-/// `$36`/`$3A` are x/y velocity; `$3E` is an auxiliary link/state pointer.
-/// Clearing them freezes all other objects before the deletion pass at loc_C070.
+/// `$36`/`$3A`/`$3E` are object-owned gfx-slot links. Clearing them detaches
+/// the visible gfx slots from non-Kid object slots before the deletion pass at
+/// loc_C070, so `Deallocate_ObjectSlot` cannot free them yet.
 #[allow(dead_code)]
 pub(crate) const TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056: [u16; 3] = [0x36, 0x3A, 0x3E];
 
@@ -491,6 +492,12 @@ pub const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 /// when `LevelComplete` transitions to the next level.
 #[allow(dead_code)]
 pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6: u32 = 0xC0B6;
+
+/// Oracle-visible trace frame where the loc_C0B6 non-Kid gfx-slot cleanup has
+/// taken effect. ASM reaches cleanup after the loc_C070 hibernate and the
+/// main-loop object execution/render sample boundary makes the WRAM count drop
+/// visible at native level-complete elapsed frame 60.
+pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE: usize = 60;
 
 /// ASM loc_C186 (kid.asm:15734): hologram tilemap upload — outer row loop.
 /// After `EniDec` decodes `MapEni_CC0E` into `Decompression_Buffer`, the ROM
@@ -17206,6 +17213,7 @@ impl NativeRuntime {
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
         self.level_complete_initial_score = 0;
+        self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.y_look_offset = 0;
         self.progression.current_form = PlayerForm::TheKid;
@@ -17220,6 +17228,7 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.level_complete_gfx_snapshot = None;
     }
 
     fn logical_level_ids(&self) -> Option<Vec<LevelId>> {
@@ -17294,12 +17303,14 @@ impl NativeRuntime {
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
         self.level_complete_initial_score = 0;
+        self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.level_complete_gfx_snapshot = None;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
@@ -17347,6 +17358,7 @@ impl NativeRuntime {
         self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.level_complete_gfx_snapshot = None;
         self.paused = false;
         self.boot_state = BootState::InGame;
         self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -17383,6 +17395,7 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.level_complete_gfx_snapshot = None;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;
@@ -17417,6 +17430,7 @@ impl NativeRuntime {
         self.level_speed_bonus_awarded = false;
         self.level_path_bonus_amount = 0;
         self.level_complete_initial_score = 0;
+        self.level_complete_gfx_snapshot = None;
         self.clocks_collected = 0;
         self.y_look_offset = 0;
         self.paused = false;

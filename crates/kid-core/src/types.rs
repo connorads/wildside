@@ -1776,6 +1776,13 @@ pub(crate) struct LevelSkipTransitionState {
     pub(crate) frozen_number_gfx_objects: u16,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct LevelCompleteGfxSnapshot {
+    pub(crate) frozen_active_objects: Vec<NativeObjectSnapshot>,
+    pub(crate) frozen_number_objects: u16,
+    pub(crate) frozen_number_gfx_objects: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelSkipAnimationPath {
     pub(crate) initial_x_pos: i32,
