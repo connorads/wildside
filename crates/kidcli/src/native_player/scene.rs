@@ -2520,12 +2520,23 @@ fn build_game_scene_filtered(
             // frames normal).
             let damage_flash_white_phase = trace.invulnerable_frames > 0
                 && (66usize.saturating_sub(trace.invulnerable_frames) % 6) < 2;
-            push_player_sprite(
+            let priority_override =
+                if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
+                    // ASM CharacterCollision_TouchFlagpole loc_C070 keeps the
+                    // current Kid gfx object while the first hand-off frame still
+                    // presents the old level/flag sprites. Native terrain priority
+                    // can otherwise mask Kid on that preserved frame.
+                    Some(true)
+                } else {
+                    None
+                };
+            push_player_sprite_with_priority_override(
                 &mut commands,
                 object,
                 trace,
                 level_visuals,
                 damage_flash_white_phase,
+                priority_override,
             );
         }
     }

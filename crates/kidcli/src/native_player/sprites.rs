@@ -298,18 +298,18 @@ const ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6: [TankTurretFrameSpec; 8] = [
     },
 ];
 
-pub(super) fn build_player_sprite_tiles(
-    frame: &kid_render::SpriteFrame,
-    facing: Direction,
-) -> Vec<SpriteTile> {
-    build_player_sprite_tiles_with_flip(frame, matches!(facing, Direction::Left))
-}
-
 fn build_player_sprite_tiles_with_flip(
     frame: &kid_render::SpriteFrame,
     flip_x: bool,
+    priority_override: Option<bool>,
 ) -> Vec<SpriteTile> {
-    build_sprite_tiles_with_flip(frame, flip_x, 0)
+    let mut tiles = build_sprite_tiles_with_flip(frame, flip_x, 0);
+    if let Some(priority) = priority_override {
+        for tile in &mut tiles {
+            tile.tile.priority = priority;
+        }
+    }
+    tiles
 }
 
 pub(super) fn align_sprite_dimension(px: u16) -> u16 {
@@ -649,6 +649,24 @@ pub(super) fn push_player_sprite(
     level_visuals: &NativeLevelVisuals,
     damage_flash_white_phase: bool,
 ) {
+    push_player_sprite_with_priority_override(
+        commands,
+        object,
+        trace,
+        level_visuals,
+        damage_flash_white_phase,
+        None,
+    );
+}
+
+pub(super) fn push_player_sprite_with_priority_override(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    damage_flash_white_phase: bool,
+    priority_override: Option<bool>,
+) {
     if trace.death_windup_elapsed > 0
         && let Some(kid_visuals) = level_visuals.player.forms.get(&0)
         && let Some(frame) = kid_visuals.death.as_ref()
@@ -671,6 +689,7 @@ pub(super) fn push_player_sprite(
             tiles: build_player_sprite_tiles_with_flip(
                 frame,
                 matches!(render_facing, Direction::Left),
+                priority_override,
             ),
         });
         return;
@@ -694,7 +713,11 @@ pub(super) fn push_player_sprite(
                 base_palette,
                 damage_flash_white_phase,
             )),
-            tiles: build_player_sprite_tiles(frame, render_facing),
+            tiles: build_player_sprite_tiles_with_flip(
+                frame,
+                matches!(render_facing, Direction::Left),
+                priority_override,
+            ),
         });
         return;
     }
@@ -713,7 +736,7 @@ pub(super) fn push_player_sprite(
             &form_visuals.palette,
             damage_flash_white_phase,
         )),
-        tiles: build_player_sprite_tiles_with_flip(frame, flip_x),
+        tiles: build_player_sprite_tiles_with_flip(frame, flip_x, priority_override),
     });
 }
 

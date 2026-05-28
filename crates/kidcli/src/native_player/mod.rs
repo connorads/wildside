@@ -5231,6 +5231,62 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_handoff_keeps_kid_above_priority_terrain_for_first_frame_loc_c070() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: trace.kid_x_pos.expect("sample trace should expose Kid x"),
+            y_pos: trace.kid_y_pos.expect("sample trace should expose Kid y"),
+            layout_index: None,
+            x_velocity: trace.kid_x_velocity,
+            y_velocity: trace.kid_y_velocity,
+            facing: trace.kid_facing,
+            on_ground: trace.kid_on_ground,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+        let visuals = sample_level_visuals();
+        let filter = LayerFilter::solo("player");
+
+        let handoff_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
+        let player_sprite = handoff_scene
+            .commands
+            .iter()
+            .find(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .expect("player layer should render Kid during the loc_C070 hand-off");
+        assert!(
+            sprite_tiles(player_sprite)
+                .iter()
+                .all(|tile| tile.tile.priority),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 preserves Kid on the flag-touch frame; native must not let high-priority foreground mask him"
+        );
+
+        trace.level_complete_elapsed_frames = 1;
+        let later_scene = build_scene_filtered(&trace, false, Some(&visuals), None, filter);
+        let later_player_sprite = later_scene
+            .commands
+            .iter()
+            .find(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .expect("player layer should still render Kid before the EOL hologram is visible");
+        assert!(
+            sprite_tiles(later_player_sprite)
+                .iter()
+                .all(|tile| !tile.tile.priority),
+            "only the preserved elapsed=0 loc_C070 hand-off frame needs priority override"
+        );
+    }
+
+    #[test]
     fn forest_ripple_starts_from_asm_screen_line_window() {
         assert_eq!(
             super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(0, 135, 0x11, 0),
