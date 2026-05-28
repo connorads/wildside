@@ -96,6 +96,15 @@
       "promotion_trigger": "Promote if EOL pixel parity or checked-in regression assertions start depending on typed per-pixel VDP provenance."
     },
     {
+      "key": "eol_pre_frame_vdp_pixel_samples_loc_c070",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-175-eol-overlay",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle VDP Plane A/B and sprite pixel provenance sampled at the start of the checkpoint frame before JGenesis line-renders it, used to identify VBlank/post-render latch differences around CharacterCollision_TouchFlagpole loc_C070.",
+      "promotion_trigger": "Promote if EOL frame parity or checked-in regression assertions start depending on typed pre-frame VDP provenance."
+    },
+    {
       "key": "pending_prize_diamond_awards",
       "scope": "frame",
       "status": "exploratory",

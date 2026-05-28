@@ -203,7 +203,7 @@
       },
       {
         "name": "Issue #175 `issue-175-eol-flag-touch-level12` lower flag-touch pixels are caused by a missing preserved sprite",
-        "reason": "Rejected 2026-05-28. Extending `eol_vdp_pixel_samples_loc_c070` to scan the `$1000` hardware sprite table reports `S=none` for the dominant lower samples `(159,125)` and `(160,125)`: Plane A is transparent when sampled with VSRAM A, Plane B is the native-matching green `(0,146,36)`, and no linked sprite has an opaque pixel there. The oracle combined PNG still shows brown (`73,36,0`), so this is not a stale enemy/flag/Kid sprite omission. Continue by reconciling exact VDP frame timing or Plane A/scroll composition, not by adding another native sprite."
+        "reason": "Rejected assumption retired 2026-05-28. The post-frame `$1000` hardware sprite table still reports `S=none` for `(159,125)` and `(160,125)`, but `eol_pre_frame_vdp_pixel_samples_loc_c070` shows the rendered oracle frame was latched from the pre-frame sprite table: sprite #0B at `xy=152/125`, `size=3x4`, `pat=6625`, palette 3 index B, RGB `(73,36,0)` covers both lower samples before `CharacterCollision_TouchFlagpole loc_C070` clears the object links. Continue by modelling the first hand-off frame as a pre-frame VDP/sprite latch, not by trusting checkpoint-after-render sprite RAM."
       },
       {
         "name": "Issue #175 `issue-175-eol-flag-touch-level12` top HUD pixels are fixed by hiding the ordinary HUD once `level_complete` is true",

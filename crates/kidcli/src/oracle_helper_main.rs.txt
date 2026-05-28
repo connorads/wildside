@@ -569,6 +569,14 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
 
     while frame_index < resolved.frame_count {
+        let pre_frame_eol_vdp_pixel_samples_debug = resolved
+            .checkpoints
+            .get(checkpoint_index)
+            .filter(|checkpoint| checkpoint.frame_index == frame_index)
+            .and_then(|checkpoint| {
+                matches!(checkpoint.label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+                    .then(|| eol_vdp_pixel_samples_debug_loc_c070(&mut emulator, None))
+            });
         let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
         loop {
             if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
@@ -596,6 +604,8 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             checkpoint.label,
                             checkpoint.frame_index,
                             capture_cpu_state,
+                            Some((renderer.width, renderer.height, &renderer.rgb)),
+                            pre_frame_eol_vdp_pixel_samples_debug.as_deref(),
                         ));
                     }
                     checkpoint_index += 1;
@@ -892,6 +902,8 @@ fn capture_state(
     label: &str,
     frame_index: usize,
     capture_cpu_state: bool,
+    rendered_frame: Option<(u32, u32, &[u8])>,
+    pre_frame_eol_vdp_pixel_samples_debug: Option<&str>,
 ) -> OracleState {
     let cpu_regs = if capture_cpu_state {
         let debug = emulator.debug();
@@ -916,7 +928,7 @@ fn capture_state(
         .then(|| eol_cram_words_debug_loc_c070(emulator));
     let eol_vdp_pixel_samples_debug =
         matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
-            .then(|| eol_vdp_pixel_samples_debug_loc_c070(emulator));
+            .then(|| eol_vdp_pixel_samples_debug_loc_c070(emulator, rendered_frame));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
@@ -953,6 +965,14 @@ fn capture_state(
             gameplay_debug_fields.insert(
                 "eol_vdp_pixel_samples_loc_c070".into(),
                 eol_vdp_pixel_samples_debug,
+            );
+        }
+        if let Some(pre_frame_eol_vdp_pixel_samples_debug) =
+            pre_frame_eol_vdp_pixel_samples_debug
+        {
+            gameplay_debug_fields.insert(
+                "eol_pre_frame_vdp_pixel_samples_loc_c070".into(),
+                pre_frame_eol_vdp_pixel_samples_debug.to_string(),
             );
         }
     }
@@ -1320,7 +1340,10 @@ fn eol_cram_words_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
         .join(",")
 }
 
-fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+fn eol_vdp_pixel_samples_debug_loc_c070(
+    emulator: &mut GenesisEmulator,
+    rendered_frame: Option<(u32, u32, &[u8])>,
+) -> String {
     const PLANE_A_BASE_LOC_C070: usize = 0x0000;
     const PLANE_B_BASE_LOC_C070: usize = 0xE000;
     const H_SCROLL_TABLE_BASE_LOC_C070: usize = 0x1400;
@@ -1355,8 +1378,13 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
             let h_b = i32::from(
                 read_wram_u16(&vram, H_SCROLL_TABLE_BASE_LOC_C070 + y * 4 + 2) & 0x03FF,
             );
+            let rendered_pixel = rendered_frame
+                .and_then(|(width, height, rgb)| rendered_frame_rgb(width, height, rgb, x, y));
             format!(
-                "{x}/{y}:hA={h_a:03X},hB={h_b:03X},A={};A0={};B={};S={}",
+                "{x}/{y}:FB={},hA={h_a:03X},hB={h_b:03X},A={};A0={};B={};S={}",
+                rendered_pixel
+                    .map(|rgb| format!("{:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2]))
+                    .unwrap_or_else(|| "none".to_string()),
                 eol_vdp_plane_pixel_sample(
                     &vram,
                     &cram,
@@ -1401,6 +1429,22 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
         })
         .collect::<Vec<_>>()
         .join(";")
+}
+
+fn rendered_frame_rgb(
+    width: u32,
+    height: u32,
+    rgb: &[u8],
+    screen_x: usize,
+    screen_y: usize,
+) -> Option<[u8; 3]> {
+    let width = usize::try_from(width).ok()?;
+    let height = usize::try_from(height).ok()?;
+    if screen_x >= width || screen_y >= height {
+        return None;
+    }
+    let offset = (screen_y * width + screen_x).checked_mul(3)?;
+    Some([*rgb.get(offset)?, *rgb.get(offset + 1)?, *rgb.get(offset + 2)?])
 }
 
 fn eol_vdp_sprite_pixel_sample_loc_c070(
