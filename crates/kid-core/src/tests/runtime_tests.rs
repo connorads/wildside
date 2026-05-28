@@ -7901,6 +7901,54 @@ mod chunk_09 {
     }
 
     #[test]
+    fn blue_lake_woods_2_live_rock_tank_shooting_spawns_tank_bullet_loc_3b730() {
+        // ASM Tank_Shooting.asm Enemy0B_RockTank_shooting_Init and loc_3B5FA:
+        // Blue Lake Woods 2 resource level `$4B` has a literal `$0B` object at
+        // x=1544/y=383. Once its animation gate reaches loc_3C50E, the live
+        // frame loop must allocate loc_3B730 and expose a typed TankBullet.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x01));
+        rt.active_enemies.clear();
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = 1544 << 16;
+        slice.player.y_pos = 383 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.camera.x_pos = 1400 << 16;
+        slice.camera.y_pos = 240 << 16;
+        rt.opening_slice = Some(slice);
+
+        let mut saw_shooting_tank = false;
+        let mut saw_tank_bullet = false;
+        for _ in 0..90 {
+            let trace = rt.step_frame(FrameInput::default());
+            saw_shooting_tank |= trace.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0B })
+                    && object.hit_points.is_some()
+            });
+            saw_tank_bullet |= trace.active_projectile_details.iter().any(|projectile| {
+                projectile.kind == ActiveProjectileKind::TankBullet
+                    && projectile.x_velocity != 0
+                    && !projectile.friendly
+            });
+        }
+
+        assert!(
+            saw_shooting_tank,
+            "Level 01's live `$0B` RockTank object should remain object_type 0x0B rather than collapsing to the plain 0x0A Tank path"
+        );
+        assert!(
+            saw_tank_bullet,
+            "ASM Tank_Shooting.asm loc_3C50E -> loc_3B730 should produce a hostile typed TankBullet in the live frame loop"
+        );
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());
