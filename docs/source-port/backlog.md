@@ -117,6 +117,17 @@ loads Level 0x02 visuals from the generated manifest, renders a typed
 tile `$76` rather than the `[255,216,72]` fallback square. If live play still
 shows squares, investigate live-session asset loading or stale/legacy
 `active_projectiles` traces that bypass `active_projectile_details`.
+
+Follow-up 2026-05-28: fresh playtest still got stuck at the first Highwater
+touch-shooter barrier. The old regression only cleared row 97; the actual
+Berzerker/Rhino charge path hits the stacked `$EA1F` cells at rows 100-102
+opposite `$E203` ice barrier cells. Native was collapsing the `loc_9564`
+head-forward pose to a one-frame latch after `loc_9326` cleared
+`Berzerker_charging`, so the final stacked shooter cell was scanned with
+Berzerker's narrow body width and row 102 stayed solid. Native now keeps the
+six-entry `off_9688` pose window alive separately from the gameplay charge
+flag, and `highwater_pass_1_berzerker_charge_clears_play_height_barrier_loc_eae4_f02a`
+proves rows 100-102 clear through `loc_EAE4 -> loc_EC76 -> loc_F02A`.
 | 066 | [x] | P3 | block | SoftPlatform bounce moves platform object | Fixed — native now models ASM SoftPlatform object state (`SoftPlatform_Init`/`SoftPlatform_BounceLoop`) instead of inline player-only bounce |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [x] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | Fixed: native now queues an ASM `loc_11364`/`sub_113C0` visual worker that rises from the source row while preserving the immediate collision grid swap |

@@ -666,6 +666,7 @@ pub(crate) struct HelmetState {
     pub(crate) berzerker_charge_accum: u8,
     pub(crate) berzerker_charging: bool,
     pub(crate) berzerker_charge_pose: bool,
+    pub(crate) berzerker_charge_pose_frames: u8,
     pub(crate) micromax_stuck: bool,
 }
 

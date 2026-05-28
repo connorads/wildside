@@ -7920,6 +7920,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_berzerker_charge_clears_play_height_barrier_loc_eae4_f02a() {
+        // ASM loc_EAE4 scans Kid_hitbox_top..bottom every frame and triggers
+        // the first bit-15 type-$A cell it finds; Highwater Pass 1 stacks
+        // `$EA1F` shooter cells at rows 100-102 at the actual Berzerker
+        // charge height, so repeated frame-loop scans must clear the matching
+        // `$E203` ice barrier rows through loc_EE2A -> loc_F02A.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charge_accum = 0xF0;
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = 1632 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+        rt.opening_slice = Some(slice);
+
+        for _ in 0..22 {
+            rt.step_frame(FrameInput::default());
+        }
+
+        for row in 100..=102 {
+            assert_eq!(
+                rt.block_grid.as_ref().unwrap().cell_at(15, row),
+                terrain::Cell::from_be_bytes(0, 0),
+                "ASM loc_EAE4 -> loc_EC76 -> loc_F02A should clear Highwater Pass 1 ice barrier row {row}"
+            );
+        }
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
         // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater

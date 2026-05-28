@@ -5482,15 +5482,25 @@ impl NativeRuntime {
         }
     }
 
+    // ASM loc_9564 selects one of six `off_9688` head-forward sprite mappings.
+    // Collision can clear `Berzerker_charging` at loc_9326 in the same wall
+    // contact, but the sprite write remains the live hitbox/renderer pose for
+    // subsequent evanescent-shooter scans in the stacked Highwater columns.
+    const BERZERKER_CHARGE_POSE_FRAMES_LOC_9564: u8 = 6;
+
     /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
     pub(crate) fn step_berzerker_charge(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.current_form != PlayerForm::Berzerker {
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
             self.helmet.berzerker_charge_pose = false;
+            self.helmet.berzerker_charge_pose_frames = 0;
             return;
         }
-        self.helmet.berzerker_charge_pose = false;
+        if self.helmet.berzerker_charge_pose_frames > 0 {
+            self.helmet.berzerker_charge_pose_frames -= 1;
+        }
+        self.helmet.berzerker_charge_pose = self.helmet.berzerker_charge_pose_frames > 0;
 
         // ASM loc_950A (kid.asm:10973): negative Berzerker `x_vel` clears the
         // charge accumulator when `x_direction(a3)` is clear (facing right);
@@ -5549,6 +5559,7 @@ impl NativeRuntime {
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
             self.helmet.berzerker_charge_pose = true;
+            self.helmet.berzerker_charge_pose_frames = Self::BERZERKER_CHARGE_POSE_FRAMES_LOC_9564;
         } else {
             self.helmet.berzerker_charge_accum = new_accum;
             // ASM `addi.b #$10,($FFFFFA13); bcc.s loc_9580` clears
