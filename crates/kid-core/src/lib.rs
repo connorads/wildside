@@ -1300,6 +1300,13 @@ impl NativeRuntime {
         }
     }
 
+    pub fn set_camera_probe_position(&mut self, x_px: u16, y_px: u16) {
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.camera.x_pos = u32::from(x_px) << 16;
+            slice.camera.y_pos = u32::from(y_px) << 16;
+        }
+    }
+
     pub fn set_playtest_form(&mut self, form: PlayerForm) {
         self.progression.current_form = form;
         self.progression.number_hitpoints = form.max_hitpoints();

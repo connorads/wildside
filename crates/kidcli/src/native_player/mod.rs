@@ -2003,6 +2003,61 @@ mod tests {
     }
 
     #[test]
+    fn blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730() {
+        let manifest = cached_generated_manifest();
+        let session_assets =
+            load_native_session_assets(&manifest, 0x01).expect("Blue Lake Woods 2 session assets");
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        runtime.enter_level_playtest(LevelId(0x01));
+        runtime.set_player_probe_position(1544, 383);
+        runtime.set_camera_probe_position(1400, 240);
+
+        let mut bullet_scene = None;
+        for _ in 0..90 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if trace.active_projectile_details.iter().any(|projectile| {
+                projectile.kind == ActiveProjectileKind::TankBullet
+                    && projectile.x_velocity != 0
+                    && !projectile.friendly
+            }) {
+                bullet_scene = Some(build_scene(
+                    &trace,
+                    false,
+                    Some(&session_assets.level_visuals),
+                    runtime.block_grid(),
+                ));
+                break;
+            }
+        }
+
+        let scene = bullet_scene
+            .expect("ASM Tank_Shooting.asm loc_3C50E -> loc_3B730 should emit a live TankBullet");
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles
+                        .iter()
+                        .any(|tile| matches!(tile.tile.tile_index, 0x038 | 0x03A))
+            )),
+            "ASM Tank_Shooting.asm `stru_3B526` should render live `$0B` RockTank bullets with ROM child sprite frames"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect {
+                    width: 4,
+                    height: 4,
+                    colour,
+                    ..
+                } if *colour == [255, 80, 40]
+            )),
+            "live `$0B` RockTank bullets should not fall back to the generic enemy projectile dot"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_falls_back_to_placeholder_without_rom_visuals() {
         // Removing the Fire Demon visuals forces the degraded-asset path.
         // The previous flame-footprint approximation invented per-phase rect
