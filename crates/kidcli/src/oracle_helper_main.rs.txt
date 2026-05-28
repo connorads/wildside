@@ -905,6 +905,8 @@ fn capture_state(
         None
     };
     let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+    let eol_vdp_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+        .then(|| eol_vdp_registers_debug_loc_c070(emulator));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
@@ -922,6 +924,9 @@ fn capture_state(
             "eol_visible_gfx_slots_loc_d468".into(),
             eol_visible_gfx_slots_debug_loc_d468(&work_ram),
         );
+        if let Some(eol_vdp_debug) = eol_vdp_debug {
+            gameplay_debug_fields.insert("eol_vdp_registers_loc_c070".into(), eol_vdp_debug);
+        }
     }
     let kid_collision_type =
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_TYPE_OFFSET);
@@ -1191,6 +1196,27 @@ fn eol_visible_gfx_slots_debug_loc_d468(work_ram: &[u8]) -> String {
         ));
     }
     slots.join(";")
+}
+
+fn eol_vdp_registers_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    let mut registers = Vec::new();
+    emulator
+        .debug()
+        .dump_vdp_registers(|register_name, fields| {
+            if !matches!(
+                register_name,
+                "Register #1" | "Register #2" | "Register #4" | "Register #11" | "Register #13"
+            ) {
+                return;
+            }
+            let fields = fields
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            registers.push(format!("{register_name}:{fields}"));
+        });
+    registers.join(";")
 }
 
 fn work_ram_index(address: usize) -> usize {
