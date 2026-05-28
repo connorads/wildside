@@ -13,7 +13,7 @@ use image::{ColorType, ImageFormat};
 use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
@@ -116,6 +116,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) changed_pixel_count: usize,
     #[serde(default)]
     pub(crate) changed_bounds: Option<PixelDiffBounds>,
+    #[serde(default)]
+    pub(crate) top_colour_diffs: Vec<PixelColourDiff>,
     pub(crate) diff_path: PathBuf,
 }
 
@@ -127,10 +129,18 @@ pub(crate) struct PixelDiffBounds {
     pub(crate) max_y: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PixelColourDiff {
+    pub(crate) count: usize,
+    pub(crate) native_rgb: [u8; 3],
+    pub(crate) oracle_rgb: [u8; 3],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PixelDiffSummary {
     changed_pixel_count: usize,
     changed_bounds: Option<PixelDiffBounds>,
+    top_colour_diffs: Vec<PixelColourDiff>,
 }
 
 pub(crate) fn recording_start_from_options(options: &NativePlayOptions) -> RecordingStart {
@@ -1030,6 +1040,7 @@ fn compare_recording_frames(
             max_channel_delta: frame_diff.max_channel_delta,
             changed_pixel_count: pixel_diff_summary.changed_pixel_count,
             changed_bounds: pixel_diff_summary.changed_bounds,
+            top_colour_diffs: pixel_diff_summary.top_colour_diffs,
             diff_path,
         });
     }
@@ -1065,6 +1076,7 @@ fn summarize_pixel_diffs(
 
     let mut changed_pixel_count = 0usize;
     let mut bounds: Option<PixelDiffBounds> = None;
+    let mut colour_pairs: BTreeMap<([u8; 3], [u8; 3]), usize> = BTreeMap::new();
     for (pixel_index, (native_pixel, oracle_pixel)) in native_rgb
         .chunks_exact(3)
         .zip(oracle_rgb.chunks_exact(3))
@@ -1072,6 +1084,9 @@ fn summarize_pixel_diffs(
     {
         if native_pixel != oracle_pixel {
             changed_pixel_count += 1;
+            let native_rgb = [native_pixel[0], native_pixel[1], native_pixel[2]];
+            let oracle_rgb = [oracle_pixel[0], oracle_pixel[1], oracle_pixel[2]];
+            *colour_pairs.entry((native_rgb, oracle_rgb)).or_default() += 1;
             let x = pixel_index % width;
             let y = pixel_index / width;
             bounds = Some(match bounds {
@@ -1090,10 +1105,27 @@ fn summarize_pixel_diffs(
             });
         }
     }
+    let mut top_colour_diffs = colour_pairs
+        .into_iter()
+        .map(|((native_rgb, oracle_rgb), count)| PixelColourDiff {
+            count,
+            native_rgb,
+            oracle_rgb,
+        })
+        .collect::<Vec<_>>();
+    top_colour_diffs.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.native_rgb.cmp(&right.native_rgb))
+            .then_with(|| left.oracle_rgb.cmp(&right.oracle_rgb))
+    });
+    top_colour_diffs.truncate(8);
 
     Ok(PixelDiffSummary {
         changed_pixel_count,
         changed_bounds: bounds,
+        top_colour_diffs,
     })
 }
 
@@ -2045,6 +2077,22 @@ mod tests {
                 max_y: 1,
             })
         );
+        assert_eq!(
+            summary.top_colour_diffs,
+            vec![
+                PixelColourDiff {
+                    count: 1,
+                    native_rgb: [1, 1, 1],
+                    oracle_rgb: [9, 9, 9],
+                },
+                PixelColourDiff {
+                    count: 1,
+                    native_rgb: [4, 4, 4],
+                    oracle_rgb: [8, 8, 8],
+                },
+            ],
+            "top colour pairs make strict frame diffs actionable without external image scripts"
+        );
     }
 
     #[test]
@@ -2055,6 +2103,43 @@ mod tests {
 
         assert_eq!(summary.changed_pixel_count, 0);
         assert_eq!(summary.changed_bounds, None);
+        assert_eq!(summary.top_colour_diffs, Vec::new());
+    }
+
+    #[test]
+    fn summarize_pixel_diffs_reports_top_colour_pairs_by_frequency() {
+        let native_rgb = vec![
+            1, 1, 1, 1, 1, 1, 4, 4, 4, //
+            1, 1, 1, 2, 2, 2, 3, 3, 3,
+        ];
+        let oracle_rgb = vec![
+            9, 9, 9, 9, 9, 9, 8, 8, 8, //
+            9, 9, 9, 7, 7, 7, 6, 6, 6,
+        ];
+
+        let summary = summarize_pixel_diffs(&native_rgb, &oracle_rgb, 3, 2).expect("summary");
+
+        assert_eq!(
+            summary.top_colour_diffs[..3],
+            [
+                PixelColourDiff {
+                    count: 3,
+                    native_rgb: [1, 1, 1],
+                    oracle_rgb: [9, 9, 9],
+                },
+                PixelColourDiff {
+                    count: 1,
+                    native_rgb: [2, 2, 2],
+                    oracle_rgb: [7, 7, 7],
+                },
+                PixelColourDiff {
+                    count: 1,
+                    native_rgb: [3, 3, 3],
+                    oracle_rgb: [6, 6, 6],
+                },
+            ],
+            "highest-frequency pixel substitutions should lead the diagnostic"
+        );
     }
 
     #[test]
