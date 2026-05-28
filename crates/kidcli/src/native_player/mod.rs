@@ -6074,6 +6074,45 @@ mod tests {
     }
 
     #[test]
+    fn title_menu_fallback_shows_rom_menu_rows_when_cursor_is_active_loc_1bb52() {
+        let mut trace = sample_trace(GameMode::TitleScreen);
+        trace.options_cursor = Some(1);
+
+        let scene = build_scene(&trace, true, None, None);
+
+        assert!(
+            contains_text(&scene, "1 PLAYER"),
+            "ASM Obj_TitleMenu loc_1BB52 decodes the ROM menu tilemap instead of leaving the pre-menu press-start prompt"
+        );
+        assert!(contains_text(&scene, "2 PLAYERS"));
+        assert!(contains_text(&scene, "OPTIONS"));
+        assert!(!contains_text(&scene, "PRESS START"));
+    }
+
+    #[test]
+    fn options_menu_fallback_uses_rom_option_copy_loc_1ce3a() {
+        let mut trace = sample_trace(GameMode::OptionsMenu);
+        trace.options_cursor = Some(2);
+        trace.options_two_player_two_controllers = true;
+        trace.options_controls_scheme = 4;
+        trace.options_speed_button_fast = true;
+
+        let scene = build_scene(&trace, true, None, None);
+
+        assert!(contains_text(&scene, "2 PLAYERS"));
+        assert!(contains_text(&scene, "TWO CONTROLLERS"));
+        assert!(contains_text(&scene, "CONTROLS"));
+        assert!(contains_text(&scene, "MODE"));
+        assert!(contains_text(&scene, "JUMP"));
+        assert!(contains_text(&scene, "SPECIAL"));
+        assert!(contains_text(&scene, "SPEED BUTTON"));
+        assert!(contains_text(&scene, "PUSH FOR SLOW"));
+        assert!(contains_text(&scene, "EXIT"));
+        assert!(!contains_text(&scene, "2 PLAYERS:"));
+        assert!(!contains_text(&scene, "Up/Down select"));
+    }
+
+    #[test]
     fn try_load_block_grid_prefers_generated_level_layout_dump() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
 

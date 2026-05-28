@@ -699,8 +699,31 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         3,
     ));
 
-    // Blinking "PRESS START" (blink every 30 frames)
-    if (trace.frame_index / 30).is_multiple_of(2) {
+    if let Some(cursor) = trace.options_cursor {
+        // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): the ROM swaps the
+        // pre-menu title prompt for the three-choice tilemap decoded from
+        // `unk_2EAAE`; loc_1BC0E then moves the cursor through rows 0..2.
+        let rows = ["1 PLAYER", "2 PLAYERS", "OPTIONS"];
+        for (row, label) in rows.iter().enumerate() {
+            let y = 100 + row as i32 * 20;
+            let selected = row == usize::from(cursor.min(2));
+            commands.push(text(
+                116,
+                y,
+                label,
+                if selected {
+                    [255, 255, 255]
+                } else {
+                    [150, 150, 150]
+                },
+                1,
+            ));
+            if selected {
+                commands.push(text(100, y, ">", [255, 220, 80], 1));
+            }
+        }
+    } else if (trace.frame_index / 30).is_multiple_of(2) {
+        // Blinking "PRESS START" (blink every 30 frames)
         let start_text = "PRESS START";
         let start_w = start_text.len() as i32 * 8 * 2;
         commands.push(text(
@@ -712,28 +735,6 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         ));
     }
 
-    // Controls help
-    commands.push(text(
-        20,
-        160,
-        "Arrows/WASD move  Z/Space jump  X special  C/Shift run",
-        [140, 140, 140],
-        1,
-    ));
-    commands.push(text(
-        20,
-        174,
-        "R restart level  F10 dump record  Tab debug  F11 fullscreen  Esc quit",
-        [140, 140, 140],
-        1,
-    ));
-    commands.push(text(
-        20,
-        188,
-        "B options menu  N/P warp level",
-        [140, 140, 140],
-        1,
-    ));
     if debug_overlay_visible {
         commands.push(text(
             30,
@@ -778,46 +779,56 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
         2,
     ));
 
-    let cursor = trace.options_cursor.unwrap_or(0) as i32;
-    let two_p_label = if trace.options_two_player_two_controllers {
-        "2 PLAYERS: TWO CONTROLLERS"
+    let cursor = usize::from(trace.options_cursor.unwrap_or(0).min(3));
+    let controller_label = if trace.options_two_player_two_controllers {
+        "TWO CONTROLLERS"
     } else {
-        "2 PLAYERS: ONE CONTROLLER"
+        "ONE CONTROLLER"
     };
-    let controls_label = match trace.options_controls_scheme {
-        0 => "CONTROLS: A SPD  B JMP  C SPC",
-        1 => "CONTROLS: A JMP  B SPD  C SPC",
-        2 => "CONTROLS: A SPD  B SPC  C JMP",
-        3 => "CONTROLS: A SPC  B SPD  C JMP",
-        4 => "CONTROLS: A JMP  B SPC  C SPD",
-        _ => "CONTROLS: A SPC  B JMP  C SPD",
+    let controls = match trace.options_controls_scheme.min(5) {
+        0 => ["SPEED", "JUMP", "SPECIAL"],
+        1 => ["SPEED", "SPECIAL", "JUMP"],
+        2 => ["JUMP", "SPEED", "SPECIAL"],
+        3 => ["JUMP", "SPECIAL", "SPEED"],
+        4 => ["SPECIAL", "SPEED", "JUMP"],
+        _ => ["SPECIAL", "JUMP", "SPEED"],
     };
-    let speed_label = if trace.options_speed_button_fast {
-        "SPEED BUTTON: FAST ACTION"
+    let speed_lines = if trace.options_speed_button_fast {
+        ["FAST ACTION", "PUSH FOR SLOW"]
     } else {
-        "SPEED BUTTON: NORMAL ACTION"
+        ["NORMAL ACTION", "PUSH FOR FAST"]
     };
-    let items = [two_p_label, controls_label, speed_label, "EXIT"];
+    // ASM DrawOptText1..4 loc_1CE3A/loc_1CEB2/loc_1CF78/loc_1CFFE
+    // (kid.asm:32034-32373): these are the ROM option rows. The real screen
+    // is still tile art, but the fallback must not invent control hints or
+    // colon-separated labels that never appear in the menu copy.
+    let items = [
+        vec!["2 PLAYERS", controller_label],
+        vec![
+            "CONTROLS",
+            "MODE",
+            controls[0],
+            controls[1],
+            controls[2],
+            "A",
+            "B",
+            "C",
+        ],
+        vec!["SPEED BUTTON", speed_lines[0], speed_lines[1]],
+        vec!["EXIT"],
+    ];
     for (i, item) in items.iter().enumerate() {
-        let y = 72 + i as i32 * 24;
-        let colour = if i as i32 == cursor {
+        let y = 70 + i as i32 * 30;
+        let colour = if i == cursor {
             [255, 255, 255]
         } else {
             [120, 120, 120]
         };
-        commands.push(text(44, y, item, colour, 1));
-        if i as i32 == cursor {
+        commands.push(text(44, y, &item.join("  "), colour, 1));
+        if i == cursor {
             commands.push(text(28, y, ">", [255, 220, 80], 1));
         }
     }
-
-    commands.push(text(
-        24,
-        184,
-        "Up/Down select  Left/Right change  Start/B back",
-        [100, 100, 100],
-        1,
-    ));
 
     Scene {
         background: [8, 12, 20],
