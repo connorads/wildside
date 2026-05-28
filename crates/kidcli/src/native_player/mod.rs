@@ -1629,7 +1629,7 @@ fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
 mod tests {
     use super::*;
     use kid_core::{
-        LevelId, NativeObjectKind,
+        EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, LevelId, NativeObjectKind,
         physics::Direction,
         terrain::{BlockType, Cell, CollisionKind},
     };
@@ -9702,6 +9702,34 @@ mod tests {
             ),
             (2, 10, 5, 9),
             "ASM loc_BEE8 writes timer digits from $86BA+d and the prebuilt sprite table places the colon at $90,$90"
+        );
+    }
+
+    #[test]
+    fn level_complete_pre_hologram_hud_timer_uses_loc_c070_latched_previous_second() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_timer_seconds = 178;
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE - 10;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x88 - 128, 0x90 - 128, 12)
+            .expect("minutes tile");
+        let (_, seconds_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x95 - 128, 0x90 - 128, 12)
+                .expect("seconds tens tile");
+        let (_, seconds_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
+                .expect("seconds ones tile");
+
+        assert_eq!(
+            (
+                minutes.tile_index,
+                seconds_tens.tile_index,
+                seconds_ones.tile_index
+            ),
+            (2, 5, 9),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 sets $FFFFFB4B before Make_SpriteAttr_HUD's decrement path, leaving the prebuilt HUD timer on the previous second until the end-level hologram takes over"
         );
     }
 

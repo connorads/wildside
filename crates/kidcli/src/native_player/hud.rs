@@ -223,6 +223,23 @@ fn hud_diamond_animation_frame_index(frame_index: usize, frame_count: usize) -> 
     ((frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION) + 1) % frame_count
 }
 
+fn hud_timer_seconds_loc_c070(trace: &NativeTraceFrame) -> u16 {
+    if trace.level_complete
+        && trace.level_complete_elapsed_frames > 0
+        && trace.level_complete_elapsed_frames
+            < kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+    {
+        // ASM CharacterCollision_TouchFlagpole loc_C070 sets $FFFFFB4B so
+        // Make_SpriteAttr_HUD exits before the decrement path that reaches
+        // loc_BEE8. Native trace state has already consumed the second, but
+        // the visible HUD sprite table is still the previous timer value until
+        // loc_C186 starts drawing the end-level hologram.
+        trace.level_timer_seconds.saturating_add(1)
+    } else {
+        trace.level_timer_seconds
+    }
+}
+
 pub(super) fn push_game_hud(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -251,8 +268,9 @@ pub(super) fn push_game_hud(
         );
     }
 
-    let minutes = trace.level_timer_seconds / 60;
-    let seconds = trace.level_timer_seconds % 60;
+    let timer_seconds = hud_timer_seconds_loc_c070(trace);
+    let minutes = timer_seconds / 60;
+    let seconds = timer_seconds % 60;
     push_hud_fixed_digit(commands, level_visuals, minutes, HUD_MINUTES_X, HUD_TIMER_Y);
     if let Some(tile) = resolve_ingame_vram_tile(
         level_visuals,
