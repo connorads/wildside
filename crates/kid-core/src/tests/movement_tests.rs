@@ -6886,6 +6886,45 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8FAC -> loc_8FF8: the left boundary branch is `bmi`, so an
+    /// exact projected left edge of zero is still in-bounds and must fall
+    /// through to the wall probe / clean EQ exit rather than clamping x_vel.
+    #[test]
+    fn loc_8ff8_exact_left_edge_zero_is_not_boundary_clamp() {
+        let w: u16 = 5;
+        let h: u16 = 5;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        // Post-velocity centre x=5 means the projected left edge is exactly 0.
+        // With x_vel=-16px, old left_edge=16 and distance_to_tile=0, so the
+        // tile-boundary guard passes before the `bmi loc_8FF8` boundary check.
+        slice.player.x_pos = PLAYER_HALF_WIDTH as u32 * 0x0001_0000;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0010_0000;
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.player.x_pos,
+            PLAYER_HALF_WIDTH as u32 * 0x0001_0000,
+            "ASM loc_8FAC: exact left edge zero is still in bounds",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0010_0000,
+            "ASM loc_8FF8: `bmi` must not clear x_vel when the projected left edge equals zero",
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_9022: empty in-bounds probe returns clean EQ/no wall-cling",
+        );
+    }
+
     /// ASM loc_8FAC (kid.asm:10376): left-moving entry point of sub_8F26.
     /// When x_vel < 0, sub_8F26 branches to the mirrored left-moving path.
     /// Verify that a left-moving player hits a solid wall and gets snapped.
