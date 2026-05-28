@@ -7646,13 +7646,13 @@ impl NativeRuntime {
         }
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
-            && enemy.wait_timer == 0
         {
             let enemy = &mut self.active_enemies[idx];
             // ASM Goat.asm loc_3CB64, Ninja.asm loc_3DB4E, Crab.asm loc_3B094,
-            // and Mini_Hopping_Skull.asm loc_3F158: final damage clears
-            // movement, plays the family death animation to completion, then
-            // reaches the shared delete tail.
+            // Dragon.asm loc_3CEFC, and Mini_Hopping_Skull.asm loc_3F158:
+            // final damage calls j_Init_Animation for the death script even
+            // if the live state had a nonzero hibernate/patrol timer, then
+            // waits for that animation before reaching the shared delete tail.
             enemy.hit_points = 0;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;

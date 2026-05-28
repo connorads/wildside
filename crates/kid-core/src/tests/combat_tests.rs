@@ -8633,6 +8633,33 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_walking_death_overrides_live_patrol_timer_loc_3cefc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x0080_0000, 0x0040_0000, 1);
+        dragon.layout_index = 16;
+        dragon.wait_timer = 0x012C;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEFC calls j_Init_Animation for stru_3CCEC even when the live shared-walker patrol timer is nonzero"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRAGON_WALKING_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "the layout kill bit is written by the shared delete tail after loc_3CEFC finishes, not by the lethal hit frame"
+        );
+    }
+
+    #[test]
     fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

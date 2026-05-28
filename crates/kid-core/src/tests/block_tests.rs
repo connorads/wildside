@@ -2065,6 +2065,61 @@ mod chunk_04 {
     }
 
     #[test]
+    fn level0_walking_dragon_landing_frame_classifies_damage_not_stomp_loc_1c76() {
+        // Fresh playtest repro: the walk-right/jump recording grazes the first
+        // Level 0 walking dragon at native frame 114. ASM kid.asm loc_1C76
+        // still resolves that overlap as side contact, so this frame explains
+        // the reported hurt without proving a missing death animation.
+        let player = PlayerState {
+            x_pos: 0x007C_5100,
+            y_pos: 0x0102_F0C0,
+            x_velocity: 0x0002_9F00,
+            y_velocity: 0x0004_8220,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        };
+        let enemy = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x008E_8000,
+            y_pos: 0x0110_0000,
+            layout_index: Some(2),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(185),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(0),
+            wait_timer: Some(185),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        assert_eq!(
+            classify_enemy_contact_with_half_width(
+                player,
+                &enemy,
+                player.y_velocity,
+                player.y_pos,
+                PlayerForm::TheKid.half_width() as i64,
+            ),
+            EnemyContactResult::Damage,
+            "ASM kid.asm loc_1C76: frame-114 overlap is side contact, not a stomp; use a sharper repro before changing death-animation code"
+        );
+    }
+
+    #[test]
     fn stomp_works_during_invulnerability() {
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
