@@ -912,6 +912,8 @@ fn capture_state(
             .then(|| eol_vram_plane_rows_debug_loc_c070(emulator));
     let eol_scroll_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
         .then(|| eol_scroll_words_debug_loc_c070(emulator));
+    let eol_cram_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+        .then(|| eol_cram_words_debug_loc_c070(emulator));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
@@ -940,6 +942,9 @@ fn capture_state(
         }
         if let Some(eol_scroll_debug) = eol_scroll_debug {
             gameplay_debug_fields.insert("eol_scroll_words_loc_c070".into(), eol_scroll_debug);
+        }
+        if let Some(eol_cram_debug) = eol_cram_debug {
+            gameplay_debug_fields.insert("eol_cram_words_loc_c070".into(), eol_cram_debug);
         }
     }
     let kid_collision_type =
@@ -1293,6 +1298,17 @@ fn eol_scroll_words_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
         ));
     }
     words.join(";")
+}
+
+fn eol_cram_words_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    let cram = emulator.debug().memory_view(GenesisMemoryArea::Cram);
+    (0..64)
+        .map(|word_index| {
+            let byte_offset = word_index * 2;
+            format!("{word_index:02X}:{:04X}", read_rom_u16(&*cram, byte_offset))
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn work_ram_index(address: usize) -> usize {
