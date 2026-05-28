@@ -412,13 +412,15 @@ fn slope_frame_intrinsic_facing(
     };
 
     // ASM loc_A13A/off_A190 selects two six-frame pre-drawn slope banks after
-    // canonicalising x_direction through $FFFFFA26; loc_1292 still flips only
-    // from the live x_direction. Compare the bank's built-in facing against
-    // that live draw facing so slope descent does not mirror the art twice.
+    // canonicalising x_direction through $FFFFFA26; native names those ROM art
+    // banks by their extracted orientation (`slope_walk` is kid_slope_7..12,
+    // right-facing; `slope_walk_left` is kid_slope_1..6, left-facing).
+    // Compare the selected bank's built-in facing against the live loc_1292
+    // facing so slope descent does not mirror the art twice.
     Some(if canonical_reverse {
-        Direction::Left
-    } else {
         Direction::Right
+    } else {
+        Direction::Left
     })
 }
 

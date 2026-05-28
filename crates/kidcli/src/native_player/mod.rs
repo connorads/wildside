@@ -7637,13 +7637,13 @@ mod tests {
 
         assert_eq!(
             selected_flip(1, Direction::Left),
-            Some(false),
-            "ASM loc_A13A selects Red Stealth's pre-drawn reverse bank before loc_1292's left-facing draw; native should not mirror that bank again"
+            Some(true),
+            "ASM loc_A13A selects Red Stealth's right-facing reverse bank before loc_1292's left-facing draw; native must mirror it"
         );
         assert_eq!(
             selected_flip(-1, Direction::Right),
-            Some(true),
-            "ASM loc_A13A selects the reverse bank on SlopeDown + clear x_direction; native must mirror it to match loc_1292's right-facing draw"
+            Some(false),
+            "ASM loc_A13A selects Red Stealth's right-facing reverse bank on SlopeDown + clear x_direction; loc_1292 leaves it unflipped"
         );
     }
 
@@ -7701,23 +7701,23 @@ mod tests {
 
         assert_eq!(
             selected_flip(1, Direction::Right),
-            Some(false),
-            "ASM loc_A13A/off_A1B8 selects Kid's first slope bank (`kid_slope_1..6`), then loc_1292 leaves it unflipped for clear x_direction"
+            Some(true),
+            "ASM loc_A13A/off_A1B8 selects Kid's first slope bank (`kid_slope_1..6`), whose native-extracted art is left-facing; native mirrors it for clear x_direction"
         );
         assert_eq!(
             selected_flip(1, Direction::Left),
-            Some(false),
-            "ASM loc_A13A/off_A1B8 selects Kid's second slope bank (`kid_slope_7..12`), whose native-extracted art is already left-facing for set x_direction"
+            Some(true),
+            "ASM loc_A13A/off_A1B8 selects Kid's second slope bank (`kid_slope_7..12`), whose native-extracted art is right-facing; loc_1292 mirrors it for set x_direction"
         );
         assert_eq!(
             selected_flip(-1, Direction::Right),
-            Some(true),
-            "ASM loc_A13A selects the left-facing `kid_slope_7..12` bank on SlopeDown + clear x_direction; native must mirror that pre-drawn art to match loc_1292's right-facing result"
+            Some(false),
+            "ASM loc_A13A selects the right-facing `kid_slope_7..12` bank on SlopeDown + clear x_direction; loc_1292 leaves it unflipped"
         );
         assert_eq!(
             selected_flip(-1, Direction::Left),
-            Some(true),
-            "ASM loc_A13A selects the right-facing `kid_slope_1..6` bank on SlopeDown + set x_direction; native must mirror it to match loc_1292's left-facing result"
+            Some(false),
+            "ASM loc_A13A selects the left-facing `kid_slope_1..6` bank on SlopeDown + set x_direction; native art already matches the live loc_1292 facing"
         );
     }
 
