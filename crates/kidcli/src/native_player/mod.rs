@@ -1915,6 +1915,48 @@ mod tests {
     }
 
     #[test]
+    fn highwater_juggernaut_shooter_clears_visible_ice_barrier_loc_f02a() {
+        let manifest = cached_generated_manifest();
+        let session_assets =
+            load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        runtime.enter_level_playtest(LevelId(0x02));
+        runtime.set_playtest_form(PlayerForm::Juggernaut);
+        runtime.set_player_probe_position(11 * 16 - 24, 97 * 16 + 8);
+
+        let mut trace = runtime.step_frame(FrameInput::default());
+        for _ in 0..13 {
+            trace = runtime.step_frame(FrameInput::default());
+        }
+
+        let barrier_col = 15;
+        let barrier_row = 97;
+        assert_eq!(
+            runtime
+                .block_grid()
+                .expect("block grid")
+                .cell_at(barrier_col, barrier_row),
+            Cell::from_be_bytes(0, 0),
+            "ASM loc_EE2A -> loc_F02A should erase Highwater Pass 1's first ice barrier cell"
+        );
+
+        let barrier_x = barrier_col as i32 * 16 - ((trace.camera_x_pos >> 16) as i32);
+        let barrier_y = barrier_row as i32 * 16 - ((trace.camera_y_pos >> 16) as i32);
+        let scene = build_scene(
+            &trace,
+            false,
+            Some(&session_assets.level_visuals),
+            runtime.block_grid(),
+        );
+
+        assert!(
+            topmost_indexed_tile_at_with_sheet_len(&scene, barrier_x, barrier_y, 0x200).is_none(),
+            "ASM loc_F02A/sub_10F9C erases the block override; native must not keep drawing the cleared ice barrier as block art"
+        );
+    }
+
+    #[test]
     fn tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
