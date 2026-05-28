@@ -756,7 +756,7 @@ fn render_dynamic_checkpoint_frames(
         script_index += 1;
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
-            trace.level_skip_cheat_enabled = 1;
+            apply_settled_warp_oracle_visual_compatibility(&mut trace);
         }
 
         let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
@@ -809,6 +809,14 @@ fn render_dynamic_checkpoint_frames(
     }
 
     Ok(rendered_frames)
+}
+
+fn apply_settled_warp_oracle_visual_compatibility(trace: &mut NativeTraceFrame) {
+    // Settled oracle recordings enter through the ROM level-skip path. That
+    // leaves `LevelSkip_Cheat` armed and seeds `Level_completion_time` to one
+    // second before ASM loc_D468 draws the time digit sprites.
+    trace.level_skip_cheat_enabled = 1;
+    trace.level_completion_time = 1;
 }
 
 fn render_runtime_checkpoint_frame(
@@ -1757,6 +1765,24 @@ mod tests {
         assert_eq!(
             settled_warp_drift, None,
             "settled warp recordings replay through the reduced oracle level-skip path, so the loc_D468 compatibility bit/time seed should not invalidate otherwise-identical traces"
+        );
+    }
+
+    #[test]
+    fn settled_warp_oracle_visual_compatibility_seeds_loc_d468_completion_time() {
+        let mut trace = sample_trace_frame(0);
+        trace.level_skip_cheat_enabled = 0;
+        trace.level_completion_time = 2;
+
+        apply_settled_warp_oracle_visual_compatibility(&mut trace);
+
+        assert_eq!(
+            trace.level_skip_cheat_enabled, 1,
+            "settled warp recordings should preserve the ROM level-skip flag sampled by ASM loc_D468"
+        );
+        assert_eq!(
+            trace.level_completion_time, 1,
+            "ASM loc_D468 sees the reduced oracle level-skip path's one-second time seed, not the native probe's recomputed timer"
         );
     }
 
