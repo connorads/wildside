@@ -190,6 +190,10 @@
         "reason": "Rejected 2026-05-28 after commit `eb73ff67` added `eol_vram_plane_rows_loc_c070` and `eol_scroll_words_loc_c070`. Oracle VDP state at `flag_touch`/`eol_reveal` keeps Plane B base `$E000` filled with old forest nametable words (`37xx/27xx/07F3` rows), VSRAM B=`$005C`, and per-line H-scroll values matching camera-parallax negatives (`FEAD`, `FD5A`, `FD61`); by `eol_counter` Plane B has switched to hologram words (`42FB/43xx/53xx`) and scroll B is zero. Native should continue from exact plane composition/priority/stale gfx contents, not from another early-hologram or scroll-state theory."
       },
       {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` flag-touch mismatch is fixed by treating the first latched forest background as foreground-palette art",
+        "reason": "Rejected 2026-05-28. The dominant refreshed `flag_touch` colour pairs still suggest palette-line drift (`native (0,146,36) -> oracle (0,182,73)` and `native (0,109,36) -> oracle (0,109,0)`), but a narrow experiment that rendered the first `loc_C070` background frame with `level_visuals.palettes.foreground` instead of the ROM forest background palette made the strict checkpoint much worse: `flag_touch` MAE 4.153567 / 9,767 changed pixels -> 18.149824 / 13,783 changed pixels, while later EOL checkpoints were unchanged. A second narrow experiment forcing tile index `$07F3` to palette line 0 on the first hand-off frame was a no-op on the report. Do not replace the whole first-frame background palette or chase `$07F3` alone; the next pass needs exact Plane B tile/palette-slot evidence or stale gfx composition."
+      },
+      {
         "name": "Recording `issue-title-card-colour` is ready to reduce into an authoritative gameplay case",
         "reason": "Rejected 2026-05-26. Fresh verification shows this title-card colour recording is stale against current native state: `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour` and `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour --native-only` both fail with `recording replay drifted at frame 119 (native trace frame mismatch)`. The requested 0..120 case derives and fails (`cargo run -p kidcli -- case derive --recording-slug issue-title-card-colour --frame-start 0 --frame-end 120 --out .cache/cases/issue-title-card-colour`; `cargo run -p kidcli -- case verify --case issue-title-card-colour`), but `cargo run -p kidcli -- case reduce --case issue-title-card-colour` blocks with `source recording replay drifted at frame 119; re-verify or re-record issue-title-card-colour before treating this case as gameplay-authoritative`. Do not use this recording as a gameplay patch target until it is refreshed."
       },
@@ -479,7 +483,7 @@
     "139": 2,
     "140": 1,
     "143": 1,
-    "175": 2
+    "175": 3
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
