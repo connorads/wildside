@@ -1422,10 +1422,7 @@ fn boot_and_warp_oracle(
             // reached the requested level instead of the pre-warp level.
             let mut stable_target_frames = 0usize;
             for _ in 0..900 {
-                if read_game_mode(emulator) == 0x000C
-                    && read_current_level_id(emulator) == u16::from(target_level)
-                    && !read_game_paused(emulator)
-                {
+                if target_level_is_live(emulator, target_level) {
                     stable_target_frames += 1;
                     if stable_target_frames >= 60 {
                         break;
@@ -1495,10 +1492,7 @@ fn settle_title_card_target_level(
 
     let mut stable_target_frames = 0usize;
     for _ in 0..900 {
-        if read_game_mode(emulator) == 0x000C
-            && read_current_level_id(emulator) == u16::from(target_level)
-            && !read_game_paused(emulator)
-        {
+        if target_level_is_live(emulator, target_level) {
             stable_target_frames += 1;
             if stable_target_frames >= 60 {
                 break;
@@ -1560,6 +1554,37 @@ fn read_current_level_id(emulator: &mut GenesisEmulator) -> u16 {
 fn read_game_paused(emulator: &mut GenesisEmulator) -> bool {
     let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
     mem.read(work_ram_index(GAME_PAUSED_ADDR)) != 0
+}
+
+fn target_level_is_live(emulator: &mut GenesisEmulator, target_level: u8) -> bool {
+    read_game_mode(emulator) == 0x000C
+        && read_current_level_id(emulator) == u16::from(target_level)
+        && !read_game_paused(emulator)
+        // Settled recording cases compare from native `enter_level_playtest`,
+        // where the live Kid object and object roster already exist. The ROM
+        // can expose Game_Mode=$000C before Load_InGame has populated those
+        // tables, so the oracle helper must not start scenario frame 0 on that
+        // empty shell.
+        && read_kid_x_pos(emulator) != 0
+        && read_number_objects(emulator) != 0
+}
+
+fn read_kid_x_pos(emulator: &mut GenesisEmulator) -> u32 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    u32::from_be_bytes([
+        mem.read(work_ram_index(KID_X_POS_ADDR)),
+        mem.read(work_ram_index(KID_X_POS_ADDR) + 1),
+        mem.read(work_ram_index(KID_X_POS_ADDR) + 2),
+        mem.read(work_ram_index(KID_X_POS_ADDR) + 3),
+    ])
+}
+
+fn read_number_objects(emulator: &mut GenesisEmulator) -> u16 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    u16::from_be_bytes([
+        mem.read(work_ram_index(NUMBER_OBJECTS_ADDR)),
+        mem.read(work_ram_index(NUMBER_OBJECTS_ADDR) + 1),
+    ])
 }
 
 fn write_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize, value: u16) {

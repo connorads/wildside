@@ -625,4 +625,14 @@ mod tests {
             "settled Level 00 recording oracles must dismiss the title card before scenario frame 0"
         );
     }
+
+    #[test]
+    fn helper_waits_for_live_object_tables_before_settled_recording_frames() {
+        assert!(
+            HELPER_TEMPLATE.contains("fn target_level_is_live")
+                && HELPER_TEMPLATE.contains("read_kid_x_pos(emulator) != 0")
+                && HELPER_TEMPLATE.contains("read_number_objects(emulator) != 0"),
+            "settled recording oracle bootstrap must not start scenario frame 0 on an empty Game_Mode=$000C shell"
+        );
+    }
 }
