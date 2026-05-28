@@ -6985,6 +6985,21 @@ impl NativeRuntime {
                         self.title_menu_arm_frame = self
                             .frame_index
                             .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
+                        let title_elapsed_timeout = TITLE_ATTRACT_LOCK_FRAMES
+                            .saturating_add(usize::from(demo::TITLE_IDLE_FRAMES));
+                        if self
+                            .title_screen_elapsed_frames
+                            .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES)
+                            >= title_elapsed_timeout
+                        {
+                            // ASM Obj_TitleMenu loc_1BB52 reloads d0=$280 for
+                            // Title_InputLoop after Start opens the menu. Native's
+                            // TitleScreen lineage uses `title_screen_elapsed_frames`
+                            // to model the loc_1BAEA/Title_InputLoop countdown, so
+                            // reseed it only when the pre-menu attract counter would
+                            // expire during the cursor-build window.
+                            self.title_screen_elapsed_frames = TITLE_ATTRACT_LOCK_FRAMES;
+                        }
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;

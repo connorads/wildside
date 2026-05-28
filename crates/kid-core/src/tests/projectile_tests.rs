@@ -8310,6 +8310,38 @@ mod chunk_06 {
     }
 
     #[test]
+    fn title_menu_activation_restarts_loc_1bb52_timeout_counter() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = TITLE_SCREEN_READY_GLOBAL_FRAME;
+        runtime.title_menu_arm_frame = runtime.frame_index;
+        runtime.title_screen_elapsed_frames =
+            TITLE_ATTRACT_LOCK_FRAMES + usize::from(demo::TITLE_IDLE_FRAMES) - 1;
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        for _ in 0..=TITLE_MENU_ACTIVATION_DELAY_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM Obj_TitleMenu loc_1BB52 loads d0=$280 for a fresh Title_InputLoop; opening the menu near the attract timeout must not hand off to loc_1BB02 immediately",
+        );
+        assert!(
+            runtime.title_menu_active,
+            "ASM loc_1BB52 should leave the title menu armed after the cursor-build delay"
+        );
+        assert!(
+            !runtime.title_menu_cursor_pending,
+            "ASM loc_1BB52 cursor setup should be complete before the fresh menu timeout starts ticking"
+        );
+    }
+
+    #[test]
     fn title_start_one_player_sets_two_player_flag_off_and_begins_level_entry_loc_1bbd6() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
