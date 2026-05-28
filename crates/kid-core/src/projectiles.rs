@@ -91,6 +91,15 @@ struct PendingDripsSplash {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ShooterObjectLayoutInteractionLocF00A {
+    col: u16,
+    row: u16,
+    block_type: terrain::BlockType,
+    skin: u8,
+    destroy_direction: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DripsSurfaceCrawlerSideColumnStepLoc33650 {
     Loop,
     Turn(DripsSurfaceCrawlerTurnScriptLoc33AF6),
@@ -968,6 +977,115 @@ impl NativeRuntime {
         cell.has_block && cell.collision != terrain::CollisionKind::Empty
     }
 
+    #[allow(non_snake_case)]
+    fn shooter_object_direction_from_velocity_loc_EDFA(projectile: &EnemyProjectile) -> u16 {
+        if projectile.y_velocity < 0 {
+            0
+        } else if projectile.x_velocity > 0 {
+            1
+        } else if projectile.y_velocity > 0 {
+            2
+        } else {
+            3
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn shooter_object_entered_layout_cell_loc_EDFA(projectile: &EnemyProjectile) -> bool {
+        let direction = Self::shooter_object_direction_from_velocity_loc_EDFA(projectile);
+        let x_low = ((projectile.x_pos >> 16) & 0x0F) as u8;
+        let y_low = ((projectile.y_pos >> 16) & 0x0F) as u8;
+        match direction {
+            0 => y_low >= 12,
+            1 => x_low <= 3,
+            2 => y_low <= 3,
+            _ => x_low >= 12,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn shooter_object_layout_interaction_loc_F00A(
+        grid: &terrain::BlockGrid,
+        projectile: &EnemyProjectile,
+    ) -> Option<ShooterObjectLayoutInteractionLocF00A> {
+        if !Self::shooter_object_entered_layout_cell_loc_EDFA(projectile) {
+            return None;
+        }
+
+        let col = terrain::pixel_to_cell((projectile.x_pos >> 16) as i32).max(0) as u16;
+        let row = terrain::pixel_to_cell((projectile.y_pos >> 16) as i32).max(0) as u16;
+        let cell = grid.cell_at(col, row);
+        if !cell.has_block {
+            return None;
+        }
+
+        let direction = Self::shooter_object_direction_from_velocity_loc_EDFA(projectile);
+        Some(ShooterObjectLayoutInteractionLocF00A {
+            col,
+            row,
+            block_type: cell.block_type,
+            skin: cell.skin,
+            // ASM ShooterObject_InteractLevelLayout loc_F00A: `eori.w #2,d6`
+            // remaps the projectile travel direction before dispatching
+            // through Block_LoadSmashBits / IceBlock_SmashAndLoadBullets.
+            destroy_direction: direction ^ 2,
+        })
+    }
+
+    #[allow(non_snake_case)]
+    fn apply_shooter_object_layout_interaction_loc_F00A(
+        &mut self,
+        interaction: ShooterObjectLayoutInteractionLocF00A,
+    ) {
+        match interaction.block_type {
+            terrain::BlockType::Smash
+            | terrain::BlockType::Prize
+            | terrain::BlockType::Mushroom => {
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        interaction.col,
+                        interaction.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                }
+                self.spawn_smash_block_effect_sub_10eda(
+                    interaction.col * 16,
+                    interaction.row * 16,
+                    interaction.destroy_direction,
+                );
+            }
+            terrain::BlockType::Ice => {
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        interaction.col,
+                        interaction.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                }
+                self.spawn_ice_block_effect_sub_10f9c(
+                    interaction.col * 16,
+                    interaction.row * 16,
+                    interaction.destroy_direction,
+                );
+            }
+            terrain::BlockType::Evanescent => {
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        interaction.col,
+                        interaction.row,
+                        terrain::Cell::from_be_bytes(0xE3, interaction.skin),
+                    );
+                }
+                self.fire_evanescent_block_projectiles_loc_EC76(
+                    interaction.col,
+                    interaction.row,
+                    interaction.skin,
+                );
+            }
+            _ => {}
+        }
+    }
+
     /// ASM loc_8810 (kid.asm:9653): skull projectile main loop.
     /// `jsr Hibernate_Object_1Frame; tst.b $19(a3); bne loc_899C` — checks
     /// animation-done flag (delete if set). `tst.w collision_type(a3); bne loc_899C`
@@ -1273,6 +1391,7 @@ impl NativeRuntime {
             .count();
         let mut spawned_projectiles = Vec::new();
         let mut pending_drips_splashes = Vec::new();
+        let mut pending_shooter_layout_interactions = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
@@ -1525,6 +1644,14 @@ impl NativeRuntime {
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
 
+            if p.kind == EnemyProjectileKind::ShooterBlock
+                && let Some(g) = grid
+                && let Some(interaction) = Self::shooter_object_layout_interaction_loc_F00A(g, p)
+            {
+                pending_shooter_layout_interactions.push(interaction);
+                return false;
+            }
+
             if is_diamond_power_rain && let Some(camera) = camera {
                 let screen_x = ((p.x_pos >> 16) as i32)
                     .wrapping_add(0x7F)
@@ -1755,6 +1882,9 @@ impl NativeRuntime {
             player_x,
             &mut spawned_projectiles,
         );
+        for interaction in pending_shooter_layout_interactions {
+            self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
+        }
         self.projectiles.extend(spawned_projectiles);
         self.release_lion_projectile_owners(released_owners);
     }

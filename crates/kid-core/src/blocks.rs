@@ -2224,7 +2224,12 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn fire_evanescent_block_projectiles_loc_EC76(&mut self, col: u16, row: u16, skin: u8) {
+    pub(crate) fn fire_evanescent_block_projectiles_loc_EC76(
+        &mut self,
+        col: u16,
+        row: u16,
+        skin: u8,
+    ) {
         // ASM EvanescentBlock_Trigger stores low-byte `skin - $1C` as the
         // direction bitfield, then loc_EC76 loads bullets for bits 3..0.
         let skin_offset =

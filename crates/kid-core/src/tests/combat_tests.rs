@@ -11969,6 +11969,44 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_object_loc_f00a_smashes_layout_block_on_contact() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE0, 0x01)]));
+        runtime.projectiles.clear();
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: ((5 * 16 - 4) as u32) << 16,
+            y_pos: ((3 * 16 + 8) as u32) << 16,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
+            lifetime: 120,
+            kind: EnemyProjectileKind::ShooterBlock,
+            ..EnemyProjectile::default()
+        });
+
+        runtime.step_projectiles();
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM Process_ShooterObjects loc_F00A should delete the shooter object after it interacts with a block"
+        );
+        assert_eq!(
+            runtime.block_grid().expect("block grid").cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM ShooterObject_InteractBlock_Smash -> Block_LoadSmashBits should erase the struck type-0 smash block"
+        );
+        assert_eq!(runtime.block_destroy_effects.len(), 1);
+        assert_eq!(runtime.block_destroy_effects[0].x_px, 84);
+        assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+            "ASM loc_F00A applies `eori.w #2,d6`; a right-moving shooter reaches sub_10EDA with d6=3"
+        );
+    }
+
+    #[test]
     fn shooter_slot_loc_f808_restores_cells_and_queues_visible_horizontal_span() {
         let span = NativeRuntime::shooter_horizontal_span_loc_F808(10, 30, 4, 18, 12, 7, 3);
 
