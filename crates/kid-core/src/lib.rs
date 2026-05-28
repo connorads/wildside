@@ -1300,6 +1300,11 @@ impl NativeRuntime {
         }
     }
 
+    pub fn set_playtest_form(&mut self, form: PlayerForm) {
+        self.progression.current_form = form;
+        self.progression.number_hitpoints = form.max_hitpoints();
+    }
+
     #[allow(non_snake_case)]
     #[allow(dead_code)]
     fn stop_z80_guard_sub_914(&mut self) {
