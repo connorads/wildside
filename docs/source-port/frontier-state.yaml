@@ -154,6 +154,10 @@
         "reason": "Rejected 2026-05-28. Changing `EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE` from `$3C` to `$36` was tested after the stricter refreshed bundle showed `trace_match=true`, `oracle_state_match=true`, and frame MAE flag-touch 46.338, reveal 0.588, counter 0.035, tail 1.254. The `$36` constant makes the authoritative recording drift at trace frame 184 instead of preserving trace parity, so the row-worker delay is part of the native/oracle state contract rather than a renderer-only phase knob. Keep the ASM `$3C` delay unless a narrower oracle probe proves a separate VDP-visible phase."
       },
       {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` tail mismatch is fixed by starting the loc_D468 row-worker visible phase 5 frames earlier",
+        "reason": "Rejected 2026-05-28. After re-recording the bundle cleanly at commit `40165888`, `cargo run -q -p kidcli -- verify-recording --slug issue-175-eol-flag-touch-level12` reports `trace_match=true`, `oracle_state_match=true`, frame MAE flag-touch 46.329, reveal 0.588, counter 0.035, tail 1.254. Changing `EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE` from `$3C` to `$37` preserves trace/state parity but worsens the `eol_tail` pixels to MAE 1.268 and changed pixels 847. Do not continue plain global row-clock shifts; investigate row origin/composition or stale VDP object retention instead."
+      },
+      {
         "name": "Issue #175 `issue-175-eol-flag-touch-level12` tail mismatch is fixed by rendering loc_D468 rows 5 frames ahead while keeping state timing",
         "reason": "Rejected 2026-05-28. A renderer-only `eol_score_row_render_elapsed_loc_d468` +5 lead made the tail rows look superficially closer by eye, but the strict verifier still failed and the `eol_tail` MAE worsened from 1.2537528 to about 1.267 while trace/state parity stayed unchanged. Do not add a visual-only global row lead; the residual pixels are more consistent with row-specific coordinate/origin, stale VDP object retention, or synthetic score-room composition than with a single loc_C5A2 clock offset."
       },
