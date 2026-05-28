@@ -7977,7 +7977,19 @@ mod tests {
             );
         }
 
+        object.layout_index = Some(2);
+        trace.frame_index = 120;
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            162,
+            "ASM Dragon.asm loc_3CE48 starts `stru_3CC5E` per object with `j_Init_Animation`; native must not add a layout-index phase offset that selects the wrong Blue Lake Woods dragon frame"
+        );
+
         object.hit_points = Some(3);
+        object.layout_index = Some(0);
         for (frame_index, signature) in [(0, 161), (6, 162), (60, 168), (66, 166)] {
             trace.frame_index = frame_index;
             assert_eq!(

@@ -786,8 +786,7 @@ fn select_live_walking_dragon_frame<'a>(
 
     let live_sequence = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 7, 5];
     let frame_duration = if object.hit_points == Some(3) { 6 } else { 9 };
-    let offset = object.layout_index.unwrap_or(0) * 3;
-    let phase = ((trace.frame_index + offset) / frame_duration) % live_sequence.len();
+    let phase = (trace.frame_index / frame_duration) % live_sequence.len();
     Some(&enemy_visuals.frames[live_sequence[phase]])
 }
 
