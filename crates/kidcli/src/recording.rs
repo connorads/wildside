@@ -1444,6 +1444,7 @@ mod tests {
             kid_on_ground: Some(true),
             walk_visual_accumulator: 0,
             berzerker_charging: false,
+            berzerker_charge_pose: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),

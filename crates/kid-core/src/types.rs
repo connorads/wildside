@@ -658,6 +658,7 @@ pub(crate) struct HelmetState {
     pub(crate) iron_knight_climb_pose_accum: u16,
     pub(crate) berzerker_charge_accum: u8,
     pub(crate) berzerker_charging: bool,
+    pub(crate) berzerker_charge_pose: bool,
     pub(crate) micromax_stuck: bool,
 }
 
@@ -1092,6 +1093,10 @@ pub struct NativeTraceFrame {
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
     pub berzerker_charging: bool,
+    /// Render latch for the sprite written by ASM loc_9564 before later
+    /// collision code can clear `Berzerker_charging` at loc_9326.
+    #[serde(default)]
+    pub berzerker_charge_pose: bool,
     /// Remaining frames in ASM `stru_8BB4` wall-grab pull-up animation.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub ledge_snap_cooldown: u8,
@@ -1319,6 +1324,7 @@ impl Default for NativeTraceFrame {
             kid_on_ground: None,
             walk_visual_accumulator: 0,
             berzerker_charging: false,
+            berzerker_charge_pose: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),

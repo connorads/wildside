@@ -567,11 +567,11 @@ pub(super) fn select_player_frame<'a>(
             let frame_index = (trace.frame_index / 4) % slope_frames.len();
             &slope_frames[frame_index]
         } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-            && trace.berzerker_charging
+            && (trace.berzerker_charging || trace.berzerker_charge_pose)
             && !player_visuals.charge.is_empty()
         {
-            // ASM loc_9564: Berzerker charge indexes off_9688
-            // (`berzerker_run_*`), not the normal off_967C walk table.
+            // ASM loc_9564 writes off_9688 (`berzerker_run_*`) before later
+            // wall/block collision can clear Berzerker_charging at loc_9326.
             let frame_index =
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
             &player_visuals.charge[frame_index]

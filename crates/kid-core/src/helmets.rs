@@ -5487,8 +5487,10 @@ impl NativeRuntime {
         if self.progression.current_form != PlayerForm::Berzerker {
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
+            self.helmet.berzerker_charge_pose = false;
             return;
         }
+        self.helmet.berzerker_charge_pose = false;
 
         // ASM loc_950A (kid.asm:10973): negative Berzerker `x_vel` clears the
         // charge accumulator when `x_direction(a3)` is clear (facing right);
@@ -5546,6 +5548,7 @@ impl NativeRuntime {
             slice.walk_visual_accumulator = visual_accumulator;
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
+            self.helmet.berzerker_charge_pose = true;
         } else {
             self.helmet.berzerker_charge_accum = new_accum;
             // ASM `addi.b #$10,($FFFFFA13); bcc.s loc_9580` clears

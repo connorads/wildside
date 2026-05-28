@@ -7179,6 +7179,33 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_9564 writes off_9688's head-forward sprite before wall collision
+    /// later reaches loc_9326 and clears `Berzerker_charging`; the rendered pose
+    /// for that frame must survive the gameplay flag clear.
+    #[test]
+    fn berzerker_charge_pose_survives_same_frame_wall_clear_loc_9564_9326() {
+        let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
+        rt.boot_state = BootState::InGame;
+        let mut slice =
+            berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
+        slice.walk_visual_accumulator = 0x02E0;
+
+        rt.step_berzerker_charge(&mut slice);
+        rt.helmet.berzerker_charging = false;
+        rt.opening_slice = Some(slice);
+
+        let trace = rt.trace_frame();
+
+        assert!(
+            !trace.berzerker_charging,
+            "ASM loc_9326 clears the gameplay flag after a wall/block hit"
+        );
+        assert!(
+            trace.berzerker_charge_pose,
+            "ASM loc_9564 sprite write should remain visible for the current frame"
+        );
+    }
+
     /// ASM loc_950A (kid.asm:10973): negative x_vel while facing right branches
     /// to loc_957C and clears the Berzerker charge accumulator.
     #[test]
