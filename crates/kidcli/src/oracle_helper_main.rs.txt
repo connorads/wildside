@@ -1350,11 +1350,22 @@ fn eol_vdp_pixel_samples_debug_loc_c070(
     const SPRITE_TABLE_BASE_LOC_C070: usize = 0x1000;
     const PLANE_WIDTH_CELLS: usize = 64;
     const PLANE_HEIGHT_CELLS: usize = 32;
-    const SAMPLES: [(usize, usize); 10] = [
+    const SAMPLES: [(usize, usize); 21] = [
         (69, 44),
         (77, 52),
         (110, 44),
         (125, 52),
+        (5, 111),
+        (23, 111),
+        (36, 111),
+        (46, 111),
+        (54, 111),
+        (134, 111),
+        (183, 111),
+        (199, 111),
+        (231, 111),
+        (263, 111),
+        (312, 111),
         (159, 125),
         (160, 125),
         (292, 125),
