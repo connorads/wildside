@@ -7991,6 +7991,34 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_berzerker_live_charge_from_spawn_clears_first_barrier_loc_eae4_f02a() {
+        // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A: the real route
+        // enters Highwater Pass 1 at x=48/y=1632, builds Berzerker's head-forward
+        // charge pose while moving right, touches the stacked `$EA1F` shooter
+        // cells, and the fired shooter objects erase the `$E203` ice barrier.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
+        rt.projectiles.clear();
+
+        for _ in 0..120 {
+            rt.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        for row in 100..=102 {
+            assert_eq!(
+                rt.block_grid.as_ref().unwrap().cell_at(15, row),
+                terrain::Cell::from_be_bytes(0, 0),
+                "ASM loc_EAE4 -> loc_EC76 -> loc_F02A should clear Highwater Pass 1 ice barrier row {row} on the live spawn-to-barrier route"
+            );
+        }
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
         // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater

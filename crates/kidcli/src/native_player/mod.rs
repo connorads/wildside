@@ -1971,6 +1971,66 @@ mod tests {
     }
 
     #[test]
+    fn highwater_berzerker_live_charge_from_spawn_renders_spikes_and_clears_barrier_loc_ef62_f02a()
+    {
+        let manifest = cached_generated_manifest();
+        let session_assets =
+            load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        runtime.enter_level_playtest(LevelId(0x02));
+        runtime.set_playtest_form(PlayerForm::Berzerker);
+
+        let mut saw_spike_sprite = false;
+        let mut saw_fallback_square = false;
+        for _ in 0..120 {
+            let trace = runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+            let scene = build_scene(
+                &trace,
+                false,
+                Some(&session_assets.level_visuals),
+                runtime.block_grid(),
+            );
+            saw_spike_sprite |= scene.commands.iter().any(|command| match command {
+                DrawCommand::Sprite { tiles, .. } => tiles
+                    .iter()
+                    .any(|tile| tile.tile.tile_index == 0x076 && tile.tile.flip_x),
+                _ => false,
+            });
+            saw_fallback_square |= scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect {
+                        width: 8,
+                        height: 8,
+                        colour: [255, 216, 72],
+                        ..
+                    }
+                )
+            });
+        }
+
+        assert!(
+            saw_spike_sprite,
+            "ASM Process_ShooterObjects loc_EE52/loc_EF62 should render the live Berzerker-route Highwater shot as the flipped ROM spike tile"
+        );
+        assert!(
+            !saw_fallback_square,
+            "live Highwater shooter shots should not fall back to the yellow square placeholder"
+        );
+        for row in 100..=102 {
+            assert_eq!(
+                runtime.block_grid().expect("block grid").cell_at(15, row),
+                Cell::from_be_bytes(0, 0),
+                "ASM loc_EE2A -> loc_F02A should erase Highwater Pass 1 ice barrier row {row} on the live Berzerker route"
+            );
+        }
+    }
+
+    #[test]
     fn tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
