@@ -907,6 +907,11 @@ fn capture_state(
     let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
     let eol_vdp_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
         .then(|| eol_vdp_registers_debug_loc_c070(emulator));
+    let eol_vram_plane_rows_debug =
+        matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+            .then(|| eol_vram_plane_rows_debug_loc_c070(emulator));
+    let eol_scroll_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+        .then(|| eol_scroll_words_debug_loc_c070(emulator));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
@@ -924,8 +929,17 @@ fn capture_state(
             "eol_visible_gfx_slots_loc_d468".into(),
             eol_visible_gfx_slots_debug_loc_d468(&work_ram),
         );
+        if let Some(eol_vram_plane_rows_debug) = eol_vram_plane_rows_debug {
+            gameplay_debug_fields.insert(
+                "eol_vram_plane_rows_loc_c070".into(),
+                eol_vram_plane_rows_debug,
+            );
+        }
         if let Some(eol_vdp_debug) = eol_vdp_debug {
             gameplay_debug_fields.insert("eol_vdp_registers_loc_c070".into(), eol_vdp_debug);
+        }
+        if let Some(eol_scroll_debug) = eol_scroll_debug {
+            gameplay_debug_fields.insert("eol_scroll_words_loc_c070".into(), eol_scroll_debug);
         }
     }
     let kid_collision_type =
@@ -1206,6 +1220,7 @@ fn eol_vdp_registers_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
             if !matches!(
                 register_name,
                 "Register #1" | "Register #2" | "Register #4" | "Register #11" | "Register #13"
+                    | "Register #16"
             ) {
                 return;
             }
@@ -1217,6 +1232,67 @@ fn eol_vdp_registers_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
             registers.push(format!("{register_name}:{fields}"));
         });
     registers.join(";")
+}
+
+fn eol_vram_plane_rows_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    const PLANE_A_BASE_LOC_C070: usize = 0x0000;
+    const PLANE_B_BASE_LOC_C070: usize = 0xE000;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const SCREEN_WIDTH_CELLS: usize = 40;
+    const ROWS: [usize; 7] = [0, 1, 2, 7, 13, 15, 25];
+
+    let vram = emulator.debug().memory_view(GenesisMemoryArea::Vram);
+    let mut rows = Vec::new();
+    for row in ROWS {
+        // ASM loc_C070 sets Plane A=$0000 and Plane B=$E000 before the flag-touch hibernate.
+        rows.push(format!(
+            "A{row:02}={}",
+            eol_vram_plane_row_debug(&*vram, PLANE_A_BASE_LOC_C070, row)
+        ));
+        rows.push(format!(
+            "B{row:02}={}",
+            eol_vram_plane_row_debug(&*vram, PLANE_B_BASE_LOC_C070, row)
+        ));
+    }
+
+    fn eol_vram_plane_row_debug(
+        vram: &dyn jgenesis_common::debug::DebugMemoryView,
+        plane_base: usize,
+        row: usize,
+    ) -> String {
+        (0..SCREEN_WIDTH_CELLS)
+            .map(|col| {
+                let cell_offset = plane_base + (row * PLANE_WIDTH_CELLS + col) * 2;
+                format!("{:04X}", read_rom_u16(vram, cell_offset))
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    rows.join(";")
+}
+
+fn eol_scroll_words_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    const H_SCROLL_TABLE_BASE_LOC_C070: usize = 0x1400;
+    const SCANLINES: [usize; 7] = [0, 16, 32, 60, 111, 148, 200];
+
+    let vsram = emulator.debug().memory_view(GenesisMemoryArea::Vsram);
+    let vs_a = read_rom_u16(&*vsram, 0);
+    let vs_b = read_rom_u16(&*vsram, 2);
+    drop(vsram);
+
+    let vram = emulator.debug().memory_view(GenesisMemoryArea::Vram);
+    let mut words = vec![format!("vs=A:{vs_a:04X},B:{vs_b:04X}")];
+    for scanline in SCANLINES {
+        // ASM loc_C070 leaves VDP register #13 at $1400; register #11 selects per-line H-scroll.
+        let offset = H_SCROLL_TABLE_BASE_LOC_C070 + scanline * 4;
+        words.push(format!(
+            "y{scanline:03}=A:{:04X},B:{:04X}",
+            read_rom_u16(&*vram, offset),
+            read_rom_u16(&*vram, offset + 2)
+        ));
+    }
+    words.join(";")
 }
 
 fn work_ram_index(address: usize) -> usize {
