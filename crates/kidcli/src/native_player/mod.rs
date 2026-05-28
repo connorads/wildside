@@ -1260,18 +1260,19 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::VOICE_DIE);
     }
 
-    // Form change (helmet ID changed)
+    // Form change (helmet ID changed). ASM unk_7ED8 indexes this table by
+    // Current_Helmet, whose order differs from the extracted art order.
     if curr.current_helmet_id != prev.current_helmet_id {
         let sfx = match curr.current_helmet_id {
-            1 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
-            2 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
-            3 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
-            4 => Some(gems_sfx::CYCLONE_TRANSFORM),
-            5 => Some(gems_sfx::MANIAXE_TRANSFORM),
-            6 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
-            7 => Some(gems_sfx::EYECLOPS_TRANSFORM),
-            8 => Some(gems_sfx::MICROMAX_TRANSFORM),
-            9 => Some(gems_sfx::BERZERKER_TRANSFORM),
+            1 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
+            2 => Some(gems_sfx::CYCLONE_TRANSFORM),
+            3 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
+            4 => Some(gems_sfx::EYECLOPS_TRANSFORM),
+            5 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
+            6 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
+            7 => Some(gems_sfx::BERZERKER_TRANSFORM),
+            8 => Some(gems_sfx::MANIAXE_TRANSFORM),
+            9 => Some(gems_sfx::MICROMAX_TRANSFORM),
             _ => None,
         };
         if let Some(id) = sfx {
@@ -9551,6 +9552,35 @@ mod tests {
             vec![gems_sfx::VOICE_OUCH_2],
             "ASM loc_B73C/loc_B750/loc_B764 selects special VoiceOuch takes for specific enemy families, so the damage heuristic must not add the generic $61 take"
         );
+    }
+
+    #[test]
+    fn play_native_transform_sfx_follows_unk_7ed8_helmet_order() {
+        let cases = [
+            (PlayerForm::Skycutter, gems_sfx::SKYCUTTER_TRANSFORM),
+            (PlayerForm::Cyclone, gems_sfx::CYCLONE_TRANSFORM),
+            (PlayerForm::RedStealth, gems_sfx::RED_STEALTH_TRANSFORM),
+            (PlayerForm::Eyeclops, gems_sfx::EYECLOPS_TRANSFORM),
+            (PlayerForm::Juggernaut, gems_sfx::JUGGERNAUT_TRANSFORM),
+            (PlayerForm::IronKnight, gems_sfx::IRON_KNIGHT_TRANSFORM),
+            (PlayerForm::Berzerker, gems_sfx::BERZERKER_TRANSFORM),
+            (PlayerForm::Maniaxe, gems_sfx::MANIAXE_TRANSFORM),
+            (PlayerForm::Micromax, gems_sfx::MICROMAX_TRANSFORM),
+        ];
+
+        for (form, expected) in cases {
+            let mut prev = sample_trace(GameMode::InGame);
+            let mut curr = sample_trace(GameMode::InGame);
+            prev.current_helmet_id = PlayerForm::TheKid.helmet_id();
+            curr.current_helmet_id = form.helmet_id();
+
+            assert_eq!(
+                gems_event_sound_ids(&prev, &curr),
+                vec![expected],
+                "ASM unk_7ED8 indexes transform SFX by Current_Helmet; helmet id {} should queue {expected:#04X}",
+                form.helmet_id()
+            );
+        }
     }
 
     #[test]
