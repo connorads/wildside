@@ -865,8 +865,6 @@ fn apply_layered_background_palette_fallback(
         // PlaneEd palette destination offsets are byte offsets into CRAM:
         // 16 => upper half of line 0, 48 => upper half of line 1.
         ("desert", 0..=2) => Some(2),
-        ("forest", 0 | 1) => Some(1),
-        ("forest", 2) => Some(2),
         ("hill", 0 | 1) => Some(2),
         _ => None,
     };
@@ -4512,7 +4510,7 @@ mod tests {
     }
 
     #[test]
-    fn forest_plane_fallback_promotes_zero_palette_line_to_plane_line() {
+    fn forest_plane_fallback_preserves_zero_palette_line_loc_128ba() {
         let mut plane = LayeredBackgroundPlane {
             rows: vec![vec![TileRef {
                 tile_index: 1,
@@ -4525,7 +4523,10 @@ mod tests {
 
         apply_layered_background_palette_fallback("forest", 0, &mut plane);
 
-        assert_eq!(plane.rows[0][0].palette_line, 1);
+        assert_eq!(
+            plane.rows[0][0].palette_line, 0,
+            "ASM Load_BackgroundMappings_Layered loc_128BA decodes Forest planes with base `$0780`, so zero palette bits stay on line 0"
+        );
     }
 
     #[test]
@@ -4534,9 +4535,6 @@ mod tests {
             ("desert", 0, 2),
             ("desert", 1, 2),
             ("desert", 2, 2),
-            ("forest", 0, 1),
-            ("forest", 1, 1),
-            ("forest", 2, 2),
             ("hill", 0, 2),
             ("hill", 1, 2),
         ] {
@@ -4549,6 +4547,17 @@ mod tests {
             assert_eq!(
                 plane.rows[0][0].palette_line, expected_palette_line,
                 "ASM PlaneEd CRAM offsets for {theme_name} plane {plane_id} set the fallback palette line"
+            );
+        }
+
+        for plane_id in 0..=2 {
+            let mut forest_plane = LayeredBackgroundPlane {
+                rows: vec![vec![tile_ref(1)]],
+            };
+            apply_layered_background_palette_fallback("forest", plane_id, &mut forest_plane);
+            assert_eq!(
+                forest_plane.rows[0][0].palette_line, 0,
+                "ASM loc_128BA decodes Forest plane {plane_id} with base `$0780`; only explicit attr bits should select another palette line"
             );
         }
 
@@ -4575,7 +4584,7 @@ mod tests {
             }]],
         };
 
-        apply_layered_background_palette_fallback("forest", 0, &mut plane);
+        apply_layered_background_palette_fallback("hill", 0, &mut plane);
 
         assert_eq!(plane.rows[0][0].palette_line, 2);
     }

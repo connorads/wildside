@@ -1589,13 +1589,26 @@ fn push_layered_background_tile(
 fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
     let mut palette = level_visuals.palettes.background.clone();
     if level_visuals.level.background_theme_id == 9 && palette.colours.len() >= 8 {
-        // ASM sub_129AE swaps CRAM slot 8 with slot 10 for forest backgrounds
-        // after loading the 8-colour background palette into line 1.
+        // ASM Load_BackgroundMappings_Layered loc_128BA decodes Forest tile
+        // words with base `$0780`, so attr palette 0 really reads from CRAM
+        // line 0.  The background palette is only copied into line 1 slots
+        // 8..15, then ASM sub_129AE swaps line-1 slots 8 and 10.
         let original = palette.colours.clone();
-        palette.colours[0] = original[2];
-        palette.colours[1] = original[1];
-        palette.colours[2] = kid_render::MdColour::from_word(0);
-        palette.colours[3..8].copy_from_slice(&original[3..8]);
+        let mut combined = level_visuals.palettes.foreground.colours.clone();
+        if combined.len() < PALETTE_LINE_COLOUR_COUNT {
+            return palette;
+        }
+        combined.truncate(PALETTE_LINE_COLOUR_COUNT);
+        combined.extend(std::iter::repeat_n(
+            kid_render::MdColour::from_word(0),
+            PALETTE_LINE_COLOUR_COUNT,
+        ));
+        combined[PALETTE_LINE_COLOUR_COUNT + 7] = original[2];
+        combined[PALETTE_LINE_COLOUR_COUNT + 8] = original[1];
+        combined[PALETTE_LINE_COLOUR_COUNT + 9] = kid_render::MdColour::from_word(0);
+        combined[PALETTE_LINE_COLOUR_COUNT + 10..PALETTE_LINE_COLOUR_COUNT + 15]
+            .copy_from_slice(&original[3..8]);
+        palette.colours = combined;
     }
     palette
 }

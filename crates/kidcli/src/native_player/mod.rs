@@ -5414,6 +5414,79 @@ mod tests {
     }
 
     #[test]
+    fn forest_background_palette_keeps_line_zero_and_swapped_line_one_loc_128ba_129ae() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 9;
+        visuals.palettes.foreground = Palette {
+            colours: (1..=15)
+                .map(|slot| colour(slot * 10, slot * 10 + 1, slot * 10 + 2))
+                .collect(),
+        };
+        visuals.palettes.background = Palette {
+            colours: (0..8)
+                .map(|slot| colour(100 + slot * 10, 101 + slot * 10, 102 + slot * 10))
+                .collect(),
+        };
+        visuals.background_tiles = TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 8), (1, 0, 9)])],
+        };
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 1,
+                height_tiles: 1,
+                tiles: vec![BackgroundTile {
+                    tile_index: 0,
+                    flip_x: false,
+                }],
+            }],
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let line_zero = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 0, 0)
+            .expect("line-zero forest pixel should use foreground CRAM");
+        assert_eq!(
+            line_zero.rgb,
+            [80, 81, 82],
+            "ASM loc_128BA uses base `$0780`; palette-0 Forest background pixels read foreground CRAM line 0"
+        );
+
+        if let BackgroundVisuals::Chunked(background) = &mut visuals.background {
+            background.chunks[0].tiles[0] = BackgroundTile {
+                tile_index: 0,
+                flip_x: false,
+            };
+        }
+        visuals.background = BackgroundVisuals::Layered(kid_render::LayeredBackgroundVisuals {
+            effect_start_row_selector: None,
+            rows: vec![kid_render::LayeredBackgroundRow {
+                selector: 0,
+                tiles: vec![TileRef {
+                    tile_index: 0,
+                    palette_line: 1,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                }],
+            }],
+        });
+
+        let line_one = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 0, 0)
+            .expect("line-one forest pixel should use swapped background CRAM");
+        assert_eq!(
+            line_one.rgb,
+            [120, 121, 122],
+            "ASM sub_129AE swaps line-1 slot 8 with slot 10 after loading the Forest background palette"
+        );
+    }
+
+    #[test]
     fn build_game_scene_draws_murder_wall_from_sub_5e02_sprite_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 10;

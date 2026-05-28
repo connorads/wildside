@@ -914,6 +914,9 @@ fn capture_state(
         .then(|| eol_scroll_words_debug_loc_c070(emulator));
     let eol_cram_debug = matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
         .then(|| eol_cram_words_debug_loc_c070(emulator));
+    let eol_vdp_pixel_samples_debug =
+        matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
+            .then(|| eol_vdp_pixel_samples_debug_loc_c070(emulator));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
@@ -945,6 +948,12 @@ fn capture_state(
         }
         if let Some(eol_cram_debug) = eol_cram_debug {
             gameplay_debug_fields.insert("eol_cram_words_loc_c070".into(), eol_cram_debug);
+        }
+        if let Some(eol_vdp_pixel_samples_debug) = eol_vdp_pixel_samples_debug {
+            gameplay_debug_fields.insert(
+                "eol_vdp_pixel_samples_loc_c070".into(),
+                eol_vdp_pixel_samples_debug,
+            );
         }
     }
     let kid_collision_type =
@@ -1309,6 +1318,130 @@ fn eol_cram_words_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
         })
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    const PLANE_A_BASE_LOC_C070: usize = 0x0000;
+    const PLANE_B_BASE_LOC_C070: usize = 0xE000;
+    const H_SCROLL_TABLE_BASE_LOC_C070: usize = 0x1400;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const PLANE_HEIGHT_CELLS: usize = 32;
+    const SAMPLES: [(usize, usize); 6] = [
+        (69, 44),
+        (77, 52),
+        (110, 44),
+        (125, 52),
+        (292, 125),
+        (294, 125),
+    ];
+
+    let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);
+    let cram = capture_memory(emulator, GenesisMemoryArea::Cram, 0x80);
+    let vsram = capture_memory(emulator, GenesisMemoryArea::Vsram, 0x50);
+    let vs_a = i32::from(read_wram_u16(&vsram, 0) as i16);
+    let vs_b = i32::from(read_wram_u16(&vsram, 2) as i16);
+
+    SAMPLES
+        .iter()
+        .map(|&(x, y)| {
+            let h_a = i32::from(
+                read_wram_u16(&vram, H_SCROLL_TABLE_BASE_LOC_C070 + y * 4) & 0x03FF,
+            );
+            let h_b = i32::from(
+                read_wram_u16(&vram, H_SCROLL_TABLE_BASE_LOC_C070 + y * 4 + 2) & 0x03FF,
+            );
+            format!(
+                "{x}/{y}:hA={h_a:03X},hB={h_b:03X},A={};B={}",
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
+                    PLANE_A_BASE_LOC_C070,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    vs_a,
+                    x,
+                    y,
+                ),
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
+                    PLANE_B_BASE_LOC_C070,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_b,
+                    vs_b,
+                    x,
+                    y,
+                )
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn eol_vdp_plane_pixel_sample(
+    vram: &[u8],
+    cram: &[u8],
+    plane_base: usize,
+    plane_width_cells: usize,
+    plane_height_cells: usize,
+    hscroll: i32,
+    vscroll: i32,
+    screen_x: usize,
+    screen_y: usize,
+) -> String {
+    let plane_width_pixels = (plane_width_cells * 8) as i32;
+    let plane_height_pixels = (plane_height_cells * 8) as i32;
+    let world_x = (screen_x as i32 - hscroll).rem_euclid(plane_width_pixels) as usize;
+    let world_y = (screen_y as i32 + vscroll).rem_euclid(plane_height_pixels) as usize;
+    let cell_x = world_x / 8;
+    let cell_y = world_y / 8;
+    let entry = read_wram_u16(vram, plane_base + (cell_y * plane_width_cells + cell_x) * 2);
+    let tile_x = if entry & 0x0800 != 0 {
+        7 - (world_x & 7)
+    } else {
+        world_x & 7
+    };
+    let tile_y = if entry & 0x1000 != 0 {
+        7 - (world_y & 7)
+    } else {
+        world_y & 7
+    };
+    let tile_index = usize::from(entry & 0x07FF);
+    let tile_byte = read_wram_u8(vram, tile_index * 32 + tile_y * 4 + tile_x / 2);
+    let colour_index = if tile_x & 1 == 0 {
+        tile_byte >> 4
+    } else {
+        tile_byte & 0x0F
+    };
+    let palette_line = usize::from((entry >> 13) & 0x03);
+    let priority = if entry & 0x8000 != 0 { 1 } else { 0 };
+    let rgb = if colour_index == 0 {
+        "transparent".to_string()
+    } else {
+        let rgb = md_cram_rgb(cram, palette_line * 16 + usize::from(colour_index));
+        format!("rgb={:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2])
+    };
+    format!(
+        "entry={entry:04X},world={world_x}/{world_y},tile={tile_index:03X},px={tile_x}/{tile_y},pal={palette_line},idx={colour_index:X},pri={priority},{rgb}"
+    )
+}
+
+fn md_cram_rgb(cram: &[u8], palette_index: usize) -> [u8; 3] {
+    let colour = read_wram_u16(cram, palette_index * 2);
+    let red = ((colour >> 1) & 0x7) as u8;
+    let green = ((colour >> 5) & 0x7) as u8;
+    let blue = ((colour >> 9) & 0x7) as u8;
+    [
+        md_scale_channel(red),
+        md_scale_channel(green),
+        md_scale_channel(blue),
+    ]
+}
+
+fn md_scale_channel(value: u8) -> u8 {
+    ((u16::from(value) * 255 + 3) / 7) as u8
 }
 
 fn work_ram_index(address: usize) -> usize {
