@@ -2066,14 +2066,14 @@ mod tests {
         trace.level_prize_collected = false;
         trace.level_path_bonus_amount = 3_000;
         trace.level_speed_bonus_awarded = true;
-        trace.level_complete_score_rows_elapsed_frames = 1;
+        trace.level_complete_score_rows_elapsed_frames = 9;
         trace.score = 12_340;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert!(
             has_sprite_signature(&scene, 128),
-            "ASM loc_D55E should render Spr_EOL_Time instead of typed TIME text",
+            "ASM loc_D55E should render Spr_EOL_Time instead of typed TIME text after the loc_D734 visible fade phase",
         );
         assert!(
             has_sprite_signature(&scene, 121),
@@ -2563,6 +2563,13 @@ mod tests {
         );
 
         trace.level_complete_score_rows_elapsed_frames = 1;
+        let fade_hidden = build_scene(&trace, false, Some(&visuals), None);
+        assert!(
+            !has_sprite_signature(&fade_hidden, 128),
+            "ASM loc_D734's eight one-frame fade steps keep native EOL rows visually hidden before the loc_C5A2 row fly-in is visible",
+        );
+
+        trace.level_complete_score_rows_elapsed_frames = 9;
         let early = build_scene(&trace, false, Some(&visuals), None);
         assert!(
             early.commands.iter().any(|command| matches!(
@@ -2589,7 +2596,7 @@ mod tests {
             "ASM Object_EOL_Number loc_C48C leaves the CONTINUES number at x=$FF84 on the first visible row tick",
         );
 
-        trace.level_complete_score_rows_elapsed_frames = 0x24;
+        trace.level_complete_score_rows_elapsed_frames = 0x2C;
         let settled = build_scene(&trace, false, Some(&visuals), None);
         assert!(
             settled.commands.iter().any(|command| matches!(

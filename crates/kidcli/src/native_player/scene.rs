@@ -15,6 +15,11 @@ const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
+// ASM loc_D734: after loc_D702 allocates the EOL row workers, the ROM runs
+// eight one-frame palette fade steps before the score rows are visible in the
+// reduced oracle bundle. The trace clock keeps loc_D468 object timing; the
+// renderer applies this final visual fade phase.
+const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -1773,7 +1778,9 @@ fn push_eol_score_overlay(
 ) {
     push_eol_level_skip_time_digits_loc_d47e(commands, eol, trace);
 
-    if trace.level_complete_score_rows_elapsed_frames == 0 {
+    if trace.level_complete_score_rows_elapsed_frames
+        <= EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
+    {
         return;
     }
 
@@ -1784,7 +1791,8 @@ fn push_eol_score_overlay(
     // display; native derives that visual state from the level-complete
     // elapsed frame while keeping progression score awarded at flag touch.
     let counter = eol_score_counter_snapshot_for_trace(trace);
-    let elapsed = trace.level_complete_score_rows_elapsed_frames;
+    let elapsed = trace.level_complete_score_rows_elapsed_frames
+        - EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE;
     push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0xB8, 0xCC, 0x1C, elapsed);
     push_eol_number_loc_c5a2(
         commands,
