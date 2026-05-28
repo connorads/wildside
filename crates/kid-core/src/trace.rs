@@ -4995,6 +4995,8 @@ impl NativeRuntime {
                 .map(|p| ActiveProjectileSnapshot {
                     x_pos: p.x_pos,
                     y_pos: p.y_pos,
+                    x_velocity: p.x_velocity,
+                    y_velocity: p.y_velocity,
                     friendly: p.friendly,
                     remaining_frames: p.lifetime,
                     kind: active_projectile_kind(p),
@@ -5005,6 +5007,8 @@ impl NativeRuntime {
                         .map(|slot| ActiveProjectileSnapshot {
                             x_pos: slot.x_pos,
                             y_pos: slot.y_pos,
+                            x_velocity: 0,
+                            y_velocity: 0,
                             friendly: true,
                             remaining_frames: 0,
                             kind: ActiveProjectileKind::Generic,
@@ -5016,6 +5020,8 @@ impl NativeRuntime {
                         .map(|trail| ActiveProjectileSnapshot {
                             x_pos: trail.x_pos,
                             y_pos: trail.y_pos,
+                            x_velocity: 0,
+                            y_velocity: 0,
                             friendly: false,
                             remaining_frames: trail.remaining_frames,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,

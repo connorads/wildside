@@ -92,6 +92,10 @@ pub enum ActiveProjectileKind {
 pub struct ActiveProjectileSnapshot {
     pub x_pos: u32,
     pub y_pos: u32,
+    #[serde(default)]
+    pub x_velocity: i32,
+    #[serde(default)]
+    pub y_velocity: i32,
     pub friendly: bool,
     #[serde(default)]
     pub remaining_frames: u16,

@@ -1778,6 +1778,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 120,
             kind: ActiveProjectileKind::ShooterBlock,
@@ -1785,13 +1787,23 @@ mod tests {
 
         let scene = build_ingame_scene(&trace, false, None);
 
+        let shooter_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 32 && *y == 20 => Some(tiles),
+            _ => None,
+        });
+        let tiles =
+            shooter_sprite.expect("ASM Process_ShooterObjects_MakeSprite should render ROM tile");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x076,
+            "ASM loc_EE52 feeds tile word `$8A96`; after block VRAM base `$220`, native should draw block tile `$76`"
+        );
         assert!(
-            has_rect(&scene, 28, 20, 8, 8, [255, 216, 72]),
-            "ASM Process_ShooterObjects_MakeSprite (kid.asm:19475) emits a 1x1 shooter sprite, so native must not render Highwater shooter bullets as tiny generic dots"
+            tiles[0].tile.flip_x,
+            "ASM loc_EE52 tile word `$8A96` has the horizontal flip bit set for right-moving shooter bullets"
         );
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
-            "typed shooter bullets should use the shooter-block placeholder rather than the generic projectile path"
+            "typed shooter bullets should not use the generic projectile path"
         );
     }
 
@@ -1808,6 +1820,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 45,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
@@ -1835,6 +1849,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 45,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
@@ -1864,6 +1880,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 68,
             kind: ActiveProjectileKind::DragonWalkingBreath,
@@ -1894,6 +1912,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 200,
             kind: ActiveProjectileKind::DripsDrop,
@@ -1923,6 +1943,8 @@ mod tests {
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
             y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
             friendly: false,
             remaining_frames: 192,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,

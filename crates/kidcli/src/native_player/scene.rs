@@ -309,6 +309,47 @@ fn push_fire_demon_trail_sprite(
     true
 }
 
+fn shooter_block_projectile_sprite_tail_loc_ef62(
+    projectile: &ActiveProjectileSnapshot,
+) -> (i32, i32, u16) {
+    if projectile.y_velocity < 0 {
+        (-4, -8, 0x8295)
+    } else if projectile.x_velocity > 0 {
+        (0, -4, 0x8A96)
+    } else if projectile.y_velocity > 0 {
+        (-4, 0, 0x9295)
+    } else {
+        (-8, -4, 0x8296)
+    }
+}
+
+fn push_shooter_block_projectile_sprite_loc_ef62(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    projectile: &ActiveProjectileSnapshot,
+    sx: i32,
+    sy: i32,
+) -> bool {
+    let (x_offset, y_offset, tile_word) = shooter_block_projectile_sprite_tail_loc_ef62(projectile);
+    let tile_ref = TileRef::from_attr_word(tile_word);
+    let Some(resolved) = resolve_ingame_vram_tile(level_visuals, tile_ref) else {
+        return false;
+    };
+
+    commands.push(DrawCommand::Sprite {
+        x: sx + x_offset,
+        y: sy + y_offset,
+        tile_sheet: resolved.tile_sheet,
+        palette: resolved.palette,
+        tiles: vec![SpriteTile {
+            offset_x: 0,
+            offset_y: 0,
+            tile: resolved.tile,
+        }],
+    });
+    true
+}
+
 pub(crate) fn build_scene(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
@@ -2661,6 +2702,8 @@ fn build_game_scene_filtered(
                     .map(|&(x_pos, y_pos, friendly)| ActiveProjectileSnapshot {
                         x_pos,
                         y_pos,
+                        x_velocity: 0,
+                        y_velocity: 0,
                         friendly,
                         remaining_frames: 0,
                         kind: ActiveProjectileKind::Generic,
@@ -2685,18 +2728,25 @@ fn build_game_scene_filtered(
                     },
                 }),
                 ActiveProjectileKind::ShooterBlock => {
-                    // ASM Process_ShooterObjects_MakeSprite (kid.asm:19475):
-                    // shooter slots emit a hostile 1x1 sprite. Native does
-                    // not yet reconstruct the foreground-pattern tile words
-                    // `$8A96/$8295/$8296/$9295`, so keep the ROM footprint as
-                    // an explicit 8x8 placeholder instead of the tiny generic dot.
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 4,
-                        y: sy - 4,
-                        width: 8,
-                        height: 8,
-                        colour: SHOOTER_BLOCK_PROJECTILE_COLOUR,
-                    });
+                    if !push_shooter_block_projectile_sprite_loc_ef62(
+                        &mut commands,
+                        level_visuals,
+                        &projectile,
+                        sx,
+                        sy,
+                    ) {
+                        // ASM Process_ShooterObjects_MakeSprite (kid.asm:19475):
+                        // shooter slots emit a hostile 1x1 sprite. If the ROM
+                        // block-art tile is unavailable, retain an explicit
+                        // 8x8 footprint instead of the tiny generic dot.
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 4,
+                            width: 8,
+                            height: 8,
+                            colour: SHOOTER_BLOCK_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::FireDemonDeathTrail => {
                     if !push_fire_demon_trail_sprite(
