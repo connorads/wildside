@@ -83,6 +83,8 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
 
 const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
+const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
+const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
 
 #[derive(Debug, Clone, Copy)]
 struct PendingDripsSplash {
@@ -194,6 +196,37 @@ mod drips_surface_crawler_tests {
         assert_eq!(crawler.drips_child_byte_44, 0xFF);
         assert_eq!(crawler.drips_child_byte_45, 0xFF);
     }
+}
+
+fn projectile_terrain_contact_loc_3345c(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+) -> bool {
+    let px_i = (projectile.x_pos >> 16) as i32;
+    let py_i = (projectile.y_pos >> 16) as i32;
+    let origin_cell_contact = {
+        let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+        let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+        let cell = grid.cell_at(col, row);
+        cell.has_block && cell.collision != terrain::CollisionKind::Empty
+    };
+    if projectile.kind == EnemyProjectileKind::DripsDrop {
+        if origin_cell_contact {
+            return true;
+        }
+        // ASM Drips.asm loc_3345C polls `collision_type(a1) == $0C`; the
+        // falling child uses object_meta `$16`, whose collision size reaches
+        // +$1F below the object origin before loc_33488 splashes it.
+        let probe = terrain::probe_floor_hitbox(
+            grid,
+            px_i,
+            py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C,
+            DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C,
+        );
+        return probe.on_ground || probe.cell.is_solid_floor();
+    }
+
+    origin_cell_contact
 }
 
 fn drips_surface_crawler_out_of_level_bounds_loc_33588(
@@ -1752,36 +1785,29 @@ impl NativeRuntime {
             // projectile retention represents that count by shrinking the Vec.
             if p.terrain_kill
                 && let Some(g) = grid
+                && projectile_terrain_contact_loc_3345c(g, p)
             {
-                let px_i = (p.x_pos >> 16) as i32;
-                let py_i = (p.y_pos >> 16) as i32;
-                let col = terrain::pixel_to_cell(px_i).max(0) as u16;
-                let row = terrain::pixel_to_cell(py_i).max(0) as u16;
-                let cell = g.cell_at(col, row);
-                if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
-                    if p.kind == EnemyProjectileKind::DripsDrop {
-                        // ASM Drips.asm loc_33488 -> loc_335D8: after the
-                        // first two falling-child splashes, `off_33520`
-                        // writes pool-growth sprites only. The negative
-                        // sentinel path can allocate a hostile surface crawler
-                        // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
-                        // +/-$3000 from `Get_RandomNumber_byte` bit 2.
-                        if let Some(owner) = p.owner {
-                            pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
-                        } else if p.drips_spawn_crawler_on_splash
-                            && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
-                        {
-                            spawned_projectiles
-                                .push(drips_surface_crawler_from_drop_loc_335d8(p, 0));
-                            drips_surface_crawler_count += 1;
-                        }
-                        return false;
-                    }
+                if p.kind == EnemyProjectileKind::DripsDrop {
+                    // ASM Drips.asm loc_33488 -> loc_335D8: after the
+                    // first two falling-child splashes, `off_33520`
+                    // writes pool-growth sprites only. The negative
+                    // sentinel path can allocate a hostile surface crawler
+                    // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
+                    // +/-$3000 from `Get_RandomNumber_byte` bit 2.
                     if let Some(owner) = p.owner {
-                        released_owners.push(owner);
+                        pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
+                    } else if p.drips_spawn_crawler_on_splash
+                        && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
+                    {
+                        spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(p, 0));
+                        drips_surface_crawler_count += 1;
                     }
-                    return false; // destroyed on terrain contact
+                    return false;
                 }
+                if let Some(owner) = p.owner {
+                    released_owners.push(owner);
+                }
+                return false; // destroyed on terrain contact
             }
 
             // Wall-bounce: reverse velocity on terrain contact (Lion.asm loc_3E260).

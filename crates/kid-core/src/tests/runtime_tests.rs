@@ -10995,6 +10995,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_drop_floor_collision_uses_object_bottom_loc_3345c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(3 * 5 + 2) * 2] = 0x60;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0011_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            terrain_kill: true,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Drips.asm loc_3345C waits for floor collision `$0C` from object_meta `$16`; the drop should splash when its +$1F bottom edge reaches the solid cell, not when its origin enters terrain"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_x_range() {
         // Projectile 14px right of player — exactly at boundary (< 14 fails).
         // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.
