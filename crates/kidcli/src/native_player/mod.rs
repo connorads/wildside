@@ -171,8 +171,8 @@ use sprites::*;
 
 pub(crate) use render::render_scene;
 pub(crate) use scene::{
-    LayerFilter, build_scene, build_scene_filtered,
-    render_trace_with_loc_c070_latched_scroll_camera,
+    BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
+    render_trace_with_loc_c070_latched_scroll_camera, sample_background_pixel_loc_c070,
 };
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;
@@ -5349,6 +5349,68 @@ mod tests {
                 } if *width == FRAME_WIDTH as i32 && *height == FRAME_HEIGHT as i32
             )
         }));
+    }
+
+    #[test]
+    fn background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let mut visuals = sample_level_visuals();
+        visuals.background_tiles = TileSheet {
+            tiles: vec![
+                make_tile(&[(3, 4, 1)]),
+                make_tile(&[(5, 4, 2)]),
+                make_tile(&[(3, 4, 1)]),
+            ],
+        };
+        visuals.palettes.background = Palette {
+            colours: vec![colour(10, 20, 30), colour(40, 50, 60)],
+        };
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![
+                BackgroundPlacement {
+                    chunk_id: 0,
+                    x_tiles: 0,
+                    y_tiles: 0,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 0,
+                    y_tiles: 0,
+                },
+            ],
+            chunks: vec![
+                BackgroundChunk {
+                    width_tiles: 1,
+                    height_tiles: 1,
+                    tiles: vec![BackgroundTile {
+                        tile_index: 0,
+                        flip_x: false,
+                    }],
+                },
+                BackgroundChunk {
+                    width_tiles: 1,
+                    height_tiles: 1,
+                    tiles: vec![BackgroundTile {
+                        tile_index: 1,
+                        flip_x: true,
+                    }],
+                },
+            ],
+        });
+
+        let sample = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 2, 4)
+            .expect("flipped second placement should draw an opaque pixel");
+
+        assert_eq!(
+            sample.tile_index, 1,
+            "later Scroll B writes win just like renderer command order; this keeps loc_C070 pixel provenance aligned with visible output"
+        );
+        assert_eq!(sample.palette_index, 2);
+        assert_eq!(sample.source_x, 5);
+        assert_eq!(sample.source_y, 4);
+        assert_eq!(sample.rgb, [40, 50, 60]);
     }
 
     #[test]

@@ -2,9 +2,10 @@ use super::*;
 use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
-    LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene,
-    build_scene_filtered, load_session_assets, render_scene,
+    BackgroundPixelSample, LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions,
+    build_scene, build_scene_filtered, load_session_assets, render_scene,
     render_trace_with_loc_c070_latched_scroll_camera, render_vdp_trace_overlay,
+    sample_background_pixel_loc_c070,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -118,6 +119,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) changed_bounds: Option<PixelDiffBounds>,
     #[serde(default)]
     pub(crate) top_colour_diffs: Vec<PixelColourDiff>,
+    #[serde(default)]
+    pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
     pub(crate) diff_path: PathBuf,
 }
 
@@ -149,6 +152,25 @@ struct PixelDiffSummary {
 pub(crate) struct PixelCoord {
     pub(crate) x: usize,
     pub(crate) y: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeBackgroundPixelDiagnostic {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) sample: Option<NativeBackgroundPixelSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeBackgroundPixelSample {
+    pub(crate) screen_x: i32,
+    pub(crate) screen_y: i32,
+    pub(crate) tile_index: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) palette_index: u8,
+    pub(crate) source_x: u8,
+    pub(crate) source_y: u8,
+    pub(crate) rgb: [u8; 3],
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -561,7 +583,7 @@ pub(crate) fn verify_recording(
         let oracle_state_match =
             compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states)
                 .is_ok();
-        let frame_diffs =
+        let mut frame_diffs =
             compare_recording_frames(
                 &native_dir,
                 &native_frames,
@@ -570,6 +592,13 @@ pub(crate) fn verify_recording(
                     replay_trace.last().map_or(0, |frame| frame.current_level.0)
                 }),
             )?;
+        attach_native_background_samples(
+            manifest,
+            &recording.manifest.start,
+            &recording.manifest.scenario,
+            recording_visual_frame_offset(&recording.manifest.start),
+            &mut frame_diffs,
+        )?;
         let oracle_frame_match = frame_diffs
             .iter()
             .all(|diff| diff.max_channel_delta == 0 && diff.mean_absolute_error == 0.0);
@@ -1013,6 +1042,138 @@ fn write_dynamic_checkpoint_layer_frames(
     Ok(())
 }
 
+fn attach_native_background_samples(
+    manifest: &AssetManifest,
+    start: &RecordingStart,
+    scenario: &DynamicScenario,
+    visual_frame_offset: usize,
+    frame_diffs: &mut [CheckpointFrameDiff],
+) -> Result<()> {
+    let sample_requests = frame_diffs
+        .iter()
+        .filter(|diff| diff.changed_pixel_count > 0)
+        .map(|diff| {
+            let mut pixels = BTreeSet::new();
+            for colour_diff in &diff.top_colour_diffs {
+                for pixel in &colour_diff.sample_pixels {
+                    pixels.insert((pixel.x, pixel.y));
+                }
+            }
+            ((diff.frame_index, diff.label.clone()), pixels)
+        })
+        .collect::<BTreeMap<_, _>>();
+    if sample_requests.is_empty() {
+        return Ok(());
+    }
+
+    let (mut runtime, mut level_visuals) =
+        initialise_recording_runtime(manifest, *start, scenario)?;
+    let mut current_level_id = runtime.trace_frame().current_level.0;
+    let mut checkpoints = scenario.checkpoints.iter().peekable();
+    let mut script_index = 0usize;
+    let mut replay_frame_index = 0usize;
+    let mut level_card_frames_remaining = 0usize;
+    let mut samples_by_checkpoint: BTreeMap<(usize, String), Vec<NativeBackgroundPixelDiagnostic>> =
+        BTreeMap::new();
+
+    while script_index < scenario.script.len() {
+        if level_card_frames_remaining > 0 {
+            level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+            continue;
+        }
+
+        let previous_trace = runtime.trace_frame();
+        let buttons = scenario.script[script_index];
+        script_index += 1;
+        let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
+        if start.settled && start.warp_level.is_some() {
+            apply_settled_warp_oracle_visual_compatibility(&mut trace);
+        }
+
+        let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
+            && matches!(trace.game_mode, GameMode::InGame)
+            && start.warp_level.is_none()
+            && !start.settled;
+        if entered_gameplay {
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        let level_changed = trace.current_level.0 != current_level_id;
+        if level_changed {
+            current_level_id = trace.current_level.0;
+            let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
+            level_visuals = new_visuals;
+            level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+        }
+
+        if checkpoints
+            .peek()
+            .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
+        {
+            let checkpoint = checkpoints.next().expect("checkpoint should exist");
+            let key = (checkpoint.frame_index, checkpoint.label.clone());
+            if let Some(pixels) = sample_requests.get(&key) {
+                let mut render_trace =
+                    render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
+                if level_card_frames_remaining > 0 {
+                    render_trace.game_mode = GameMode::LevelTransition;
+                    render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+                }
+                render_trace.frame_index =
+                    render_trace.frame_index.saturating_add(visual_frame_offset);
+                let samples = pixels
+                    .iter()
+                    .map(|(x, y)| {
+                        let sample = i32::try_from(*x)
+                            .ok()
+                            .zip(i32::try_from(*y).ok())
+                            .and_then(|(sample_x, sample_y)| {
+                                sample_background_pixel_loc_c070(
+                                    &render_trace,
+                                    &level_visuals,
+                                    sample_x,
+                                    sample_y,
+                                )
+                            })
+                            .map(NativeBackgroundPixelSample::from);
+                        NativeBackgroundPixelDiagnostic {
+                            x: *x,
+                            y: *y,
+                            sample,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                samples_by_checkpoint.insert(key, samples);
+            }
+        }
+
+        level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+        replay_frame_index += 1;
+    }
+
+    for diff in frame_diffs {
+        let key = (diff.frame_index, diff.label.clone());
+        diff.native_background_samples = samples_by_checkpoint.remove(&key).unwrap_or_default();
+    }
+
+    Ok(())
+}
+
+impl From<BackgroundPixelSample> for NativeBackgroundPixelSample {
+    fn from(sample: BackgroundPixelSample) -> Self {
+        Self {
+            screen_x: sample.screen_x,
+            screen_y: sample.screen_y,
+            tile_index: sample.tile_index,
+            palette_line: sample.palette_line,
+            palette_index: sample.palette_index,
+            source_x: sample.source_x,
+            source_y: sample.source_y,
+            rgb: sample.rgb,
+        }
+    }
+}
+
 fn compare_recording_frames(
     native_dir: &Path,
     native_frames: &[RenderedFrame],
@@ -1055,6 +1216,7 @@ fn compare_recording_frames(
             changed_pixel_count: pixel_diff_summary.changed_pixel_count,
             changed_bounds: pixel_diff_summary.changed_bounds,
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
+            native_background_samples: Vec::new(),
             diff_path,
         });
     }

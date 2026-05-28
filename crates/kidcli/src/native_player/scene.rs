@@ -1304,6 +1304,222 @@ pub(super) fn push_background_tiles(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundPixelSample {
+    pub(crate) screen_x: i32,
+    pub(crate) screen_y: i32,
+    pub(crate) tile_index: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) palette_index: u8,
+    pub(crate) source_x: u8,
+    pub(crate) source_y: u8,
+    pub(crate) rgb: [u8; 3],
+}
+
+pub(crate) fn sample_background_pixel_loc_c070(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    sample_x: i32,
+    sample_y: i32,
+) -> Option<BackgroundPixelSample> {
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let palette = background_palette_for_scene(level_visuals);
+    let mut sample = None;
+
+    match &level_visuals.background {
+        kid_render::BackgroundVisuals::Chunked(background) => {
+            for placement in &background.placements {
+                let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
+                    continue;
+                };
+                for row in 0..chunk.height_tiles {
+                    for column in 0..chunk.width_tiles {
+                        let tile_index =
+                            usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
+                        let Some(background_tile) = chunk.tiles.get(tile_index) else {
+                            continue;
+                        };
+                        let (screen_x, screen_y) = background_tile_screen_position(
+                            trace,
+                            level_visuals,
+                            placement.x_tiles + column,
+                            placement.y_tiles + row,
+                            camera_x_px,
+                            camera_y_px,
+                        );
+                        let tile_ref = TileRef {
+                            tile_index: background_tile.tile_index,
+                            palette_line: 0,
+                            priority: false,
+                            flip_x: background_tile.flip_x,
+                            flip_y: false,
+                        };
+                        if let Some(hit) = sample_background_tile_pixel(
+                            level_visuals,
+                            &palette,
+                            tile_ref,
+                            screen_x,
+                            screen_y,
+                            sample_x,
+                            sample_y,
+                            None,
+                        ) {
+                            sample = Some(hit);
+                        }
+                    }
+                }
+            }
+        }
+        kid_render::BackgroundVisuals::Layered(background) => {
+            for (row_index, row) in background.rows.iter().enumerate() {
+                let row_width_px = i32::try_from(row.tiles.len())
+                    .ok()
+                    .and_then(|tiles| tiles.checked_mul(8));
+                let wrap_row = layered_background_row_wraps_for_trace_loc_3050a(
+                    trace,
+                    level_visuals,
+                    row_index,
+                );
+                for (column, tile) in row.tiles.iter().enumerate() {
+                    let (mut screen_x, screen_y) = background_tile_screen_position(
+                        trace,
+                        level_visuals,
+                        column as u16,
+                        row_index as u16,
+                        camera_x_px,
+                        camera_y_px,
+                    );
+                    if wrap_row && let Some(row_width_px) = row_width_px {
+                        screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
+                    }
+                    if let Some(hit) = sample_layered_background_tile_pixel(
+                        trace,
+                        level_visuals,
+                        &palette,
+                        background.effect_start_row_selector,
+                        camera_y_px,
+                        screen_x,
+                        screen_y,
+                        *tile,
+                        sample_x,
+                        sample_y,
+                    ) {
+                        sample = Some(hit);
+                    }
+                }
+            }
+        }
+    }
+
+    sample
+}
+
+fn sample_layered_background_tile_pixel(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    palette: &Palette,
+    effect_start_row_selector: Option<u8>,
+    camera_y_px: i32,
+    screen_x: i32,
+    screen_y: i32,
+    tile: TileRef,
+    sample_x: i32,
+    sample_y: i32,
+) -> Option<BackgroundPixelSample> {
+    let Some(effect_start_row_selector) = effect_start_row_selector else {
+        return sample_background_tile_pixel(
+            level_visuals,
+            palette,
+            tile,
+            screen_x,
+            screen_y,
+            sample_x,
+            sample_y,
+            None,
+        );
+    };
+    if level_visuals.level.background_theme_id != 9 {
+        return sample_background_tile_pixel(
+            level_visuals,
+            palette,
+            tile,
+            screen_x,
+            screen_y,
+            sample_x,
+            sample_y,
+            None,
+        );
+    }
+
+    for row in 0..8 {
+        let offset = forest_water_ripple_offset_for_screen_y_sub_30598(
+            trace.frame_index,
+            screen_y + row,
+            effect_start_row_selector,
+            camera_y_px,
+        )
+        .unwrap_or(0);
+        if let Some(sample) = sample_background_tile_pixel(
+            level_visuals,
+            palette,
+            tile,
+            screen_x + offset,
+            screen_y + row,
+            sample_x,
+            sample_y,
+            Some(row as u8),
+        ) {
+            return Some(sample);
+        }
+    }
+    None
+}
+
+fn sample_background_tile_pixel(
+    level_visuals: &NativeLevelVisuals,
+    palette: &Palette,
+    tile_ref: TileRef,
+    screen_x: i32,
+    screen_y: i32,
+    sample_x: i32,
+    sample_y: i32,
+    row_override: Option<u8>,
+) -> Option<BackgroundPixelSample> {
+    if sample_x < screen_x || sample_x >= screen_x + 8 {
+        return None;
+    }
+    let dest_x = sample_x - screen_x;
+    let dest_y = match row_override {
+        Some(row) if sample_y == screen_y => i32::from(row),
+        Some(_) => return None,
+        None if sample_y >= screen_y && sample_y < screen_y + 8 => sample_y - screen_y,
+        None => return None,
+    };
+    let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+    let tile = level_visuals
+        .background_tiles
+        .tiles
+        .get(usize::from(tile_ref.tile_index))?;
+    let palette_index = tile.pixels[(source_y * 8 + source_x) as usize];
+    let rgb = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)?;
+    Some(BackgroundPixelSample {
+        screen_x,
+        screen_y: if row_override.is_some() {
+            sample_y
+        } else {
+            screen_y
+        },
+        tile_index: tile_ref.tile_index,
+        palette_line: tile_ref.palette_line,
+        palette_index,
+        source_x: source_x as u8,
+        source_y: source_y as u8,
+        rgb,
+    })
+}
+
 fn push_layered_background_tile(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
