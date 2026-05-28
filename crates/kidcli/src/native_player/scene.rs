@@ -2330,9 +2330,10 @@ fn push_eol_foreground_reveal_tiles(
     let (Some(hologram), Some(grid)) = (&level_visuals.eol_hologram, block_grid) else {
         return;
     };
-    let reveal_elapsed = trace
-        .level_complete_elapsed_frames
-        .saturating_sub(kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE);
+    let reveal_elapsed = trace.level_complete_elapsed_frames.saturating_sub(
+        kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE,
+    );
     if reveal_elapsed == 0 {
         return;
     }

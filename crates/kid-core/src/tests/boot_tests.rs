@@ -2369,6 +2369,15 @@ mod chunk_01 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_C21E_foreground_reveal_visible_phase_matches_oracle_queue() {
+        assert_eq!(
+            EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE, 0x0F,
+            "oracle frame probes show loc_C21E/sub_C254 foreground queue writes first become visible 15 frames after the lit loc_C186 room"
+        );
+    }
+
     /// ASM loc_C228 (kid.asm:15799): inner reveal loop processes tiles until
     /// budget exhausts or all rows are done. With budget=12, empty tiles cost 2
     /// each, so up to 6 empty tiles per frame before budget goes negative.

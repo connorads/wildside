@@ -16956,6 +16956,11 @@ pub const EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E: usize = 0x14;
 /// loc_C0CC/loc_C1D0 load and fade the hologram; the renderer should not show
 /// the fully lit room on the earlier register-write frame.
 pub const EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE: usize = 0x46;
+/// Oracle-backed visible phase for the first Scroll A replacement emitted by
+/// ASM loc_C21E/sub_C254. The ROM has already entered the reveal coroutine,
+/// but pixels do not expose the foreground queue writes until 15 frames after
+/// the lit Scroll B hologram room first appears.
+pub const EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE: usize = 0x0F;
 /// Oracle-backed visible row-worker phase. ASM loc_D468 allocates the EOL row
 /// objects before loc_D702 hibernates and fades; on hardware they are still
 /// off-screen/dim for the first `$3C` native trace ticks.

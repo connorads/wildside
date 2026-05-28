@@ -2138,8 +2138,9 @@ mod tests {
         grid.set_cell_at(1, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+            + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -2173,8 +2174,9 @@ mod tests {
         grid.set_cell_at(0, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+            + 1;
         trace.camera_x_pos = 3 << 16;
         trace.camera_y_pos = 1 << 16;
 
@@ -2213,8 +2215,9 @@ mod tests {
         grid.set_cell_at(0, 0, kid_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+            + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -2294,8 +2297,9 @@ mod tests {
         grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames =
-            kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE + 1;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+            + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
