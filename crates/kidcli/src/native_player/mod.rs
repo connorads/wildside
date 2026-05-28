@@ -2393,6 +2393,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn level_complete_score_rows_use_high_priority_gfx_slots_loc_c466_c592() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 199;
+        trace.level_complete_score_rows_started = 1;
+        trace.level_complete_score_rows_elapsed_frames = 0x80;
+        trace.level_skip_cheat_enabled = 1;
+        trace.level_speed_bonus_awarded = true;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let eol_sprites = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { tiles, .. } if !tiles.is_empty() => Some(tiles),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(!eol_sprites.is_empty(), "expected EOL score/digit sprites");
+        assert!(
+            eol_sprites
+                .iter()
+                .flat_map(|tiles| tiles.iter())
+                .all(|tile| tile.tile.priority),
+            "ASM Object_EOL_Number loc_C466 and Object_EOL_Text loc_C592 set priority(a*)=1 so score rows draw over foreground blocks"
+        );
+    }
+
     fn eol_number_digits_at(scene: &Scene, y: i32) -> Vec<u8> {
         scene
             .commands

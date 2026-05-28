@@ -1386,14 +1386,31 @@ fn push_sprite_frame(
     screen_x: i32,
     screen_y: i32,
 ) {
+    push_sprite_frame_with_priority(commands, frame, palette, screen_x, screen_y, None);
+}
+
+fn push_sprite_frame_with_priority(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    palette: &Palette,
+    screen_x: i32,
+    screen_y: i32,
+    priority_override: Option<bool>,
+) {
     let facing = Direction::Right;
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    let mut tiles = build_sprite_tiles(frame, facing, 0);
+    if let Some(priority) = priority_override {
+        for tile in &mut tiles {
+            tile.tile.priority = priority;
+        }
+    }
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(palette.clone()),
-        tiles: build_sprite_tiles(frame, facing, 0),
+        tiles,
     });
 }
 
@@ -1572,8 +1589,16 @@ fn push_eol_number_sprites(
         }
         started = true;
         if let Some(frame) = eol.digits.get(digit as usize) {
-            // ASM Object_EOL_Number loc_C4E2 spaces seven digit workers 12px apart.
-            push_sprite_frame(commands, frame, &eol.palette, x + slot as i32 * 12, y);
+            // ASM Object_EOL_Number loc_C466 sets `priority(a1)=1`, and
+            // loc_C4E2 spaces seven digit workers 12px apart.
+            push_sprite_frame_with_priority(
+                commands,
+                frame,
+                &eol.palette,
+                x + slot as i32 * 12,
+                y,
+                Some(true),
+            );
         }
     }
 }
@@ -1596,7 +1621,9 @@ fn push_eol_level_skip_time_digits_loc_d47e(
         let digit = remaining % 10;
         remaining /= 10;
         if let Some(frame) = eol.digits.get(usize::from(digit)) {
-            push_sprite_frame(commands, frame, &eol.palette, x, 0xD4);
+            // ASM loc_D47E allocates the level-skip time digits through the
+            // same priority=$01 EOL digit gfx-object setup as loc_C466.
+            push_sprite_frame_with_priority(commands, frame, &eol.palette, x, 0xD4, Some(true));
         }
     }
 }
@@ -1642,8 +1669,9 @@ fn push_eol_text_with_velocity_loc_c5a2(
     let x = eol_position_loc_c5a2(initial_x, velocity, timer, elapsed);
     // ASM Object_EOL_Text loc_C5A2 writes directly to the gfx object's
     // x_pos/y_pos fields after adding the camera, so render from sprite
-    // coordinates rather than treating `$64/$68` as top-lefts.
-    push_sprite_frame(commands, frame, &eol.palette, x, y);
+    // coordinates rather than treating `$64/$68` as top-lefts. loc_C592 sets
+    // `priority(a3)=1`, so these rows draw above high-priority foreground.
+    push_sprite_frame_with_priority(commands, frame, &eol.palette, x, y, Some(true));
 }
 
 fn push_eol_number_loc_c5a2(
