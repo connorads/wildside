@@ -127,6 +127,7 @@ impl NativeRuntime {
         // the title-card gate and waits 60 stable live frames; Level 1 still
         // reaches the ROM's level-skip resume tail that native `boot_to_level`
         // shortcuts, so it shares the full-frame 108-frame compatibility age.
+        self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         let target_live_frames = if level_id == LevelId(1) {
             ORACLE_SETTLED_WARP_LIVE_FRAMES
         } else {

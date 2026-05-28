@@ -5630,6 +5630,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_level_12_flag_touch_preserves_oracle_stale_enemy_gfx_loc_c056() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0x12));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x12));
+        runtime.set_player_probe_position(0x0620, 0x0200);
+        let flag_touch = runtime.step_frame(FrameInput::default());
+
+        let active_enemy = |object_type, layout_index| {
+            flag_touch.active_objects.iter().any(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type }
+                    && object.layout_index == Some(layout_index)
+            })
+        };
+
+        assert!(
+            active_enemy(0x04, 4),
+            "ASM CharacterCollision_TouchFlagpole loc_C056 preserves the stale Armadillo gfx slot observed in issue-175 oracle flag_touch before loc_C070 deletes object threads",
+        );
+        assert!(
+            active_enemy(0x0D, 8),
+            "ASM CharacterCollision_TouchFlagpole loc_C056 preserves the stale DragonWalking gfx slot observed in issue-175 oracle flag_touch before loc_C070 deletes object threads",
+        );
+        assert_eq!(
+            (flag_touch.number_objects, flag_touch.number_gfx_objects),
+            (5, 6),
+            "issue-175 oracle flag_touch reports Kid + 2 EOL workers + 2 stale enemy gfx slots"
+        );
+    }
+
+    #[test]
     fn settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300() {
         let manifest_path = repo_root()
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");

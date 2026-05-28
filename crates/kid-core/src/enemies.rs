@@ -38610,6 +38610,45 @@ pub(crate) fn enemy_gfx_slot_init_loc_3219E(
 }
 
 impl NativeRuntime {
+    pub(crate) fn prime_respawn_settle_enemy_loading_loc_368a8(&mut self, level_id: LevelId) {
+        if !self.enemy_loading_enabled() {
+            return;
+        }
+        let Some(enemy_layout) = self.enemy_layout(level_id).cloned() else {
+            return;
+        };
+        let level_bounds = self.level_bounds(level_id);
+        let blank_top_rows = self.level_header(level_id).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
+
+        // ASM Manage_EnemyLoading loc_368A8 runs while the hidden spawn settle
+        // camera is still converging. Native floor-snap computes that path
+        // atomically, so replay just the load windows here; live enemy object
+        // execution still starts on the first real gameplay frame.
+        for frame in self.inspect_respawn_settle(level_id, 180) {
+            let camera = CameraState {
+                x_pos: frame.camera_x_pos,
+                y_pos: frame.camera_y_pos,
+            };
+            let window = ActivationWindow::from_camera(camera);
+            activate_enemies_with_rng(
+                &mut self.active_enemies,
+                &enemy_layout,
+                window,
+                frame.camera_x_pos >> 16,
+                frame.camera_y_pos >> 16,
+                level_bounds,
+                frame.kid_x_pos,
+                frame.kid_y_pos,
+                blank_top_rows,
+                &self.killed_enemies,
+                &mut self.rom_random,
+            );
+        }
+        self.rebuild_active_enemy_roster();
+    }
+
     fn enemy_loading_enabled(&self) -> bool {
         !matches!(self.boot_state, BootState::DemoPlay { .. })
             || (self.current_level == LevelId(demo::DEMO_1_LEVEL)
