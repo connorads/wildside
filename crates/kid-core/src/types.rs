@@ -86,6 +86,9 @@ pub enum ActiveProjectileKind {
     /// Shooter block bullet: ASM `Process_ShooterObjects` (kid.asm:19394)
     /// emits a hostile 1x1 sprite from the shooter-object slot.
     ShooterBlock,
+    /// Shooting RockTank bullet: ASM `Tank_Shooting.asm loc_3B730`
+    /// initialises `stru_3B526` as a hostile horizontal child.
+    TankBullet,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

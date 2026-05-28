@@ -1808,6 +1808,38 @@ mod tests {
     }
 
     #[test]
+    fn tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x0003_0000,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: u16::MAX,
+            kind: ActiveProjectileKind::TankBullet,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let bullet_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 23 && *y == 19 => Some(tiles),
+            _ => None,
+        });
+        let tiles = bullet_sprite
+            .expect("ASM Tank_Shooting.asm loc_3B730 should render a ROM bullet child");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x038,
+            "ASM `stru_3B526` first frame uses `unk_C7EE8: sprite_frame_vram $038,$09,$00,$10,$05`",
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "RockTank bullets should not collapse to the generic enemy projectile dot",
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_falls_back_to_placeholder_without_rom_visuals() {
         // Removing the Fire Demon visuals forces the degraded-asset path.
         // The previous flame-footprint approximation invented per-phase rect

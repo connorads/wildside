@@ -99,6 +99,29 @@ fn drips_drop_child_frame(
     })
 }
 
+fn tank_bullet_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let elapsed_frames = u16::MAX.saturating_sub(remaining_frames);
+    let (tile_base_index, origin_x, width_px) = if elapsed_frames % 10 < 6 {
+        // ASM Tank_Shooting.asm `stru_3B526`: first frame `unk_C7EE8`.
+        (0x038, 0x09, 0x10)
+    } else {
+        // ASM Tank_Shooting.asm `stru_3B526`: second frame `unk_C7EF0`.
+        (0x03A, 0x09, 0x0F)
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y: 0x00,
+        width_px,
+        height_px: 0x05,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn dragon_walking_breath_child_frame(
     visuals: &kid_render::AnimatedSpriteVisual,
     remaining_frames: u16,
@@ -2745,6 +2768,41 @@ fn build_game_scene_filtered(
                             width: 8,
                             height: 8,
                             colour: SHOOTER_BLOCK_PROJECTILE_COLOUR,
+                        });
+                    }
+                }
+                ActiveProjectileKind::TankBullet => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&0x0B)
+                        .or_else(|| level_visuals.enemies.families.get(&0x0A))
+                        .and_then(|tank_visuals| {
+                            let frame =
+                                tank_bullet_child_frame(tank_visuals, projectile.remaining_frames)?;
+                            let facing = if projectile.x_velocity < 0 {
+                                Direction::Left
+                            } else {
+                                Direction::Right
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(tank_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 3,
+                            width: 8,
+                            height: 5,
+                            colour: ENEMY_PROJECTILE_COLOUR,
                         });
                     }
                 }
