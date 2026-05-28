@@ -4,11 +4,14 @@ const HUD_LIVES_X: i32 = 0x190 - 128;
 const HUD_LIVES_Y: i32 = 0x90 - 128;
 const HUD_ANKH_X: i32 = 0x1A1 - 128;
 const HUD_ANKH_Y: i32 = 0x8D - 128;
-const HUD_MINUTES_X: i32 = 0x88 - 128;
+// ASM Make_SpriteAttr_HUD loc_BEE8 calls sub_BD0A with d7=0, which rewrites
+// the visible timer sprites from the Init_SpriteAttr_HUD seed table to the
+// fixed `unk_BD8E` X positions $90,$98,$9D,$A5 on row $90.
+const HUD_MINUTES_X: i32 = 0x90 - 128;
 const HUD_TIMER_Y: i32 = 0x90 - 128;
-const HUD_COLON_X: i32 = 0x90 - 128;
-const HUD_SECONDS_TENS_X: i32 = 0x95 - 128;
-const HUD_SECONDS_ONES_X: i32 = 0x9D - 128;
+const HUD_COLON_X: i32 = 0x98 - 128;
+const HUD_SECONDS_TENS_X: i32 = 0x9D - 128;
+const HUD_SECONDS_ONES_X: i32 = 0xA5 - 128;
 const HUD_DIAMOND_X: i32 = 0x1A0 - 128;
 const HUD_DIAMOND_Y: i32 = 0xA2 - 128;
 const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
@@ -104,11 +107,17 @@ fn push_hud_two_digit_counter(
     y: i32,
 ) {
     let clamped = value.min(99);
-    // ASM calc_display_number (kid.asm:15568): values below 10 use tile
-    // $86C5 (HUD number index 11) as a blank tens digit, not a leading zero.
-    let tens = if clamped < 10 { 11 } else { clamped / 10 };
-    push_hud_tile_offset(commands, level_visuals, tens, x, y);
-    push_hud_fixed_digit(commands, level_visuals, clamped % 10, x + 8, y);
+    // ASM life_display/diamond_display writes `move.w d1,$C(a0)` / `$44(a0)`
+    // to the first counter slot, then swaps d1 for the second slot. For
+    // calc_display_number values below 10, that places the digit first and
+    // HUD number index 11 (`$86C5`) in the following "x" slot.
+    let (first, second) = if clamped < 10 {
+        (clamped, 11)
+    } else {
+        (clamped / 10, clamped % 10)
+    };
+    push_hud_tile_offset(commands, level_visuals, first, x, y);
+    push_hud_tile_offset(commands, level_visuals, second, x + 8, y);
 }
 
 fn push_hud_hitpoint_sprite(

@@ -9613,35 +9613,35 @@ mod tests {
     }
 
     #[test]
-    fn game_hud_single_digit_counters_use_blank_tens_tile() {
+    fn game_hud_single_digit_counters_put_digit_before_x_slot_like_calc_display_number() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.number_lives = 3;
         trace.diamond_count = 7;
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, lives_tens, _) =
+        let (_, lives_first, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0x90 - 128, 12)
-                .expect("lives tens tile");
-        let (_, lives_ones, _) =
+                .expect("lives first tile");
+        let (_, lives_second, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0x90 - 128, 12)
-                .expect("lives ones tile");
-        let (_, diamond_tens, _) =
+                .expect("lives second tile");
+        let (_, diamond_first, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x190 - 128, 0xA4 - 128, 12)
-                .expect("diamond tens tile");
-        let (_, diamond_ones, _) =
+                .expect("diamond first tile");
+        let (_, diamond_second, _) =
             indexed_tile_at_with_sheet_len(&scene, 0x198 - 128, 0xA4 - 128, 12)
-                .expect("diamond ones tile");
+                .expect("diamond second tile");
 
         assert_eq!(
-            lives_tens.tile_index, 11,
-            "ASM calc_display_number (kid.asm:15568) uses $86C5 as the blank tens tile for single-digit lives"
+            (lives_first.tile_index, lives_second.tile_index),
+            (3, 11),
+            "ASM life_display writes calc_display_number's low word to the first lives slot, then swaps to put $86C5 in the following x slot"
         );
-        assert_eq!(lives_ones.tile_index, 3);
         assert_eq!(
-            diamond_tens.tile_index, 11,
-            "ASM calc_display_number (kid.asm:15568) uses $86C5 as the blank tens tile for single-digit diamonds"
+            (diamond_first.tile_index, diamond_second.tile_index),
+            (7, 11),
+            "ASM diamond_display writes calc_display_number's low word to the first diamond slot, then swaps to put $86C5 in the following x slot"
         );
-        assert_eq!(diamond_ones.tile_index, 7);
     }
 
     #[test]
@@ -9682,15 +9682,15 @@ mod tests {
         trace.level_timer_seconds = 179;
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x88 - 128, 0x90 - 128, 12)
+        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0x90 - 128, 12)
             .expect("minutes tile");
         let (_, colon, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0x90 - 128, 12).expect("colon tile");
+            indexed_tile_at_with_sheet_len(&scene, 0x98 - 128, 0x90 - 128, 12).expect("colon tile");
         let (_, seconds_tens, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x95 - 128, 0x90 - 128, 12)
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
                 .expect("seconds tens tile");
         let (_, seconds_ones, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
+            indexed_tile_at_with_sheet_len(&scene, 0xA5 - 128, 0x90 - 128, 12)
                 .expect("seconds ones tile");
 
         assert_eq!(
@@ -9701,7 +9701,7 @@ mod tests {
                 seconds_ones.tile_index
             ),
             (2, 10, 5, 9),
-            "ASM loc_BEE8 writes timer digits from $86BA+d and the prebuilt sprite table places the colon at $90,$90"
+            "ASM loc_BEE8 writes timer digits from $86BA+d and sub_BD0A rewrites the fixed timer row to unk_BD8E positions $90,$98,$9D,$A5"
         );
     }
 
@@ -9713,13 +9713,13 @@ mod tests {
         trace.level_complete_elapsed_frames = EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE - 10;
         let scene = build_ingame_scene(&trace, false, None);
 
-        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x88 - 128, 0x90 - 128, 12)
+        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0x90 - 128, 12)
             .expect("minutes tile");
         let (_, seconds_tens, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x95 - 128, 0x90 - 128, 12)
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
                 .expect("seconds tens tile");
         let (_, seconds_ones, _) =
-            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
+            indexed_tile_at_with_sheet_len(&scene, 0xA5 - 128, 0x90 - 128, 12)
                 .expect("seconds ones tile");
 
         assert_eq!(
