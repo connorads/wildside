@@ -427,7 +427,7 @@ enum OptionsOrigin {
     Pause,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ScreenState {
     MainMenu {
         selected: usize,
@@ -589,10 +589,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
         });
     }
 
-    let mut screen = match &launch {
-        LaunchState::Ready { .. } => ScreenState::MainMenu { selected: 0 },
-        LaunchState::Error(_) => ScreenState::Error,
-    };
+    let mut screen = initial_screen(&launch);
     let mut last_frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
     'running: loop {
@@ -785,7 +782,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                             if let Some(runtime) = runtime.as_mut() {
                                 runtime.set_audio_levels(settings.audio_levels());
                             }
-                            screen = ScreenState::MainMenu { selected: 0 };
+                            screen = ScreenState::Playing;
                         }
                         PauseMenuAction::OpenOptions => {
                             screen = ScreenState::Options {
@@ -1538,6 +1535,16 @@ fn main_menu_action(selected: usize) -> MainMenuAction {
     }
 }
 
+fn initial_screen(launch: &LaunchState) -> ScreenState {
+    match launch {
+        // The ROM owns the Sega intro, title menu, and real options screen.
+        // Starting behind a separate shell menu lets the attract loop advance
+        // without controller input and desynchronises the first title/menu use.
+        LaunchState::Ready { .. } => ScreenState::Playing,
+        LaunchState::Error(_) => ScreenState::Error,
+    }
+}
+
 fn pause_menu_action(selected: usize) -> PauseMenuAction {
     match selected {
         0 => PauseMenuAction::Resume,
@@ -1664,9 +1671,12 @@ fn controller_buttons(controller: Option<&GameController>) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        BindingAction, DisplayScale, KeyboardBindings, MainMenuAction, PauseMenuAction,
-        PlayerSettings, PlayerSettingsFile, adjust_volume, main_menu_action, pause_menu_action,
+        BindingAction, DisplayScale, ErrorView, KeyboardBindings, LaunchState, MainMenuAction,
+        PauseMenuAction, PlayerSettings, PlayerSettingsFile, ScreenState, adjust_volume,
+        initial_screen, main_menu_action, pause_menu_action,
     };
+    use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
+    use std::path::PathBuf;
 
     #[test]
     fn keyboard_rebind_rejects_conflicts() {
@@ -1722,5 +1732,37 @@ mod tests {
         assert_eq!(main_menu_action(0), MainMenuAction::StartGame);
         assert_eq!(main_menu_action(1), MainMenuAction::OpenOptions);
         assert_eq!(main_menu_action(99), MainMenuAction::Quit);
+    }
+
+    #[test]
+    fn ready_launch_starts_inside_the_rom_not_the_shell_menu() {
+        let launch = LaunchState::Ready {
+            verified: VerifiedRom {
+                path: PathBuf::from("roms/kid.bin"),
+                size: 0x100000,
+                sha1: String::from("28b904000b2863b6760531807760b571f1a5fc1d"),
+                identity: RomIdentity::KnownKidChameleon,
+                header: RomHeader {
+                    console_name: String::from("SEGA MEGA DRIVE"),
+                    domestic_title: String::from("KID CHAMELEON"),
+                    overseas_title: String::from("KID CHAMELEON"),
+                    serial: String::from("GM 00000000-00"),
+                    regions: String::from("JUE"),
+                },
+            },
+            rom_bytes: vec![0; 0x100000],
+        };
+
+        assert_eq!(initial_screen(&launch), ScreenState::Playing);
+    }
+
+    #[test]
+    fn launch_errors_still_open_the_error_overlay() {
+        let launch = LaunchState::Error(ErrorView {
+            title: String::from("Missing ROM"),
+            lines: vec![String::from("roms/kid.bin not found")],
+        });
+
+        assert_eq!(initial_screen(&launch), ScreenState::Error);
     }
 }
