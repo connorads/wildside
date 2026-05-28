@@ -548,6 +548,16 @@ pub(super) fn select_player_frame<'a>(
     if on_ground {
         if x_velocity == 0 {
             &player_visuals.idle
+        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+            && (trace.berzerker_charging || trace.berzerker_charge_pose)
+            && !player_visuals.charge.is_empty()
+        {
+            // ASM loc_9564 writes off_9688 (`berzerker_run_*`) immediately
+            // after the charge accumulator carries. This explicit sprite
+            // mapping wins over the later generic slope-walk art selection.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
+            &player_visuals.charge[frame_index]
         } else if trace.kid_on_slope != 0 {
             // ASM loc_A13A / off_A190: slope animation table selection first
             // canonicalises x_direction through $FFFFFA26. SlopeUp keeps the
@@ -573,15 +583,6 @@ pub(super) fn select_player_frame<'a>(
                 (trace.frame_index / 4) % slope_frames.len()
             };
             &slope_frames[frame_index]
-        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-            && (trace.berzerker_charging || trace.berzerker_charge_pose)
-            && !player_visuals.charge.is_empty()
-        {
-            // ASM loc_9564 writes off_9688 (`berzerker_run_*`) before later
-            // wall/block collision can clear Berzerker_charging at loc_9326.
-            let frame_index =
-                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
-            &player_visuals.charge[frame_index]
         } else {
             let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {
                 // ASM loc_94B4/loc_97E8: Juggernaut indexes the
