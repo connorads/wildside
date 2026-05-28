@@ -7753,6 +7753,69 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_actual_ea24_column_fires_through_frame_loop() {
+        // ASM loc_806 -> sub_F096 runs after the main player/object loop, while
+        // loc_EAE4 -> loc_EC76 is driven by the level block worker pass. The
+        // normal native frame loop must still fire the first post-rhino
+        // Highwater Pass 1 `$EA24` touch shooter; a direct worker call can hide
+        // stale slice/order bugs.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = ((47 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((44 * 16 + 8) as u32) << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        rt.step_frame(FrameInput::default());
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity == -(4 << 16) && projectile.y_velocity == 0),
+            "ASM loc_EC76 should fire a leftward shot from Highwater Pass 1's `$EA24` column through the normal frame loop"
+        );
+    }
+
+    #[test]
+    fn highwater_pass_1_actual_ea1e_column_fires_through_frame_loop() {
+        // ASM loc_EAE4 -> loc_EB72 scans Kid's live hitbox over the level's
+        // first Highwater Pass 1 touch-shooter column. The `$EA1E` skin stores
+        // `skin - $1C == $02`, so loc_EC76 must fire right when Juggernaut
+        // brushes the column through the normal frame loop.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        rt.step_frame(FrameInput::default());
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity == 4 << 16 && projectile.y_velocity == 0),
+            "ASM loc_EC76 should fire a rightward shot from Highwater Pass 1's `$EA1E` column through the normal frame loop"
+        );
+    }
+
+    #[test]
     fn shooter_block_pruned_when_cell_no_longer_shooter() {
         // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
         let mut rt = NativeRuntime::new(manifest());
