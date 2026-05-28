@@ -1326,13 +1326,15 @@ fn eol_vdp_pixel_samples_debug_loc_c070(emulator: &mut GenesisEmulator) -> Strin
     const H_SCROLL_TABLE_BASE_LOC_C070: usize = 0x1400;
     const PLANE_WIDTH_CELLS: usize = 64;
     const PLANE_HEIGHT_CELLS: usize = 32;
-    const SAMPLES: [(usize, usize); 6] = [
+    const SAMPLES: [(usize, usize); 8] = [
         (69, 44),
         (77, 52),
         (110, 44),
         (125, 52),
         (292, 125),
         (294, 125),
+        (72, 133),
+        (109, 133),
     ];
 
     let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);

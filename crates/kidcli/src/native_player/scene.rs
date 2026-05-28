@@ -1313,6 +1313,7 @@ pub(crate) struct BackgroundPixelSample {
     pub(crate) palette_index: u8,
     pub(crate) source_x: u8,
     pub(crate) source_y: u8,
+    pub(crate) row_offset: Option<i32>,
     pub(crate) rgb: [u8; 3],
 }
 
@@ -1363,6 +1364,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
                             screen_y,
                             sample_x,
                             sample_y,
+                            None,
                             None,
                         ) {
                             sample = Some(hit);
@@ -1437,6 +1439,7 @@ fn sample_layered_background_tile_pixel(
             sample_x,
             sample_y,
             None,
+            None,
         );
     };
     if level_visuals.level.background_theme_id != 9 {
@@ -1448,6 +1451,7 @@ fn sample_layered_background_tile_pixel(
             screen_y,
             sample_x,
             sample_y,
+            None,
             None,
         );
     }
@@ -1469,6 +1473,7 @@ fn sample_layered_background_tile_pixel(
             sample_x,
             sample_y,
             Some(row as u8),
+            Some(offset),
         ) {
             return Some(sample);
         }
@@ -1485,6 +1490,7 @@ fn sample_background_tile_pixel(
     sample_x: i32,
     sample_y: i32,
     row_override: Option<u8>,
+    row_offset: Option<i32>,
 ) -> Option<BackgroundPixelSample> {
     if sample_x < screen_x || sample_x >= screen_x + 8 {
         return None;
@@ -1516,6 +1522,7 @@ fn sample_background_tile_pixel(
         palette_index,
         source_x: source_x as u8,
         source_y: source_y as u8,
+        row_offset,
         rgb,
     })
 }

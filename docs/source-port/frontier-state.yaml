@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Issue #175 lower Forest flag-touch mismatch is fixed by a plain Forest ripple phase offset",
+        "reason": "Rejected 2026-05-28. After adding row-offset native samples and extending `eol_vdp_pixel_samples_loc_c070` to the lower dominant pixels, the reduced `issue-175-eol-flag-touch-level12` bundle shows native applying row offsets `+4` at `y=125` and `+8` at `y=133`, while oracle Plane B H-scroll is `$160` at `y=125` and `$15B` at `y=133`. Plain `Time_Frames >> 2` phase offsets do not explain both rows: `+1` worsens `flag_touch` to MAE 1.8521438 / 1,802 changed pixels, `+2` only nudges it to 1.8497349 / 1,785, and `+3` worsens it to 1.8543806 / 1,811. Keep ASM `BackgroundScroll_ApplyForestWaterRipple loc_30598/loc_3060A` phase unchanged until the row base scroll or extracted-row wrapping mismatch is isolated."
+      },
+      {
         "name": "Recording `debug-slope-level1` is ready to reduce into an authoritative slope gameplay case",
         "reason": "Rejected 2026-05-28. Fresh verification shows the queued settled Level 00 slope recording is stale against current native state: `mise exec -- cargo run -q -p kidcli -- verify-recording --slug debug-slope-level1` fails at frame 0 with `native trace frame mismatch`. The existing 0..120 derived case is also blocked (`.cache/cases/debug-slope-level1/summary.md`; `.cache/cases/debug-slope-level1/verify.json`): `settled recording oracle bootstrap reached gameplay with a different initial state on Level 00 (entities native=1 oracle=1 first native=0D@00C78000,01100000 oracle=0D@00AA8000,01100000)`. Do not patch slope movement from this recording until it is refreshed or settled-recording oracle bootstrap can initialise the first dragon/object state equivalently."
       },
