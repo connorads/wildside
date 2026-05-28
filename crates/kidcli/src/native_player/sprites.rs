@@ -832,8 +832,7 @@ fn select_live_rock_tank_body_frame<'a>(
     // ASM Tank.asm `stru_3B270` and Tank_Shooting.asm `stru_3B4CA` animate
     // the body through only C7ED0/C7ED8/C7EE0. Native appends death frames
     // after those three entries, so live cycling must not include them.
-    let offset = object.layout_index.unwrap_or(0) * 3;
-    let phase = ((trace.frame_index + offset) / enemy_visuals.frame_duration.max(1)) % 3;
+    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
     Some(&enemy_visuals.frames[phase])
 }
 
@@ -1417,7 +1416,7 @@ fn rock_tank_turret_frame(
         0x0B => &ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6[..],
         _ => return None,
     };
-    let spec = scripted_tank_turret_frame(object, trace, specs)?;
+    let spec = scripted_tank_turret_frame(trace, specs)?;
     let tile_sheet = enemy_visuals.frames.first()?.tile_sheet.clone();
     Some(kid_render::SpriteFrame {
         origin_x: spec.origin_x,
@@ -1430,7 +1429,6 @@ fn rock_tank_turret_frame(
 }
 
 fn scripted_tank_turret_frame(
-    object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
     specs: &[TankTurretFrameSpec],
 ) -> Option<TankTurretFrameSpec> {
@@ -1438,10 +1436,7 @@ fn scripted_tank_turret_frame(
     if cycle_frames == 0 {
         return None;
     }
-    let phase_seed = trace
-        .frame_index
-        .wrapping_add(object.layout_index.unwrap_or(0).wrapping_mul(3));
-    let mut phase = phase_seed % cycle_frames;
+    let mut phase = trace.frame_index % cycle_frames;
     for spec in specs {
         if phase < spec.duration_frames {
             return Some(*spec);

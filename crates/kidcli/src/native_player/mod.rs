@@ -6607,6 +6607,49 @@ mod tests {
     }
 
     #[test]
+    fn live_rock_tank_animation_does_not_phase_shift_by_layout_index() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 3;
+        let visuals = sample_level_visuals();
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(1),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let family = visuals.enemies.families.get(&0x0A).expect("rock tank");
+
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, family, &object).tile_base_index,
+            0x02C,
+            "ASM Tank.asm loc_3B372 calls j_Init_Animation on stru_3B270 without any layout-index phase offset"
+        );
+
+        trace.frame_index = 53;
+        let mut commands = Vec::new();
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x0A);
+        assert_eq!(
+            sprite_tiles(&commands[1])[0].tile.tile_index,
+            0x020,
+            "ASM Tank.asm loc_3B372 initialises the child turret with stru_3B27E; layout index should not push the `$37`-tick idle frame into the mouth-open frame"
+        );
+    }
+
+    #[test]
     fn enemy_sprite_damage_flash_uses_white_palette() {
         let trace = sample_trace(GameMode::InGame);
         let visuals = sample_level_visuals();
