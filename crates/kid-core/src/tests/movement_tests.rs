@@ -7641,6 +7641,41 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_90C0 -> loc_90F6: the mounted Skycutter top-boundary branch is
+    /// reached only when the post-move head row is negative (`bmi`). A ceiling
+    /// hit exactly on row 0 is a normal ceiling hit, not a loc_9114 board bounce.
+    #[test]
+    fn loc_90f6_exact_top_row_ceiling_hit_does_not_trigger_skycutter_board_bounce() {
+        let w: u16 = 6;
+        let h: u16 = 4;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let idx = 3usize * 2;
+        data[idx] = 0x60;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = (PlayerForm::Skycutter.ceiling_probe_height() as u32) << 16;
+        slice.player.y_velocity = -0x0010_0000;
+
+        slice.apply_ceiling_collision_skycutter_on_board(
+            Some(&mut grid),
+            None,
+            PlayerForm::Skycutter,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_90F6: exact row-0 ceiling contact must not take the `bmi` top-boundary bounce",
+        );
+    }
+
     /// ASM loc_9114 (kid.asm:10524): after the mounted Skycutter top-boundary
     /// bounce, `$FFFFFA69` is set to 1 so the flipboard coroutine deploys.
     #[test]
@@ -7711,6 +7746,156 @@ mod chunk_11 {
         assert!(
             slice.rubber_block_hit.is_some(),
             "ASM loc_9130: rubber ceiling hit should record rubber_block_hit for jiggle"
+        );
+    }
+
+    /// ASM sub_914A caches the ceiling contact cell for the later
+    /// `sub_BBE2` block dispatch. Native additionally clears adjacent Smash
+    /// blocks hit by the same head span after a Prize block hit; keep that scan
+    /// on the actual top row and player edge columns only.
+    #[test]
+    fn sub_914a_prize_ceiling_clears_only_same_row_adjacent_smash_edge() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut set_cell = |col: u16, row: u16, hi: u8| {
+            let idx = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[idx] = hi;
+        };
+        set_cell(2, 2, 0xE1); // Prize: left edge hit and dispatched by sub_BBE2.
+        set_cell(3, 2, 0xE0); // Adjacent Smash: right edge should clear.
+        set_cell(0, 2, 0xE0); // Wrong left-column sentinel.
+        set_cell(3, 0, 0xE0); // Wrong `y / height` row sentinel.
+        set_cell(3, 3, 0xE0); // Wrong `% 16` row sentinel.
+        set_cell(3, 6, 0xE0); // Wrong `y + height` row sentinel.
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        // x=47 keeps sub_BBE2's player column at the Prize cell (2), while
+        // the right edge still reaches col 3. y=66 gives top_y=35: row 2 by
+        // division, but row 3 by `% 16`, so row arithmetic mutants are visible.
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 66 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0x6F, 0),
+            "ASM sub_1007A: Prize ceiling hit should leave its cell as temporary Solid/Deleted",
+        );
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0, 0),
+            "adjacent Smash on the other head edge should clear on the same frame",
+        );
+        for &(col, row) in &[(0, 2), (3, 0), (3, 3), (3, 6)] {
+            assert_eq!(
+                grid.cell_at(col, row),
+                terrain::Cell::from_be_bytes(0xE0, 0),
+                "off-edge/off-row Smash sentinel at ({col},{row}) must not be cleared",
+            );
+        }
+    }
+
+    /// ASM sub_914A returns the first ceiling contact in `$FFFFFB6C`; if
+    /// `sub_BBE2` dispatches a Prize block immediately to its right, the cached
+    /// first-contact cell still must not be cleared by native's adjacent-Smash
+    /// cleanup.
+    #[test]
+    fn sub_914a_prize_ceiling_keeps_cached_left_probe_smash_cell() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut set_cell = |col: u16, row: u16, hi: u8| {
+            let idx = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[idx] = hi;
+        };
+        set_cell(2, 2, 0xE0); // First sub_914A contact, cached in $FFFFFB6C.
+        set_cell(3, 2, 0xE1); // sub_BBE2 selects this Prize because Kid is in col 3.
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 66 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0xE0, 0),
+            "adjacent cleanup must skip the cached first-contact cell from sub_914A",
+        );
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0x6F, 0),
+            "sub_BBE2-selected Prize should still take the sub_1007A temporary Solid/Deleted state",
+        );
+    }
+
+    /// Native's same-frame adjacent cleanup is for Smash blocks only. Other
+    /// block types on the opposite head edge remain intact after a Prize ceiling hit.
+    #[test]
+    fn sub_914a_prize_ceiling_does_not_clear_adjacent_non_smash_block() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut set_cell = |col: u16, row: u16, hi: u8| {
+            let idx = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[idx] = hi;
+        };
+        set_cell(2, 2, 0xE1); // Prize: first edge hit and dispatched by sub_BBE2.
+        set_cell(3, 2, 0xE5); // Metal: Solid block, but not Smash.
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 66 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0x6F, 0),
+            "Prize block should still enter the temporary Solid/Deleted state",
+        );
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0xE5, 0),
+            "adjacent Solid non-Smash block must not be cleared",
         );
     }
 
