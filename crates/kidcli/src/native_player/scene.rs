@@ -388,6 +388,29 @@ pub(crate) fn build_scene(
     )
 }
 
+pub(crate) fn render_trace_with_loc_c070_latched_scroll_camera(
+    trace: &NativeTraceFrame,
+    previous_trace: Option<&NativeTraceFrame>,
+) -> NativeTraceFrame {
+    let mut render_trace = trace.clone();
+    if matches!(
+        render_trace.game_mode,
+        GameMode::InGame | GameMode::DemoPlay
+    ) && render_trace.level_complete
+        && render_trace.level_complete_elapsed_frames == 0
+        && let Some(previous_trace) = previous_trace
+    {
+        // ASM loc_C070 enters the flagpole hand-off after the frame's scroll
+        // transfer has already latched Camera_X_pos/Camera_Y_pos into VDP
+        // h/v-scroll state, so the first visible hand-off frame uses the
+        // previous scroll latch while gameplay state has already switched to
+        // LevelComplete.
+        render_trace.camera_x_pos = previous_trace.camera_x_pos;
+        render_trace.camera_y_pos = previous_trace.camera_y_pos;
+    }
+    render_trace
+}
+
 pub(crate) fn build_scene_filtered(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,

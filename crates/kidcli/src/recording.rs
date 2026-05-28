@@ -3,7 +3,8 @@ use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene,
-    build_scene_filtered, load_session_assets, render_scene, render_vdp_trace_overlay,
+    build_scene_filtered, load_session_assets, render_scene,
+    render_trace_with_loc_c070_latched_scroll_camera, render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -787,7 +788,8 @@ fn render_dynamic_checkpoint_frames(
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
             let checkpoint = checkpoints.next().expect("checkpoint should exist");
-            let mut render_trace = trace.clone();
+            let mut render_trace =
+                render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -943,7 +945,8 @@ fn write_dynamic_checkpoint_layer_frames(
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
             let checkpoint = checkpoints.next().expect("checkpoint should exist");
-            let mut render_trace = trace.clone();
+            let mut render_trace =
+                render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous_trace));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();

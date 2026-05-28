@@ -167,7 +167,10 @@ use scene::*;
 use sprites::*;
 
 pub(crate) use render::render_scene;
-pub(crate) use scene::{LayerFilter, build_scene, build_scene_filtered};
+pub(crate) use scene::{
+    LayerFilter, build_scene, build_scene_filtered,
+    render_trace_with_loc_c070_latched_scroll_camera,
+};
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
@@ -538,7 +541,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
-        let render_trace = if level_card_frames_remaining > 0 {
+        let base_render_trace = if level_card_frames_remaining > 0 {
             let mut overlay_trace = trace.clone();
             overlay_trace.game_mode = GameMode::LevelTransition;
             overlay_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -546,6 +549,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         } else {
             trace.clone()
         };
+        let render_trace =
+            render_trace_with_loc_c070_latched_scroll_camera(&base_render_trace, Some(&prev_trace));
 
         if let Some(vdp) = runtime.vdp_state() {
             // Non-gameplay mode with VDP state: render directly using the
@@ -5207,6 +5212,39 @@ mod tests {
                 )
             }),
             "later loc_C070/loc_C0CC hand-off frames should not keep repeating ordinary Scroll B before loc_C186 draws the EOL room"
+        );
+    }
+
+    #[test]
+    fn loc_c070_first_render_frame_uses_previous_scroll_latch() {
+        let mut previous = sample_trace(GameMode::InGame);
+        previous.camera_x_pos = 0x055D_0000;
+        previous.camera_y_pos = 0x0173_0000;
+        let mut trace = previous.clone();
+        trace.camera_x_pos = 0x0563_0000;
+        trace.camera_y_pos = 0x0171_0000;
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+
+        let render_trace =
+            render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous));
+
+        assert_eq!(
+            (render_trace.camera_x_pos, render_trace.camera_y_pos),
+            (previous.camera_x_pos, previous.camera_y_pos),
+            "ASM loc_C070 switches to LevelComplete after the frame's scroll transfer, so the first visible hand-off frame must keep the previous VDP scroll latch"
+        );
+
+        trace.level_complete_elapsed_frames = 1;
+        let later_render_trace =
+            render_trace_with_loc_c070_latched_scroll_camera(&trace, Some(&previous));
+        assert_eq!(
+            (
+                later_render_trace.camera_x_pos,
+                later_render_trace.camera_y_pos
+            ),
+            (trace.camera_x_pos, trace.camera_y_pos),
+            "only the first loc_C070 hand-off frame inherits the previous scroll latch"
         );
     }
 
