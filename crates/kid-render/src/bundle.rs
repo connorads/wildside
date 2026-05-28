@@ -3305,6 +3305,9 @@ fn forest_enemy_palette_with_borrowed_slots(
     // so the forest RAM remap (`loc_36E24`, `unk_36E54`/`unk_36E64`) must
     // borrow those background colours rather than the foreground line.
     palette.colours[9..16].copy_from_slice(&background_palette.colours[1..8]);
+    // ASM sub_129AE runs after enemy palettes are loaded and swaps palette
+    // line 1 slots 8 and 10 for forest backgrounds.
+    palette.colours.swap(8, 10);
     palette
 }
 
@@ -4320,14 +4323,13 @@ mod tests {
             "ASM Load_EnemyArtPaletteToVRAM copies the seven enemy colours into slots 1..7"
         );
         assert_eq!(
-            palette.colours[8],
-            MdColour::from_word(0),
-            "ASM Load_EnemyArtPaletteToVRAM clears first-enemy slot 8 before forest art remap"
+            palette.colours[8], background_palette.colours[2],
+            "ASM sub_129AE later swaps first-enemy slot 8 with slot 10 on forest backgrounds"
         );
         assert_eq!(
-            palette.colours[9..16],
-            background_palette.colours[1..8],
-            "ASM loc_11E16 fills palette-line 1 slots 9..15 from background palette words 1..7 before loc_36E24 remaps forest enemy pixels into those slots"
+            palette.colours[10],
+            MdColour::from_word(0),
+            "ASM Load_EnemyArtPaletteToVRAM clears first-enemy slot 8, then sub_129AE moves that black word to slot 10"
         );
     }
 
