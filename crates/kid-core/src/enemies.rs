@@ -13498,8 +13498,21 @@ pub(crate) fn enemy_should_remain_active(
             )
         }
         EnemyArchetype::Pacer
-            if matches!(enemy.family, EnemyFamily::DragonWalking | EnemyFamily::Lion) =>
+            if matches!(
+                enemy.family,
+                EnemyFamily::Armadillo
+                    | EnemyFamily::DragonWalking
+                    | EnemyFamily::Goat
+                    | EnemyFamily::Lion
+                    | EnemyFamily::Ninja
+                    | EnemyFamily::Orca
+                    | EnemyFamily::Scorpion
+            ) =>
         {
+            // ASM Armadillo.asm loc_3C930 and the analogous Goat/Scorpion/
+            // Orca/Ninja/Dragon/Lion shared-walker branches route through
+            // sub_3E8BA, which culls from the live object position rather
+            // than the layout anchor.
             large_pacer_should_remain_active(
                 enemy,
                 camera_x_px,

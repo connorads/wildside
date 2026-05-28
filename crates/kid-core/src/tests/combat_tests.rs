@@ -6691,6 +6691,67 @@ mod chunk_03 {
     }
 
     #[test]
+    fn armadillo_sub_3e8ba_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
+        // ASM Armadillo.asm loc_3C930 branches to loc_3E560/loc_3E3AC, whose
+        // shared walker loops hibernate then call sub_3E8BA. The cull uses the
+        // live object position, not the original layout anchor.
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x04,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 336,
+                y: 432,
+            }],
+            segments: vec![],
+        };
+        let enemy = ActiveEnemy {
+            x_pos: 0x020B_0000,
+            y_pos: 0x01C0_0000,
+            family: EnemyFamily::Armadillo,
+            on_ground: true,
+            hit_points: 1,
+            ..test_enemy(EnemyFamily::Armadillo, 0, 0, 1)
+        };
+        let camera = CameraState {
+            x_pos: 715u32 << 16,
+            y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+        };
+        let window = ActivationWindow::from_camera(camera);
+        let view = enemy_layout_view(&layout, 715, OPENING_GROUNDED_CAMERA_Y_FP >> 16);
+        let level_bounds = physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        };
+
+        assert!(
+            !window.contains(
+                u32::from(layout.objects[0].x),
+                u32::from(layout.objects[0].y),
+            ),
+            "spawn point should be outside the activation window"
+        );
+        assert!(
+            enemy_should_remain_active(
+                &enemy,
+                &view,
+                window,
+                715,
+                OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+                level_bounds,
+                11,
+            ),
+            "Armadillo should remain active while its live position stays inside sub_3E8BA's medium-load retention box"
+        );
+    }
+
+    #[test]
     fn shared_enemy_should_remain_active_sub_3c3ce_keeps_medium_load_enemy_inside_wide_box() {
         let retained = shared_enemy_should_remain_active_sub_3C3CE(
             0x020B_0000,
