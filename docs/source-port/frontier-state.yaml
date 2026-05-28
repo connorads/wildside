@@ -150,6 +150,14 @@
         "reason": "Rejected 2026-05-28. The oracle tail sprite roster at recording frame 199 can look like the CONTINUES/SCORE rows are ~15 loc_C5A2 ticks ahead of native's `level_complete_score_rows_elapsed_frames=8`, but changing `EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE` from `$3C` to `$2D` makes the authoritative recording worse: `cargo run -q -p kidcli -- verify-recording --slug issue-175-eol-flag-touch-level12` then drifts at trace frame 175 and the `eol_tail` frame MAE rises from ~1.25 to 2.67. Do not fix #175 by globally advancing the loc_D468 visible row clock; the remaining tail mismatch is more likely row coordinate/origin, stale VDP object retention, or synthetic score-room composition rather than a plain row-clock phase error."
       },
       {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` tail mismatch is fixed by starting the loc_D468 row-worker visible phase 6 frames earlier",
+        "reason": "Rejected 2026-05-28. Changing `EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE` from `$3C` to `$36` was tested after the stricter refreshed bundle showed `trace_match=true`, `oracle_state_match=true`, and frame MAE flag-touch 46.338, reveal 0.588, counter 0.035, tail 1.254. The `$36` constant makes the authoritative recording drift at trace frame 184 instead of preserving trace parity, so the row-worker delay is part of the native/oracle state contract rather than a renderer-only phase knob. Keep the ASM `$3C` delay unless a narrower oracle probe proves a separate VDP-visible phase."
+      },
+      {
+        "name": "Issue #175 `issue-175-eol-flag-touch-level12` tail mismatch is fixed by rendering loc_D468 rows 5 frames ahead while keeping state timing",
+        "reason": "Rejected 2026-05-28. A renderer-only `eol_score_row_render_elapsed_loc_d468` +5 lead made the tail rows look superficially closer by eye, but the strict verifier still failed and the `eol_tail` MAE worsened from 1.2537528 to about 1.267 while trace/state parity stayed unchanged. Do not add a visual-only global row lead; the residual pixels are more consistent with row-specific coordinate/origin, stale VDP object retention, or synthetic score-room composition than with a single loc_C5A2 clock offset."
+      },
+      {
         "name": "Recording `issue-title-card-colour` is ready to reduce into an authoritative gameplay case",
         "reason": "Rejected 2026-05-26. Fresh verification shows this title-card colour recording is stale against current native state: `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour` and `cargo run -p kidcli -- verify-recording --slug issue-title-card-colour --native-only` both fail with `recording replay drifted at frame 119 (native trace frame mismatch)`. The requested 0..120 case derives and fails (`cargo run -p kidcli -- case derive --recording-slug issue-title-card-colour --frame-start 0 --frame-end 120 --out .cache/cases/issue-title-card-colour`; `cargo run -p kidcli -- case verify --case issue-title-card-colour`), but `cargo run -p kidcli -- case reduce --case issue-title-card-colour` blocks with `source recording replay drifted at frame 119; re-verify or re-record issue-title-card-colour before treating this case as gameplay-authoritative`. Do not use this recording as a gameplay patch target until it is refreshed."
       },
@@ -438,7 +446,8 @@
     "138": 1,
     "139": 2,
     "140": 1,
-    "143": 1
+    "143": 1,
+    "175": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
