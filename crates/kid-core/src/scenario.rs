@@ -5,6 +5,7 @@ use super::*;
 // counting stable target frames. Native's direct `boot_to_level` shortcut skips
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
+const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 
 fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
@@ -90,6 +91,49 @@ impl NativeRuntime {
         self.refresh_active_roster();
         self.trace_frame()
     }
+
+    fn settle_target_level_live_window(&mut self, level_id: LevelId, target_live_frames: usize) {
+        let idle = FrameInput::default();
+        let mut stable_target_frames = 0usize;
+
+        for _ in 0..SETTLED_WARP_MAX_ATTEMPT_FRAMES {
+            if stable_target_frames >= target_live_frames {
+                break;
+            }
+            if is_live_unpaused_target_level(self, level_id) {
+                stable_target_frames += 1;
+                if stable_target_frames >= target_live_frames {
+                    break;
+                }
+            } else {
+                stable_target_frames = 0;
+            }
+            self.step_frame(idle);
+        }
+    }
+
+    pub fn settle_oracle_warp_live_window(&mut self, level_id: LevelId) {
+        let target_live_frames = if level_id.0 <= 1 {
+            ORACLE_SETTLED_WARP_LIVE_FRAMES
+        } else {
+            1
+        };
+        self.settle_target_level_live_window(level_id, target_live_frames);
+    }
+
+    pub fn settle_recording_oracle_warp_live_window(&mut self, level_id: LevelId) {
+        // ASM loc_1AE2E/loc_74E0 feed recording oracles through the helper's
+        // `_settled_recording_oracle` branch. Level 0 comes straight through
+        // the title-card gate and waits 60 stable live frames; Level 1 still
+        // reaches the ROM's level-skip resume tail that native `boot_to_level`
+        // shortcuts, so it shares the full-frame 108-frame compatibility age.
+        let target_live_frames = if level_id == LevelId(1) {
+            ORACLE_SETTLED_WARP_LIVE_FRAMES
+        } else {
+            RECORDING_SETTLED_WARP_LIVE_FRAMES
+        };
+        self.settle_target_level_live_window(level_id, target_live_frames);
+    }
 }
 
 /// Builder for running scripted scenarios with configurable options.
@@ -145,29 +189,10 @@ impl ScriptRunner {
             runtime.set_trace_physics(true);
         }
         if let Some(level_id) = self.warp_to_level {
-            runtime.boot_to_level(LevelId(level_id));
+            let level_id = LevelId(level_id);
+            runtime.boot_to_level(level_id);
             if self.settle_warp {
-                let idle = FrameInput::default();
-                let mut stable_target_frames = 0usize;
-                let target_live_frames = if level_id <= 1 {
-                    ORACLE_SETTLED_WARP_LIVE_FRAMES
-                } else {
-                    1
-                };
-                for _ in 0..SETTLED_WARP_MAX_ATTEMPT_FRAMES {
-                    if stable_target_frames >= target_live_frames {
-                        break;
-                    }
-                    if is_live_unpaused_target_level(&runtime, LevelId(level_id)) {
-                        stable_target_frames += 1;
-                        if stable_target_frames >= target_live_frames {
-                            break;
-                        }
-                    } else {
-                        stable_target_frames = 0;
-                    }
-                    runtime.step_frame(idle);
-                }
+                runtime.settle_oracle_warp_live_window(level_id);
             }
         }
         let mut trace = Vec::with_capacity(frame_count);

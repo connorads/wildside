@@ -347,22 +347,7 @@ pub(crate) fn run_recorded_trace(
     start: RecordingStart,
     scenario: &DynamicScenario,
 ) -> Result<Vec<NativeTraceFrame>> {
-    let initial_level_id = start.warp_level.unwrap_or(0x00);
-    let (_, block_grid) = load_session_assets(manifest, initial_level_id)?;
-    let mut runtime = NativeRuntime::new(manifest.clone());
-    runtime.set_block_grid(block_grid);
-    if let Some(level_id) = start.warp_level {
-        if start.settled {
-            runtime.enter_level_playtest(LevelId(level_id));
-        } else {
-            runtime.warp_to_level(LevelId(level_id));
-        }
-    } else if start.settled {
-        runtime.enter_level_playtest(LevelId(0));
-    }
-    if let Some(position) = scenario.start_position {
-        runtime.set_player_probe_position(position.x, position.y);
-    }
+    let (mut runtime, _) = initialise_recording_runtime(manifest, start, scenario)?;
 
     let mut trace = runtime.trace_frame();
     let mut current_level_id = trace.current_level.0;
@@ -411,6 +396,42 @@ pub(crate) fn run_recorded_trace(
     }
 
     Ok(replay)
+}
+
+fn initialise_recording_runtime(
+    manifest: &AssetManifest,
+    start: RecordingStart,
+    scenario: &DynamicScenario,
+) -> Result<(NativeRuntime, NativeLevelVisuals)> {
+    let initial_level_id = start.warp_level.unwrap_or(0x00);
+    let mut runtime = if start.settled && start.warp_level.is_some() {
+        NativeRuntime::with_generated_level_layout(manifest.clone())
+    } else {
+        let (_, block_grid) = load_session_assets(manifest, initial_level_id)?;
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        runtime.set_block_grid(block_grid);
+        runtime
+    };
+
+    if let Some(level_id) = start.warp_level {
+        let level_id = LevelId(level_id);
+        if start.settled {
+            runtime.boot_to_level(level_id);
+            runtime.settle_recording_oracle_warp_live_window(level_id);
+        } else {
+            runtime.warp_to_level(level_id);
+        }
+    } else if start.settled {
+        runtime.enter_level_playtest(LevelId(0));
+    }
+
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+
+    let current_level_id = runtime.trace_frame().current_level.0;
+    let (level_visuals, _) = load_session_assets(manifest, current_level_id)?;
+    Ok((runtime, level_visuals))
 }
 
 pub(crate) fn verify_recording(
@@ -729,22 +750,8 @@ fn render_dynamic_checkpoint_frames(
     scenario: &DynamicScenario,
     visual_frame_offset: usize,
 ) -> Result<Vec<RenderedFrame>> {
-    let initial_level_id = start.warp_level.unwrap_or(0x00);
-    let (mut level_visuals, block_grid) = load_session_assets(manifest, initial_level_id)?;
-    let mut runtime = NativeRuntime::new(manifest.clone());
-    runtime.set_block_grid(block_grid);
-    if let Some(level_id) = start.warp_level {
-        if start.settled {
-            runtime.enter_level_playtest(LevelId(level_id));
-        } else {
-            runtime.warp_to_level(LevelId(level_id));
-        }
-    } else if start.settled {
-        runtime.enter_level_playtest(LevelId(0));
-    }
-    if let Some(position) = scenario.start_position {
-        runtime.set_player_probe_position(position.x, position.y);
-    }
+    let (mut runtime, mut level_visuals) =
+        initialise_recording_runtime(manifest, *start, scenario)?;
 
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
@@ -887,22 +894,8 @@ fn write_dynamic_checkpoint_layer_frames(
         "hud",
     ];
 
-    let initial_level_id = start.warp_level.unwrap_or(0x00);
-    let (mut level_visuals, block_grid) = load_session_assets(manifest, initial_level_id)?;
-    let mut runtime = NativeRuntime::new(manifest.clone());
-    runtime.set_block_grid(block_grid);
-    if let Some(level_id) = start.warp_level {
-        if start.settled {
-            runtime.enter_level_playtest(LevelId(level_id));
-        } else {
-            runtime.warp_to_level(LevelId(level_id));
-        }
-    } else if start.settled {
-        runtime.enter_level_playtest(LevelId(0));
-    }
-    if let Some(position) = scenario.start_position {
-        runtime.set_player_probe_position(position.x, position.y);
-    }
+    let (mut runtime, mut level_visuals) =
+        initialise_recording_runtime(manifest, *start, scenario)?;
 
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();

@@ -5578,6 +5578,58 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_level_zero_uses_title_card_live_window() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0));
+
+        let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        let first_dragon = first_recorded_frame
+            .active_objects
+            .into_iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0D }
+                    && object.layout_index == Some(2)
+            })
+            .expect("Level 0x00 settled recording should expose the opening dragon");
+        assert_eq!(
+            first_dragon.x_pos, 0x00AA_8000,
+            "ASM loc_1AE2E recording oracle bootstrap waits 60 stable live frames for Level 0; using the 108-frame full-frame sweep age over-advances the opening dragon",
+        );
+    }
+
+    #[test]
+    fn settled_recording_warp_level_one_keeps_level_skip_resume_tail_age() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(1));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(1));
+
+        let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        let first_tank_body = first_recorded_frame
+            .active_objects
+            .into_iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00E0_0000
+            })
+            .expect("Level 0x01 settled recording should expose the first RockTank body");
+        assert_eq!(
+            first_tank_body.x_pos, 0x00A4_0000,
+            "ASM loc_74E0 level-skip resume has a live title-card tail that native `boot_to_level` shortcuts; Level 1 settled recordings need the same 108-frame age as full-frame sweeps",
+        );
+        assert_eq!(first_tank_body.facing, Some(Direction::Right));
+    }
+
+    #[test]
     fn settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300() {
         let manifest_path = repo_root()
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
