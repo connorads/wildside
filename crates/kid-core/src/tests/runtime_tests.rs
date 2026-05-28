@@ -7816,6 +7816,58 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_berzerker_charge_pose_fires_ea1e_through_frame_loop() {
+        // ASM loc_9564 writes Berzerker's head-forward hitbox before the later
+        // loc_EAE4 evanescent scan runs. This is the live Highwater Pass 1
+        // route from the playtest: charge into the first `$EA1E` touch-shooter
+        // column and it must spawn the rightward shooter object.
+        let mut rt = cached_generated_runtime();
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charge_accum = 0xF0;
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        rt.step_frame(FrameInput::default());
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.x_velocity == 4 << 16 && projectile.y_velocity == 0),
+            "ASM loc_9564 -> loc_EAE4 -> loc_EC76 should fire a rightward shot from Highwater Pass 1's `$EA1E` column through the normal frame loop"
+        );
+
+        let barrier = rt.block_grid.as_ref().unwrap().cell_at(15, 97);
+        assert!(
+            barrier.has_block
+                && barrier.collision == terrain::CollisionKind::Solid
+                && barrier.block_type == terrain::BlockType::Ice
+                && barrier.skin == 0x03,
+            "Highwater Pass 1's first `$EA1E` rightward shot should initially face the ice barrier in the next layout column"
+        );
+
+        for _ in 0..13 {
+            rt.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            rt.block_grid.as_ref().unwrap().cell_at(15, 97),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM loc_EE2A -> loc_F00A should let the first `$EA1E` shot clear Highwater Pass 1's ice barrier through the normal frame loop"
+        );
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
         // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater
