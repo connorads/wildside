@@ -1322,6 +1322,10 @@ extraction for the spinning animation frames.
 ### 020 — Water shimmer (DONE)
 Real ASM ripple table from `BackgroundScroll_ForestWaterRippleData` (kid.asm:34310).
 64-byte signed lookup, max 8px amplitude, phase = `Time_Frames >> 2 & 0x3F`.
+2026-05-28 playtest note: Level 3 / Highwater Pass uses background theme 7
+(mountain). ASM `loc_30598` gates ripple only to Forest and Desert before
+returning, so do not reuse this forest-water fix for the Highwater waterfall
+report without separate ASM/oracle evidence.
 
 ### 021 — Sound Test (FIXED)
 Options menu cursor==1 now enters Sound Test screen. Left/Right ±1, Up/Down ±16,
