@@ -77,6 +77,27 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
                 palette,
                 *row,
             ),
+            DrawCommand::IndexedTileSlice {
+                x,
+                y,
+                tile_sheet,
+                tile,
+                palette,
+                row,
+                start_column,
+                width,
+            } => draw_indexed_tile_slice(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                tile_sheet,
+                *tile,
+                palette,
+                *row,
+                *start_column,
+                *width,
+            ),
             DrawCommand::Sprite {
                 x,
                 y,
@@ -94,6 +115,375 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
             ),
         }
     }
+}
+
+pub(crate) fn sample_scene_pixel_provenance(
+    scene: &Scene,
+    pixels: &BTreeSet<(usize, usize)>,
+) -> Vec<FinalScenePixelDiagnostic> {
+    let mut diagnostics = pixels
+        .iter()
+        .map(|(x, y)| FinalScenePixelDiagnostic {
+            x: *x,
+            y: *y,
+            final_rgb: scene.background,
+            final_high_priority: false,
+            writes: Vec::new(),
+        })
+        .collect::<Vec<_>>();
+
+    for (command_index, command) in scene.commands.iter().enumerate() {
+        for diagnostic in &mut diagnostics {
+            let x = i32::try_from(diagnostic.x).expect("screen x fits i32");
+            let y = i32::try_from(diagnostic.y).expect("screen y fits i32");
+            let Some(mut write) = command_pixel_write(command_index, command, x, y) else {
+                continue;
+            };
+            write.prior_high_priority = diagnostic.final_high_priority;
+            write.accepted =
+                !matches!(write.priority, Some(false) if diagnostic.final_high_priority);
+            if write.accepted {
+                if let Some(rgb) = write.rgb {
+                    diagnostic.final_rgb = rgb;
+                    diagnostic.final_high_priority = matches!(write.priority, Some(true));
+                } else {
+                    diagnostic.final_high_priority = false;
+                }
+            }
+            diagnostic.writes.push(write);
+        }
+    }
+
+    diagnostics
+}
+
+fn command_pixel_write(
+    command_index: usize,
+    command: &DrawCommand,
+    x: i32,
+    y: i32,
+) -> Option<FinalScenePixelWrite> {
+    match command {
+        DrawCommand::Rect {
+            x: cx,
+            y: cy,
+            width,
+            height,
+            colour,
+        } => rect_contains(*cx, *cy, *width, *height, x, y).then(|| FinalScenePixelWrite {
+            command_index,
+            kind: "rect".to_owned(),
+            origin_x: Some(*cx),
+            origin_y: Some(*cy),
+            width: Some(*width),
+            height: Some(*height),
+            tile_index: None,
+            palette_line: None,
+            palette_index: None,
+            source_x: None,
+            source_y: None,
+            rgb: Some(*colour),
+            priority: None,
+            prior_high_priority: false,
+            accepted: false,
+        }),
+        DrawCommand::ClearPriorityRect {
+            x: cx,
+            y: cy,
+            width,
+            height,
+        } => rect_contains(*cx, *cy, *width, *height, x, y).then(|| FinalScenePixelWrite {
+            command_index,
+            kind: "clear_priority_rect".to_owned(),
+            origin_x: Some(*cx),
+            origin_y: Some(*cy),
+            width: Some(*width),
+            height: Some(*height),
+            tile_index: None,
+            palette_line: None,
+            palette_index: None,
+            source_x: None,
+            source_y: None,
+            rgb: None,
+            priority: None,
+            prior_high_priority: false,
+            accepted: false,
+        }),
+        DrawCommand::Text {
+            x: cx,
+            y: cy,
+            text,
+            colour,
+            scale,
+        } => text_pixel_visible(*cx, *cy, text, *scale, x, y).map(|(source_x, source_y)| {
+            FinalScenePixelWrite {
+                command_index,
+                kind: "text".to_owned(),
+                origin_x: Some(*cx),
+                origin_y: Some(*cy),
+                width: Some(i32::try_from(text.len()).expect("text length fits i32") * 8 * *scale),
+                height: Some(8 * *scale),
+                tile_index: None,
+                palette_line: None,
+                palette_index: None,
+                source_x: Some(source_x),
+                source_y: Some(source_y),
+                rgb: Some(*colour),
+                priority: None,
+                prior_high_priority: false,
+                accepted: false,
+            }
+        }),
+        DrawCommand::IndexedTile {
+            x: cx,
+            y: cy,
+            tile_sheet,
+            tile,
+            palette,
+        } => indexed_tile_pixel_write(
+            command_index,
+            "indexed_tile",
+            *cx,
+            *cy,
+            tile_sheet,
+            *tile,
+            palette,
+            x,
+            y,
+        ),
+        DrawCommand::IndexedTileRow {
+            x: cx,
+            y: cy,
+            tile_sheet,
+            tile,
+            palette,
+            row,
+        } => indexed_tile_row_pixel_write(
+            command_index,
+            *cx,
+            *cy,
+            tile_sheet,
+            *tile,
+            palette,
+            *row,
+            x,
+            y,
+        ),
+        DrawCommand::IndexedTileSlice {
+            x: cx,
+            y: cy,
+            tile_sheet,
+            tile,
+            palette,
+            row,
+            start_column,
+            width,
+        } => indexed_tile_slice_pixel_write(
+            command_index,
+            *cx,
+            *cy,
+            tile_sheet,
+            *tile,
+            palette,
+            *row,
+            *start_column,
+            *width,
+            x,
+            y,
+        ),
+        DrawCommand::Sprite {
+            x: cx,
+            y: cy,
+            tile_sheet,
+            palette,
+            tiles,
+        } => tiles.iter().find_map(|sprite_tile| {
+            indexed_tile_pixel_write(
+                command_index,
+                "sprite_tile",
+                *cx + sprite_tile.offset_x,
+                *cy + sprite_tile.offset_y,
+                tile_sheet,
+                sprite_tile.tile,
+                palette,
+                x,
+                y,
+            )
+        }),
+    }
+}
+
+fn rect_contains(cx: i32, cy: i32, width: i32, height: i32, x: i32, y: i32) -> bool {
+    cx <= x && x < cx + width && cy <= y && y < cy + height
+}
+
+fn text_pixel_visible(
+    x: i32,
+    y: i32,
+    text: &str,
+    scale: i32,
+    pixel_x: i32,
+    pixel_y: i32,
+) -> Option<(u8, u8)> {
+    if scale <= 0 {
+        return None;
+    }
+    let mut cursor_x = x;
+    let mut cursor_y = y;
+    for ch in text.chars() {
+        if ch == '\n' {
+            cursor_x = x;
+            cursor_y += 10 * scale;
+            continue;
+        }
+        if rect_contains(cursor_x, cursor_y, 8 * scale, 8 * scale, pixel_x, pixel_y) {
+            let source_x = (pixel_x - cursor_x) / scale;
+            let source_y = (pixel_y - cursor_y) / scale;
+            let bitmap = BASIC_FONTS.get(ch)?;
+            let bits = bitmap[usize::try_from(source_y).expect("source y fits usize")];
+            if bits & (1 << source_x) != 0 {
+                return Some((
+                    u8::try_from(source_x).expect("source x fits u8"),
+                    u8::try_from(source_y).expect("source y fits u8"),
+                ));
+            }
+        }
+        cursor_x += 8 * scale;
+    }
+    None
+}
+
+fn indexed_tile_pixel_write(
+    command_index: usize,
+    kind: &str,
+    tile_x: i32,
+    tile_y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    pixel_x: i32,
+    pixel_y: i32,
+) -> Option<FinalScenePixelWrite> {
+    if !rect_contains(tile_x, tile_y, 8, 8, pixel_x, pixel_y) {
+        return None;
+    }
+    let dest_x = usize::try_from(pixel_x - tile_x).expect("tile local x fits usize");
+    let dest_y = usize::try_from(pixel_y - tile_y).expect("tile local y fits usize");
+    let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+    indexed_tile_source_pixel_write(
+        command_index,
+        kind,
+        tile_x,
+        tile_y,
+        tile_sheet,
+        tile_ref,
+        palette,
+        source_x,
+        source_y,
+    )
+}
+
+fn indexed_tile_row_pixel_write(
+    command_index: usize,
+    tile_x: i32,
+    tile_y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    row: u8,
+    pixel_x: i32,
+    pixel_y: i32,
+) -> Option<FinalScenePixelWrite> {
+    if tile_y != pixel_y || !(tile_x..tile_x + 8).contains(&pixel_x) {
+        return None;
+    }
+    let dest_x = usize::try_from(pixel_x - tile_x).expect("tile local x fits usize");
+    let dest_y = usize::from(row.min(7));
+    let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+    indexed_tile_source_pixel_write(
+        command_index,
+        "indexed_tile_row",
+        tile_x,
+        tile_y,
+        tile_sheet,
+        tile_ref,
+        palette,
+        source_x,
+        source_y,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn indexed_tile_slice_pixel_write(
+    command_index: usize,
+    tile_x: i32,
+    tile_y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    row: u8,
+    start_column: u8,
+    width: u8,
+    pixel_x: i32,
+    pixel_y: i32,
+) -> Option<FinalScenePixelWrite> {
+    let start_column = start_column.min(7);
+    let end_column = start_column.saturating_add(width).min(8);
+    let start_x = tile_x + i32::from(start_column);
+    let end_x = tile_x + i32::from(end_column);
+    if tile_y + i32::from(row.min(7)) != pixel_y || !(start_x..end_x).contains(&pixel_x) {
+        return None;
+    }
+    let dest_x = usize::try_from(pixel_x - tile_x).expect("tile local x fits usize");
+    let dest_y = usize::from(row.min(7));
+    let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+    indexed_tile_source_pixel_write(
+        command_index,
+        "indexed_tile_slice",
+        tile_x,
+        tile_y,
+        tile_sheet,
+        tile_ref,
+        palette,
+        source_x,
+        source_y,
+    )
+}
+
+fn indexed_tile_source_pixel_write(
+    command_index: usize,
+    kind: &str,
+    tile_x: i32,
+    tile_y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    source_x: usize,
+    source_y: usize,
+) -> Option<FinalScenePixelWrite> {
+    let tile = tile_sheet.tiles.get(usize::from(tile_ref.tile_index))?;
+    let palette_index = tile.pixels[source_y * 8 + source_x];
+    let colour = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)?;
+    Some(FinalScenePixelWrite {
+        command_index,
+        kind: kind.to_owned(),
+        origin_x: Some(tile_x),
+        origin_y: Some(tile_y),
+        width: Some(8),
+        height: Some(8),
+        tile_index: Some(tile_ref.tile_index),
+        palette_line: Some(tile_ref.palette_line),
+        palette_index: Some(palette_index),
+        source_x: Some(u8::try_from(source_x).expect("source x fits u8")),
+        source_y: Some(u8::try_from(source_y).expect("source y fits u8")),
+        rgb: Some(colour),
+        priority: Some(tile_ref.priority),
+        prior_high_priority: false,
+        accepted: false,
+    })
 }
 
 pub(super) fn clear_frame(rgb: &mut [u8], colour: [u8; 3]) {
@@ -299,6 +689,46 @@ pub(super) fn draw_indexed_tile_row(
             high_priority_pixels,
             x + dest_x as i32,
             y,
+            colour,
+            Some(tile_ref.priority),
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn draw_indexed_tile_slice(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+    row: u8,
+    start_column: u8,
+    width: u8,
+) {
+    let Some(tile) = tile_sheet.tiles.get(usize::from(tile_ref.tile_index)) else {
+        return;
+    };
+    let dest_y = usize::from(row.min(7));
+    let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+    let start_column = start_column.min(7);
+    let end_column = start_column.saturating_add(width).min(8);
+
+    for dest_x in start_column..end_column {
+        let dest_x = usize::from(dest_x);
+        let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+        let palette_index = tile.pixels[source_y * 8 + source_x];
+        let Some(colour) = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)
+        else {
+            continue;
+        };
+        set_pixel(
+            rgb,
+            high_priority_pixels,
+            x + dest_x as i32,
+            y + dest_y as i32,
             colour,
             Some(tile_ref.priority),
         );

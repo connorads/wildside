@@ -2844,13 +2844,18 @@ fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>, level_visuals: &Nativ
     });
 }
 
-fn push_eol_hologram_tile(
+#[allow(clippy::too_many_arguments)]
+fn push_eol_hologram_tile_clipped(
     commands: &mut Vec<DrawCommand>,
     hologram: &kid_render::EolHologramVisuals,
-    x: i32,
-    y: i32,
+    tile_x: i32,
+    tile_y: i32,
     tile_col: usize,
     tile_row: usize,
+    clip_x: i32,
+    clip_y: i32,
+    clip_width: i32,
+    clip_height: i32,
     tile_sheet: &Arc<TileSheet>,
     palette: &Arc<Palette>,
 ) {
@@ -2860,13 +2865,28 @@ fn push_eol_hologram_tile(
     let Some(tile) = row.get(tile_col).copied() else {
         return;
     };
-    commands.push(DrawCommand::IndexedTile {
-        x,
-        y,
-        tile_sheet: Arc::clone(tile_sheet),
-        tile,
-        palette: Arc::clone(palette),
-    });
+    let clipped_left = tile_x.max(clip_x);
+    let clipped_top = tile_y.max(clip_y);
+    let clipped_right = (tile_x + 8).min(clip_x + clip_width);
+    let clipped_bottom = (tile_y + 8).min(clip_y + clip_height);
+    if clipped_left >= clipped_right || clipped_top >= clipped_bottom {
+        return;
+    }
+
+    let start_column = u8::try_from(clipped_left - tile_x).expect("clipped column fits");
+    let width = u8::try_from(clipped_right - clipped_left).expect("clipped width fits");
+    for screen_y in clipped_top..clipped_bottom {
+        commands.push(DrawCommand::IndexedTileSlice {
+            x: tile_x,
+            y: tile_y,
+            tile_sheet: Arc::clone(tile_sheet),
+            tile,
+            palette: Arc::clone(palette),
+            row: u8::try_from(screen_y - tile_y).expect("clipped row fits"),
+            start_column,
+            width,
+        });
+    }
 }
 
 fn push_eol_hologram_tiles_for_screen_rect(
@@ -2893,13 +2913,21 @@ fn push_eol_hologram_tiles_for_screen_rect(
 
     for tile_row in start_row..=end_row {
         for tile_col in start_col..=end_col {
-            push_eol_hologram_tile(
+            // ASM loc_C21E/sub_C254 updates a clipped 16x16 Scroll A cell. The
+            // Scroll B hologram stays on whole screen tiles underneath, but the
+            // redraw must be clipped back to that foreground cell; otherwise
+            // sub-tile-aligned cells leak a row/column into unrevealed Plane A.
+            push_eol_hologram_tile_clipped(
                 commands,
                 hologram,
                 tile_col * 8,
                 tile_row * 8,
                 usize::try_from(tile_col).expect("screen tile column fits"),
                 usize::try_from(tile_row).expect("screen tile row fits"),
+                x,
+                y,
+                width,
+                height,
                 tile_sheet,
                 palette,
             );

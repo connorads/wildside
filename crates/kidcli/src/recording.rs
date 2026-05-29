@@ -2,11 +2,11 @@ use super::*;
 use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
-    BackgroundPixelSample, LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH,
-    NativeEolScoreSpriteDiagnostic, NativePlayOptions, build_scene, build_scene_filtered,
-    eol_score_sprite_diagnostics, load_session_assets, render_scene, render_scene_overlay,
-    render_trace_with_loc_c070_latched_sprite_state, render_vdp_trace_overlay,
-    sample_background_pixel_loc_c070,
+    BackgroundPixelSample, FinalScenePixelDiagnostic, LayerFilter, NATIVE_FRAME_HEIGHT,
+    NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions, build_scene,
+    build_scene_filtered, eol_score_sprite_diagnostics, load_session_assets, render_scene,
+    render_scene_overlay, render_trace_with_loc_c070_latched_sprite_state,
+    render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
 use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -135,6 +135,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
     #[serde(default)]
     pub(crate) native_layer_samples: Vec<NativeLayerPixelDiagnostic>,
+    #[serde(default)]
+    pub(crate) native_final_scene_samples: Vec<FinalScenePixelDiagnostic>,
     #[serde(default)]
     pub(crate) native_eol_score_sprites: Vec<NativeEolScoreSpriteDiagnostic>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1200,6 +1202,10 @@ fn attach_native_pixel_samples(
         (usize, String),
         Vec<NativeLayerPixelDiagnostic>,
     > = BTreeMap::new();
+    let mut final_scene_samples_by_checkpoint: BTreeMap<
+        (usize, String),
+        Vec<FinalScenePixelDiagnostic>,
+    > = BTreeMap::new();
     let mut eol_sprites_by_checkpoint: BTreeMap<
         (usize, String),
         Vec<NativeEolScoreSpriteDiagnostic>,
@@ -1284,6 +1290,13 @@ fn attach_native_pixel_samples(
                     runtime.block_grid(),
                     pixels,
                 );
+                let scene = build_scene(
+                    &render_trace,
+                    false,
+                    Some(&level_visuals),
+                    runtime.block_grid(),
+                );
+                let final_scene_samples = sample_scene_pixel_provenance(&scene, pixels);
                 let eol_sprites = eol_score_sprite_diagnostics(
                     &render_trace,
                     &level_visuals,
@@ -1291,6 +1304,7 @@ fn attach_native_pixel_samples(
                 );
                 background_samples_by_checkpoint.insert(key.clone(), background_samples);
                 layer_samples_by_checkpoint.insert(key.clone(), layer_samples);
+                final_scene_samples_by_checkpoint.insert(key.clone(), final_scene_samples);
                 eol_sprites_by_checkpoint.insert(key, eol_sprites);
             }
         }
@@ -1305,6 +1319,9 @@ fn attach_native_pixel_samples(
             .remove(&key)
             .unwrap_or_default();
         diff.native_layer_samples = layer_samples_by_checkpoint.remove(&key).unwrap_or_default();
+        diff.native_final_scene_samples = final_scene_samples_by_checkpoint
+            .remove(&key)
+            .unwrap_or_default();
         diff.native_eol_score_sprites = eol_sprites_by_checkpoint.remove(&key).unwrap_or_default();
     }
 
@@ -1420,6 +1437,7 @@ fn compare_recording_frames(
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
             native_background_samples: Vec::new(),
             native_layer_samples: Vec::new(),
+            native_final_scene_samples: Vec::new(),
             native_eol_score_sprites: Vec::new(),
             oracle_gameplay_debug_fields: BTreeMap::new(),
             diff_path,

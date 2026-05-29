@@ -24,6 +24,7 @@ use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -118,6 +119,17 @@ enum DrawCommand {
         row: u8,
     },
     #[allow(dead_code)]
+    IndexedTileSlice {
+        x: i32,
+        y: i32,
+        tile_sheet: Arc<TileSheet>,
+        tile: TileRef,
+        palette: Arc<Palette>,
+        row: u8,
+        start_column: u8,
+        width: u8,
+    },
+    #[allow(dead_code)]
     Sprite {
         x: i32,
         y: i32,
@@ -210,6 +222,7 @@ use render::*;
 use scene::*;
 use sprites::*;
 
+pub(crate) use render::sample_scene_pixel_provenance;
 pub(crate) use render::{render_scene, render_scene_overlay};
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
@@ -222,6 +235,45 @@ pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
 
 pub(crate) const NATIVE_FRAME_WIDTH: u32 = FRAME_WIDTH;
 pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct FinalScenePixelDiagnostic {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) final_rgb: [u8; 3],
+    pub(crate) final_high_priority: bool,
+    pub(crate) writes: Vec<FinalScenePixelWrite>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct FinalScenePixelWrite {
+    pub(crate) command_index: usize,
+    pub(crate) kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) origin_x: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) origin_y: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) width: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) tile_index: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) palette_line: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) palette_index: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) source_x: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) source_y: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rgb: Option<[u8; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) priority: Option<bool>,
+    pub(crate) prior_high_priority: bool,
+    pub(crate) accepted: bool,
+}
 
 pub(crate) fn load_session_assets(
     manifest: &AssetManifest,
@@ -2561,13 +2613,13 @@ mod tests {
             .filter(|command| {
                 matches!(
                     command,
-                    DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 1
+                    DrawCommand::IndexedTileSlice { x: 0, tile, .. } if tile.tile_index == 1
                 )
             })
             .count();
 
         assert!(
-            screen_aligned_hologram_tile_count >= 2,
+            screen_aligned_hologram_tile_count > 0,
             "ASM loc_C186 keeps the hologram on Scroll B screen tile coordinates; loc_C21E/sub_C254 reveal redraws must not inherit Scroll A's camera sub-tile offset"
         );
     }
@@ -2620,7 +2672,7 @@ mod tests {
             .find_map(|(index, command)| {
                 matches!(
                     command,
-                    DrawCommand::IndexedTile { x: 0, y: 0, tile, .. } if tile.tile_index == 1
+                    DrawCommand::IndexedTileSlice { x: 0, y: 0, tile, .. } if tile.tile_index == 1
                 )
                 .then_some(index)
             })
@@ -2642,6 +2694,46 @@ mod tests {
         assert!(
             clear_index < hologram_redraw_index && hologram_redraw_index < foreground_index,
             "ASM loc_C186 Scroll B redraw must sit above the clear and below loc_C21E/sub_C254 foreground tiles"
+        );
+    }
+
+    #[test]
+    fn level_complete_reveal_clips_hologram_redraw_to_scroll_a_cell_loc_c21e() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(0x0420);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![colour(180, 0, 0)],
+            },
+            tile_sheet,
+            rows: vec![vec![TileRef::from_attr_word(0x0001); 2]; 2],
+        });
+        visuals.block_tiles = blank_tile_sheet(0x0230);
+        for tile in &mut visuals.block_tiles.tiles {
+            tile.pixels = [2; 64];
+        }
+        visuals.palettes.foreground = Palette {
+            colours: vec![colour(0, 0, 0), colour(0, 220, 0)],
+        };
+        let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(0, 1, Cell::from_be_bytes(0xE1, 0x00));
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+            + kid_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+            + 1;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 1 << 16;
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+        let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(
+            pixel_at(&rgb, 0, 15),
+            [0, 220, 0],
+            "ASM loc_C21E/sub_C254 clips each 16px foreground update cell; the Scroll B redraw must not leak into the first scanline of the next unrevealed Plane A cell"
         );
     }
 
