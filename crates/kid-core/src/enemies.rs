@@ -2826,6 +2826,8 @@ pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
     pub(crate) next_loop: &'static str,
 }
 
+pub(crate) const MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288: u16 = 0xF288;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullDeleteTailLoc3F32E {
@@ -9260,7 +9262,16 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                 }
             }
-            EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
+            EnemyArchetype::Hopper => {
+                if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                    && enemy.wait_timer
+                        == MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288
+                {
+                    step_mini_hopping_skull_charging_berzerker_loop(enemy);
+                } else {
+                    step_hopper(enemy, block_grid, player_x_pos);
+                }
+            }
             EnemyArchetype::Hoverer => step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos),
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
@@ -15254,6 +15265,16 @@ pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
         animation_tick_subroutine: "sub_3E8BA",
         next_loop: "loc_3F288",
     }
+}
+
+fn step_mini_hopping_skull_charging_berzerker_loop(enemy: &mut ActiveEnemy) {
+    // ASM Mini_Hopping_Skull.asm loc_3F288: hibernate one frame, run
+    // `sub_3E8BA`, add `$4000` to y_vel, then branch back to loc_3F288.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        mini_hopping_skull_charging_berzerker_loop_loc_3f288(enemy.y_velocity).y_velocity;
+    enemy.on_ground = false;
 }
 
 #[cfg_attr(not(test), allow(dead_code))]

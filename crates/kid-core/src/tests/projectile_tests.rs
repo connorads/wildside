@@ -7981,6 +7981,67 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Mini_Hopping_Skull.asm loc_3F262: charging Berzerker side contact
+    /// launches the skull into the loc_3F288 loop instead of consuming HP
+    /// through generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_mini_hopping_skull_instead_of_damaging_loc_3f262() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::MiniHoppingSkull,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let skull = rt.active_enemies[0];
+        assert_eq!(skull.hit_points, 2);
+        assert_eq!(skull.x_velocity, 0);
+        assert_eq!(skull.y_velocity, -0x0004_8000);
+        assert!(!skull.on_ground);
+        assert_eq!(
+            skull.wait_timer, MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288,
+            "native marker keeps the live enemy in ASM Mini_Hopping_Skull.asm loc_3F288"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_8000,
+            "ASM loc_B692 reflection still applies once for the player contact"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let skull = rt.active_enemies[0];
+        assert_eq!(
+            skull.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Mini_Hopping_Skull.asm loc_3F288: launch loop should apply current y_vel"
+        );
+        assert_eq!(
+            skull.y_velocity, -0x0004_4000,
+            "ASM Mini_Hopping_Skull.asm loc_3F288: y_vel should add `$4000` each loop tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.

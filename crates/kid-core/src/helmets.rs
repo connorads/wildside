@@ -5352,6 +5352,23 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                    && matches!(
+                        mini_hopping_skull_air_side_contact_loc_3f244(true),
+                        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+                    )
+                {
+                    // ASM Mini_Hopping_Skull.asm loc_3F262: charging
+                    // Berzerker side contact disables level collision, fixes
+                    // the sprite frame, zeroes X, and enters loc_3F288.
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = -0x0004_8000;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {
