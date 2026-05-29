@@ -5117,7 +5117,7 @@ impl NativeRuntime {
                 && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
             {
                 let enemy = &mut self.active_enemies[i];
-                if enemy.take_damage_or_queue_death() {
+                if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
                     kill_indices.push(i);
                 }
                 // ASM loc_86EC (kid.asm:9556): on non-zero sword collision,
@@ -5151,6 +5151,7 @@ impl NativeRuntime {
     pub(crate) fn process_friendly_projectile_hits(&mut self) {
         let mut kill_indices = Vec::new();
         let mut projectile_consumed = Vec::new();
+        let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
 
         for (pi, proj) in self.projectiles.iter().enumerate() {
             if !proj.friendly || proj.lifetime == 0 {
@@ -5173,7 +5174,7 @@ impl NativeRuntime {
                     && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
                     let enemy = &mut self.active_enemies[ei];
-                    if enemy.take_damage_or_queue_death() {
+                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);
                     }
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
@@ -5205,7 +5206,7 @@ impl NativeRuntime {
                     && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
                     let enemy = &mut self.active_enemies[ei];
-                    if enemy.take_damage_or_queue_death() {
+                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);
                     }
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:

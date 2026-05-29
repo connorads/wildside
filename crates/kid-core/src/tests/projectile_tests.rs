@@ -3952,6 +3952,83 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    fn maniaxe_axe_respects_crab_frozen_immunity_loc_3b048() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        rt.opening_slice = Some(combat_slice());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        let mut crab = test_enemy(EnemyFamily::Crab, 100 << 16, 100 << 16, 2);
+        crab.crab_frozen = true;
+        crab.facing = Direction::Left;
+        rt.active_enemies.push(crab);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Crab.asm loc_3B048: frozen sprite branches back before colid_hurt can decrement HP"
+        );
+    }
+
+    #[test]
+    fn maniaxe_axe_respects_crab_front_vulnerability_gate_loc_3b048() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 80 << 16;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        let mut crab = test_enemy(EnemyFamily::Crab, 100 << 16, 100 << 16, 2);
+        crab.facing = Direction::Right;
+        rt.active_enemies.push(crab);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Crab.asm loc_3B048: Kid left of a right-facing crab should resume the shared walker instead of taking hurt damage"
+        );
+
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 80 << 16;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        let mut crab = test_enemy(EnemyFamily::Crab, 100 << 16, 100 << 16, 2);
+        crab.facing = Direction::Left;
+        rt.active_enemies.push(crab);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM Crab.asm loc_3B048: Kid on the crab-facing side should fall through to loc_3B08C damage"
+        );
+    }
+
     /// ASM ManiaxeAxe_Init reinitialises `stru_8B86`; its active frames use
     /// `LnkTo_unk_A5924`/`A59AA`, whose `CollisionSize_Index` entry
     /// `unk_318B2` is left=-7, width=14, top=-14, height=14.  Native centres

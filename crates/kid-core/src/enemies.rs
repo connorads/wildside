@@ -8523,6 +8523,34 @@ impl ActivationWindow {
 }
 
 impl ActiveEnemy {
+    pub(crate) fn take_colid_hurt_or_queue_death(&mut self, player_x_pos: Option<u32>) -> bool {
+        if matches!(self.family, EnemyFamily::Crab)
+            && let Some(player_x_pos) = player_x_pos
+        {
+            let crab_x = (self.x_pos >> 16) as u16;
+            let kid_x = (player_x_pos >> 16) as u16;
+            let crab_x_minus_kid_x = crab_x.wrapping_sub(kid_x) as i16;
+            match crab_collision_dispatch_loc_3b048(
+                CRAB_COLID_HURT,
+                self.crab_frozen,
+                crab_x_minus_kid_x,
+                self.facing,
+            ) {
+                CrabCollisionRouteLoc3B048::ContinueSharedWalker
+                | CrabCollisionRouteLoc3B048::BerzerkerSideGate => return false,
+                CrabCollisionRouteLoc3B048::Death => return true,
+                CrabCollisionRouteLoc3B048::Damage => {
+                    let damage = crab_damage_after_hurt_loc_3b08c(u16::from(self.hit_points));
+                    self.hit_points = damage.current_hp as u8;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return matches!(damage.route, CrabDamageRouteLoc3B08C::DeathAnimation);
+                }
+            }
+        }
+
+        self.take_damage_or_queue_death()
+    }
+
     pub(crate) fn take_damage_or_queue_death(&mut self) -> bool {
         if self.hit_points <= 1 {
             return true;
@@ -8576,6 +8604,9 @@ impl ActiveEnemy {
                 self.tar_monster_state,
                 TarMonsterState::Visible | TarMonsterState::Attacking
             );
+        }
+        if matches!(self.family, EnemyFamily::Crab) && self.crab_frozen {
+            return false;
         }
         true
     }
