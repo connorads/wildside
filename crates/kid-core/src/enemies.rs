@@ -9207,7 +9207,7 @@ pub(crate) fn step_active_enemies_with_rng(
                     if matches!(enemy.family, EnemyFamily::UFO)
                         && let Some(ref mut projs) = projectiles
                     {
-                        step_ufo_beam(enemy, projs, player_x_pos, player_y_pos);
+                        step_ufo_beam_with_rng(enemy, projs, player_x_pos, player_y_pos, rng);
                     }
                 }
             }
@@ -10619,7 +10619,7 @@ pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
     // ASM UFO.asm loc_34EEC: targeted shooting starts the shared UFO beam
     // sequence, freezes the UFO, and reloads the one-second loop counter to $32.
     UfoBeamStartLoc34Eec {
-        beam_segments: 4,
+        beam_segments: UFO_BEAM_SEGMENT_COUNT,
         beam_interval: 5,
         x_velocity: 0,
         y_velocity: 0,
@@ -10636,11 +10636,23 @@ fn apply_ufo_beam_start_loc_34eec(enemy: &mut ActiveEnemy) {
     enemy.wait_timer = beam_start.wait_timer;
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_ufo_beam(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
     player_x: Option<u32>,
     player_y: Option<u32>,
+) {
+    let mut rng = RomRandomState::default();
+    step_ufo_beam_with_rng(enemy, projectiles, player_x, player_y, &mut rng);
+}
+
+pub(crate) fn step_ufo_beam_with_rng(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+    rng: &mut RomRandomState,
 ) {
     // Active beam sequence: spawn segments at intervals
     if enemy.ufo_beam_segments > 0 {
@@ -10682,17 +10694,16 @@ pub(crate) fn step_ufo_beam(
         }
     }
 
-    // Random beam: ~4/256 chance per frame (ASM ChkLoadBeam)
-    // Use a deterministic pseudo-random from enemy position + wait_timer
-    let pseudo_rand = (enemy
-        .x_pos
-        .wrapping_add(enemy.wait_timer as u32)
-        .wrapping_mul(2654435761))
-        >> 24;
-    if pseudo_rand < 4 {
-        enemy.ufo_beam_segments = UFO_BEAM_SEGMENT_COUNT;
-        enemy.ufo_beam_interval = 0;
+    if ufo_random_beam_should_start_loc_34f8e(rng.next_byte()) {
+        apply_ufo_beam_start_loc_34eec(enemy);
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_random_beam_should_start_loc_34f8e(random_byte: u8) -> bool {
+    // ASM UFO.asm Enemy0F_UFO_ChkLoadBeam: after `Get_RandomNumber_byte`,
+    // `cmpi.w #4,d7; bgt return` starts the beam for byte values 0..=4.
+    random_byte <= 4
 }
 
 /// Tornado: acceleration-based flight. ASM UFO.asm loc_35326/unk_35344/loc_35444
@@ -30352,6 +30363,18 @@ mod tests {
                 wait_timer: 0x32,
             },
             "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears x/y velocity, and reloads `$44=$32`"
+        );
+    }
+
+    #[test]
+    fn ufo_random_beam_gate_matches_loc_34f8e_rng_threshold() {
+        assert!(
+            ufo_random_beam_should_start_loc_34f8e(4),
+            "ASM UFO.asm Enemy0F_UFO_ChkLoadBeam starts when random byte is equal to 4"
+        );
+        assert!(
+            !ufo_random_beam_should_start_loc_34f8e(5),
+            "ASM UFO.asm Enemy0F_UFO_ChkLoadBeam returns for random bytes greater than 4"
         );
     }
 

@@ -8172,6 +8172,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_random_beam_uses_rom_rng_byte_loc_34f8e() {
+        let mut rng = RomRandomState::default();
+        while rng.clone().next_byte() > 4 {
+            let _ = rng.next_byte();
+        }
+        let mut enemy = test_enemy(EnemyFamily::UFO, 0x0100_0000, 0x0080_0000, 1);
+        let mut projectiles = Vec::new();
+
+        enemies::step_ufo_beam_with_rng(&mut enemy, &mut projectiles, None, None, &mut rng);
+
+        assert_eq!(
+            enemy.ufo_beam_segments, 4,
+            "ASM UFO.asm Enemy0F_UFO_ChkLoadBeam starts on random bytes 0..=4"
+        );
+        assert_eq!(enemy.ufo_beam_interval, 5);
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
     fn ufo_live_step_invokes_loc_34e2a_tracking_when_kid_below_near() {
         let mut enemy = test_enemy(EnemyFamily::UFO, 0x0120_8000, 0x0080_4000, 1);
         enemy.enemy_level = 2;
