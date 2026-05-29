@@ -1708,7 +1708,7 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "Advisory enemy-roster debt: pre-stomp walking-dragon parity still open while TAS CRC is clean"]
+    #[ignore = "Advisory enemy-roster debt: layout #01 is still half a pixel right of oracle while TAS CRC is clean"]
     fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
         let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
         let mut dragons_3399 = None;
@@ -1818,7 +1818,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "Advisory enemy-roster debt: lower dragon is already 12px behind oracle before the patrol turn"]
     fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
         let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
         let mut dragon_3391 = None;
@@ -1849,8 +1848,8 @@ mod chunk_09 {
 
         assert_eq!(
             dragon_3391,
-            Some((0x01E5_0000, Direction::Left, true)),
-            "frame 3391 should capture the last current-tree left-facing lower-dragon tile before the live patrol-turnaround bug",
+            Some((0x01F1_0000, Direction::Left, true)),
+            "frame 3391 should keep the lower dragon on the oracle-backed left-facing patrol path before the timer turn",
         );
         assert_eq!(
             dragon_3392,
