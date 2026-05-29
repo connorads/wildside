@@ -3910,6 +3910,20 @@ impl OpeningSliceState {
         self.player.facing = direction;
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
+        let current_floor = terrain::probe_floor(grid, x_px, y_px);
+        if current_floor.on_ground
+            && matches!(
+                current_floor.cell.collision,
+                terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+            )
+        {
+            // ASM sub_9386 returns slope support before the slope velocity
+            // dispatcher reaches loc_9E6C. Do not let loc_77C2/loc_77FC's
+            // adjacent-slope standing guard suppress downhill slide once the
+            // player is already on the diagonal.
+            self.walk_visual_accumulator = 0;
+            return false;
+        }
         // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
         // player's leading edge.
         if terrain::probe_wall_column(

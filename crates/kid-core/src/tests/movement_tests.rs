@@ -15319,6 +15319,60 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_77C2 only keeps non-bitmask helmets standing while the slope is
+    /// adjacent. Once `sub_9386` would report current slope support, the frame
+    /// must continue into loc_9E6C so Red Stealth slides downhill instead of
+    /// vibrating in the standing-still loop.
+    #[test]
+    fn asm_faithful_red_stealth_on_current_slope_up_enters_loc_9e6c_slide() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..w {
+            let offset = (4usize * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let slope_offset = (3usize * usize::from(w) + 4) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            stepped,
+            "velocity-only path should report that horizontal velocity was updated",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x1000,
+            "ASM sub_9386 current SlopeUp support should reach loc_9E6C and slide downhill",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "ASM loc_9EA4 should face downhill on SlopeUp",
+        );
+    }
+
     /// ASM loc_77FC (kid.asm:7889): left-press mirror of loc_77C2.  For
     /// non-bitmask helmets, `sub_B55C(-1,-1)` finding `$5000` SlopeDown faces
     /// left and keeps the standing-still loop.
@@ -15365,6 +15419,58 @@ mod chunk_12 {
             slice.player.facing,
             Direction::Left,
             "loc_77FC should `st x_direction` before returning to loc_7828",
+        );
+    }
+
+    /// ASM loc_77FC mirrors loc_77C2: adjacent SlopeDown can keep Eyeclops
+    /// standing, but current SlopeDown support must run the loc_9E6C slide.
+    #[test]
+    fn asm_faithful_eyeclops_on_current_slope_down_enters_loc_9e6c_slide() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..w {
+            let offset = (4usize * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let slope_offset = (3usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Eyeclops,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            stepped,
+            "velocity-only path should report that horizontal velocity was updated",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x1000,
+            "ASM sub_9386 current SlopeDown support should reach loc_9E6C and slide downhill",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Right,
+            "ASM loc_9E88 should face downhill on SlopeDown",
         );
     }
 
