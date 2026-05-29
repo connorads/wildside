@@ -5639,7 +5639,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn opening_hazard_strips_helmet_before_life_loss() {
+    fn loc_b700_full_helmet_hit_decrements_hp_without_stripping_form() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         advance_past_level_entry_damage_grace(&mut runtime);
@@ -5649,8 +5649,34 @@ mod chunk_02 {
 
         let trace = runtime.trace_frame();
         assert_eq!(trace.number_lives, 3);
+        assert_eq!(trace.current_helmet_id, PlayerForm::IronKnight.helmet_id());
+        assert_eq!(
+            trace.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints() - 1,
+            "ASM loc_B700 subtracts one Number_Hitpoints and only reaches loc_B786 helmet loss when the decrement hits zero",
+        );
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+        assert!(runtime.progression.invulnerable_frames > 0);
+    }
+
+    #[test]
+    fn loc_b786_final_helmet_hp_strips_form_before_life_loss() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
+        runtime.queue_form_change(PlayerForm::IronKnight);
+        runtime.step_frame(FrameInput::default());
+        runtime.progression.number_hitpoints = 1;
+        runtime.apply_damage();
+
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.number_lives, 3);
         assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
-        assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
+        assert_eq!(
+            trace.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+            "ASM loc_B786 sets Check_Helmet_Change with Current_Helmet_Available=0, then Kid_Transform/sub_7EB2 replenishes The Kid's base HP",
+        );
         assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
         assert!(runtime.progression.invulnerable_frames > 0);
     }
@@ -15441,6 +15467,7 @@ mod chunk_02 {
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         advance_past_level_entry_damage_grace(&mut runtime);
+        runtime.progression.extra_hitpoint_slots = 1;
         runtime.progression.number_hitpoints = 3;
 
         // Activate skull from the side
@@ -15515,6 +15542,7 @@ mod chunk_02 {
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         advance_past_level_entry_damage_grace(&mut runtime);
+        runtime.progression.extra_hitpoint_slots = 1;
         runtime.progression.number_hitpoints = 3;
 
         if let Some(ref mut slice) = runtime.opening_slice {

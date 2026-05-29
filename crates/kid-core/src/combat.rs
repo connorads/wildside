@@ -8493,9 +8493,8 @@ impl NativeRuntime {
         //
         // ASM loc_B722 (kid.asm:14650): HP cap — `cmp.w (Number_Hitpoints).w,d7;
         // bge.s loc_B72C; move.w d7,(Number_Hitpoints).w`.  Ensures current HP
-        // never exceeds max for the current helmet + extra slots.  Native handles
-        // this implicitly: HP is set via transform_hitpoints_sub_7eb2 on form
-        // change and extra HP awards are capped at 4 slots (loc_3FBE4).
+        // never exceeds max for the current helmet + extra slots before damage
+        // is applied.
         //
         // ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14696): damage
         // sound dispatch.  Selects one of four "ouch" SFX based on enemy type (d5):
@@ -8517,20 +8516,34 @@ impl NativeRuntime {
             slice.player.left_wall_sticky = false;
             slice.player.wall_cling_direction = None;
         }
+        let max_hitpoints = self
+            .progression
+            .current_form
+            .max_hitpoints()
+            .saturating_add(self.progression.extra_hitpoint_slots);
+        if self.progression.number_hitpoints == 0 {
+            self.progression.number_hitpoints = 1;
+        }
+        if self.progression.number_hitpoints > max_hitpoints {
+            self.progression.number_hitpoints = max_hitpoints;
+        }
+        self.progression.number_hitpoints = self.progression.number_hitpoints.saturating_sub(1);
+
+        if self.progression.number_hitpoints > 0 {
+            self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+            return;
+        }
+
         if self.progression.current_form != PlayerForm::TheKid {
+            // ASM loc_B786 (kid.asm:14701): zero HP while helmeted sets
+            // Check_Helmet_Change and Current_Helmet_Available=0; Kid_Transform
+            // then removes the helmet and sub_7EB2 restores The Kid's base HP.
             self.queue_form_change(PlayerForm::TheKid);
             self.resolve_pending_form_change();
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }
 
-        if self.progression.number_hitpoints > 1 {
-            self.progression.number_hitpoints -= 1;
-            self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
-            return;
-        }
-
-        self.progression.number_hitpoints = 0;
         self.begin_death_windup();
     }
 
