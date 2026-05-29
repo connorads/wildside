@@ -3939,6 +3939,54 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_holds_intro_5_vdp_through_loc_1ba90_fade() {
+        let mut runtime = cached_generated_runtime();
+        let mut frame_2400 = None;
+
+        for frame_index in 0..=2_400 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if frame_index == 2_400 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                frame_2400 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let actual = frame_2400.expect("IntroSequence6 fade hold should expose a VDP shell");
+        let expected = crate::vdp::build_intro_sequence_5_fade_hold_vdp_at_elapsed(
+            runtime
+                .intro_sub_1b850_data
+                .as_ref()
+                .expect("cached manifest should include intro art"),
+            runtime.title_screen_region_byte,
+            4,
+            runtime.active_intro_sequence_3_roster_index,
+        );
+        let word_at = |vdp: &crate::vdp::VdpState, byte_addr: usize| {
+            u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+        };
+
+        assert_eq!(
+            word_at(&actual, 0),
+            word_at(&expected, 0),
+            "ASM loc_1BA90 should keep the intro-5 plane shell visible after loc_1BA5C writes Game_Mode=$28",
+        );
+        assert_eq!(
+            word_at(&actual, 0x0198),
+            word_at(&expected, 0x0198),
+            "ASM loc_1BC36's final Kid pose should still back the fade-hold VDP shell",
+        );
+        assert_ne!(
+            word_at(&actual, 0),
+            0x20BC,
+            "ASM Load_TitleScreen's loc_1B258 fill should not replace intro-5 VRAM until j_loc_6E2 enters Load_IntroSequence6",
+        );
+        assert_eq!(
+            actual.cram, expected.cram,
+            "ASM loc_1BA82/loc_1BA90 should fade the carried intro-5 palette towards `$AAA` during the mode-$28 handoff",
+        );
+    }
+
+    #[test]
     fn intro_return_hidden_title_shell_selects_sub_1bf24_frames() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.enter_title_screen();

@@ -14,7 +14,10 @@ use kid_data::AssetManifest;
 use crate::boot::{
     VDP_GAME_INIT_VALUES, intro_text_buggy_substitution_loc_1C7DC, title_text_word_writes_sub_1B7B6,
 };
-use crate::constants::INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES;
+use crate::constants::{
+    INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS,
+};
 
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
@@ -522,6 +525,46 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
+}
+
+pub(crate) fn build_intro_sequence_5_fade_hold_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    fade_elapsed: usize,
+    intro_sequence_3_roster_index: usize,
+) -> VdpState {
+    let mut vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        data,
+        4,
+        title_variant,
+        INTRO_FIFTH_SEGMENT_FRAMES,
+        intro_sequence_3_roster_index,
+    );
+    apply_intro_sequence_5_loc_1ba90_fade_to_aaa(&mut vdp, fade_elapsed);
+    vdp
+}
+
+#[allow(non_snake_case)]
+fn apply_intro_sequence_5_loc_1ba90_fade_to_aaa(vdp: &mut VdpState, fade_elapsed: usize) {
+    let clamped_elapsed = fade_elapsed.min(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
+    let fade_progress = 0x0100u16.saturating_sub((clamped_elapsed as u16).saturating_mul(0x20));
+    let palette_buffer_2 = vdp_cram_words(vdp);
+    let palette_buffer_3 = [0x0AAA; 0x40];
+    let mut palette_buffer = [0u16; 0x40];
+    let mut pending_palette_0_mask = u32::MAX;
+    let mut pending_palette_1_mask = u32::MAX;
+
+    // ASM loc_1BA82 fills Palette_Buffer_3 with `$AAA`, and loc_1BAA0 marks
+    // both palette halves dirty before each loc_1BA90 fade step runs sub_1C246.
+    crate::level::apply_pending_palette_fade_sub_14C0(
+        fade_progress,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+    vdp.write_cram_words(0, &palette_buffer);
 }
 
 pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(

@@ -1409,6 +1409,21 @@ impl NativeRuntime {
                     self.active_intro_sequence_3_roster_index,
                 )
             }),
+            BootState::IntroSequence6 { .. }
+                if self.title_screen_elapsed_frames < INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS =>
+            {
+                self.intro_sub_1b850_data.as_ref().map(|data| {
+                    // ASM loc_1BA5C writes `Game_Mode=$28`, then loc_1BA90 keeps
+                    // the intro-5 worker shell alive through the fade counter
+                    // before `j_loc_6E2` enters Load_IntroSequence6.
+                    vdp::build_intro_sequence_5_fade_hold_vdp_at_elapsed(
+                        data,
+                        self.title_screen_region_byte,
+                        self.title_screen_elapsed_frames,
+                        self.active_intro_sequence_3_roster_index,
+                    )
+                })
+            }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
                     let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
