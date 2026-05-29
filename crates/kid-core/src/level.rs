@@ -16969,9 +16969,12 @@ pub const EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE: usize = 0x46;
 /// the lit Scroll B hologram room first appears.
 pub const EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE: usize = 0x0F;
 /// Oracle-backed visible row-worker phase. ASM loc_D468 allocates the EOL row
-/// objects before loc_D702 hibernates and fades; on hardware they are still
-/// off-screen/dim for the first `$3C` native trace ticks.
-pub const EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE: usize = 0x3C;
+/// objects before loc_D702 hibernates and fades; in the reduced #175 oracle
+/// bundle, the first tail TIME chunk reaches screen x=-8. With loc_D4CE
+/// seeding TIME at x=$FF20 and Object_EOL_Text loc_C5A2 moving +8px/frame,
+/// that means the renderer sees 27 post-fade ticks, so the trace-visible row
+/// clock starts 0x21 frames after loc_D468.
+pub const EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE: usize = 0x21;
 pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
 pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
     + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
