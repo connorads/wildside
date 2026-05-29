@@ -7875,12 +7875,6 @@ impl NativeRuntime {
                             ..Default::default()
                         });
                     }
-                    // TarMonster fires 5 tar blobs in a spread pattern when damaged
-                    if matches!(enemy.family, EnemyFamily::TarMonster) {
-                        let tx = enemy.x_pos;
-                        let ty = enemy.y_pos;
-                        spawn_tar_monster_retaliation(&mut self.projectiles, tx, ty);
-                    }
                 }
             }
         }

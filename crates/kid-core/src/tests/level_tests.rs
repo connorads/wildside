@@ -20641,6 +20641,48 @@ mod chunk_10 {
     }
 
     #[test]
+    fn stomp_nonfatal_tar_monster_hurt_does_not_spawn_burst_loc_323c0() {
+        // ASM Tar_Monster.asm loc_323C0 hides the child, decrements HP, and
+        // hibernates through the hurt animation. The five-child burst is the
+        // fired glob impact path at loc_324F8, not nonfatal player damage.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tar = make_pacer(EnemyFamily::TarMonster, 2, 100, 224);
+        tar.tar_monster_state = TarMonsterState::Visible;
+        runtime.active_enemies = vec![tar];
+        runtime.rebuild_active_enemy_roster();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 219 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped, "visible Tar Monster should accept stomp damage");
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert!(
+            runtime.active_enemies[0].damage_flash_frames > 0,
+            "nonfatal loc_323C0 damage should still enter the hurt animation"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "nonfatal loc_323C0 damage must not run the loc_324F8 burst path"
+        );
+    }
+
+    #[test]
     fn prize_diamond_award_increments_count_exactly_once() {
         // Kills: replace += with *= in award_prize_diamond (line 359).
         // We test collect_diamond which has the same +=1 pattern.

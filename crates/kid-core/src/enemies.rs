@@ -20090,7 +20090,8 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
     }
 }
 
-/// Spawn 5 tar blob projectiles in a spread pattern when a TarMonster is damaged.
+/// Spawn the five-child burst from the Tar Monster glob impact path.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spawn_tar_monster_retaliation(
     projectiles: &mut Vec<EnemyProjectile>,
     x: u32,
