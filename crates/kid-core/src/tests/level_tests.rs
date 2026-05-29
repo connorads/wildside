@@ -3991,6 +3991,49 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_uses_load_intro_sequence_6_vdp_before_title_ready() {
+        let mut runtime = cached_generated_runtime();
+        let mut frame_2460 = None;
+
+        for frame_index in 0..=2_460 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if frame_index == 2_460 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert!(!trace.title_screen_ready);
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    Some(1),
+                    "ASM sub_1B43A loc_1B446 should have started the hidden shell frame script by cold-boot frame 2460",
+                );
+                frame_2460 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
+        let word_at =
+            |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
+
+        assert_eq!(
+            word_at(0xE000),
+            0x00BD,
+            "ASM Load_IntroSequence6 loc_1B194 should keep the striped Scroll B bootstrap before the later title screen rebuild",
+        );
+        assert!(
+            vdp.vram[0x21E0..0x6620].iter().any(|&byte| byte != 0),
+            "ASM sub_1B2A4 should upload transformation character art before the hidden shell frame script draws it",
+        );
+        assert_ne!(
+            word_at(0x80 + 0x15 * 2),
+            0x20BC,
+            "ASM sub_1BF24 should overwrite the hidden shell frame rectangle by cold-boot frame 2460",
+        );
+        assert!(
+            vdp.vram[0x9A60..0xA360].iter().all(|&byte| byte == 0),
+            "ASM Load_IntroSequence6 should not run Load_TitleArt's KID text upload before sub_1B43A reaches loc_1B45A",
+        );
+    }
+
+    #[test]
     fn intro_return_hidden_title_shell_selects_sub_1bf24_frames() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.enter_title_screen();

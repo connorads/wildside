@@ -2258,6 +2258,55 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_and_menu(
     vdp
 }
 
+pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
+    data: &TitleScreenData,
+    frame_index: Option<u8>,
+    region_byte: u8,
+) -> VdpState {
+    let mut vdp = VdpState::new();
+
+    for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
+        vdp.registers[i] = value;
+    }
+    vdp.registers[1] = 0x74;
+
+    // ASM Load_IntroSequence6 loc_1B170 (kid.asm:29368): seed the hidden
+    // lightning art strip at VRAM `$1780` with eight `$11111111` longwords.
+    for word_index in 0..16usize {
+        vdp.write_vram_word(0x1780 + word_index * 2, 0x1111);
+    }
+
+    // ASM loc_1B182 clears the first 2048 VRAM words with `$20BC`.
+    for word_index in 0..=0x7FFusize {
+        vdp.write_vram_word(word_index * 2, 0x20BC);
+    }
+
+    // ASM loc_1B194 writes the `$BD/$BE/$BF/$C0` striped Scroll B bootstrap.
+    let stripes = crate::boot::intro_sequence_6_striped_tile_fill_loc_1B194();
+    for (word_index, word) in stripes.word_writes.iter().copied().enumerate() {
+        vdp.write_vram_word(0xE000 + word_index * 2, word);
+    }
+
+    // ASM sub_1B2A4 uploads the transformation/title base art and palette.
+    for (vram_byte_addr, art_bytes) in &data.art_chunks {
+        vdp.write_vram(*vram_byte_addr, art_bytes);
+    }
+    for (i, &word) in data.tile_patch_words.iter().enumerate() {
+        vdp.write_vram_word(0xF000 + i * 2, word);
+    }
+    vdp.write_cram_words(0, &data.palette_words);
+
+    // ASM Load_IntroSequence6 calls sub_1C5D0 with the sub_1B2A4 decoded map,
+    // then sub_1B43A repeatedly calls sub_1BF24 for the hidden shell frames.
+    if let Some(frame_index) = frame_index {
+        write_title_character_frame_sub_1bf24(&mut vdp, data, frame_index, region_byte);
+    } else {
+        write_title_character_tilemap_rect(&mut vdp, &data.plane_a_tilemap, 18, 0x20BC);
+    }
+
+    vdp
+}
+
 #[allow(non_snake_case)]
 fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16]) {
     // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): decode `unk_2EAAE` with

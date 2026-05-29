@@ -1426,6 +1426,15 @@ impl NativeRuntime {
                     )
                 })
             }
+            BootState::IntroSequence6 { .. } if !self.title_screen_ready() => {
+                self.title_screen_data.as_ref().map(|data| {
+                    vdp::build_intro_sequence_6_vdp_with_character_frame(
+                        data,
+                        self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                        self.title_screen_region_byte,
+                    )
+                })
+            }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
                     let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
@@ -1452,6 +1461,19 @@ impl NativeRuntime {
             }
             _ => None,
         };
+    }
+
+    fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
+        let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
+        let elapsed = self.title_screen_elapsed_frames;
+        let initial = usize::from(script.initial_hibernate_frames);
+        if elapsed < initial {
+            return None;
+        }
+        let local = elapsed - initial;
+        let step = usize::from(script.loop_hibernate_frames).max(1);
+        let frame_index = local / step;
+        script.title_frames.get(frame_index).copied()
     }
 
     fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
