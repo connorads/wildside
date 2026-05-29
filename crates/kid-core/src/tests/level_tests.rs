@@ -20558,6 +20558,49 @@ mod chunk_10 {
     }
 
     #[test]
+    fn stomp_nonfatal_plain_rock_tank_stops_motion_for_loc_3b49a_hibernate() {
+        // ASM Tank.asm loc_3B49A: a nonfatal mouth/turret hit clears parent
+        // motion `$50(a5)`, sets the child recoil timer, and hibernates five
+        // frames before resuming the shared walker.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tank = make_pacer(EnemyFamily::Tank, 2, 100, 224);
+        tank.x_velocity = 0x0000_8000;
+        runtime.active_enemies = vec![tank];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 219 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped);
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            runtime.active_enemies[0].x_velocity, 0,
+            "ASM loc_3B49A should clear parent motion after nonfatal Tank damage",
+        );
+        assert!(runtime.active_enemies[0].damage_flash_frames > 0);
+    }
+
+    #[test]
     fn prize_diamond_award_increments_count_exactly_once() {
         // Kills: replace += with *= in award_prize_diamond (line 359).
         // We test collect_diamond which has the same +=1 pattern.

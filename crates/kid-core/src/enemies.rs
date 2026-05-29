@@ -331,6 +331,7 @@ pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
 pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const TANK_COLID_HURT: u16 = 0x001C;
 const CRAB_COLID_RIGHTWALL: u16 = 0x0004;
 const CRAB_COLID_LEFTWALL: u16 = 0x0008;
 const CRAB_COLID_SLOPEUP: u16 = 0x0014;
@@ -5356,6 +5357,9 @@ pub(crate) const TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA: u16 =
 /// ASM Tank_Shooting.asm loc_3B700: nonfatal turret hits hibernate the parent
 /// for five frames before falling through to loc_3B720.
 pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
+/// ASM Tank.asm loc_3B49A: nonfatal mouth-child hits use the same five-frame
+/// hibernate window before loc_3B4BA resumes the shared walker.
+pub(crate) const TANK_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// ASM Tank_Shooting.asm loc_3B75A/loc_3B77E: spawn at ±15px from tank centre.
 pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 /// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
@@ -8523,6 +8527,22 @@ impl ActiveEnemy {
         if self.hit_points <= 1 {
             return true;
         }
+        if matches!(self.family, EnemyFamily::Tank) {
+            let route = tank_update_loc_3b41c(
+                0,
+                TANK_COLID_HURT,
+                u16::from(self.hit_points),
+                TankMouthFrameLoc3B41C::Other,
+                false,
+            );
+            self.hit_points = route.next_current_hp as u8;
+            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            if route.clears_parent_motion_speed {
+                self.x_velocity = 0;
+                self.y_velocity = 0;
+            }
+            return matches!(route.route, TankUpdateRouteLoc3B41C::Death);
+        }
         self.hit_points -= 1;
         self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
         if matches!(self.family, EnemyFamily::TankShooting) {
@@ -9217,13 +9237,16 @@ pub(crate) fn step_active_enemies_with_rng(
                     let cells = step_driller(enemy, block_grid);
                     drilled_blocks.extend(cells);
                 } else {
-                    if matches!(enemy.family, EnemyFamily::TankShooting)
+                    if (matches!(enemy.family, EnemyFamily::TankShooting)
                         && tank_shooting_hurt_hibernate_frames_remaining(enemy.damage_flash_frames)
-                            > 0
+                            > 0)
+                        || (matches!(enemy.family, EnemyFamily::Tank)
+                            && tank_hurt_hibernate_frames_remaining(enemy.damage_flash_frames) > 0)
                     {
-                        // ASM Tank_Shooting.asm loc_3B700 hibernates the
-                        // parent for five frames after a nonfatal turret hit;
-                        // loc_3B720 resumes the shared walker afterwards.
+                        // ASM Tank.asm loc_3B49A and Tank_Shooting.asm
+                        // loc_3B700 hibernate the parent for five frames
+                        // after a nonfatal child hit before resuming the
+                        // shared walker.
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         continue;
@@ -24373,6 +24396,16 @@ fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 
     damage_flash_frames.saturating_sub(
         ENEMY_DAMAGE_FLASH_FRAMES
             .saturating_sub(TANK_SHOOTING_HURT_HIBERNATE_FRAMES)
+            .saturating_sub(1),
+    )
+}
+
+fn tank_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 {
+    // Native uses the shared damage-flash countdown as the visible part of
+    // ASM Tank.asm loc_3B49A's `j_Hibernate_Object(5)` window.
+    damage_flash_frames.saturating_sub(
+        ENEMY_DAMAGE_FLASH_FRAMES
+            .saturating_sub(TANK_HURT_HIBERNATE_FRAMES)
             .saturating_sub(1),
     )
 }
