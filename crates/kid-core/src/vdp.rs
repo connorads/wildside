@@ -1314,7 +1314,9 @@ fn overlay_intro_text_worker_loc_1c7a0(vdp: &mut VdpState, segment: usize, elaps
     let Some(script) = intro_text_script_loc_1c7a0(segment) else {
         return;
     };
-    clear_intro_text_script_cells_loc_1c7a0(vdp, &script);
+    if script.base_vram_byte_address != 0xE000 {
+        clear_intro_text_script_cells_loc_1c7a0(vdp, &script);
+    }
     let Some(start_elapsed) = INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0
         .get(segment)
         .copied()
@@ -2828,6 +2830,31 @@ mod tests {
             vram_word(&after, third_line_first_glyph_addr),
             0x67E6,
             "ASM loc_1C7D2 should reveal the third line immediately after the second `$FE,$20` delay expires",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_2_text_delay_preserves_hologram_cells_before_introtext2_glyphs() {
+        let mut hologram_tilemap = vec![0u16; 40 * 28];
+        hologram_tilemap[3 * 40 + 7] = 0x213B;
+        let data = IntroSub1B850Data {
+            intro_sequence_2_hologram_tilemap: hologram_tilemap,
+            ..empty_intro_data()
+        };
+
+        let before_introtext2_first_glyph = INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[1] + 1 + 0x8F;
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            before_introtext2_first_glyph,
+            0,
+        );
+
+        assert_eq!(
+            vram_word(&vdp, 0xE18E),
+            0x213B,
+            "ASM IntroText2 starts with `$FE,$90`; loc_1C7A0 must not blank plane-B hologram cells before sub_1C7F6 reaches the first glyph",
         );
     }
 
