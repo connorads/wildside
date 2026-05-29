@@ -1721,13 +1721,21 @@ impl NativeRuntime {
             if is_tank_bullet && let Some(camera) = camera {
                 // ASM Tank_Shooting.asm loc_3B7BA: tank shots do not use a DBF
                 // lifetime; after each hibernated frame they survive only while
-                // their signed camera-relative x/y words stay in [-$80, $1C0].
+                // their signed camera-relative x/y words stay in [-$80, $1C0]
+                // and the worker's level-collision word stays clear.
+                let collision_type = if let Some(g) = grid
+                    && projectile_terrain_contact_loc_3345c(g, p)
+                {
+                    1
+                } else {
+                    0
+                };
                 let route = tank_bullet_loop_route_loc_3b7ba(
                     (p.x_pos >> 16) as u16,
                     (p.y_pos >> 16) as u16,
                     (camera.x_pos >> 16) as u16,
                     (camera.y_pos >> 16) as u16,
-                    0,
+                    collision_type,
                 );
                 if route == TankBulletLoopRouteLoc3B7BA::Delete {
                     return false;

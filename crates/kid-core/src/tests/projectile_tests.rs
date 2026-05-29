@@ -5698,6 +5698,33 @@ mod chunk_06 {
     }
 
     #[test]
+    fn tank_bullet_loc_3b7ba_deletes_on_level_collision() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0x0004_0000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::TankBullet,
+            ..Default::default()
+        });
+        // Post-step position is (34, 40), inside solid cell (2, 2).
+        rt.set_block_grid(bounce_grid(&[(2, 2)]));
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Tank_Shooting.asm loc_3B730 sets has_level_collision; loc_3B7BA should branch to loc_3B7EC when terrain collision_type becomes nonzero"
+        );
+    }
+
+    #[test]
     fn tank_bullet_loc_3b7ba_deletes_after_leaving_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = combat_slice();
