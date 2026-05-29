@@ -327,6 +327,8 @@ pub(crate) fn eol_score_sprite_diagnostics(
                 .map(|tile| tile.offset_y.saturating_add(7))
                 .max()
                 .unwrap_or(0);
+            let hardware_sprites =
+                eol_score_hardware_sprite_diagnostics(command_index, *x, *y, tiles);
             Some(NativeEolScoreSpriteDiagnostic {
                 command_index,
                 x: *x,
@@ -348,6 +350,68 @@ pub(crate) fn eol_score_sprite_diagnostics(
                         flip_y: tile.tile.flip_y,
                     })
                     .collect(),
+                hardware_sprites,
+            })
+        })
+        .collect()
+}
+
+fn eol_score_hardware_sprite_diagnostics(
+    command_index: usize,
+    x: i32,
+    y: i32,
+    tiles: &[SpriteTile],
+) -> Vec<NativeEolScoreHardwareSpriteDiagnostic> {
+    // ASM Make_SpriteFromGfxObject loc_12B8/loc_12C0 splits each gfx frame
+    // into max-32px hardware entries before sub_13C0 writes the sprite table.
+    // `build_sprite_tiles` already preserves that chunk order, so regroup the
+    // logical draw command to make native reports comparable with oracle
+    // loc_C070 hardware sprite samples.
+    let mut chunk_tiles: Vec<Vec<&SpriteTile>> = Vec::new();
+    for tile in tiles {
+        let chunk_x = tile.offset_x.div_euclid(32) * 32;
+        let chunk_y = tile.offset_y.div_euclid(32) * 32;
+        if let Some(existing) = chunk_tiles.iter_mut().find(|chunk| {
+            chunk.first().is_some_and(|first| {
+                first.offset_x.div_euclid(32) * 32 == chunk_x
+                    && first.offset_y.div_euclid(32) * 32 == chunk_y
+            })
+        }) {
+            existing.push(tile);
+        } else {
+            chunk_tiles.push(vec![tile]);
+        }
+    }
+
+    chunk_tiles
+        .into_iter()
+        .enumerate()
+        .filter_map(|(chunk_index, chunk)| {
+            let first = chunk.first()?;
+            let min_offset_x = chunk.iter().map(|tile| tile.offset_x).min().unwrap_or(0);
+            let min_offset_y = chunk.iter().map(|tile| tile.offset_y).min().unwrap_or(0);
+            let max_offset_x = chunk
+                .iter()
+                .map(|tile| tile.offset_x.saturating_add(7))
+                .max()
+                .unwrap_or(0);
+            let max_offset_y = chunk
+                .iter()
+                .map(|tile| tile.offset_y.saturating_add(7))
+                .max()
+                .unwrap_or(0);
+            Some(NativeEolScoreHardwareSpriteDiagnostic {
+                command_index,
+                chunk_index,
+                x: x.saturating_add(min_offset_x),
+                y: y.saturating_add(min_offset_y),
+                width: u16::try_from(max_offset_x.saturating_sub(min_offset_x) + 1).unwrap_or(0),
+                height: u16::try_from(max_offset_y.saturating_sub(min_offset_y) + 1).unwrap_or(0),
+                first_tile_index: first.tile.tile_index,
+                min_x: x.saturating_add(min_offset_x),
+                min_y: y.saturating_add(min_offset_y),
+                max_x: x.saturating_add(max_offset_x),
+                max_y: y.saturating_add(max_offset_y),
             })
         })
         .collect()

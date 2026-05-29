@@ -146,6 +146,21 @@ pub(crate) struct NativeSpriteTileDiagnostic {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeEolScoreHardwareSpriteDiagnostic {
+    pub(crate) command_index: usize,
+    pub(crate) chunk_index: usize,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) width: u16,
+    pub(crate) height: u16,
+    pub(crate) first_tile_index: u16,
+    pub(crate) min_x: i32,
+    pub(crate) min_y: i32,
+    pub(crate) max_x: i32,
+    pub(crate) max_y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct NativeEolScoreSpriteDiagnostic {
     pub(crate) command_index: usize,
     pub(crate) x: i32,
@@ -156,6 +171,8 @@ pub(crate) struct NativeEolScoreSpriteDiagnostic {
     pub(crate) max_y: i32,
     pub(crate) tile_count: usize,
     pub(crate) tiles: Vec<NativeSpriteTileDiagnostic>,
+    #[serde(default)]
+    pub(crate) hardware_sprites: Vec<NativeEolScoreHardwareSpriteDiagnostic>,
 }
 
 #[derive(Debug, Clone)]
@@ -2732,8 +2749,9 @@ mod tests {
 
         let diagnostics = eol_score_sprite_diagnostics(&trace, &visuals, None);
 
-        assert!(
-            diagnostics.iter().any(|sprite| {
+        let time_sprite = diagnostics
+            .iter()
+            .find(|sprite| {
                 sprite.x == -224
                     && sprite.y == 148
                     && sprite.min_x == -224
@@ -2742,7 +2760,24 @@ mod tests {
                         .tiles
                         .first()
                         .is_some_and(|tile| tile.tile_index == 0x0B9 && tile.priority)
-            }),
+            })
+            .expect(
+                "ASM loc_D4CE seeds Spr_EOL_Time at x=$FF20/y=$009C and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison",
+            );
+
+        assert_eq!(
+            time_sprite
+                .hardware_sprites
+                .iter()
+                .map(|sprite| (
+                    sprite.x,
+                    sprite.y,
+                    sprite.width,
+                    sprite.height,
+                    sprite.first_tile_index
+                ))
+                .collect::<Vec<_>>(),
+            vec![(-224, 148, 32, 8, 0x0B9), (-192, 148, 16, 8, 0x0BD)],
             "ASM loc_D4CE seeds Spr_EOL_Time at x=$FF20/y=$009C and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison"
         );
     }
