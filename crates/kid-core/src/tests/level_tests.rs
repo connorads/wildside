@@ -3961,6 +3961,10 @@ mod chunk_02 {
             4,
             runtime.active_intro_sequence_3_roster_index,
         );
+        assert_eq!(
+            runtime.title_screen_region_byte, 0,
+            "ASM loc_61C seeds `$FFFFFC82=2`; Load_IntroSequence5 sub_1C278 wraps it to zero for the cold-boot Red Stealth helmet",
+        );
         let word_at = |vdp: &crate::vdp::VdpState, byte_addr: usize| {
             u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
         };

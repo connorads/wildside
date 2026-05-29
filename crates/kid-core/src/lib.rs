@@ -1215,7 +1215,9 @@ impl NativeRuntime {
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
-            title_screen_region_byte: 0,
+            // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
+            // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
+            title_screen_region_byte: 2,
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             title_menu_arm_frame: 0,
             title_menu_active: false,
