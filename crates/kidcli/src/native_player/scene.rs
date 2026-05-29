@@ -20,6 +20,12 @@ const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // reduced oracle bundle. The trace clock keeps loc_D468 object timing; the
 // renderer applies this final visual fade phase.
 const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
+// ASM loc_D734 falls through after the fade, then loc_C5A2/loc_C48C workers
+// update before sub_13C0 latches the sprite table for the *next* displayed
+// frame. The reduced `issue-175-eol-flag-touch-level12` oracle bundle exposes
+// the visible frame through `eol_pre_frame_vdp_pixel_samples_loc_c070`, which
+// is 15 worker ticks ahead of the trace's post-frame row counter.
+const EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE: usize = 15;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -2220,7 +2226,8 @@ fn push_eol_score_overlay(
     // elapsed frame while keeping progression score awarded at flag touch.
     let counter = eol_score_counter_snapshot_for_trace(trace);
     let elapsed = trace.level_complete_score_rows_elapsed_frames
-        - EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE;
+        - EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
+        + EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE;
     push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0xB8, 0xCC, 0x1C, elapsed);
     push_eol_number_loc_c5a2(
         commands,

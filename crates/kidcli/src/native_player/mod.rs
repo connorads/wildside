@@ -2752,17 +2752,17 @@ mod tests {
         let time_sprite = diagnostics
             .iter()
             .find(|sprite| {
-                sprite.x == -224
+                sprite.x == -104
                     && sprite.y == 148
-                    && sprite.min_x == -224
-                    && sprite.max_x == -177
+                    && sprite.min_x == -104
+                    && sprite.max_x == -57
                     && sprite
                         .tiles
                         .first()
                         .is_some_and(|tile| tile.tile_index == 0x0B9 && tile.priority)
             })
             .expect(
-                "ASM loc_D4CE seeds Spr_EOL_Time at x=$FF20/y=$009C and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison",
+                "ASM loc_C070 displays the pre-frame EOL sprite table after loc_D4CE seeds Spr_EOL_Time and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison",
             );
 
         assert_eq!(
@@ -2777,8 +2777,8 @@ mod tests {
                     sprite.first_tile_index
                 ))
                 .collect::<Vec<_>>(),
-            vec![(-224, 148, 32, 8, 0x0B9), (-192, 148, 16, 8, 0x0BD)],
-            "ASM loc_D4CE seeds Spr_EOL_Time at x=$FF20/y=$009C and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison"
+            vec![(-104, 148, 32, 8, 0x0B9), (-72, 148, 16, 8, 0x0BD)],
+            "ASM loc_C070 displays the pre-frame EOL sprite table after loc_D4CE seeds Spr_EOL_Time and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison"
         );
     }
 
@@ -2941,17 +2941,17 @@ mod tests {
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 145 && *x == 532 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 145 && *x == 420 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
-            "ASM Object_EOL_Number loc_C48C draws from the initial x before loc_C4E2 applies the first -8px fly-in step",
+            "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C has already advanced 14 ticks when the first native-visible row frame is rendered",
         );
         assert!(
             early.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 193 && *x == -52 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 193 && *x == 60 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
-            "ASM Object_EOL_Number loc_C48C leaves the CONTINUES number at x=$FF84 on the first visible row tick",
+            "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C leaves the CONTINUES number 14 ticks into its +8px fly-in on the first native-visible row frame",
         );
 
         trace.level_complete_score_rows_elapsed_frames = 0x2C;
@@ -2968,9 +2968,9 @@ mod tests {
             settled.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite { x, y, tile_sheet, .. }
-                    if *y == 145 && *x == 252 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
+                    if *y == 145 && *x == 244 && tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 133)
             )),
-            "ASM Object_EOL_Number remains one tick before its settled x when text reaches its final x because loc_C48C draws before advancing `$64`",
+            "ASM loc_C070 displays the pre-frame sprite table: Object_EOL_Number loc_C48C reaches its settled x one rendered frame earlier than the post-frame row counter suggests",
         );
     }
 
