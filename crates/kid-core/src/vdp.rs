@@ -41,9 +41,15 @@ const SEGA_INITIAL_PALETTE_WORD_COUNT: usize = 13;
 const SEGA_FADE_STRIP_WORDS: usize = 11;
 const SEGA_FADE_STRIP_CRAM_WORD_OFFSET: usize = 2;
 
-/// Number of frames the initial wait loop runs before the fade begins.
-/// ASM loc_12E6C: `moveq #$A,d2` → dbf runs 11 iterations.
-const SEGA_INITIAL_WAIT_FRAMES: usize = 11;
+/// ROM-visible first frame where Load_SegaScreen's VDP contents render.
+///
+/// ASM Load_SegaScreen loc_12E48 returns to the outer mode shell after enabling
+/// display, then loc_12E64/loc_12E6C starts the logo wait loop. Oracle frames
+/// stay black until the setup reaches the first rendered logo frame.
+const SEGA_VDP_VISIBLE_START_ELAPSED: usize = 34;
+
+/// ROM-visible elapsed frame where loc_12ED2 first copies a fade strip to CRAM.
+const SEGA_FIRST_FADE_COPY_ELAPSED: usize = 67;
 
 /// Fade loop d1 init (frame delay counter) and d3 init (palette cursor).
 const SEGA_FADE_FRAME_DELAY_INIT: i16 = 0x14;
@@ -126,6 +132,10 @@ pub(crate) struct SegaScreenData {
 /// - Write 4 rows × 12 tiles of nametable entries starting at tile $BC
 /// - Run a palette fade animation over subsequent frames
 pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> VdpState {
+    if elapsed < SEGA_VDP_VISIBLE_START_ELAPSED {
+        return VdpState::new();
+    }
+
     let mut vdp = VdpState::new();
 
     // ASM VDPGameInitValues → register init, then reg 1 = $74 (display on).
@@ -154,15 +164,15 @@ pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> Vd
     vdp.write_cram_words(0, initial_palette);
 
     // ASM palette fade animation (loc_12E96 → loc_12ED2):
-    // After the initial 11-frame wait, every 4th frame copies 11 words from
-    // a sliding offset into CRAM words 2..12.  The cursor starts at $28 and
-    // decreases by 2 each step until it goes negative.
+    // After the hidden setup and initial logo hold, every 4th visible fade
+    // frame copies 11 words from a sliding offset into CRAM words 2..12.  The
+    // cursor starts at $28 and decreases by 2 each step until it goes negative.
     //
-    // Using `saturating_sub` (rather than an `if elapsed > N` guard) keeps
-    // the boundary at elapsed == SEGA_INITIAL_WAIT_FRAMES unambiguous: the
-    // fade loop body only executes when fade_elapsed > 0, so the strict-
-    // versus-non-strict comparison can't survive as an equivalent mutant.
-    let fade_elapsed = elapsed.saturating_sub(SEGA_INITIAL_WAIT_FRAMES);
+    // Using `saturating_sub` (rather than an `if elapsed > N` guard) keeps the
+    // first-copy boundary unambiguous: the fade loop body only executes after
+    // d1 has consumed its $14..0 countdown and underflowed.
+    let fade_elapsed = elapsed
+        .saturating_sub(SEGA_FIRST_FADE_COPY_ELAPSED - SEGA_FADE_FRAME_DELAY_INIT as usize - 1);
     let mut frame_delay = SEGA_FADE_FRAME_DELAY_INIT;
     let mut palette_cursor = SEGA_FADE_PALETTE_CURSOR_INIT;
 
@@ -1171,7 +1181,7 @@ const INTRO_TEXT_5_BYTES: &[u8] = b"\xFE\x20THIS IS THE\xFDSTORY OF\xFDSOMEONE T
 const INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0: u16 = 0x67C0;
 
 const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
-    67, // ASM sub_1B8F4/loc_1C7A0; frame-360 oracle text writes lag the object-count exposure by 22 frames.
+    45, // ASM sub_1B8F4/loc_1C7A0; cold-boot IntroText1 glyph cadence matches oracle frame 280/360 checkpoints.
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
     42, // ASM sub_1B93E follows the same Load_IntroSequence3 hidden rebuild shell.
     42, // ASM sub_1B988 allocates IntroText4 before sub_1C204's fade shell.
@@ -2840,7 +2850,7 @@ mod tests {
             art_bytes: vec![0; 48 * 32], // 48 tiles × 32 bytes each
             palette_words: vec![0; 33],
         };
-        let vdp = build_sega_screen_vdp(&data, 0);
+        let vdp = build_sega_screen_vdp(&data, SEGA_VDP_VISIBLE_START_ELAPSED);
 
         // Check first tile word at VRAM $061C.
         let w0 = u16::from_be_bytes([vdp.vram[0x061C], vdp.vram[0x061D]]);
@@ -2865,7 +2875,7 @@ mod tests {
             art_bytes: vec![],
             palette_words: vec![0; 33],
         };
-        let vdp = build_sega_screen_vdp(&data, 0);
+        let vdp = build_sega_screen_vdp(&data, SEGA_VDP_VISIBLE_START_ELAPSED);
 
         // Register 1 should be $74 (display on, VInt on, DMA on).
         assert_eq!(vdp.registers[1], 0x74);
@@ -2887,24 +2897,25 @@ mod tests {
     }
 
     #[test]
-    fn build_sega_screen_vdp_fade_loc_12e96_first_palette_strip_lands_at_elapsed_32() {
-        // ASM Load_SegaScreen loc_12E64 (kid.asm:25497-25510): the initial
-        // wait loop seeds `moveq #$A,d2` then `dbf d2,loc_12E6C`, so it spends
-        // exactly 11 frames before the fade outer loop at loc_12E96 starts.
-        // That outer loop seeds `moveq #$14,d1` (frame delay) and `moveq
-        // #$28,d3` (palette cursor).  loc_12E96 (kid.asm:25515-25543) does
-        // `subq.w #1,d1; bpl.s loc_12ED8`, so the first palette copy at
-        // loc_12ED2 (kid.asm:25537) only fires when d1 transitions from 0 to
-        // -1 — exactly 21 fade iterations later.  At that point d0 captures
-        // the cursor BEFORE `subq.w #2,d3`, and `lea Pal_12EEC+6(pc,d0.w),a0`
-        // resolves to palette word index 2 + d0/2 (Pal_12EEC = [dest, count,
-        // SegaLogo.bin...]; the +6 offset and the absent header in
-        // `palette_words` cancel to leave +2 word indices).  loc_12ED2 then
-        // copies `moveq #$A,d0; dbf d0` = 11 words into Palette_Buffer+$4
-        // (CRAM word offset 2).  This test seeds palette_words with distinct
-        // values so any mutation of `2 + cursor/2`, the strip slice, the
-        // fade-strip CRAM destination, or the cursor decrement lands the
-        // wrong source words at the wrong CRAM offset.
+    fn build_sega_screen_vdp_fade_loc_12e96_first_palette_strip_lands_at_elapsed_67() {
+        // ASM Load_SegaScreen loc_12E48/loc_12E64 (kid.asm:25483-25510):
+        // the ROM-visible VDP output stays black while the mode shell reaches
+        // the logo wait loop, then holds the full Pal_12EEC copy before the
+        // loc_12E96 fade loop changes CRAM.  In oracle frames this means:
+        // black through native elapsed 33 and full logo from elapsed 34. The
+        // native VDP latch must prepare the first loc_12ED2 strip at elapsed
+        // 67 so the rendered checkpoint changes on oracle frame 70.
+        //
+        // loc_12E96 (kid.asm:25515-25543) seeds `moveq #$14,d1` (frame delay)
+        // and `moveq #$28,d3` (palette cursor), then `subq.w #1,d1; bpl.s
+        // loc_12ED8`, so a strip copy only fires when d1 transitions from 0
+        // to -1.  At that point d0 captures the cursor BEFORE `subq.w #2,d3`,
+        // and `lea Pal_12EEC+6(pc,d0.w),a0` resolves to palette word index
+        // 2 + d0/2 (Pal_12EEC = [dest, count, SegaLogo.bin...]; the +6
+        // offset and the absent header in `palette_words` cancel to +2 word
+        // indices).  loc_12ED2 copies `moveq #$A,d0; dbf d0` = 11 words into
+        // Palette_Buffer+$4 (CRAM word offset 2).  Distinct palette words pin
+        // the source index, strip slice, destination, and cursor decrement.
         let mut palette_words = vec![0u16; 33];
         for (i, slot) in palette_words.iter_mut().enumerate() {
             *slot = 0x1000 + i as u16;
@@ -2914,31 +2925,35 @@ mod tests {
             palette_words: palette_words.clone(),
         };
 
-        // Sanity: at elapsed=11 the initial wait loop is still consuming
-        // frames, so the fade outer loop hasn't started — CRAM word 2 must
-        // still match the initial Pal_12EEC copy at loc_12DFE (which writes
-        // palette_words[0..13] to CRAM word offset 0).
-        let vdp_initial = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES);
+        let vdp_hidden = build_sega_screen_vdp(&data, SEGA_VDP_VISIBLE_START_ELAPSED - 1);
+        assert_eq!(
+            u16::from_be_bytes([vdp_hidden.cram[4], vdp_hidden.cram[5]]),
+            0,
+            "elapsed=33: ASM Load_SegaScreen has not produced a visible logo frame yet",
+        );
+
+        // Sanity: at the first visible elapsed frame, loc_12DFE's initial
+        // Pal_12EEC copy is visible and loc_12ED2 has not changed CRAM yet.
+        let vdp_initial = build_sega_screen_vdp(&data, SEGA_VDP_VISIBLE_START_ELAPSED);
         assert_eq!(
             u16::from_be_bytes([vdp_initial.cram[4], vdp_initial.cram[5]]),
             palette_words[2],
-            "elapsed=11: fade not yet running, CRAM word 2 = initial palette word 2",
+            "elapsed=34: CRAM word 2 = initial palette word 2",
         );
 
-        // Sanity: at elapsed=12, the fade outer loop has run 1 iteration but
-        // d1 went 0x14→0x13 — still bpl, no copy.  CRAM word 2 must still be
-        // the initial palette word 2.
-        let vdp_one_iter = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 1);
+        // Sanity: one frame before the first loc_12ED2 copy, d1 has not yet
+        // underflowed, so CRAM word 2 still holds the initial palette word.
+        let vdp_before_first_copy = build_sega_screen_vdp(&data, SEGA_FIRST_FADE_COPY_ELAPSED - 1);
         assert_eq!(
-            u16::from_be_bytes([vdp_one_iter.cram[4], vdp_one_iter.cram[5]]),
+            u16::from_be_bytes([vdp_before_first_copy.cram[4], vdp_before_first_copy.cram[5],]),
             palette_words[2],
-            "elapsed=12: 1 fade iteration, d1=$13, no copy yet",
+            "one frame before the first loc_12ED2 strip copy: CRAM still holds the initial palette",
         );
 
-        // First copy fires after exactly 21 fade iterations (d1 = 0x14, 0x13,
-        // ..., 0, -1 → not bpl).  Cursor on entry is $28, so source_word_index
-        // = 2 + 0x28/2 = 22.  All 11 strip words must equal palette_words[22..33].
-        let vdp_first_copy = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 21);
+        // First copy fires at elapsed=67. Cursor on entry is $28, so
+        // source_word_index = 2 + 0x28/2 = 22.  All 11 strip words must equal
+        // palette_words[22..33].
+        let vdp_first_copy = build_sega_screen_vdp(&data, SEGA_FIRST_FADE_COPY_ELAPSED);
         for i in 0..SEGA_FADE_STRIP_WORDS {
             let cram_byte_offset = (SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i) * 2;
             let actual = u16::from_be_bytes([
@@ -2957,7 +2972,7 @@ mod tests {
         // Second copy fires 4 iterations later (d1 reset to 3, then 3,2,1,0,-1).
         // Cursor was $28, decremented by 2 after the first copy → $26 on
         // entry.  source_word_index = 2 + 0x26/2 = 21.  Strip = palette_words[21..32].
-        let vdp_second_copy = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 25);
+        let vdp_second_copy = build_sega_screen_vdp(&data, SEGA_FIRST_FADE_COPY_ELAPSED + 4);
         for i in 0..SEGA_FADE_STRIP_WORDS {
             let cram_byte_offset = (SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i) * 2;
             let actual = u16::from_be_bytes([
@@ -2973,7 +2988,7 @@ mod tests {
             );
         }
 
-        // After 22 copies (elapsed = 11 initial + 21 + 21*4 = 116), cursor has
+        // After 22 copies (elapsed = first copy + 21*4), cursor has
         // decremented from $28 to 0 and the 22nd copy uses source_word_index =
         // 2 + 0/2 = 2.  ASM loc_12E96 (kid.asm:25531): `bmi.w loc_12ED8`
         // skips only when d3 (the cursor) is already negative — at d3=0 the
@@ -2982,7 +2997,7 @@ mod tests {
         // any mutant that loosens it to `<=`/`==` would skip the cursor==0
         // copy and leave CRAM word 2 holding the previous strip's value
         // (palette_words[3], from the 21st copy at cursor=2).
-        let vdp_cursor_zero = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 21 + 21 * 4);
+        let vdp_cursor_zero = build_sega_screen_vdp(&data, SEGA_FIRST_FADE_COPY_ELAPSED + 21 * 4);
         assert_eq!(
             u16::from_be_bytes([vdp_cursor_zero.cram[4], vdp_cursor_zero.cram[5]]),
             palette_words[2],
