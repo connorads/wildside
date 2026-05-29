@@ -9743,7 +9743,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn robot_walks_then_shoots_and_charges_on_timer() {
+    fn robot_walks_then_shoots_and_resumes_walking_loc_3aac4() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
@@ -9756,9 +9756,17 @@ mod chunk_04 {
         step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert!(projs.is_empty());
-        // Timer at 0 → shoot + charge
+        // Timer at 0 → shoot, then resume walking through loc_3AAC4.
         step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
-        assert_eq!(enemy.robot_state, RobotState::Charging);
+        assert_eq!(
+            enemy.robot_state,
+            RobotState::Walking,
+            "ASM Robot.asm loc_3AAC4 resumes the walker after shooting; loc_3A96C charge is collision-routed"
+        );
+        assert_eq!(
+            enemy.wait_timer, ROBOT_SHOOT_INTERVAL,
+            "native approximates the next shared sub_3C4F8 shoot check with the existing shoot interval"
+        );
         assert_eq!(projs.len(), 1, "robot should fire a projectile");
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
     }

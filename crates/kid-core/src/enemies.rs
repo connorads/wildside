@@ -6287,13 +6287,15 @@ pub(crate) enum OrcaState {
 }
 
 /// Robot phase state machine (Robot.asm).
-/// Paces at HP-dependent speed, periodically shoots, then charges fast.
+/// Paces at HP-dependent speed and periodically shoots; charge is entered by
+/// collision/hit routing at loc_3A96C, which is still tracked by backlog #190.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum RobotState {
     /// Walking patrol with periodic shooting.
     #[default]
     Walking,
-    /// Charging at high speed after jump counter expires.
+    /// Charging at high speed after loc_3A96C collision/hit routing.
+    #[cfg_attr(not(test), allow(dead_code))]
     Charging,
 }
 
@@ -19150,9 +19152,12 @@ pub(crate) fn step_robot_with_rng(
                     });
                 }
 
-                // Enter charge mode — ASM: permanent until wall hit
-                enemy.robot_state = RobotState::Charging;
-                enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
+                // ASM Robot.asm loc_3AAC4: the completed shoot sequence clears
+                // the child collision word and resumes the shared walker.
+                // loc_3A96C charge entry is reached by collision/hit routes,
+                // not by ordinary shooting.
+                enemy.robot_state = RobotState::Walking;
+                enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
             }
         }
         RobotState::Charging => {
