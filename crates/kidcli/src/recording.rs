@@ -133,6 +133,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
     #[serde(default)]
     pub(crate) native_layer_samples: Vec<NativeLayerPixelDiagnostic>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) oracle_gameplay_debug_fields: BTreeMap<String, String>,
     pub(crate) diff_path: PathBuf,
 }
 
@@ -649,6 +651,7 @@ pub(crate) fn verify_recording(
             recording_visual_frame_offset(&recording.manifest.start),
             &mut frame_diffs,
         )?;
+        attach_oracle_gameplay_debug_fields(&oracle, &mut frame_diffs);
         let oracle_frame_match = frame_diffs
             .iter()
             .all(|diff| diff.max_channel_delta == 0 && diff.mean_absolute_error == 0.0);
@@ -1120,6 +1123,37 @@ fn write_dynamic_checkpoint_layer_frames(
     Ok(())
 }
 
+fn attach_oracle_gameplay_debug_fields(
+    oracle: &OracleManifest,
+    frame_diffs: &mut [CheckpointFrameDiff],
+) {
+    let states_by_checkpoint = oracle
+        .states
+        .iter()
+        .map(|state| ((state.frame_index, state.label.clone()), state))
+        .collect::<BTreeMap<_, _>>();
+
+    for diff in frame_diffs {
+        if diff.changed_pixel_count == 0 {
+            continue;
+        }
+        let key = (diff.frame_index, diff.label.clone());
+        let Some(state) = states_by_checkpoint.get(&key) else {
+            continue;
+        };
+        diff.oracle_gameplay_debug_fields = state
+            .gameplay_debug_fields
+            .iter()
+            .filter(|(field, _)| {
+                field.starts_with("eol_")
+                    || field.as_str() == "kid_collision_source"
+                    || field.as_str() == "kid_collision_type"
+            })
+            .map(|(field, value)| (field.clone(), value.clone()))
+            .collect();
+    }
+}
+
 fn attach_native_pixel_samples(
     manifest: &AssetManifest,
     start: &RecordingStart,
@@ -1371,6 +1405,7 @@ fn compare_recording_frames(
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
             native_background_samples: Vec::new(),
             native_layer_samples: Vec::new(),
+            oracle_gameplay_debug_fields: BTreeMap::new(),
             diff_path,
         });
     }

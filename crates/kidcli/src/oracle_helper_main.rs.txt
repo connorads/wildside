@@ -1350,11 +1350,19 @@ fn eol_vdp_pixel_samples_debug_loc_c070(
     const SPRITE_TABLE_BASE_LOC_C070: usize = 0x1000;
     const PLANE_WIDTH_CELLS: usize = 64;
     const PLANE_HEIGHT_CELLS: usize = 32;
-    const SAMPLES: [(usize, usize); 21] = [
+    const SAMPLES: [(usize, usize); 34] = [
         (69, 44),
         (77, 52),
         (110, 44),
         (125, 52),
+        (290, 13),
+        (293, 13),
+        (296, 34),
+        (299, 44),
+        (290, 40),
+        (293, 40),
+        (295, 35),
+        (297, 38),
         (5, 111),
         (23, 111),
         (36, 111),
@@ -1372,6 +1380,11 @@ fn eol_vdp_pixel_samples_debug_loc_c070(
         (294, 125),
         (72, 133),
         (109, 133),
+        (0, 148),
+        (5, 148),
+        (10, 148),
+        (14, 155),
+        (0, 155),
     ];
 
     let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);
