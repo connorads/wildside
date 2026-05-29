@@ -10065,7 +10065,8 @@ impl NativeRuntime {
             && self.progression.current_form == PlayerForm::Cyclone
             && self.helmet.cyclone_flying
         {
-            for enemy in &mut self.active_enemies {
+            for enemy_index in 0..self.active_enemies.len() {
+                let enemy = &self.active_enemies[enemy_index];
                 if enemy.family != EnemyFamily::Tornado {
                     continue;
                 }
@@ -10082,12 +10083,21 @@ impl NativeRuntime {
                 }
                 let player_x = slice.player.x_pos as i64;
                 let tornado_x = enemy.x_pos as i64;
+                let player_y = (slice.player.y_pos >> 16) as i16;
+                let tornado_y = (enemy.y_pos >> 16) as i16;
                 let bounce = tornado_cyclone_bounce_for_positions_loc_35986(player_x, tornado_x);
                 slice.player.x_velocity = bounce.player_x_velocity;
-                enemy.x_velocity = bounce.tornado_x_velocity;
-                // ASM Tornado.asm loc_35986: after the velocity swap, write
-                // `$28` (`colid_kidbelow`) to Kid `collision_type(a4)`.
-                self.last_kid_collision_type = bounce.player_collision_type;
+                self.active_enemies[enemy_index].x_velocity = bounce.tornado_x_velocity;
+                if player_y < tornado_y {
+                    // ASM Tornado.asm loc_35986: after the velocity swap,
+                    // `cmp.w y_pos(a3),d7; blt.w loc_359B2` kills the Tornado
+                    // before Kid receives collision_type=$28.
+                    self.remove_dead_enemy(enemy_index);
+                } else {
+                    // ASM Tornado.asm loc_35986: after the velocity swap, write
+                    // `$28` (`colid_kidbelow`) to Kid `collision_type(a4)`.
+                    self.last_kid_collision_type = bounce.player_collision_type;
+                }
                 self.opening_slice = Some(*slice);
                 self.last_kid_frame_post_motion_mutator =
                     KidFramePostMotionMutator::CycloneTornadoBounce;

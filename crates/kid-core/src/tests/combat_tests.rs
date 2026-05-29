@@ -175,6 +175,58 @@ mod chunk_03 {
     }
 
     #[test]
+    fn loc_35986_cyclone_above_tornado_enters_loc_359b2_death() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = true;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::Tornado,
+            0x0108_0000,
+            0x00C0_0000,
+            1,
+        )];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00BF_0000;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        assert!(
+            runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Tornado.asm loc_35986 should consume the frame before branching to loc_359B2",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_0001,
+            "ASM Tornado.asm loc_35986 writes Kid x_vel before the y_pos death compare",
+        );
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tornado.asm loc_359B2 hibernates on stru_35B1E before deleting the Tornado",
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TORNADO_DEATH_ANIMATION_FRAMES
+        );
+        assert_ne!(
+            runtime.last_kid_collision_type, 0x0028,
+            "ASM Tornado.asm loc_35986 branches to loc_359B2 before writing Kid collision_type=$28 when Kid is above",
+        );
+    }
+
+    #[test]
     fn loc_b69e_cyclone_flying_ignores_tornado_contact_damage() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
