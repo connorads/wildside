@@ -12808,6 +12808,62 @@ mod chunk_12 {
         );
     }
 
+    /// Playtest 2026-05-29: Kid and Iron Knight appeared to face the wrong way
+    /// while walking up-right on slopes. Exercise the full grounded movement
+    /// path, not just the pure loc_9D22 velocity helper, so future slope work
+    /// cannot regress the visible facing while position still advances uphill.
+    #[test]
+    fn full_motion_slope_up_right_keeps_kid_and_iron_knight_facing_right() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (3usize * usize::from(w) + 4) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        for form in [PlayerForm::TheKid, PlayerForm::IronKnight] {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.on_ground = true;
+            slice.player.facing = Direction::Right;
+            slice.player.x_pos = 0x46 << 16;
+            slice.player.y_pos = (0x30 + 0x0F - (0x46 & 0x0F)) << 16;
+            slice.terrain.floor_y_pos = slice.player.y_pos;
+            slice.player.x_velocity = 0x4000;
+
+            let mut previous_x = slice.player.x_pos;
+            for frame in 0..8 {
+                let stepped = slice.update_horizontal_motion(
+                    FrameInput {
+                        right: true,
+                        ..FrameInput::default()
+                    },
+                    false,
+                    form,
+                    Some(&grid),
+                    false,
+                );
+
+                assert!(
+                    stepped,
+                    "frame {frame} {form:?}: current SlopeUp support should run loc_9D22 movement",
+                );
+                assert!(
+                    slice.player.x_pos > previous_x,
+                    "frame {frame} {form:?}: uphill-right movement should advance x",
+                );
+                assert_eq!(
+                    slice.player.facing,
+                    Direction::Right,
+                    "ASM loc_9DC0 {form:?}: SlopeUp + Right copies $FA26=0 to x_direction, rendering Right",
+                );
+                previous_x = slice.player.x_pos;
+            }
+        }
+    }
+
     /// ASM loc_9DAA: forward direction held → loc_9DC0 (uphill acceleration).
     /// SlopeUp + right held = uphill. d1 = Ctrl_Right_Held (non-zero) → bne.s loc_9DC0.
     #[test]
