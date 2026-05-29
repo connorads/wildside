@@ -4808,9 +4808,44 @@ mod chunk_04 {
         assert_eq!(projectile.x_velocity, -0x3_0000);
         assert_eq!(projectile.y_velocity, 0x3_0000);
         assert_eq!(projectile.y_pos, 39 << 16);
-        assert_eq!(projectile.lifetime, 31);
+        assert_eq!(
+            projectile.kind,
+            EnemyProjectileKind::CloudLightning,
+            "ASM Cloud.asm loc_35DF0 allocates the loc_35E8A lightning worker"
+        );
+        assert_eq!(
+            projectile.lifetime, 0,
+            "ASM Cloud.asm loc_35E8A has no DBF lifetime counter"
+        );
         assert!(!projectile.friendly);
         assert!(projectile.terrain_kill);
+    }
+
+    #[test]
+    fn cloud_lightning_loc_35e8a_persists_without_generic_lifetime_expiry() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x1_0000,
+            y_velocity: 0,
+            lifetime: 0,
+            friendly: false,
+            terrain_kill: true,
+            kind: EnemyProjectileKind::CloudLightning,
+            ..Default::default()
+        });
+
+        for _ in 0..40 {
+            runtime.step_projectiles();
+        }
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            1,
+            "ASM Cloud.asm loc_35E8A loops until collision_type or `$19`; the old 31-frame generic lifetime must not delete lightning"
+        );
+        assert_eq!(runtime.projectiles[0].x_pos, 140 << 16);
     }
 
     #[test]

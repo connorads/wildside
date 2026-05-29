@@ -1513,10 +1513,12 @@ impl NativeRuntime {
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
+            let is_cloud_lightning = p.kind == EnemyProjectileKind::CloudLightning;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             if !is_tank_bullet
                 && !is_robot_shot
+                && !is_cloud_lightning
                 && !is_hail
                 && !is_diamond_power_rain
                 && p.lifetime == 0
@@ -1526,7 +1528,12 @@ impl NativeRuntime {
                 }
                 return false;
             }
-            if !is_tank_bullet && !is_robot_shot && !is_hail && !is_diamond_power_rain {
+            if !is_tank_bullet
+                && !is_robot_shot
+                && !is_cloud_lightning
+                && !is_hail
+                && !is_diamond_power_rain
+            {
                 p.lifetime -= 1;
             }
             p.y_velocity += p.gravity;

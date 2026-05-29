@@ -2293,6 +2293,7 @@ pub(crate) enum EnemyProjectileKind {
     Generic,
     DragonWalkingBreath,
     ArcherArrow,
+    CloudLightning,
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,

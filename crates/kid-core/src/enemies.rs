@@ -10005,9 +10005,8 @@ fn cloud_projectile_spawn_loc_35df0(
         x_velocity: i32::from(x_word) << 16,
         y_velocity: i32::from(y_word) << 16,
         // ASM loc_35E8A deletes on collision or the projectile animation's
-        // `$19` flag. Native has no child animation flag, so this bounded
-        // lifetime represents the lightning attack window.
-        lifetime: 31,
+        // `$19` flag, with no DBF lifetime counter.
+        lifetime: 0,
         friendly: false,
         gravity: 0,
         homing_accel: 0,
@@ -10019,7 +10018,7 @@ fn cloud_projectile_spawn_loc_35df0(
         terrain_kill: true,
         drips_spawn_crawler_on_splash: false,
         owner: None,
-        kind: EnemyProjectileKind::Generic,
+        kind: EnemyProjectileKind::CloudLightning,
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
