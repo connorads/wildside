@@ -23,7 +23,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -134,6 +134,30 @@ struct SpriteTile {
     tile: TileRef,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeSpriteTileDiagnostic {
+    pub(crate) offset_x: i32,
+    pub(crate) offset_y: i32,
+    pub(crate) tile_index: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) priority: bool,
+    pub(crate) flip_x: bool,
+    pub(crate) flip_y: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeEolScoreSpriteDiagnostic {
+    pub(crate) command_index: usize,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) min_x: i32,
+    pub(crate) min_y: i32,
+    pub(crate) max_x: i32,
+    pub(crate) max_y: i32,
+    pub(crate) tile_count: usize,
+    pub(crate) tiles: Vec<NativeSpriteTileDiagnostic>,
+}
+
 #[derive(Debug, Clone)]
 struct NativeSessionAssets {
     level_visuals: NativeLevelVisuals,
@@ -172,7 +196,8 @@ use sprites::*;
 pub(crate) use render::{render_scene, render_scene_overlay};
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
-    render_trace_with_loc_c070_latched_sprite_state, sample_background_pixel_loc_c070,
+    eol_score_sprite_diagnostics, render_trace_with_loc_c070_latched_sprite_state,
+    sample_background_pixel_loc_c070,
 };
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;
@@ -2694,6 +2719,31 @@ mod tests {
                 .flat_map(|tiles| tiles.iter())
                 .all(|tile| tile.tile.priority),
             "ASM Object_EOL_Number loc_C466 and Object_EOL_Text loc_C592 set priority(a*)=1 so score rows draw over foreground blocks"
+        );
+    }
+
+    #[test]
+    fn eol_score_sprite_diagnostics_exposes_loc_c466_c592_row_bounds() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_score_rows_started = 1;
+        trace.level_complete_score_rows_elapsed_frames = 8;
+
+        let diagnostics = eol_score_sprite_diagnostics(&trace, &visuals, None);
+
+        assert!(
+            diagnostics.iter().any(|sprite| {
+                sprite.x == -224
+                    && sprite.y == 148
+                    && sprite.min_x == -224
+                    && sprite.max_x == -177
+                    && sprite
+                        .tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile_index == 0x0B9 && tile.priority)
+            }),
+            "ASM loc_D4CE seeds Spr_EOL_Time at x=$FF20/y=$009C and Object_EOL_Text loc_C592 marks the gfx slot high-priority; diagnostics must expose those bounds for oracle slot comparison"
         );
     }
 

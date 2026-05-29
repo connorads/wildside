@@ -287,6 +287,72 @@ impl LayerFilter {
     }
 }
 
+pub(crate) fn eol_score_sprite_diagnostics(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&kid_core::terrain::BlockGrid>,
+) -> Vec<NativeEolScoreSpriteDiagnostic> {
+    // ASM Object_EOL_Number loc_C466 and Object_EOL_Text loc_C592 allocate
+    // priority gfx-object slots for the score rows. This diagnostic exposes
+    // native's rendered EOL score sprite commands so verifier reports can be
+    // compared directly with oracle `eol_visible_gfx_slots_loc_d468`.
+    let scene = build_scene_filtered(
+        trace,
+        false,
+        Some(level_visuals),
+        block_grid,
+        LayerFilter::solo("eol_score"),
+    );
+    scene
+        .commands
+        .iter()
+        .enumerate()
+        .filter_map(|(command_index, command)| {
+            let DrawCommand::Sprite { x, y, tiles, .. } = command else {
+                return None;
+            };
+            if tiles.is_empty() {
+                return None;
+            }
+
+            let min_offset_x = tiles.iter().map(|tile| tile.offset_x).min().unwrap_or(0);
+            let min_offset_y = tiles.iter().map(|tile| tile.offset_y).min().unwrap_or(0);
+            let max_offset_x = tiles
+                .iter()
+                .map(|tile| tile.offset_x.saturating_add(7))
+                .max()
+                .unwrap_or(0);
+            let max_offset_y = tiles
+                .iter()
+                .map(|tile| tile.offset_y.saturating_add(7))
+                .max()
+                .unwrap_or(0);
+            Some(NativeEolScoreSpriteDiagnostic {
+                command_index,
+                x: *x,
+                y: *y,
+                min_x: x.saturating_add(min_offset_x),
+                min_y: y.saturating_add(min_offset_y),
+                max_x: x.saturating_add(max_offset_x),
+                max_y: y.saturating_add(max_offset_y),
+                tile_count: tiles.len(),
+                tiles: tiles
+                    .iter()
+                    .map(|tile| NativeSpriteTileDiagnostic {
+                        offset_x: tile.offset_x,
+                        offset_y: tile.offset_y,
+                        tile_index: tile.tile.tile_index,
+                        palette_line: tile.tile.palette_line,
+                        priority: tile.tile.priority,
+                        flip_x: tile.tile.flip_x,
+                        flip_y: tile.tile.flip_y,
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
 fn push_fire_demon_trail(
     commands: &mut Vec<DrawCommand>,
     sx: i32,
