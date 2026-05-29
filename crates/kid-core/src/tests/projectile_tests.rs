@@ -5725,6 +5725,66 @@ mod chunk_06 {
     }
 
     #[test]
+    fn tank_shooting_nonfatal_projectile_hit_hibernates_loc_3b700() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 96 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        let mut tank = test_enemy(EnemyFamily::TankShooting, 100 << 16, 96 << 16, 3);
+        tank.x_velocity = 0x0001_0000;
+        rt.active_enemies.push(tank);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
+        assert_eq!(
+            rt.active_enemies[0].x_velocity, 0,
+            "ASM Tank_Shooting.asm loc_3B700 clears parent motion `$50(a5)` after a nonfatal turret hit"
+        );
+
+        let floor = grid_with_floor_at_row(7);
+        let start_x = rt.active_enemies[0].x_pos;
+        let mut drilled_blocks = Vec::new();
+        for _ in 0..5 {
+            step_active_enemies(
+                &mut rt.active_enemies,
+                Some(&floor),
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut drilled_blocks,
+            );
+            assert_eq!(
+                rt.active_enemies[0].x_pos, start_x,
+                "ASM Tank_Shooting.asm loc_3B700 hibernates the parent for five frames before loc_3B720 resumes walking"
+            );
+        }
+
+        step_active_enemies(
+            &mut rt.active_enemies,
+            Some(&floor),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        assert_ne!(
+            rt.active_enemies[0].x_pos, start_x,
+            "ASM Tank_Shooting.asm loc_3B720 should resume the shared walker after the five-frame hurt hibernate"
+        );
+    }
+
+    #[test]
     fn tank_bullet_loc_3b7ba_deletes_after_leaving_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = combat_slice();

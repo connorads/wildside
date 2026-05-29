@@ -32,12 +32,12 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Sphere (0x06) | full | 0 |
 | Spinning_Twins (0x14) | partial | 5 |
 | Tank (0x0A,0x0B) | partial | 3 |
-| Tank_Shooting (0x0B) | partial | 2 |
+| Tank_Shooting (0x0B) | full | 0 |
 | Tar_Monster (0x05) | partial | 3 |
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 2 full (no gaps), 25 partial, 1 stub. 90 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 24 partial, 1 stub. 88 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -272,12 +272,6 @@ Native advances the orbit index every frame (no animation_timer==1 gate), applie
 
 **Tank — non-fatal hit recoil + motion stop + hibernate not applied** (`loc_3B49A / loc_3B700`)
 ROM clears $50, sets recoil timer 6, hibernates 5 frames; generic damage only sets damage_flash_frames, so a hit tank keeps driving. `combat.rs:7813`, `enemies.rs:8519-8526`, helpers `enemies.rs:24178-24189/24332-24345` dead.
-
-**Tank_Shooting — tank bullet never deletes on level/terrain collision** (`loc_3B730 / loc_3B7BA`)
-collision_type is hardcoded to 0 in the loop-route call; bullets default to terrain_kill=false and the terrain probe excludes tank bullets — they pass through walls. `projectiles.rs:1730`, `projectiles.rs:1438/1786`, `enemies.rs:24444`.
-
-**Tank_Shooting — non-fatal hit does not stop the tank or hibernate** (`loc_3B700`)
-TankShooting (Pacer) calls step_pacer unconditionally with no hurt guard (unlike Crab); recoil helper dead. `enemies.rs:9227`, `enemies.rs:24332-24345`, `combat.rs:7815+`.
 
 **Tar_Monster — burst-child projectiles lack the off_32656 velocity-reflection bounce** (`loc_325E6 / loc_32682 / off_32656`)
 Children should reflect/halve x or y velocity for a 2-hit budget; native spawns wall_bounce:false plain projectiles that just fall and expire. `enemies.rs:20048-20069`, `enemies.rs:19685/19755`, `projectiles.rs:1816`.

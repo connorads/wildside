@@ -5353,6 +5353,9 @@ pub(crate) const TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES: u16 = 74;
 /// `move.w #$49,$54(a5)` seeds the first shot countdown.
 pub(crate) const TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA: u16 =
     TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES - 1;
+/// ASM Tank_Shooting.asm loc_3B700: nonfatal turret hits hibernate the parent
+/// for five frames before falling through to loc_3B720.
+pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// ASM Tank_Shooting.asm loc_3B75A/loc_3B77E: spawn at ±15px from tank centre.
 pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 /// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
@@ -8522,6 +8525,15 @@ impl ActiveEnemy {
         }
         self.hit_points -= 1;
         self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        if matches!(self.family, EnemyFamily::TankShooting) {
+            let x_direction = u8::from(matches!(self.facing, Direction::Right)) * 0xFF;
+            let recovery = tank_shooting_hurt_recovery_loc_3b700(x_direction);
+            // ASM Tank_Shooting.asm loc_3B700 clears parent motion `$50(a5)`
+            // before the five-frame hibernate. Native stores the current
+            // walker motion directly in `x_velocity`.
+            self.x_velocity = recovery.parent_motion_speed;
+            self.y_velocity = 0;
+        }
         false
     }
 
@@ -9205,6 +9217,17 @@ pub(crate) fn step_active_enemies_with_rng(
                     let cells = step_driller(enemy, block_grid);
                     drilled_blocks.extend(cells);
                 } else {
+                    if matches!(enemy.family, EnemyFamily::TankShooting)
+                        && tank_shooting_hurt_hibernate_frames_remaining(enemy.damage_flash_frames)
+                            > 0
+                    {
+                        // ASM Tank_Shooting.asm loc_3B700 hibernates the
+                        // parent for five frames after a nonfatal turret hit;
+                        // loc_3B720 resumes the shared walker afterwards.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        continue;
+                    }
                     // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
                     // Check freeze before stepping; if frozen, skip movement.
                     if matches!(enemy.family, EnemyFamily::Crab) {
@@ -24342,6 +24365,16 @@ pub(crate) fn tank_shooting_hurt_recovery_loc_3b700(
         hibernate_frames: 5,
         resume_walk: tank_shooting_resume_walk_loc_3b720(x_direction),
     }
+}
+
+fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 {
+    // Native uses the shared damage-flash countdown as the visible part of
+    // ASM Tank_Shooting.asm loc_3B700's `j_Hibernate_Object(5)` window.
+    damage_flash_frames.saturating_sub(
+        ENEMY_DAMAGE_FLASH_FRAMES
+            .saturating_sub(TANK_SHOOTING_HURT_HIBERNATE_FRAMES)
+            .saturating_sub(1),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
