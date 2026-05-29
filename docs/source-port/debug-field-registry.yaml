@@ -51,6 +51,15 @@
       "promotion_trigger": "Promote if EOL pixel parity or checked-in regression assertions start depending on typed overlay slot state."
     },
     {
+      "key": "eol_sprite_table_entries_loc_c070",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-175-eol-overlay",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle VDP sprite-table linked entries at loc_C070/EOL checkpoints, including transformed hardware x/y, raw words, size/link, pattern, tile, palette, priority, and flip bits after Make_SpriteFromGfxObject/sub_13C0.",
+      "promotion_trigger": "Promote if EOL strict-pixel parity or checked-in regression assertions start depending on typed hardware sprite-table state."
+    },
+    {
       "key": "eol_vdp_registers_loc_c070",
       "scope": "frame",
       "status": "exploratory",

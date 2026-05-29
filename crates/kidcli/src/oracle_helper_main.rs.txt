@@ -929,7 +929,6 @@ fn capture_state(
     let eol_vdp_pixel_samples_debug =
         matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
             .then(|| eol_vdp_pixel_samples_debug_loc_c070(emulator, rendered_frame));
-    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
     let game_paused = read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0;
@@ -945,6 +944,10 @@ fn capture_state(
         gameplay_debug_fields.insert(
             "eol_visible_gfx_slots_loc_d468".into(),
             eol_visible_gfx_slots_debug_loc_d468(&work_ram),
+        );
+        gameplay_debug_fields.insert(
+            "eol_sprite_table_entries_loc_c070".into(),
+            eol_sprite_table_entries_debug_loc_c070(emulator),
         );
         if let Some(eol_vram_plane_rows_debug) = eol_vram_plane_rows_debug {
             gameplay_debug_fields.insert(
@@ -976,6 +979,7 @@ fn capture_state(
             );
         }
     }
+    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let kid_collision_type =
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_TYPE_OFFSET);
     let kid_collision_source =
@@ -1244,6 +1248,48 @@ fn eol_visible_gfx_slots_debug_loc_d468(work_ram: &[u8]) -> String {
         ));
     }
     slots.join(";")
+}
+
+fn eol_sprite_table_entries_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
+    const SPRITE_TABLE_BASE_LOC_C070: usize = 0x1000;
+
+    let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);
+    let mut entries = Vec::new();
+    let mut sprite_index = 0usize;
+    let mut visited = [false; 80];
+    for ordinal in 0..80 {
+        if sprite_index >= visited.len() || visited[sprite_index] {
+            break;
+        }
+        visited[sprite_index] = true;
+
+        let entry_base = SPRITE_TABLE_BASE_LOC_C070 + sprite_index * 8;
+        let y_word = read_wram_u16(&vram, entry_base);
+        let size_link = read_wram_u16(&vram, entry_base + 2);
+        let pattern = read_wram_u16(&vram, entry_base + 4);
+        let x_word = read_wram_u16(&vram, entry_base + 6);
+        let x_pos = i32::from(x_word) - 128;
+        let y_pos = i32::from(y_word) - 128;
+        let width_tiles = ((size_link >> 10) & 0x03) + 1;
+        let height_tiles = ((size_link >> 8) & 0x03) + 1;
+        entries.push(format!(
+            "#{sprite_index:02X}/ord={ordinal}:x={x_pos}/y={y_pos},raw={x_word:04X}/{y_word:04X},size={width_tiles}x{height_tiles},link={:02X},pat={pattern:04X},tile={:03X},pal={},pri={},hf={},vf={}",
+            size_link & 0x7F,
+            pattern & 0x07FF,
+            (pattern >> 13) & 0x03,
+            if pattern & 0x8000 != 0 { 1 } else { 0 },
+            if pattern & 0x0800 != 0 { 1 } else { 0 },
+            if pattern & 0x1000 != 0 { 1 } else { 0 },
+        ));
+
+        let next_link = usize::from(size_link & 0x7F);
+        if next_link == 0 {
+            break;
+        }
+        sprite_index = next_link;
+    }
+
+    entries.join(";")
 }
 
 fn eol_vdp_registers_debug_loc_c070(emulator: &mut GenesisEmulator) -> String {
