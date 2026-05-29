@@ -8463,6 +8463,81 @@ mod chunk_04 {
     }
 
     #[test]
+    fn tornado_ceiling_collision_bounces_y_velocity_loc_35948() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 40 << 16, 34 << 16, 1);
+        enemy.y_velocity = -0x0002_0000;
+        enemy.target_y_velocity = enemy.y_velocity;
+        enemy.y_acceleration = 0;
+        enemy.wait_timer = 4;
+        let grid = bounce_grid(&[(2, 1)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity, 0x0002_0000,
+            "ASM Tornado.asm loc_35948 maps colid_ceiling through UFO.asm loc_35146, negating y_vel",
+        );
+        assert_eq!(enemy.y_acceleration, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn tornado_slopeup_collision_uses_ufo_slope_bounce_loc_35948() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 72 << 16, 53 << 16, 1);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x0002_0000;
+        enemy.target_x_velocity = 0x0003_0000;
+        enemy.target_y_velocity = 0x0003_0000;
+        enemy.x_acceleration = 0;
+        enemy.y_acceleration = 0;
+        enemy.wait_timer = 4;
+        let grid = grid_with_cells(8, 8, &[(4, 3, 0x40, 0)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets x_vel to -$10000",
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets y_vel to -$10000",
+        );
+        assert_eq!(enemy.x_acceleration, 0x800);
+        assert_eq!(enemy.y_acceleration, 0x800);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn tornado_slopedown_collision_uses_ufo_slope_bounce_loc_35948() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 72 << 16, 53 << 16, 1);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x0002_0000;
+        enemy.target_x_velocity = -0x0003_0000;
+        enemy.target_y_velocity = 0x0003_0000;
+        enemy.x_acceleration = 0;
+        enemy.y_acceleration = 0;
+        enemy.wait_timer = 4;
+        let grid = grid_with_cells(8, 8, &[(4, 3, 0x50, 0)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets x_vel to $10000",
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets y_vel to -$10000",
+        );
+        assert_eq!(enemy.x_acceleration, -0x800);
+        assert_eq!(enemy.y_acceleration, 0x800);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
     fn tornado_collision_dispatch_loc_35948_uses_tornado_table() {
         use enemies::{
             TornadoCollisionBehaviorLoc35948, TornadoCollisionDispatchLoc35948,
