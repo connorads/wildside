@@ -1,6 +1,5 @@
 use super::*;
 use crate::scenarios::DynamicCheckpoint;
-use kid_render::PlayerFormVisuals;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TankTurretFrameSpec {
@@ -388,42 +387,6 @@ fn build_sprite_tiles_with_flip(
     tiles
 }
 
-fn slope_frame_intrinsic_facing(
-    trace: &NativeTraceFrame,
-    form_visuals: &PlayerFormVisuals,
-) -> Option<Direction> {
-    if trace.kid_on_ground != Some(true)
-        || trace.kid_x_velocity == Some(0)
-        || trace.kid_on_slope == 0
-        || (form_visuals.slope_walk.is_empty() && form_visuals.slope_walk_left.is_empty())
-    {
-        return None;
-    }
-    if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-        && (trace.berzerker_charging || trace.berzerker_charge_pose)
-    {
-        return None;
-    }
-
-    let facing = trace.kid_facing.unwrap_or(Direction::Right);
-    let canonical_reverse = match (trace.kid_on_slope < 0, facing) {
-        (false, Direction::Right) | (true, Direction::Left) => false,
-        (false, Direction::Left) | (true, Direction::Right) => true,
-    };
-
-    // ASM loc_A13A/off_A190 selects two six-frame pre-drawn slope banks after
-    // canonicalising x_direction through $FFFFFA26; native names those ROM art
-    // banks by their extracted orientation (`slope_walk` is kid_slope_7..12,
-    // right-facing; `slope_walk_left` is kid_slope_1..6, left-facing).
-    // Compare the selected bank's built-in facing against the live loc_1292
-    // facing so slope descent does not mirror the art twice.
-    Some(if canonical_reverse {
-        Direction::Right
-    } else {
-        Direction::Left
-    })
-}
-
 pub(super) fn append_sprite_band_tiles(
     tiles: &mut Vec<SpriteTile>,
     next_tile_index: &mut u16,
@@ -713,7 +676,6 @@ pub(super) fn push_player_sprite_with_priority_override(
 
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
-    let intrinsic_slope_facing = slope_frame_intrinsic_facing(trace, form_visuals);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
@@ -740,9 +702,9 @@ pub(super) fn push_player_sprite_with_priority_override(
 
     let frame = select_player_frame(trace, form_visuals);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-    let flip_x = intrinsic_slope_facing
-        .map(|intrinsic| intrinsic != render_facing)
-        .unwrap_or(matches!(render_facing, Direction::Left));
+    // ASM loc_A13A/off_A190 chooses the tilted slope frame bank, but the
+    // later loc_1292 draw path still flips solely from live x_direction.
+    let flip_x = matches!(render_facing, Direction::Left);
 
     commands.push(DrawCommand::Sprite {
         x: draw_x,
