@@ -1301,7 +1301,7 @@ const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
     43, // ASM sub_1B93E exposes IntroText3 one rendered frame after the hidden VDP rebuild shell.
     39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
-    42, // ASM loc_1BA28 allocates IntroText5 before sub_1C204's fade shell.
+    56, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
 ];
 
 fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0> {
@@ -1645,6 +1645,26 @@ fn intro_sequence_2_special_sky_art_loc_1B00A(art: Vec<u8>) -> Vec<u8> {
         .collect()
 }
 
+#[allow(non_snake_case)]
+fn intro_sequence_5_text_art_loc_1B0F4(art: &[u8]) -> Vec<u8> {
+    // ASM Load_IntroSequence5 (kid.asm:29352): before `j_DecompressToRAM`,
+    // `a3 = unk_1C3F0`, so DecompressToRAM's loc_143CE/loc_1440A path maps
+    // each unpacked 4bpp nibble through this table while streaming the letters
+    // to the VDP data port at `$FA60`.
+    const PERMUTATION: [u8; 16] = [
+        0x00, 0x08, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00,
+    ];
+    art.iter()
+        .copied()
+        .map(|byte| {
+            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
+            let low = PERMUTATION[usize::from(byte & 0x0F)];
+            high | low
+        })
+        .collect()
+}
+
 fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> VdpState {
     let mut vdp = intro_sequence_base_vdp();
 
@@ -1668,6 +1688,9 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
     if let Some(rows) = sub_1cd88_rows(&data.intro_sequence_5_tilemap) {
         write_full_plane_rows(&mut vdp, 0xE000, &rows);
     }
+    let intro_sequence_5_text_art =
+        intro_sequence_5_text_art_loc_1B0F4(&data.intro_text_letters_art);
+    vdp.write_vram(0xFA60, &intro_sequence_5_text_art);
     vdp.write_cram_words(0, &data.palette_segment_2);
     // ASM sub_1C512 (kid.asm:31257-31278): non-zero `$FFFFFC82` overlays
     // 14 words at Palette_Buffer_2+$62, using Pal_1C3C6 for 1 and Pal_1C3D4
@@ -2666,6 +2689,30 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    fn intro_sequence_5_introtext5_matches_oracle_frame_1980_cadence() {
+        let data = IntroSub1B850Data {
+            palette_segment_1: vec![0x0EEE; 0x40],
+            ..empty_intro_data()
+        };
+
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 1, 104, 1);
+        let s_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 31, 3, 0x12);
+        let t_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 33, 3, 0x13);
+
+        assert_eq!(
+            vram_word(&vdp, usize::from(s_write.vram_word_address)),
+            s_write.tile_word,
+            "ASM loc_1BA28 allocates IntroText5 before sub_1C204; frame-1980 oracle shows `THIS IS` by intro-sequence-5 elapsed 104",
+        );
+        assert_eq!(
+            vram_word(&vdp, usize::from(t_write.vram_word_address)),
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
+            "ASM IntroText5 should not yet reveal the `T` in `THE` at the same frame-1980 checkpoint",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn intro_sequence_3_sub_1C54A_keeps_wild_side_door_sprite_visible() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -3465,7 +3512,7 @@ mod tests {
             palette_segment_2: vec![0x0333],
             hologram_background_art: vec![0xA1],
             hologram_blocks_art: vec![0xB2],
-            intro_text_letters_art: vec![0xC3],
+            intro_text_letters_art: vec![0x12],
             intro_sequence_2_hologram_tilemap: intro2_hologram,
             intro_sequence_4_hologram_tilemap: vec![0x20BC; 40 * 28],
             intro_sequence_2_tilemap: vec![0x00BC; 40 * 28],
@@ -3517,6 +3564,10 @@ mod tests {
         assert_eq!(intro5.vram[0x1780], 0xD4);
         assert_eq!(intro5.vram[0x4D80], 0xE5);
         assert_eq!(intro5.vram[0x6800], 0xF6);
+        assert_eq!(
+            intro5.vram[0xFA60], 0x89,
+            "ASM Load_IntroSequence5 routes ArtComp_1DA86 through unk_1C3F0 before writing IntroText5 glyph patterns to VRAM",
+        );
         assert_eq!(intro5.vram[0xBD60], 0xA7);
         assert_eq!(
             u16::from_be_bytes([intro5.vram[0xE000], intro5.vram[0xE001]]),
