@@ -1415,6 +1415,9 @@ pub(super) fn push_background_tiles(
             }
         }
         kid_render::BackgroundVisuals::Layered(background) => {
+            let row_height_px = i32::try_from(background.rows.len())
+                .ok()
+                .and_then(|rows| rows.checked_mul(8));
             for (row_index, row) in background.rows.iter().enumerate() {
                 let row_width_px = i32::try_from(row.tiles.len())
                     .ok()
@@ -1433,6 +1436,9 @@ pub(super) fn push_background_tiles(
                         camera_x_px,
                         camera_y_px,
                     );
+                    let screen_y = row_height_px.map_or(screen_y, |row_height_px| {
+                        wrap_layered_background_y_loc_11b7a(screen_y, row_height_px)
+                    });
                     if wrap_row && let Some(row_width_px) = row_width_px {
                         screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
                     }
@@ -1541,6 +1547,9 @@ pub(crate) fn sample_background_pixel_loc_c070(
             }
         }
         kid_render::BackgroundVisuals::Layered(background) => {
+            let row_height_px = i32::try_from(background.rows.len())
+                .ok()
+                .and_then(|rows| rows.checked_mul(8));
             for (row_index, row) in background.rows.iter().enumerate() {
                 let row_width_px = i32::try_from(row.tiles.len())
                     .ok()
@@ -1559,6 +1568,9 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         camera_x_px,
                         camera_y_px,
                     );
+                    let screen_y = row_height_px.map_or(screen_y, |row_height_px| {
+                        wrap_layered_background_y_loc_11b7a(screen_y, row_height_px)
+                    });
                     if wrap_row && let Some(row_width_px) = row_width_px {
                         screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
                     }
@@ -1793,6 +1805,29 @@ fn push_layered_background_tile(
 
 fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
     let mut palette = level_visuals.palettes.background.clone();
+    if level_visuals.level.background_theme_id == 7
+        && level_visuals.palettes.foreground.colours.len() >= PALETTE_LINE_COLOUR_COUNT - 1
+        && palette.colours.len() >= 8
+    {
+        // ASM Load_BackgroundMappings_Layered loc_12910 decodes Mountain Plane B
+        // words with base `$2780`: the Mountain background permutation targets
+        // line-0 slots 8..15, while loc_11E16 also copies background colours
+        // 1..7 into line-1 slots 9..15. Compose that CRAM view so transparent
+        // foreground holes show the waterfall/mountain Plane B instead of
+        // disappearing.
+        let original = palette.colours.clone();
+        let mut combined = level_visuals.palettes.foreground.colours.clone();
+        combined.truncate(PALETTE_LINE_COLOUR_COUNT - 1);
+        combined.resize(
+            PALETTE_LINE_COLOUR_COUNT * 2,
+            kid_render::MdColour::from_word(0),
+        );
+        combined[7..15].copy_from_slice(&original[0..8]);
+        combined[PALETTE_LINE_COLOUR_COUNT + 8..PALETTE_LINE_COLOUR_COUNT + 15]
+            .copy_from_slice(&original[1..8]);
+        palette.colours = combined;
+        return palette;
+    }
     if level_visuals.level.background_theme_id == 9 && palette.colours.len() >= 8 {
         // ASM Load_BackgroundMappings_Layered loc_128BA decodes Forest tile
         // words with base `$0780`, so attr palette 0 really reads from CRAM
@@ -2517,6 +2552,24 @@ pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px
     }
     while wrapped >= row_width_px {
         wrapped -= row_width_px;
+    }
+    wrapped
+}
+
+pub(super) fn wrap_layered_background_y_loc_11b7a(screen_y_px: i32, row_height_px: i32) -> i32 {
+    if row_height_px <= 0 {
+        return screen_y_px;
+    }
+    // ASM loc_11B7A backs Plane B with a row-pointer table and
+    // BackgroundScroll_ComputeShiftLayers biases the visible rows from
+    // Camera_Y_pos. Native must wrap the composed Plane B rows vertically so
+    // tall Mountain levels keep background pixels behind transparent terrain.
+    let mut wrapped = screen_y_px;
+    while wrapped < -8 {
+        wrapped += row_height_px;
+    }
+    while wrapped >= row_height_px {
+        wrapped -= row_height_px;
     }
     wrapped
 }

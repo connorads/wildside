@@ -6057,6 +6057,36 @@ mod tests {
             8,
             "tiles that pass the full 512px row should wrap back into the visible Plane B range",
         );
+        assert_eq!(
+            super::scene::wrap_layered_background_y_loc_11b7a(-400, 392),
+            -8,
+            "ASM loc_11B7A Plane B rows wrap vertically too; Highwater's deep Camera_Y_pos must not scroll all Mountain rows out of view",
+        );
+        assert_eq!(
+            super::scene::wrap_layered_background_y_loc_11b7a(392, 392),
+            0,
+            "one full Plane B row-table height should return to the first composed background row",
+        );
+    }
+
+    #[test]
+    fn highwater_layered_background_rows_wrap_vertically_like_plane_b_loc_11b7a() {
+        let manifest = cached_generated_manifest();
+        let visuals = load_level_visuals(&manifest, 0x02).expect("Highwater Pass visuals");
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x02);
+        trace.frame_index = 72;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0x05DC_0000;
+        trace.level_skip_cheat_enabled = 1;
+
+        let sample = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 102, 80);
+
+        assert_eq!(
+            sample.map(|sample| sample.rgb),
+            Some([0x6D, 0x49, 0xB6]),
+            "ASM loc_11B7A/BackgroundScroll_ComputeShiftLayers keeps Mountain Plane B rows visible behind Highwater foreground holes, and loc_12910/loc_11E16 resolve palette-0 slot 11 through the Mountain background CRAM band"
+        );
     }
 
     #[test]
