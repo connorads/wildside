@@ -485,6 +485,10 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     elapsed: usize,
     intro_sequence_3_roster_index: usize,
 ) -> VdpState {
+    if segment == 1 {
+        return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
+    }
+
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
         overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
@@ -551,21 +555,79 @@ const INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED: usize = 46;
 const INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED: usize = 61;
 const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
+const INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
+const INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED: usize = 44;
+const INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED: usize = 60;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
+
+fn build_intro_sequence_2_handoff_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    elapsed: usize,
+) -> VdpState {
+    // ASM loc_1B9D0 enters the same sub_1C204 fade shell used by
+    // sub_1B8F4. ROM-visible output keeps the completed Wild Side VDP around
+    // while fading its palette to black, then holds black before fading
+    // Pal_1C2F0 into the hologram-room VDP.
+    if elapsed < INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED {
+        let mut vdp =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(data, 0, title_variant, 999, 0);
+        if elapsed > 0 {
+            apply_intro_sequence_fade_out_to_black_loc_1c204(
+                &mut vdp,
+                elapsed,
+                INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED,
+            );
+        }
+        return vdp;
+    }
+
+    let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 1, title_variant);
+    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed);
+    overlay_intro_text_worker_loc_1c7a0(&mut vdp, 1, elapsed);
+
+    if elapsed < INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED {
+        vdp.cram.fill(0);
+        return vdp;
+    }
+    if elapsed < INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED {
+        apply_intro_sequence_palette_fade_in_loc_1c204(
+            &mut vdp,
+            &data.palette_segment_1,
+            elapsed,
+            INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED,
+        );
+    }
+    vdp
+}
 
 fn apply_intro_sequence_1_sub_1c204_palette_fade(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
     elapsed: usize,
 ) {
-    let fade_step = (elapsed - INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED + 1).min(0x10);
+    apply_intro_sequence_palette_fade_in_loc_1c204(
+        vdp,
+        &data.palette_segment_0,
+        elapsed,
+        INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED,
+    );
+}
+
+fn apply_intro_sequence_palette_fade_in_loc_1c204(
+    vdp: &mut VdpState,
+    target_palette: &[u16],
+    elapsed: usize,
+    fade_in_start_elapsed: usize,
+) {
+    let fade_step = (elapsed - fade_in_start_elapsed + 1).min(0x10);
     let fade_progress =
         u16::try_from(fade_step * 0x10).expect("intro sequence 1 fade progress should fit in u16");
     let mut palette_buffer_2 = [0u16; 0x40];
     for (slot, word) in palette_buffer_2
         .iter_mut()
-        .zip(data.palette_segment_0.iter().copied())
+        .zip(target_palette.iter().copied())
     {
         *slot = word;
     }
@@ -586,7 +648,19 @@ fn apply_intro_sequence_1_sub_1c204_palette_fade(
 }
 
 fn apply_intro_sequence_1_sega_fade_out_loc_1c204(vdp: &mut VdpState, elapsed: usize) {
-    let fade_step = INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED - elapsed + 1;
+    apply_intro_sequence_fade_out_to_black_loc_1c204(
+        vdp,
+        elapsed,
+        INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED,
+    );
+}
+
+fn apply_intro_sequence_fade_out_to_black_loc_1c204(
+    vdp: &mut VdpState,
+    elapsed: usize,
+    fade_out_elapsed: usize,
+) {
+    let fade_step = fade_out_elapsed - elapsed + 1;
     let fade_progress =
         u16::try_from(fade_step * 0x10).expect("intro sequence 1 fade progress should fit in u16");
     let palette_buffer_2 = vdp_cram_words(vdp);
@@ -2778,6 +2852,47 @@ mod tests {
             vram_word(&vdp, 0x0110),
             INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
             "ASM loc_1C7A0/sub_1C7F6 writes runtime glyphs later; native's baked-map cleanup must use a zeroed pattern tile instead of tile 0, because plane-A nametable bytes occupy tile 0's pattern slot",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_2_handoff_fades_intro1_to_black_before_corridor_loc_1b9d0_1c204() {
+        let mut data = empty_intro_data();
+        data.palette_segment_0 = vec![0x0EEE; 0x34];
+        data.palette_segment_1 = vec![0x0A00; 0x24];
+
+        let previous_scene =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 1, 1, 0, 0);
+        assert_eq!(
+            cram_word(&previous_scene, 0),
+            0x0EEE,
+            "ASM loc_1B9D0 enters sub_1C204 with the completed IntroSequence1 palette still visible",
+        );
+
+        let black_hold = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED,
+            0,
+        );
+        assert_eq!(
+            cram_word(&black_hold, 0),
+            0,
+            "ASM sub_1C204 should hold CRAM black after fading out the previous intro scene",
+        );
+
+        let full_corridor = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED,
+            0,
+        );
+        assert_eq!(
+            cram_word(&full_corridor, 0),
+            0x0A00,
+            "ASM sub_1C204 should fade Pal_1C2F0 in before loc_1B9F4's corridor loop is fully visible",
         );
     }
 
