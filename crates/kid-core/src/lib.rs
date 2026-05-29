@@ -1391,6 +1391,16 @@ impl NativeRuntime {
             BootState::IntroSequence {
                 segment, elapsed, ..
             } => self.intro_sub_1b850_data.as_ref().map(|data| {
+                if *segment == 0
+                    && let Some(sega_data) = self.sega_screen_data.as_ref()
+                {
+                    return vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                        data,
+                        sega_data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                    );
+                }
                 vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
                     data,
                     *segment,

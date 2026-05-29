@@ -504,9 +504,104 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     vdp
 }
 
+pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    sega_data: &SegaScreenData,
+    title_variant: u8,
+    elapsed: usize,
+) -> VdpState {
+    // ASM Load_IntroSequence1 runs `sub_1B8F4 -> sub_1C204 -> loc_1B924`
+    // after `Load_SegaScreen` hands off at loc_12EDE. The ROM-visible VDP
+    // output keeps the Sega palette fade on screen first, then holds black
+    // before sub_1C204 fades Pal_1C28A into CRAM for the Wild Side scene.
+    if elapsed < INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED {
+        let mut vdp = build_sega_screen_vdp(sega_data, SEGA_SCREEN_INTRO_HANDOFF_ELAPSED + elapsed);
+        if elapsed >= INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED {
+            apply_intro_sequence_1_sega_fade_out_loc_1c204(&mut vdp, elapsed);
+        }
+        return vdp;
+    }
+
+    let mut vdp =
+        build_intro_sequence_vdp_with_title_variant_at_elapsed(data, 0, title_variant, elapsed, 0);
+    if elapsed < INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED {
+        vdp.cram.fill(0);
+        return vdp;
+    }
+
+    if elapsed < INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED {
+        apply_intro_sequence_1_sub_1c204_palette_fade(&mut vdp, data, elapsed);
+    }
+    vdp
+}
+
+const SEGA_SCREEN_INTRO_HANDOFF_ELAPSED: usize = 173;
+const INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED: usize = 3;
+const INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED: usize = 17;
+const INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED: usize = 46;
+const INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED: usize = 61;
 const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
+
+fn apply_intro_sequence_1_sub_1c204_palette_fade(
+    vdp: &mut VdpState,
+    data: &IntroSub1B850Data,
+    elapsed: usize,
+) {
+    let fade_step = (elapsed - INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED + 1).min(0x10);
+    let fade_progress =
+        u16::try_from(fade_step * 0x10).expect("intro sequence 1 fade progress should fit in u16");
+    let mut palette_buffer_2 = [0u16; 0x40];
+    for (slot, word) in palette_buffer_2
+        .iter_mut()
+        .zip(data.palette_segment_0.iter().copied())
+    {
+        *slot = word;
+    }
+    let palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0u16; 0x40];
+    let mut pending_palette_0_mask = u32::MAX;
+    let mut pending_palette_1_mask = u32::MAX;
+
+    crate::level::apply_pending_palette_fade_sub_14C0(
+        fade_progress,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+    vdp.write_cram_words(0, &palette_buffer);
+}
+
+fn apply_intro_sequence_1_sega_fade_out_loc_1c204(vdp: &mut VdpState, elapsed: usize) {
+    let fade_step = INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED - elapsed + 1;
+    let fade_progress =
+        u16::try_from(fade_step * 0x10).expect("intro sequence 1 fade progress should fit in u16");
+    let palette_buffer_2 = vdp_cram_words(vdp);
+    let palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0u16; 0x40];
+    let mut pending_palette_0_mask = u32::MAX;
+    let mut pending_palette_1_mask = u32::MAX;
+
+    crate::level::apply_pending_palette_fade_sub_14C0(
+        fade_progress,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+    vdp.write_cram_words(0, &palette_buffer);
+}
+
+fn vdp_cram_words(vdp: &VdpState) -> [u16; 0x40] {
+    core::array::from_fn(|word_offset| {
+        let byte_offset = word_offset * 2;
+        u16::from_be_bytes([vdp.cram[byte_offset], vdp.cram[byte_offset + 1]])
+    })
+}
 
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed: usize) {
@@ -2194,6 +2289,58 @@ mod tests {
     fn cram_word(vdp: &VdpState, word_offset: usize) -> u16 {
         let byte_addr = word_offset * 2;
         u16::from_be_bytes([vdp.cram[byte_addr], vdp.cram[byte_addr + 1]])
+    }
+
+    fn minimal_sega_data() -> SegaScreenData {
+        let mut palette_words = vec![0; 33];
+        palette_words[1] = 0x0EEE;
+        palette_words[2] = 0x08EE;
+        SegaScreenData {
+            art_bytes: vec![],
+            palette_words,
+        }
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_keeps_sega_vdp_until_fade_window_loc_12ede_1c204() {
+        let intro = empty_intro_data();
+        let sega = minimal_sega_data();
+
+        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 2);
+
+        assert_eq!(
+            cram_word(&vdp, 1),
+            0x0EEE,
+            "ASM Load_SegaScreen loc_12EDE hands to Load_IntroSequence1 before sub_1C204 has faded the Sega palette off-screen",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_holds_black_before_wild_side_fade_loc_1c204() {
+        let intro = empty_intro_data();
+        let sega = minimal_sega_data();
+
+        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 17);
+
+        assert!(
+            vdp.cram.iter().all(|byte| *byte == 0),
+            "ASM sub_1B8F4/sub_1C204 leaves a black VDP window between the Sega fade-out and the Pal_1C28A fade-in",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_rejoins_normal_intro_vdp_after_fade_loc_1c204() {
+        let mut intro = empty_intro_data();
+        intro.palette_segment_0 = vec![0x0000, 0x0EEE, 0x0444];
+        let sega = minimal_sega_data();
+
+        let cold_boot = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 61);
+        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 61, 0);
+
+        assert_eq!(
+            cold_boot.cram, normal.cram,
+            "ASM sub_1B8F4 resumes loc_1B924 after sub_1C204, so the cold-boot-only palette transition must rejoin the normal IntroSequence1 VDP path",
+        );
     }
 
     fn sprite_entry_words(vdp: &VdpState, entry_index: usize) -> (u16, u8, u8, u16, u16) {
