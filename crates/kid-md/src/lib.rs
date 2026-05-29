@@ -968,7 +968,7 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     let vscroll_b = i32::from(read_u16_wrapped(&vdp.vsram, 2) as i16);
     let (plane_width_cells, plane_height_cells) = plane_dimensions(vdp.registers[0x10]);
     let window_region = window_region(&vdp.registers, width, height);
-    let sprite_scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, height);
+    let sprite_scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, height, width);
 
     for y in 0..height {
         let plane_a = ScrollPlane {
@@ -2082,9 +2082,15 @@ struct SpriteLineScan {
 }
 
 impl SpriteLineScan {
-    fn build(vram: &[u8], sprite_table_base: usize, screen_height: usize) -> Self {
+    fn build(
+        vram: &[u8],
+        sprite_table_base: usize,
+        screen_height: usize,
+        sprite_pixels_per_line: usize,
+    ) -> Self {
         let mut entries = Vec::with_capacity(MAX_SPRITES);
         let mut line_indices = vec![Vec::new(); screen_height];
+        let mut line_sprite_pixels = vec![0usize; screen_height];
         let mut sprite_index = 0usize;
         let mut visited = [false; MAX_SPRITES];
 
@@ -2118,9 +2124,15 @@ impl SpriteLineScan {
 
             let top = ypos.max(0) as usize;
             let bottom = ((ypos + height_pixels) as usize).min(screen_height);
-            for line in &mut line_indices[top.min(bottom)..bottom] {
-                if line.len() < MAX_SPRITES_PER_LINE {
+            for (line, sprite_pixels) in line_indices[top.min(bottom)..bottom]
+                .iter_mut()
+                .zip(&mut line_sprite_pixels[top.min(bottom)..bottom])
+            {
+                if line.len() < MAX_SPRITES_PER_LINE
+                    && sprite_pixels.saturating_add(width_pixels as usize) <= sprite_pixels_per_line
+                {
                     line.push(entry_idx);
+                    *sprite_pixels += width_pixels as usize;
                 }
             }
 
@@ -4807,7 +4819,7 @@ mod tests {
         write_sprite_entry(&mut vram, 0x100, 0, 5, 0x0601, 0x0123, 7);
         write_sprite_entry(&mut vram, 0x100, 1, -4, 0x0101, 0x0456, 11);
 
-        let scan = SpriteLineScan::build(&vram, 0x100, 24);
+        let scan = SpriteLineScan::build(&vram, 0x100, 24, 320);
 
         assert_eq!(
             scan.entries.len(),
@@ -4854,7 +4866,7 @@ mod tests {
             );
         }
 
-        let scan = SpriteLineScan::build(&vram, 0x100, 8);
+        let scan = SpriteLineScan::build(&vram, 0x100, 8, 320);
 
         assert_eq!(
             scan.entries.len(),
@@ -4869,6 +4881,40 @@ mod tests {
         assert_eq!(
             scan.sprites_on_line(0).last(),
             Some(&u8::try_from(super::MAX_SPRITES_PER_LINE - 1).expect("cap fits in u8"))
+        );
+    }
+
+    #[test]
+    fn sprite_line_scan_caps_each_scanline_at_vdp_h40_sprite_pixel_budget() {
+        let mut vram = vec![0; 0x500];
+        for sprite_index in 0..11 {
+            let next_link = if sprite_index == 10 {
+                0
+            } else {
+                u16::try_from(sprite_index + 1).expect("test sprite index fits in VDP link field")
+            };
+            write_sprite_entry(
+                &mut vram,
+                0x100,
+                sprite_index,
+                0,
+                0x0F00 | next_link,
+                u16::try_from(sprite_index).expect("test sprite index fits in pattern word"),
+                i32::try_from(sprite_index * 32).expect("test sprite x fits in i32"),
+            );
+        }
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 8, 320);
+
+        assert_eq!(
+            scan.entries.len(),
+            11,
+            "VDP sprite link traversal should still parse sprites after the scanline exceeds the H40 sprite-pixel budget"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0),
+            &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "Mega Drive H40 VDP exposes at most 320 sprite pixels per scanline, so the eleventh 32px sprite is dropped even before the 20-sprite count cap"
         );
     }
 
@@ -4894,7 +4940,7 @@ mod tests {
         );
         write_sprite_entry(&mut vdp.vram, 0x100, 1, 12, 0x0002, 0x8000, 20);
         write_sprite_entry(&mut vdp.vram, 0x100, 2, 14, 0x0000, 0x0000, 30);
-        let scan = SpriteLineScan::build(&vdp.vram, 0x100, 16);
+        let scan = SpriteLineScan::build(&vdp.vram, 0x100, 16, 320);
         let line_sprites = scan.sprites_on_line(6);
 
         assert_eq!(

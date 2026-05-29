@@ -700,14 +700,29 @@ fn overlay_intro_sequence_1_prompt_sprite_sub_1C54A(vdp: &mut VdpState, _elapsed
 
 #[allow(non_snake_case)]
 fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSpriteEntry>) {
+    let mut objects = Vec::new();
+    push_intro_sequence_prompt_sprite_sub_1C54A(&mut objects);
+    for object in objects {
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            entries,
+            object.gfx,
+            object.frame,
+        );
+    }
+}
+
+#[allow(non_snake_case)]
+fn push_intro_sequence_prompt_sprite_sub_1C54A(
+    objects: &mut Vec<IntroGfxObjectForSpriteTableWithOrder>,
+) {
     // ASM sub_1B8F4 -> sub_1C54A (kid.asm:30194,31288): after the Wild Side
     // VDP setup, the controller allocates a fixed visible sprite using
     // `unk_E109E` at VRAM tile `$140`. That art is the door/interior block
     // uploaded by sub_1B850's `Wild_Side_door_and_inside.bin` DMA.
     let prompt = crate::boot::title_menu_prompt_sprite_sub_1C54A();
-    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        entries,
-        IntroGfxObjectForSpriteTable {
+    objects.push(IntroGfxObjectForSpriteTableWithOrder {
+        order_key: 0x0100,
+        gfx: IntroGfxObjectForSpriteTable {
             x_pos: prompt.x_pos,
             y_pos: prompt.y_pos,
             palette_line: 0,
@@ -715,14 +730,14 @@ fn append_intro_sequence_prompt_sprite_sub_1C54A(entries: &mut Vec<HardwareSprit
             priority: 0,
             x_direction: 0,
         },
-        IntroSpriteFrameVram {
+        frame: IntroSpriteFrameVram {
             sprite_index: 0,
             x_center: 0,
             y_center: 0,
             width: 0x3E,
             height: 0x2F,
         },
-    );
+    });
 }
 
 #[allow(non_snake_case)]
@@ -814,11 +829,11 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
     visible_elapsed: usize,
 ) {
     let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
-    let mut sprite_entries = Vec::new();
+    let mut sprite_objects = Vec::new();
     // ASM sub_1C54A allocates gfx slot `$01000000`, before the `$01FF/$0200/$0201`
     // intro roster and sliding-door slots, so emit it first to preserve hardware
     // sprite ordering.
-    append_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_entries);
+    push_intro_sequence_prompt_sprite_sub_1C54A(&mut sprite_objects);
     for descriptor_slot in 0..8 {
         let Some(descriptor) =
             crate::movement::intro_sequence_3_descriptor_loc_1AEBA(roster_index, descriptor_slot)
@@ -832,19 +847,33 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
         let Some(frame) = intro_sequence_3_sprite_frame_vram(gfx.addroffset_sprite) else {
             continue;
         };
+        sprite_objects.push(IntroGfxObjectForSpriteTableWithOrder {
+            // ASM Allocate_GfxObjectSlot loc_FBE stores the high word of the
+            // caller's `$01FF0000`/`$02010000` allocation spec at `$A(a3)`;
+            // loc_FD4 sorts the gfx list by that word before
+            // Make_SpriteFromGfxObject builds the hardware sprite table.
+            order_key: (crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(descriptor)
+                >> 16) as u16,
+            gfx: gfx.into(),
+            frame,
+        });
+    }
+    push_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_objects, visible_elapsed);
+    sprite_objects.sort_by_key(|object| object.order_key);
+    let mut sprite_entries = Vec::new();
+    for object in sprite_objects {
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             &mut sprite_entries,
-            gfx,
-            frame,
+            object.gfx,
+            object.frame,
         );
     }
-    append_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_entries, visible_elapsed);
     write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
 }
 
 #[allow(non_snake_case)]
-fn append_intro_sequence_3_sliding_sprites_sub_1C572(
-    entries: &mut Vec<HardwareSpriteEntry>,
+fn push_intro_sequence_3_sliding_sprites_sub_1C572(
+    objects: &mut Vec<IntroGfxObjectForSpriteTableWithOrder>,
     visible_elapsed: usize,
 ) {
     // ASM Load_IntroSequence3 (kid.asm:29078-29088) allocates the Wild Side
@@ -862,9 +891,9 @@ fn append_intro_sequence_3_sliding_sprites_sub_1C572(
             "unk_E10AE" => (0x04E, 0x28, 0x30),
             _ => continue,
         };
-        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-            entries,
-            IntroGfxObjectForSpriteTable {
+        objects.push(IntroGfxObjectForSpriteTableWithOrder {
+            order_key: 0x0200,
+            gfx: IntroGfxObjectForSpriteTable {
                 x_pos: x_pos as u16,
                 y_pos: sliding.y_pos,
                 palette_line: 0,
@@ -872,14 +901,14 @@ fn append_intro_sequence_3_sliding_sprites_sub_1C572(
                 priority: 0,
                 x_direction: 0,
             },
-            IntroSpriteFrameVram {
+            frame: IntroSpriteFrameVram {
                 sprite_index,
                 x_center: 0,
                 y_center: 0,
                 width,
                 height,
             },
-        );
+        });
     }
 }
 
@@ -1110,6 +1139,13 @@ struct IntroGfxObjectForSpriteTable {
     x_direction: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IntroGfxObjectForSpriteTableWithOrder {
+    order_key: u16,
+    gfx: IntroGfxObjectForSpriteTable,
+    frame: IntroSpriteFrameVram,
+}
+
 impl From<crate::movement::IntroSequence3GfxObjectLoc1AEEC> for IntroGfxObjectForSpriteTable {
     fn from(gfx: crate::movement::IntroSequence3GfxObjectLoc1AEEC) -> Self {
         Self {
@@ -1257,7 +1293,7 @@ const INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0: u16 = 0x67C0;
 const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     45, // ASM sub_1B8F4/loc_1C7A0; cold-boot IntroText1 glyph cadence matches oracle frame 280/360 checkpoints.
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
-    42, // ASM sub_1B93E follows the same Load_IntroSequence3 hidden rebuild shell.
+    43, // ASM sub_1B93E exposes IntroText3 one rendered frame after the hidden VDP rebuild shell.
     42, // ASM sub_1B988 allocates IntroText4 before sub_1C204's fade shell.
     42, // ASM loc_1BA28 allocates IntroText5 before sub_1C204's fade shell.
 ];
@@ -2444,6 +2480,16 @@ mod tests {
         (0..80).any(|entry_index| sprite_entry_words(vdp, entry_index) == expected)
     }
 
+    fn sprite_table_index_without_link(
+        vdp: &VdpState,
+        expected: (u16, u8, u16, u16),
+    ) -> Option<usize> {
+        (0..80).find(|&entry_index| {
+            let (y, size, _link, pattern, x) = sprite_entry_words(vdp, entry_index);
+            (y, size, pattern, x) == expected
+        })
+    }
+
     #[test]
     fn vdp_state_new_has_correct_sizes() {
         let vdp = VdpState::new();
@@ -2472,14 +2518,12 @@ mod tests {
             1,
         );
 
-        assert_eq!(
-            sprite_entry_words(&vdp, 4),
-            (0x0120, 0x0F, 5, 0xA1D6, 0x0178),
+        assert!(
+            sprite_table_index_without_link(&vdp, (0x0120, 0x0F, 0xA1D6, 0x0178)).is_some(),
             "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first 32x32 hardware sprite",
         );
-        assert_eq!(
-            sprite_entry_words(&vdp, 5),
-            (0x0120, 0x07, 6, 0xA1E6, 0x0198),
+        assert!(
+            sprite_table_index_without_link(&vdp, (0x0120, 0x07, 0xA1E6, 0x0198)).is_some(),
             "ASM Make_SpriteFromGfxObject should split the 48px-wide Wild Side kid frame into a linked 16x32 tail chunk with the next tile run",
         );
     }
@@ -2496,7 +2540,7 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&vdp, (0x011D, 0x0F, 5, 0xA1D6, 0x0163)),
+            sprite_table_index_without_link(&vdp, (0x011D, 0x0F, 0xA1D6, 0x0163)).is_some(),
             "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair, even though lower gfx slots render before the roster",
         );
     }
@@ -2587,6 +2631,16 @@ mod tests {
             (0x0119, 0x0F, 1, 0x0140, 0x0101),
             "ASM Load_IntroSequence3 allocates sub_1C54A into gfx slot `$01000000`, before the `$01FF/$0200/$0201` roster and sliding-door slots, so its low-priority hardware sprite should lead the table",
         );
+        let low_roster = sprite_table_index_without_link(&vdp, (0x0119, 0x0F, 0x2266, 0x0118))
+            .expect("ASM loc_FD4 should sort the `$01FF` roster object before `$0200` doors");
+        let left_door = sprite_table_index_without_link(&vdp, (0x0118, 0x0F, 0x0170, 0x00BA))
+            .expect("ASM sub_1C572 should allocate the `$0200` left door object");
+        let high_roster = sprite_table_index_without_link(&vdp, (0x0120, 0x0F, 0xA1D6, 0x0178))
+            .expect("ASM loc_1AEEC should allocate `$0201` high-priority roster objects after the doors");
+        assert!(
+            low_roster < left_door && left_door < high_roster,
+            "ASM Allocate_GfxObjectSlot loc_FD4 sorts by allocation-spec high word: `$01FF` roster, `$0200` doors, then `$0201` roster"
+        );
     }
 
     #[test]
@@ -2601,11 +2655,11 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&initial, (0x0118, 0x0F, 25, 0x0170, 0x00BA)),
+            sprite_table_index_without_link(&initial, (0x0118, 0x0F, 0x0170, 0x00BA)).is_some(),
             "ASM sub_1C572 should draw the low-priority left Wild Side door half at x=$3A before the `$3C` hibernate expires",
         );
         assert!(
-            sprite_table_contains(&initial, (0x0118, 0x0F, 29, 0x018E, 0x015E)),
+            sprite_table_index_without_link(&initial, (0x0118, 0x0F, 0x018E, 0x015E)).is_some(),
             "ASM loc_1C58C should draw the low-priority right Wild Side door half at x=$DE before the `$3C` hibernate expires",
         );
 
@@ -2618,11 +2672,13 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 25, 0x0170, 0x00BB)),
+            sprite_table_index_without_link(&after_first_move, (0x0118, 0x0F, 0x0170, 0x00BB))
+                .is_some(),
             "ASM loc_1C5BE should move the left door half right by one pixel after its first post-hibernate frame",
         );
         assert!(
-            sprite_table_contains(&after_first_move, (0x0118, 0x0F, 29, 0x018E, 0x015D)),
+            sprite_table_index_without_link(&after_first_move, (0x0118, 0x0F, 0x018E, 0x015D))
+                .is_some(),
             "ASM loc_1C5BE should move the right door half left by one pixel after its first post-hibernate frame",
         );
     }
