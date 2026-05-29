@@ -8141,6 +8141,98 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_floor_collision_uses_loc_35056_floorceil_bounce() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 47 << 16, 1);
+        enemy.y_velocity = 0x0001_0000;
+        enemy.y_acceleration = 0;
+        enemy.target_y_velocity = 0x0003_0000;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let grid = bounce_grid(&[(4, 3)]);
+
+        step_ufo(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity, -0x0001_0000,
+            "ASM UFO.asm loc_35056 maps colid_floor through Enemy0F_UFO_BounceFloorCeil",
+        );
+        assert_eq!(enemy.y_acceleration, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn ufo_ceiling_collision_uses_loc_35056_floorceil_bounce() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 40 << 16, 34 << 16, 1);
+        enemy.y_velocity = -0x0001_0000;
+        enemy.y_acceleration = 0;
+        enemy.target_y_velocity = -0x0003_0000;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let grid = bounce_grid(&[(2, 1)]);
+
+        step_ufo(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity, 0x0001_0000,
+            "ASM UFO.asm loc_35056 maps colid_ceiling through Enemy0F_UFO_BounceFloorCeil",
+        );
+        assert_eq!(enemy.y_acceleration, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn ufo_slopeup_collision_uses_loc_35056_slope_bounce() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 54 << 16, 1);
+        enemy.y_velocity = 0x0001_0000;
+        enemy.target_x_velocity = 0x0003_0000;
+        enemy.target_y_velocity = 0x0003_0000;
+        enemy.x_acceleration = 0;
+        enemy.y_acceleration = 0;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let grid = grid_with_cells(8, 8, &[(4, 3, 0x40, 0)]);
+
+        step_ufo(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets x_vel to -$10000",
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets y_vel to -$10000",
+        );
+        assert_eq!(enemy.x_acceleration, 0x800);
+        assert_eq!(enemy.y_acceleration, 0x800);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn ufo_slopedown_collision_uses_loc_35056_slope_bounce() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 55 << 16, 1);
+        enemy.y_velocity = 0x0001_0000;
+        enemy.target_x_velocity = -0x0003_0000;
+        enemy.target_y_velocity = 0x0003_0000;
+        enemy.x_acceleration = 0;
+        enemy.y_acceleration = 0;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let grid = grid_with_cells(8, 8, &[(4, 3, 0x50, 0)]);
+
+        step_ufo(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets x_vel to $10000",
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0001_0000,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets y_vel to -$10000",
+        );
+        assert_eq!(enemy.x_acceleration, -0x800);
+        assert_eq!(enemy.y_acceleration, 0x800);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
     fn ufo_hurt_driver_berzerker_charge_fall_matches_loc_35788() {
         use enemies::{
             UfoHurtDriverBerzerkerChargeFallLoc35788,

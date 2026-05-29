@@ -10229,7 +10229,8 @@ pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::Blo
         enemy.wait_timer -= 1;
     }
 
-    // Wall/floor reversal
+    // ASM UFO.asm Enemy0F_UFO_ExecCollisionBehavior: terrain contacts enter
+    // loc_35056 through `Enemy0F_UFO_CollisionBehaviors`.
     if let Some(grid) = block_grid {
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
@@ -10243,10 +10244,89 @@ pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::Blo
             moving_right,
         );
         if wall.hit {
-            enemy.x_velocity = -enemy.x_velocity;
-            enemy.x_acceleration = -enemy.x_acceleration;
+            let collision_type = if moving_right { 0x0004 } else { 0x0008 };
+            apply_ufo_terrain_collision_loc_35056(enemy, collision_type);
+            return;
+        }
+
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground {
+            let collision_type = match floor.cell.collision {
+                terrain::CollisionKind::SlopeUp => 0x0014,
+                terrain::CollisionKind::SlopeDown => 0x0018,
+                _ if enemy.y_velocity > 0 => 0x000C,
+                _ => 0,
+            };
+            if collision_type != 0 {
+                apply_ufo_terrain_collision_loc_35056(enemy, collision_type);
+                return;
+            }
+        }
+
+        let ceiling =
+            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        if ceiling.hit && enemy.y_velocity < 0 {
+            apply_ufo_terrain_collision_loc_35056(enemy, 0x0010);
+        }
+    }
+}
+
+fn apply_ufo_terrain_collision_loc_35056(enemy: &mut ActiveEnemy, collision_type: i16) {
+    let dispatch = ufo_collision_dispatch_loc_35056(collision_type);
+    match dispatch.behavior {
+        Some(UfoCollisionBehaviorLoc35056::BounceWall) => {
+            let bounce = ufo_bounce_wall_tail_loc_35120(enemy.x_velocity, enemy.x_acceleration);
+            enemy.x_velocity = bounce.x_velocity;
+            enemy.x_acceleration = bounce.d0;
+            enemy.target_x_velocity = 0;
             enemy.facing = opposite_direction(enemy.facing);
         }
+        Some(UfoCollisionBehaviorLoc35056::BounceFloorCeil) => {
+            let bounce =
+                ufo_bounce_floor_ceil_tail_loc_35146(enemy.y_velocity, enemy.y_acceleration);
+            enemy.y_velocity = bounce.y_velocity;
+            enemy.y_acceleration = bounce.d2;
+            enemy.target_y_velocity = 0;
+        }
+        Some(UfoCollisionBehaviorLoc35056::BounceSlopeUp) => {
+            // ASM UFO.asm Enemy0F_UFO_BounceUpSlope: loc_350F2 rolls back the
+            // current movement before forcing the up-left launch vector.
+            let restore = ufo_restore_position_loc_350f2(
+                enemy.x_pos as i32,
+                enemy.y_pos as i32,
+                enemy.x_velocity,
+                enemy.y_velocity,
+            );
+            enemy.x_pos = restore.x_pos as u32;
+            enemy.y_pos = restore.y_pos as u32;
+            enemy.x_velocity = -0x0001_0000;
+            enemy.y_velocity = -0x0001_0000;
+            enemy.x_acceleration = 0x800;
+            enemy.y_acceleration = 0x800;
+            enemy.target_x_velocity = 0;
+            enemy.target_y_velocity = 0;
+            enemy.facing = Direction::Left;
+        }
+        Some(UfoCollisionBehaviorLoc35056::BounceSlopeDown) => {
+            // ASM UFO.asm Enemy0F_UFO_BounceDownSlope mirrors the slope-up path
+            // with a rightward launch and negative X acceleration.
+            let restore = ufo_restore_position_loc_350f2(
+                enemy.x_pos as i32,
+                enemy.y_pos as i32,
+                enemy.x_velocity,
+                enemy.y_velocity,
+            );
+            enemy.x_pos = restore.x_pos as u32;
+            enemy.y_pos = restore.y_pos as u32;
+            enemy.x_velocity = 0x0001_0000;
+            enemy.y_velocity = -0x0001_0000;
+            enemy.x_acceleration = -0x800;
+            enemy.y_acceleration = 0x800;
+            enemy.target_x_velocity = 0;
+            enemy.target_y_velocity = 0;
+            enemy.facing = Direction::Right;
+        }
+        _ => {}
     }
 }
 
