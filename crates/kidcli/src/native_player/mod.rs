@@ -8092,8 +8092,8 @@ mod tests {
 
         assert_eq!(
             player_sprite_signature(&scene),
-            Some(41),
-            "ASM loc_A13A/off_A190 selects helmet 3's first bank at off_A230, which points at Eyeclops slope art for this canonical-forward Red Stealth slot"
+            Some(40),
+            "ASM loc_A13A/off_A190 selects helmet 3's first bank at off_A230, whose first entry is `unk_BA0CE`; the sample fixture maps that slot to signature 40"
         );
     }
 

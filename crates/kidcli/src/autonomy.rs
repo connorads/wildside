@@ -4405,13 +4405,29 @@ fn try_advisory_promotion_strategy(
     diffs_dir: &str,
     min_persistence_sweeps: u32,
 ) -> Option<CycleReport> {
+    try_advisory_promotion_strategy_with_fields(
+        repo_root,
+        cycle,
+        diffs_dir,
+        min_persistence_sweeps,
+        crate::sweep::ADVISORY_FIELDS,
+    )
+}
+
+fn try_advisory_promotion_strategy_with_fields(
+    repo_root: &Path,
+    cycle: u32,
+    diffs_dir: &str,
+    min_persistence_sweeps: u32,
+    advisory_fields: &[&str],
+) -> Option<CycleReport> {
     let reports = load_recent_sweep_reports(repo_root, diffs_dir);
     if reports.is_empty() {
         return None;
     }
 
     let min_persistence = min_persistence_sweeps.max(1).min(reports.len() as u32);
-    let candidates = rank_advisory_promotion_candidates(&reports, min_persistence);
+    let candidates = rank_advisory_promotion_candidates(&reports, min_persistence, advisory_fields);
     let top = candidates.into_iter().next()?;
 
     let task = advisory_promotion_task(&top, reports.len(), min_persistence);
@@ -4472,6 +4488,7 @@ fn load_recent_sweep_reports(
 fn rank_advisory_promotion_candidates(
     reports: &[(PathBuf, crate::sweep::SweepReport)],
     min_persistence: u32,
+    advisory_fields: &[&str],
 ) -> Vec<AdvisoryPromotionCandidate> {
     let mut persistence: BTreeMap<String, u32> = BTreeMap::new();
     let mut total_diffs: BTreeMap<String, u32> = BTreeMap::new();
@@ -4490,7 +4507,7 @@ fn rank_advisory_promotion_candidates(
                 // would still vote for itself here. Filter against the const
                 // at runtime so the promotion strategy moves on immediately
                 // — no sweep refresh required.
-                if !crate::sweep::ADVISORY_FIELDS.contains(&diff.field.as_str()) {
+                if !advisory_fields.contains(&diff.field.as_str()) {
                     continue;
                 }
                 *total_diffs.entry(diff.field.clone()).or_default() += 1;
@@ -14994,8 +15011,14 @@ strategies:
             )],
         );
 
-        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 7, diffs_dir, 3)
-            .expect("stable advisory field should surface a task");
+        let cycle = super::try_advisory_promotion_strategy_with_fields(
+            temp_dir.path(),
+            7,
+            diffs_dir,
+            3,
+            &["kid_x_vel", "number_objects"],
+        )
+        .expect("stable advisory field should surface a task");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(
@@ -15049,7 +15072,13 @@ strategies:
         );
         write_sweep_report(temp_dir.path(), diffs_dir, "2026-04-22T10-00-00Z", &[]);
 
-        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 3, diffs_dir, 3);
+        let cycle = super::try_advisory_promotion_strategy_with_fields(
+            temp_dir.path(),
+            3,
+            diffs_dir,
+            3,
+            &["kid_x_vel"],
+        );
         assert!(
             cycle.is_none(),
             "field below the persistence threshold should not yield a task"
@@ -15078,7 +15107,13 @@ strategies:
             );
         }
 
-        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 9, diffs_dir, 3);
+        let cycle = super::try_advisory_promotion_strategy_with_fields(
+            temp_dir.path(),
+            9,
+            diffs_dir,
+            3,
+            &["kid_x_pos"],
+        );
         assert!(
             cycle.is_none(),
             "authoritative diffs should not be surfaced by advisory-promotion"
@@ -15101,8 +15136,14 @@ strategies:
             &[(0x00, &[("kid_y_vel", advisory)])],
         );
 
-        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 11, diffs_dir, 3)
-            .expect("one stable advisory diff should still yield a task after degradation");
+        let cycle = super::try_advisory_promotion_strategy_with_fields(
+            temp_dir.path(),
+            11,
+            diffs_dir,
+            3,
+            &["kid_y_vel"],
+        )
+        .expect("one stable advisory diff should still yield a task after degradation");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(
@@ -15150,10 +15191,10 @@ strategies:
     }
 
     #[test]
-    fn advisory_promotion_includes_field_still_in_const() {
-        // Mirror of the exclusion test: a field still in `ADVISORY_FIELDS`
-        // (`kid_x_vel`) must still surface so genuinely-stable advisory diffs
-        // continue to drive promotion review.
+    fn advisory_promotion_includes_field_still_in_allowed_list() {
+        // Mirror of the exclusion test: the production `ADVISORY_FIELDS` list is
+        // currently empty after all known advisory masks were retired, so use a
+        // synthetic allow-list to keep the promotion-ranking behaviour covered.
         let temp_dir = source_port_repo();
         let diffs_dir = ".cache/sweep-runs";
         let advisory = crate::sweep::DivergenceCategory::Advisory;
@@ -15171,8 +15212,14 @@ strategies:
             );
         }
 
-        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 14, diffs_dir, 3)
-            .expect("field still in ADVISORY_FIELDS must surface as a candidate");
+        let cycle = super::try_advisory_promotion_strategy_with_fields(
+            temp_dir.path(),
+            14,
+            diffs_dir,
+            3,
+            &["kid_x_vel"],
+        )
+        .expect("field still in the configured advisory list must surface as a candidate");
         assert_eq!(
             cycle.progress_fingerprint,
             "proactive-verification:advisory-promotion:kid_x_vel"
