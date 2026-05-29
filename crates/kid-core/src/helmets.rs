@@ -5369,6 +5369,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::Ninja)
+                    && let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
+                        ninja_berzerker_side_contact_loc_3db0a(true)
+                {
+                    // ASM Ninja.asm loc_3D698/loc_3DB0A: charging Berzerker
+                    // side contact launches Ninja upward into the loc_3DB3C
+                    // loop instead of generic HP damage/death.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {

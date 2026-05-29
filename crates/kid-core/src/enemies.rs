@@ -9275,7 +9275,11 @@ pub(crate) fn step_active_enemies_with_rng(
             EnemyArchetype::Hoverer => step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos),
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
-                    step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                    if enemy.wait_timer == NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C {
+                        step_ninja_berzerker_side_launch(enemy);
+                    } else {
+                        step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                    }
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
                     step_hand(enemy, block_grid, player_x_pos, player_y_pos);
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
@@ -16476,6 +16480,7 @@ pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
 pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A: i32 = -0x0004_8000;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C: i32 = 0x0000_4000;
+pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C: u16 = 0xDB3C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -16637,6 +16642,15 @@ pub(crate) fn ninja_berzerker_side_launch_loop_tick_loc_3db3c(
         y_velocity: y_velocity.wrapping_add(NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C),
         loops: true,
     }
+}
+
+fn step_ninja_berzerker_side_launch(enemy: &mut ActiveEnemy) {
+    // ASM Ninja.asm loc_3DB3C: hibernate one frame, run `sub_3E8BA`,
+    // add `$4000` to y_vel, then branch back to the launch loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity = ninja_berzerker_side_launch_loop_tick_loc_3db3c(enemy.y_velocity).y_velocity;
+    enemy.on_ground = false;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

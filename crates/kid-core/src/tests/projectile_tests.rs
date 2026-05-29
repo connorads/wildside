@@ -8042,6 +8042,59 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Ninja.asm loc_3D698/loc_3DB0A: charging Berzerker side contact
+    /// launches Ninja into the loc_3DB3C loop instead of consuming HP through
+    /// generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_ninja_instead_of_damaging_loc_3d698() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Ninja, 0x0040_0000, 0x0040_0000, 2));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let ninja = rt.active_enemies[0];
+        assert_eq!(ninja.hit_points, 2);
+        assert_eq!(ninja.x_velocity, 0);
+        assert_eq!(ninja.y_velocity, -0x0004_8000);
+        assert!(!ninja.on_ground);
+        assert_eq!(
+            ninja.wait_timer, NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C,
+            "native marker keeps the live enemy in ASM Ninja.asm loc_3DB3C"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let ninja = rt.active_enemies[0];
+        assert_eq!(
+            ninja.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Ninja.asm loc_3DB3C: launch loop should apply current y_vel"
+        );
+        assert_eq!(
+            ninja.y_velocity, -0x0004_4000,
+            "ASM Ninja.asm loc_3DB3C: y_vel should add `$4000` each loop tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
