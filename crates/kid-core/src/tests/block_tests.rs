@@ -5092,6 +5092,124 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fireball_floor_bounce_spawns_trail_child_loc_32ce4_33128() {
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut active = vec![test_enemy(
+            EnemyFamily::Fireball,
+            0x0123_0000,
+            (159u32 << 16) + 0xC000,
+            1,
+        )];
+        active[0].y_velocity = 0x3_0000;
+        let mut projectiles = Vec::new();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Fireball.asm loc_32CE4 allocates a loc_33128 trail child while Number_of_Fire_Trails < 5"
+        );
+        assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
+        assert_eq!(projectiles[0].lifetime, 0x96);
+        assert_eq!(projectiles[0].y_pos, 0x00B0_0000);
+    }
+
+    #[test]
+    fn fireball_floor_bounce_respects_five_trail_cap_loc_32ce4() {
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut active = vec![test_enemy(
+            EnemyFamily::Fireball,
+            0x0123_0000,
+            (159u32 << 16) + 0xC000,
+            1,
+        )];
+        active[0].y_velocity = 0x3_0000;
+        let mut projectiles = vec![
+            EnemyProjectile {
+                kind: EnemyProjectileKind::FireballTrail,
+                lifetime: 0x96,
+                ..Default::default()
+            };
+            5
+        ];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            5,
+            "ASM Fireball.asm loc_32CE4 returns without allocation once Number_of_Fire_Trails is already five"
+        );
+    }
+
+    #[test]
+    fn fireball_slope_up_spawns_trail_child_loc_330d0() {
+        let grid = grid_with_cells(
+            10,
+            10,
+            &[
+                (5, 5, 0x40, 0), // SlopeUp at (5, 5)
+            ],
+        );
+        let mut active = vec![test_enemy(
+            EnemyFamily::Fireball,
+            (5 * 16 + 8) << 16,
+            89 << 16,
+            1,
+        )];
+        active[0].x_velocity = 0x2_0000;
+        active[0].y_velocity = 0x1_0000;
+        active[0].facing = Direction::Right;
+        let mut projectiles = Vec::new();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Fireball.asm Enemy19_Fireball_SlopeUp allocates a loc_330D0 trail child while Number_of_Fire_Trails < 5"
+        );
+        assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
+        assert_eq!(projectiles[0].lifetime, 0x96);
+    }
+
+    #[test]
     fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
         let enemy = ActiveEnemy {
             segment_index: 0,

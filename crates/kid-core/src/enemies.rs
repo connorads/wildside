@@ -9239,7 +9239,13 @@ pub(crate) fn step_active_enemies_with_rng(
                 if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
                     step_big_hopping_skull(enemy, block_grid);
                 } else {
-                    step_bouncer_with_rng(enemy, block_grid, camera_x_px, rng);
+                    step_bouncer_with_rng(
+                        enemy,
+                        block_grid,
+                        camera_x_px,
+                        rng,
+                        projectiles.as_deref_mut(),
+                    );
                 }
             }
             EnemyArchetype::Flyer => {
@@ -13124,6 +13130,75 @@ pub(crate) fn fireball_floor_ceiling_bounce_loc_32ce4(
     }
 }
 
+fn count_live_fireball_trails(projectiles: &[EnemyProjectile]) -> u16 {
+    projectiles
+        .iter()
+        .filter(|projectile| projectile.kind == EnemyProjectileKind::FireballTrail)
+        .count()
+        .min(usize::from(u16::MAX)) as u16
+}
+
+fn fireball_trail_projectile_from_loc_330d0(
+    parent_x_direction: u8,
+    x_px: i16,
+    y_px: i16,
+) -> EnemyProjectile {
+    let init = fireball_trail_init_loc_330d0(parent_x_direction, x_px, y_px);
+    debug_assert_eq!(init.gfx_object_long, 0x0300_0003);
+    debug_assert_eq!(init.display_flag_13, 0xFF);
+    debug_assert_eq!(init.object_meta, 0x19);
+    debug_assert_eq!(init.animation, "stru_330C2");
+    EnemyProjectile {
+        x_pos: (i32::from(init.x_px) as u32) << 16,
+        y_pos: (i32::from(init.y_px) as u32) << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        lifetime: init.lifetime_frames,
+        gravity: 0,
+        friendly: false,
+        terrain_kill: false,
+        kind: EnemyProjectileKind::FireballTrail,
+        ..Default::default()
+    }
+}
+
+fn spawn_fireball_trail_projectile_loc_330d0(
+    projectiles: Option<&mut Vec<EnemyProjectile>>,
+    parent_x_direction: u8,
+    x_px: i16,
+    y_px: i16,
+) {
+    let Some(projectiles) = projectiles else {
+        return;
+    };
+    if count_live_fireball_trails(projectiles) >= 5 {
+        return;
+    }
+    projectiles.push(fireball_trail_projectile_from_loc_330d0(
+        parent_x_direction,
+        x_px,
+        y_px,
+    ));
+}
+
+fn spawn_fireball_obstacle_trail_projectile_loc_33128(
+    projectiles: Option<&mut Vec<EnemyProjectile>>,
+    enemy: &ActiveEnemy,
+) {
+    let Some(projectiles) = projectiles else {
+        return;
+    };
+    if count_live_fireball_trails(projectiles) >= 5 {
+        return;
+    }
+
+    // ASM Fireball.asm loc_33128: obstacle trails start at parent x + 2*x_vel,
+    // with Y aligned to the next 16px row after adding $F.
+    let x_px = ((enemy.x_pos as i64 + (i64::from(enemy.x_velocity) * 2)) >> 16) as i16;
+    let y_px = ((((enemy.y_pos >> 16) as i32) + 0x0F) & !0x0F) as i16;
+    projectiles.push(fireball_trail_projectile_from_loc_330d0(0, x_px, y_px));
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FireballSlopeTrailMarkerLoc32D7E {
     pub(crate) x_px: i16,
@@ -13177,6 +13252,10 @@ pub(crate) fn fireball_slope_down_trail_marker_loc_32e3c(
         x_px: probe_x_px.wrapping_sub(2),
         y_px: aligned_y.wrapping_add(x_fraction).wrapping_sub(2),
     })
+}
+
+fn terrain_collision_tile_word(cell: terrain::Cell) -> u16 {
+    (cell.collision as u16) << 12
 }
 
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
@@ -13277,7 +13356,7 @@ pub(crate) fn step_big_hopping_skull(
 pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let mut rng = RomRandomState::default();
     let camera_x_px = enemy.x_pos >> 16;
-    step_bouncer_with_rng(enemy, block_grid, Some(camera_x_px), &mut rng);
+    step_bouncer_with_rng(enemy, block_grid, Some(camera_x_px), &mut rng, None);
 }
 
 pub(crate) fn step_bouncer_with_rng(
@@ -13285,6 +13364,7 @@ pub(crate) fn step_bouncer_with_rng(
     block_grid: Option<&terrain::BlockGrid>,
     camera_x_px: Option<u32>,
     rng: &mut RomRandomState,
+    mut projectiles: Option<&mut Vec<EnemyProjectile>>,
 ) {
     // Apply gravity
     enemy.y_velocity = if matches!(enemy.family, EnemyFamily::Fireball) {
@@ -13343,6 +13423,25 @@ pub(crate) fn step_bouncer_with_rng(
                     enemy.y_velocity = -old_x;
                     enemy.x_velocity = -old_y;
                     enemy.facing = opposite_direction(enemy.facing);
+                    if matches!(enemy.family, EnemyFamily::Fireball) {
+                        let tile_word = terrain_collision_tile_word(floor.cell);
+                        if let Some(marker) = fireball_slope_up_trail_marker_loc_32d7e(
+                            (enemy.x_pos >> 16) as u16 as i16,
+                            (enemy.y_pos >> 16) as u16 as i16,
+                            tile_word,
+                        ) {
+                            spawn_fireball_trail_projectile_loc_330d0(
+                                projectiles.as_deref_mut(),
+                                if enemy.facing == Direction::Right {
+                                    0xFF
+                                } else {
+                                    0x00
+                                },
+                                marker.x_px,
+                                marker.y_px,
+                            );
+                        }
+                    }
                 }
             } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
                 let old_x = enemy.x_velocity;
@@ -13360,12 +13459,45 @@ pub(crate) fn step_bouncer_with_rng(
                     enemy.y_velocity = old_x;
                     enemy.x_velocity = old_y;
                     enemy.facing = opposite_direction(enemy.facing);
+                    if matches!(enemy.family, EnemyFamily::Fireball) {
+                        let tile_word = terrain_collision_tile_word(floor.cell);
+                        if let Some(marker) = fireball_slope_down_trail_marker_loc_32e3c(
+                            (enemy.x_pos >> 16) as u16 as i16,
+                            (enemy.y_pos >> 16) as u16 as i16,
+                            tile_word,
+                        ) {
+                            spawn_fireball_trail_projectile_loc_330d0(
+                                projectiles.as_deref_mut(),
+                                if enemy.facing == Direction::Right {
+                                    0xFF
+                                } else {
+                                    0x00
+                                },
+                                marker.x_px,
+                                marker.y_px,
+                            );
+                        }
+                    }
                 }
             } else {
                 // Regular floor bounce
                 if matches!(enemy.family, EnemyFamily::Fireball) {
-                    enemy.y_velocity =
-                        fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
+                    let fire_trail_count = projectiles
+                        .as_ref()
+                        .map_or(0, |projectiles| count_live_fireball_trails(projectiles));
+                    let bounce = fireball_floor_ceiling_bounce_loc_32ce4(
+                        enemy,
+                        rng,
+                        camera_x_px.unwrap_or(0),
+                        fire_trail_count,
+                    );
+                    enemy.y_velocity = bounce.y_velocity;
+                    if bounce.spawns_fire_trail {
+                        spawn_fireball_obstacle_trail_projectile_loc_33128(
+                            projectiles.as_deref_mut(),
+                            enemy,
+                        );
+                    }
                 } else {
                     enemy.y_velocity = -enemy.y_velocity;
                 }
@@ -13383,8 +13515,19 @@ pub(crate) fn step_bouncer_with_rng(
             if matches!(enemy.family, EnemyFamily::Fireball) {
                 // ASM Enemy19_Fireball_BounceFloorCeiling reuses the same
                 // perturb-and-negate path for both floor and ceiling contact.
-                enemy.y_velocity =
-                    fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
+                let fire_trail_count = projectiles
+                    .as_ref()
+                    .map_or(0, |projectiles| count_live_fireball_trails(projectiles));
+                let bounce = fireball_floor_ceiling_bounce_loc_32ce4(
+                    enemy,
+                    rng,
+                    camera_x_px.unwrap_or(0),
+                    fire_trail_count,
+                );
+                enemy.y_velocity = bounce.y_velocity;
+                if bounce.spawns_fire_trail {
+                    spawn_fireball_obstacle_trail_projectile_loc_33128(projectiles, enemy);
+                }
             } else {
                 // Sphere.asm: negate and halve
                 enemy.y_velocity = -(enemy.y_velocity >> 1);

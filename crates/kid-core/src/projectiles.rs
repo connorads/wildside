@@ -2081,12 +2081,13 @@ impl NativeRuntime {
             if overlaps {
                 hit = true;
                 if p.kind == EnemyProjectileKind::FireDemonDeathTrail
+                    || p.kind == EnemyProjectileKind::FireballTrail
                     || p.kind == EnemyProjectileKind::DragonWalkingBreath
                 {
-                    // ASM Fire_Demon loc_3A6CA and Dragon.asm loc_3D082:
-                    // these child hazards keep their own animation/lifetime
-                    // loops after hurting Kid; player collision does not
-                    // delete the child object.
+                    // ASM Fire_Demon loc_3A6CA, Fireball.asm loc_33110, and
+                    // Dragon.asm loc_3D082: these child hazards keep their own
+                    // animation/lifetime loops after hurting Kid; player
+                    // collision does not delete the child object.
                     true
                 } else {
                     if let Some(owner) = p.owner {

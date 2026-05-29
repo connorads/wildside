@@ -159,6 +159,31 @@ fn dragon_walking_breath_child_frame(
     })
 }
 
+fn fireball_trail_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let elapsed_frames = 0x0096_u16.saturating_sub(remaining_frames);
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match (elapsed_frames / 6) % 3
+    {
+        // ASM Fireball.asm `stru_330C2`: `LnkTo_unk_C7996`.
+        0 => (0x070, 0x04, 0x05, 0x0C, 0x0D),
+        // ASM Fireball.asm `stru_330C2`: `LnkTo_unk_C799E`.
+        1 => (0x074, 0x04, 0x05, 0x0B, 0x0C),
+        // ASM Fireball.asm `stru_330C2`: `LnkTo_unk_C79A6`.
+        _ => (0x078, 0x04, 0x05, 0x0B, 0x0B),
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn drips_surface_crawler_frame(
     visuals: &kid_render::AnimatedSpriteVisual,
     remaining_frames: u16,
@@ -3418,6 +3443,36 @@ fn build_game_scene_filtered(
                         projectile.remaining_frames,
                     ) {
                         push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
+                    }
+                }
+                ActiveProjectileKind::FireballTrail => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&0x19)
+                        .and_then(|fireball_visuals| {
+                            let frame = fireball_trail_child_frame(
+                                fireball_visuals,
+                                projectile.remaining_frames,
+                            )?;
+                            push_sprite_frame(
+                                &mut commands,
+                                &frame,
+                                &fireball_visuals.palette,
+                                sx,
+                                sy,
+                            );
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 5,
+                            width: 8,
+                            height: 8,
+                            colour: FIRE_TRAIL_PLACEHOLDER_COLOUR,
+                        });
                     }
                 }
                 ActiveProjectileKind::DragonWalkingBreath => {

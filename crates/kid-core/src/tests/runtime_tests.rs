@@ -9891,6 +9891,34 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fireball_trail_hits_player_without_consuming_child_loc_33110() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 0x96,
+            friendly: false,
+            kind: EnemyProjectileKind::FireballTrail,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM Fireball.asm loc_330D0 trail remains a hostile hitbox"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Fireball.asm loc_33110 deletes on `$19` or d3 expiry; Kid collision must not consume the trail child"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_spawns_typed_child_not_projectile_carrier_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.active_enemies.push(test_enemy(

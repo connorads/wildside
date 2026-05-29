@@ -74,6 +74,9 @@ pub enum ActiveProjectileKind {
     #[default]
     Generic,
     FireDemonDeathTrail,
+    /// Fireball trail child: ASM `Fireball.asm loc_330D0` / `loc_33128`
+    /// allocates a short-lived hostile flame child after bounces.
+    FireballTrail,
     /// Walking Dragon breath child: ASM `Dragon.asm loc_3D02A` initialises
     /// `stru_3CCC8` as a stationary hostile GfxObject at the dragon mouth.
     DragonWalkingBreath,
@@ -2294,6 +2297,7 @@ pub(crate) enum EnemyProjectileKind {
     DragonWalkingBreath,
     ArcherArrow,
     CloudLightning,
+    FireballTrail,
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,
