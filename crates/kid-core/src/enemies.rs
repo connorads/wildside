@@ -21189,6 +21189,7 @@ pub(crate) fn step_dragon_walking(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                kind: EnemyProjectileKind::DragonWalkingBreath,
                 ..Default::default()
             });
             enemy.wait_timer = breath_trigger.breath_timer;

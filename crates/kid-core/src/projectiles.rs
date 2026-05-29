@@ -2080,11 +2080,13 @@ impl NativeRuntime {
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
             if overlaps {
                 hit = true;
-                if p.kind == EnemyProjectileKind::FireDemonDeathTrail {
-                    // ASM Fire_Demon loc_3A6CA: the trail child hibernates
-                    // until `$19(a3)` level collision or d3 expiry. Kid
-                    // collision may hurt Kid, but it does not delete the
-                    // fire-trail object.
+                if p.kind == EnemyProjectileKind::FireDemonDeathTrail
+                    || p.kind == EnemyProjectileKind::DragonWalkingBreath
+                {
+                    // ASM Fire_Demon loc_3A6CA and Dragon.asm loc_3D082:
+                    // these child hazards keep their own animation/lifetime
+                    // loops after hurting Kid; player collision does not
+                    // delete the child object.
                     true
                 } else {
                     if let Some(owner) = p.owner {

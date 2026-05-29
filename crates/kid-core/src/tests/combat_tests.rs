@@ -9392,6 +9392,11 @@ mod chunk_03 {
             projectiles[0].lifetime, DRAGON_WALKING_BREATH_LIFETIME,
             "breath lasts for animation duration (68 frames)"
         );
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::DragonWalkingBreath,
+            "ASM loc_3D02A should remain typed as the breath child so loc_3D082 owns deletion"
+        );
         assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_RESET);
         assert_eq!(
             enemy.dragon_script_cmd, 1,

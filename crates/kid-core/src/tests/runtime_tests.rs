@@ -9859,6 +9859,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn dragon_walking_breath_hits_player_without_consuming_child_loc_3d082() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+            friendly: false,
+            kind: EnemyProjectileKind::DragonWalkingBreath,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM Dragon.asm loc_3D02A breath is still a hostile hitbox"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Dragon.asm loc_3D082 keeps polling until parent `$5B` or child `$18`; Kid collision must not delete the breath child"
+        );
+        assert_eq!(
+            rt.projectiles[0].kind,
+            EnemyProjectileKind::DragonWalkingBreath
+        );
+    }
+
+    #[test]
     fn fire_demon_death_spawns_typed_child_not_projectile_carrier_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.active_enemies.push(test_enemy(
