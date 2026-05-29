@@ -246,6 +246,12 @@ pub struct DynamicScenario {
     /// specific gameplay window under investigation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_position: Option<DynamicStartPosition>,
+    /// Optional probe-only camera position applied after a settled level warp.
+    /// ASM `Camera_X_pos`/`Camera_Y_pos` live at `$FFFFF81C`/`$FFFFF820`
+    /// (variables.asm); visual probes need these patched with Kid so the
+    /// target gameplay window is actually on screen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera_position: Option<DynamicStartPosition>,
     /// Target level to warp to before running the script.
     /// Both native and oracle boot to level 0 first, then advance
     /// to this level using their own mechanism (native: direct skip,
@@ -294,6 +300,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        camera_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -374,6 +381,7 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        camera_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -447,6 +455,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        camera_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -498,6 +507,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        camera_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -541,6 +551,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        camera_position: None,
         warp_to_level: Some(level_id),
     }
 }
@@ -626,6 +637,7 @@ impl Scenario {
                 })
                 .collect(),
             start_position: None,
+            camera_position: None,
             warp_to_level: None,
         }
     }
@@ -783,6 +795,7 @@ impl GameplayScenario {
                 .map(|(frame_index, label)| DynamicCheckpoint { label, frame_index })
                 .collect(),
             start_position: None,
+            camera_position: None,
             warp_to_level: None,
         })
     }
@@ -802,6 +815,7 @@ impl GameplayScenario {
                 })
                 .collect(),
             start_position: None,
+            camera_position: None,
             warp_to_level: None,
         }
     }
@@ -854,7 +868,8 @@ mod tests {
                 "frame_count": 2,
                 "checkpoints": [{"label": "flag_touch", "frame_index": 0}],
                 "warp_to_level": 0,
-                "start_position": {"x": 3152, "y": 176}
+                "start_position": {"x": 3152, "y": 176},
+                "camera_position": {"x": 3008, "y": 64}
             }"#,
         )
         .expect("scenario");
@@ -862,6 +877,10 @@ mod tests {
         assert_eq!(
             scenario.start_position,
             Some(DynamicStartPosition { x: 3152, y: 176 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 3008, y: 64 })
         );
     }
 
@@ -876,6 +895,7 @@ mod tests {
                 frame_index: 0,
             }],
             start_position: None,
+            camera_position: None,
             warp_to_level: Some(0),
         };
 
@@ -883,6 +903,10 @@ mod tests {
 
         assert!(
             !json.contains("start_position"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+        assert!(
+            !json.contains("camera_position"),
             "legacy scenarios should keep their compact JSON shape"
         );
     }

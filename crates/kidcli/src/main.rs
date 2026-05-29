@@ -3899,6 +3899,7 @@ AddrTbl_LevelNames:
             frame_count: 3,
             checkpoints: Vec::new(),
             start_position: None,
+            camera_position: None,
             warp_to_level: None,
         };
 
@@ -3919,6 +3920,7 @@ AddrTbl_LevelNames:
             frame_count: 3,
             checkpoints: Vec::new(),
             start_position: None,
+            camera_position: None,
             warp_to_level: Some(0x15),
         };
 

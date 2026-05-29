@@ -54,6 +54,8 @@ struct ScenarioFile {
     #[serde(default)]
     start_position: Option<ScenarioStartPosition>,
     #[serde(default)]
+    camera_position: Option<ScenarioStartPosition>,
+    #[serde(default)]
     warp_to_level: Option<u8>,
 }
 
@@ -81,6 +83,8 @@ struct ResolvedScenario {
     warp_to_level: Option<u8>,
     /// Optional probe-only live Kid position applied after the settled warp.
     start_position: Option<ScenarioStartPosition>,
+    /// Optional probe-only camera position applied after the settled warp.
+    camera_position: Option<ScenarioStartPosition>,
     /// Whether the oracle warp must settle into live unpaused target-level
     /// gameplay before scenario frame 0.
     settle_oracle_warp: bool,
@@ -507,6 +511,7 @@ fn resolve_scenario(
                 _owned_labels: Vec::new(),
                 warp_to_level: None,
                 start_position: None,
+                camera_position: None,
                 settle_oracle_warp: false,
             })
         }
@@ -534,6 +539,7 @@ fn resolve_scenario(
                 _owned_labels: owned_labels,
                 warp_to_level: sf.warp_to_level,
                 start_position: sf.start_position,
+                camera_position: sf.camera_position,
                 settle_oracle_warp,
             })
         }
@@ -566,6 +572,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     if let Some(position) = resolved.start_position {
         apply_probe_start_position(&mut emulator, position);
+    }
+    if let Some(position) = resolved.camera_position {
+        apply_probe_camera_position(&mut emulator, position);
     }
 
     while frame_index < resolved.frame_count {
@@ -2042,6 +2051,14 @@ fn apply_probe_start_position(emulator: &mut GenesisEmulator, position: Scenario
     // x_pos/y_pos words. Probe scenarios patch only that live object position.
     write_emulator_wram_u32(emulator, KID_X_POS_ADDR, u32::from(position.x) << 16);
     write_emulator_wram_u32(emulator, KID_Y_POS_ADDR, u32::from(position.y) << 16);
+}
+
+fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: ScenarioStartPosition) {
+    // ASM variables.asm: Camera_X_pos/Camera_Y_pos are `$FFFFF81C`/`$FFFFF820`
+    // long 16.16 words. Probe scenarios may patch them with Kid's live object
+    // so mid-level visual evidence captures the same on-screen window.
+    write_emulator_wram_u32(emulator, CAMERA_X_POS_ADDR, u32::from(position.x) << 16);
+    write_emulator_wram_u32(emulator, CAMERA_Y_POS_ADDR, u32::from(position.y) << 16);
 }
 
 fn clear_input_latches(emulator: &mut GenesisEmulator) {

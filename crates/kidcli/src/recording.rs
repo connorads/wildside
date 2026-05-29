@@ -280,6 +280,7 @@ pub(crate) fn build_recording(
                 frame_count,
                 script,
                 start_position: None,
+                camera_position: None,
                 warp_to_level: start.warp_level,
             },
         },
@@ -527,6 +528,9 @@ fn initialise_recording_runtime(
         .then(|| runtime.trace_frame());
     if let Some(position) = scenario.start_position {
         runtime.set_player_probe_position(position.x, position.y);
+    }
+    if let Some(position) = scenario.camera_position {
+        runtime.set_camera_probe_position(position.x, position.y);
     }
 
     let current_level_id = runtime.trace_frame().current_level.0;
@@ -800,6 +804,7 @@ pub(crate) fn oracle_scenario_for_recording(
             script: recording.manifest.scenario.script.clone(),
             checkpoints: recording.manifest.scenario.checkpoints.clone(),
             start_position: recording.manifest.scenario.start_position,
+            camera_position: recording.manifest.scenario.camera_position,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
         },
         0,
@@ -2593,6 +2598,8 @@ mod tests {
         .expect("recording");
         recording.manifest.scenario.start_position =
             Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 });
+        recording.manifest.scenario.camera_position =
+            Some(crate::scenarios::DynamicStartPosition { x: 3008, y: 64 });
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
@@ -2601,6 +2608,11 @@ mod tests {
             oracle_scenario.start_position,
             Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 }),
             "the oracle helper must patch the same live Kid position after it settles to gameplay"
+        );
+        assert_eq!(
+            oracle_scenario.camera_position,
+            Some(crate::scenarios::DynamicStartPosition { x: 3008, y: 64 }),
+            "the oracle helper must patch the same Camera_X/Y probe window after it settles to gameplay"
         );
     }
 
