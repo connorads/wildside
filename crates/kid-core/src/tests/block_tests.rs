@@ -8141,6 +8141,43 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_live_step_invokes_loc_34e2a_tracking_when_kid_below_near() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 0x0120_8000, 0x0080_4000, 1);
+        enemy.enemy_level = 2;
+        enemy.flight_double_acceleration = true;
+        enemy.flight_double_terminal_speed = true;
+        enemy.y_velocity = 0x0001_0000;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let mut active = vec![enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            None,
+            Some(0x0100_0000),
+            Some(0x0090_0000),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            active[0].x_acceleration, -0x2000,
+            "ASM UFO.asm loc_34E2A should steer left and loc_34E10 should double acceleration",
+        );
+        assert_eq!(active[0].target_x_velocity, -0x40000);
+        assert_eq!(active[0].y_acceleration, 0);
+        assert_eq!(active[0].target_y_velocity, 0);
+        assert_eq!(
+            active[0].y_velocity, 0,
+            "ASM UFO.asm loc_34E2A clears y_vel before steering toward nearby lower Kid",
+        );
+        assert_eq!(active[0].facing, Direction::Left);
+    }
+
+    #[test]
     fn ufo_floor_collision_uses_loc_35056_floorceil_bounce() {
         let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 47 << 16, 1);
         enemy.y_velocity = 0x0001_0000;

@@ -9198,7 +9198,7 @@ pub(crate) fn step_active_enemies_with_rng(
                         &mut projectiles,
                     );
                 } else {
-                    step_flyer_with_rng(enemy, block_grid, rng);
+                    step_flyer_with_rng(enemy, block_grid, player_x_pos, player_y_pos, rng);
                     if matches!(enemy.family, EnemyFamily::Cloud)
                         && let Some(ref mut projs) = projectiles
                     {
@@ -9356,6 +9356,8 @@ pub(crate) fn step_active_enemies_with_rng(
 pub(crate) fn step_flyer_with_rng(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
     rng: &mut RomRandomState,
 ) {
     // Cloud: horizontal flight with wall reversal
@@ -9366,7 +9368,7 @@ pub(crate) fn step_flyer_with_rng(
 
     // UFO: acceleration-based drifting with periodic direction changes
     if matches!(enemy.family, EnemyFamily::UFO) {
-        step_ufo(enemy, block_grid);
+        step_ufo_with_player(enemy, block_grid, player_x_pos, player_y_pos);
         return;
     }
 
@@ -10209,12 +10211,42 @@ pub(crate) fn ufo_tracking_tail_loc_34e96(
     )
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    step_ufo_with_player(enemy, block_grid, None, None);
+}
+
+pub(crate) fn step_ufo_with_player(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
     // Apply acceleration to velocity (clamped to terminal)
     enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
         .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
     enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
         .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+
+    if let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos)
+        && let Some(tracking) = ufo_tracking_command_loc_34e2a(
+            enemy.x_pos,
+            enemy.y_pos,
+            kid_x,
+            kid_y,
+            enemy.enemy_level >= 1 || enemy.flight_double_acceleration,
+            enemy.ufo_beam_segments != 0,
+            enemy.flight_double_acceleration,
+            enemy.flight_double_terminal_speed,
+        )
+    {
+        enemy.x_acceleration = tracking.motion.x_acceleration;
+        enemy.target_x_velocity = tracking.motion.target_x_velocity;
+        enemy.y_acceleration = tracking.motion.y_acceleration;
+        enemy.target_y_velocity = tracking.motion.target_y_velocity;
+        enemy.y_velocity = tracking.y_velocity;
+        enemy.facing = tracking.facing;
+    }
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
