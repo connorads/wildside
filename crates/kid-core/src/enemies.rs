@@ -18936,7 +18936,7 @@ pub(crate) fn robot_shoot_lethal_hit_loc_3ab56(facing: Direction) -> RobotShootL
     }
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotShotSpawnLoc3AC0C {
     pub(crate) projectile_x_direction: u8,
@@ -18947,7 +18947,7 @@ pub(crate) struct RobotShotSpawnLoc3AC0C {
     pub(crate) hibernates_one_frame_before_sound_gate: bool,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_shot_spawn_loc_3ac0c(
     child_x_direction: u8,
     child_y_offset_46_px: i16,
@@ -19130,17 +19130,21 @@ pub(crate) fn step_robot_with_rng(
                     };
                 }
 
-                // Fire projectile
                 if let Some(projs) = projectiles {
-                    let speed = ROBOT_PROJECTILE_SPEED;
-                    let xv = match enemy.facing {
-                        Direction::Right => speed,
-                        Direction::Left => -speed,
+                    let child_x_direction = match enemy.facing {
+                        Direction::Left => 0x00,
+                        Direction::Right => 0xFF,
                     };
+                    let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
                     projs.push(EnemyProjectile {
-                        x_pos: enemy.x_pos,
-                        y_pos: enemy.y_pos,
-                        x_velocity: xv,
+                        // ASM Robot.asm loc_3AC0C: the allocated shot copies
+                        // the child head direction and spawns from the muzzle
+                        // offset, not the parent's origin.
+                        x_pos: (enemy.x_pos as i64 + (i64::from(spawn.projectile_x_delta_px) << 16))
+                            as u32,
+                        y_pos: (enemy.y_pos as i64 + (i64::from(spawn.projectile_y_delta_px) << 16))
+                            as u32,
+                        x_velocity: spawn.projectile_x_velocity,
                         y_velocity: 0,
                         lifetime: 60,
                         gravity: 0,

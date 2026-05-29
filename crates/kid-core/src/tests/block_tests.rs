@@ -9768,6 +9768,20 @@ mod chunk_04 {
             "native approximates the next shared sub_3C4F8 shoot check with the existing shoot interval"
         );
         assert_eq!(projs.len(), 1, "robot should fire a projectile");
+        assert_eq!(
+            projs[0].x_pos,
+            enemy.x_pos + (26 << 16),
+            "ASM Robot.asm loc_3AC0C should spawn the right-facing shot 26px from the muzzle"
+        );
+        assert_eq!(
+            projs[0].y_pos,
+            enemy.y_pos - (16 << 16),
+            "ASM Robot.asm loc_3AC0C should apply child head offset `$12` into a -16px shot Y delta"
+        );
+        assert_eq!(
+            projs[0].x_velocity, ROBOT_PROJECTILE_SPEED,
+            "ASM Robot.asm loc_3AC0C should launch right-facing shots at `$50000`"
+        );
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
     }
 
