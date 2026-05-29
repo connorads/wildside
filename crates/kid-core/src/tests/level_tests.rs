@@ -17801,6 +17801,56 @@ mod chunk_10 {
     }
 
     #[test]
+    fn tar_monster_burst_child_reflects_once_and_spends_budget_loc_32682() {
+        // ASM Tar_Monster.asm loc_32682 spends d3 before dispatching
+        // off_32656. Collision id $04 reaches loc_326AA, halving and negating
+        // x_vel while leaving the child alive with one response left.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(30, 40);
+        proj.kind = EnemyProjectileKind::TarMonsterBurstChild;
+        proj.x_velocity = 0x2_0000;
+        proj.y_velocity = 0;
+        proj.gravity = 0;
+        proj.tar_monster_collision_response_budget = 2;
+        rt.projectiles.push(proj);
+        rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+        rt.step_projectiles();
+
+        assert_eq!(rt.projectiles.len(), 1);
+        assert_eq!(
+            rt.projectiles[0].x_velocity, -0x1_0000,
+            "loc_326AA should arithmetic-shift x_vel right once, then negate it"
+        );
+        assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert_eq!(
+            rt.projectiles[0].tar_monster_collision_response_budget, 1,
+            "loc_32698 should spend one of the two collision responses"
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_child_deletes_when_collision_budget_spent_loc_32698() {
+        // ASM Tar_Monster.asm loc_32698 decrements d3 before dispatch; if it
+        // underflows, control jumps to loc_32652 and deletes the child.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(30, 40);
+        proj.kind = EnemyProjectileKind::TarMonsterBurstChild;
+        proj.x_velocity = 0x2_0000;
+        proj.gravity = 0;
+        proj.tar_monster_collision_response_budget = 0;
+        rt.projectiles.push(proj);
+        rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "spent d3 budget should route collision to loc_32652 deletion"
+        );
+    }
+
+    #[test]
     fn wall_bounce_horizontal_wall_negates_x_velocity() {
         // Projectile at (30, 40) moving right into a vertical wall at col 2 (px 32-47).
         // After move: (32, 41) → col 2 is solid. Probe: h=(col 2, row 2)=solid, v=(col 1, row 2)=empty.

@@ -2303,6 +2303,8 @@ pub(crate) enum EnemyProjectileKind {
     FireDemonDeathTrail,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
+    /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.
+    TarMonsterBurstChild,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -2379,6 +2381,9 @@ pub(crate) struct EnemyProjectile {
     /// Drips.asm loc_335D8 copies parent state byte `$45(a5)` into the surface
     /// crawler; loc_33526 doubles the startup velocity delta when this is set.
     pub(crate) drips_child_byte_45: u8,
+    /// Tar_Monster.asm loc_3261C seeds d3=2; loc_32698 decrements this before
+    /// each off_32656 collision dispatch and deletes once it underflows.
+    pub(crate) tar_monster_collision_response_budget: u16,
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.

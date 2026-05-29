@@ -4,26 +4,31 @@ use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
     DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
-    DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA, archer_angle_to_player,
-    archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
-    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
-    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
-    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
-    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
-    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
-    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
-    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
-    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
-    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
-    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
-    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
-    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
-    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
-    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
-    drips_velocity_apply_loc_33546, drips_velocity_deltas_loc_33526,
-    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
-    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA,
+    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
+    archer_angle_to_player, archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa,
+    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
+    drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
+    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
+    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
+    drips_surface_crawler_turn_script_loc_33a36, drips_surface_crawler_turn_script_loc_33a40,
+    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
+    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
+    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
+    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
+    drips_surface_crawler_turn_script_loc_339e6, drips_surface_crawler_turn_script_loc_339f0,
+    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
+    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
+    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
+    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
+    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
+    drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
+    drips_velocity_deltas_loc_33526, drips_vertical_bounds_contact_flag_loc_335b0,
+    drips_wait_timer_with_rng_loc_3340e, spawn_tar_monster_retaliation,
+    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
+    tar_monster_projectile_negated_velocity_swap_loc_326C6,
+    tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
+    tar_monster_projectile_velocity_swap_loc_326DC,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -85,6 +90,88 @@ const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
+
+fn apply_tar_monster_burst_child_collision_loc_32682(
+    projectile: &mut EnemyProjectile,
+    grid: &terrain::BlockGrid,
+) -> bool {
+    let px_i = (projectile.x_pos >> 16) as i32;
+    let py_i = (projectile.y_pos >> 16) as i32;
+    let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+    let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+    let cell = grid.cell_at(col, row);
+    if !cell.has_block || cell.collision == terrain::CollisionKind::Empty {
+        return true;
+    }
+
+    let prev_px =
+        ((projectile.x_pos as i64 - i64::from(projectile.x_velocity)) as u32 >> 16) as i32;
+    let prev_py =
+        ((projectile.y_pos as i64 - i64::from(projectile.y_velocity)) as u32 >> 16) as i32;
+
+    let col_h = terrain::pixel_to_cell(px_i).max(0) as u16;
+    let row_h = terrain::pixel_to_cell(prev_py).max(0) as u16;
+    let cell_h = grid.cell_at(col_h, row_h);
+
+    let col_v = terrain::pixel_to_cell(prev_px).max(0) as u16;
+    let row_v = terrain::pixel_to_cell(py_i).max(0) as u16;
+    let cell_v = grid.cell_at(col_v, row_v);
+
+    let h_blocked = cell_h.has_block && cell_h.collision != terrain::CollisionKind::Empty;
+    let v_blocked = cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
+    let collision_type = lion_projectile_terrain_collision_id_loc_3e260(
+        h_blocked,
+        v_blocked,
+        projectile.x_velocity,
+        projectile.y_velocity,
+        cell,
+    );
+    let collision = tar_monster_projectile_collision_loc_32682(
+        collision_type as i16,
+        projectile.tar_monster_collision_response_budget,
+        true,
+    );
+
+    match collision.route {
+        TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
+        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
+        TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
+            projectile.tar_monster_collision_response_budget = dispatch.remaining_collision_budget;
+            match dispatch.target {
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326AA => {
+                    projectile.x_velocity =
+                        tar_monster_projectile_reflect_x_loc_326AA(projectile.x_velocity);
+                    true
+                }
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326B8 => {
+                    projectile.y_velocity =
+                        tar_monster_projectile_reflect_y_loc_326B8(projectile.y_velocity);
+                    true
+                }
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326C6 => {
+                    let pair = tar_monster_projectile_negated_velocity_swap_loc_326C6(
+                        projectile.x_velocity,
+                        projectile.y_velocity,
+                    );
+                    projectile.x_velocity = pair.x_velocity;
+                    projectile.y_velocity = pair.y_velocity;
+                    true
+                }
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326DC => {
+                    let pair = tar_monster_projectile_velocity_swap_loc_326DC(
+                        projectile.x_velocity,
+                        projectile.y_velocity,
+                    );
+                    projectile.x_velocity = pair.x_velocity;
+                    projectile.y_velocity = pair.y_velocity;
+                    true
+                }
+                TarMonsterProjectileCollisionTargetLoc32682::Loc32652
+                | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct PendingDripsSplash {
@@ -1747,6 +1834,13 @@ impl NativeRuntime {
                 // straight glob's collision word is non-zero, hide/delete the
                 // original shot and allocate the five burst children.
                 spawn_tar_monster_retaliation(&mut pending_tar_monster_bursts, p.x_pos, p.y_pos);
+                return false;
+            }
+
+            if p.kind == EnemyProjectileKind::TarMonsterBurstChild
+                && let Some(g) = grid
+                && !apply_tar_monster_burst_child_collision_loc_32682(p, g)
+            {
                 return false;
             }
 

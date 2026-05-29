@@ -9931,6 +9931,7 @@ fn cloud_projectile_spawn_loc_35df0(
         drips_surface_crawler_x_direction_flipped: false,
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
+        tar_monster_collision_response_budget: 0,
     }
 }
 
@@ -20111,6 +20112,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::TarMonsterBurstChild,
+            tar_monster_collision_response_budget: 2,
             ..Default::default()
         });
     }
@@ -23824,6 +23827,7 @@ pub(crate) fn step_archer(
         drips_surface_crawler_x_direction_flipped: false,
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
+        tar_monster_collision_response_budget: 0,
     });
 }
 
