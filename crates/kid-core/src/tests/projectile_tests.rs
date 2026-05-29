@@ -7914,6 +7914,73 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Emo_Rock.asm loc_362EE: settled side contact with a charging
+    /// Berzerker copies Kid's incoming x velocity and enters the loc_3630A
+    /// airborne loop instead of consuming HP through generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_settled_emo_rock_instead_of_damaging_loc_362ee() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0040_0000, 0x0040_0000, 2);
+        emo_rock.on_ground = true;
+        rt.active_enemies.push(emo_rock);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let emo_rock = rt.active_enemies[0];
+        assert_eq!(emo_rock.hit_points, 2);
+        assert_eq!(
+            emo_rock.x_velocity, 0x0001_8000,
+            "ASM Emo_Rock.asm loc_362EE copies Kid's incoming x_vel"
+        );
+        assert_eq!(emo_rock.y_velocity, -0x0003_0000);
+        assert!(!emo_rock.on_ground);
+        assert_eq!(
+            emo_rock.wait_timer, EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A,
+            "native marker keeps the live enemy in ASM Emo_Rock.asm loc_3630A"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_8000,
+            "ASM loc_B692 reflection still applies once for the player contact"
+        );
+
+        let x_before = rt.active_enemies[0].x_pos;
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let emo_rock = rt.active_enemies[0];
+        assert_eq!(
+            emo_rock.x_pos,
+            (x_before as i64 + 0x0001_8000) as u32,
+            "ASM Emo_Rock.asm loc_3630A hibernates while the moved object keeps x_vel"
+        );
+        assert_eq!(
+            emo_rock.y_pos,
+            (y_before as i64 - 0x0003_0000) as u32,
+            "ASM Emo_Rock.asm loc_3630A hibernates while the moved object keeps y_vel"
+        );
+        assert_eq!(
+            emo_rock.y_velocity, -0x0002_A000,
+            "ASM Emo_Rock.asm loc_3630A adds `$6000` each airborne tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.

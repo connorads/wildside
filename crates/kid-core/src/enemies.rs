@@ -23486,6 +23486,7 @@ pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 
 /// EmoRock walk speed after landing.
 pub(crate) const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
+pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EmoRockWaitCountdownLoc36212 {
@@ -23971,6 +23972,11 @@ pub(crate) fn step_emo_rock(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
 ) {
+    if enemy.wait_timer == EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A {
+        step_emo_rock_berzerker_airborne(enemy);
+        return;
+    }
+
     if enemy.on_ground {
         // Walking phase: pacer-like ground movement facing player.
         if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
@@ -24059,6 +24065,16 @@ pub(crate) fn step_emo_rock(
             }
         }
     }
+}
+
+fn step_emo_rock_berzerker_airborne(enemy: &mut ActiveEnemy) {
+    // ASM Emo_Rock.asm loc_3630A: hibernate one frame with `is_moved` still
+    // set from init, then add `$6000` to y_vel and loop until `$19(a3)` death.
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        emo_rock_berzerker_airborne_frame_loc_3630a(enemy.y_velocity, false).y_velocity;
+    enemy.on_ground = false;
 }
 
 pub(crate) fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {

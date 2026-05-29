@@ -5339,6 +5339,19 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::EmoRock) && enemy.on_ground {
+                    let launch = emo_rock_berzerker_launch_loc_362ee(incoming_player_x_velocity);
+                    // ASM Emo_Rock.asm loc_362EE: settled side contact with
+                    // a charging Berzerker copies Kid's incoming x_vel, seeds
+                    // y_vel, and enters the loc_3630A airborne loop.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {
