@@ -204,19 +204,10 @@ fn projectile_terrain_contact_loc_3345c(
 ) -> bool {
     let px_i = (projectile.x_pos >> 16) as i32;
     let py_i = (projectile.y_pos >> 16) as i32;
-    let origin_cell_contact = {
-        let col = terrain::pixel_to_cell(px_i).max(0) as u16;
-        let row = terrain::pixel_to_cell(py_i).max(0) as u16;
-        let cell = grid.cell_at(col, row);
-        cell.has_block && cell.collision != terrain::CollisionKind::Empty
-    };
     if projectile.kind == EnemyProjectileKind::DripsDrop {
-        if origin_cell_contact {
-            return true;
-        }
-        // ASM Drips.asm loc_3345C polls `collision_type(a1) == $0C`; the
-        // falling child uses object_meta `$16`, whose collision size reaches
-        // +$1F below the object origin before loc_33488 splashes it.
+        // ASM Drips.asm loc_3345C waits until the falling child reports
+        // collision_type `$0C` (floor). A wall/solid overlap at the child's
+        // origin is not enough to take the loc_33488 splash path.
         let probe = terrain::probe_floor_hitbox(
             grid,
             px_i,
@@ -226,7 +217,12 @@ fn projectile_terrain_contact_loc_3345c(
         return probe.on_ground || probe.cell.is_solid_floor();
     }
 
-    origin_cell_contact
+    {
+        let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+        let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+        let cell = grid.cell_at(col, row);
+        cell.has_block && cell.collision != terrain::CollisionKind::Empty
+    }
 }
 
 fn drips_surface_crawler_out_of_level_bounds_loc_33588(

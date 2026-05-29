@@ -10047,7 +10047,7 @@ mod chunk_09 {
     fn drips_pool_growth_splash_does_not_spawn_surface_crawler_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
-        data[(2 * 5 + 2) * 2] = 0xE0;
+        data[(3 * 5 + 2) * 2] = 0x60;
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
@@ -10082,7 +10082,7 @@ mod chunk_09 {
     fn drips_sentinel_splash_spawns_surface_crawler_loc_335d8() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
-        data[(2 * 5 + 2) * 2] = 0xE0;
+        data[(3 * 5 + 2) * 2] = 0x60;
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
@@ -10133,7 +10133,7 @@ mod chunk_09 {
     fn drips_owned_drop_advances_pool_and_reseeds_parent_only_on_splash_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
-        data[(2 * 5 + 2) * 2] = 0xE0;
+        data[(3 * 5 + 2) * 2] = 0x60;
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
         let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
         drips.drips_attached = true;
@@ -11267,6 +11267,34 @@ mod chunk_09 {
         assert!(
             rt.projectiles.is_empty(),
             "ASM Drips.asm loc_3345C waits for floor collision `$0C` from object_meta `$16`; the drop should splash when its +$1F bottom edge reaches the solid cell, not when its origin enters terrain"
+        );
+    }
+
+    #[test]
+    fn drips_drop_origin_overlap_does_not_splash_before_floor_collision_loc_3345c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(2 * 5 + 2) * 2] = 0xE0;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            terrain_kill: true,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_3345C compares collision_type(a1) with `$0C`; a solid cell at the falling child's origin is not enough to splash before the +$1F floor probe reaches terrain",
         );
     }
 
