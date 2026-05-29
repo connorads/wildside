@@ -7627,7 +7627,7 @@ impl NativeRuntime {
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
-        if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 && enemy.wait_timer == 0 {
+        if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 {
             let hurt_tail = ufo_hurt_tail_loc_35174(enemy.x_velocity, enemy.ufo_beam_segments != 0);
             let enemy = &mut self.active_enemies[idx];
             // ASM UFO.asm loc_35174/loc_35180: final hurt allocates a

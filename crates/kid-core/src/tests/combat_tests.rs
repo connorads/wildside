@@ -8265,6 +8265,7 @@ mod chunk_03 {
         ufo.layout_index = 15;
         ufo.x_velocity = 0x0001_8000;
         ufo.y_velocity = -0x0001_0000;
+        ufo.wait_timer = 37;
         ufo.ufo_beam_segments = 2;
         ufo.ufo_beam_interval = 3;
         let killed_identity = (ufo.segment_index, ufo.layout_index);

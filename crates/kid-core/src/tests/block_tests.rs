@@ -8320,6 +8320,31 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_first_hurt_survives_and_primes_loc_35228() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 0x0100_0000, 0x0080_0000, 2);
+        enemy.y_velocity = -0x0001_0000;
+        enemy.y_acceleration = 0x0800;
+        enemy.target_y_velocity = 0x0002_0000;
+
+        assert!(
+            !enemy.take_damage_or_queue_death(),
+            "ASM UFO.asm Enemy0F_UFO_Hurt with `$47(a5)==0` should run loc_351EE/loc_35228 and keep the UFO alive"
+        );
+
+        assert_eq!(enemy.hit_points, 1);
+        assert_eq!(
+            enemy.y_velocity, 0x0003_0000,
+            "ASM UFO.asm loc_35228 adds `$40000` to parent y_vel"
+        );
+        assert_eq!(
+            enemy.y_acceleration, -0x0C00,
+            "ASM UFO.asm loc_35228 returns with d2=`$FFFFF400`"
+        );
+        assert_eq!(enemy.target_y_velocity, 0);
+        assert!(enemy.damage_flash_frames > 0);
+    }
+
+    #[test]
     fn ufo_hurt_driver_berzerker_charge_fall_matches_loc_35788() {
         use enemies::{
             UfoHurtDriverBerzerkerChargeFallLoc35788,

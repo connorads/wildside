@@ -8527,6 +8527,15 @@ impl ActiveEnemy {
         if self.hit_points <= 1 {
             return true;
         }
+        if matches!(self.family, EnemyFamily::UFO) {
+            let first_hurt = ufo_first_hurt_survive_loc_35228(self.y_velocity);
+            self.hit_points = 1;
+            self.y_velocity = first_hurt.parent_y_velocity;
+            self.y_acceleration = first_hurt.d2;
+            self.target_y_velocity = first_hurt.d3;
+            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            return false;
+        }
         if matches!(self.family, EnemyFamily::Tank) {
             let route = tank_update_loc_3b41c(
                 0,
@@ -11281,6 +11290,31 @@ pub(crate) fn ufo_hurt_driver_spawn_loc_35180(
 pub(crate) struct UfoHurtHibernateGateLoc351B6 {
     pub(crate) keep_hibernating: bool,
     pub(crate) delete_current_object: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoFirstHurtSurviveLoc35228 {
+    pub(crate) parent_y_velocity: i32,
+    pub(crate) d2: i32,
+    pub(crate) d3: i32,
+    pub(crate) hurt_primed: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_first_hurt_survive_loc_35228(
+    parent_y_velocity: i32,
+) -> UfoFirstHurtSurviveLoc35228 {
+    // ASM UFO.asm Enemy0F_UFO_Hurt with `$47(a5)==0` routes through
+    // loc_351EE debris allocation, then loc_35228 sets `$47`, seeds the
+    // linked object, adds `$40000` to parent y_vel, and returns with
+    // `d2=$FFFFF400`/`d3=0` for the flight acceleration registers.
+    UfoFirstHurtSurviveLoc35228 {
+        parent_y_velocity: parent_y_velocity.wrapping_add(0x0004_0000),
+        d2: -0x0C00,
+        d3: 0,
+        hurt_primed: true,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -38225,7 +38259,9 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Robot => 2, // HP 2-3
         EnemyFamily::TarMonster => tar_monster_hit_points_loc_321c6(enemy_level),
         EnemyFamily::Orca => 4, // fixed 4 HP
-        EnemyFamily::UFO => 1,
+        // ASM UFO.asm `$47(a5)` makes the first hurt enter loc_351EE and
+        // survive; the second hurt enters loc_35174/loc_35180 death.
+        EnemyFamily::UFO => 2,
         // Ninja: HP is `enemy_level + 2` and uses loc_3D59A/loc_3D5AA for speed tiers.
         EnemyFamily::Ninja => 2,
         EnemyFamily::Lion => 6, // HP 6-8
