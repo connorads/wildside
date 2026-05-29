@@ -19896,6 +19896,88 @@ mod chunk_10 {
     }
 
     #[test]
+    fn robot_shot_loc_3ac48_ignores_generic_lifetime_inside_camera_window() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0040_0000,
+            y_pos: 0x0040_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 0,
+            kind: EnemyProjectileKind::RobotShot,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Robot.asm loc_3AC48 loops while the shot remains inside the signed camera box; there is no generic lifetime expiry"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 0,
+            "ASM Robot.asm loc_3AC48 should not decrement native lifetime fallback"
+        );
+    }
+
+    #[test]
+    fn robot_shot_loc_3ac48_deletes_after_camera_window_exit() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x01C0_0000,
+            y_pos: 0x0040_0000,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::RobotShot,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Robot.asm loc_3AC48 should leave flight once screen X is greater than `$1C0`"
+        );
+    }
+
+    #[test]
+    fn robot_shot_loc_3ac48_deletes_on_level_collision() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0x0004_0000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::RobotShot,
+            ..Default::default()
+        });
+        // Post-step position is (34, 40), inside solid cell (2, 2).
+        rt.set_block_grid(bounce_grid(&[(2, 2)]));
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Robot.asm loc_3AC48 should leave flight when collision_type becomes non-zero"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

@@ -18970,14 +18970,14 @@ pub(crate) fn robot_shot_spawn_loc_3ac0c(
     }
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotShotFlightRouteLoc3AC48 {
     ContinueFlight,
     StartImpact,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotShotFlightLoc3AC48 {
     pub(crate) collision_type_cleared_before_frame: bool,
@@ -18985,7 +18985,7 @@ pub(crate) struct RobotShotFlightLoc3AC48 {
     pub(crate) route: RobotShotFlightRouteLoc3AC48,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_shot_flight_loop_loc_3ac48(
     screen_x_px: i16,
     screen_y_px: i16,
@@ -19149,6 +19149,7 @@ pub(crate) fn step_robot_with_rng(
                         lifetime: 60,
                         gravity: 0,
                         friendly: false,
+                        kind: EnemyProjectileKind::RobotShot,
                         homing_accel: 0,
                         speed_cap: 0,
                         wall_bounce: false,

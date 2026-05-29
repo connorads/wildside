@@ -2297,6 +2297,7 @@ pub(crate) enum EnemyProjectileKind {
     DripsSurfaceCrawler,
     Hail,
     TankBullet,
+    RobotShot,
     ShooterBlock,
     ManiaxeAxe,
     DiamondPowerRain,

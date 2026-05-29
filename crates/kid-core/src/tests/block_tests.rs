@@ -9782,6 +9782,11 @@ mod chunk_04 {
             projs[0].x_velocity, ROBOT_PROJECTILE_SPEED,
             "ASM Robot.asm loc_3AC0C should launch right-facing shots at `$50000`"
         );
+        assert_eq!(
+            projs[0].kind,
+            EnemyProjectileKind::RobotShot,
+            "live Robot shots need the loc_3AC48 camera/collision lifecycle, not generic timer expiry"
+        );
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
     }
 

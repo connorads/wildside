@@ -4,27 +4,28 @@ use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
     DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
-    DripsSurfaceCrawlerTurnScriptLoc33AF6, TankBulletLoopRouteLoc3B7BA,
-    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    archer_angle_to_player, archer_reaim_loc_3432E, drips_left_bounds_gate_loc_335aa,
-    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
-    drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
-    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
-    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
-    drips_surface_crawler_turn_script_loc_33a36, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
-    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
-    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
-    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
-    drips_surface_crawler_turn_script_loc_339e6, drips_surface_crawler_turn_script_loc_339f0,
-    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
-    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
-    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
-    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
-    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
-    drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
-    drips_velocity_deltas_loc_33526, drips_vertical_bounds_contact_flag_loc_335b0,
-    drips_wait_timer_with_rng_loc_3340e, spawn_tar_monster_retaliation,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, RobotShotFlightRouteLoc3AC48,
+    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
+    TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player, archer_reaim_loc_3432E,
+    drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
+    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
+    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
+    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
+    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
+    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
+    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
+    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
+    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
+    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
+    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
+    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_velocity_apply_loc_33546, drips_velocity_deltas_loc_33526,
+    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
+    robot_shot_flight_loop_loc_3ac48, spawn_tar_monster_retaliation,
     tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
@@ -1511,15 +1512,21 @@ impl NativeRuntime {
         let mut pending_shooter_layout_interactions = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
+            let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
-            if !is_tank_bullet && !is_hail && !is_diamond_power_rain && p.lifetime == 0 {
+            if !is_tank_bullet
+                && !is_robot_shot
+                && !is_hail
+                && !is_diamond_power_rain
+                && p.lifetime == 0
+            {
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 return false;
             }
-            if !is_tank_bullet && !is_hail && !is_diamond_power_rain {
+            if !is_tank_bullet && !is_robot_shot && !is_hail && !is_diamond_power_rain {
                 p.lifetime -= 1;
             }
             p.y_velocity += p.gravity;
@@ -1822,6 +1829,30 @@ impl NativeRuntime {
                     collision_type,
                 );
                 if route == TankBulletLoopRouteLoc3B7BA::Delete {
+                    return false;
+                }
+            }
+
+            if is_robot_shot && let Some(camera) = camera {
+                // ASM Robot.asm loc_3AC48: Robot shots have no DBF lifetime.
+                // Each frame clears collision_type, moves, then exits flight
+                // once the signed camera box is left or level collision becomes
+                // non-zero. Native deletes at the impact transition until the
+                // short `stru_3A762` impact animation is represented.
+                let collision_type = if let Some(g) = grid
+                    && projectile_terrain_contact_loc_3345c(g, p)
+                {
+                    1
+                } else {
+                    0
+                };
+                let screen_x =
+                    ((p.x_pos >> 16) as i32).wrapping_sub((camera.x_pos >> 16) as i32) as i16;
+                let screen_y =
+                    ((p.y_pos >> 16) as i32).wrapping_sub((camera.y_pos >> 16) as i32) as i16;
+                if robot_shot_flight_loop_loc_3ac48(screen_x, screen_y, collision_type).route
+                    == RobotShotFlightRouteLoc3AC48::StartImpact
+                {
                     return false;
                 }
             }
