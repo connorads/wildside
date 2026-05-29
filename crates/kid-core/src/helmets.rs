@@ -5309,6 +5309,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::Armadillo)
+                    && let ArmadilloBerzerkerSideContactLoc3C898::Launch(launch) =
+                        armadillo_berzerker_side_contact_loc_3c898(true, enemy.shared_walker_state)
+                {
+                    // ASM Armadillo.asm loc_3C898: with no positive recoil
+                    // word, charging Berzerker side contact enters the
+                    // launched loc_3C8CC loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {

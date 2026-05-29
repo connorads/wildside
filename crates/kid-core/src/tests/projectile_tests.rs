@@ -7803,6 +7803,63 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Armadillo.asm loc_3C898: charging Berzerker side contact with no
+    /// positive recoil word launches the Armadillo into loc_3C8CC instead of
+    /// consuming HP through generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_armadillo_instead_of_damaging_loc_3c898() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Armadillo,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let armadillo = rt.active_enemies[0];
+        assert_eq!(armadillo.hit_points, 2);
+        assert_eq!(armadillo.x_velocity, 0);
+        assert_eq!(armadillo.y_velocity, -0x0004_8000);
+        assert!(!armadillo.on_ground);
+        assert_eq!(
+            armadillo.wait_timer, ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC,
+            "native marker keeps the live enemy in ASM Armadillo.asm loc_3C8CC"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let armadillo = rt.active_enemies[0];
+        assert_eq!(
+            armadillo.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Armadillo.asm loc_3C8CC: launch loop should apply current y_vel"
+        );
+        assert_eq!(
+            armadillo.y_velocity, -0x0004_4000,
+            "ASM Armadillo.asm loc_3C8CC: y_vel should add `$4000` each airborne tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.

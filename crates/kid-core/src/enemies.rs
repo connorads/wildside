@@ -3800,6 +3800,7 @@ pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
     }
 }
 
+pub(crate) const ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC: u16 = 0xC8CC;
 pub(crate) const ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE: i32 = 0x0014_0000;
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9328,6 +9329,12 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8
                     {
                         step_goat_berzerker_knockback(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Armadillo)
+                        && enemy.wait_timer == ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC
+                    {
+                        step_armadillo_berzerker_launch(enemy);
                         continue;
                     }
                     step_pacer(enemy, block_grid);
@@ -24529,6 +24536,16 @@ fn step_goat_berzerker_knockback(enemy: &mut ActiveEnemy) {
     enemy.x_velocity = 0;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     enemy.y_velocity = goat_berzerker_airborne_frame_loc_3cba8(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
+}
+
+fn step_armadillo_berzerker_launch(enemy: &mut ActiveEnemy) {
+    // ASM Armadillo.asm loc_3C8CC: hibernate one frame, apply shared motion,
+    // add `$4000` to y_vel, and repeat the launched-armadillo loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        armadillo_berzerker_launch_loop_tick_loc_3c8cc(enemy.y_velocity).next_y_velocity;
     enemy.on_ground = false;
 }
 
