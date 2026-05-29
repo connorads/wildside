@@ -1973,6 +1973,8 @@ pub(crate) struct TitleScreenData {
     title_menu_tilemap_words: Vec<u16>,
     /// Decoded title character frames from ASM `sub_1BF24`.
     character_frames: Vec<TitleScreenCharacterFrameData>,
+    /// Uncompressed flash/mixed-pixel tiles from ASM `ArtUnc_2A4D6`.
+    lightning_art_bytes: Vec<u8>,
     /// 32-word tile patch for VRAM $F000.
     tile_patch_words: [u16; 32],
     /// Palette words from Pal_1C400 (title.bin — 0x33 words).
@@ -2131,6 +2133,14 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
             });
         }
     }
+    let lightning_art_path =
+        scenes.join("artunc/Grey_mixed_pixels_during_title_transformation.bin");
+    let lightning_art_bytes = std::fs::read(&lightning_art_path).with_context(|| {
+        format!(
+            "failed to read title transformation lightning art: {}",
+            lightning_art_path.display()
+        )
+    })?;
 
     // Get tile patch words from the load plan.
     // ASM loc_1C4E0 (kid.asm:31213): region byte 1 seeds the optional
@@ -2154,6 +2164,7 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         title_text_chameleon_rows: title_text_chameleon_upload.rows,
         title_menu_tilemap_words,
         character_frames,
+        lightning_art_bytes,
         tile_patch_words,
         palette_words,
     })
@@ -2261,6 +2272,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_and_menu(
 pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     data: &TitleScreenData,
     frame_index: Option<u8>,
+    lightning_flash_frame: u8,
     region_byte: u8,
 ) -> VdpState {
     let mut vdp = VdpState::new();
@@ -2285,6 +2297,27 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     let stripes = crate::boot::intro_sequence_6_striped_tile_fill_loc_1B194();
     for (word_index, word) in stripes.word_writes.iter().copied().enumerate() {
         vdp.write_vram_word(0xE000 + word_index * 2, word);
+    }
+
+    let upload = kid_data::thunder_animation_frame_upload_sub_1B41C(
+        lightning_flash_frame.into(),
+        &data.lightning_art_bytes,
+    )
+    .expect("loaded ArtUnc_2A4D6 should contain the requested sub_1B41C flash frame");
+    let mut byte_addr = usize::from(upload.vram_word_address);
+    for longword in upload.longwords {
+        let [b0, b1, b2, b3] = longword.to_be_bytes();
+        vdp.write_vram(byte_addr, &[b0, b1, b2, b3]);
+        byte_addr += 4;
+    }
+
+    // ASM sub_1B222 -> loc_1B23A seeds Horiz_Scroll_Buffer with
+    // `$FFB8_0000`, so Scroll A is shifted left by 72px while Scroll B stays
+    // at zero during the hidden title shell.
+    let hscroll_base = usize::from(vdp.registers[0x0D]) << 10;
+    for line in 0..224usize {
+        vdp.write_vram_word(hscroll_base + line * 4, 0xFFB8);
+        vdp.write_vram_word(hscroll_base + line * 4 + 2, 0);
     }
 
     // ASM sub_1B2A4 uploads the transformation/title base art and palette.
@@ -4024,6 +4057,7 @@ mod tests {
             title_text_chameleon_rows: [[0; 64]; 28],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };
@@ -4196,6 +4230,7 @@ mod tests {
             title_text_chameleon_rows: [[0; 64]; 28],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
             tile_patch_words: patch,
             palette_words: vec![],
         };
@@ -4220,6 +4255,7 @@ mod tests {
             title_text_chameleon_rows: [[0; 64]; 28],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };
@@ -4259,6 +4295,7 @@ mod tests {
             title_text_chameleon_rows: [[0; 64]; 28],
             title_menu_tilemap_words: menu_words,
             character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };
@@ -4303,6 +4340,7 @@ mod tests {
             title_text_chameleon_rows: rows,
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };
@@ -4346,6 +4384,7 @@ mod tests {
                 width_words: 16,
                 tilemap_words: frame_words,
             }],
+            lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
         };

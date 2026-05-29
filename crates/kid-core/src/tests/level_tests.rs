@@ -4005,6 +4005,11 @@ mod chunk_02 {
                     Some(1),
                     "ASM sub_1B43A loc_1B446 should have started the hidden shell frame script by cold-boot frame 2460",
                 );
+                assert_ne!(
+                    runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                    0,
+                    "ASM loc_1B37C should have advanced past the initial sub_1B41C frame by cold-boot frame 2460",
+                );
                 frame_2460 = runtime.vdp_state().cloned();
             }
         }
@@ -4012,11 +4017,35 @@ mod chunk_02 {
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
         let word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
+        let tile_pixel_nibble = |entry: u16, tile_x: usize, tile_y: usize| {
+            let tile_index = usize::from(entry & 0x07FF);
+            let tile_byte_addr = tile_index * 32 + tile_y * 4 + tile_x / 2;
+            let tile_byte = vdp.vram[tile_byte_addr];
+            if tile_x & 1 == 0 {
+                tile_byte >> 4
+            } else {
+                tile_byte & 0x0F
+            }
+        };
 
         assert_eq!(
             word_at(0xE000),
             0x00BD,
             "ASM Load_IntroSequence6 loc_1B194 should keep the striped Scroll B bootstrap before the later title screen rebuild",
+        );
+        assert_eq!(
+            word_at(0x1400),
+            0xFFB8,
+            "ASM sub_1B222 loc_1B23A should DMA the `$FFB8` Scroll A hidden-shell hscroll seed",
+        );
+        assert_eq!(
+            word_at(0x1402),
+            0,
+            "ASM sub_1B222 loc_1B23A keeps Scroll B hscroll at zero in the seeded longword",
+        );
+        assert!(
+            vdp.vram[0x17A0..0x1820].iter().any(|&byte| byte != 0),
+            "ASM Load_IntroSequence6 calls sub_1B41C with `d0=0`, uploading `ArtUnc_2A4D6` mixed pixels to VRAM $17A0 before the hidden shell workers run",
         );
         assert!(
             vdp.vram[0x21E0..0x6620].iter().any(|&byte| byte != 0),
@@ -4026,6 +4055,22 @@ mod chunk_02 {
             word_at(0x80 + 0x15 * 2),
             0x20BC,
             "ASM sub_1BF24 should overwrite the hidden shell frame rectangle by cold-boot frame 2460",
+        );
+        let mut visible_character_pixels = 0usize;
+        for row in 0..20usize {
+            for col in 0..18usize {
+                let entry = word_at((1 + row) * 128 + (0x15 + col) * 2);
+                for tile_y in 0..8usize {
+                    for tile_x in 0..8usize {
+                        let nibble = tile_pixel_nibble(entry, tile_x, tile_y);
+                        visible_character_pixels += usize::from(nibble != 0);
+                    }
+                }
+            }
+        }
+        assert!(
+            visible_character_pixels > 0,
+            "ASM sub_1BF24 should map non-transparent transformation pixels into the hidden shell rectangle by cold-boot frame 2460",
         );
         assert!(
             vdp.vram[0x9A60..0xA360].iter().all(|&byte| byte == 0),

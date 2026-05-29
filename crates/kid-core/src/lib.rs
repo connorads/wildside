@@ -1431,6 +1431,7 @@ impl NativeRuntime {
                     vdp::build_intro_sequence_6_vdp_with_character_frame(
                         data,
                         self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                        self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                         self.title_screen_region_byte,
                     )
                 })
@@ -1474,6 +1475,23 @@ impl NativeRuntime {
         let step = usize::from(script.loop_hibernate_frames).max(1);
         let frame_index = local / step;
         script.title_frames.get(frame_index).copied()
+    }
+
+    fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
+        let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
+        let worker_elapsed = self
+            .title_screen_elapsed_frames
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
+        let mut elapsed_at_step = 0usize;
+        let mut flash_frame = 0u8;
+        for step in sequence.steps {
+            elapsed_at_step += usize::from(step.hibernate_frames);
+            if worker_elapsed < elapsed_at_step {
+                break;
+            }
+            flash_frame = step.flash_frame;
+        }
+        flash_frame
     }
 
     fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
