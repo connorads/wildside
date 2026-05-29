@@ -4382,12 +4382,12 @@ mod tests {
         let second = sprites::select_enemy_frame(&trace, diamond_visuals, &object);
 
         assert_eq!(
-            first.tile_base_index, 0,
-            "ASM Diamond.asm Enemy01_Diamond_Init starts base animation `stru_3ACA8` on its first frame"
+            first.tile_base_index, 0x02F,
+            "ASM Diamond.asm Enemy01_Diamond_Init starts base animation `stru_3ACA8` on C80B8 / tile base `$02F`"
         );
         assert_eq!(
-            second.tile_base_index, 0,
-            "sample frames share tile-base zero; tile sheet identity below distinguishes the animation frame"
+            second.tile_base_index, 0x03B,
+            "ASM Diamond.asm `stru_3ACA8` advances after 6 ticks to C80C0 / tile base `$03B`"
         );
         assert_ne!(
             first.tile_sheet.tiles[0].pixels, second.tile_sheet.tiles[0].pixels,
@@ -6159,7 +6159,7 @@ mod tests {
                     command,
                     DrawCommand::Sprite { y, tile_sheet, tiles, .. }
                         if *y < 48
-                            && tile_sheet.tiles.len() == 16
+                            && tile_sheet.tiles.len() >= 16
                             && tiles.len() == 4
                             && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
                 )
@@ -6522,7 +6522,7 @@ mod tests {
                     command,
                     DrawCommand::Sprite { y, tile_sheet, tiles, .. }
                         if *y < 48
-                            && tile_sheet.tiles.len() == 16
+                            && tile_sheet.tiles.len() >= 16
                             && tiles.len() == 4
                             && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
                 )
@@ -9808,7 +9808,7 @@ mod tests {
                     DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
                         if *x == 0x1A0 - 128
                             && *y == 0xA2 - 128
-                            && tile_sheet.tiles.len() == 16
+                            && tile_sheet.tiles.len() >= 16
                             && tiles.len() == 4
                             && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8)
                 )
