@@ -5785,6 +5785,56 @@ mod chunk_06 {
     }
 
     #[test]
+    fn plain_rock_tank_parent_body_projectile_misses_loc_3b464() {
+        // ASM Tank.asm loc_3B464 reads `$38(a2)` from the attached mouth
+        // object. A projectile that overlaps the parent body below that
+        // attachment must not decrement parent HP through the generic body box.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 232 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Tank, 100 << 16, 224 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "plain Tank parent body is not the loc_3B464 damage target"
+        );
+    }
+
+    #[test]
+    fn plain_rock_tank_mouth_projectile_damages_parent_loc_3b464() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 216 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        let mut tank = test_enemy(EnemyFamily::Tank, 100 << 16, 224 << 16, 2);
+        tank.x_velocity = 0x0001_0000;
+        rt.active_enemies.push(tank);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            rt.active_enemies[0].x_velocity, 0,
+            "ASM Tank.asm loc_3B49A clears parent motion after a nonfatal mouth hit"
+        );
+        assert!(rt.projectiles.is_empty());
+    }
+
+    #[test]
     fn tank_bullet_loc_3b7ba_deletes_after_leaving_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = combat_slice();

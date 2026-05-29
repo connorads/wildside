@@ -4161,6 +4161,21 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
     }
 }
 
+fn friendly_projectile_enemy_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
+    if matches!(enemy.family, EnemyFamily::Diamond) || enemy.hit_points == 0 {
+        return None;
+    }
+
+    if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+        // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B700 route
+        // projectile damage through the attached mouth/turret object, then
+        // apply the result to the parent.
+        return enemy.child_attachment_snapshot();
+    }
+
+    Some(enemy.snapshot())
+}
+
 impl NativeRuntime {
     #[cfg(test)]
     #[allow(non_snake_case)]
@@ -5144,20 +5159,20 @@ impl NativeRuntime {
             let pry = (proj.y_pos >> 16) as i32;
 
             let (hit_half_width, hit_half_height) = friendly_projectile_enemy_hit_extents(proj);
-            for (ei, enemy) in self.active_enemies.iter_mut().enumerate() {
-                if matches!(enemy.family, EnemyFamily::Diamond) {
+            for ei in 0..self.active_enemies.len() {
+                let Some(target) =
+                    friendly_projectile_enemy_target_snapshot(&self.active_enemies[ei])
+                else {
                     continue;
-                }
-                if enemy.hit_points == 0 {
-                    continue;
-                }
-                let ex = (enemy.x_pos >> 16) as i32;
-                let ey = (enemy.y_pos >> 16) as i32;
+                };
+                let ex = (target.x_pos >> 16) as i32;
+                let ey = (target.y_pos >> 16) as i32;
                 let dx = (prx - ex).abs();
                 let dy = (pry - ey).abs();
                 if dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
                     && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
+                    let enemy = &mut self.active_enemies[ei];
                     if enemy.take_damage_or_queue_death() {
                         kill_indices.push(ei);
                     }
@@ -5177,20 +5192,20 @@ impl NativeRuntime {
             let prx = (slot.x_pos >> 16) as i32;
             let pry = (slot.y_pos >> 16) as i32;
 
-            for (ei, enemy) in self.active_enemies.iter_mut().enumerate() {
-                if matches!(enemy.family, EnemyFamily::Diamond) {
+            for ei in 0..self.active_enemies.len() {
+                let Some(target) =
+                    friendly_projectile_enemy_target_snapshot(&self.active_enemies[ei])
+                else {
                     continue;
-                }
-                if enemy.hit_points == 0 {
-                    continue;
-                }
-                let ex = (enemy.x_pos >> 16) as i32;
-                let ey = (enemy.y_pos >> 16) as i32;
+                };
+                let ex = (target.x_pos >> 16) as i32;
+                let ey = (target.y_pos >> 16) as i32;
                 let dx = (prx - ex).abs();
                 let dy = (pry - ey).abs();
                 if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
                     && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
                 {
+                    let enemy = &mut self.active_enemies[ei];
                     if enemy.take_damage_or_queue_death() {
                         kill_indices.push(ei);
                     }
