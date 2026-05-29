@@ -4161,7 +4161,7 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
     }
 }
 
-fn friendly_projectile_enemy_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
+fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
     if matches!(enemy.family, EnemyFamily::Diamond) || enemy.hit_points == 0 {
         return None;
     }
@@ -5105,17 +5105,18 @@ impl NativeRuntime {
         };
 
         let mut kill_indices = Vec::new();
-        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
-            if matches!(enemy.family, EnemyFamily::Diamond) {
+        for i in 0..self.active_enemies.len() {
+            let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
                 continue;
-            }
-            let ex = (enemy.x_pos >> 16) as i32;
-            let ey = (enemy.y_pos >> 16) as i32;
+            };
+            let ex = (target.x_pos >> 16) as i32;
+            let ey = (target.y_pos >> 16) as i32;
             let dx = (sword_x - ex).abs();
             let dy = (sword_y - ey).abs();
             if dx <= RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
                 && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
             {
+                let enemy = &mut self.active_enemies[i];
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 }
@@ -5160,8 +5161,7 @@ impl NativeRuntime {
 
             let (hit_half_width, hit_half_height) = friendly_projectile_enemy_hit_extents(proj);
             for ei in 0..self.active_enemies.len() {
-                let Some(target) =
-                    friendly_projectile_enemy_target_snapshot(&self.active_enemies[ei])
+                let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[ei])
                 else {
                     continue;
                 };
@@ -5193,8 +5193,7 @@ impl NativeRuntime {
             let pry = (slot.y_pos >> 16) as i32;
 
             for ei in 0..self.active_enemies.len() {
-                let Some(target) =
-                    friendly_projectile_enemy_target_snapshot(&self.active_enemies[ei])
+                let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[ei])
                 else {
                     continue;
                 };
@@ -5245,12 +5244,12 @@ impl NativeRuntime {
         let incoming_player_x_velocity = slice.player.x_velocity;
         let mut kill_indices = Vec::new();
         let mut changed_enemy_state = false;
-        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
-            if matches!(enemy.family, EnemyFamily::Diamond) {
+        for i in 0..self.active_enemies.len() {
+            let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
                 continue;
-            }
-            let ex = (enemy.x_pos >> 16) as i32;
-            let ey = (enemy.y_pos >> 16) as i32;
+            };
+            let ex = (target.x_pos >> 16) as i32;
+            let ey = (target.y_pos >> 16) as i32;
             let dx = (px - ex).abs();
             let dy = (py - ey).abs();
             if dx <= player_contact_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
@@ -5262,6 +5261,7 @@ impl NativeRuntime {
                     slice.player.x_velocity = slice.player.x_velocity.wrapping_neg();
                     reflected_player_velocity = true;
                 }
+                let enemy = &mut self.active_enemies[i];
                 if matches!(enemy.family, EnemyFamily::Crab)
                     && let CrabBerzerkerSideGateLoc3B180::Knockback(knockback) =
                         crab_berzerker_side_gate_loc_3b180(true, incoming_player_x_velocity)

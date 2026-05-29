@@ -2432,6 +2432,55 @@ mod chunk_06 {
         assert_eq!(rt.active_enemies[0].hit_points, 1);
     }
 
+    #[test]
+    fn red_stealth_sword_plain_rock_tank_parent_body_misses_loc_3b464() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sword_x, sword_y) = red_stealth_swing_anchor_sub_868E(&slice.player);
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Tank,
+            sword_x,
+            sword_y
+                - (((RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32) as u32) << 16),
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Tank.asm loc_3B464 should ignore a Red Stealth hit on the parent body when the mouth child is outside the sword box"
+        );
+        assert_eq!(
+            rt.helmet.red_stealth_sword_timer, RED_STEALTH_ACTIVE_FRAMES,
+            "sword worker should not be consumed when the mouth child was not hit"
+        );
+    }
+
+    #[test]
+    fn red_stealth_sword_plain_rock_tank_mouth_damages_parent_loc_3b464() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sword_x, sword_y) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let mut tank = test_enemy(EnemyFamily::Tank, sword_x, sword_y + (8 << 16), 2);
+        tank.x_velocity = 0x0001_0000;
+        rt.active_enemies.push(tank);
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            rt.active_enemies[0].x_velocity, 0,
+            "ASM Tank.asm loc_3B49A clears parent motion after a nonfatal mouth hit"
+        );
+        assert_eq!(rt.helmet.red_stealth_sword_timer, 0);
+    }
+
     /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
     /// `unk_31D84` with horizontal bounds -6..+6. Native keeps the horizontal
     /// overlap inclusive at RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
@@ -7616,6 +7665,54 @@ mod chunk_06 {
             rt.active_enemies[0].hit_points, 1,
             "ASM sub_B41C/GfxObjects_Collision should let Berzerker charge hit at the 7px form edge"
         );
+    }
+
+    #[test]
+    fn berzerker_charge_plain_rock_tank_parent_body_misses_loc_3b464() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Tank, 0x0040_0000, 0x0038_0000, 2));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Tank.asm loc_3B464 should ignore a Berzerker hit on the parent body when the mouth child is outside the charge box"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_0000,
+            "Berzerker should not reflect when the mouth child was not hit"
+        );
+    }
+
+    #[test]
+    fn berzerker_charge_plain_rock_tank_mouth_damages_parent_loc_3b464() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+        let mut tank = test_enemy(EnemyFamily::Tank, 0x0040_0000, 0x0048_0000, 2);
+        tank.x_velocity = 0x0001_0000;
+        rt.active_enemies.push(tank);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            rt.active_enemies[0].x_velocity, 0,
+            "ASM Tank.asm loc_3B49A clears parent motion after a nonfatal mouth hit"
+        );
+        assert_eq!(slice.player.x_velocity, -0x0002_0000);
     }
 
     /// ASM loc_9564 -> loc_B678 -> loc_B692: a live frame that overflows the
