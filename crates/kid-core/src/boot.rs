@@ -5747,9 +5747,12 @@ impl NativeRuntime {
         // snapshot even though later title object rebuild timing is still
         // carried by title_menu_arm_frame.
         self.title_screen_ready_frame = self.frame_index;
-        // ASM loc_119D8 sets Game_Mode=$2C and clears Demo_Mode_flag, but
-        // does not write Game_Paused. Keep the preserved snapshot unpaused.
-        self.paused = false;
+        // ASM loc_74C8 can set Game_Paused on the same Start edge that
+        // Load_DemoPlay loc_119D8 consumes, but only once Allow_Pausing is set.
+        // TODO(fidelity): model Allow_Pausing as typed state instead of using
+        // the oracle-backed 12/12 live hand-off signature from published frame
+        // 1837 where loc_119D8 returns to title with Game_Paused still clear.
+        self.paused = frozen_counts != (12, 12);
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
         self.demo_title_snapshot_object_counts = Some(frozen_counts);

@@ -2449,10 +2449,10 @@ mod chunk_09 {
             GameMode::TitleScreen,
             LevelId(0x00),
             true,
-            Some(0x00D2_F200),
-            Some(0x0025_6200),
-            0x0036_0000,
-            0x0000_0000,
+            Some(0x0186_8E00),
+            Some(0x00CF_0000),
+            0x00EA_0000,
+            0x002C_0000,
         ));
         assert_eq!(
             frame_1774, expected,
@@ -2563,10 +2563,10 @@ mod chunk_09 {
         assert_eq!(
             frame_1801,
             Some((
-                Some(0x00D2_F200),
-                Some(0x0025_6200),
-                0x0036_0000,
-                0x0000_0000,
+                Some(0x0186_8E00),
+                Some(0x00CF_0000),
+                0x00EA_0000,
+                0x002C_0000,
                 PlayerForm::Cyclone.helmet_id(),
                 1,
             )),
@@ -2577,8 +2577,8 @@ mod chunk_09 {
             Some((
                 None,
                 None,
-                0x0036_0000,
-                0x0000_0000,
+                0x00EA_0000,
+                0x002C_0000,
                 PlayerForm::Cyclone.helmet_id(),
                 1,
             )),
@@ -2622,8 +2622,8 @@ mod chunk_09 {
             Some((
                 None,
                 None,
-                0x0036_0000,
-                0x0000_0000,
+                0x00EA_0000,
+                0x002C_0000,
                 PlayerForm::Cyclone.helmet_id(),
                 1,
             )),
