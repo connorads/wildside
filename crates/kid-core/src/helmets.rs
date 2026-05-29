@@ -5279,6 +5279,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::FireDemon)
+                    && let FireDemonBerzerkerSideGateLoc3A5E4::Launch(launch) =
+                        fire_demon_berzerker_side_gate_loc_3a5e4(true, enemy.facing)
+                {
+                    // ASM Fire_Demon.asm loc_3A5E4: charging Berzerker side
+                    // contact launches the demon upward and enters loc_3A610,
+                    // instead of routing through the generic HP/death path.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {

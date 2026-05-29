@@ -5278,6 +5278,7 @@ pub(crate) fn fire_demon_berzerker_side_gate_loc_3a5e4(
 }
 
 pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_GRAVITY_LOC_3A610: i32 = 0x0000_4000;
+pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610: u16 = 0xA610;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9315,6 +9316,12 @@ pub(crate) fn step_active_enemies_with_rng(
                         if enemy.crab_frozen {
                             continue; // skip pacer walk while frozen
                         }
+                    }
+                    if matches!(enemy.family, EnemyFamily::FireDemon)
+                        && enemy.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
+                    {
+                        step_fire_demon_berzerker_launch(enemy);
+                        continue;
                     }
                     step_pacer(enemy, block_grid);
                     // Goat: player-tracking callback (Goat.asm loc_3CC18).
@@ -24496,6 +24503,17 @@ fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&te
     if wall.hit {
         enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
     }
+}
+
+fn step_fire_demon_berzerker_launch(enemy: &mut ActiveEnemy) {
+    // ASM Fire_Demon.asm loc_3A610: the launched demon hibernates one frame,
+    // remains active via sub_3C3CE, applies movement, then adds `$4000` to
+    // y_vel and loops without re-entering the shared walker.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        fire_demon_berzerker_launch_loop_tick_loc_3a610(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
 }
 
 fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {

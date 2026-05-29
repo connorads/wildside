@@ -7686,6 +7686,67 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Fire_Demon.asm loc_3A5E4: charging Berzerker side contact disables
+    /// the walking terrain loop and launches the demon upward instead of
+    /// routing through generic HP damage/death.
+    #[test]
+    fn berzerker_charge_launches_fire_demon_instead_of_damaging_loc_3a5e4() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::FireDemon,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let demon = rt.active_enemies[0];
+        assert_eq!(demon.hit_points, 2);
+        assert_eq!(demon.x_velocity, 0);
+        assert_eq!(demon.y_velocity, -0x0004_8000);
+        assert!(!demon.on_ground);
+        assert_eq!(
+            demon.wait_timer, FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610,
+            "native marker keeps the live enemy in ASM loc_3A610 instead of resuming the shared walker"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_8000,
+            "ASM loc_B692 reflection still applies once for the player contact"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let demon = rt.active_enemies[0];
+        assert_eq!(
+            demon.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Fire_Demon.asm loc_3A610: launched demon should keep applying y_vel while hibernating"
+        );
+        assert_eq!(
+            demon.y_velocity, -0x0004_4000,
+            "ASM Fire_Demon.asm loc_3A610: y_vel should add `$4000` each launch-loop tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
