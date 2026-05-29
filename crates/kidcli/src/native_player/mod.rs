@@ -5628,6 +5628,7 @@ mod tests {
                 enemies: false,
                 player: false,
                 effects: true,
+                eol_score: false,
                 hud: false,
             },
         );
@@ -5685,6 +5686,7 @@ mod tests {
                 enemies: false,
                 player: false,
                 effects: true,
+                eol_score: false,
                 hud: false,
             },
         );

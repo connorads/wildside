@@ -24,7 +24,7 @@ const RECORDING_NOTES_FILENAME: &str = "notes.txt";
 const RECORDING_TRANSCRIPT_FILENAME: &str = "transcript.txt";
 const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
 const RECORDING_AUDIO_FILENAME: &str = "audio.wav";
-const NATIVE_DIAGNOSTIC_LAYERS: [&str; 8] = [
+const NATIVE_DIAGNOSTIC_LAYERS: [&str; 9] = [
     "background",
     "terrain",
     "block_overrides",
@@ -32,6 +32,7 @@ const NATIVE_DIAGNOSTIC_LAYERS: [&str; 8] = [
     "enemies",
     "player",
     "effects",
+    "eol_score",
     "hud",
 ];
 

@@ -237,6 +237,7 @@ pub(crate) struct LayerFilter {
     pub enemies: bool,
     pub player: bool,
     pub effects: bool,
+    pub eol_score: bool,
     pub hud: bool,
 }
 
@@ -250,6 +251,7 @@ impl Default for LayerFilter {
             enemies: true,
             player: true,
             effects: true,
+            eol_score: true,
             hud: true,
         }
     }
@@ -266,6 +268,7 @@ impl LayerFilter {
             enemies: false,
             player: false,
             effects: false,
+            eol_score: false,
             hud: false,
         };
         match layer_name {
@@ -276,6 +279,7 @@ impl LayerFilter {
             "enemies" => f.enemies = true,
             "player" => f.player = true,
             "effects" => f.effects = true,
+            "eol_score" => f.eol_score = true,
             "hud" => f.hud = true,
             _ => {}
         }
@@ -3430,7 +3434,7 @@ fn build_game_scene_filtered(
     // `LnkTo_Spr_EOL_NoPrize`, `LnkTo_Spr_EOL_Path`, `LnkTo_Spr_EOL_Speed`
     // — plus seven digit workers from `Load_Object_EOL_Number`. Native uses
     // the trace's EOL worker elapsed fields to replay the ROM fly-in timing.
-    if trace.level_complete && filter.hud {
+    if trace.level_complete && filter.eol_score {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_eol_score_overlay(&mut commands, trace, eol_score);
             return Scene {
@@ -3492,10 +3496,10 @@ fn build_game_scene_filtered(
     }
 
     // Game Over / Continue overlay
-    if trace.game_over && filter.hud {
+    if trace.game_over && filter.eol_score {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_game_over_continue_overlay(&mut commands, trace, eol_score);
-        } else if trace.number_continues == 0 {
+        } else if trace.number_continues == 0 && filter.hud {
             // Degraded-asset fallback only. The normal asset path above uses
             // ASM loc_D25E / Continue_Screen EOL sprite workers.
             let go_text = "GAME OVER";
