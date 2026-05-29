@@ -4191,6 +4191,7 @@ pub(crate) fn goat_berzerker_side_gate_loc_3cb76(
 }
 
 pub(crate) const GOAT_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CBA8: i32 = 0x0000_4000;
+pub(crate) const GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8: u16 = 0xCBA8;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9321,6 +9322,12 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
                     {
                         step_fire_demon_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Goat)
+                        && enemy.wait_timer == GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8
+                    {
+                        step_goat_berzerker_knockback(enemy);
                         continue;
                     }
                     step_pacer(enemy, block_grid);
@@ -24513,6 +24520,15 @@ fn step_fire_demon_berzerker_launch(enemy: &mut ActiveEnemy) {
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     enemy.y_velocity =
         fire_demon_berzerker_launch_loop_tick_loc_3a610(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
+}
+
+fn step_goat_berzerker_knockback(enemy: &mut ActiveEnemy) {
+    // ASM Goat.asm loc_3CBA8: hibernate one frame, run the motion helper,
+    // add `$4000` to y_vel, and repeat the airborne Berzerker loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity = goat_berzerker_airborne_frame_loc_3cba8(enemy.y_velocity).next_y_velocity;
     enemy.on_ground = false;
 }
 

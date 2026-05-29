@@ -7644,13 +7644,16 @@ mod chunk_06 {
         slice.player.y_pos = 0x0040_0000;
 
         rt.active_enemies
-            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 1));
+            .push(test_enemy(EnemyFamily::Archer, 0x0040_0000, 0x0040_0000, 1));
 
         rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(rt.active_enemies.len(), 1);
         assert_eq!(rt.active_enemies[0].hit_points, 0);
-        assert_eq!(rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES);
+        assert_eq!(
+            rt.active_enemies[0].wait_timer,
+            ARCHER_DEATH_ANIMATION_FRAMES
+        );
     }
 
     /// ASM Crab.asm loc_3B180: charging Berzerker side contact doubles Kid's
@@ -7747,6 +7750,59 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Goat.asm loc_3CB76: charging Berzerker side contact with no
+    /// positive recoil word launches the Goat into the loc_3CBA8 airborne
+    /// loop instead of consuming HP through generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_goat_instead_of_damaging_loc_3cb76() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 2));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let goat = rt.active_enemies[0];
+        assert_eq!(goat.hit_points, 2);
+        assert_eq!(goat.x_velocity, 0);
+        assert_eq!(goat.y_velocity, -0x0004_8000);
+        assert!(!goat.on_ground);
+        assert_eq!(
+            goat.wait_timer, GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8,
+            "native marker keeps the live enemy in ASM Goat.asm loc_3CBA8"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let goat = rt.active_enemies[0];
+        assert_eq!(
+            goat.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Goat.asm loc_3CBA8: knockback loop should apply current y_vel"
+        );
+        assert_eq!(
+            goat.y_velocity, -0x0004_4000,
+            "ASM Goat.asm loc_3CBA8: y_vel should add `$4000` each airborne tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
@@ -7761,7 +7817,7 @@ mod chunk_06 {
         let limit = PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32;
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
+            EnemyFamily::Archer,
             (0x0040 + limit as u32) << 16,
             0x0040_0000,
             2,
@@ -7791,7 +7847,7 @@ mod chunk_06 {
         let berzerker_limit = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
+            EnemyFamily::Archer,
             (0x0040 + berzerker_limit as u32) << 16,
             0x0040_0000,
             2,
@@ -7898,10 +7954,10 @@ mod chunk_06 {
             "ASM loc_9564: accumulator overflow should set Berzerker_charging"
         );
         assert_eq!(rt.active_enemies.len(), 1);
-        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
         assert_eq!(
-            rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES,
-            "ASM loc_B678 damage should enter Goat.asm loc_3CB64 instead of deleting immediately"
+            rt.active_enemies[0].wait_timer, GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8,
+            "ASM loc_B678 should feed Goat.asm loc_3CB76 and enter the Berzerker knockback loop"
         );
     }
 
@@ -7928,7 +7984,7 @@ mod chunk_06 {
 
         let hit_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
+            EnemyFamily::Archer,
             (0x0040 + hit_dx as u32) << 16,
             0x0040_0000,
             1,
@@ -7944,8 +8000,8 @@ mod chunk_06 {
         assert_eq!(rt.active_enemies.len(), 1);
         assert_eq!(rt.active_enemies[0].hit_points, 0);
         assert_eq!(
-            rt.active_enemies[0].wait_timer, GOAT_DEATH_ANIMATION_FRAMES,
-            "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy, then Goat.asm loc_3CB64 hibernates"
+            rt.active_enemies[0].wait_timer, ARCHER_DEATH_ANIMATION_FRAMES,
+            "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy, then hibernate during death animation"
         );
     }
 
@@ -7963,7 +8019,7 @@ mod chunk_06 {
         slice.player.x_velocity = 0x0002_0000;
 
         rt.active_enemies
-            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 2));
+            .push(test_enemy(EnemyFamily::Archer, 0x0040_0000, 0x0040_0000, 2));
         rt.active_enemies.push(test_enemy(
             EnemyFamily::BigHoppingSkull,
             0x0041_0000,
@@ -8035,7 +8091,7 @@ mod chunk_06 {
         );
     }
 
-    /// A charging Berzerker kill starts the Goat death hibernate and refreshes
+    /// A charging Berzerker kill starts the enemy death hibernate and refreshes
     /// the trace roster to expose that retained corpse.
     #[test]
     fn berzerker_charge_kill_refreshes_active_enemy_roster() {
@@ -8047,7 +8103,7 @@ mod chunk_06 {
         slice.player.y_pos = 0x0040_0000;
 
         rt.active_enemies
-            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 1));
+            .push(test_enemy(EnemyFamily::Archer, 0x0040_0000, 0x0040_0000, 1));
         rt.active_enemy_roster = rt
             .active_enemies
             .iter()
@@ -8060,8 +8116,8 @@ mod chunk_06 {
         assert_eq!(rt.active_enemy_roster.len(), 1);
         assert_eq!(
             rt.active_enemy_roster[0].wait_timer,
-            Some(GOAT_DEATH_ANIMATION_FRAMES),
-            "ASM Goat.asm loc_3CB64: trace roster should keep killed Goat until stru_3C9EA finishes"
+            Some(ARCHER_DEATH_ANIMATION_FRAMES),
+            "trace roster should keep killed enemy until its death animation finishes"
         );
     }
 

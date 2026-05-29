@@ -5294,6 +5294,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::Goat)
+                    && let GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(knockback) =
+                        goat_berzerker_side_gate_loc_3cb76(true, enemy.shared_walker_state)
+                {
+                    // ASM Goat.asm loc_3CB76: with no positive recoil word,
+                    // charging Berzerker side contact launches Goat into the
+                    // airborne loc_3CBA8 loop instead of generic HP damage.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {
