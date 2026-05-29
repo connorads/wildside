@@ -9948,13 +9948,49 @@ mod tests {
 
         assert_eq!(
             diamond_sheet_len(&frame_0),
-            Some(17),
-            "ASM sub_44B0 seeds the diamond countdown to 1, so the first gameplay trace frame has already advanced to the second `unk_461C` HUD diamond page"
+            Some(18),
+            "ASM sub_44B0 seeds the diamond countdown to 1, and the rendered HUD page includes the current sub_44DC loc_45EE upload, so replay-local frame 0 displays the third `unk_461C` page"
         );
         assert_eq!(
             diamond_sheet_len(&frame_6),
-            Some(18),
+            Some(19),
             "ASM sub_44DC advances `unk_461C` after 6 VBlanks, so native must not keep the HUD diamond static"
+        );
+    }
+
+    #[test]
+    fn level_complete_first_handoff_uses_latched_life_icon_page_loc_4546() {
+        let ankh_tile = |scene: &Scene| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                    if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
+                {
+                    tiles.first().map(|tile| tile.tile.tile_index)
+                }
+                _ => None,
+            })
+        };
+
+        let mut trace = sample_trace(GameMode::InGame);
+        assert_eq!(
+            ankh_tile(&build_ingame_scene(&trace, false, None)),
+            Some(0),
+            "ordinary gameplay HUD uses the first Life_icon page from ASM Init_SpriteAttr_HUD"
+        );
+
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 0;
+        assert_eq!(
+            ankh_tile(&build_ingame_scene(&trace, false, None)),
+            Some(4),
+            "ASM loc_C070's first rendered hand-off frame uses the pre-frame sub_44DC loc_4586 life-icon page"
+        );
+
+        trace.level_complete_elapsed_frames = 60;
+        assert_eq!(
+            ankh_tile(&build_ingame_scene(&trace, false, None)),
+            Some(0),
+            "later frozen-HUD frames return to the normal Life_icon page instead of retaining the first-frame latch"
         );
     }
 

@@ -17,6 +17,7 @@ const HUD_DIAMOND_Y: i32 = 0xA2 - 128;
 const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
 const HUD_DIAMOND_COUNT_Y: i32 = 0xA4 - 128;
 const HUD_DIAMOND_ANIMATION_FRAME_DURATION: usize = 6;
+const HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE: usize = 2;
 // ASM Make_SpriteAttr_HUD loc_BE0C (kid.asm:15407): d2 starts at $80 and
 // `addi.w #$10,d2` runs before the first hitpoint sprite write, so the first
 // visible HP pip lands at biased X $90, i.e. screen X 16.
@@ -162,9 +163,9 @@ pub(super) fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
     icon_name: &str,
+    trace: &NativeTraceFrame,
     x: i32,
     y: i32,
-    frame_index: usize,
 ) {
     match icon_name {
         "ankh" => {
@@ -175,7 +176,16 @@ pub(super) fn push_hud_icon(
             if let Some(icon) = level_visuals.floating_prizes.icons.get(&0x0B)
                 && let Some(frame) = icon.frames.first()
             {
-                push_sprite_frame_top_left(commands, frame, &icon.palette, x, y);
+                // ASM sub_44DC loc_4546..loc_4586 uploads animated life-icon
+                // pages to the same VRAM page used by the HUD ankh sprite.
+                // The first CharacterCollision_TouchFlagpole loc_C070 render
+                // frame is a pre-frame VDP latch and still shows the second
+                // page; subsequent frozen-HUD frames use the normal page.
+                let frame = kid_render::SpriteFrame {
+                    tile_base_index: hud_life_icon_tile_base_index_loc_4546(trace),
+                    ..frame.clone()
+                };
+                push_sprite_frame_top_left(commands, &frame, &icon.palette, x, y);
             }
         }
         "diamond" => {
@@ -186,7 +196,7 @@ pub(super) fn push_hud_icon(
             // diamond_1..4 into the same $6EA VRAM page, so the HUD icon uses
             // the currently uploaded diamond page.
             let animation_frame = hud_diamond_animation_frame_index(
-                frame_index,
+                trace.frame_index,
                 level_visuals.floating_prizes.diamond.frames.len(),
             );
             let tile_sheet = level_visuals
@@ -226,10 +236,21 @@ fn hud_diamond_animation_frame_index(frame_index: usize, frame_count: usize) -> 
     if frame_count == 0 {
         return 0;
     }
-    // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1, so the
-    // first gameplay trace frame has already run sub_44DC once and DMAed
-    // the second `unk_461C` diamond page.
-    ((frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION) + 1) % frame_count
+    // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1. The native
+    // trace frame is sampled after the previous visible VBlank plus the
+    // current sub_44DC loc_45EE upload, so the rendered HUD page is two
+    // `unk_461C` DMA slots ahead of the replay-local frame bucket.
+    ((frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION)
+        + HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE)
+        % frame_count
+}
+
+fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
+    if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
+        4
+    } else {
+        0
+    }
 }
 
 fn hud_timer_seconds_loc_c070(trace: &NativeTraceFrame) -> u16 {
@@ -322,9 +343,9 @@ pub(super) fn push_game_hud(
         commands,
         level_visuals,
         "ankh",
+        trace,
         HUD_ANKH_X,
         HUD_ANKH_Y,
-        trace.frame_index,
     );
 
     push_hud_two_digit_counter(
@@ -338,8 +359,8 @@ pub(super) fn push_game_hud(
         commands,
         level_visuals,
         "diamond",
+        trace,
         HUD_DIAMOND_X,
         HUD_DIAMOND_Y,
-        trace.frame_index,
     );
 }
