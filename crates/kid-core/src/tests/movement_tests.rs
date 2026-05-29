@@ -15373,6 +15373,65 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_77C2 only suppresses standing-to-walking while a slope is
+    /// adjacent. Once sub_9386 has found the current SlopeUp support, repeated
+    /// frames must keep feeding loc_9E6C so Red Stealth slides smoothly downhill
+    /// instead of alternating between a one-frame recontact step and a zero-vel
+    /// standing hold.
+    #[test]
+    fn asm_faithful_red_stealth_current_slope_up_slides_without_limit_cycle() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (3usize * usize::from(w) + 4) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x46 << 16;
+        slice.player.y_pos = (0x30 + 0x0F - (0x46 & 0x0F)) << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let mut previous_x = slice.player.x_pos;
+        for frame in 0..8 {
+            let stepped = slice.update_horizontal_motion(
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::RedStealth,
+                Some(&grid),
+                false,
+            );
+
+            assert!(
+                stepped,
+                "frame {frame}: current SlopeUp support should keep running the loc_9E6C slide path",
+            );
+            assert!(
+                slice.player.x_velocity < 0,
+                "frame {frame}: Red Stealth should keep a downhill velocity on current SlopeUp",
+            );
+            assert!(
+                slice.player.x_pos < previous_x,
+                "frame {frame}: downhill slide should advance left every frame, not vibrate in place",
+            );
+            assert_eq!(
+                slice.player.facing,
+                Direction::Left,
+                "frame {frame}: loc_9EA4 should keep the downhill facing",
+            );
+            previous_x = slice.player.x_pos;
+        }
+    }
+
     /// ASM loc_77FC (kid.asm:7889): left-press mirror of loc_77C2.  For
     /// non-bitmask helmets, `sub_B55C(-1,-1)` finding `$5000` SlopeDown faces
     /// left and keeps the standing-still loop.
@@ -15472,6 +15531,63 @@ mod chunk_12 {
             Direction::Right,
             "ASM loc_9E88 should face downhill on SlopeDown",
         );
+    }
+
+    /// ASM loc_77FC mirrors loc_77C2 for the left-adjacent hold. Current
+    /// SlopeDown support must stay on the loc_9E6C downhill slide path across
+    /// frames rather than re-entering the standing-still guard.
+    #[test]
+    fn asm_faithful_eyeclops_current_slope_down_slides_without_limit_cycle() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (3usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 0x26 << 16;
+        slice.player.y_pos = (0x30 + (0x26 & 0x0F)) << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let mut previous_x = slice.player.x_pos;
+        for frame in 0..8 {
+            let stepped = slice.update_horizontal_motion(
+                FrameInput {
+                    left: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::Eyeclops,
+                Some(&grid),
+                false,
+            );
+
+            assert!(
+                stepped,
+                "frame {frame}: current SlopeDown support should keep running the loc_9E6C slide path",
+            );
+            assert!(
+                slice.player.x_velocity > 0,
+                "frame {frame}: Eyeclops should keep a downhill velocity on current SlopeDown",
+            );
+            assert!(
+                slice.player.x_pos > previous_x,
+                "frame {frame}: downhill slide should advance right every frame, not vibrate in place",
+            );
+            assert_eq!(
+                slice.player.facing,
+                Direction::Right,
+                "frame {frame}: loc_9E88 should keep the downhill facing",
+            );
+            previous_x = slice.player.x_pos;
+        }
     }
 
     /// ASM loc_779C/loc_77E6 (kid.asm:7846): the blocked standing wall probes
