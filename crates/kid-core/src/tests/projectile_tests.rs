@@ -7860,6 +7860,60 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Spinning_Twins.asm loc_3BBF6: charging Berzerker side contact
+    /// launches the settled twin into the loc_3BC22 loop instead of consuming
+    /// HP through generic damage/death.
+    #[test]
+    fn berzerker_charge_launches_spinning_twins_instead_of_damaging_loc_3bbf6() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 0x0040_0000, 0x0040_0000, 2);
+        twins.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        rt.active_enemies.push(twins);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let twins = rt.active_enemies[0];
+        assert_eq!(twins.hit_points, 2);
+        assert_eq!(twins.x_velocity, 0);
+        assert_eq!(twins.y_velocity, -0x0004_8000);
+        assert!(!twins.on_ground);
+        assert_eq!(
+            twins.wait_timer, SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22,
+            "native marker keeps the live enemy in ASM Spinning_Twins.asm loc_3BC22"
+        );
+
+        let y_before = rt.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            None,
+            Some(slice.player.x_pos),
+            Some(slice.player.y_pos),
+            Some(slice.player.facing),
+            Some(slice.player.x_velocity),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let twins = rt.active_enemies[0];
+        assert_eq!(
+            twins.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Spinning_Twins.asm loc_3BC22: launch loop should apply current y_vel"
+        );
+        assert_eq!(
+            twins.y_velocity, -0x0004_4000,
+            "ASM Spinning_Twins.asm loc_3BC22: y_vel should add `$4000` each airborne tick"
+        );
+    }
+
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
     /// as enemy damage. Native's contact approximation keeps horizontal overlap
     /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.

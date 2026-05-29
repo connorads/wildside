@@ -5324,6 +5324,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::SpinningTwins)
+                    && let SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(launch) =
+                        spinning_twins_berzerker_side_gate_loc_3bbf6(true, 0)
+                {
+                    // ASM Spinning_Twins.asm loc_3BBF6: charging Berzerker
+                    // side contact freezes the settled twin frame and enters
+                    // the upward loc_3BC22 loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {

@@ -9274,7 +9274,11 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     step_orca(enemy, block_grid, player_x_pos);
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
-                    step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
+                    if enemy.wait_timer == SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22 {
+                        step_spinning_twins_berzerker_launch(enemy);
+                    } else {
+                        step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
+                    }
                 } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
                     if let Some(ref mut projs) = projectiles {
                         step_dragon_walking(enemy, block_grid, projs, player_x_pos);
@@ -23010,6 +23014,7 @@ pub(crate) fn spinning_twins_berzerker_side_gate_loc_3bbf6(
 }
 
 pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_GRAVITY_LOC_3BC22: i32 = 0x0000_4000;
+pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22: u16 = 0xBC22;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -23393,6 +23398,16 @@ pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
     }
 
     SpinningTwinsFallingVisualStepLoc3BA00 { state, alive: true }
+}
+
+fn step_spinning_twins_berzerker_launch(enemy: &mut ActiveEnemy) {
+    // ASM Spinning_Twins.asm loc_3BC22: hibernate one frame, run the shared
+    // retention check `sub_3C3CE`, then add `$4000` to y_vel and loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        spinning_twins_berzerker_launch_loop_tick_loc_3bc22(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
 }
 
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
