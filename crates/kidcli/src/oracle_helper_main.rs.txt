@@ -56,6 +56,8 @@ struct ScenarioFile {
     #[serde(default)]
     camera_position: Option<ScenarioStartPosition>,
     #[serde(default)]
+    playtest_form: Option<u16>,
+    #[serde(default)]
     warp_to_level: Option<u8>,
 }
 
@@ -85,6 +87,8 @@ struct ResolvedScenario {
     start_position: Option<ScenarioStartPosition>,
     /// Optional probe-only camera position applied after the settled warp.
     camera_position: Option<ScenarioStartPosition>,
+    /// Optional probe-only helmet/form id applied after the settled warp.
+    playtest_form: Option<u16>,
     /// Whether the oracle warp must settle into live unpaused target-level
     /// gameplay before scenario frame 0.
     settle_oracle_warp: bool,
@@ -512,6 +516,7 @@ fn resolve_scenario(
                 warp_to_level: None,
                 start_position: None,
                 camera_position: None,
+                playtest_form: None,
                 settle_oracle_warp: false,
             })
         }
@@ -540,6 +545,7 @@ fn resolve_scenario(
                 warp_to_level: sf.warp_to_level,
                 start_position: sf.start_position,
                 camera_position: sf.camera_position,
+                playtest_form: sf.playtest_form,
                 settle_oracle_warp,
             })
         }
@@ -575,6 +581,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     if let Some(position) = resolved.camera_position {
         apply_probe_camera_position(&mut emulator, position);
+    }
+    if let Some(helmet_id) = resolved.playtest_form {
+        apply_probe_playtest_form(&mut emulator, helmet_id)?;
     }
 
     while frame_index < resolved.frame_count {
@@ -2059,6 +2068,26 @@ fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: Scenari
     // so mid-level visual evidence captures the same on-screen window.
     write_emulator_wram_u32(emulator, CAMERA_X_POS_ADDR, u32::from(position.x) << 16);
     write_emulator_wram_u32(emulator, CAMERA_Y_POS_ADDR, u32::from(position.y) << 16);
+}
+
+fn apply_probe_playtest_form(emulator: &mut GenesisEmulator, helmet_id: u16) -> Result<()> {
+    // ASM variables.asm: Number_hitpoints/Current_Helmet_ID are `$FFFFFC40`
+    // and `$FFFFFC46`. Probe scenarios patch both together so form-specific
+    // routes begin with the same live state as native `set_playtest_form`.
+    let hitpoints = max_hitpoints_for_helmet_id(helmet_id)
+        .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+    write_emulator_wram_u16(emulator, CURRENT_HELMET_ID_ADDR, helmet_id);
+    write_emulator_wram_u16(emulator, NUMBER_HITPOINTS_ADDR, hitpoints);
+    Ok(())
+}
+
+fn max_hitpoints_for_helmet_id(helmet_id: u16) -> Option<u16> {
+    match helmet_id {
+        0 => Some(2),
+        6 => Some(5),
+        1..=5 | 7..=9 => Some(3),
+        _ => None,
+    }
 }
 
 fn clear_input_latches(emulator: &mut GenesisEmulator) {

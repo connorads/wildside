@@ -2007,6 +2007,7 @@ fn build_branch_scenario(
             .collect(),
         start_position: manifest.scenario.start_position,
         camera_position: manifest.scenario.camera_position,
+        playtest_form: manifest.scenario.playtest_form,
         warp_to_level: manifest.scenario.warp_to_level,
     }
 }
@@ -2124,6 +2125,7 @@ mod tests {
                 checkpoints: vec![],
                 start_position: None,
                 camera_position: None,
+                playtest_form: None,
                 warp_to_level: None,
             },
             prefix_script: vec![0; 10],
@@ -2443,6 +2445,7 @@ mod tests {
             }],
             start_position: None,
             camera_position: None,
+            playtest_form: None,
             warp_to_level: None,
         };
         manifest.prefix_script = vec![0; 10];
@@ -2488,6 +2491,7 @@ mod tests {
             }],
             start_position: None,
             camera_position: None,
+            playtest_form: None,
             warp_to_level: Some(0),
         };
 
@@ -2533,6 +2537,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0),
                 },
             },
@@ -2583,6 +2588,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0),
                 },
             },
@@ -2633,6 +2639,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0x15),
                 },
             },
@@ -2684,6 +2691,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0x01),
                 },
             },
@@ -2736,6 +2744,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0x0c),
                 },
             },
@@ -2793,6 +2802,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0x12),
                 },
             },
@@ -2857,6 +2867,7 @@ mod tests {
                     }],
                     start_position: None,
                     camera_position: None,
+                    playtest_form: None,
                     warp_to_level: Some(0x03),
                 },
             },

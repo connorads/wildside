@@ -3900,6 +3900,7 @@ AddrTbl_LevelNames:
             checkpoints: Vec::new(),
             start_position: None,
             camera_position: None,
+            playtest_form: None,
             warp_to_level: None,
         };
 
@@ -3921,6 +3922,7 @@ AddrTbl_LevelNames:
             checkpoints: Vec::new(),
             start_position: None,
             camera_position: None,
+            playtest_form: None,
             warp_to_level: Some(0x15),
         };
 

@@ -12,7 +12,7 @@ use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
-use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame};
+use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -281,6 +281,7 @@ pub(crate) fn build_recording(
                 script,
                 start_position: None,
                 camera_position: None,
+                playtest_form: None,
                 warp_to_level: start.warp_level,
             },
         },
@@ -531,6 +532,11 @@ fn initialise_recording_runtime(
     }
     if let Some(position) = scenario.camera_position {
         runtime.set_camera_probe_position(position.x, position.y);
+    }
+    if let Some(helmet_id) = scenario.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runtime.set_playtest_form(form);
     }
 
     let current_level_id = runtime.trace_frame().current_level.0;
@@ -805,6 +811,7 @@ pub(crate) fn oracle_scenario_for_recording(
             checkpoints: recording.manifest.scenario.checkpoints.clone(),
             start_position: recording.manifest.scenario.start_position,
             camera_position: recording.manifest.scenario.camera_position,
+            playtest_form: recording.manifest.scenario.playtest_form,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
         },
         0,
@@ -2600,6 +2607,7 @@ mod tests {
             Some(crate::scenarios::DynamicStartPosition { x: 3152, y: 176 });
         recording.manifest.scenario.camera_position =
             Some(crate::scenarios::DynamicStartPosition { x: 3008, y: 64 });
+        recording.manifest.scenario.playtest_form = Some(7);
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
@@ -2613,6 +2621,11 @@ mod tests {
             oracle_scenario.camera_position,
             Some(crate::scenarios::DynamicStartPosition { x: 3008, y: 64 }),
             "the oracle helper must patch the same Camera_X/Y probe window after it settles to gameplay"
+        );
+        assert_eq!(
+            oracle_scenario.playtest_form,
+            Some(7),
+            "the oracle helper must patch the same Current_Helmet_ID/HP probe form after it settles to gameplay"
         );
     }
 

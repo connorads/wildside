@@ -157,6 +157,7 @@ mod tests {
             checkpoints: Vec::new(),
             start_position: None,
             camera_position: None,
+            playtest_form: None,
             warp_to_level: None,
         };
         let key_v1 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v1");
