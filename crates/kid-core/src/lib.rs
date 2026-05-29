@@ -1828,12 +1828,12 @@ impl NativeRuntime {
             jump_buffer_frames: player.jump_buffer_frames,
             wall_cling_direction: player.wall_cling_direction,
             stomp_candidate: stomp_candidate.is_some(),
-            stomp_enemy_object_type: stomp_candidate.and_then(|enemy| match enemy.kind {
+            stomp_enemy_object_type: stomp_candidate.as_ref().and_then(|enemy| match enemy.kind {
                 NativeObjectKind::Enemy { object_type } => Some(object_type),
                 _ => None,
             }),
-            stomp_enemy_x_pos: stomp_candidate.map(|enemy| enemy.x_pos),
-            stomp_enemy_y_pos: stomp_candidate.map(|enemy| enemy.y_pos),
+            stomp_enemy_x_pos: stomp_candidate.as_ref().map(|enemy| enemy.x_pos),
+            stomp_enemy_y_pos: stomp_candidate.as_ref().map(|enemy| enemy.y_pos),
             anchor_x_pos: player.x_pos,
             anchor_y_pos: player.y_pos,
         });
@@ -1851,12 +1851,12 @@ impl NativeRuntime {
             self.first_stomp_contact_candidate(slice, pre_physics_y_velocity, pre_physics_y_pos);
         self.last_kid_frame_same_frame_stomp_probe = Some(KidSameFrameStompProbe {
             stomp_candidate: candidate.is_some(),
-            enemy_object_type: candidate.and_then(|enemy| match enemy.kind {
+            enemy_object_type: candidate.as_ref().and_then(|enemy| match enemy.kind {
                 NativeObjectKind::Enemy { object_type } => Some(object_type),
                 _ => None,
             }),
-            enemy_x_pos: candidate.map(|enemy| enemy.x_pos),
-            enemy_y_pos: candidate.map(|enemy| enemy.y_pos),
+            enemy_x_pos: candidate.as_ref().map(|enemy| enemy.x_pos),
+            enemy_y_pos: candidate.as_ref().map(|enemy| enemy.y_pos),
             pre_physics_y_velocity,
             post_physics_y_velocity: slice.player.y_velocity,
             anchor_x_pos: frame_start_x_pos,

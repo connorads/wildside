@@ -7762,6 +7762,31 @@ impl NativeRuntime {
         }
     }
 
+    fn stomp_contact_candidates(&self) -> Vec<(usize, NativeObjectSnapshot)> {
+        let mut candidates = Vec::new();
+        for (active_index, enemy) in self.active_enemies.iter().enumerate() {
+            if matches!(enemy.family, EnemyFamily::Diamond) {
+                continue;
+            }
+            if !enemy.is_vulnerable() {
+                continue;
+            }
+
+            if matches!(enemy.family, EnemyFamily::Tank) {
+                // ASM Tank.asm loc_3B464 reads the attached mouth/turret
+                // collision word `$38(a2)` and applies the result to the
+                // parent. The parent body is not the plain Tank stomp target.
+                if let Some(child) = enemy.child_attachment_snapshot() {
+                    candidates.push((active_index, child));
+                }
+                continue;
+            }
+
+            candidates.push((active_index, enemy.snapshot()));
+        }
+        candidates
+    }
+
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     pub(crate) fn process_stomps(
@@ -7777,27 +7802,16 @@ impl NativeRuntime {
         }
 
         let mut stomped_indices = Vec::new();
-        for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
-            if i >= self.active_enemies.len() {
-                continue;
-            }
-            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
-            if is_diamond {
-                continue;
-            }
-            // Skip invulnerable enemies (e.g. submerged TarMonster)
-            if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
-                continue;
-            }
+        for (active_index, enemy) in self.stomp_contact_candidates() {
             if classify_enemy_contact_with_half_width(
                 slice.player,
-                enemy,
+                &enemy,
                 pre_physics_y_velocity,
                 pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
             ) == EnemyContactResult::Stomp
             {
-                stomped_indices.push(i);
+                stomped_indices.push(active_index);
             }
         }
 
@@ -7807,11 +7821,11 @@ impl NativeRuntime {
 
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
-        for &roster_idx in &stomped_indices {
-            if roster_idx < self.active_enemies.len() {
-                let enemy = &mut self.active_enemies[roster_idx];
+        for &active_idx in &stomped_indices {
+            if active_idx < self.active_enemies.len() {
+                let enemy = &mut self.active_enemies[active_idx];
                 if enemy.take_damage_or_queue_death() {
-                    kill_indices.push(roster_idx);
+                    kill_indices.push(active_idx);
                 } else {
                     if matches!(enemy.family, EnemyFamily::DragonWalking) {
                         // The stomp resolves after the landing frame. Give the
@@ -7893,25 +7907,15 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
         pre_physics_y_velocity: i32,
         pre_physics_y_pos: u32,
-    ) -> Option<&NativeObjectSnapshot> {
+    ) -> Option<NativeObjectSnapshot> {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             return None;
         }
 
-        for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
-            if i >= self.active_enemies.len() {
-                continue;
-            }
-            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
-            if is_diamond {
-                continue;
-            }
-            if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
-                continue;
-            }
+        for (_active_index, enemy) in self.stomp_contact_candidates() {
             if classify_enemy_contact_with_half_width(
                 slice.player,
-                enemy,
+                &enemy,
                 pre_physics_y_velocity,
                 pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
