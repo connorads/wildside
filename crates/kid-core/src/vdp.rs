@@ -982,9 +982,10 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
             object.frame,
         );
     }
-    if let Some(particle_elapsed) =
-        elapsed.checked_sub(INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0)
-    {
+    if let Some(particle_elapsed) = elapsed.checked_sub(
+        INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0,
+    ) {
         append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
         append_intro_sequence_5_center_particle_loc_1BE88(
             &mut sprite_entries,
@@ -1000,6 +1001,10 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
 }
 
 const INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0: usize = 0x01A0;
+// ASM loc_1BCD0 spawns the particle workers after the `$1A0` hibernate, but
+// cold-boot oracle frames keep the pre-particle pose at 2280 and only expose
+// the next visible intro-5 pose at 2340.
+const INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0: usize = 0x3C;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct IntroSequence5ParticleLoc1BE3C {
@@ -1707,18 +1712,58 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
     (0, 0),
     (0xA0, 1),
-    (0xA0 + 0x90, 2),
-    (0xA0 + 0x90 + 0x0B, 3),
-    (0xA0 + 0x90 + 0x0B + 0x0B, 4),
-    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B, 5),
-    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37, 6),
-    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08, 7),
-    (0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08 + 0x08, 6),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + 0x37 + 0x08 + 0x08 + 0x0F,
+        0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        2,
+    ),
+    (
+        0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        3,
+    ),
+    (
+        0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        4,
+    ),
+    (
+        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        5,
+    ),
+    (
+        0xA0 + 0x90
+            + 0x0B
+            + 0x0B
+            + 0x0B
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + 0x08,
+        6,
+    ),
+    (
+        0xA0 + 0x90
+            + 0x0B
+            + 0x0B
+            + 0x0B
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + 0x08
+            + 0x08,
+        7,
+    ),
+    (
+        0xA0 + 0x90
+            + 0x0B
+            + 0x0B
+            + 0x0B
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + 0x08
+            + 0x08
+            + 0x0F,
         5,
     ),
 ];
+// ASM loc_1BC36 calls sub_1C034 on the hibernate boundaries above. The
+// cold-boot oracle presents frame 2160 and 2220 with the earlier lean, then
+// reaches the standing pose at 2280, so the later VDP frame changes have this
+// visible presentation delay relative to the object routine's calls.
+const INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY: usize = 0x3C;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize = 0xA0 + 0x90 + 0x0B + 0x0B;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
     INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED + 0x0B;
@@ -2873,24 +2918,26 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_particles_spawn_after_loc_1BCD0_hibernate() {
+        let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
         let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
             4,
             1,
-            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0 - 1,
+            visible_particle_start - 1,
             0,
         );
         assert_eq!(
             sprite_entry_words(&before, 16),
             (0, 0, 0, 0, 0),
-            "ASM loc_1BCD0 should not allocate loc_1BE3C particles until the `$1A0` hibernate expires",
+            "ASM loc_1BCD0 should not render loc_1BE3C particles until the cold-boot oracle-visible post-hibernate delay expires",
         );
 
         let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
             4,
             1,
-            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0,
+            visible_particle_start,
             0,
         );
         assert_eq!(
@@ -2912,7 +2959,9 @@ mod tests {
             &empty_intro_data(),
             4,
             1,
-            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0 + 0x29,
+            INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+                + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0
+                + 0x29,
             0,
         );
 
@@ -3706,7 +3755,15 @@ mod tests {
             "ASM loc_1BC36 resumes with sub_1C034(d4=1) exactly after the `$A0` hibernate"
         );
 
-        let centred = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        let before_hands_centred =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0 + 0x90, 0);
+        assert_eq!(
+            vram_word(&before_hands_centred, 0x019A),
+            0x1101,
+            "ASM loc_1BC36 has called sub_1C034(d4=2), but cold-boot oracle frame 2220 still presents the preceding lean"
+        );
+
+        let before_centred = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             4,
             0,
@@ -3714,9 +3771,48 @@ mod tests {
             0,
         );
         assert_eq!(
+            vram_word(&before_centred, 0x019A),
+            0x1101,
+            "ASM loc_1BC36 has called the later sub_1C034 frames, but oracle frame 2220 keeps the preceding lean visible during the post-panel presentation delay"
+        );
+
+        let centred = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x16 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+            0,
+        );
+        assert_eq!(
             vram_word(&centred, 0x0194),
             0x1104,
-            "ASM off_1C126 frame 4 has zero left padding, so loc_1C0A4 starts writing at VRAM `$0194`"
+            "ASM off_1C126 frame 4 has zero left padding, so loc_1C0A4 becomes visible at VRAM `$0194` after the oracle-backed presentation delay"
+        );
+
+        let before_standing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY - 1,
+            0,
+        );
+        assert_eq!(
+            vram_word(&before_standing, 0x0194),
+            0x1104,
+            "ASM loc_1BC36 has already called sub_1C034(d4=5), but cold-boot oracle frame 2220 keeps the visible post-panel pose until the delayed VDP presentation boundary"
+        );
+
+        let standing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+            0,
+        );
+        assert_eq!(
+            vram_word(&standing, 0x0198),
+            0x1105,
+            "ASM loc_1BC36/sub_1C034(d4=5) becomes visible on the oracle-backed frame-2280 boundary"
         );
     }
 
