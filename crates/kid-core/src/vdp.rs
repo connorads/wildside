@@ -1734,7 +1734,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
-            + 0x08,
+            + 0x37,
         6,
     ),
     (
@@ -1743,7 +1743,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
-            + 0x08
+            + 0x37
             + 0x08,
         7,
     ),
@@ -1753,6 +1753,18 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + 0x37
+            + 0x08
+            + 0x08,
+        6,
+    ),
+    (
+        0xA0 + 0x90
+            + 0x0B
+            + 0x0B
+            + 0x0B
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + 0x37
             + 0x08
             + 0x08
             + 0x0F,
@@ -3813,6 +3825,32 @@ mod tests {
             vram_word(&standing, 0x0198),
             0x1105,
             "ASM loc_1BC36/sub_1C034(d4=5) becomes visible on the oracle-backed frame-2280 boundary"
+        );
+
+        let before_cross_arm = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY + 0x37 - 1,
+            0,
+        );
+        assert_eq!(
+            vram_word(&before_cross_arm, 0x0198),
+            0x1105,
+            "ASM loc_1BC36 keeps sub_1C034(d4=5) visible through the `$37` hibernate before d4=6"
+        );
+
+        let cross_arm = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY + 0x37,
+            0,
+        );
+        assert_eq!(
+            vram_word(&cross_arm, 0x0198),
+            0x1106,
+            "ASM loc_1BC36 resumes with sub_1C034(d4=6) only after the `$37` hibernate, matching the frame-2340 cross-arm window"
         );
     }
 
