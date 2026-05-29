@@ -1301,7 +1301,7 @@ const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
     43, // ASM sub_1B93E exposes IntroText3 one rendered frame after the hidden VDP rebuild shell.
     39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
-    56, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
+    58, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
 ];
 
 fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0> {
