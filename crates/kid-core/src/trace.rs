@@ -975,6 +975,43 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_exposes_intro_6_title_menu_cursor_and_counts() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 2,
+            carry_intro_sequence_5_slot_2_pose: false,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+        runtime.title_menu_active = true;
+        runtime.title_menu_cursor_pending = true;
+        runtime.title_screen_ready_frame = 0;
+
+        let pending_trace = runtime.trace_frame();
+        assert_eq!(pending_trace.options_cursor, Some(2));
+        assert_eq!(
+            (
+                pending_trace.number_objects,
+                pending_trace.number_gfx_objects
+            ),
+            (4, 4),
+            "ASM Obj_TitleMenu loc_1BB52 has not exposed the extra cursor gfx slot while the delayed rebuild is still pending"
+        );
+
+        runtime.title_menu_cursor_pending = false;
+        let active_trace = runtime.trace_frame();
+        assert_eq!(
+            active_trace.options_cursor,
+            Some(2),
+            "ASM Obj_TitleMenu loc_1BC0E keeps the live d1 cursor row visible while still in IntroSequence6"
+        );
+        assert_eq!(
+            (active_trace.number_objects, active_trace.number_gfx_objects),
+            (4, 3),
+            "ASM Obj_TitleMenu loc_1BB52 exposes the active title cursor as the third gfx slot even before the shell reports TitleScreen"
+        );
+    }
+
+    #[test]
     fn intro_sequence_6_timeout_restart_hidden_camera_wraps_then_ramps() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::IntroSequence6 {
@@ -4937,6 +4974,7 @@ impl NativeRuntime {
                 BootState::TitleScreen { cursor } | BootState::OptionsMenu { cursor } => {
                     Some(cursor)
                 }
+                BootState::IntroSequence6 { cursor, .. } if self.title_menu_active => Some(cursor),
                 _ => None,
             },
             sound_test_track: match self.boot_state {
@@ -6781,9 +6819,11 @@ impl NativeRuntime {
             // the idle loop keeps 4 objects / 2 gfx slots alive, and
             // `loc_1BB52` adds the menu cursor as a third gfx slot once the
             // first Start press arms the active title menu.
-            BootState::TitleScreen { .. }
+            BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
-            if let Some(counts) = self.hidden_title_screen_object_counts() {
+            if matches!(self.boot_state, BootState::TitleScreen { .. })
+                && let Some(counts) = self.hidden_title_screen_object_counts()
+            {
                 return counts;
             }
             if self.title_menu_active && !self.title_menu_cursor_pending {
@@ -6797,6 +6837,7 @@ impl NativeRuntime {
             return if matches!(
                 self.boot_state,
                 BootState::TitleScreen { .. }
+                    | BootState::IntroSequence6 { .. }
                     | BootState::OptionsMenu { .. }
                     | BootState::SoundTest { .. }
             ) && self.title_screen_ready()

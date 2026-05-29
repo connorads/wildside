@@ -1440,8 +1440,9 @@ impl NativeRuntime {
                 self.title_screen_data.as_ref().map(|data| {
                     let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
                         match self.boot_state {
-                            BootState::TitleScreen { cursor } => Some(cursor),
-                            _ => Some(0),
+                            BootState::TitleScreen { cursor }
+                            | BootState::IntroSequence6 { cursor, .. } => Some(cursor),
+                            _ => None,
                         }
                     } else {
                         None

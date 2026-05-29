@@ -78,6 +78,27 @@ fn press_skip_cheat(runtime: &mut NativeRuntime) -> NativeTraceFrame {
     runtime.trace_frame()
 }
 
+fn vdp_sprite_entry_words(
+    vdp: &crate::vdp::VdpState,
+    entry_index: usize,
+) -> (u16, u8, u8, u16, u16) {
+    let entry_base = 0x1000 + entry_index * 8;
+    (
+        u16::from_be_bytes([vdp.vram[entry_base], vdp.vram[entry_base + 1]]),
+        vdp.vram[entry_base + 2],
+        vdp.vram[entry_base + 3],
+        u16::from_be_bytes([vdp.vram[entry_base + 4], vdp.vram[entry_base + 5]]),
+        u16::from_be_bytes([vdp.vram[entry_base + 6], vdp.vram[entry_base + 7]]),
+    )
+}
+
+fn vdp_sprite_table_contains(
+    vdp: &crate::vdp::VdpState,
+    expected: (u16, u8, u8, u16, u16),
+) -> bool {
+    (0..80).any(|entry_index| vdp_sprite_entry_words(vdp, entry_index) == expected)
+}
+
 fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     runtime.killed_enemies.insert((0, 0));
     runtime.projectiles.push(EnemyProjectile {
@@ -4362,6 +4383,30 @@ mod chunk_02 {
             trace[837].game_mode,
             GameMode::DemoPlay,
             "ASM Obj_TitleMenu loc_1BB02 hands off to Game_Mode=$10 when Title_InputLoop's countdown expires"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_6_title_menu_vdp_uses_live_cursor_row() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::IntroSequence6 {
+            cursor: 2,
+            carry_intro_sequence_5_slot_2_pose: false,
+            carry_timeout_restart_hidden_camera_wrap: false,
+        };
+        runtime.title_menu_active = true;
+        runtime.title_menu_cursor_pending = false;
+        runtime.title_screen_elapsed_frames = TITLE_SCREEN_READY_GLOBAL_FRAME;
+        runtime.title_screen_ready_frame = 0;
+
+        runtime.update_vdp_state();
+        let vdp = runtime
+            .vdp_state()
+            .expect("ASM Load_IntroSequence6 / Obj_TitleMenu should expose a title VDP shell");
+
+        assert!(
+            vdp_sprite_table_contains(vdp, (0x00BC, 0x00, 0, 0x454B, 0x00A8)),
+            "ASM Obj_TitleMenu loc_1BB52/loc_1BC0E should draw IntroSequence6 cursor row 2 at y=$44, not row 0"
         );
     }
 
