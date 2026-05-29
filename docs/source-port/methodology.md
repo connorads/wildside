@@ -559,6 +559,10 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 
 ## References
 
+For a comparison of this project's approach to peer projects (SM64 decomp,
+devilutionX, OpenMW, etc.) and an explanation of why we verify by runtime oracle
+rather than binary matching, see `docs/source-port/project-taxonomy.md`.
+
 Projects and papers studied for methodology:
 
 | Project | Domain | Key technique | Source |

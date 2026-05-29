@@ -61,6 +61,9 @@
   - investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol
   - metamorphic relations, mutation testing, divergence classification, fidelity metrics
 
-## Source-port exemplars
+## Source-port exemplars and taxonomy
 
+- `docs/source-port/project-taxonomy.md`
+  - What kind of project this is (and is not), peer-project comparison, and why
+    we use runtime oracle verification rather than SM64-style matching decompilation.
 - https://github.com/n64decomp/sm64
