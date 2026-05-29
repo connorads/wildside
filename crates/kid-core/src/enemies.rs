@@ -1119,6 +1119,7 @@ pub(crate) fn orca_berzerker_side_gate_loc_3d27e(
 }
 
 pub(crate) const ORCA_BERZERKER_KNOCKBACK_GRAVITY_LOC_3D2AA: i32 = 0x0000_4000;
+pub(crate) const ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA: u16 = 0xD2AA;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9287,7 +9288,11 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
                     step_robot_with_rng(enemy, block_grid, player_x_pos, &mut projectiles, rng);
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
-                    step_orca(enemy, block_grid, player_x_pos);
+                    if enemy.wait_timer == ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA {
+                        step_orca_berzerker_knockback(enemy);
+                    } else {
+                        step_orca(enemy, block_grid, player_x_pos);
+                    }
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
                     if enemy.wait_timer == SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22 {
                         step_spinning_twins_berzerker_launch(enemy);
@@ -16650,6 +16655,15 @@ fn step_ninja_berzerker_side_launch(enemy: &mut ActiveEnemy) {
     enemy.x_velocity = 0;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     enemy.y_velocity = ninja_berzerker_side_launch_loop_tick_loc_3db3c(enemy.y_velocity).y_velocity;
+    enemy.on_ground = false;
+}
+
+fn step_orca_berzerker_knockback(enemy: &mut ActiveEnemy) {
+    // ASM Orca.asm loc_3D2AA: hibernate one frame, run `sub_3E8BA`,
+    // add `$4000` to y_vel, then branch back to the knockback loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity = orca_berzerker_airborne_frame_loc_3d2aa(enemy.y_velocity).next_y_velocity;
     enemy.on_ground = false;
 }
 

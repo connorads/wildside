@@ -5384,6 +5384,21 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::Orca)
+                    && let OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) =
+                        orca_berzerker_side_gate_loc_3d27e(true)
+                {
+                    // ASM Orca.asm loc_3D27E: charging Berzerker side contact
+                    // zeroes X velocity, launches upward, and enters the
+                    // loc_3D2AA loop instead of generic HP damage/death.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {
