@@ -3,7 +3,7 @@ use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     BackgroundPixelSample, LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions,
-    build_scene, build_scene_filtered, load_session_assets, render_scene,
+    build_scene, build_scene_filtered, load_session_assets, render_scene, render_scene_overlay,
     render_trace_with_loc_c070_latched_sprite_state, render_vdp_trace_overlay,
     sample_background_pixel_loc_c070,
 };
@@ -11,7 +11,7 @@ use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
-use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime};
+use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -24,6 +24,16 @@ const RECORDING_NOTES_FILENAME: &str = "notes.txt";
 const RECORDING_TRANSCRIPT_FILENAME: &str = "transcript.txt";
 const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
 const RECORDING_AUDIO_FILENAME: &str = "audio.wav";
+const NATIVE_DIAGNOSTIC_LAYERS: [&str; 8] = [
+    "background",
+    "terrain",
+    "block_overrides",
+    "platforms",
+    "enemies",
+    "player",
+    "effects",
+    "hud",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RecordingArtifactManifest {
@@ -121,6 +131,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) top_colour_diffs: Vec<PixelColourDiff>,
     #[serde(default)]
     pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
+    #[serde(default)]
+    pub(crate) native_layer_samples: Vec<NativeLayerPixelDiagnostic>,
     pub(crate) diff_path: PathBuf,
 }
 
@@ -159,6 +171,19 @@ pub(crate) struct NativeBackgroundPixelDiagnostic {
     pub(crate) x: usize,
     pub(crate) y: usize,
     pub(crate) sample: Option<NativeBackgroundPixelSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeLayerPixelDiagnostic {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) samples: Vec<NativeLayerPixelSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeLayerPixelSample {
+    pub(crate) layer: String,
+    pub(crate) rgb: [u8; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -617,7 +642,7 @@ pub(crate) fn verify_recording(
                     replay_trace.last().map_or(0, |frame| frame.current_level.0)
                 }),
             )?;
-        attach_native_background_samples(
+        attach_native_pixel_samples(
             manifest,
             &recording.manifest.start,
             &recording.manifest.scenario,
@@ -991,17 +1016,6 @@ fn write_dynamic_checkpoint_layer_frames(
     visual_frame_offset: usize,
     out_dir: &Path,
 ) -> Result<()> {
-    const LAYERS: [&str; 8] = [
-        "background",
-        "terrain",
-        "block_overrides",
-        "platforms",
-        "enemies",
-        "player",
-        "effects",
-        "hud",
-    ];
-
     let RecordingRuntimeInit {
         mut runtime,
         mut level_visuals,
@@ -1062,7 +1076,7 @@ fn write_dynamic_checkpoint_layer_frames(
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
             }
             render_trace.frame_index = render_trace.frame_index.saturating_add(visual_frame_offset);
-            for layer in LAYERS {
+            for layer in NATIVE_DIAGNOSTIC_LAYERS {
                 let scene = build_scene_filtered(
                     &render_trace,
                     false,
@@ -1106,7 +1120,7 @@ fn write_dynamic_checkpoint_layer_frames(
     Ok(())
 }
 
-fn attach_native_background_samples(
+fn attach_native_pixel_samples(
     manifest: &AssetManifest,
     start: &RecordingStart,
     scenario: &DynamicScenario,
@@ -1140,8 +1154,14 @@ fn attach_native_background_samples(
     let mut script_index = 0usize;
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
-    let mut samples_by_checkpoint: BTreeMap<(usize, String), Vec<NativeBackgroundPixelDiagnostic>> =
-        BTreeMap::new();
+    let mut background_samples_by_checkpoint: BTreeMap<
+        (usize, String),
+        Vec<NativeBackgroundPixelDiagnostic>,
+    > = BTreeMap::new();
+    let mut layer_samples_by_checkpoint: BTreeMap<
+        (usize, String),
+        Vec<NativeLayerPixelDiagnostic>,
+    > = BTreeMap::new();
 
     while script_index < scenario.script.len() {
         if level_card_frames_remaining > 0 {
@@ -1194,7 +1214,7 @@ fn attach_native_background_samples(
                 }
                 render_trace.frame_index =
                     render_trace.frame_index.saturating_add(visual_frame_offset);
-                let samples = pixels
+                let background_samples = pixels
                     .iter()
                     .map(|(x, y)| {
                         let sample = i32::try_from(*x)
@@ -1216,7 +1236,14 @@ fn attach_native_background_samples(
                         }
                     })
                     .collect::<Vec<_>>();
-                samples_by_checkpoint.insert(key, samples);
+                let layer_samples = sample_native_layers_for_pixels(
+                    &render_trace,
+                    &level_visuals,
+                    runtime.block_grid(),
+                    pixels,
+                );
+                background_samples_by_checkpoint.insert(key.clone(), background_samples);
+                layer_samples_by_checkpoint.insert(key, layer_samples);
             }
         }
 
@@ -1226,10 +1253,57 @@ fn attach_native_background_samples(
 
     for diff in frame_diffs {
         let key = (diff.frame_index, diff.label.clone());
-        diff.native_background_samples = samples_by_checkpoint.remove(&key).unwrap_or_default();
+        diff.native_background_samples = background_samples_by_checkpoint
+            .remove(&key)
+            .unwrap_or_default();
+        diff.native_layer_samples = layer_samples_by_checkpoint.remove(&key).unwrap_or_default();
     }
 
     Ok(())
+}
+
+fn sample_native_layers_for_pixels(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&kid_core::terrain::BlockGrid>,
+    pixels: &BTreeSet<(usize, usize)>,
+) -> Vec<NativeLayerPixelDiagnostic> {
+    let mut samples = pixels
+        .iter()
+        .map(|(x, y)| NativeLayerPixelDiagnostic {
+            x: *x,
+            y: *y,
+            samples: Vec::with_capacity(NATIVE_DIAGNOSTIC_LAYERS.len()),
+        })
+        .collect::<Vec<_>>();
+
+    for layer in NATIVE_DIAGNOSTIC_LAYERS {
+        let scene = build_scene_filtered(
+            trace,
+            false,
+            Some(level_visuals),
+            block_grid,
+            LayerFilter::solo(layer),
+        );
+        let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        // Use overlay-only rendering so transparent pixels stay black instead
+        // of inheriting the scene background. This is diagnostic provenance for
+        // ASM loc_C070/loc_C21E strict diffs, not a standalone frame.
+        render_scene_overlay(&scene, &mut rgb);
+        for diagnostic in &mut samples {
+            diagnostic.samples.push(NativeLayerPixelSample {
+                layer: layer.to_owned(),
+                rgb: sample_rgb(&rgb, diagnostic.x, diagnostic.y),
+            });
+        }
+    }
+
+    samples
+}
+
+fn sample_rgb(rgb: &[u8], x: usize, y: usize) -> [u8; 3] {
+    let index = (y * NATIVE_FRAME_WIDTH as usize + x) * 3;
+    [rgb[index], rgb[index + 1], rgb[index + 2]]
 }
 
 impl From<BackgroundPixelSample> for NativeBackgroundPixelSample {
@@ -1296,6 +1370,7 @@ fn compare_recording_frames(
             changed_bounds: pixel_diff_summary.changed_bounds,
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
             native_background_samples: Vec::new(),
+            native_layer_samples: Vec::new(),
             diff_path,
         });
     }

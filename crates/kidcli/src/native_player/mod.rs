@@ -169,7 +169,7 @@ use render::*;
 use scene::*;
 use sprites::*;
 
-pub(crate) use render::render_scene;
+pub(crate) use render::{render_scene, render_scene_overlay};
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
     render_trace_with_loc_c070_latched_sprite_state, sample_background_pixel_loc_c070,

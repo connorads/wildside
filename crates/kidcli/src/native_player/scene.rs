@@ -2887,7 +2887,7 @@ fn build_game_scene_filtered(
     };
     let mut commands = Vec::new();
 
-    if eol_hologram_visible {
+    if eol_hologram_visible && filter.background {
         push_eol_hologram_room(&mut commands, level_visuals);
     } else if filter.background
         && (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
@@ -2904,7 +2904,7 @@ fn build_game_scene_filtered(
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
     }
-    if eol_hologram_visible {
+    if eol_hologram_visible && filter.terrain {
         push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);
     }
 
@@ -3430,7 +3430,7 @@ fn build_game_scene_filtered(
     // `LnkTo_Spr_EOL_NoPrize`, `LnkTo_Spr_EOL_Path`, `LnkTo_Spr_EOL_Speed`
     // — plus seven digit workers from `Load_Object_EOL_Number`. Native uses
     // the trace's EOL worker elapsed fields to replay the ROM fly-in timing.
-    if trace.level_complete {
+    if trace.level_complete && filter.hud {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_eol_score_overlay(&mut commands, trace, eol_score);
             return Scene {
@@ -3492,7 +3492,7 @@ fn build_game_scene_filtered(
     }
 
     // Game Over / Continue overlay
-    if trace.game_over {
+    if trace.game_over && filter.hud {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_game_over_continue_overlay(&mut commands, trace, eol_score);
         } else if trace.number_continues == 0 {
@@ -3507,7 +3507,7 @@ fn build_game_scene_filtered(
     }
 
     // Pause overlay
-    if trace.paused {
+    if trace.paused && filter.hud {
         let pause_text = "PAUSED";
         let text_w = pause_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
@@ -3534,7 +3534,7 @@ fn build_game_scene_filtered(
     }
 
     // Level complete overlay
-    if trace.level_complete {
+    if trace.level_complete && filter.hud {
         let complete_text = "LEVEL CLEAR!";
         let text_w = complete_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
@@ -3572,7 +3572,7 @@ fn build_game_scene_filtered(
         ));
     }
 
-    if debug_overlay_visible {
+    if debug_overlay_visible && filter.hud {
         push_panel(&mut commands, 8, 8, 304, 56, [12, 18, 24], [160, 214, 255]);
         commands.push(text(
             16,
