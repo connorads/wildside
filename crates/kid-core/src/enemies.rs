@@ -9368,7 +9368,7 @@ pub(crate) fn step_flyer_with_rng(
 
     // UFO: acceleration-based drifting with periodic direction changes
     if matches!(enemy.family, EnemyFamily::UFO) {
-        step_ufo_with_player(enemy, block_grid, player_x_pos, player_y_pos);
+        step_ufo_with_player(enemy, block_grid, player_x_pos, player_y_pos, rng);
         return;
     }
 
@@ -10005,12 +10005,110 @@ pub(crate) fn step_cloud_attack(
     }
 }
 
-/// UFO: acceleration-based drifting, reverses direction periodically.
-/// Uses `wait_timer` as a countdown; every 60 frames reverses acceleration.
-/// Acceleration ±$400 per frame, terminal velocity ±$18000.
+/// UFO: acceleration-based drifting through a once-per-second ROM motion table.
 pub(crate) const UFO_ACCELERATION: i32 = 0x400;
-pub(crate) const UFO_TERMINAL_VELOCITY: i32 = 0x18000;
 pub(crate) const UFO_PATTERN_FRAMES: u16 = 60;
+
+// ASM UFO.asm `unk_35344`: 16 motion records selected by loc_35326 using
+// `(Get_RandomNumber_byte() ^ x_pos.low_byte) & $0F`.
+pub(crate) const UFO_PATTERN_SCRIPT_LOC_35344: [UfoMotionCommand; 16] = [
+    UfoMotionCommand {
+        target_x_velocity: 0,
+        target_y_velocity: -0x20000,
+        x_acceleration: 0,
+        y_acceleration: -0x1000,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x10000,
+        target_y_velocity: -0x20000,
+        x_acceleration: 0x0800,
+        y_acceleration: -0x1000,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x18000,
+        target_y_velocity: -0x18000,
+        x_acceleration: 0x0C00,
+        y_acceleration: -0x0C00,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x20000,
+        target_y_velocity: -0x10000,
+        x_acceleration: 0x1000,
+        y_acceleration: -0x0800,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x20000,
+        target_y_velocity: 0,
+        x_acceleration: 0x1000,
+        y_acceleration: 0,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x20000,
+        target_y_velocity: 0x10000,
+        x_acceleration: 0x1000,
+        y_acceleration: 0x0800,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x18000,
+        target_y_velocity: 0x18000,
+        x_acceleration: 0x0C00,
+        y_acceleration: 0x0C00,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0x10000,
+        target_y_velocity: 0x20000,
+        x_acceleration: 0x0800,
+        y_acceleration: 0x1000,
+    },
+    UfoMotionCommand {
+        target_x_velocity: 0,
+        target_y_velocity: 0x20000,
+        x_acceleration: 0,
+        y_acceleration: 0x1000,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x10000,
+        target_y_velocity: 0x20000,
+        x_acceleration: -0x0800,
+        y_acceleration: 0x1000,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x18000,
+        target_y_velocity: 0x18000,
+        x_acceleration: -0x0C00,
+        y_acceleration: 0x0C00,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x20000,
+        target_y_velocity: 0x10000,
+        x_acceleration: -0x1000,
+        y_acceleration: 0x0800,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x20000,
+        target_y_velocity: 0,
+        x_acceleration: -0x1000,
+        y_acceleration: 0,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x20000,
+        target_y_velocity: -0x10000,
+        x_acceleration: -0x1000,
+        y_acceleration: -0x0800,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x18000,
+        target_y_velocity: -0x18000,
+        x_acceleration: -0x0C00,
+        y_acceleration: -0x0C00,
+    },
+    UfoMotionCommand {
+        target_x_velocity: -0x10000,
+        target_y_velocity: -0x20000,
+        x_acceleration: -0x0800,
+        y_acceleration: -0x1000,
+    },
+];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -10212,8 +10310,63 @@ pub(crate) fn ufo_tracking_tail_loc_34e96(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_motion_picker_loc_35326(
+    random_byte: u8,
+    ufo_x_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+    double_acceleration: bool,
+    double_terminal_speed: bool,
+) -> (UfoMotionCommand, Direction) {
+    let x_word_low = ((ufo_x_pos >> 16) & 0xFF) as u8;
+    let index = usize::from((random_byte ^ x_word_low) & 0x0F);
+    ufo_motion_from_script_loc_35444(
+        UFO_PATTERN_SCRIPT_LOC_35344[index],
+        x_velocity,
+        y_velocity,
+        double_acceleration,
+        double_terminal_speed,
+    )
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_motion_from_script_loc_35444(
+    script: UfoMotionCommand,
+    x_velocity: i32,
+    y_velocity: i32,
+    double_acceleration: bool,
+    double_terminal_speed: bool,
+) -> (UfoMotionCommand, Direction) {
+    let command = UfoMotionCommand {
+        target_x_velocity: script.target_x_velocity,
+        target_y_velocity: script.target_y_velocity,
+        x_acceleration: acceleration_for_target(
+            x_velocity,
+            script.target_x_velocity,
+            script.x_acceleration,
+        ),
+        y_acceleration: acceleration_for_target(
+            y_velocity,
+            script.target_y_velocity,
+            script.y_acceleration,
+        ),
+    };
+    let command = ufo_double_terminal_speed_loc_34e1c(
+        ufo_double_acceleration_loc_34e10(command, double_acceleration),
+        double_terminal_speed,
+    );
+    let facing = if script.target_x_velocity < 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    };
+    (command, facing)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    step_ufo_with_player(enemy, block_grid, None, None);
+    let mut rng = RomRandomState::default();
+    step_ufo_with_player_and_rng(enemy, block_grid, None, None, &mut rng);
 }
 
 pub(crate) fn step_ufo_with_player(
@@ -10221,12 +10374,46 @@ pub(crate) fn step_ufo_with_player(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    rng: &mut RomRandomState,
 ) {
-    // Apply acceleration to velocity (clamped to terminal)
-    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
-        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
-    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
-        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+    step_ufo_with_player_and_rng(enemy, block_grid, player_x_pos, player_y_pos, rng);
+}
+
+pub(crate) fn step_ufo_with_player_and_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    rng: &mut RomRandomState,
+) {
+    if enemy.wait_timer == 0 {
+        let (motion, facing) = ufo_motion_picker_loc_35326(
+            rng.next_byte(),
+            enemy.x_pos,
+            enemy.x_velocity,
+            enemy.y_velocity,
+            enemy.flight_double_acceleration,
+            enemy.flight_double_terminal_speed,
+        );
+        enemy.x_acceleration = motion.x_acceleration;
+        enemy.target_x_velocity = motion.target_x_velocity;
+        enemy.y_acceleration = motion.y_acceleration;
+        enemy.target_y_velocity = motion.target_y_velocity;
+        enemy.facing = facing;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+    }
+
+    // ASM UFO.asm Enemy_HandleAcceleration: d0/d2 accelerate toward d1/d3.
+    enemy.x_velocity = apply_acceleration_axis(
+        enemy.x_velocity,
+        enemy.target_x_velocity,
+        enemy.x_acceleration,
+    );
+    enemy.y_velocity = apply_acceleration_axis(
+        enemy.y_velocity,
+        enemy.target_y_velocity,
+        enemy.y_acceleration,
+    );
 
     if let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos)
         && let Some(tracking) = ufo_tracking_command_loc_34e2a(
@@ -10252,14 +10439,7 @@ pub(crate) fn step_ufo_with_player(
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    // Periodic direction change
-    if enemy.wait_timer == 0 {
-        enemy.wait_timer = UFO_PATTERN_FRAMES;
-        enemy.x_acceleration = -enemy.x_acceleration;
-        enemy.y_acceleration = -enemy.y_acceleration;
-    } else {
-        enemy.wait_timer -= 1;
-    }
+    enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
 
     // ASM UFO.asm Enemy0F_UFO_ExecCollisionBehavior: terrain contacts enter
     // loc_35056 through `Enemy0F_UFO_CollisionBehaviors`.
@@ -30079,6 +30259,28 @@ mod tests {
                 facing: Direction::Right,
             }),
             "ASM UFO.asm loc_34E2A includes the Kid X - $30 edge and steers right when UFO X is less than Kid X"
+        );
+    }
+
+    #[test]
+    fn ufo_motion_picker_matches_loc_35326_selector_and_loc_35444_scaling() {
+        let (motion, facing) =
+            ufo_motion_picker_loc_35326(0xC2, 0x0120_0000, 0x0002_0000, 0, true, true);
+
+        assert_eq!(
+            motion,
+            UfoMotionCommand {
+                target_x_velocity: 0x30000,
+                target_y_velocity: -0x30000,
+                x_acceleration: -0x1800,
+                y_acceleration: -0x1800,
+            },
+            "ASM UFO.asm loc_35326 uses `(random_byte ^ x_pos.low) & $F`, then loc_35444 derives acceleration signs before loc_34E10/loc_34E1C scaling"
+        );
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM UFO.asm loc_35444 leaves `x_direction` set when the selected X target speed is non-negative"
         );
     }
 

@@ -8116,6 +8116,8 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::UFO, 200 << 16, 100 << 16, 1);
         enemy.x_acceleration = UFO_ACCELERATION;
         enemy.y_acceleration = -UFO_ACCELERATION;
+        enemy.target_x_velocity = 0x20000;
+        enemy.target_y_velocity = -0x20000;
         enemy.wait_timer = UFO_PATTERN_FRAMES;
         let start_x = enemy.x_pos;
         step_ufo(&mut enemy, None);
@@ -8128,16 +8130,45 @@ mod chunk_04 {
     }
 
     #[test]
-    fn ufo_reverses_acceleration_on_timer() {
+    fn ufo_counts_down_existing_motion_without_reloading_until_timer_zero() {
         let mut enemy = test_enemy(EnemyFamily::UFO, 200 << 16, 100 << 16, 1);
         enemy.x_acceleration = UFO_ACCELERATION;
         enemy.y_acceleration = -UFO_ACCELERATION;
-        enemy.wait_timer = 0; // timer expired
+        enemy.target_x_velocity = 0x20000;
+        enemy.target_y_velocity = -0x20000;
+        enemy.wait_timer = 1;
         step_ufo(&mut enemy, None);
-        // Acceleration should be reversed
-        assert_eq!(enemy.x_acceleration, -UFO_ACCELERATION);
-        assert_eq!(enemy.y_acceleration, UFO_ACCELERATION);
-        assert_eq!(enemy.wait_timer, UFO_PATTERN_FRAMES);
+
+        assert_eq!(enemy.x_acceleration, UFO_ACCELERATION);
+        assert_eq!(enemy.y_acceleration, -UFO_ACCELERATION);
+        assert_eq!(enemy.x_velocity, UFO_ACCELERATION);
+        assert_eq!(enemy.y_velocity, -UFO_ACCELERATION);
+        assert_eq!(enemy.wait_timer, 0);
+    }
+
+    #[test]
+    fn ufo_timer_zero_uses_loc_35326_motion_picker_before_acceleration() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 0x0120_0000, 0x0080_0000, 1);
+        enemy.wait_timer = 0;
+
+        step_ufo(&mut enemy, None);
+
+        assert_eq!(
+            enemy.target_x_velocity, 0,
+            "ASM UFO.asm loc_35326 selects entry 0 when `(rng_byte ^ x_pos.low) & $F == 0`"
+        );
+        assert_eq!(enemy.target_y_velocity, -0x20000);
+        assert_eq!(
+            enemy.x_acceleration, -0x0C00,
+            "ASM UFO.asm loc_35452 substitutes `$C00` when the selected X acceleration is zero"
+        );
+        assert_eq!(enemy.y_acceleration, -0x1000);
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM UFO.asm Enemy_HandleAcceleration clamps the timer-zero X step to target speed 0"
+        );
+        assert_eq!(enemy.y_velocity, -0x1000);
+        assert_eq!(enemy.wait_timer, UFO_PATTERN_FRAMES - 1);
     }
 
     #[test]
@@ -8201,7 +8232,7 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::UFO, 40 << 16, 34 << 16, 1);
         enemy.y_velocity = -0x0001_0000;
         enemy.y_acceleration = 0;
-        enemy.target_y_velocity = -0x0003_0000;
+        enemy.target_y_velocity = -0x0001_0000;
         enemy.wait_timer = UFO_PATTERN_FRAMES;
         let grid = bounce_grid(&[(2, 1)]);
 
