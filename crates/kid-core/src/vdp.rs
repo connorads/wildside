@@ -503,6 +503,12 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         // fade/rebuild window reaches the first visible roster frame.
         vdp.cram.fill(0);
     }
+    if segment == 3 && elapsed < INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
+        // ASM Load_IntroSequence4 -> sub_1B988 also enters sub_1C204 before
+        // loc_1B9B2 starts the visible alley/corridor text loop. Oracle
+        // frames stay black during this shared hidden fade/rebuild window.
+        vdp.cram.fill(0);
+    }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         overlay_intro_sequence_3_sprite_table_loc_1AEEC(
             &mut vdp,
@@ -1294,7 +1300,7 @@ const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     45, // ASM sub_1B8F4/loc_1C7A0; cold-boot IntroText1 glyph cadence matches oracle frame 280/360 checkpoints.
     42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
     43, // ASM sub_1B93E exposes IntroText3 one rendered frame after the hidden VDP rebuild shell.
-    42, // ASM sub_1B988 allocates IntroText4 before sub_1C204's fade shell.
+    39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
     42, // ASM loc_1BA28 allocates IntroText5 before sub_1C204's fade shell.
 ];
 
@@ -2595,6 +2601,65 @@ mod tests {
             cram_word(&visible, 1),
             0x0EEE,
             "ASM loc_1AEEC's first visible roster frame should use the loaded Pal_1C28A colours rather than the hidden sub_1C204 black palette",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_4_sub_1C204_keeps_palette_black_before_visible_elapsed() {
+        let data = IntroSub1B850Data {
+            palette_segment_1: vec![0x0EEE; 0x40],
+            ..empty_intro_data()
+        };
+
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            3,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES - 3,
+            1,
+        );
+        assert_eq!(
+            cram_word(&before, 1),
+            0,
+            "ASM Load_IntroSequence4 -> sub_1B988 calls sub_1C204 before loc_1B9B2; frame 1320 oracle keeps the corridor black during this hidden fade shell",
+        );
+
+        let visible = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            3,
+            1,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+            1,
+        );
+        assert_eq!(
+            cram_word(&visible, 1),
+            0x0EEE,
+            "ASM loc_1B9B2 should expose IntroSequence4's loaded palette once the shared sub_1C204 hidden shell has completed",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_4_introtext4_matches_oracle_first_visible_cadence() {
+        let data = IntroSub1B850Data {
+            palette_segment_1: vec![0x0EEE; 0x40],
+            ..empty_intro_data()
+        };
+
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 3, 1, 98, 1);
+        let l_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 19, 8, 0x0B);
+        let i_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 20, 8, 0x08);
+
+        assert_eq!(
+            vram_word(&vdp, usize::from(l_write.vram_word_address)),
+            l_write.tile_word,
+            "ASM IntroText4 via loc_1C7A0 should have reached the `L` in `BUT IT WAS A L` by the frame-1380 oracle checkpoint",
+        );
+        assert_eq!(
+            vram_word(&vdp, usize::from(i_write.vram_word_address)),
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
+            "ASM IntroText4 should not yet reveal the following `I` at the same checkpoint",
         );
     }
 
