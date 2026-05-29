@@ -1096,9 +1096,10 @@ Oracle repro: n/a. Minimum gate: `1p-playable`.
 
 Fix: add `mise run verify-1p-playable` as the native-first smoke gate. It runs the
 existing `verify-native-gameplay` scenarios for pause/resume, death/respawn, and
-Level 1 -> Level 2 progression, then the focused slope, rubber-block, and metal-block
+Level 1 -> Level 2 progression, then the focused slope, rubber-block, metal-block,
+Highwater shooter/barrier, RockTank shooting/rendering, and Drips collision/render
 regressions that cover the live-play issues behind backlog items `#122`, `#123`,
-`#126`, `#127`, and `#128`.
+`#126`, `#127`, `#128`, `#144`, `#145`, `#155`, and `#169`.
 
 Surprise worth keeping: the gate itself needed maintenance after the later ROM-backed
 rubber-wall rebound fix. `verify-1p-playable` had gone red because
