@@ -2965,8 +2965,9 @@ pub fn intro_sequence_5_frame_load_plan_sub_1C034(
     // ASM sub_1C034 (kid.asm:30849): select one of eight intro-sequence-5
     // Enigma tilemaps from `off_1C126`, decode it with base tile `$A340`,
     // stage it inside a 16x25 word buffer with the table's byte padding, then
-    // stream 25 VDP rows starting at VRAM word `$A340` with the fixed
-    // 15/15/..../16/16/15/..../15 row shape from loc_1C09E/loc_1C0B8/loc_1C0D0.
+    // stream 25 VDP rows starting at VRAM byte `$0194` (`move.l #$41940000`)
+    // with the fixed 15/15/..../16/16/15/..../15 row shape from
+    // loc_1C09E/loc_1C0B8/loc_1C0D0.
     const FRAME_TABLE: [(&str, u16, u16, u16); 8] = [
         ("unk_2F856", 0x000C, 0x0018, 0x0006),
         ("unk_2F882", 0x000C, 0x0018, 0x0006),
@@ -2974,8 +2975,8 @@ pub fn intro_sequence_5_frame_load_plan_sub_1C034(
         ("unk_2F94E", 0x000E, 0x0019, 0x0004),
         ("unk_2F9DE", 0x000F, 0x0019, 0x0000),
         ("unk_2FAA8", 0x000D, 0x0019, 0x0004),
+        ("unk_2FB76", 0x000D, 0x0019, 0x0004),
         ("unk_2FC3A", 0x000D, 0x0019, 0x0004),
-        ("unk_2FCE4", 0x000D, 0x0019, 0x0004),
     ];
 
     let Some(&(asset_label, width_words, height_words, left_padding_bytes)) =
@@ -2991,7 +2992,7 @@ pub fn intro_sequence_5_frame_load_plan_sub_1C034(
             u16::try_from(row_index).expect("sub_1C034 row indices should fit into u16");
         let word_count = if (8..10).contains(&row_index) { 16 } else { 15 };
         VramRowWriteSub1C034 {
-            vram_word_address: 0xA340 + row_index_u16 * 0x40,
+            vram_word_address: 0x0194 + row_index_u16 * 0x80,
             source_word_offset: row_index_u16 * 16,
             word_count,
         }
@@ -7534,8 +7535,8 @@ AddrTbl_LevelNames:   ;1A842
             ("unk_2F94E", 14, 25, 2),
             ("unk_2F9DE", 15, 25, 0),
             ("unk_2FAA8", 13, 25, 2),
+            ("unk_2FB76", 13, 25, 2),
             ("unk_2FC3A", 13, 25, 2),
-            ("unk_2FCE4", 13, 25, 2),
         ];
 
         let actual = (0..8)
@@ -7567,16 +7568,16 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(
             plan.vram_rows[0],
             VramRowWriteSub1C034 {
-                vram_word_address: 0xA340,
+                vram_word_address: 0x0194,
                 source_word_offset: 0,
                 word_count: 15,
             },
-            "ASM loc_1C09E starts the row stream at VRAM `$A340` and skips the 16th staged word on the top rows",
+            "ASM loc_1C09E starts the row stream at VRAM `$0194` (`#$41940000`) and skips the 16th staged word on the top rows",
         );
         assert_eq!(
             plan.vram_rows[8],
             VramRowWriteSub1C034 {
-                vram_word_address: 0xA540,
+                vram_word_address: 0x0594,
                 source_word_offset: 128,
                 word_count: 16,
             },
@@ -7585,7 +7586,7 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(
             plan.vram_rows[24],
             VramRowWriteSub1C034 {
-                vram_word_address: 0xA940,
+                vram_word_address: 0x0D94,
                 source_word_offset: 384,
                 word_count: 15,
             },

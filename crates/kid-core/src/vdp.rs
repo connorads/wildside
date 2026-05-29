@@ -1707,8 +1707,9 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     elapsed: usize,
 ) {
     // ASM loc_1BC36 (kid.asm:30516) calls sub_1C034 before each hibernate.
-    // sub_1C034 decodes one `off_1C126` map into a 16x25 staging buffer, then
-    // streams 25 fixed rows to VRAM `$A340..$A940`.
+    // sub_1C034 decodes one `off_1C126` map with base tile `$A340` into a
+    // 16x25 staging buffer, then streams 25 fixed rows into the Scroll A
+    // nametable at VRAM `$0194..$0D94`.
     if let Some(frame_index) = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
         .iter()
         .rev()
@@ -3634,7 +3635,7 @@ mod tests {
 
         let first = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0, 0);
         assert_eq!(
-            vram_word(&first, 0xA346),
+            vram_word(&first, 0x019A),
             0x1100,
             "ASM loc_1BC36 calls sub_1C034(d4=0) before the first `$A0` hibernate; left padding is three words"
         );
@@ -3642,14 +3643,14 @@ mod tests {
         let before_second =
             build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0 - 1, 0);
         assert_eq!(
-            vram_word(&before_second, 0xA346),
+            vram_word(&before_second, 0x019A),
             0x1100,
             "ASM loc_1BC36 should keep frame 0 visible through the `$A0` hibernate"
         );
 
         let second = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0, 0);
         assert_eq!(
-            vram_word(&second, 0xA346),
+            vram_word(&second, 0x019A),
             0x1101,
             "ASM loc_1BC36 resumes with sub_1C034(d4=1) exactly after the `$A0` hibernate"
         );
@@ -3662,9 +3663,9 @@ mod tests {
             0,
         );
         assert_eq!(
-            vram_word(&centred, 0xA340),
+            vram_word(&centred, 0x0194),
             0x1104,
-            "ASM off_1C126 frame 4 has zero left padding, so loc_1C0A4 starts writing at `$A340`"
+            "ASM off_1C126 frame 4 has zero left padding, so loc_1C0A4 starts writing at VRAM `$0194`"
         );
     }
 
