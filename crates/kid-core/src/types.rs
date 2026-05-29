@@ -2301,6 +2301,8 @@ pub(crate) enum EnemyProjectileKind {
     ManiaxeAxe,
     DiamondPowerRain,
     FireDemonDeathTrail,
+    /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
+    TarMonsterStraightGlob,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

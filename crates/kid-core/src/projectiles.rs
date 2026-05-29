@@ -23,7 +23,7 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
     drips_velocity_apply_loc_33546, drips_velocity_deltas_loc_33526,
     drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
-    tank_bullet_loop_route_loc_3b7ba,
+    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -1420,6 +1420,7 @@ impl NativeRuntime {
             .count();
         let mut spawned_projectiles = Vec::new();
         let mut pending_drips_splashes = Vec::new();
+        let mut pending_tar_monster_bursts = Vec::new();
         let mut pending_shooter_layout_interactions = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
@@ -1738,6 +1739,17 @@ impl NativeRuntime {
                 }
             }
 
+            if p.kind == EnemyProjectileKind::TarMonsterStraightGlob
+                && let Some(g) = grid
+                && projectile_terrain_contact_loc_3345c(g, p)
+            {
+                // ASM Tar_Monster.asm loc_324E6 -> loc_324F8: once the
+                // straight glob's collision word is non-zero, hide/delete the
+                // original shot and allocate the five burst children.
+                spawn_tar_monster_retaliation(&mut pending_tar_monster_bursts, p.x_pos, p.y_pos);
+                return false;
+            }
+
             if p.kind == EnemyProjectileKind::ManiaxeAxe
                 && let Some(camera) = camera
             {
@@ -1916,6 +1928,7 @@ impl NativeRuntime {
             self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
         }
         self.projectiles.extend(spawned_projectiles);
+        self.projectiles.extend(pending_tar_monster_bursts);
         self.release_lion_projectile_owners(released_owners);
     }
 

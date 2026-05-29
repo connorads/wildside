@@ -20057,6 +20057,7 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
                     homing_accel: 0,
                     speed_cap: 0,
                     wall_bounce: false,
+                    kind: EnemyProjectileKind::TarMonsterStraightGlob,
                     ..Default::default()
                 });
             }

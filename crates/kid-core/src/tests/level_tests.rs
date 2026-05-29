@@ -17752,6 +17752,55 @@ mod chunk_10 {
     }
 
     #[test]
+    fn tar_monster_straight_glob_bursts_on_terrain_contact_loc_324f8() {
+        // ASM Tar_Monster.asm loc_324E6 polls the straight shot collision word;
+        // a non-zero collision branches to loc_324F8, hides/deletes the shot,
+        // and allocates five burst children with the ROM velocity table.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(50, 50);
+        proj.kind = EnemyProjectileKind::TarMonsterStraightGlob;
+        proj.x_velocity = 0x1_0000;
+        rt.projectiles.push(proj);
+
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let dest_col = terrain::pixel_to_cell(51).max(0) as u16;
+        let dest_row = terrain::pixel_to_cell(50).max(0) as u16;
+        let off = (usize::from(dest_row) * usize::from(w) + usize::from(dest_col)) * 2;
+        data[off] = 0xE0;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            5,
+            "loc_324F8 should replace the straight glob with five burst children"
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::TarMonsterStraightGlob),
+            "the original straight glob should be deleted after loc_324F8"
+        );
+        assert_eq!(
+            rt.projectiles
+                .iter()
+                .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
+                .collect::<Vec<_>>(),
+            vec![
+                (0x0001_0000, -0x0001_0000),
+                (-0x0001_0000, -0x0001_0000),
+                (0x0000_8000, -0x0002_0000),
+                (-0x0000_8000, -0x0002_0000),
+                (0x0000_2000, -0x0001_C000),
+            ],
+            "loc_324F8/loc_32534 child velocities should match the ROM table"
+        );
+    }
+
+    #[test]
     fn wall_bounce_horizontal_wall_negates_x_velocity() {
         // Projectile at (30, 40) moving right into a vertical wall at col 2 (px 32-47).
         // After move: (32, 41) → col 2 is solid. Probe: h=(col 2, row 2)=solid, v=(col 1, row 2)=empty.
