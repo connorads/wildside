@@ -2292,6 +2292,7 @@ pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
     DragonWalkingBreath,
+    ArcherArrow,
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,

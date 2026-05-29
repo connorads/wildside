@@ -24329,7 +24329,17 @@ pub(crate) fn step_archer(
         return;
     };
 
-    // ASM loc_34248: `cmpi.w #2,(Number_of_Arrows).w; bge.w loc_3408C`
+    // ASM loc_34248: `cmpi.w #2,(Number_of_Arrows).w; bge.w loc_3408C`.
+    // Native represents `Number_of_Arrows` as live ArcherArrow projectiles,
+    // not the whole shared projectile pool.
+    if projectiles
+        .iter()
+        .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+        .count()
+        >= 2
+    {
+        return;
+    }
     if projectiles.len() >= MAX_PROJECTILES {
         return;
     }
@@ -24380,7 +24390,7 @@ pub(crate) fn step_archer(
         terrain_kill: true,
         drips_spawn_crawler_on_splash: false,
         owner: None,
-        kind: EnemyProjectileKind::Generic,
+        kind: EnemyProjectileKind::ArcherArrow,
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,

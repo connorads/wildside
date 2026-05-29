@@ -6564,11 +6564,73 @@ mod chunk_04 {
         let player_y = Some(100u32 << 16);
         step_archer(&mut enemy, &mut projs, player_x, player_y);
         assert_eq!(projs.len(), 1, "should spawn an arrow");
+        assert_eq!(
+            projs[0].kind,
+            EnemyProjectileKind::ArcherArrow,
+            "ASM Archer.asm loc_34248 counts live arrows through Number_of_Arrows"
+        );
         assert!(
             projs[0].x_velocity > 0,
             "arrow should move toward player (right)"
         );
         assert_eq!(enemy.wait_timer, ARCHER_FIRE_TIMER[0], "timer should reset");
+    }
+
+    #[test]
+    fn archer_loc_34248_caps_only_live_archer_arrows() {
+        let mut enemy = test_enemy(EnemyFamily::Archer, 100 << 16, 100 << 16, 1);
+        enemy.wait_timer = 0;
+        let mut projs = vec![
+            EnemyProjectile {
+                kind: EnemyProjectileKind::Generic,
+                lifetime: 100,
+                ..Default::default()
+            },
+            EnemyProjectile {
+                kind: EnemyProjectileKind::RobotShot,
+                lifetime: 0,
+                ..Default::default()
+            },
+        ];
+
+        step_archer(
+            &mut enemy,
+            &mut projs,
+            Some(200u32 << 16),
+            Some(100u32 << 16),
+        );
+
+        assert_eq!(
+            projs
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+                .count(),
+            1,
+            "ASM Archer.asm loc_34248 checks Number_of_Arrows, not unrelated projectiles in the shared pool"
+        );
+
+        enemy.wait_timer = 0;
+        projs.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ArcherArrow,
+            lifetime: u16::MAX,
+            ..Default::default()
+        });
+
+        step_archer(
+            &mut enemy,
+            &mut projs,
+            Some(200u32 << 16),
+            Some(100u32 << 16),
+        );
+
+        assert_eq!(
+            projs
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+                .count(),
+            2,
+            "ASM Archer.asm loc_34248 should block firing when Number_of_Arrows is already 2"
+        );
     }
 
     #[test]
