@@ -8008,7 +8008,7 @@ mod chunk_09 {
             });
         }
 
-        for row in 100..=102 {
+        for row in 97..=103 {
             assert_eq!(
                 rt.block_grid.as_ref().unwrap().cell_at(15, row),
                 terrain::Cell::from_be_bytes(0, 0),

@@ -2115,7 +2115,7 @@ mod tests {
             !saw_fallback_square,
             "live Highwater shooter shots should not fall back to the yellow square placeholder"
         );
-        for row in 100..=102 {
+        for row in 97..=103 {
             assert_eq!(
                 runtime.block_grid().expect("block grid").cell_at(15, row),
                 Cell::from_be_bytes(0, 0),
