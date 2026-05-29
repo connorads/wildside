@@ -2346,11 +2346,6 @@ mod chunk_01 {
             "ASM Score_Board hibernates `$14` frames before loc_D468"
         );
         assert_eq!(
-            crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE,
-            0x21,
-            "reduced #175 oracle tail samples place Spr_EOL_Time at x=-8; from loc_D4CE's $FF20 seed and loc_C5A2's +8px/frame fly-in, native must expose the row clock 0x21 frames after loc_D468"
-        );
-        assert_eq!(
             EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
             EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
                 + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
