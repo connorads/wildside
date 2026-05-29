@@ -8616,6 +8616,11 @@ mod chunk_03 {
             1,
             "ASM Tank.asm loc_3B480 hibernates through stru_3B29A before loc_3C46E deletes the enemy"
         );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Tank.asm loc_3B480 hides the mouth child before hibernating through the parent death animation"
+        );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
@@ -8644,6 +8649,11 @@ mod chunk_03 {
             runtime.active_enemies.len(),
             1,
             "ASM Tank_Shooting.asm loc_3B6E6 hibernates through stru_3B518 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Tank_Shooting.asm loc_3B6E6 hides the turret child before hibernating through the parent death animation"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(

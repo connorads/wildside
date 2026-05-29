@@ -8671,6 +8671,12 @@ impl ActiveEnemy {
         if !matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
             return None;
         }
+        if self.hit_points == 0 {
+            // ASM Tank.asm loc_3B480 / Tank_Shooting.asm loc_3B6E6 hide the
+            // linked mouth/turret child before hibernating through the parent
+            // death animation.
+            return None;
+        }
 
         // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
         // linked turret gfx object at `$3A(a5)`, then the shared walker
