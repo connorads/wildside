@@ -585,13 +585,11 @@ pub(super) fn select_player_frame<'a>(
                 true if !player_visuals.slope_walk.is_empty() => &player_visuals.slope_walk,
                 _ => &player_visuals.walk,
             };
-            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {
-                // ASM loc_94B4/loc_97E8: Juggernaut has no separate slope-head
-                // table; the companion head still follows `$FFFFF8F0 >> 8`.
-                usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len()
-            } else {
-                (trace.frame_index / 4) % slope_frames.len()
-            };
+            // ASM loc_A13A writes the slope frame through `$FFFFF8F0 >> 8` for
+            // every form. Native used to approximate non-Juggernaut slopes
+            // from frame time, which made downhill/reverse motion animate out
+            // of phase with the ROM accumulator.
+            let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
         } else {
             let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {

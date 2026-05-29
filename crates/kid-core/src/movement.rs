@@ -1510,6 +1510,33 @@ pub(crate) fn juggernaut_walk_visual_accumulator_loc_9484(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn slope_walk_visual_accumulator_loc_A13A(
+    current_accumulator: u16,
+    facing: Direction,
+    input: HorizontalInput,
+    collision: terrain::CollisionKind,
+) -> u16 {
+    let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
+    let canonical_reverse = match (slope_descends_right, facing) {
+        (false, Direction::Right) | (true, Direction::Left) => false,
+        (false, Direction::Left) | (true, Direction::Right) => true,
+    };
+    // ASM loc_A13A: reverse movement always advances `$FFFFF8F0` by `$40`.
+    // Forward movement uses `$50` only while Ctrl_A is held.
+    let delta = if canonical_reverse || !input.run {
+        0x0040
+    } else {
+        0x0050
+    };
+    let next = current_accumulator.wrapping_add(delta);
+    if next >= 0x0600 {
+        next.wrapping_sub(0x0600)
+    } else {
+        next
+    }
+}
+
+#[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
     block_col: u16,
@@ -4416,6 +4443,12 @@ impl OpeningSliceState {
         };
         let (new_vel, new_facing) = if self.player.on_ground {
             if let Some(collision) = grounded_slope {
+                self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
+                    self.walk_visual_accumulator,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                );
                 update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,
@@ -4701,6 +4734,12 @@ impl OpeningSliceState {
         };
         let (new_vel, new_facing) = if self.player.on_ground {
             if let Some(collision) = grounded_slope {
+                self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
+                    self.walk_visual_accumulator,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                );
                 update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,

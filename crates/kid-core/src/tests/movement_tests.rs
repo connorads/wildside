@@ -8911,6 +8911,49 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A13A/loc_A172: slope walking advances `$FFFFF8F0` from the
+    /// canonical slope direction, not from wall-clock frame time.
+    #[test]
+    fn loc_a13a_slope_walk_visual_accumulator_uses_direction_and_run_state() {
+        let walk = HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        };
+        let run = HorizontalInput { run: true, ..walk };
+
+        assert_eq!(
+            slope_walk_visual_accumulator_loc_A13A(
+                0x0100,
+                Direction::Right,
+                run,
+                terrain::CollisionKind::SlopeUp,
+            ),
+            0x0150,
+            "ASM loc_A15C: canonical-forward slope motion uses `$50` while Ctrl_A is held"
+        );
+        assert_eq!(
+            slope_walk_visual_accumulator_loc_A13A(
+                0x0100,
+                Direction::Left,
+                run,
+                terrain::CollisionKind::SlopeUp,
+            ),
+            0x0140,
+            "ASM loc_A16C: reverse slope motion skips the run delta and advances by `$40`"
+        );
+        assert_eq!(
+            slope_walk_visual_accumulator_loc_A13A(
+                0x05D0,
+                Direction::Left,
+                walk,
+                terrain::CollisionKind::SlopeDown,
+            ),
+            0x0010,
+            "ASM loc_A172 wraps `$FFFFF8F0` once after the `$600` slope-frame table span"
+        );
+    }
+
     /// ASM loc_8E4E -> loc_9484: live Juggernaut walking frames store the
     /// advanced phase back to `$FFFFF8F0` for the body/head-forward mappings.
     #[test]

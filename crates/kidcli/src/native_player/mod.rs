@@ -7963,23 +7963,39 @@ mod tests {
 
         assert_eq!(
             selected_signature(1, Direction::Right),
-            Some(32),
-            "ASM loc_A13A: SlopeUp ($FA26=0) keeps x_direction=0, selecting the first six-entry Kid slope table (`kid_slope_1..6`)"
+            Some(31),
+            "ASM loc_A13A: SlopeUp ($FA26=0) keeps x_direction=0, selecting the first six-entry Kid slope table (`kid_slope_1..6`) at `$FFFFF8F0 >> 8 == 0`"
         );
         assert_eq!(
             selected_signature(1, Direction::Left),
-            Some(26),
-            "ASM loc_A13A+loc_A16C: SlopeUp keeps x_direction=$FF, selecting the second six-entry Kid slope table (`kid_slope_7..12`)"
+            Some(25),
+            "ASM loc_A13A+loc_A16C: SlopeUp keeps x_direction=$FF, selecting the second six-entry Kid slope table (`kid_slope_7..12`) at `$FFFFF8F0 >> 8 == 0`"
         );
         assert_eq!(
             selected_signature(-1, Direction::Right),
-            Some(26),
-            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=0 to canonical reverse before table selection"
+            Some(25),
+            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=0 to canonical reverse before table selection at `$FFFFF8F0 >> 8 == 0`"
         );
         assert_eq!(
             selected_signature(-1, Direction::Left),
-            Some(32),
-            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=$FF to canonical forward before table selection"
+            Some(31),
+            "ASM loc_A13A: SlopeDown ($FA26=$FF) flips x_direction=$FF to canonical forward before table selection at `$FFFFF8F0 >> 8 == 0`"
+        );
+    }
+
+    #[test]
+    fn kid_slope_frame_phase_uses_walk_visual_accumulator_loc_a13a() {
+        let mut trace = trace_with_player(4, 0);
+        trace.kid_x_velocity = Some(0x0001_0000);
+        trace.kid_on_ground = Some(true);
+        trace.kid_on_slope = 1;
+        trace.kid_facing = Some(Direction::Right);
+        trace.walk_visual_accumulator = 0x0308;
+
+        assert_eq!(
+            player_sprite_signature(&build_ingame_scene(&trace, false, None)),
+            Some(34),
+            "ASM loc_A13A/loc_A17E indexes slope frames with `$FFFFF8F0 >> 8`; native must not drive slope poses from frame time"
         );
     }
 
