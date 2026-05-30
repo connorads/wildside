@@ -7772,6 +7772,13 @@ impl NativeRuntime {
         }
         let x_pos = enemy.x_pos;
         let y_pos = enemy.y_pos;
+        let spinning_twins_status_route = if matches!(family, EnemyFamily::SpinningTwins) {
+            Some(spinning_twins_death_status_route_loc_3bc78(
+                enemy.layout_index as u8,
+            ))
+        } else {
+            None
+        };
         let dragon_death = if matches!(family, EnemyFamily::Dragon) {
             Some((
                 dragon_flying_death_child_loc_3492C(enemy),
@@ -7795,6 +7802,9 @@ impl NativeRuntime {
                     child,
                 });
             self.pending_dragon_death_animations.push(animation);
+        }
+        if let Some(status_route) = spinning_twins_status_route {
+            self.apply_spinning_twins_death_status_route_loc_3bc78(status_route);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -7871,6 +7881,25 @@ impl NativeRuntime {
                 }
             }
             DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly => {}
+        }
+    }
+
+    pub(crate) fn apply_spinning_twins_death_status_route_loc_3bc78(
+        &mut self,
+        status_route: SpinningTwinsDeathStatusRouteLoc3BC78,
+    ) {
+        match status_route {
+            SpinningTwinsDeathStatusRouteLoc3BC78::ClearStatusSlot(clear) => {
+                if let Some(word) = self.enemy_status_words.get_mut(clear.index) {
+                    *word = clear.word_value;
+                }
+            }
+            SpinningTwinsDeathStatusRouteLoc3BC78::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly => {}
         }
     }
 

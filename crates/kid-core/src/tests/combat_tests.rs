@@ -9625,6 +9625,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn spinning_twins_finished_death_clears_positive_status_slot_loc_3bc78() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 0x0080_0000, 0x0040_0000, 1);
+        twins.layout_index = 5;
+        let killed_identity = (twins.segment_index, twins.layout_index);
+        runtime.enemy_status_words[5] = 0x2168;
+        runtime.active_enemies = vec![twins];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.enemy_status_words[5], 0x2168,
+            "ASM Spinning_Twins.asm loc_3BC56 does not reach loc_3BC78 until stru_3B83C finishes"
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.enemy_status_words[5], 0,
+            "ASM Spinning_Twins.asm loc_3BC98 clears positive `$42(a5)` EnemyStatus_Table words"
+        );
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn spinning_twins_death_status_route_updates_native_enemy_status_table_loc_3bc78() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.enemy_status_words[7] = 0xC400;
+        runtime.apply_spinning_twins_death_status_route_loc_3bc78(
+            SpinningTwinsDeathStatusRouteLoc3BC78::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0xC000,
+            "ASM Spinning_Twins.asm loc_3BC78 subtracts `$400` from bit-7+bit-6 status slots after masking with `$3F`"
+        );
+
+        runtime.enemy_status_words[9] = 0xAAAA;
+        runtime.apply_spinning_twins_death_status_route_loc_3bc78(
+            SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly,
+        );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0xAAAA,
+            "ASM Spinning_Twins.asm loc_3BC78 bit-7 without bit-6 falls through to delete without touching EnemyStatus_Table"
+        );
+    }
+
+    #[test]
     fn hand_death_waits_for_stru_32b78_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 1);
