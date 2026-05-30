@@ -247,10 +247,19 @@ impl ScriptRunner {
         if let Some(form) = self.playtest_form {
             runtime.set_playtest_form(form);
         }
+        let delay_recording_input = self.settle_warp == Some(SettleWarpMode::RecordingOracle);
         let mut trace = Vec::with_capacity(frame_count);
         for frame_index in 0..frame_count {
-            let input = script
-                .get(frame_index)
+            // ASM Mode_Level (kid.asm:877-917) executes objects/player logic
+            // before ReadJoypad, so the settled recording oracle's script byte
+            // for frame N is only visible to gameplay on traced frame N+2.
+            let input_index = if delay_recording_input {
+                frame_index.checked_sub(1)
+            } else {
+                Some(frame_index)
+            };
+            let input = input_index
+                .and_then(|index| script.get(index))
                 .copied()
                 .map(FrameInput::from_mask)
                 .unwrap_or_default();

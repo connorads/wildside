@@ -6054,6 +6054,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_level_zero_delays_first_gameplay_input_until_next_frame() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+
+        let mut script = vec![0; 64];
+        script[60..].fill(0x08);
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0)
+            .settle_recording_warp()
+            .run(&script, script.len());
+
+        assert_eq!(
+            trace[60].kid_x_pos,
+            Some(0x0020_0000),
+            "ASM Mode_Level (kid.asm:877-917) runs Execute_Objects before ReadJoypad; the first Right sample should not move Kid on the same traced frame",
+        );
+        assert_eq!(
+            trace[60].character_movement,
+            Some(0),
+            "ASM loc_C4E/loc_C9C only exposes the new Ctrl_Held value after the movement slice has already run",
+        );
+        assert_eq!(
+            trace[61].kid_x_pos,
+            Some(0x0020_0000),
+            "oracle-probed Ctrl_Held changes on this frame, but Mode_Level movement consumed the previous Ctrl_Held before ReadJoypad",
+        );
+        assert_eq!(trace[61].character_movement, Some(0));
+        assert_eq!(
+            trace[62].kid_x_pos,
+            Some(0x0020_1000),
+            "the first sampled Right input is consumed by Kid movement on the following frame",
+        );
+        assert_eq!(trace[62].character_movement, Some(2));
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_keeps_level_skip_resume_tail_age() {
         let manifest_path = repo_root()
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
