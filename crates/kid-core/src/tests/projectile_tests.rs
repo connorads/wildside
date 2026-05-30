@@ -6011,6 +6011,49 @@ mod chunk_06 {
     }
 
     #[test]
+    fn scorpion_nonfatal_projectile_hit_hibernates_loc_3dcd4() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 96 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 100 << 16, 96 << 16, 3);
+        scorpion.on_ground = true;
+        scorpion.facing = Direction::Right;
+        rt.active_enemies.push(scorpion);
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
+        assert_eq!(
+            rt.active_enemies[0].damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
+            "ASM Scorpion.asm loc_3DCD4 hibernates through the hurt animation after nonfatal damage"
+        );
+
+        let floor = grid_with_floor_at_row(7);
+        let start_x = rt.active_enemies[0].x_pos;
+        step_active_enemies(
+            &mut rt.active_enemies,
+            Some(&floor),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            rt.active_enemies[0].x_pos, start_x,
+            "ASM Scorpion.asm loc_3DCD4 must not resume shared-walker motion until `stru_3DB7A` finishes"
+        );
+    }
+
+    #[test]
     fn plain_rock_tank_parent_body_projectile_misses_loc_3b464() {
         // ASM Tank.asm loc_3B464 reads `$38(a2)` from the attached mouth
         // object. A projectile that overlaps the parent body below that

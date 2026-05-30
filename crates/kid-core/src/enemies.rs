@@ -8603,6 +8603,16 @@ impl ActiveEnemy {
             }
             return matches!(route.route, TankUpdateRouteLoc3B41C::Death);
         }
+        if matches!(self.family, EnemyFamily::Scorpion) {
+            match scorpion_damage_route_loc_3dcd4(u16::from(self.hit_points)) {
+                ScorpionDamageRouteLoc3DCD4::Death => return true,
+                ScorpionDamageRouteLoc3DCD4::Hurt { remaining_hp, .. } => {
+                    self.hit_points = remaining_hp as u8;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+            }
+        }
         self.hit_points -= 1;
         self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
         if matches!(self.family, EnemyFamily::TankShooting) {
@@ -9410,6 +9420,16 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A
                     {
                         step_scorpion_berzerker_knockback(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Scorpion)
+                        && enemy.damage_flash_frames > 0
+                    {
+                        // ASM Scorpion.asm loc_3DCD4 plays `stru_3DB7A` and
+                        // hibernates until it finishes, then restores
+                        // `stru_3DB60` before resuming the shared walker.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Scorpion)
