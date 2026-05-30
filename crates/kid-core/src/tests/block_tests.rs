@@ -706,7 +706,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hopper_reverses_at_platform_edge_before_launch() {
+    fn mini_hopping_skull_does_not_edge_reverse_before_launch_loc_3f090() {
         let grid = grid_with_platform(17, 3, 10);
         let floor_y_fp = 272u32 << 16;
         let mut enemy = ActiveEnemy {
@@ -794,12 +794,12 @@ mod chunk_04 {
 
         assert_eq!(
             enemy.facing,
-            Direction::Right,
-            "hopper should ignore a player-relative left hop when the platform ends there"
+            Direction::Left,
+            "ASM Mini_Hopping_Skull.asm loc_3F090 repicks from Kid X before launch instead of using generic platform-edge lookahead"
         );
         assert!(
-            enemy.x_velocity > 0,
-            "hopper should launch away from the gap after reversing at the edge"
+            enemy.x_velocity < 0,
+            "Mini Hopping Skull should launch toward the Kid even when the platform ends in that direction"
         );
     }
 

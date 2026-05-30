@@ -15836,7 +15836,8 @@ pub(crate) fn step_hopper(
     if enemy.on_ground {
         let mut facing =
             player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
-        if hopper_should_reverse(facing, grid, cx, cy) {
+        let reverse_at_platform_edge = !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);
+        if hopper_should_reverse(facing, grid, cx, cy, reverse_at_platform_edge) {
             facing = opposite_direction(facing);
         }
         enemy.facing = facing;
@@ -15926,6 +15927,7 @@ pub(crate) fn hopper_should_reverse(
     grid: &terrain::BlockGrid,
     cx: i32,
     cy: i32,
+    reverse_at_platform_edge: bool,
 ) -> bool {
     let moving_right = matches!(facing, Direction::Right);
     let wall = terrain::probe_wall(
@@ -15938,6 +15940,9 @@ pub(crate) fn hopper_should_reverse(
     );
     if wall.hit {
         return true;
+    }
+    if !reverse_at_platform_edge {
+        return false;
     }
     // Reverse at platform edge: look ahead for floor support
     let look_ahead_x = if moving_right {
@@ -37193,6 +37198,30 @@ mod tests {
             enemy.x_velocity, -0x0001_C000,
             "ASM Mini_Hopping_Skull.asm loc_3F1AA negates the live X velocity, so wall hits must preserve boosted magnitude"
         );
+    }
+
+    #[test]
+    fn mini_hopping_skull_ground_wait_does_not_edge_turnaround_loc_3f000() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = ActiveEnemy {
+            x_pos: 24 << 16,
+            y_pos: 32 << 16,
+            facing: Direction::Right,
+            grounded_frames: 5,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Mini_Hopping_Skull.asm loc_3F000/loc_3F090 waits then compares Kid X; it has no generic platform-edge lookahead turnaround"
+        );
+        assert_eq!(enemy.grounded_frames, 4);
     }
 
     #[test]

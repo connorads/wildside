@@ -24,7 +24,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | partial | 5 |
 | Lion (0x12) | partial | 3 |
-| Mini_Hopping_Skull (0x1C) | partial | 5 |
+| Mini_Hopping_Skull (0x1C) | partial | 3 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 4 |
 | Robot (0x03) | partial | 4 |
@@ -37,7 +37,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 84 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 82 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -90,9 +90,6 @@ ROM windup/airborne/launch co-routine collapsed into a single 21-frame counter +
 
 **Mini_Hopping_Skull — air-damage knock-up loop not driven** (`loc_3F1B8 / loc_3F1E6 / loc_3F200 / loc_3F22A / loc_3F238`)
 Non-fatal hurt should knock the skull up (y_vel=$28800 + $4000/frame). `step_hopper` has no hurt branch; combat only queues scream + generic knockback. `enemies.rs:14626-14708`, `enemies.rs:14920-15018`, `combat.rs:10097-10103`.
-
-**Mini_Hopping_Skull — Berzerker-charge launch-up not driven** (`loc_3F262 / loc_3F288 / loc_3F244`)
-Crab-only special-case again; skull hits generic kill. `helmets.rs:5266`, `enemies.rs:14920-15018`; launch helpers test-only.
 
 **Ninja — attack trigger ignores $54/$6E cadence; divergent detection cone** (`loc_3D92A / loc_3D942 / loc_3D958 / loc_3D960`)
 ROM fires on a periodic timer gated by the throw-frame; native fires off an overhead cone (which in ROM produces the guard pose). ActiveEnemy has no $54/$6E timer. `enemies.rs:16627`, cadence helpers `enemies.rs:16306-16415` test-only.
@@ -200,9 +197,6 @@ Charging arm advances x only; no y_vel/gravity/$180000 cap or floor-landing snap
 
 **Lion — close-band tracker + $42 charge-windup state machine not used** (`loc_3E054 / loc_3E434 / loc_3E450`)
 Flat wait_timer + single >112px overshoot instead of ±$60/±$70 engagement windows and $42 count-up. `enemies.rs:17699-17822/6290-6296`; helpers `enemies.rs:205/1758` test-only.
-
-**Mini_Hopping_Skull — native adds a platform-edge turnaround the ROM lacks** (`loc_3F1AA vs loc_3EAB2`)
-ROM reverses only on wall or repicks from Kid-X; native adds `!probe_floor(look_ahead).on_ground` edge reversal. `enemies.rs:15038-15045`, reached via `enemies.rs:14935`.
 
 **Mini_Hopping_Skull — post-landing facing-flip re-orientation pause not reproduced** (`loc_3F000 / loc_3F074 / loc_3F090 / loc_3F09E`)
 ROM flips x_direction and restarts the grounded wait until facing matches Kid; native sets facing once + 21-frame countdown. `enemies.rs:14932-14956/9182`; helpers `enemies.rs:14464/14547/14848` test-only.
