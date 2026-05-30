@@ -211,7 +211,7 @@ Live path probes terrain only; never reads Kid side contact or Berzerker_chargin
 Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, then enter `RobotShotImpact` with the `loc_3AC7E/loc_3AC92` velocity clear and X offset. Exact `stru_3A762` impact frame rendering/duration remains approximate.
 
 **Robot — body/head per-part collision and sprite swaps still absent** (`Enemy03_Robot_Init / loc_3A8AE`)
-Live roster now exposes the linked head object from `loc_3A7EE/loc_3A816`, and friendly projectile damage scans both the parent body and linked head before entering `loc_3A8FC`. Stomp/Berzerker per-part collision dispatch and the shoot/hit head-leg sprite swaps are still approximate.
+Live roster now exposes the linked head object from `loc_3A7EE/loc_3A816`, friendly projectile damage scans both the parent body and linked head before entering `loc_3A8FC`, and charging Berzerker side contact now targets the linked head `$38(a2)` only before routing `$20/$24` through `loc_3A9CC -> loc_3A9D2`. Stomp per-part collision dispatch and the shoot/hit head-leg sprite swaps are still approximate.
 
 **Scorpion — collision/HP state machine not wired; damage/death go through generic path** (`loc_3DCB0 / loc_3DCD4 / loc_3DCF4`)
 Multi-hit HP and death-anim delay preserved, but per-collision-type routing and hurt-anim-then-restore (stru_3DB7A→stru_3DB60) and tail $3D flag on death are not driven. `enemies.rs:5673-5743`, `combat.rs:7647`, `enemies.rs:6627`.

@@ -4176,6 +4176,18 @@ fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObje
     Some(enemy.snapshot())
 }
 
+fn helmet_enemy_berzerker_damage_target_snapshot(
+    enemy: &ActiveEnemy,
+) -> Option<NativeObjectSnapshot> {
+    if matches!(enemy.family, EnemyFamily::Robot) {
+        // ASM Robot.asm loc_3A8AE: charging-Berzerker `$20/$24` side
+        // contacts are read from the linked head collision word `$38(a2)`.
+        return enemy.child_attachment_snapshot();
+    }
+
+    helmet_enemy_damage_target_snapshot(enemy)
+}
+
 fn helmet_enemy_projectile_damage_target_snapshots(
     enemy: &ActiveEnemy,
 ) -> Vec<NativeObjectSnapshot> {
@@ -5270,7 +5282,9 @@ impl NativeRuntime {
         let mut kill_indices = Vec::new();
         let mut changed_enemy_state = false;
         for i in 0..self.active_enemies.len() {
-            let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
+            let Some(target) =
+                helmet_enemy_berzerker_damage_target_snapshot(&self.active_enemies[i])
+            else {
                 continue;
             };
             let ex = (target.x_pos >> 16) as i32;
@@ -5442,6 +5456,13 @@ impl NativeRuntime {
                     enemy.walk_speed_override = 0;
                     enemy.damage_flash_frames = 0;
                     changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Robot) {
+                    // ASM Robot.asm loc_3A8AE -> loc_3A9CC -> loc_3A9D2:
+                    // charging Berzerker side contact on the linked head
+                    // skips HP damage and enters the Robot destroy animation.
+                    kill_indices.push(i);
                     continue;
                 }
                 if enemy.take_damage_or_queue_death() {
