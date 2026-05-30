@@ -280,6 +280,54 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        runtime.progression.invulnerable_frames = 0;
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0100_0000, 0x00C0_0000, 1)];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        assert!(
+            runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Dragon contact should fall through to Check_for_recent_damge",
+        );
+
+        assert_eq!(
+            runtime.progression.current_form,
+            PlayerForm::IronKnight,
+            "ASM loc_B700 subtracts one Iron Knight hitpoint; loc_B786 only strips the helmet when HP reaches zero",
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints, 4,
+            "ASM loc_B700 uses HelmetHitpoint_Table[IronKnight]=5, then subq.w #1",
+        );
+        assert_eq!(
+            runtime.progression.pending_form, None,
+            "ASM loc_B786 should not queue Current_Helmet_Available=0 while Iron Knight still has HP",
+        );
+        assert_eq!(
+            runtime.progression.invulnerable_frames, PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+            "ASM loc_BC34 damage latch should arm the post-hit invulnerability window",
+        );
+    }
+
     // -----------------------------------------------------------------------
     // DiamondPower_Init / Main rain (loc_3FDFE, loc_3FE62, loc_3FE90)
     // -----------------------------------------------------------------------
