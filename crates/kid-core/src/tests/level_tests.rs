@@ -20152,6 +20152,41 @@ mod chunk_10 {
     }
 
     #[test]
+    fn robot_shot_loc_3ac48_advances_stru_3a754_animation_without_lifetime_expiry() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0040_0000,
+            y_pos: 0x0040_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 0,
+            kind: EnemyProjectileKind::RobotShot,
+            ..Default::default()
+        });
+
+        for expected_elapsed in 1..=4 {
+            rt.step_projectiles();
+            assert_eq!(
+                rt.projectiles[0].animation_elapsed_frames, expected_elapsed,
+                "ASM Robot.asm loc_3AC0C initialises `stru_3A754`; loc_3AC48 should advance animation independently of lifetime"
+            );
+            assert_eq!(
+                rt.projectiles[0].lifetime, 0,
+                "ASM Robot.asm loc_3AC48 has no DBF lifetime counter for flying shots"
+            );
+            assert_eq!(
+                rt.trace_frame().active_projectile_details[0].animation_elapsed_frames,
+                expected_elapsed,
+                "trace must expose the Robot shot animation clock for the native player"
+            );
+        }
+    }
+
+    #[test]
     fn robot_shot_loc_3ac48_enters_impact_after_camera_window_exit() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());

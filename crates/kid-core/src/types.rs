@@ -115,6 +115,8 @@ pub struct ActiveProjectileSnapshot {
     #[serde(default)]
     pub remaining_frames: u16,
     #[serde(default)]
+    pub animation_elapsed_frames: u16,
+    #[serde(default)]
     pub kind: ActiveProjectileKind,
 }
 
@@ -2393,6 +2395,9 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
+    /// Object animation elapsed frames for projectile workers whose ROM script
+    /// is not represented by their lifetime counter.
+    pub(crate) animation_elapsed_frames: u16,
     /// DiamondPower_Main_SlashingRain `$3E(a0)`: zero for non-tracking rain;
     /// incremented by loc_3FF6A after Tracking Rain writes `$26/$2A` velocity.
     pub(crate) diamond_power_rain_tracking_word_3e: u16,

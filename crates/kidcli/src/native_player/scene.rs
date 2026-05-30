@@ -138,6 +138,7 @@ fn tank_bullet_child_frame(
 fn robot_shot_child_frame(
     visuals: &kid_render::AnimatedSpriteVisual,
     remaining_frames: u16,
+    animation_elapsed_frames: u16,
     impact: bool,
 ) -> Option<kid_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
@@ -154,10 +155,14 @@ fn robot_shot_child_frame(
             (0x00D, 0x0B, 0x00, 0x16, 0x16)
         }
     } else {
-        // ASM Robot.asm loc_3AC0C initialises `stru_3A754` for the flying shot.
-        // Native currently lacks the shot animation clock, so keep the first
-        // ROM frame visible instead of the legacy generic projectile dot.
-        (0x016, 0x03, 0x00, 0x1F, 0x06)
+        match (animation_elapsed_frames / 3) % 3 {
+            // ASM Robot.asm `stru_3A754`: first flying frame `LnkTo_unk_C8278`.
+            0 => (0x016, 0x03, 0x00, 0x1F, 0x06),
+            // ASM Robot.asm `stru_3A754`: second flying frame `LnkTo_unk_C8280`.
+            1 => (0x01A, 0x03, 0x00, 0x1F, 0x06),
+            // ASM Robot.asm `stru_3A754`: third flying frame `LnkTo_unk_C8288`.
+            _ => (0x01E, 0x03, 0x00, 0x17, 0x06),
+        }
     };
     Some(kid_render::SpriteFrame {
         origin_x,
@@ -3393,6 +3398,7 @@ fn build_game_scene_filtered(
                         y_velocity: 0,
                         friendly,
                         remaining_frames: 0,
+                        animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::Generic,
                     })
                     .collect()
@@ -3480,6 +3486,7 @@ fn build_game_scene_filtered(
                             let frame = robot_shot_child_frame(
                                 robot_visuals,
                                 projectile.remaining_frames,
+                                projectile.animation_elapsed_frames,
                                 impact,
                             )?;
                             let facing = if !impact && projectile.x_velocity > 0 {

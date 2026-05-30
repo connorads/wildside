@@ -1633,6 +1633,12 @@ impl NativeRuntime {
             {
                 p.lifetime -= 1;
             }
+            if is_robot_shot {
+                // ASM Robot.asm loc_3AC0C initialises `stru_3A754`; loc_3AC48
+                // then loops without a DBF lifetime, so keep an independent
+                // animation clock rather than deleting on timer expiry.
+                p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
+            }
             p.y_velocity += p.gravity;
 
             // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,

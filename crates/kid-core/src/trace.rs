@@ -5206,6 +5206,7 @@ impl NativeRuntime {
                     y_velocity: p.y_velocity,
                     friendly: p.friendly,
                     remaining_frames: p.lifetime,
+                    animation_elapsed_frames: p.animation_elapsed_frames,
                     kind: active_projectile_kind(p),
                 })
                 .chain(
@@ -5218,6 +5219,7 @@ impl NativeRuntime {
                             y_velocity: 0,
                             friendly: true,
                             remaining_frames: 0,
+                            animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
                         }),
                 )
@@ -5231,6 +5233,7 @@ impl NativeRuntime {
                             y_velocity: 0,
                             friendly: false,
                             remaining_frames: trail.remaining_frames,
+                            animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
                         }),
                 )

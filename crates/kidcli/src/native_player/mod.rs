@@ -1896,6 +1896,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 120,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
         }];
 
@@ -1934,6 +1935,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 120,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
         }];
 
@@ -2135,6 +2137,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: u16::MAX,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TankBullet,
         }];
 
@@ -2225,6 +2228,7 @@ mod tests {
                 y_velocity: 0,
                 friendly: false,
                 remaining_frames,
+                animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::RobotShotImpact,
             }];
 
@@ -2248,33 +2252,45 @@ mod tests {
     #[test]
     fn robot_shot_uses_visible_rom_flying_sprite_loc_3ac0c_stru_3a754() {
         let visuals = sample_level_visuals();
-        let mut trace = sample_trace(GameMode::InGame);
-        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
-            x_pos: 0x0030_0000,
-            y_pos: 0x0020_0000,
-            x_velocity: -(5 << 16),
-            y_velocity: 0,
-            friendly: false,
-            remaining_frames: 60,
-            kind: ActiveProjectileKind::RobotShot,
-        }];
+        let cases = [
+            (0, 0x016, 3, 18),
+            (3, 0x01A, 3, 18),
+            (6, 0x01E, 11, 18),
+            (9, 0x016, 3, 18),
+        ];
 
-        let scene = build_scene(&trace, false, Some(&visuals), None);
+        for (animation_elapsed_frames, tile_index, expected_x, expected_y) in cases {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+                x_pos: 0x0030_0000,
+                y_pos: 0x0020_0000,
+                x_velocity: -(5 << 16),
+                y_velocity: 0,
+                friendly: false,
+                remaining_frames: 60,
+                animation_elapsed_frames,
+                kind: ActiveProjectileKind::RobotShot,
+            }];
 
-        let shot_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 3 && *y == 18 => Some(tiles),
-            _ => None,
-        });
-        let tiles =
-            shot_sprite.expect("ASM Robot.asm loc_3AC0C should render the shot as `stru_3A754`");
-        assert_eq!(
-            tiles[0].tile.tile_index, 0x016,
-            "ASM `stru_3A754` starts with `unk_C8278: sprite_frame_vram $016,$03,$00,$1F,$06`",
-        );
-        assert!(
-            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
-            "Robot shots should not collapse to the generic enemy projectile dot",
-        );
+            let scene = build_scene(&trace, false, Some(&visuals), None);
+
+            let shot_sprite = scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } if *x == expected_x && *y == expected_y => {
+                    Some(tiles)
+                }
+                _ => None,
+            });
+            let tiles = shot_sprite
+                .expect("ASM Robot.asm loc_3AC0C should render the shot as `stru_3A754`");
+            assert_eq!(
+                tiles[0].tile.tile_index, tile_index,
+                "ASM `stru_3A754` should select the flying-shot frame for elapsed={animation_elapsed_frames}",
+            );
+            assert!(
+                !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+                "Robot shots should not collapse to the generic enemy projectile dot",
+            );
+        }
     }
 
     #[test]
@@ -2294,6 +2310,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 45,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
         }];
 
@@ -2323,6 +2340,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 45,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
         }];
 
@@ -2354,6 +2372,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 68,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DragonWalkingBreath,
         }];
 
@@ -2386,6 +2405,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 200,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsDrop,
         }];
 
@@ -2417,6 +2437,7 @@ mod tests {
             y_velocity: 0,
             friendly: false,
             remaining_frames: 192,
+            animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
         }];
 
