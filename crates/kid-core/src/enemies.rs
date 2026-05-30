@@ -16032,9 +16032,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     }
 }
 
-/// Driller probe half-width for block drilling (Driller.asm line 27: move.w #$C,$48(a5)).
-/// ASM stores 12px ($C) in the Driller sprite's collision half-width field.
-pub(crate) const DRILLER_PROBE_HALF_WIDTH: i32 = 12;
+/// Driller linked drill child X offset for block drilling.
+/// ASM Driller.asm loc_3BD74 initialises the two tread/drill children at
+/// parent X -$18 and +$18; loc_3BE78 probes the selected child object, not
+/// the parent's `$48(a5)` collision half-width.
+pub(crate) const DRILLER_DRILL_CHILD_X_OFFSET: i32 = 0x18;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -16166,9 +16168,9 @@ fn driller_drilled_cells_loc_3be78(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let probe_x = if enemy.facing == Direction::Right {
-        cx + DRILLER_PROBE_HALF_WIDTH
+        cx + DRILLER_DRILL_CHILD_X_OFFSET
     } else {
-        cx - DRILLER_PROBE_HALF_WIDTH
+        cx - DRILLER_DRILL_CHILD_X_OFFSET
     };
     // ASM sub_3BEF2: Y probe is 16px above sprite (subi.w #$10,d7).
     let probe_y = cy - 16;

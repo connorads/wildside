@@ -18363,6 +18363,31 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be78_driller_probes_right_child_x_not_parent_collision_width() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        enemy.facing = Direction::Right;
+        let grid = grid_with_cells(
+            9,
+            8,
+            &[
+                // ASM Driller.asm loc_3BE78 selects the right linked drill
+                // child `$3E(a5)`, whose init path places x at parent+$18.
+                (7, 4, 0xE0, 0x01),
+                (6, 5, 0x60, 0x00),
+                (7, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            vec![(7, 4)],
+            "ASM loc_3BE78/loc_3BE8E should probe the linked drill child x-position, not the parent `$48(a5)` collision half-width",
+        );
+    }
+
+    #[test]
     fn loc_3bf02_driller_collision_dispatch_routes_stomp_hp_and_death() {
         assert_eq!(
             driller_collision_dispatch_loc_3bf02(0, 3),
