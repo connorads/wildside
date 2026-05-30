@@ -6318,6 +6318,8 @@ pub(crate) enum RobotState {
     /// Walking patrol with periodic shooting.
     #[default]
     Walking,
+    /// ASM sub_3C4F8 loc_3C58E: head turn sequence before Enemy03_Robot_Shoot.
+    Aiming,
     /// Charging at high speed after loc_3A96C collision/hit routing.
     #[cfg_attr(not(test), allow(dead_code))]
     Charging,
@@ -19576,6 +19578,56 @@ pub(crate) fn robot_shot_impact_tail_loc_3ac92(
     }
 }
 
+const ROBOT_AIM_TURN_FRAMES: u16 = 26;
+const ROBOT_AIM_DIRECTION_FLIP_REMAINING: u16 = 9;
+
+fn robot_x_direction_byte(facing: Direction) -> u8 {
+    match facing {
+        Direction::Left => 0x00,
+        Direction::Right => 0xFF,
+    }
+}
+
+fn robot_facing_from_x_direction_byte(x_direction: u8) -> Direction {
+    if x_direction == 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    }
+}
+
+fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyProjectile>>) {
+    if let Some(projs) = projectiles {
+        let child_x_direction = robot_x_direction_byte(enemy.facing);
+        let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
+        projs.push(EnemyProjectile {
+            // ASM Robot.asm loc_3AC0C: the allocated shot copies
+            // the child head direction and spawns from the muzzle
+            // offset, not the parent's origin.
+            x_pos: (enemy.x_pos as i64 + (i64::from(spawn.projectile_x_delta_px) << 16)) as u32,
+            y_pos: (enemy.y_pos as i64 + (i64::from(spawn.projectile_y_delta_px) << 16)) as u32,
+            x_velocity: spawn.projectile_x_velocity,
+            y_velocity: 0,
+            lifetime: 60,
+            gravity: 0,
+            friendly: false,
+            kind: EnemyProjectileKind::RobotShot,
+            homing_accel: 0,
+            speed_cap: 0,
+            wall_bounce: false,
+            ..Default::default()
+        });
+    }
+}
+
+fn finish_robot_shoot_sequence(enemy: &mut ActiveEnemy) {
+    // ASM Robot.asm loc_3AAC4: the completed shoot sequence clears the child
+    // collision word and resumes the shared walker. loc_3A96C charge entry is
+    // reached by collision/hit routes, not by ordinary shooting.
+    enemy.robot_state = RobotState::Walking;
+    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
@@ -19646,49 +19698,51 @@ pub(crate) fn step_robot_with_rng(
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
             } else {
-                // Face player if available
-                if let Some(px) = player_x_pos {
-                    let dx = px as i64 - enemy.x_pos as i64;
-                    enemy.facing = if dx >= 0 {
-                        Direction::Right
-                    } else {
-                        Direction::Left
-                    };
-                }
-
-                if let Some(projs) = projectiles {
-                    let child_x_direction = match enemy.facing {
-                        Direction::Left => 0x00,
-                        Direction::Right => 0xFF,
-                    };
-                    let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
-                    projs.push(EnemyProjectile {
-                        // ASM Robot.asm loc_3AC0C: the allocated shot copies
-                        // the child head direction and spawns from the muzzle
-                        // offset, not the parent's origin.
-                        x_pos: (enemy.x_pos as i64 + (i64::from(spawn.projectile_x_delta_px) << 16))
-                            as u32,
-                        y_pos: (enemy.y_pos as i64 + (i64::from(spawn.projectile_y_delta_px) << 16))
-                            as u32,
-                        x_velocity: spawn.projectile_x_velocity,
-                        y_velocity: 0,
-                        lifetime: 60,
-                        gravity: 0,
-                        friendly: false,
-                        kind: EnemyProjectileKind::RobotShot,
-                        homing_accel: 0,
-                        speed_cap: 0,
-                        wall_bounce: false,
-                        ..Default::default()
+                let Some(px) = player_x_pos else {
+                    return;
+                };
+                let parent_x_direction = robot_x_direction_byte(enemy.facing);
+                let result =
+                    shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+                        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+                        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+                        parent_state_word_32: 9,
+                        child_state_word_40: 1,
+                        child_counter_word_4e: 0,
+                        child_timer_word_54: 0,
+                        parent_x_pos: (enemy.x_pos >> 16) as u16,
+                        walker_x_pos: (enemy.x_pos >> 16) as u16,
+                        kid_x_pos: (px >> 16) as u16,
+                        parent_x_direction,
+                        parent_flag_15: true,
+                        random_word: rng.next_long() as u16,
                     });
-                }
 
-                // ASM Robot.asm loc_3AAC4: the completed shoot sequence clears
-                // the child collision word and resumes the shared walker.
-                // loc_3A96C charge entry is reached by collision/hit routes,
-                // not by ordinary shooting.
-                enemy.robot_state = RobotState::Walking;
-                enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                enemy.facing = robot_facing_from_x_direction_byte(result.next_parent_x_direction);
+                if result.branch_to_robot_shoot {
+                    push_robot_shot(enemy, projectiles);
+                    finish_robot_shoot_sequence(enemy);
+                } else if result.next_child_counter_word_4e != 0 {
+                    // ASM sub_3C4F8 loc_3C58E -> loc_3C5A2 arms the head turn
+                    // sequence and immediately burns one of the three 9-frame
+                    // phases before tail-jumping to Enemy03_Robot_Shoot.
+                    enemy.robot_state = RobotState::Aiming;
+                    enemy.wait_timer = ROBOT_AIM_TURN_FRAMES;
+                    enemy.x_velocity = 0;
+                }
+            }
+        }
+        RobotState::Aiming => {
+            enemy.x_velocity = 0;
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                if enemy.wait_timer == ROBOT_AIM_DIRECTION_FLIP_REMAINING {
+                    reverse_enemy_direction(enemy);
+                }
+            }
+            if enemy.wait_timer == 0 {
+                push_robot_shot(enemy, projectiles);
+                finish_robot_shoot_sequence(enemy);
             }
         }
         RobotState::Charging => {

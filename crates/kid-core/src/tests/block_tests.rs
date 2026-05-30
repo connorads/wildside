@@ -10313,16 +10313,33 @@ mod chunk_04 {
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
         enemy.robot_state = RobotState::Walking;
+        enemy.facing = Direction::Right;
         enemy.on_ground = true;
         enemy.wait_timer = 1;
         let player_x = Some(80u32 << 16);
         let mut projs = vec![];
+        let mut rng = RomRandomState::default();
+        while (rng.clone().next_long() as u16) > 0x000A {
+            rng.next_long();
+        }
         // Timer at 1 → decrements to 0
-        step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        step_robot_with_rng(
+            &mut enemy,
+            Some(&grid),
+            player_x,
+            &mut Some(&mut projs),
+            &mut rng,
+        );
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert!(projs.is_empty());
         // Timer at 0 → shoot, then resume walking through loc_3AAC4.
-        step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        step_robot_with_rng(
+            &mut enemy,
+            Some(&grid),
+            player_x,
+            &mut Some(&mut projs),
+            &mut rng,
+        );
         assert_eq!(
             enemy.robot_state,
             RobotState::Walking,
@@ -10353,6 +10370,91 @@ mod chunk_04 {
             "live Robot shots need the loc_3AC48 camera/collision lifecycle, not generic timer expiry"
         );
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+    }
+
+    #[test]
+    fn robot_sub_3c4f8_aim_gate_turns_before_shooting_when_facing_away() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        enemy.robot_state = RobotState::Walking;
+        enemy.facing = Direction::Left;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        let player_x = Some(80u32 << 16);
+        let mut projs = vec![];
+        let mut rng = RomRandomState::default();
+        while (rng.clone().next_long() as u16) > 0x000A {
+            rng.next_long();
+        }
+
+        step_robot_with_rng(
+            &mut enemy,
+            Some(&grid),
+            player_x,
+            &mut Some(&mut projs),
+            &mut rng,
+        );
+
+        assert_eq!(
+            enemy.robot_state,
+            RobotState::Aiming,
+            "ASM sub_3C4F8 loc_3C588 should arm the Robot turn sequence instead of snapping to face Kid and firing"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM sub_3C4F8 loc_3C58E keeps the current x_direction until the phase-2 flip"
+        );
+        assert!(
+            projs.is_empty(),
+            "ASM sub_3C4F8 should delay Enemy03_Robot_Shoot until the turn sequence completes"
+        );
+    }
+
+    #[test]
+    fn robot_sub_3c4f8_aim_sequence_flips_then_shoots() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        enemy.robot_state = RobotState::Aiming;
+        enemy.facing = Direction::Left;
+        enemy.on_ground = true;
+        enemy.wait_timer = 26;
+        let mut projs = vec![];
+
+        for _ in 0..17 {
+            step_robot(
+                &mut enemy,
+                Some(&grid),
+                Some(80u32 << 16),
+                &mut Some(&mut projs),
+            );
+        }
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM sub_3C4F8 loc_3C5A2 flips x_direction during phase 2, before Enemy03_Robot_Shoot"
+        );
+        assert!(projs.is_empty());
+
+        while enemy.robot_state == RobotState::Aiming {
+            step_robot(
+                &mut enemy,
+                Some(&grid),
+                Some(80u32 << 16),
+                &mut Some(&mut projs),
+            );
+        }
+
+        assert_eq!(
+            enemy.robot_state,
+            RobotState::Walking,
+            "ASM Robot.asm loc_3AAC4 resumes walking after the delayed shoot sequence"
+        );
+        assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert_eq!(projs.len(), 1);
+        assert_eq!(projs[0].x_velocity, ROBOT_PROJECTILE_SPEED);
     }
 
     #[test]

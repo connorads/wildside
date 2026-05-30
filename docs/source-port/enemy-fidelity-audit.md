@@ -27,7 +27,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Mini_Hopping_Skull (0x1C) | partial | 3 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 3 |
-| Robot (0x03) | partial | 4 |
+| Robot (0x03) | partial | 3 |
 | Scorpion (0x13) | partial | 4 |
 | Sphere (0x06) | full | 0 |
 | Spinning_Twins (0x14) | partial | 5 |
@@ -37,7 +37,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 81 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 80 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -103,11 +103,8 @@ NinjaState has only Stealth/JumpAttack; no Block/Guard, no $44, no sfx_Ninja_blo
 **Ninja — HP-depleted knockdown fall (above-stomp) absent** (`loc_3D8BC / loc_3D8D6 / loc_3DA98`)
 No kid-above contact handling and no knockdown state. `enemies.rs:6257-6263`, `enemies.rs:16680-16693`; knockdown helpers test-only.
 
-**Robot — charge entered unconditionally after every shot instead of as a hit-reaction** (`loc_3A96C / loc_3A890 / loc_3A9F0`)
-ROM enters charge only via routed damaging contact ($38(a2)<0 or $44 hits 0); native sets `Charging` every shoot cycle. `enemies.rs:18583-18585`; routers `enemies.rs:17855/17973/18056` test-only.
-
-**Robot — shooting not gated by sub_3C4F8 aiming logic** (`sub_3C4F8 / Enemy03_Robot_Shoot`)
-Native fires whenever the timer expires, no random gate or turn/aim sequence. The gating helper is only invoked with the Tank kind at runtime. `enemies.rs:18548-18586`, helper `enemies.rs:38400` (Robot kind only from tests).
+**Robot — live collision/hit routing into charge still absent** (`loc_3A96C / loc_3A890 / loc_3A9F0`)
+ROM enters charge via routed damaging contact ($38(a2)<0 or $44 hits 0). Native no longer enters charge after ordinary shooting, but the live collision/hit router still does not drive `loc_3A96C` for Robot body/head contacts.
 
 **Scorpion — sting attack never produced** (`loc_3DDEE / loc_3DE40`)
 StingAnimation route only sets tracking_lock + walk_speed_override; the `..` discards tail hurtbox, object_meta $C000, stru_3DB8E, and recovery. Sting deals no damage. `enemies.rs:23838-23847`, `enemies.rs:5496`.
@@ -210,8 +207,8 @@ ROM turns to face Kid when >$80 away; native sets facing only inside the attack 
 **Orca — wall-pinned lunge X-drift handled, but side-collision Berzerker re-lunge absent** (`loc_3D4DE`)
 Live path probes terrain only; never reads Kid side contact or Berzerker_charging during the lunge. (Wall-pin X-drift suppression is correctly implemented.) `enemies.rs:18657-18780/18694-18701/18739-18743`; gate `enemies.rs:1301/1096` test-only.
 
-**Robot — projectile lifecycle: no muzzle offset, camera-window culling, or impact animation** (`Enemy03_Robot_Shot_Init / loc_3ABB6 / loc_3AC0C / loc_3AC48 / loc_3AC7E`)
-Spawned at enemy x/y with fixed lifetime 60 as a generic projectile; no camera cull, no stru_3A762 impact. `enemies.rs:18568-18580`, `projectiles.rs:1432-1440`; lifecycle helpers `enemies.rs:18379/18417/18448/18467` test-only.
+**Robot — projectile lifecycle lacks impact animation** (`Enemy03_Robot_Shot_Init / loc_3ABB6 / loc_3AC7E / loc_3AC92`)
+Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, but impact still deletes immediately instead of entering `stru_3A762` before the delete tail.
 
 **Robot — two-object body+head structure collapsed to one** (`Enemy03_Robot_Init / loc_3A8AE`)
 Single ActiveEnemy, no child-head object; per-part collision and head/leg sprite swaps absent. `enemies.rs:18494-18636`; dispatch `enemies.rs:17875-17876` and attachment helper `enemies.rs:38078` dead.
