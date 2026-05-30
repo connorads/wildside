@@ -1487,13 +1487,14 @@ impl NativeRuntime {
                     } else {
                         self.title_screen_character_frame_index_sub_1bf24()
                     };
-                    vdp::build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+                    vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
                         data,
                         frame_index,
                         self.title_screen_region_byte,
                         menu_cursor,
                         title_vdp_ready,
                         self.title_screen_elapsed_frames,
+                        self.title_screen_uses_intro_return_hidden_shell,
                     )
                 })
             }

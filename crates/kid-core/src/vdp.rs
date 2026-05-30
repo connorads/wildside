@@ -16,7 +16,7 @@ use crate::boot::{
 };
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
-    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS,
+    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -1437,13 +1437,25 @@ fn overlay_intro_text_worker_loc_1c7a0(vdp: &mut VdpState, segment: usize, elaps
     replay_intro_text_worker_loc_1c7a0(vdp, &script, worker_elapsed);
 }
 
-fn overlay_title_sega_text_worker_loc_1c7a0(vdp: &mut VdpState, elapsed: usize) {
+fn overlay_title_sega_text_worker_loc_1c7a0(
+    vdp: &mut VdpState,
+    elapsed: usize,
+    intro_return_hidden_shell: bool,
+) {
     // ASM loc_1B6AC hibernates 30 frames, loc_1B6CE reveals Chameleon for 40
     // frames, and loc_1B6DC spawns SegaText when its preserved counter reaches
     // `$1E`. The loc_1C7A0 worker then performs its own initial one-frame
     // hibernate before writing this zero-delay text in one pass.
-    const TITLE_SEGA_TEXT_WORKER_START_ELAPSED: usize = 30 + 40 + 30 + 1;
-    let Some(worker_elapsed) = elapsed.checked_sub(TITLE_SEGA_TEXT_WORKER_START_ELAPSED) else {
+    let start_elapsed = if intro_return_hidden_shell {
+        // ASM sub_1C246 -> Load_TitleScreen on the cold IntroSequence6
+        // Start-skip path inherits the already-running hidden loc_1B6AC /
+        // loc_1B6DC cadence; oracle frame 2700 has the visible title VDP and
+        // SegaText together while trace title readiness is still false.
+        INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES
+    } else {
+        30 + 40 + 30 + 1
+    };
+    let Some(worker_elapsed) = elapsed.checked_sub(start_elapsed) else {
         return;
     };
     let script = title_sega_text_script_loc_1c7a0();
@@ -2310,6 +2322,7 @@ fn build_title_screen_vdp_with_character_frame_and_menu(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects(
     data: &TitleScreenData,
     frame_index: u8,
@@ -2317,6 +2330,26 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
     menu_cursor: Option<u8>,
     title_ready: bool,
     title_elapsed_frames: usize,
+) -> VdpState {
+    build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+        data,
+        frame_index,
+        region_byte,
+        menu_cursor,
+        title_ready,
+        title_elapsed_frames,
+        false,
+    )
+}
+
+pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+    data: &TitleScreenData,
+    frame_index: u8,
+    region_byte: u8,
+    menu_cursor: Option<u8>,
+    title_ready: bool,
+    title_elapsed_frames: usize,
+    intro_return_hidden_shell: bool,
 ) -> VdpState {
     let mut vdp = VdpState::new();
 
@@ -2363,7 +2396,11 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
         append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
         append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
         write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames);
-        overlay_title_sega_text_worker_loc_1c7a0(&mut vdp, title_elapsed_frames);
+        overlay_title_sega_text_worker_loc_1c7a0(
+            &mut vdp,
+            title_elapsed_frames,
+            intro_return_hidden_shell,
+        );
     }
     if let Some(cursor) = menu_cursor {
         write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
@@ -4674,6 +4711,55 @@ mod tests {
             vram_word(&visible, usize::from(sega_s_write.vram_word_address)),
             0x67E5,
             "ASM SegaText writes the `S` in `SEGA` after the copyright and year glyphs"
+        );
+    }
+
+    #[test]
+    fn title_screen_vdp_intro_return_replays_sega_text_when_vdp_becomes_visible() {
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![0; 7 * 29], vec![], vec![]],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+        let copyright_write =
+            kid_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x19, 0x19, 0x2A);
+        let visible_elapsed = INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES + 1;
+
+        let hidden = build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+            &data,
+            0,
+            0,
+            None,
+            true,
+            INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
+            true,
+        );
+        assert_eq!(
+            vram_word(&hidden, usize::from(copyright_write.vram_word_address)),
+            0x20BC,
+            "ASM loc_1C7A0 still spends its one-frame hibernate on the intro-return title path"
+        );
+
+        let visible = build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+            &data,
+            0,
+            0,
+            None,
+            true,
+            visible_elapsed,
+            true,
+        );
+        assert_eq!(
+            vram_word(&visible, usize::from(copyright_write.vram_word_address)),
+            0x67FD,
+            "ASM sub_1C246 -> Load_TitleScreen on the cold IntroSequence6 Start-skip path inherits the hidden loc_1B6AC/loc_1B6DC cadence, so SegaText is visible with the frame-2700 title VDP"
         );
     }
 
