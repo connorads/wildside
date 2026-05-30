@@ -6395,6 +6395,10 @@ pub(crate) struct ActiveEnemy {
     pub(crate) facing: Direction,
     pub(crate) on_ground: bool,
     pub(crate) hit_points: u8,
+    /// True after a known final-hit path has entered a family death animation.
+    /// `hit_points == 0` also appears in live native/oracle traces for some
+    /// spawned walkers, so scheduler deletion must key off this explicit state.
+    pub(crate) death_animation_active: bool,
     pub(crate) grounded_frames: u8,
     pub(crate) damage_flash_frames: u8,
     /// Palette variant (0, 1, or 2) from the enemy type slot.
@@ -8314,6 +8318,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         facing: sequence.child_facing,
         on_ground: true,
         hit_points: spawn_hit_points(family, 0),
+        death_animation_active: false,
         grounded_frames: 1,
         damage_flash_frames: 0,
         palette_variant: parent.palette_variant,
@@ -8656,7 +8661,7 @@ impl ActiveEnemy {
         let walk_phase =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
         let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking)
-            || (self.hit_points == 0 && enemy_death_animation_frames(self.family).is_some())
+            || (self.death_animation_active && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)
         } else {
@@ -8721,7 +8726,8 @@ impl ActiveEnemy {
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
             stationary: self.dragon_phase.is_stationary()
-                || (self.hit_points == 0 && enemy_death_animation_frames(self.family).is_some()),
+                || (self.death_animation_active
+                    && enemy_death_animation_frames(self.family).is_some()),
             shared_walker_state,
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,
@@ -8732,7 +8738,7 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn child_attachment_snapshot(&self) -> Option<NativeObjectSnapshot> {
-        if self.hit_points == 0 {
+        if self.death_animation_active {
             // ASM Tank.asm loc_3B480 / Tank_Shooting.asm loc_3B6E6 and
             // Scorpion.asm loc_3DCF4 hide/disable linked children once the
             // parent enters the death sequence.
@@ -9152,6 +9158,7 @@ pub(crate) fn activate_enemies_with_rng(
                 facing: spawn_facing(family, head_x, player_x),
                 on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
                 hit_points,
+                death_animation_active: false,
                 grounded_frames: if matches!(family, EnemyFamily::DragonWalking) {
                     1
                 } else {
@@ -9273,7 +9280,7 @@ pub(crate) fn step_active_enemies_with_rng(
             continue;
         }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
-        if enemy.hit_points == 0 && enemy_death_animation_frames(enemy.family).is_some() {
+        if enemy.death_animation_active && enemy_death_animation_frames(enemy.family).is_some() {
             // ASM family death tails such as Goat.asm loc_3CB64 and
             // Mini_Hopping_Skull.asm loc_3F158 clear movement while the death
             // animation hibernates, so the corpse should not run its normal
@@ -15856,6 +15863,7 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
             enemy.wait_timer = death_animation_frames;
         }
         enemy.hit_points = 0;
+        enemy.death_animation_active = true;
         true
     } else {
         false
@@ -25657,6 +25665,7 @@ mod tests {
             facing: Direction::Right,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             grounded_frames: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
@@ -25768,6 +25777,7 @@ mod tests {
         ActiveEnemy {
             family: EnemyFamily::TarMonster,
             hit_points: 2,
+            death_animation_active: false,
             facing: Direction::Right,
             tar_monster_state: TarMonsterState::Attacking,
             wait_timer: TAR_MONSTER_ATTACK_FRAMES,
@@ -25779,6 +25789,7 @@ mod tests {
         ActiveEnemy {
             family: EnemyFamily::Fireball,
             hit_points: 1,
+            death_animation_active: false,
             facing: Direction::Right,
             ..mini_hopping_skull_test_enemy()
         }
@@ -25788,6 +25799,7 @@ mod tests {
         ActiveEnemy {
             family: EnemyFamily::Sphere,
             hit_points: 1,
+            death_animation_active: false,
             facing: Direction::Right,
             x_velocity: 0x0001_0000,
             ..mini_hopping_skull_test_enemy()
@@ -25798,6 +25810,7 @@ mod tests {
         ActiveEnemy {
             family: EnemyFamily::Ninja,
             hit_points: 2,
+            death_animation_active: false,
             facing: Direction::Left,
             ..mini_hopping_skull_test_enemy()
         }
@@ -28754,6 +28767,7 @@ mod tests {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::TankShooting,
             hit_points: 4,
+            death_animation_active: false,
             facing: Direction::Right,
             x_pos: 100 << 16,
             y_pos: 80 << 16,
@@ -28871,6 +28885,7 @@ mod tests {
             y_pos: 0x0040_4000,
             facing: Direction::Right,
             hit_points: 3,
+            death_animation_active: false,
             ..mini_hopping_skull_test_enemy()
         };
 
@@ -28900,6 +28915,7 @@ mod tests {
             family: EnemyFamily::Scorpion,
             enemy_level: 2,
             hit_points: 5,
+            death_animation_active: false,
             x_pos: 0x0120_0000,
             y_pos: 0x0040_0000,
             facing: Direction::Right,
@@ -34813,6 +34829,7 @@ mod tests {
             facing: Direction::Right,
             on_ground: true,
             hit_points: 2,
+            death_animation_active: false,
             grounded_frames: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
@@ -39700,6 +39717,28 @@ impl NativeRuntime {
                     }))
     }
 
+    pub(crate) fn hibernate_enemy_death_animation_frame(enemy: &mut ActiveEnemy) -> bool {
+        if !enemy.death_animation_active
+            || enemy_death_animation_frames(enemy.family).is_none()
+            || enemy.wait_timer == 0
+        {
+            return false;
+        }
+
+        if matches!(enemy.family, EnemyFamily::UFO) {
+            // ASM UFO.asm loc_35180 sets `is_moved(a3)`, preserves the
+            // saucer's existing x_vel, and forces y_vel to `$30000` while
+            // loc_351B6 hibernates through the parent death animation.
+            enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+            enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
+        }
+        // ASM Dragon.asm loc_3CEFC and the other death-animation tails call
+        // j_Hibernate_UntilAnimFinished; the frame that consumes the last
+        // animation tick still returns to the scheduler as a hibernated object.
+        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+        true
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;
@@ -39781,22 +39820,10 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                 );
-                for enemy in &mut self.active_enemies {
-                    if enemy.hit_points == 0
-                        && enemy_death_animation_frames(enemy.family).is_some()
-                        && enemy.wait_timer > 0
-                    {
-                        if matches!(enemy.family, EnemyFamily::UFO) {
-                            // ASM UFO.asm loc_35180 sets `is_moved(a3)`,
-                            // preserves the saucer's existing x_vel, and
-                            // forces y_vel to `$30000` while loc_351B6
-                            // hibernates through the parent death animation.
-                            enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
-                            enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
-                        }
-                        // ASM death-animation tails hibernate until the
-                        // family animation finishes before deletion.
-                        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+                let mut death_animation_hibernated_indices = Vec::new();
+                for (idx, enemy) in self.active_enemies.iter_mut().enumerate() {
+                    if Self::hibernate_enemy_death_animation_frame(enemy) {
+                        death_animation_hibernated_indices.push(idx);
                     }
                 }
                 let dead_enemy_indices: Vec<usize> = self
@@ -39804,10 +39831,9 @@ impl NativeRuntime {
                     .iter()
                     .enumerate()
                     .filter_map(|(idx, enemy)| {
-                        let waiting_for_death_animation =
-                            enemy_death_animation_frames(enemy.family).is_some()
-                                && enemy.wait_timer > 0;
-                        (enemy.hit_points == 0 && !waiting_for_death_animation).then_some(idx)
+                        (enemy.death_animation_active
+                            && !death_animation_hibernated_indices.contains(&idx))
+                        .then_some(idx)
                     })
                     .collect();
                 for idx in dead_enemy_indices.into_iter().rev() {

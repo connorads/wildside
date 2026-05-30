@@ -6679,6 +6679,7 @@ mod chunk_03 {
             facing: Direction::Right,
             on_ground: true,
             hit_points: 2,
+            death_animation_active: false,
             grounded_frames: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
@@ -6800,6 +6801,7 @@ mod chunk_03 {
             family: EnemyFamily::Lion,
             on_ground: true,
             hit_points: 6,
+            death_animation_active: false,
             ..test_enemy(EnemyFamily::Lion, 0, 0, 6)
         };
         let camera = CameraState {
@@ -6861,6 +6863,7 @@ mod chunk_03 {
             family: EnemyFamily::Armadillo,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             ..test_enemy(EnemyFamily::Armadillo, 0, 0, 1)
         };
         let camera = CameraState {
@@ -6959,6 +6962,7 @@ mod chunk_03 {
             family: EnemyFamily::Diamond,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             ..test_enemy(EnemyFamily::Diamond, 0, 0, 1)
         };
         let camera = CameraState {
@@ -7020,6 +7024,7 @@ mod chunk_03 {
             family: EnemyFamily::MiniHoppingSkull,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             ..test_enemy(EnemyFamily::MiniHoppingSkull, 0, 0, 1)
         };
         let camera = CameraState {
@@ -7080,6 +7085,7 @@ mod chunk_03 {
             family: EnemyFamily::MiniHoppingSkull,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             ..test_enemy(EnemyFamily::MiniHoppingSkull, 0, 0, 1)
         };
         let camera = CameraState {
@@ -7333,6 +7339,7 @@ mod chunk_03 {
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
+            death_animation_active: false,
             grounded_frames: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
@@ -8873,6 +8880,40 @@ mod chunk_03 {
         assert!(
             !runtime.killed_enemies.contains(&killed_identity),
             "the layout kill bit is written by the shared delete tail after loc_3CEFC finishes, not by the lethal hit frame"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_death_last_hibernate_frame_does_not_delete() {
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x0080_0000, 0x0040_0000, 1);
+        dragon.hit_points = 0;
+        dragon.death_animation_active = true;
+        dragon.wait_timer = 1;
+
+        assert!(
+            NativeRuntime::hibernate_enemy_death_animation_frame(&mut dragon),
+            "ASM Dragon.asm loc_3CEFC uses j_Hibernate_UntilAnimFinished, so the last animation tick still consumes a hibernated frame"
+        );
+        assert_eq!(
+            dragon.wait_timer, 0,
+            "the next scheduler pass reaches the shared loc_3E956 delete tail"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_live_zero_hit_points_does_not_enter_death_hibernate() {
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x0080_0000, 0x0040_0000, 1);
+        dragon.hit_points = 0;
+        dragon.death_animation_active = false;
+        dragon.wait_timer = 1;
+
+        assert!(
+            !NativeRuntime::hibernate_enemy_death_animation_frame(&mut dragon),
+            "ASM Dragon.asm loc_3492C can spawn a live walking dragon child; zero hit_points alone is not the death tail state"
+        );
+        assert_eq!(
+            dragon.wait_timer, 1,
+            "live walker cadence must not be consumed by the death-animation hibernate path"
         );
     }
 

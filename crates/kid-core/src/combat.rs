@@ -7635,6 +7635,7 @@ impl NativeRuntime {
             // `stru_34CA0`, sets `is_moved(a3)`, and forces parent y_vel to
             // `$30000` until loc_351B6 sees the animation-finished flag.
             enemy.hit_points = 0;
+            enemy.death_animation_active = true;
             if hurt_tail.some_ufo_shooting_cleared {
                 enemy.ufo_beam_segments = 0;
                 enemy.ufo_beam_interval = 0;
@@ -7654,6 +7655,7 @@ impl NativeRuntime {
             // if the live state had a nonzero hibernate/patrol timer, then
             // waits for that animation before reaching the shared delete tail.
             enemy.hit_points = 0;
+            enemy.death_animation_active = true;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.wait_timer = death_animation_frames;

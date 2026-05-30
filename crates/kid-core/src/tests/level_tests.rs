@@ -20652,6 +20652,7 @@ mod chunk_10 {
             facing: Direction::Left,
             on_ground: false,
             hit_points: 10,
+            death_animation_active: false,
             grounded_frames: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
@@ -20781,6 +20782,7 @@ mod chunk_10 {
             facing: Direction::Left,
             on_ground: true,
             hit_points: 0, // dead/hibernating
+            death_animation_active: true,
             damage_flash_frames: 0,
             grounded_frames: DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES,
             palette_variant: 0,
@@ -20837,6 +20839,7 @@ mod chunk_10 {
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
+            death_animation_active: false,
             damage_flash_frames: 0,
             grounded_frames: 0,
             palette_variant: 0,
