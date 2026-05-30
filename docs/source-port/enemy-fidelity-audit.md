@@ -22,7 +22,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fireball (0x19) | partial | 1 |
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
-| Hand (0x17) | partial | 6 |
+| Hand (0x17) | partial | 5 |
 | Lion (0x12) | partial | 4 |
 | Mini_Hopping_Skull (0x1C) | partial | 5 |
 | Ninja (0x11) | partial | 6 |
@@ -188,9 +188,6 @@ No $42/recoil branch or ±$14 positional shove in `process_berzerker_charge_hits
 
 **Goat — collision-type dispatch (death-on-negative, side-contact gate) not wired** (`loc_3CB14`)
 Side-contact→berzerker and HP-decrement routing absent; generic combat branches only on 0x1C/0x2C/-1, never GOAT 0x20/0x24. `enemies.rs:4069-4085`, `enemies.rs:9227-9254`, `combat.rs:6643/6674/7336`.
-
-**Hand — grab duration is a flat 10 frames instead of 10 Kid-$16-change ticks (+ missing Juggernaut early-exit)** (`loc_3292E`)
-ROM decrements only on Kid facing-byte change and releases early on Juggernaut; `step_hand` lacks the Kid-direction/Current_Helmet inputs. `enemies.rs:17622-17623/17225/17458-17463`.
 
 **Hand — grab entry gate conditions not checked** (`loc_32A86`)
 Grab fires on distance/height only; no crawl/Juggernaut/already-grabbed check. `enemies.rs:17600-17603`, gate `enemies.rs:16899` dead.

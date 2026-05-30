@@ -9943,12 +9943,55 @@ mod chunk_04 {
         enemy.x_velocity = 0x0003_0000;
         enemy.y_velocity = -0x0004_0000;
 
-        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000));
+        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000), None);
 
         assert_eq!(
             (enemy.x_pos, enemy.y_pos, enemy.x_velocity, enemy.y_velocity),
             (0x0066_0000, 0x00C4_0000, 0, 0),
             "ASM Hand.asm loc_3294C drives the native grabbing step through integer X+2/Y-4 snap and velocity clear"
+        );
+    }
+
+    #[test]
+    fn hand_grab_timer_loc_3292e_decrements_only_on_kid_facing_change() {
+        let mut enemy = test_enemy(EnemyFamily::Hand, 0, 0, 1);
+        enemy.hand_state = HandState::Grabbing;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = HAND_GRAB_DURATION;
+
+        step_hand(
+            &mut enemy,
+            None,
+            Some(0x0064_8000),
+            Some(0x00C8_4000),
+            Some(Direction::Left),
+        );
+        let after_first_sample = enemy.wait_timer & 0x00FF;
+
+        step_hand(
+            &mut enemy,
+            None,
+            Some(0x0064_8000),
+            Some(0x00C8_4000),
+            Some(Direction::Left),
+        );
+        assert_eq!(
+            enemy.wait_timer & 0x00FF,
+            after_first_sample,
+            "ASM Hand.asm loc_3292E loops without decrementing d3 while Kid `$16` is unchanged"
+        );
+
+        step_hand(
+            &mut enemy,
+            None,
+            Some(0x0064_8000),
+            Some(0x00C8_4000),
+            Some(Direction::Right),
+        );
+        assert_eq!(
+            enemy.wait_timer & 0x00FF,
+            after_first_sample - 1,
+            "ASM Hand.asm loc_3292E decrements the grab counter only after Kid `$16` changes"
         );
     }
 
@@ -9976,7 +10019,7 @@ mod chunk_04 {
         enemy.on_ground = true;
         enemy.wait_timer = 0;
 
-        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000));
+        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000), None);
 
         assert_eq!(
             (
@@ -10010,7 +10053,7 @@ mod chunk_04 {
         // Player 0x30 px ahead (within 0x40 range for HP=1), 8px above
         let player_x = Some((60 + 0x30) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
-        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
         assert_eq!(
             enemy.hand_state,
             HandState::Jumping,
@@ -10030,7 +10073,7 @@ mod chunk_04 {
         // Player 0x30 px behind (to the left)
         let player_x = Some((60 - 0x30) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
-        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
         assert_eq!(
             enemy.hand_state,
             HandState::Walking,
@@ -10049,7 +10092,7 @@ mod chunk_04 {
         // Player 0x50 px ahead (beyond 0x40 range for HP=1)
         let player_x = Some((60 + 0x50) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
-        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
         assert_eq!(
             enemy.hand_state,
             HandState::Walking,
@@ -10068,7 +10111,7 @@ mod chunk_04 {
         // Player 0x50 px ahead — beyond HP=1 range (0x40) but within HP=3 range (0x64)
         let player_x = Some((60 + 0x50) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
-        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y, None);
         assert_eq!(
             enemy.hand_state,
             HandState::Jumping,
@@ -10087,7 +10130,7 @@ mod chunk_04 {
         enemy.y_velocity = jump.y_velocity;
         enemy.on_ground = false;
         for _ in 0..300 {
-            step_hand(&mut enemy, Some(&grid), None, None);
+            step_hand(&mut enemy, Some(&grid), None, None, None);
             if enemy.hand_state == HandState::Walking {
                 break;
             }

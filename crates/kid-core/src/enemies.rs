@@ -9431,7 +9431,7 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
                     }
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
-                    step_hand(enemy, block_grid, player_x_pos, player_y_pos);
+                    step_hand(enemy, block_grid, player_x_pos, player_y_pos, player_facing);
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
@@ -18237,6 +18237,46 @@ pub(crate) fn hand_kid_below_contact_loc_329ec() -> HandKidBelowContactLoc329EC 
 
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
+const HAND_GRAB_TIMER_REMAINING_MASK: u16 = 0x00FF;
+const HAND_GRAB_TIMER_LAST_DIRECTION_INIT: u16 = 0x8000;
+const HAND_GRAB_TIMER_LAST_DIRECTION_RIGHT: u16 = 0x4000;
+
+fn hand_kid_direction_byte_loc_3292e(facing: Direction) -> bool {
+    // ASM Hand.asm loc_3292E stores Kid `$16` in d2. Native only needs the
+    // zero/non-zero distinction used by the compare before decrementing d3.
+    matches!(facing, Direction::Right)
+}
+
+fn hand_grab_timer_remaining(wait_timer: u16) -> u16 {
+    wait_timer & HAND_GRAB_TIMER_REMAINING_MASK
+}
+
+fn hand_grab_timer_with_direction(remaining: u16, facing: Direction) -> u16 {
+    let direction_bit = if hand_kid_direction_byte_loc_3292e(facing) {
+        HAND_GRAB_TIMER_LAST_DIRECTION_RIGHT
+    } else {
+        0
+    };
+    HAND_GRAB_TIMER_LAST_DIRECTION_INIT
+        | direction_bit
+        | (remaining & HAND_GRAB_TIMER_REMAINING_MASK)
+}
+
+fn hand_grab_timer_step_loc_3292e(wait_timer: u16, player_facing: Option<Direction>) -> u16 {
+    let remaining = hand_grab_timer_remaining(wait_timer);
+    let Some(facing) = player_facing else {
+        return remaining.saturating_sub(1);
+    };
+    let current_direction = hand_kid_direction_byte_loc_3292e(facing);
+    let had_previous = wait_timer & HAND_GRAB_TIMER_LAST_DIRECTION_INIT != 0;
+    let previous_direction = wait_timer & HAND_GRAB_TIMER_LAST_DIRECTION_RIGHT != 0;
+    let next_remaining = if had_previous && previous_direction == current_direction {
+        remaining
+    } else {
+        remaining.saturating_sub(1)
+    };
+    hand_grab_timer_with_direction(next_remaining, facing)
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -18474,6 +18514,7 @@ pub(crate) fn step_hand(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    player_facing: Option<Direction>,
 ) {
     let tier = (enemy.hit_points.saturating_sub(1) as usize).min(2);
 
@@ -18633,8 +18674,8 @@ pub(crate) fn step_hand(
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
 
-            if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
+            if hand_grab_timer_remaining(enemy.wait_timer) > 0 {
+                enemy.wait_timer = hand_grab_timer_step_loc_3292e(enemy.wait_timer, player_facing);
             } else {
                 let release = hand_release_loc_32970();
                 enemy.hand_state = release.hand_state;
