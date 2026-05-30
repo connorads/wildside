@@ -2108,6 +2108,111 @@ impl NativeRuntime {
         remapped_direction ^ 2
     }
 
+    #[allow(non_snake_case)]
+    fn ice_block_bullet_offsets_loc_11052(remapped_direction: u16) -> [(i32, i32); 3] {
+        // ASM IceBlock_BulletPosOffset_Index (kid.asm:22990): offsets are
+        // cumulative after the first centre bullet has been loaded.
+        match remapped_direction & 3 {
+            0 => [(0, 0), (-4, 4), (4, 4)],
+            1 => [(0, 0), (-4, -4), (-4, 4)],
+            2 => [(0, 0), (4, -4), (-4, -4)],
+            _ => [(0, 0), (4, 4), (4, -4)],
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn ice_block_bullet_velocity_loc_110AA(remapped_direction: u16) -> (i32, i32) {
+        match remapped_direction & 3 {
+            0 => (0, -Self::SHOOTER_PROJECTILE_SPEED),
+            1 => (Self::SHOOTER_PROJECTILE_SPEED, 0),
+            2 => (0, Self::SHOOTER_PROJECTILE_SPEED),
+            _ => (-Self::SHOOTER_PROJECTILE_SPEED, 0),
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn ice_block_bullets_loc_11052(
+        source_col: u16,
+        source_row: u16,
+        direction: u16,
+    ) -> Vec<EnemyProjectile> {
+        let remapped_direction = direction ^ 2;
+        let (x_velocity, y_velocity) =
+            Self::ice_block_bullet_velocity_loc_110AA(remapped_direction);
+        let centre_x = i32::from(source_col) * 16 + 8;
+        let centre_y = i32::from(source_row) * 16 + 8;
+        Self::ice_block_bullet_offsets_loc_11052(remapped_direction)
+            .into_iter()
+            .map(|(x_offset, y_offset)| EnemyProjectile {
+                x_pos: ((centre_x + x_offset) as u32) << 16,
+                y_pos: ((centre_y + y_offset) as u32) << 16,
+                x_velocity,
+                y_velocity,
+                lifetime: 120,
+                kind: EnemyProjectileKind::ShooterBlock,
+                ..Default::default()
+            })
+            .collect()
+    }
+
+    pub(crate) fn apply_drilled_block_loc_3bede_3bef2(
+        &mut self,
+        drilled_block: DrilledBlockLoc3BE78,
+    ) {
+        match drilled_block.action {
+            DrillerBlockDrillActionLoc3BEDE::None => {}
+            DrillerBlockDrillActionLoc3BEDE::SmashBits => {
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        drilled_block.col,
+                        drilled_block.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                }
+                self.spawn_smash_block_effect_sub_10eda(
+                    drilled_block.col * 16,
+                    drilled_block.row * 16,
+                    drilled_block.direction,
+                );
+            }
+            DrillerBlockDrillActionLoc3BEDE::IceBullets => {
+                let target_open = self.block_grid.as_ref().is_some_and(|grid| {
+                    Self::ice_block_bullet_target_cell_sub_11006(
+                        drilled_block.col,
+                        drilled_block.row,
+                        drilled_block.direction,
+                        grid.width_cells,
+                        grid.height_cells,
+                    )
+                    .is_some_and(|(target_col, target_row)| {
+                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                            grid.cell_at(target_col, target_row),
+                        )
+                    })
+                });
+                if target_open {
+                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                        drilled_block.col,
+                        drilled_block.row,
+                        drilled_block.direction,
+                    ));
+                }
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        drilled_block.col,
+                        drilled_block.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                }
+                self.spawn_ice_block_effect_sub_10f9c(
+                    drilled_block.col * 16,
+                    drilled_block.row * 16,
+                    drilled_block.direction,
+                );
+            }
+        }
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // ASM loc_EAE4 -> loc_EB72 scans Kid's expanded hitbox for the first
         // bit-15 type-$A block. The trigger is body contact, not just standing

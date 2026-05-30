@@ -91,9 +91,9 @@ pub struct NativeRuntime {
     /// `loc_31F9A`. Loader usage is still approximated by `killed_enemies`,
     /// but death/deactivation routes write their table side effects here.
     enemy_status_words: [u16; 0x001E],
-    /// Blocks drilled by Driller enemies this frame — (col, row).
+    /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
-    drilled_blocks: Vec<(u16, u16)>,
+    drilled_blocks: Vec<DrilledBlockLoc3BE78>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,

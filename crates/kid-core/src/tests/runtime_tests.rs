@@ -7236,6 +7236,45 @@ mod chunk_09 {
         }
     }
 
+    #[test]
+    fn loc_3bef2_driller_ice_block_spawns_three_shooter_bullets_when_target_open() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE2, 0x01)]));
+
+        rt.apply_drilled_block_loc_3bede_3bef2(DrilledBlockLoc3BE78 {
+            col: 5,
+            row: 3,
+            action: DrillerBlockDrillActionLoc3BEDE::IceBullets,
+            direction: 3,
+        });
+
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM sub_10F9C should erase the drilled ice source cell after loc_3BEF2 queues the worker",
+        );
+        assert_eq!(rt.block_destroy_effects.len(), 1);
+        assert_eq!(rt.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            rt.projectiles
+                .iter()
+                .map(|p| (
+                    p.kind,
+                    p.x_pos >> 16,
+                    p.y_pos >> 16,
+                    p.x_velocity,
+                    p.y_velocity,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (EnemyProjectileKind::ShooterBlock, 88, 56, 4 << 16, 0),
+                (EnemyProjectileKind::ShooterBlock, 84, 52, 4 << 16, 0),
+                (EnemyProjectileKind::ShooterBlock, 84, 60, 4 << 16, 0),
+            ],
+            "ASM IceBlock_LoadBullets remaps Driller direction 3 to rightward d6=1 and loads centre, upper, then lower shooter objects",
+        );
+    }
+
     // --- Shooter blocks: multi-direction and cell-change pruning ---
 
     #[test]

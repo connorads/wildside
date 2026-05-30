@@ -18352,7 +18352,12 @@ mod chunk_10 {
 
         assert_eq!(
             drilled,
-            vec![(6, 4)],
+            vec![DrilledBlockLoc3BE78 {
+                col: 6,
+                row: 4,
+                action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+                direction: 3,
+            }],
             "ASM Driller.asm loc_3BE78 should destroy the front Smash block before the shared walker wall turnaround can reverse direction",
         );
         assert_eq!(
@@ -18382,8 +18387,43 @@ mod chunk_10 {
 
         assert_eq!(
             drilled,
-            vec![(7, 4)],
+            vec![DrilledBlockLoc3BE78 {
+                col: 7,
+                row: 4,
+                action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+                direction: 3,
+            }],
             "ASM loc_3BE78/loc_3BE8E should probe the linked drill child x-position, not the parent `$48(a5)` collision half-width",
+        );
+    }
+
+    #[test]
+    fn loc_3bef2_driller_preserves_ice_block_dispatch_for_runtime_bullets() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        enemy.facing = Direction::Right;
+        let grid = grid_with_cells(
+            9,
+            8,
+            &[
+                // ASM loc_3BEF2 dispatches block type mask `$200` through
+                // IceBlock_SmashAndLoadBullets, not Block_LoadSmashBits.
+                (7, 4, 0xE2, 0x01),
+                (6, 5, 0x60, 0x00),
+                (7, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            vec![DrilledBlockLoc3BE78 {
+                col: 7,
+                row: 4,
+                action: DrillerBlockDrillActionLoc3BEDE::IceBullets,
+                direction: 3,
+            }],
+            "ASM loc_3BEF2 should preserve the IceBlock_SmashAndLoadBullets route so live runtime can spawn the three ice bullets",
         );
     }
 

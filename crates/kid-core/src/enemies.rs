@@ -9191,7 +9191,7 @@ pub(crate) fn step_active_enemies(
     player_x_velocity: Option<i32>,
     player_form: PlayerForm,
     projectiles: Option<&mut Vec<EnemyProjectile>>,
-    drilled_blocks: &mut Vec<(u16, u16)>,
+    drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
 ) {
     let mut rng = RomRandomState::default();
     step_active_enemies_with_rng(
@@ -9227,7 +9227,7 @@ pub(crate) fn step_active_enemies_with_rng(
     samurai_haze_active: bool,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
-    drilled_blocks: &mut Vec<(u16, u16)>,
+    drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
 ) {
     for enemy in active.iter_mut() {
         // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set,
@@ -16046,6 +16046,14 @@ pub(crate) enum DrillerBlockDrillActionLoc3BEDE {
     IceBullets,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DrilledBlockLoc3BE78 {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) action: DrillerBlockDrillActionLoc3BEDE,
+    pub(crate) direction: u16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn driller_block_drill_action_loc_3bede(
     cell: terrain::Cell,
@@ -16135,11 +16143,11 @@ pub(crate) fn driller_collision_dispatch_loc_3bf02(
 /// Step a Driller enemy: paces like normal, but drills through Smash and Ice blocks.
 /// ASM loc_3BE78: when sprite timer matches direction (8 for left, 4 for right),
 /// checks cell at (sprite_x ± offset, sprite_y - 16) for drillable block type and destroys it.
-/// Returns list of (col, row) cells to destroy this frame.
+/// Returns the drilled cells and their ASM block-dispatch action this frame.
 pub(crate) fn step_driller(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
-) -> Vec<(u16, u16)> {
+) -> Vec<DrilledBlockLoc3BE78> {
     let Some(grid) = block_grid else {
         return Vec::new();
     };
@@ -16152,8 +16160,12 @@ pub(crate) fn step_driller(
         step_pacer(enemy, Some(grid));
     } else {
         let mut grid_after_drill = grid.clone();
-        for &(col, row) in &drilled {
-            grid_after_drill.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+        for drilled_block in &drilled {
+            grid_after_drill.set_cell_at(
+                drilled_block.col,
+                drilled_block.row,
+                terrain::Cell::from_be_bytes(0, 0),
+            );
         }
         step_pacer(enemy, Some(&grid_after_drill));
     }
@@ -16164,13 +16176,19 @@ pub(crate) fn step_driller(
 fn driller_drilled_cells_loc_3be78(
     enemy: &ActiveEnemy,
     grid: &terrain::BlockGrid,
-) -> Vec<(u16, u16)> {
+) -> Vec<DrilledBlockLoc3BE78> {
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let probe_x = if enemy.facing == Direction::Right {
         cx + DRILLER_DRILL_CHILD_X_OFFSET
     } else {
         cx - DRILLER_DRILL_CHILD_X_OFFSET
+    };
+    let direction = match enemy.facing {
+        // ASM Driller.asm loc_3BE78 selects the right child and seeds d0=3.
+        Direction::Right => 3,
+        // ASM Driller.asm loc_3BE78 uses the left child with d0=1.
+        Direction::Left => 1,
     };
     // ASM sub_3BEF2: Y probe is 16px above sprite (subi.w #$10,d7).
     let probe_y = cy - 16;
@@ -16179,13 +16197,16 @@ fn driller_drilled_cells_loc_3be78(
     let row = terrain::pixel_to_cell(probe_y).max(0) as u16;
     let cell = grid.cell_at(col, row);
 
-    if matches!(
-        driller_block_drill_action_loc_3bede(cell),
-        DrillerBlockDrillActionLoc3BEDE::None
-    ) {
+    let action = driller_block_drill_action_loc_3bede(cell);
+    if matches!(action, DrillerBlockDrillActionLoc3BEDE::None) {
         Vec::new()
     } else {
-        vec![(col, row)]
+        vec![DrilledBlockLoc3BE78 {
+            col,
+            row,
+            action,
+            direction,
+        }]
     }
 }
 
@@ -39648,11 +39669,11 @@ impl NativeRuntime {
                     self.remove_dead_enemy(idx);
                 }
                 // Apply drilled blocks to the block grid after enemy step.
-                // Driller.asm loc_3BE78 destroys Smash/Ice blocks during pacing.
-                if let Some(ref mut grid) = self.block_grid {
-                    for (col, row) in self.drilled_blocks.drain(..) {
-                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
-                    }
+                // Driller.asm loc_3BE78 dispatches Smash through loc_3BEDE
+                // and Ice through loc_3BEF2 before the shared walker resumes.
+                let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
+                for drilled_block in drilled_blocks {
+                    self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
                 self.drilled_blocks.clear();
                 self.rebuild_active_enemy_roster();
