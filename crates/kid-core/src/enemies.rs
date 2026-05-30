@@ -9476,6 +9476,16 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_fire_demon_berzerker_launch(enemy);
                         continue;
                     }
+                    if matches!(enemy.family, EnemyFamily::FireDemon)
+                        && enemy.damage_flash_frames > 0
+                    {
+                        // ASM Fire_Demon.asm loc_3A5BE hibernates on
+                        // `stru_3A34E` after a nonfatal hurt collision before
+                        // restoring the saved walk animation.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        continue;
+                    }
                     if matches!(enemy.family, EnemyFamily::Goat)
                         && enemy.wait_timer == GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8
                     {

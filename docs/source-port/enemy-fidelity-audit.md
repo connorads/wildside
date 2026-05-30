@@ -20,7 +20,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Drips (0x16) | full | 0 |
 | Emo_Rock (0x1B) | partial | 4 |
 | Fireball (0x19) | partial | 1 |
-| Fire_Demon (0x00) | partial | 3 |
+| Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 4 |
 | Hand (0x17) | partial | 6 |
 | Lion (0x12) | partial | 4 |
@@ -63,9 +63,6 @@ Skull should be pinned to a fixed corridor ($3E/$40) with constant launch height
 
 **Fire_Demon — walking fire-trail emission never happens** (`loc_3A542 / loc_3A564 / loc_3A63C`)
 Demon should leave up to 7 trail children while pacing. Only runtime trail push is a single death trail (`combat.rs:7676-7678`); walking-trail gate `enemies.rs:5067` is dead. `step_fire_demon_trails` (`projectiles.rs:1293-1307`) only ages trails.
-
-**Fire_Demon — charging Berzerker side contact does not launch demon upward** (`loc_3A5E4 / loc_3A610`)
-`process_berzerker_charge_hits` special-cases only Crab; FireDemon falls through to generic kill. `helmets.rs:5250/5266`; launch fns `enemies.rs:5254/5291` dead.
 
 **Goat — Berzerker-charge side contact does not launch airborne** (`loc_3CB76 / loc_3CBA8`)
 Same Crab-only special-case; Goat hits generic kill. `helmets.rs:5250-5266`; `enemies.rs:4162/4205` dead.
@@ -185,9 +182,6 @@ The earlier audit overstated the remaining gap. `$38(a4)` is `collision_type`, n
 
 **Fireball — fire-trail child objects never spawned** (`Enemy19_Fireball_BounceFloorCeiling / loc_32CE4 / loc_330D0 / loc_33128`)
 ROM allocates trail children (≤5) on every bounce/slope; `step_bouncer_with_rng` only mutates velocity. `enemies.rs:12824-12845`; trail helpers `enemies.rs:12116/12564` dead.
-
-**Fire_Demon — hurt collision dispatch + recovery anim use generic path** (`loc_3A586 / loc_3A5BE`)
-Death works via generic frames, but per-hit stru_3A34E recovery and explicit collision-type routing are not driven; survivors show only the generic flash. `enemies.rs:8519-8526/8725/6619`, dispatch `enemies.rs:5306/5190` dead.
 
 **Goat — Berzerker side contact during recoil ($42>0) does not shove+hurt-resume** (`loc_3CBBA`)
 No $42/recoil branch or ±$14 positional shove in `process_berzerker_charge_hits`. `helmets.rs:5220-5272`, `enemies.rs:4236` dead.

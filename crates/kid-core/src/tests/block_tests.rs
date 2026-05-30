@@ -3788,6 +3788,36 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_nonfatal_hurt_hibernates_before_resuming_walk_loc_3a5be() {
+        let grid = grid_with_floor_at_row(14);
+        let mut demon = make_pacer(EnemyFamily::FireDemon, 4, 0x80, 0xE0);
+        demon.x_velocity = -0x0001_8000;
+        demon.damage_flash_frames = 3;
+        let mut active = vec![demon];
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            Some(0x0040_0000),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            active[0].x_pos, 0x0080_0000,
+            "ASM Fire_Demon.asm loc_3A5BE should hibernate during the nonfatal hurt animation instead of pacing"
+        );
+        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].y_velocity, 0);
+    }
+
+    #[test]
     fn fire_demon_resume_shared_walker_loc_3a5d4_clears_collision_and_branches_by_direction() {
         assert_eq!(
             fire_demon_resume_shared_walker_loc_3a5d4(Direction::Left),
