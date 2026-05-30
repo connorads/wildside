@@ -857,7 +857,7 @@ fn main() -> Result<()> {
             // recording with the explicit warp-driven scenario, so verify-
             // recording replays the same script the agent just executed.
             let mut recording = recording;
-            recording.manifest.scenario = dynamic;
+            recording.manifest.scenario = recording_scenario_manifest(dynamic, start);
             recording.manifest.record_command =
                 record_scenario_command(&slug, scenario, level, walk_frames);
             recording::save_recording_with_artifacts(
@@ -895,7 +895,7 @@ fn main() -> Result<()> {
             let recording =
                 recording::build_recording(&manifest, &slug, start, dynamic.script.clone(), trace)?;
             let mut recording = recording;
-            recording.manifest.scenario = dynamic;
+            recording.manifest.scenario = recording_scenario_manifest(dynamic, start);
             recording.manifest.record_command = record_scenario_file_command(&slug, &scenario);
             recording::save_recording_with_artifacts(
                 &record_to,
@@ -2168,6 +2168,16 @@ fn load_record_scenario_file(path: &Path) -> Result<DynamicScenario> {
     serde_json::from_str(&scenario_json).context("invalid scenario JSON")
 }
 
+fn recording_scenario_manifest(
+    mut scenario: DynamicScenario,
+    start: recording::RecordingStart,
+) -> DynamicScenario {
+    if start.settled && start.warp_level.is_some() {
+        scenario.settle_oracle_warp = true;
+    }
+    scenario
+}
+
 fn recording_start_for_dynamic_scenario(scenario: &DynamicScenario) -> recording::RecordingStart {
     recording::RecordingStart {
         warp_level: scenario.warp_to_level,
@@ -2482,11 +2492,12 @@ mod tests {
         ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
         gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
         parse_input_spec, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_start_for_dynamic_scenario,
-        selected_reference_repos,
+        record_scenario_file_command, recording_scenario_manifest,
+        recording_start_for_dynamic_scenario, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
+    use crate::recording;
     use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
@@ -3957,6 +3968,33 @@ AddrTbl_LevelNames:
         assert!(
             start.settled,
             "warp scenarios run after the level-load prelude and should start settled"
+        );
+    }
+
+    #[test]
+    fn recording_scenario_manifest_marks_settled_warp_for_standalone_oracle_replay() {
+        let scenario = DynamicScenario {
+            slug: "walk_right_00".into(),
+            script: vec![0, 8, 8],
+            frame_count: 3,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            warp_to_level: Some(0x00),
+            settle_oracle_warp: false,
+        };
+        let start = recording::RecordingStart {
+            warp_level: Some(0x00),
+            settled: true,
+            record_frames: None,
+        };
+
+        let manifest_scenario = recording_scenario_manifest(scenario, start);
+
+        assert!(
+            manifest_scenario.settle_oracle_warp,
+            "record-scenario exports scenario.json for direct verify-tas use, so warped settled recordings must carry their oracle bootstrap"
         );
     }
 
