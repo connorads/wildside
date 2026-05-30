@@ -1089,8 +1089,8 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len() + 1,
-            "native AoE kill path must refresh the trace roster with the visual Dragon_Flying.asm loc_3492C death object"
+            runtime.active_enemies.len() + 2,
+            "native AoE kill path must refresh the trace roster with the visual Dragon_Flying.asm loc_3492C death object and Robot.asm loc_3A7EE head child"
         );
 
         runtime.step_pending_dragon_death_children();
@@ -1105,8 +1105,8 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len() + 1,
-            "native pending child spawn must keep the visual Dragon_Flying.asm loc_3492C death object until stru_345E4 finishes"
+            runtime.active_enemies.len() + 2,
+            "native pending child spawn must keep the visual Dragon_Flying.asm loc_3492C death object and Robot.asm loc_3A7EE head child until stru_345E4 finishes"
         );
     }
 
@@ -8800,6 +8800,32 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn robot_live_roster_exposes_head_child_from_loc_3a7ee() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut robot = test_enemy(EnemyFamily::Robot, 0x0080_0000, 0x0040_0000, 1);
+        robot.facing = Direction::Right;
+        runtime.active_enemies = vec![robot];
+        runtime.rebuild_active_enemy_roster();
+
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            2,
+            "ASM Robot.asm loc_3A7EE allocates a linked head object at `$3A(a5)`, so live traces/rendering should not collapse Robot to one object"
+        );
+        assert_eq!(runtime.active_enemy_roster[1].x_pos, robot.x_pos);
+        assert_eq!(
+            runtime.active_enemy_roster[1].y_pos,
+            robot.y_pos - (0x10 << 16),
+            "ASM Robot.asm loc_3A82E subtracts `$10` from the child head y_pos"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster[1].facing,
+            Some(Direction::Right),
+            "ASM Robot.asm loc_3A820 copies parent x_direction to the child head"
+        );
     }
 
     #[test]

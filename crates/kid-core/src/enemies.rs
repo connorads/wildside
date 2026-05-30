@@ -8832,6 +8832,39 @@ impl ActiveEnemy {
         }
 
         let (x_pos, y_pos, x_velocity, facing) = match self.family {
+            EnemyFamily::Robot => {
+                // ASM Robot.asm loc_3A7EE/loc_3A816 allocates the linked head
+                // object at `$3A(a5)`, copies parent x/y/direction, then
+                // subtracts `$10` from child y_pos before `stru_3A716`.
+                let parent_x_direction = match self.facing {
+                    Direction::Left => 0x00,
+                    Direction::Right => 0xFF,
+                };
+                let attachment =
+                    shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+                        family: self.family,
+                        parent_x_pos: (self.x_pos >> 16) as i16,
+                        parent_y_pos: (self.y_pos >> 16) as i16,
+                        parent_x_direction,
+                        child_y_offset: 0x10,
+                        robot_parent_state: 0,
+                        robot_child_mapping: 0x0800,
+                        child_x_direction: parent_x_direction,
+                    })
+                    .primary;
+                (
+                    u32::from(attachment.x_pos as u16) << 16,
+                    u32::from(attachment.y_pos as u16) << 16,
+                    attachment.x_velocity,
+                    attachment.x_direction.map(|x_direction| {
+                        if x_direction == 0 {
+                            Direction::Left
+                        } else {
+                            Direction::Right
+                        }
+                    }),
+                )
+            }
             EnemyFamily::Tank | EnemyFamily::TankShooting => {
                 // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
                 // linked turret gfx object at `$3A(a5)`, then the shared walker
