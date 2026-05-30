@@ -49,6 +49,12 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::TankBullet {
         return ActiveProjectileKind::TankBullet;
     }
+    if projectile.kind == EnemyProjectileKind::RobotShot {
+        return ActiveProjectileKind::RobotShot;
+    }
+    if projectile.kind == EnemyProjectileKind::RobotShotImpact {
+        return ActiveProjectileKind::RobotShotImpact;
+    }
     if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
         return ActiveProjectileKind::DragonFlyingDescentFire;
     }
@@ -107,6 +113,29 @@ mod tests {
             ingame_assets: Vec::new(),
             decoded_levels: Vec::new(),
         }
+    }
+
+    #[test]
+    fn trace_reports_robot_shot_and_impact_kinds_loc_3ac0c_3ac92() {
+        let shot = EnemyProjectile {
+            kind: EnemyProjectileKind::RobotShot,
+            ..EnemyProjectile::default()
+        };
+        assert_eq!(
+            active_projectile_kind(&shot),
+            ActiveProjectileKind::RobotShot,
+            "ASM Robot.asm loc_3AC0C initialises the live flying shot; trace must not collapse it to Generic"
+        );
+
+        let impact = EnemyProjectile {
+            kind: EnemyProjectileKind::RobotShotImpact,
+            ..EnemyProjectile::default()
+        };
+        assert_eq!(
+            active_projectile_kind(&impact),
+            ActiveProjectileKind::RobotShotImpact,
+            "ASM Robot.asm loc_3AC92 initialises `stru_3A762`; trace must preserve that render state"
+        );
     }
 
     #[test]

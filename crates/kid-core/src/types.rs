@@ -92,6 +92,12 @@ pub enum ActiveProjectileKind {
     /// Shooting RockTank bullet: ASM `Tank_Shooting.asm loc_3B730`
     /// initialises `stru_3B526` as a hostile horizontal child.
     TankBullet,
+    /// Robot shot projectile: ASM `Robot.asm loc_3AC0C` initialises
+    /// `stru_3A754` as the flying shot animation.
+    RobotShot,
+    /// Robot shot impact: ASM `Robot.asm loc_3AC92` initialises
+    /// `stru_3A762` and deletes once the three impact frames finish.
+    RobotShotImpact,
     /// Flying Dragon descent fire child: ASM `Dragon_Flying.asm loc_34BAC`
     /// runs a startup sprite, travel loop, and two-stage cleanup.
     DragonFlyingDescentFire,

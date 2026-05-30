@@ -10,7 +10,9 @@ const SHOOTER_BLOCK_PROJECTILE_COLOUR: [u8; 3] = [255, 216, 72];
 const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
+const ROBOT_SHOT_IMPACT_LIFETIME_LOC_3A762: u16 = 3 + 4 + 8;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
+const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
@@ -128,6 +130,40 @@ fn tank_bullet_child_frame(
         origin_y: 0x00,
         width_px,
         height_px: 0x05,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn robot_shot_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+    impact: bool,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = if impact {
+        let elapsed_frames = ROBOT_SHOT_IMPACT_LIFETIME_LOC_3A762.saturating_sub(remaining_frames);
+        if elapsed_frames < 3 {
+            // ASM Robot.asm `stru_3A762`: first impact frame `LnkTo_unk_C8260`.
+            (0x000, 0x08, 0x00, 0x10, 0x10)
+        } else if elapsed_frames < 7 {
+            // ASM Robot.asm `stru_3A762`: second impact frame `LnkTo_unk_C8268`.
+            (0x004, 0x0A, 0x00, 0x14, 0x14)
+        } else {
+            // ASM Robot.asm `stru_3A762`: final impact frame `LnkTo_unk_C8270`.
+            (0x00D, 0x0B, 0x00, 0x16, 0x16)
+        }
+    } else {
+        // ASM Robot.asm loc_3AC0C initialises `stru_3A754` for the flying shot.
+        // Native currently lacks the shot animation clock, so keep the first
+        // ROM frame visible instead of the legacy generic projectile dot.
+        (0x016, 0x03, 0x00, 0x1F, 0x06)
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
         tile_base_index,
         tile_sheet,
     })
@@ -3430,6 +3466,44 @@ fn build_game_scene_filtered(
                             y: sy - 3,
                             width: 8,
                             height: 5,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
+                }
+                ActiveProjectileKind::RobotShot | ActiveProjectileKind::RobotShotImpact => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&ROBOT_OBJECT_TYPE)
+                        .and_then(|robot_visuals| {
+                            let impact = projectile.kind == ActiveProjectileKind::RobotShotImpact;
+                            let frame = robot_shot_child_frame(
+                                robot_visuals,
+                                projectile.remaining_frames,
+                                impact,
+                            )?;
+                            let facing = if !impact && projectile.x_velocity > 0 {
+                                Direction::Right
+                            } else {
+                                Direction::Left
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(robot_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 3,
+                            width: 8,
+                            height: 6,
                             colour: ENEMY_PROJECTILE_COLOUR,
                         });
                     }
