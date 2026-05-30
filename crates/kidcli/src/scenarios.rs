@@ -447,6 +447,55 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
     }
 }
 
+/// Focused 2026-05-30 playtest repro for the first Blue Lake Woods 1
+/// up-right slope.
+///
+/// This starts directly on the ROM `$4000` SlopeUp cell around layout
+/// column 47 / row 14 and holds Right without jump noise. It is intentionally
+/// probe-shaped, not a broad traversal route: state checkpoints include frame
+/// 0 so native/oracle can prove whether the patched live object and camera
+/// begin from the same gameplay window before slope animation/facing diverges.
+pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 120;
+    const RIGHT: u8 = 1 << 3;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, FRAME_COUNT.saturating_sub(1), RIGHT);
+
+    DynamicScenario {
+        slug: "level_00_slope_right_probe".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "slope_probe_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "slope_first_step".into(),
+                frame_index: 1,
+            },
+            DynamicCheckpoint {
+                label: "slope_anim_window".into(),
+                frame_index: 16,
+            },
+            DynamicCheckpoint {
+                label: "slope_mid".into(),
+                frame_index: 60,
+            },
+            DynamicCheckpoint {
+                label: "slope_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 760, y: 231 }),
+        camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
+        playtest_form: None,
+        warp_to_level: Some(0x00),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right and jump to headbutt prize blocks on level 0x00.
 /// The prize blocks in Blue Lake Woods 1 are above the starting position;
 /// the script walks right briefly then jumps under them.
@@ -929,7 +978,8 @@ mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
         enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
-        prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+        walk_right_scenario,
     };
 
     #[test]
@@ -1362,6 +1412,47 @@ mod tests {
             .expect("checkpoints");
         assert!(scenario.frame_count > max_cp);
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn level_00_slope_right_probe_starts_on_first_level_slope() {
+        let scenario = level_00_slope_right_probe_scenario();
+
+        assert_eq!(scenario.slug, "level_00_slope_right_probe");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 760, y: 231 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 608, y: 32 })
+        );
+        assert_eq!(scenario.frame_count, 120);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert!(
+            scenario
+                .script
+                .iter()
+                .take(scenario.frame_count)
+                .all(|buttons| buttons & (1 << 3) != 0),
+            "slope probe must hold Right throughout the sampled window"
+        );
+        assert_eq!(
+            scenario
+                .checkpoints
+                .iter()
+                .map(|checkpoint| checkpoint.label.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "slope_probe_start",
+                "slope_first_step",
+                "slope_anim_window",
+                "slope_mid",
+                "slope_tail",
+            ]
+        );
     }
 
     #[test]

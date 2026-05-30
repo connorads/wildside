@@ -61,7 +61,8 @@ use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario, idle_level_scenario,
-    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+    walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -88,6 +89,8 @@ enum RecordScenarioKind {
     WalkRight,
     /// walk right and jump under prize blocks.
     PrizeBlock,
+    /// start on Blue Lake Woods 1's first `$4000` slope and hold Right.
+    Level00SlopeRightProbe,
     /// run + aggressive jumps to maximise enemy stomps.
     StompEnemy,
     /// idle 10 s in-arena to sample enemy roster across the spawn window —
@@ -839,13 +842,11 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            ensure_level_layouts(&rom_path, &manifest, &[level])?;
             let dynamic = build_record_scenario(scenario, level, walk_frames);
-            let start = recording::RecordingStart {
-                warp_level: Some(level),
-                settled: true,
-                record_frames: None,
-            };
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            let start = recording_start_for_dynamic_scenario(&dynamic);
             let trace = recording::run_recorded_trace(&manifest, start, &dynamic)?;
             let record_to = repo_root
                 .join(".cache/recordings")
@@ -2155,6 +2156,7 @@ fn build_record_scenario(
         RecordScenarioKind::Idle => idle_level_scenario(level, walk_frames),
         RecordScenarioKind::WalkRight => walk_right_scenario(level, walk_frames.unwrap_or(300)),
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
+        RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
     }
@@ -2186,6 +2188,7 @@ fn record_scenario_command(
         RecordScenarioKind::Idle => "idle",
         RecordScenarioKind::WalkRight => "walk-right",
         RecordScenarioKind::PrizeBlock => "prize-block",
+        RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
         RecordScenarioKind::StompEnemy => "stomp-enemy",
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
     };
@@ -3874,6 +3877,26 @@ AddrTbl_LevelNames:
                 );
             }
         }
+    }
+
+    #[test]
+    fn build_record_scenario_level_00_slope_probe_uses_named_window() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::Level00SlopeRightProbe, 0x05, None);
+
+        assert_eq!(scenario.slug, "level_00_slope_right_probe");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x00),
+            "named Level 00 slope probe must not accidentally follow the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((760, 231))
+        );
     }
 
     #[test]
