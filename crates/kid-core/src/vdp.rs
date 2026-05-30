@@ -1341,6 +1341,7 @@ const INTRO_TEXT_2_BYTES: &[u8] =
 const INTRO_TEXT_3_BYTES: &[u8] = b"\xFE\x20EVERYBODY PLAYED IT\x66\xFF";
 const INTRO_TEXT_4_BYTES: &[u8] = b"\xFE\x20BUT IT WAS A LITTLE TOO REAL\x66\xFD\xFD\xFE\x40THE BOSS ESCAPED\x68 AND BEGAN\xFDCAPTURING KIDS BY DEFEATING\xFDTHEM AT THE GAME\x66\xFF";
 const INTRO_TEXT_5_BYTES: &[u8] = b"\xFE\x20THIS IS THE\xFDSTORY OF\xFDSOMEONE TOO\xFDTOUGH TO BEAT\x66\xFD\xFD\xFE\x60SOMEONE KNOWN\xFDAS\x66\x66\x66\xFF";
+const SEGA_TEXT_BYTES: &[u8] = b"\x6B\x6C\x5C\x64\x64\x5D SEGA\xFF";
 
 const INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0: u16 = 0x67C0;
 
@@ -1400,6 +1401,19 @@ fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0
     }
 }
 
+fn title_sega_text_script_loc_1c7a0() -> IntroTextScriptLoc1C7A0 {
+    // ASM SegaText (kid.asm:31398): header `(0,$67D3,0,$19,$19)` followed by
+    // the copyright glyph pair, `1992 SEGA`, and `$FF`.
+    IntroTextScriptLoc1C7A0 {
+        base_vram_byte_address: 0x0000,
+        base_tile_word: 0x67D3,
+        delay_frames: 0,
+        x_pos: 0x19,
+        y_pos: 0x19,
+        text_bytes: SEGA_TEXT_BYTES,
+    }
+}
+
 fn overlay_intro_text_worker_loc_1c7a0(vdp: &mut VdpState, segment: usize, elapsed: usize) {
     let Some(script) = intro_text_script_loc_1c7a0(segment) else {
         return;
@@ -1416,6 +1430,19 @@ fn overlay_intro_text_worker_loc_1c7a0(vdp: &mut VdpState, segment: usize, elaps
     let Some(worker_elapsed) = elapsed.checked_sub(start_elapsed) else {
         return;
     };
+    replay_intro_text_worker_loc_1c7a0(vdp, &script, worker_elapsed);
+}
+
+fn overlay_title_sega_text_worker_loc_1c7a0(vdp: &mut VdpState, elapsed: usize) {
+    // ASM loc_1B6AC hibernates 30 frames, loc_1B6CE reveals Chameleon for 40
+    // frames, and loc_1B6DC spawns SegaText when its preserved counter reaches
+    // `$1E`. The loc_1C7A0 worker then performs its own initial one-frame
+    // hibernate before writing this zero-delay text in one pass.
+    const TITLE_SEGA_TEXT_WORKER_START_ELAPSED: usize = 30 + 40 + 30 + 1;
+    let Some(worker_elapsed) = elapsed.checked_sub(TITLE_SEGA_TEXT_WORKER_START_ELAPSED) else {
+        return;
+    };
+    let script = title_sega_text_script_loc_1c7a0();
     replay_intro_text_worker_loc_1c7a0(vdp, &script, worker_elapsed);
 }
 
@@ -2331,6 +2358,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
     if title_ready {
         append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
         write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames);
+        overlay_title_sega_text_worker_loc_1c7a0(&mut vdp, title_elapsed_frames);
     }
     if let Some(cursor) = menu_cursor {
         write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
@@ -4516,6 +4544,48 @@ mod tests {
             vram_word(&vdp, 0x098A),
             29,
             "ASM sub_1B79E advances the next reveal row by one 64-cell nametable row"
+        );
+    }
+
+    #[test]
+    fn title_screen_vdp_loc_1b6dc_replays_sega_text_after_chameleon_reveal() {
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![0; 7 * 29], vec![], vec![]],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let early = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+            &data, 0, 0, None, true, 101,
+        );
+        let copyright_write =
+            kid_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x19, 0x19, 0x2A);
+        assert_eq!(
+            vram_word(&early, usize::from(copyright_write.vram_word_address)),
+            0x20BC,
+            "ASM loc_1C7A0 should still spend its initial one-frame hibernate before SegaText writes the copyright glyph"
+        );
+
+        let visible = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+            &data, 0, 0, None, true, 102,
+        );
+        assert_eq!(
+            vram_word(&visible, usize::from(copyright_write.vram_word_address)),
+            0x67FD,
+            "ASM SegaText starts with byte `$6B`, which sub_1C7F6 renders as base `$67D3` plus glyph `$2A`"
+        );
+        let sega_s_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x20, 0x19, 0x12);
+        assert_eq!(
+            vram_word(&visible, usize::from(sega_s_write.vram_word_address)),
+            0x67E5,
+            "ASM SegaText writes the `S` in `SEGA` after the copyright and year glyphs"
         );
     }
 

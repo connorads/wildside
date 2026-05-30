@@ -2906,6 +2906,7 @@ pub fn title_screen_character_load_plan_sub_1BF24(
         "unk_2EE54",
         "unk_2EF2C",
     ];
+    const DEFAULT_FRAME_WIDTHS: [u16; 8] = [0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x11];
     const REGION_1_FRAME_LABELS: [&str; 7] = [
         "unk_2F306",
         "unk_2F374",
@@ -2915,6 +2916,7 @@ pub fn title_screen_character_load_plan_sub_1BF24(
         "unk_2F674",
         "unk_2F76A",
     ];
+    const REGION_1_FRAME_WIDTHS: [u16; 7] = [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0E];
     const REGION_2_FRAME_LABELS: [&str; 7] = [
         "unk_2EF92",
         "unk_2EFFE",
@@ -2924,18 +2926,29 @@ pub fn title_screen_character_load_plan_sub_1BF24(
         "unk_2F242",
         "unk_2F2D0",
     ];
+    const REGION_2_FRAME_WIDTHS: [u16; 7] = [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10];
 
     let region_variant = TitleScreenRegionVariantSub1B2A4::from_region_byte(region_byte);
-    let asset_label = if frame_index == 0 {
-        DEFAULT_FRAME_LABELS[0]
+    let (asset_label, width_words) = if frame_index == 0 {
+        (DEFAULT_FRAME_LABELS[0], DEFAULT_FRAME_WIDTHS[0])
     } else {
         let bank_index = usize::from(frame_index as u8 - 1);
         match region_variant {
             TitleScreenRegionVariantSub1B2A4::Default => {
-                DEFAULT_FRAME_LABELS[usize::from(frame_index as u8)]
+                let frame_index = usize::from(frame_index as u8);
+                (
+                    DEFAULT_FRAME_LABELS[frame_index],
+                    DEFAULT_FRAME_WIDTHS[frame_index],
+                )
             }
-            TitleScreenRegionVariantSub1B2A4::Variant1 => REGION_1_FRAME_LABELS[bank_index],
-            TitleScreenRegionVariantSub1B2A4::Variant2 => REGION_2_FRAME_LABELS[bank_index],
+            TitleScreenRegionVariantSub1B2A4::Variant1 => (
+                REGION_1_FRAME_LABELS[bank_index],
+                REGION_1_FRAME_WIDTHS[bank_index],
+            ),
+            TitleScreenRegionVariantSub1B2A4::Variant2 => (
+                REGION_2_FRAME_LABELS[bank_index],
+                REGION_2_FRAME_WIDTHS[bank_index],
+            ),
         }
     };
 
@@ -2945,7 +2958,7 @@ pub fn title_screen_character_load_plan_sub_1BF24(
         tilemap_load: SymbolicEnigmaTilemapLoadSub1BF24 {
             vram_word_address: if frame_index == 0 { 0x20C1 } else { 0x210F },
             asset_label,
-            width_words: 18,
+            width_words,
             height_words: 20,
         },
         plane_upload: PlaneRectUploadSub1BF24 {
@@ -7522,8 +7535,20 @@ AddrTbl_LevelNames:   ;1A842
 
         assert_eq!(default_plan.tilemap_load.vram_word_address, 0x210F);
         assert_eq!(default_plan.tilemap_load.asset_label, "unk_2EF2C");
+        assert_eq!(
+            default_plan.tilemap_load.width_words, 0x11,
+            "ASM off_1BFB0 gives Red Stealth frame 7 a narrower `$11` tile width"
+        );
         assert_eq!(region_1_plan.tilemap_load.asset_label, "unk_2F76A");
+        assert_eq!(
+            region_1_plan.tilemap_load.width_words, 0x0E,
+            "ASM off_1BFB0 gives Maniaxe frame 7 width `$0E`"
+        );
         assert_eq!(region_2_plan.tilemap_load.asset_label, "unk_2F2D0");
+        assert_eq!(
+            region_2_plan.tilemap_load.width_words, 0x10,
+            "ASM off_1BFB0 gives Juggernaut frame 7 width `$10`"
+        );
     }
 
     #[test]
