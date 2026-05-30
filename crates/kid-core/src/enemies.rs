@@ -17665,7 +17665,9 @@ pub(crate) fn step_ninja(
         }
         NinjaState::JumpAttack => {
             let airborne_tick = ninja_jump_attack_airborne_tick_loc_3d9da(enemy.y_velocity);
-            enemy.y_velocity = airborne_tick.y_velocity.min(physics::MAX_FALL_SPEED);
+            // ASM Ninja.asm loc_3D9DA: `addi.l #$2800,y_vel(a3)` is uncapped;
+            // the shared native max-fall clamp belongs to other approximated paths.
+            enemy.y_velocity = airborne_tick.y_velocity;
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;

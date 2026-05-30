@@ -201,8 +201,8 @@ Flat wait_timer + single >112px overshoot instead of ±$60/±$70 engagement wind
 **Mini_Hopping_Skull — post-landing facing-flip re-orientation pause not reproduced** (`loc_3F000 / loc_3F074 / loc_3F090 / loc_3F09E`)
 ROM flips x_direction and restarts the grounded wait until facing matches Kid; native sets facing once + 21-frame countdown. `enemies.rs:14932-14956/9182`; helpers `enemies.rs:14464/14547/14848` test-only.
 
-**Ninja — jump-attack airborne loop omits ceiling/kid-above branches + uses generic gravity cap** (`loc_3D9DA / loc_3DA0C / loc_3DAB0 / loc_3DA98`)
-ROM gravity is uncapped; native clamps with `MAX_FALL_SPEED` and handles only wall/floor (no ceiling reflection, no kid-above). `enemies.rs:16645/16643-16693`; dispatcher `enemies.rs:15842/15955/16109` unused.
+**Ninja — jump-attack airborne loop omits ceiling/kid-above branches** (`loc_3DA0C / loc_3DAB0 / loc_3DA98`)
+Native handles only wall/floor contact during jump attack; ceiling reflection and Kid-above contact remain helper-only. `enemies.rs:17664-17710`; dispatcher `enemies.rs:16846/16960/17132` unused.
 
 **Ninja — far-Kid facing turn during pacing not applied** (`loc_3D92A / loc_3D978 / loc_3D98A`)
 ROM turns to face Kid when >$80 away; native sets facing only inside the attack trigger. `enemies.rs:16614-16641`, `enemies.rs:16306` test-only.

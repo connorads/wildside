@@ -9474,6 +9474,22 @@ mod chunk_04 {
         assert!(enemy.on_ground);
     }
 
+    #[test]
+    fn ninja_jump_attack_live_gravity_is_uncapped_loc_3d9da() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 50 << 16, 80 << 16, 2);
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.y_velocity = physics::MAX_FALL_SPEED;
+        enemy.on_ground = false;
+
+        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid);
+
+        assert_eq!(
+            enemy.y_velocity,
+            physics::MAX_FALL_SPEED + NINJA_GRAVITY,
+            "ASM Ninja.asm loc_3D9DA adds `$2800` to y_vel without the shared native max-fall clamp"
+        );
+    }
+
     // --- Hand ---
 
     #[test]
