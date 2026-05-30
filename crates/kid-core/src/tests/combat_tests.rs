@@ -12063,7 +12063,7 @@ mod chunk_05 {
     }
 
     #[test]
-    fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
+    fn shooter_block_sub_f096_restarts_per_slot_cadence_while_kid_stays_in_range_loc_f326() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
@@ -12092,8 +12092,19 @@ mod chunk_05 {
 
         runtime.step_shooter_blocks(&slice);
         assert!(
-            runtime.block_state.shooter_blocks.is_empty(),
-            "the worker should expire once its 22-frame slot lifetime ends"
+            !runtime.block_state.shooter_blocks.is_empty(),
+            "ASM loc_F326 (kid.asm:19914) should restart the active shooter slot when sub_F536 says Kid is still in range"
+        );
+        assert_eq!(
+            runtime.block_state.shooter_blocks[0].age, 0,
+            "native folds the restarted `$A(a0)=1` slot phase back into the age-zero firing state"
+        );
+
+        runtime.step_shooter_blocks(&slice);
+        assert_eq!(
+            runtime.projectiles.len(),
+            2,
+            "the restarted shooter slot should fire again without requiring Kid to cross a fresh scan boundary"
         );
     }
 
@@ -12304,7 +12315,7 @@ mod chunk_05 {
         runtime.block_state.shooter_last_scanned_row = 3;
 
         let mut slice = shooter_test_slice(0, 0);
-        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.x_pos = 0;
         slice.player.y_pos = (3 * 16) << 16;
         runtime.step_shooter_blocks(&slice);
 

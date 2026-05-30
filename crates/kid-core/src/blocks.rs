@@ -2303,7 +2303,8 @@ impl NativeRuntime {
     /// Shooter blocks (type 0x8): fire projectiles in directions encoded in the
     /// skin byte (bit 0=up, 1=right, 2=down, 3=left). Speed: 4px/frame.
     /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock registers each visible
-    /// shooter once, fires on age 0, then frees the slot again at age $16.
+    /// shooter once, fires on age 0, then reaches loc_F326 at age $16 to
+    /// restart while Kid remains inside the sub_F536 shooter range.
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
     const SHOOTER_SLOT_COUNT: usize = 20;
@@ -2775,10 +2776,29 @@ impl NativeRuntime {
             }
 
             entry.age += 1;
-            // ASM loc_F336 (kid.asm:19921): the ROM unlinks expired active
-            // shooter slots back to `$FFFFF8C4`; native's retain false path is
-            // the same active-list removal in Vec form.
-            entry.age < Self::SHOOTER_FIRE_INTERVAL
+            if entry.age < Self::SHOOTER_FIRE_INTERVAL {
+                return true;
+            }
+
+            let player_in_range = Self::shooter_player_in_range_sub_F536(
+                slice.player.x_pos,
+                slice.player.y_pos,
+                entry.col,
+                entry.row,
+            );
+            if Self::shooter_slot_restart_phase_loc_F326(player_in_range).is_some() {
+                // ASM loc_F326 (kid.asm:19914): while sub_F536 keeps Kid in
+                // range, the ROM writes phase `$A(a0)=1` and leaves the active
+                // slot linked. Native folds the slot phase table into `age`, so
+                // restarting means the slot fires again on its next live tick.
+                entry.age = 0;
+                true
+            } else {
+                // ASM loc_F336 (kid.asm:19921): the ROM unlinks expired active
+                // shooter slots back to `$FFFFF8C4`; native's retain false path
+                // is the same active-list removal in Vec form.
+                false
+            }
         });
     }
 
