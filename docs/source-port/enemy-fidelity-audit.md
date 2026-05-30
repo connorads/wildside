@@ -23,7 +23,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | partial | 5 |
-| Lion (0x12) | partial | 4 |
+| Lion (0x12) | partial | 3 |
 | Mini_Hopping_Skull (0x1C) | partial | 5 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 4 |
@@ -194,9 +194,6 @@ Grab fires on distance/height only; no crawl/Juggernaut/already-grabbed check. `
 
 **Hand — post-grab release re-jump skips the loc_3639E free-space check** (`loc_32970`)
 Unconditional re-jump; no clearance probe / destroy-if-blocked. `enemies.rs:17625-17643`; `emo_rock_clearance_probe_loc_3639e` only wired for Emo_Rock (`enemies.rs:23495`).
-
-**Lion — roar windup + deferred projectile spawn not reproduced** (`loc_3E078 / loc_3E09E`)
-Native fires same-frame on timer expiry; no roar animation gate. LionState lacks a roar state. `enemies.rs:17738-17766/6290-6296`; gate `enemies.rs:1498` test-only.
 
 **Lion — charge is purely horizontal; ledge-launch leap with gravity not reproduced** (`loc_3E682 / loc_3E6AE / loc_3E6F6 / loc_3E732`)
 Charging arm advances x only; no y_vel/gravity/$180000 cap or floor-landing snap. `enemies.rs:17771-17823`; charge-physics helpers `enemies.rs:1909/1960/2040/2071` test-only.

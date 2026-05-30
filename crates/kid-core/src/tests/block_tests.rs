@@ -10158,11 +10158,26 @@ mod chunk_04 {
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         // Timer ticked to 0 but hasn't charged yet (timer was 1, decremented to 0)
         assert_eq!(enemy.lion_state, LionState::Walking);
-        // One more step with timer at 0 should trigger charge
+        // One more step with timer at 0 should start the roar wind-up.
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
-        assert_eq!(enemy.lion_state, LionState::Charging);
+        assert_eq!(enemy.lion_state, LionState::Roaring);
+        assert!(projs.is_empty());
+
+        for _ in 0..=LION_ROAR_FIRE_DELAY {
+            step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        }
+        assert_eq!(enemy.lion_state, LionState::PostFire);
         assert_eq!(enemy.facing, Direction::Right);
-        assert_eq!(projs.len(), 1, "should fire projectile when charging");
+        assert_eq!(
+            projs.len(),
+            1,
+            "should fire projectile at the roar fire sprite"
+        );
+
+        for _ in 0..=LION_POST_FIRE_RESUME_DELAY {
+            step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        }
+        assert_eq!(enemy.lion_state, LionState::Charging);
     }
 
     #[test]
@@ -10181,13 +10196,40 @@ mod chunk_04 {
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         assert_eq!(
             enemy.lion_state,
-            LionState::Charging,
-            "ASM charges unconditionally on timer expiry — no distance gate"
+            LionState::Roaring,
+            "ASM starts the roar unconditionally on timer expiry — no distance gate"
         );
+        for _ in 0..=LION_ROAR_FIRE_DELAY {
+            step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        }
         assert_eq!(
             projs.len(),
             1,
             "should fire projectile even when Kid is far"
+        );
+    }
+
+    #[test]
+    fn lion_timer_expiry_enters_roar_before_projectile_loc_3e078_3e09e() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        let player_x = Some((60 + 0x50) << 16);
+        let mut projs = vec![];
+
+        step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+
+        assert_eq!(
+            enemy.lion_state,
+            LionState::Roaring,
+            "ASM Lion.asm loc_3E078 starts stru_3DF0E; loc_3E09E waits for LnkTo_unk_C7E78 before firing"
+        );
+        assert!(
+            projs.is_empty(),
+            "ASM Lion.asm loc_3E09E should not allocate the projectile on the timer-expiry frame"
         );
     }
 

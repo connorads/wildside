@@ -6328,6 +6328,10 @@ pub(crate) enum LionState {
     /// Walking patrol, checking for player in range.
     #[default]
     Walking,
+    /// Roar wind-up before the projectile fire sprite.
+    Roaring,
+    /// Post-projectile roar animation before the charge resumes.
+    PostFire,
     /// Charging toward the player at high speed.
     Charging,
 }
@@ -18715,6 +18719,12 @@ pub(crate) const LION_CHARGE_TIMER_INIT: u16 = 60;
 /// Lion post-projectile cooldown: $B4 (180 frames) before next charge after
 /// firing a projectile (Lion.asm loc_3E096).
 pub(crate) const LION_COOLDOWN_AFTER_FIRE: u16 = 180;
+/// Lion.asm `stru_3DF0E`: seven 6-tick roar frames before `loc_3E09E`
+/// sees `LnkTo_unk_C7E78` and allocates the projectile.
+pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6;
+/// Lion.asm `loc_3E0F4` waits for the remaining fire frame plus
+/// `LnkTo_unk_C7E80` before restoring `$62(a5)` and charging.
+pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 3 + 0x19;
 
 /// Lion charge overshoot distance for termination: $70 (112px).
 /// ASM does not use a fixed duration — charge ends when Lion overshoots
@@ -18740,6 +18750,48 @@ fn lion_active_projectile_count(enemy: &ActiveEnemy) -> u8 {
 
 fn increment_lion_active_projectile_count(enemy: &mut ActiveEnemy) {
     enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_add(1);
+}
+
+fn fire_lion_projectile_loc_3e09e(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: u32,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    let dispatch = lion_roar_wait_dispatch_loc_3e09e(
+        0,
+        true,
+        fixed_position_integer_word(enemy.x_pos),
+        fixed_position_integer_word(player_x_pos),
+    );
+    let LionRoarWaitDispatch::ReadyToFire { facing, .. } = dispatch else {
+        return;
+    };
+
+    enemy.facing = facing;
+    if let Some(projs) = projectiles {
+        let tail = lion_projectile_launch_tail_loc_3e180(enemy.facing);
+        let proj_x = (enemy.x_pos as i64 + ((i64::from(tail.x_offset_pixels)) << 16)) as u32;
+        let proj_y = (enemy.y_pos as i64 - ((i64::from(LION_PROJECTILE_Y_OFFSET)) << 16)) as u32;
+        projs.push(EnemyProjectile {
+            x_pos: proj_x,
+            y_pos: proj_y,
+            x_velocity: tail.x_velocity,
+            y_velocity: 0,
+            lifetime: 120,
+            gravity: 0,
+            friendly: false,
+            homing_accel: 0x2000,             // Lion.asm loc_3E1C2
+            speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
+            wall_bounce: true,                // Lion.asm loc_3E260
+            owner: Some(EnemyProjectileOwner {
+                segment_index: enemy.segment_index,
+                layout_index: enemy.layout_index,
+                token: enemy.ufo_beam_interval,
+            }),
+            ..Default::default()
+        });
+        increment_lion_active_projectile_count(enemy);
+    }
 }
 
 /// Step a Lion enemy: paces normally, then charges toward player and fires a
@@ -18771,57 +18823,39 @@ pub(crate) fn step_lion(
                 return;
             }
 
-            // Timer expired — face the player and start charging.
-            // ASM loc_3E0D6/loc_3E0DA: after roar, always turns toward Kid.
-            let Some(px) = player_x_pos else {
-                // No player info (shouldn't happen in practice) — reload.
-                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+            // ASM Lion.asm loc_3E078 starts `stru_3DF0E`; loc_3E09E
+            // hibernates until the fire sprite before allocating the shot.
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.lion_state = LionState::Roaring;
+            enemy.wait_timer = LION_ROAR_FIRE_DELAY;
+        }
+        LionState::Roaring => {
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
                 return;
-            };
-            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-
-            // Face the player and start charging
-            enemy.facing = if dx >= 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            };
-            enemy.lion_state = LionState::Charging;
-
-            // Fire a homing projectile toward the player (Lion.asm loc_3E12A).
-            // Spawns 10px ahead in X, 24px above in Y.
-            if let Some(projs) = projectiles {
-                let speed = LION_PROJECTILE_SPEED;
-                let (xv, x_off) = match enemy.facing {
-                    Direction::Right => (speed, LION_PROJECTILE_X_OFFSET),
-                    Direction::Left => (-speed, -LION_PROJECTILE_X_OFFSET),
-                };
-                let proj_x = (enemy.x_pos as i64 + ((x_off as i64) << 16)) as u32;
-                let proj_y =
-                    (enemy.y_pos as i64 - ((LION_PROJECTILE_Y_OFFSET as i64) << 16)) as u32;
-                projs.push(EnemyProjectile {
-                    x_pos: proj_x,
-                    y_pos: proj_y,
-                    x_velocity: xv,
-                    y_velocity: 0,
-                    lifetime: 120,
-                    gravity: 0,
-                    friendly: false,
-                    homing_accel: 0x2000,             // Lion.asm loc_3E1C2
-                    speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
-                    wall_bounce: true,                // Lion.asm loc_3E260
-                    owner: Some(EnemyProjectileOwner {
-                        segment_index: enemy.segment_index,
-                        layout_index: enemy.layout_index,
-                        token: enemy.ufo_beam_interval,
-                    }),
-                    ..Default::default()
-                });
-                increment_lion_active_projectile_count(enemy);
             }
 
-            // Post-fire cooldown is longer: $B4 (180 frames) at loc_3E096.
-            // The cooldown is applied when returning to walk after charge.
+            let Some(px) = player_x_pos else {
+                enemy.lion_state = LionState::Charging;
+                return;
+            };
+            fire_lion_projectile_loc_3e09e(enemy, px, projectiles);
+            enemy.lion_state = LionState::PostFire;
+            enemy.wait_timer = LION_POST_FIRE_RESUME_DELAY;
+        }
+        LionState::PostFire => {
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+            // ASM Lion.asm loc_3E0F4 restores `$62(a5)` before dispatching to
+            // loc_3E11E's direction-specific charge branch.
+            enemy.lion_state = LionState::Charging;
         }
         LionState::Charging => {
             // Move at charge speed
