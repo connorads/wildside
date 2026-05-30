@@ -4176,6 +4176,32 @@ fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObje
     Some(enemy.snapshot())
 }
 
+fn helmet_enemy_projectile_damage_target_snapshots(
+    enemy: &ActiveEnemy,
+) -> Vec<NativeObjectSnapshot> {
+    if matches!(enemy.family, EnemyFamily::Diamond) || enemy.hit_points == 0 {
+        return Vec::new();
+    }
+
+    if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+        // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B700 route
+        // projectile damage through the attached mouth/turret object, then
+        // apply the result to the parent.
+        return enemy.child_attachment_snapshot().into_iter().collect();
+    }
+
+    if matches!(enemy.family, EnemyFamily::Robot) {
+        // ASM Robot.asm loc_3A8AE checks parent `collision_type(a3)` first,
+        // then the linked head `$38(a2)`, and routes both `$1C/$2C` hits into
+        // loc_3A8FC. Native projectile damage must therefore scan both boxes.
+        let mut targets = vec![enemy.snapshot()];
+        targets.extend(enemy.child_attachment_snapshot());
+        return targets;
+    }
+
+    vec![enemy.snapshot()]
+}
+
 impl NativeRuntime {
     #[cfg(test)]
     #[allow(non_snake_case)]
@@ -5162,17 +5188,16 @@ impl NativeRuntime {
 
             let (hit_half_width, hit_half_height) = friendly_projectile_enemy_hit_extents(proj);
             for ei in 0..self.active_enemies.len() {
-                let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[ei])
-                else {
-                    continue;
-                };
-                let ex = (target.x_pos >> 16) as i32;
-                let ey = (target.y_pos >> 16) as i32;
-                let dx = (prx - ex).abs();
-                let dy = (pry - ey).abs();
-                if dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
-                    && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
-                {
+                let targets =
+                    helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
+                if targets.iter().any(|target| {
+                    let ex = (target.x_pos >> 16) as i32;
+                    let ey = (target.y_pos >> 16) as i32;
+                    let dx = (prx - ex).abs();
+                    let dy = (pry - ey).abs();
+                    dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
+                        && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
+                }) {
                     let enemy = &mut self.active_enemies[ei];
                     if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);
@@ -5194,17 +5219,16 @@ impl NativeRuntime {
             let pry = (slot.y_pos >> 16) as i32;
 
             for ei in 0..self.active_enemies.len() {
-                let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[ei])
-                else {
-                    continue;
-                };
-                let ex = (target.x_pos >> 16) as i32;
-                let ey = (target.y_pos >> 16) as i32;
-                let dx = (prx - ex).abs();
-                let dy = (pry - ey).abs();
-                if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
-                    && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
-                {
+                let targets =
+                    helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
+                if targets.iter().any(|target| {
+                    let ex = (target.x_pos >> 16) as i32;
+                    let ey = (target.y_pos >> 16) as i32;
+                    let dx = (prx - ex).abs();
+                    let dy = (pry - ey).abs();
+                    dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
+                        && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                }) {
                     let enemy = &mut self.active_enemies[ei];
                     if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);

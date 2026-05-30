@@ -6104,6 +6104,55 @@ mod chunk_06 {
     }
 
     #[test]
+    fn robot_head_projectile_damages_parent_loc_3a8ae() {
+        // ASM Robot.asm loc_3A8AE reads both the parent `collision_type(a3)`
+        // and the linked head `$38(a2)`. A projectile overlapping the head at
+        // `y-$10` must enter the parent hit reaction, not miss the Robot body.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 208 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Robot, 100 << 16, 224 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert!(
+            rt.active_enemies[0].damage_flash_frames > 0,
+            "ASM Robot.asm loc_3A8FC should run the live hit reaction after a linked-head hit"
+        );
+        assert!(rt.projectiles.is_empty());
+    }
+
+    #[test]
+    fn robot_body_projectile_still_damages_parent_loc_3a8ae() {
+        // ASM Robot.asm loc_3A8AE checks the parent collision word before the
+        // child head, so adding the linked-head target must not make body hits
+        // disappear.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 224 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Robot, 100 << 16, 224 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert!(rt.active_enemies[0].damage_flash_frames > 0);
+        assert!(rt.projectiles.is_empty());
+    }
+
+    #[test]
     fn tank_bullet_loc_3b7ba_deletes_after_leaving_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = combat_slice();
