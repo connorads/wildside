@@ -5874,6 +5874,8 @@ pub(crate) fn scorpion_collision_resume_loc_3dd5c(
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
+pub(crate) const ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE: u16 =
+    archer_shooting_cycle_delay_frames_loc_341BE();
 pub(crate) const ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A: i32 = -0x0004_0000;
 
 /// Arrow velocity table from Archer.asm `byte_3437A`.
@@ -6032,6 +6034,14 @@ pub(crate) fn archer_shooting_entry_loc_341BE(
             held_arrow_position_nudge_px: 3,
         },
     }
+}
+
+#[allow(non_snake_case)]
+pub(crate) const fn archer_shooting_cycle_delay_frames_loc_341BE() -> u16 {
+    // ASM Archer.asm loc_341BE walks three delay words before the zero fire
+    // sentinel. Each delay enters loc_34248 and is consumed by `dbf d3`, so
+    // the hibernated wait is `delay + 1` frames for `$64`, `$06`, and `$0C`.
+    (0x0064 + 1) + (0x0006 + 1) + (0x000C + 1)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24470,9 +24480,10 @@ pub(crate) fn step_archer(
         return;
     }
 
-    // Reset timer.
+    // Reset timer for the next shooting-table cycle. `arrow_accuracy` below is
+    // only the fired arrow's re-aim cadence, not the archer's shot cadence.
     let level = enemy.hit_points.saturating_sub(1).min(2) as usize;
-    enemy.wait_timer = ARCHER_FIRE_TIMER[level];
+    enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE;
 
     // Need player position to compute angle.
     let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
@@ -38644,8 +38655,9 @@ pub(crate) fn spawn_wait_timer(
         // later. Plain Tank.asm never fires.
         EnemyFamily::Tank => 0,
         EnemyFamily::TankShooting => TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
-        // Archer: fire first arrow after one full interval (HP1 rate).
-        EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
+        // ASM Archer.asm loc_341BE/loc_34248: first shot waits through the
+        // shooting-table pose delays, not the arrow_accuracy re-aim interval.
+        EnemyFamily::Archer => ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
         // Robot: ASM init $54(a5) low word = 1 (fires on 2nd frame).

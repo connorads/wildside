@@ -6726,7 +6726,10 @@ mod chunk_04 {
             projs[0].x_velocity > 0,
             "arrow should move toward player (right)"
         );
-        assert_eq!(enemy.wait_timer, ARCHER_FIRE_TIMER[0], "timer should reset");
+        assert_eq!(
+            enemy.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
+            "ASM loc_341BE/loc_34248 resets to the shooting-table pose delay, not arrow_accuracy"
+        );
     }
 
     #[test]
@@ -6920,6 +6923,23 @@ mod chunk_04 {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
         assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
+    }
+
+    #[test]
+    fn archer_shooting_cycle_delay_loc_341be_uses_pose_table_not_arrow_accuracy() {
+        assert_eq!(
+            archer_shooting_cycle_delay_frames_loc_341BE(),
+            0x79,
+            "ASM Archer.asm loc_341BE/loc_34248 waits `$64+1`, `$06+1`, and `$0C+1` DBF frames before the zero fire sentinel"
+        );
+        assert_eq!(
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
+            archer_shooting_cycle_delay_frames_loc_341BE()
+        );
+        assert!(
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE > ARCHER_FIRE_TIMER[0],
+            "arrow_accuracy must stay an arrow re-aim cadence, not the archer firing cadence"
+        );
     }
 
     // --- Archer arrow re-aiming (ASM loc_342D6 / loc_34308 / loc_34320) ---
@@ -7298,7 +7318,42 @@ mod chunk_04 {
         assert!(arrow.reaim_interval > 0, "arrows re-aim periodically");
         assert_eq!(
             arrow.reaim_interval, ARCHER_FIRE_TIMER[0],
-            "re-aim interval matches fire timer"
+            "re-aim interval matches Archer.asm arrow_accuracy"
+        );
+    }
+
+    #[test]
+    fn archer_live_step_waits_pose_table_delay_between_arrows_loc_341be() {
+        let mut enemy = test_enemy(EnemyFamily::Archer, 100 << 16, 100 << 16, 1);
+        enemy.wait_timer = ARCHER_FIRE_TIMER[0];
+        let mut projs = Vec::new();
+
+        for _ in 0..ARCHER_FIRE_TIMER[0] {
+            step_archer(
+                &mut enemy,
+                &mut projs,
+                Some(200u32 << 16),
+                Some(100u32 << 16),
+            );
+        }
+
+        assert!(
+            projs.is_empty(),
+            "ASM Archer.asm loc_341BE should not fire after only arrow_accuracy frames"
+        );
+
+        enemy.wait_timer = 0;
+        step_archer(
+            &mut enemy,
+            &mut projs,
+            Some(200u32 << 16),
+            Some(100u32 << 16),
+        );
+
+        assert_eq!(projs.len(), 1);
+        assert_eq!(
+            enemy.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
+            "live archer should reload the full pose-table delay after firing"
         );
     }
 
