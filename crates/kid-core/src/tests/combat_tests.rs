@@ -8798,6 +8798,7 @@ mod chunk_03 {
                 segment_index: tank.segment_index,
                 layout_index: tank.layout_index,
                 collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
             });
 
         runtime.apply_pending_enemy_collisions();
@@ -9333,6 +9334,75 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_parent_negative_collision_enters_loc_3a9d2_destroy_not_charge() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.layout_index = 17;
+        let killed_identity = (robot.segment_index, robot.layout_index);
+        runtime.active_enemies = vec![robot];
+        runtime.rebuild_active_enemy_roster();
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: robot.segment_index,
+                layout_index: robot.layout_index,
+                collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Robot.asm loc_3A8AE reads signed-negative parent `collision_type(a3)` as loc_3A9D2 destroy prep"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ROBOT_DEATH_ANIMATION_FRAMES
+        );
+        assert_ne!(runtime.active_enemies[0].robot_state, RobotState::Charging);
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Robot.asm loc_3A9D2 hibernates before loc_3C46E deletes the layout"
+        );
+    }
+
+    #[test]
+    fn robot_child_negative_collision_enters_loc_3a96c_charge_without_hp_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.facing = Direction::Right;
+        robot.layout_index = 18;
+        runtime.active_enemies = vec![robot];
+        runtime.rebuild_active_enemy_roster();
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: robot.segment_index,
+                layout_index: robot.layout_index,
+                collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::ChildAttachment,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Robot.asm loc_3A8AE reads signed-negative child `$38(a2)` as loc_3A96C charge entry, not deletion"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Robot.asm loc_3A8AE -> loc_3A96C bypasses loc_3A8FC HP decrement for negative child collision"
+        );
+        assert_eq!(runtime.active_enemies[0].robot_state, RobotState::Charging);
+        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_CHARGE_FLIP_BASE);
+        assert_eq!(runtime.active_enemies[0].x_velocity, ROBOT_CHARGE_SPEED);
+    }
+
+    #[test]
     fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);
@@ -9374,6 +9444,7 @@ mod chunk_03 {
                 segment_index: scorpion.segment_index,
                 layout_index: scorpion.layout_index,
                 collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
             });
 
         runtime.apply_pending_enemy_collisions();

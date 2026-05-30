@@ -1140,6 +1140,14 @@ struct PendingEnemyCollision {
     segment_index: usize,
     layout_index: usize,
     collision_type: u16,
+    target: PendingEnemyCollisionTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+enum PendingEnemyCollisionTarget {
+    Parent,
+    ChildAttachment,
 }
 
 impl NativeRuntime {

@@ -7610,6 +7610,7 @@ impl NativeRuntime {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
             collision_type,
+            target: PendingEnemyCollisionTarget::Parent,
         });
     }
 
@@ -7665,6 +7666,29 @@ impl NativeRuntime {
                     // collision words branch straight to loc_3DCF4 before
                     // the positive hurt/above HP damage route at loc_3DCD4.
                     kill_indices.push(active_idx);
+                }
+                continue;
+            }
+
+            if matches!(enemy.family, EnemyFamily::Robot)
+                && (collision.collision_type as i16).is_negative()
+            {
+                match collision.target {
+                    PendingEnemyCollisionTarget::Parent => {
+                        // ASM Robot.asm loc_3A8AE: a signed-negative parent
+                        // `collision_type(a3)` branches to loc_3A9D2, the
+                        // destroy-animation prep path.
+                        kill_indices.push(active_idx);
+                    }
+                    PendingEnemyCollisionTarget::ChildAttachment => {
+                        // ASM Robot.asm loc_3A8AE: a signed-negative linked
+                        // head `$38(a2)` branches to loc_3A96C, bypassing the
+                        // loc_3A8FC HP decrement path.
+                        enemy.robot_state = RobotState::Charging;
+                        enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
+                        enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
+                        enemy.y_velocity = 0;
+                    }
                 }
                 continue;
             }
