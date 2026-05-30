@@ -37,6 +37,10 @@ pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
 /// before the rebuilt title pose becomes ready.
 pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
+/// Oracle frame probes for the cold IntroSequence6 Start-skip route keep the
+/// rebuilt title shell hidden from the frame-2634 `sub_1C246` handoff until
+/// frame 2720, when the standard title text/Kid workers are visible.
+pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES: usize = 86;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.
@@ -50,10 +54,12 @@ pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 0;
 /// inactive for this short setup window after the first Start press arms the
 /// menu.
 pub(crate) const TITLE_MENU_ACTIVATION_DELAY_FRAMES: usize = 15;
-/// ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` then `dbf d0,loc_1BAB4`,
-/// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
-/// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
-pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
+/// ASM Load_IntroSequence6 allocates the `loc_1BAB0`, `loc_1B37C`, and
+/// `sub_1B43A` workers together. Although `loc_1BAB0` has a `$B8` DBF wait,
+/// oracle frame probes for the cold IntroSequence6 Start-skip route show the
+/// Start latch is not consumed by `sub_1C246` until cold frame 2634, 237 local
+/// frames after Game_Mode first becomes `$28` at frame 2396.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 237;
 /// ASM Obj_TitleMenu `loc_1BAEA -> loc_1BAEE` seeds `d0=$280`, then hibernates
 /// once before each inclusive `dbf` pass.
 pub(crate) const TITLE_IDLE_DBF_FRAMES_LOC_1BAEA: u16 = 0x0280 + 1;

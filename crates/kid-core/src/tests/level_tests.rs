@@ -4104,11 +4104,13 @@ mod chunk_02 {
         let mut runtime = cached_generated_runtime();
         let mut frame_2600 = None;
         let mut trace_2602 = None;
-        let mut trace_2660 = None;
+        let mut trace_2640 = None;
+        let mut trace_2700 = None;
         let mut trace_2701 = None;
         let mut trace_2720 = None;
+        let mut trace_3299 = None;
 
-        for frame_index in 0..=2_720 {
+        for frame_index in 0..=3_299 {
             let input = if matches!(frame_index, 2_600 | 2_700) {
                 FrameInput {
                     start: true,
@@ -4132,12 +4134,16 @@ mod chunk_02 {
             }
             if frame_index == 2_602 {
                 trace_2602 = Some(trace);
-            } else if frame_index == 2_660 {
-                trace_2660 = Some(trace);
+            } else if frame_index == 2_640 {
+                trace_2640 = Some(trace);
+            } else if frame_index == 2_700 {
+                trace_2700 = Some(trace);
             } else if frame_index == 2_701 {
                 trace_2701 = Some(trace);
             } else if frame_index == 2_720 {
                 trace_2720 = Some(trace);
+            } else if frame_index == 3_299 {
+                trace_3299 = Some(trace);
             }
         }
 
@@ -4157,16 +4163,27 @@ mod chunk_02 {
         let trace_2602 = trace_2602.expect("Start skip should have a frame-2602 trace");
         assert_eq!(
             trace_2602.game_mode,
-            GameMode::TitleScreen,
-            "ASM sub_1C246 -> loc_1C264 should switch Game_Mode=$28 to $2C two traced frames after Start"
+            GameMode::IntroSequence6,
+            "ASM loc_1BAB0/loc_1B37C/sub_1B43A keep the frame-2600 Start edge latched while the hidden IntroSequence6 shell is still running"
         );
         assert!(!trace_2602.title_screen_ready);
         assert_eq!(trace_2602.kid_x_pos, None);
 
-        let trace_2660 = trace_2660.expect("hidden title rebuild should reach frame 2660");
+        let trace_2640 = trace_2640.expect("hidden title rebuild should reach frame 2640");
+        assert_eq!(
+            trace_2640.game_mode,
+            GameMode::TitleScreen,
+            "ASM sub_1C246 -> loc_1C264 should consume the latched Start edge only after the IntroSequence6 hidden-shell wait"
+        );
         assert!(
-            trace_2660.title_screen_ready,
-            "ASM Load_TitleScreen hidden rebuild should expose the title shell after the 58-frame loc_1B446-style delay"
+            !trace_2640.title_screen_ready,
+            "ASM Load_TitleScreen hidden rebuild should still be invisible at oracle frame 2640"
+        );
+
+        let trace_2700 = trace_2700.expect("second Start edge should have a frame-2700 trace");
+        assert!(
+            !trace_2700.title_screen_ready,
+            "ASM loc_1B5E4 has not yet exposed the visible title text/Kid shell at oracle frame 2700"
         );
 
         let trace_2701 = trace_2701.expect("second Start edge should have a post-frame trace");
@@ -4177,7 +4194,18 @@ mod chunk_02 {
         );
         let trace_2720 = trace_2720.expect("menu build delay should have elapsed");
         assert_eq!(trace_2720.game_mode, GameMode::TitleScreen);
+        assert!(
+            trace_2720.title_screen_ready,
+            "ASM Load_TitleScreen hidden rebuild should expose the title shell by oracle frame 2720"
+        );
         assert_eq!(trace_2720.options_cursor, Some(0));
+
+        let trace_3299 = trace_3299.expect("title tail should have a frame-3299 trace");
+        assert_eq!(
+            trace_3299.game_mode,
+            GameMode::TitleScreen,
+            "ASM Obj_TitleMenu Title_InputLoop should remain on the title screen at oracle frame 3299 after opening the menu"
+        );
     }
 
     #[test]

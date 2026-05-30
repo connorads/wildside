@@ -982,6 +982,15 @@ mod tests {
             runtime.current_player_state(),
             Some(PlayerState::title_menu_cursor_pose(0x0044_0000))
         );
+
+        runtime.title_screen_uses_intro_return_hidden_shell = true;
+        runtime.intro_sequence_6_start_skip_cursor_trace_priority = true;
+        runtime.title_screen_ready_frame = 0;
+        assert_eq!(
+            runtime.current_player_state(),
+            Some(PlayerState::title_menu_cursor_pose(0x0044_0000)),
+            "ASM Obj_TitleMenu loc_1BC0E keeps the cursor gfx object live after the title shell itself is ready"
+        );
     }
 
     #[test]
@@ -5969,6 +5978,13 @@ impl NativeRuntime {
                 // at `$28` until Obj_TitleMenu later reaches loc_1BB02.
                 Some(PlayerState::title_pose())
             }
+            BootState::IntroSequence6 { .. }
+                if self.title_menu_active
+                    && self.intro_sequence_6_start_skip_cursor_trace_priority =>
+            {
+                self.title_menu_cursor_player_state()
+                    .or_else(|| self.title_screen_ready().then(PlayerState::title_pose))
+            }
             BootState::IntroSequence6 { .. } if self.title_menu_active => self
                 .title_screen_ready()
                 .then(PlayerState::title_pose)
@@ -5992,6 +6008,13 @@ impl NativeRuntime {
             }
             BootState::TitleScreen { .. } if self.hidden_title_screen_object_counts().is_some() => {
                 None
+            }
+            BootState::TitleScreen { .. }
+                if self.title_menu_active
+                    && self.intro_sequence_6_start_skip_cursor_trace_priority =>
+            {
+                self.title_menu_cursor_player_state()
+                    .or_else(|| self.title_screen_ready().then(PlayerState::title_pose))
             }
             BootState::TitleScreen { .. } if self.title_menu_active => self
                 .title_screen_ready()

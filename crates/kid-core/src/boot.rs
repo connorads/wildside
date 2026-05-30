@@ -5378,6 +5378,7 @@ impl NativeRuntime {
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
         self.title_screen_uses_intro_return_hidden_shell = false;
+        self.intro_sequence_6_start_skip_cursor_trace_priority = false;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
             self.frame_index
                 .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES)
@@ -6856,8 +6857,10 @@ impl NativeRuntime {
                         // Obj_TitleMenu accepts the next Start edge.
                         self.enter_title_screen();
                         self.title_screen_uses_intro_return_hidden_shell = true;
-                        self.title_screen_ready_frame =
-                            self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                        self.intro_sequence_6_start_skip_cursor_trace_priority = true;
+                        self.title_screen_ready_frame = self
+                            .frame_index
+                            .saturating_add(INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES);
                         self.title_menu_arm_frame =
                             self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
                     }
@@ -6917,6 +6920,14 @@ impl NativeRuntime {
                     // Oracle-backed imported TAS traces keep title fully inert for
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
+                    if start_pressed && self.frame_index < self.title_screen_ready_frame {
+                        *pending_title_skip = self
+                            .title_menu_arm_frame
+                            .saturating_sub(self.frame_index)
+                            .saturating_add(1)
+                            .try_into()
+                            .unwrap_or(u8::MAX);
+                    }
                 } else if !self.title_menu_active {
                     if start_pressed && self.frame_index < self.title_screen_ready_frame {
                         *pending_title_skip = 2;

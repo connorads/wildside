@@ -250,6 +250,10 @@ pub struct NativeRuntime {
     /// Cold-boot intro-return title rebuild uses Obj_TitleMenu's hidden shell
     /// staging before the later title pose becomes ready.
     title_screen_uses_intro_return_hidden_shell: bool,
+    /// The cold IntroSequence6 Start-skip route keeps Obj_TitleMenu's cursor
+    /// as the trace-facing gfx object after the hidden title rebuild. Earlier
+    /// title-entry routes keep reporting the standard title pose.
+    intro_sequence_6_start_skip_cursor_trace_priority: bool,
     /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
     /// sub_1C278 before selecting its helmet art and palette overlay.
     title_screen_region_byte: u8,
@@ -1228,6 +1232,7 @@ impl NativeRuntime {
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
+            intro_sequence_6_start_skip_cursor_trace_priority: false,
             // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
             // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
             title_screen_region_byte: 2,
