@@ -5435,6 +5435,7 @@ impl NativeRuntime {
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row = false;
         self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows = false;
+        self.demo_uses_intro_sequence_6_timeout_return_velocity_sample = false;
         self.demo_uses_intro_sequence_5_title_return_preload_row = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
@@ -5660,6 +5661,10 @@ impl NativeRuntime {
         );
         let cold_intro_sequence_6_demo_2_preload_rows = intro_sequence_6_later_demo_2_preload_row
             && !self.intro_sequence_6_entered_from_timeout_restart;
+        let intro_sequence_6_timeout_return_velocity_sample =
+            intro_sequence_6_later_demo_2_preload_row
+                && self.intro_sequence_6_entered_from_timeout_restart
+                && !use_demo_2;
         let intro_sequence_5_title_return_preload_row = use_demo_2
             && ((matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.timeout_restart_title_intro_sequence_5_pose
@@ -5736,6 +5741,8 @@ impl NativeRuntime {
             intro_sequence_6_later_demo_2_preload_row;
         self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows =
             cold_intro_sequence_6_demo_2_preload_rows;
+        self.demo_uses_intro_sequence_6_timeout_return_velocity_sample =
+            intro_sequence_6_timeout_return_velocity_sample;
         self.demo_uses_intro_sequence_5_title_return_preload_row =
             intro_sequence_5_title_return_preload_row;
         // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
@@ -6899,15 +6906,31 @@ impl NativeRuntime {
                     } else {
                         self.title_idle_frames += 1;
                         let mut title_idle_frames = INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES;
+                        let cold_demo_timeout_intro_sequence_6_shell =
+                            self.intro_sequence_6_entered_from_timeout_restart
+                                && self.demo_toggle
+                                && !self
+                                    .demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+                                && !self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay
+                                && !self
+                                    .demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff;
                         if !*carry_timeout_restart_hidden_camera_wrap {
                             // ASM Obj_TitleMenu `loc_1BAEA/loc_1BAEE` owns the
-                            // cold-boot mode-$28 idle timeout too; oracle keeps
-                            // the non-wrapped lineage in that DBF loop for the
-                            // same three local frames as the later title-restore
-                            // revisit before `loc_1BB02` writes `Game_Mode=$10`.
-                            title_idle_frames = title_idle_frames.saturating_add(
-                                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES,
-                            );
+                            // later title-restore revisit for three extra
+                            // local frames before `loc_1BB02` writes
+                            // `Game_Mode=$10`. The cold demo-timeout shell
+                            // keeps only the two-frame early-title-restore
+                            // offset before reaching loc_1BB02.
+                            if cold_demo_timeout_intro_sequence_6_shell {
+                                title_idle_frames = title_idle_frames.saturating_add(
+                                    DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES
+                                        as u16,
+                                );
+                            } else {
+                                title_idle_frames = title_idle_frames.saturating_add(
+                                    TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES,
+                                );
+                            }
                         }
                         if self.title_idle_frames > title_idle_frames {
                             self.title_idle_frames = 0;

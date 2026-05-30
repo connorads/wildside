@@ -123,6 +123,9 @@ pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP: u32 =
 /// cold-boot demo (`0xFF00_0000`) and the earlier Start-skip intro return
 /// (`0xFF20_0000`).
 pub(crate) const DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP: u32 = 0xFD20_0000;
+/// The cold demo-timeout return through IntroSequence6 reaches demo 1 with a
+/// slightly lower hidden Knights Isle preload row before the visible bootstrap.
+pub(crate) const DEMO_1_INTRO_SEQUENCE_6_TIMEOUT_RETURN_CAMERA_WRAP_Y_FP: u32 = 0xFD40_0000;
 /// Demo bootstrap holds the level camera on the respawn pose for these frames.
 pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 /// Demo bootstrap publishes widened object counts one frame before the player

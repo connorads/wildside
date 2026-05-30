@@ -395,6 +395,10 @@ pub struct NativeRuntime {
     /// Active demo-2 bootstrap came from the original cold-boot
     /// IntroSequence6 shell rather than a later timeout-restart revisit.
     demo_uses_cold_intro_sequence_6_demo_2_preload_rows: bool,
+    /// Active demo-1 bootstrap came from the cold demo-timeout
+    /// IntroSequence6 shell and still exposes the controller-side `$60000`
+    /// y-velocity sample at the `loc_1BB02 -> Load_DemoPlay` hand-off.
+    demo_uses_intro_sequence_6_timeout_return_velocity_sample: bool,
     /// Active demo-2 bootstrap came from the direct timeout-restart
     /// intro-sequence-5 title return. That `sub_1C246 -> loc_1C264` lineage
     /// exposes a lower one-frame camera preload row than the generic demo-2
@@ -1264,6 +1268,7 @@ impl NativeRuntime {
             timeout_restart_intro_sequence_1_uses_early_title_restore: false,
             demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
             demo_uses_cold_intro_sequence_6_demo_2_preload_rows: false,
+            demo_uses_intro_sequence_6_timeout_return_velocity_sample: false,
             demo_uses_intro_sequence_5_title_return_preload_row: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,

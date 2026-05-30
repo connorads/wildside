@@ -4869,11 +4869,11 @@ impl NativeRuntime {
                 }
             }),
             kid_y_velocity: player_state.map(|state| {
-                if self.demo_2_later_intro_sequence_6_start_velocity_sample_active() {
+                if self.intro_sequence_6_start_velocity_sample_active() {
                     // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
-                    // 23585) reaches the later demo-2 shell with the previous
-                    // controller-side sample still exposed through the hidden
-                    // Load_InGame bootstrap.
+                    // 23585) reaches the later IntroSequence6 shell with the
+                    // previous controller-side sample still exposed through
+                    // the hidden Load_InGame bootstrap.
                     // Raw Kid WRAM is still the title-pose object here; only
                     // the top-level oracle velocity sample carries `$60000`.
                     0x0006_0000
@@ -6039,14 +6039,15 @@ impl NativeRuntime {
             })
     }
 
-    fn demo_2_later_intro_sequence_6_start_velocity_sample_active(&self) -> bool {
+    fn intro_sequence_6_start_velocity_sample_active(&self) -> bool {
         self.demo_startup_frame()
             .zip(self.demo_uses_second_recording())
             .is_some_and(|(frame_counter, use_demo_2)| {
-                use_demo_2
-                    && self.demo_uses_intro_sequence_6_later_demo_2_preload_row
+                self.demo_uses_intro_sequence_6_later_demo_2_preload_row
                     && frame_counter
                         <= demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
+                    && (use_demo_2
+                        || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample)
             })
     }
 
@@ -6091,6 +6092,15 @@ impl NativeRuntime {
         let (frame_counter, use_demo_2) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())?;
+        if !use_demo_2
+            && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+            && frame_counter == demo::DEMO_CAMERA_HOLD_START_FRAME + 1
+        {
+            // ASM loc_1BB02 -> Load_DemoPlay keeps one controller-side object
+            // count-visible immediately before the cold timeout-return demo-1
+            // hidden camera row is sampled.
+            return Some((2, 0));
+        }
         if !use_demo_2 && self.demo_started_from_timeout_restart_shell {
             if frame_counter > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
                 && frame_counter <= demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
@@ -6219,7 +6229,12 @@ impl NativeRuntime {
             && frame_counter < self.demo_gameplay_start_frame(use_demo_2)
         {
             let camera_y_pos = if !use_demo_2 {
-                if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
+                if frame_counter == 60
+                    && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+                {
+                    demo::DEMO_1_INTRO_SEQUENCE_6_TIMEOUT_RETURN_CAMERA_WRAP_Y_FP
+                } else if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap
+                {
                     demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP
                 } else if frame_counter == 60
                     && self.demo_uses_demo_title_return_camera_wrap

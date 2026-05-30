@@ -153,8 +153,12 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
     let mut frame_7085 = None;
     let mut frame_7147 = None;
     let mut frame_7148 = None;
+    let mut frame_7688 = None;
+    let mut frame_7689 = None;
+    let mut frame_7748 = None;
+    let mut frame_7749 = None;
 
-    for frame_index in 0..=7_148 {
+    for frame_index in 0..=7_749 {
         let trace = runtime.step_frame(FrameInput::default());
         match frame_index {
             6_849 => {
@@ -256,6 +260,42 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
                     trace.kid_y_pos,
                 ));
             }
+            7_688 => {
+                frame_7688 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_y_velocity,
+                ));
+            }
+            7_689 => {
+                frame_7689 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_y_velocity,
+                ));
+            }
+            7_748 => {
+                frame_7748 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.camera_y_pos,
+                ));
+            }
+            7_749 => {
+                frame_7749 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.camera_y_pos,
+                ));
+            }
             _ => {}
         }
     }
@@ -339,6 +379,40 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
             Some(0x008C_0000),
         )),
         "frame 7148 should expose loc_1B5CE's rebuilt title pose on the cold timeout-return shell",
+    );
+    assert_eq!(
+        frame_7688,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(872),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+            Some(0),
+        )),
+        "frame 7688 should still be the final cold timeout-return mode-$28 title frame",
+    );
+    assert_eq!(
+        frame_7689,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(0),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+            Some(0x0006_0000),
+        )),
+        "frame 7689 should enter demo play through loc_1BB02 with the controller-side y velocity sample",
+    );
+    assert_eq!(
+        frame_7748,
+        Some((GameMode::DemoPlay, Some(59), 2, 0x00E0_0000)),
+        "frame 7748 should expose the cold timeout-return controller object count before the camera wrap",
+    );
+    assert_eq!(
+        frame_7749,
+        Some((GameMode::DemoPlay, Some(60), 2, 0xFD40_0000)),
+        "frame 7749 should expose the cold timeout-return Knights Isle hidden camera row",
     );
 }
 
