@@ -17,6 +17,7 @@ use crate::boot::{
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
     INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
+    INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -2542,12 +2543,15 @@ fn write_title_text_chameleon_anim_loc_1b71a(
 ) {
     let d3_elapsed = if intro_return_hidden_shell {
         // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
-        // Start-skip title VDP becomes visible. By the time native rebuilds
-        // the visible title frame, the preserved `d3` selector is one
-        // sub_1B71A tick past the next four-frame phase boundary, and that
-        // object-local phase remains ahead for the rest of the title/menu
-        // lineage.
-        elapsed.saturating_add(5)
+        // Start-skip title VDP becomes visible. The hidden Chameleon worker's
+        // preserved `d3` is five sub_1B71A ticks ahead through the visible
+        // rebuild, then reaches one further tick after the Load_IntroSequence6
+        // title-attract pre-roll (`loc_1BAB0`) has elapsed.
+        elapsed.saturating_add(if elapsed >= INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES {
+            6
+        } else {
+            5
+        })
     } else {
         elapsed
     };
@@ -4818,6 +4822,22 @@ mod tests {
             vram_word(&visible, 0x090A),
             0x3000,
             "ASM loc_1B6AC/loc_1B6DC keeps sub_1B71A's preserved `d3` running before the Start-skip title VDP becomes visible, so frame 2700 uses the next four-frame Chameleon map phase"
+        );
+
+        let tail = build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+            &data,
+            0,
+            0,
+            Some(0),
+            true,
+            666,
+            true,
+        );
+
+        assert_eq!(
+            vram_word(&tail, 0x090A),
+            0x1000,
+            "ASM loc_1BAB0's title-attract pre-roll lets the inherited loc_1B6DC worker reach one additional sub_1B71A tick by oracle frame 3299"
         );
     }
 
