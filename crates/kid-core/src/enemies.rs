@@ -3497,9 +3497,10 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
         // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
         EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
-        // Armadillo.asm loc_3C756/loc_3C766: `enemy_level + 1` yields HP 1/2/3+,
-        // then the walk-speed slot starts at `$8000` and gains `$10000` at each tier.
-        EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
+        // Armadillo.asm loc_3C756/loc_3C766: HP 1 gets only `$8000`, HP 2
+        // reaches one `$10000` add, and HP above 2 reaches the two-add high
+        // path before the final `$8000`, so speed caps at `$28000`.
+        EnemyFamily::Armadillo => return armadillo_walk_speed_loc_3c756_3c766(hit_points),
         // Crab.asm loc_3B00A: HP 2 keeps `$8000`; HP 3+ uses the single
         // `$10000` preload plus one final `$8000` add, so speed caps at `$18000`.
         EnemyFamily::Crab => return crab_motion_profile_loc_3b00a(hit_points).walk_speed,
@@ -3549,6 +3550,15 @@ pub(crate) fn driller_walk_speed_loc_3bd74(hit_points: u8) -> i32 {
     // Driller.asm loc_3BD74: every HP tier falls through to one final `$8000`
     // add, so HP above 4 remains capped at the three-add `$18000` tier.
     speed + 0x0000_8000
+}
+
+pub(crate) fn armadillo_walk_speed_loc_3c756_3c766(hit_points: u8) -> i32 {
+    let high_tier_adds = if hit_points > 2 {
+        2
+    } else {
+        i32::from(hit_points.saturating_sub(1))
+    };
+    0x0000_8000 + high_tier_adds * 0x0001_0000
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30158,19 +30168,27 @@ mod tests {
     #[test]
     fn armadillo_hp_and_walk_speed_follow_loc_3c756_and_loc_3c766() {
         // ASM Armadillo.asm loc_3C756/loc_3C766: enemy_level is copied to d7,
-        // then `addq.w #1,d7` produces HP 1/2/3. The walk-speed slot receives
-        // `$8000` base plus one `$10000` increment per tier.
+        // then `addq.w #1,d7` produces HP. HP above 2 reaches the high-speed
+        // path once, so extra HP tiers keep the same `$28000` walk speed.
         let hp1 = spawn_hit_points(EnemyFamily::Armadillo, 0);
         let hp2 = spawn_hit_points(EnemyFamily::Armadillo, 1);
         let hp3 = spawn_hit_points(EnemyFamily::Armadillo, 2);
+        let hp4 = spawn_hit_points(EnemyFamily::Armadillo, 3);
 
         assert_eq!(hp1, 1);
         assert_eq!(hp2, 2);
         assert_eq!(hp3, 3);
+        assert_eq!(hp4, 4);
 
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp1), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp2), 0x0001_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp3), 0x0002_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp4), 0x0002_8000);
+        assert_eq!(
+            armadillo_walk_speed_loc_3c756_3c766(6),
+            0x0002_8000,
+            "ASM Armadillo.asm loc_3C756/loc_3C766 has no third `$10000` speed add"
+        );
     }
 
     #[test]

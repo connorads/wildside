@@ -9,7 +9,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Family | Coverage | Confirmed gaps |
 |---|---|---|
 | Archer (0x07) | partial | 2 |
-| Armadillo (0x04) | partial | 4 |
+| Armadillo (0x04) | partial | 3 |
 | Big_Hopping_Skull (0x1D) | partial | 4 |
 | Cloud (0x0E) | partial | 1 |
 | Crab (0x09) | partial | 2 |
@@ -37,7 +37,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 85 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 84 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -164,9 +164,6 @@ ROM poses ~118-138 frames between shots (walking the $64/6/$C/$14 delay words); 
 
 **Archer — shot-count gate counts the shared projectile pool, not arrows** (`loc_34248`)
 ROM caps at 2 arrows via Number_of_Arrows; native gates on `projectiles.len() >= MAX_PROJECTILES (4)` over the shared pool. `enemies.rs:23722/23753`, `constants.rs:576-578`.
-
-**Armadillo — walk-speed not capped at $28000 for HP≥3** (`loc_3C756 / loc_3C766`)
-Generic linear formula gives HP4=$38000, HP5=$48000 vs ROM's $28000 cap; HP is unclamped (=level+1). `enemies.rs:3498/3535-3536`, used live at `enemies.rs:15154`.
 
 **Big_Hopping_Skull — floor contact uses naive y_vel negation instead of loc_36580 stop+relaunch** (`loc_36580 / loc_366D0`)
 ROM zeroes both velocities, plays landing anim, relaunches at constant y_vel=#-2; native negates accumulated velocity so hop height drifts. `enemies.rs:12700-12705` (comment admits divergence).
