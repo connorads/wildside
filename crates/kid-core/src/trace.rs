@@ -600,6 +600,27 @@ mod tests {
     }
 
     #[test]
+    fn in_game_object_counts_include_smash_block_effect_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.block_destroy_effects.push(BlockDestroyEffect {
+            x_px: 112,
+            y_px: 196,
+            remaining: 2,
+            direction: 0,
+        });
+
+        // ASM Block_LoadSmashBits/sub_10EDA (kid.asm:22775,22806) reaches
+        // j_sub_E02 before the two-frame hibernate, so the effect owns an
+        // object+gfx slot even though native exposes it as block_destroy_effects.
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, OPENING_GROUNDED_CAMERA_Y_FP),
+            (3, 4)
+        );
+    }
+
+    #[test]
     fn camera_handoff_spans_late_intro_4_and_timeout_restart_intro_5() {
         fn uses_camera(
             segment: usize,
@@ -7005,7 +7026,8 @@ impl NativeRuntime {
             return counts;
         }
 
-        let roster_count = active_objects.len() as u16;
+        let transient_gfx_workers = self.block_destroy_effects.len() as u16;
+        let roster_count = (active_objects.len() as u16).saturating_add(transient_gfx_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
             roster_count,
