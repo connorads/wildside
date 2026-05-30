@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Recording `issue-playtest-title-menu-current` exposes a reduced gameplay mismatch in the first title/menu windows",
+        "reason": "Rejected 2026-05-30. The source recording is current and oracle-authoritative: `cargo run -p kidcli -- verify-recording --slug issue-playtest-title-menu-current` passes. The requested 0..120 case passes, and after filtering intro/title shell workers out of gameplay-case entity semantics, the 120..240 SegaScreen->IntroSequence1 window and 480..600 IntroSequence1->IntroSequence2 window also pass (`case issue-playtest-title-menu-current_case_00000_00120: PASS`, `case issue-playtest-title-menu-current_case_00120_00240: PASS`, `case issue-playtest-title-menu-current_case_00480_00600: PASS`). Do not patch gameplay from this recording prefix; remaining title/menu complaints need full recording visual/object-count investigation rather than gameplay-case reduction."
+      },
+      {
         "name": "Recording `issue-210-cold-idle-2600` is ready to reduce into an authoritative gameplay case",
         "reason": "Rejected 2026-05-30. Fresh verification shows the recording is stale against current native state before any oracle question: `cargo run -p kidcli -- verify-recording --slug issue-210-cold-idle-2600` and `cargo run -p kidcli -- verify-recording --slug issue-210-cold-idle-2600 --native-only` both fail with `recording replay drifted at frame 2546 (native trace frame mismatch)`. The requested 0..120 case does derive and verify, but it is clean (`case issue_210_cold_boot_idle_demo_loop_case_00000_00120: PASS`) after the compact-script tooling fixes. Do not patch gameplay from this recording until it is refreshed against current native; the remaining useful cold-loop evidence is the regenerated `debug-cold-loop-trace` full-recording mismatch at `title_ready@2600`, which points to IntroSequence6/title VDP/object fidelity rather than an early reduced gameplay failure."
       },

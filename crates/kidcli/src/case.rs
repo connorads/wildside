@@ -1160,11 +1160,15 @@ fn semantic_from_native(
         paused: snapshot.paused,
         boot_phase: snapshot.boot_phase.clone(),
     };
-    let entities = snapshot
-        .active_objects
-        .iter()
-        .filter_map(semantic_entity_from_native)
-        .collect::<Vec<_>>();
+    let entities = if snapshot.game_mode_value == 0x000c {
+        snapshot
+            .active_objects
+            .iter()
+            .filter_map(semantic_entity_from_native)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     let events = semantic_events(previous, &player, &entities);
     SemanticGameState {
         frame_index: snapshot.frame_index,
@@ -1304,11 +1308,18 @@ fn semantic_from_oracle(
         paused: state.game_paused,
         boot_phase: state.boot_phase.clone(),
     };
-    let entities = state
-        .active_enemies
-        .iter()
-        .map(semantic_entity_from_oracle)
-        .collect::<Vec<_>>();
+    let entities = if state.game_mode == 0x000c {
+        state
+            .active_enemies
+            .iter()
+            .map(semantic_entity_from_oracle)
+            .collect::<Vec<_>>()
+    } else {
+        // Gameplay cases should not treat intro/title shell workers as spawned
+        // gameplay entities. Full recording verification still owns visual and
+        // object-count fidelity for those boot states.
+        Vec::new()
+    };
     let events = semantic_events(previous, &player, &entities);
     SemanticGameState {
         frame_index: state.frame_index,
@@ -3084,7 +3095,23 @@ mod tests {
             number_objects: 0,
             number_gfx_objects: 0,
             game_paused: false,
-            active_enemies: Vec::new(),
+            active_enemies: vec![OracleEnemyState {
+                object_type: 0x30,
+                x_pos: 0x0081_0000,
+                y_pos: 0x00c8_0000,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: crate::oracle::EnemyFacing::Left,
+                collision_type: None,
+                collision_source: None,
+                layout_index: None,
+                layout_ptr: Some(0x0001_b920),
+                parent_object_ptr: None,
+                gfx_slot_index: None,
+                on_ground: None,
+                current_hp: Some(0),
+                debug_fields: BTreeMap::new(),
+            }],
             score: 0,
             number_lives: 3,
             number_diamonds: 0,
@@ -3191,6 +3218,10 @@ mod tests {
             "ASM loc_65C/sub_8A4 bookkeeping is hidden while Load_SegaScreen has no gameplay player"
         );
         assert_eq!(semantic.world.number_lives, Some(0));
+        assert!(
+            semantic.entities.is_empty(),
+            "intro/title shell workers are visual/object-count evidence, not gameplay case entities"
+        );
     }
 
     #[test]
