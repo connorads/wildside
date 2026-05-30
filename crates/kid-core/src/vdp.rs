@@ -2449,7 +2449,25 @@ fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16])
     // base `$451B`, then call sub_1C5D0 with d4=$04,d5=$04,d6=$0D,d7=$05.
     // That writes a 14x6 tile rectangle at cell (4,4), revealing the
     // interactive 1P/2P/options menu after the first Start press.
-    write_tilemap_rect_at_cell(vdp, tilemap_words, 14, 6, 4, 4);
+    let tilemap_words = title_menu_tilemap_buffer_loc_1bb52(tilemap_words);
+    write_tilemap_rect_at_cell(vdp, &tilemap_words, 14, 6, 4, 4);
+}
+
+fn title_menu_tilemap_buffer_loc_1bb52(menu_words: &[u16]) -> Vec<u16> {
+    // ASM loc_1BB52 (kid.asm:30428): EniDec writes the menu map at the start
+    // of Decompression_Buffer, then sub_1C5D0 blindly consumes 14x6 words.
+    // The source-port renderer is stateless and rebuilds the title VDP frame
+    // after the ROM would have cached the menu rectangle, so pad the short
+    // extracted decode with the menu's own blank interior word instead of
+    // leaking current-frame background art into the persisted rectangle.
+    const MENU_WORD_COUNT: usize = 14 * 6;
+    const MENU_BLANK_WORD: u16 = 0x4528;
+    let mut words = Vec::with_capacity(MENU_WORD_COUNT);
+    for index in 0..MENU_WORD_COUNT {
+        let word = menu_words.get(index).copied().unwrap_or(MENU_BLANK_WORD);
+        words.push(word);
+    }
+    words
 }
 
 #[allow(non_snake_case)]
@@ -2459,11 +2477,7 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     elapsed: usize,
 ) {
     let d3 = u16::try_from(elapsed).unwrap_or(u16::MAX);
-    let map_index = match d3 & 0x000C {
-        0x0000 => 0,
-        0x0008 => 2,
-        _ => 1,
-    };
+    let map_index = title_text_chameleon_anim_map_index(elapsed);
     let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
         &data.title_text_chameleon_anim_maps[map_index],
         0,
@@ -2480,6 +2494,15 @@ fn write_title_text_chameleon_anim_loc_1b71a(
             vdp.write_vram_word(byte_addr, word);
             byte_addr += 2;
         }
+    }
+}
+
+fn title_text_chameleon_anim_map_index(elapsed: usize) -> usize {
+    let d3 = u16::try_from(elapsed).unwrap_or(u16::MAX);
+    match d3 & 0x000C {
+        0x0000 => 0,
+        0x0008 => 2,
+        _ => 1,
     }
 }
 
@@ -4502,6 +4525,25 @@ mod tests {
             sprite_entry_words(&vdp, 0),
             (0x00BC, 0x00, 0, 0x454B, 0x00A8),
             "ASM Obj_TitleMenu loc_1BB52/loc_1BC0E should expose cursor 2 as unk_E1196 at x=$28,y=$44"
+        );
+    }
+
+    #[test]
+    fn title_menu_tilemap_loc_1bb52_pads_short_decode_with_menu_blank() {
+        let menu_words = (0x4500u16..0x4500 + 65).collect::<Vec<_>>();
+
+        let composed = title_menu_tilemap_buffer_loc_1bb52(&menu_words);
+
+        assert_eq!(composed.len(), 14 * 6);
+        assert_eq!(
+            &composed[..65],
+            menu_words.as_slice(),
+            "ASM loc_1BB52 should use the freshly decoded `unk_2EAAE` words first"
+        );
+        assert_eq!(
+            &composed[65..],
+            &[0x4528; 19],
+            "the stateless title renderer should preserve the cached menu rectangle by padding the short extracted loc_1BB52 decode with the menu blank tile"
         );
     }
 
