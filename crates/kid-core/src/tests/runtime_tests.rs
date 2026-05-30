@@ -138,6 +138,210 @@ fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     );
 }
 
+#[test]
+fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_6849 = None;
+    let mut frame_6850 = None;
+    let mut frame_6851 = None;
+    let mut frame_7012 = None;
+    let mut frame_7013 = None;
+    let mut frame_7053 = None;
+    let mut frame_7054 = None;
+    let mut frame_7066 = None;
+    let mut frame_7081 = None;
+    let mut frame_7085 = None;
+    let mut frame_7147 = None;
+    let mut frame_7148 = None;
+
+    for frame_index in 0..=7_148 {
+        let trace = runtime.step_frame(FrameInput::default());
+        match frame_index {
+            6_849 => {
+                frame_6849 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            6_850 => {
+                frame_6850 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            6_851 => {
+                frame_6851 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_012 => {
+                frame_7012 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_013 => {
+                frame_7013 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_053 => {
+                frame_7053 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_054 => {
+                frame_7054 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_066 => {
+                frame_7066 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_081 => {
+                frame_7081 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_085 => {
+                frame_7085 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            7_147 => {
+                frame_7147 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            7_148 => {
+                frame_7148 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            _ => {}
+        }
+    }
+    // ASM ReadJoypad loc_C0A restarts the intro loop after the demo timeout.
+    // When loc_1BA5C reaches Load_IntroSequence6 again, loc_1B1E8 has already
+    // called sub_1B222 with `$FFFFA656=$FFD00000` and allocated the three
+    // hidden title-shell workers (`loc_1BAB0`, `loc_1B37C`, `sub_1B43A`).
+    assert_eq!(
+        frame_6849,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(33), 0, 0)),
+        "frame 6849 should still keep the cold timeout-restart mode-$28 hidden shell cleared",
+    );
+    assert_eq!(
+        frame_6850,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(34),
+            0xFFD0_0000,
+            3,
+        )),
+        "frame 6850 should expose Load_IntroSequence6's seeded hidden camera and three workers",
+    );
+    assert_eq!(
+        frame_6851,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(35),
+            0xFFD0_0000,
+            3,
+        )),
+        "frame 6851 should keep the hidden workers and seeded camera row",
+    );
+    assert_eq!(
+        frame_7012,
+        Some((GameMode::IntroSequence6, Some(196), 0xFFD0_0000, 3)),
+        "frame 7012 should still be the final three-worker hidden shell frame",
+    );
+    assert_eq!(
+        frame_7013,
+        Some((GameMode::IntroSequence6, Some(197), 0xFFD0_0000, 2)),
+        "frame 7013 should enter sub_1B43A's two-worker palette/art phase",
+    );
+    assert_eq!(
+        frame_7053,
+        Some((GameMode::IntroSequence6, Some(237), 0xFFD0_0000, 2)),
+        "frame 7053 should be the final two-worker hidden shell frame",
+    );
+    assert_eq!(
+        frame_7054,
+        Some((GameMode::IntroSequence6, Some(238), 0xFFD0_0000, 4)),
+        "frame 7054 should expose the GfxObjects_Collision_BottomBoundary4 allocation",
+    );
+    assert_eq!(
+        frame_7066,
+        Some((GameMode::IntroSequence6, Some(250), 0xFFD3_0000, 4)),
+        "frame 7066 should start the cold timeout-return +3px hidden camera ramp",
+    );
+    assert_eq!(
+        frame_7081,
+        Some((GameMode::IntroSequence6, Some(265), 0, 3)),
+        "frame 7081 should drop back to three workers after GfxObjects_Collision_BottomBoundary4 deletes",
+    );
+    assert_eq!(
+        frame_7085,
+        Some((GameMode::IntroSequence6, Some(269), 0, 4)),
+        "frame 7085 should restore the four-object hidden title shell",
+    );
+    assert_eq!(
+        frame_7147,
+        Some((GameMode::IntroSequence6, Some(331), None, None)),
+        "frame 7147 should still hide the rebuilt loc_1B5CE title pose",
+    );
+    assert_eq!(
+        frame_7148,
+        Some((
+            GameMode::IntroSequence6,
+            Some(332),
+            Some(0x002E_0000),
+            Some(0x008C_0000),
+        )),
+        "frame 7148 should expose loc_1B5CE's rebuilt title pose on the cold timeout-return shell",
+    );
+}
+
 fn runtime_with_projectile_and_player(
     proj_x: u16,
     proj_y: u16,

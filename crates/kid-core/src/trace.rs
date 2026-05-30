@@ -4537,6 +4537,15 @@ impl NativeRuntime {
         )
     }
 
+    fn cold_demo_timeout_intro_sequence_6_shell(&self) -> bool {
+        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+            && self.intro_sequence_6_entered_from_timeout_restart
+            && self.demo_toggle
+            && !self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+            && !self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay
+            && !self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff
+    }
+
     fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
         let BootState::IntroSequence6 {
             carry_intro_sequence_5_slot_2_pose: true,
@@ -4548,19 +4557,32 @@ impl NativeRuntime {
         };
         let elapsed = self.title_screen_elapsed_frames;
         if !carry_timeout_restart_hidden_camera_wrap {
+            let cold_timeout_restart_shell = self.cold_demo_timeout_intro_sequence_6_shell();
+            let seeded_elapsed_frame = if cold_timeout_restart_shell {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES
+                    .saturating_sub(1)
+            } else {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES
+            };
+            let ramp_elapsed_frame = if cold_timeout_restart_shell {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES.saturating_sub(1)
+            } else {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES
+            };
             // ASM Load_IntroSequence6 still seeds `($FFFFA656).w` with
             // `$FFD00000` and calls `sub_1B222` on the later title-restore
             // revisit, but oracle keeps the carried cleared camera through
-            // local mode-$28 frame 34 before the delayed seed appears.
-            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES {
+            // local mode-$28 frame 34 before the delayed seed appears. The
+            // cold-boot demo-2 timeout lineage reaches this same hidden shell
+            // one local frame earlier after `loc_1BB02 -> Load_DemoPlay`.
+            if elapsed < seeded_elapsed_frame {
                 return None;
             }
-            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES {
+            if elapsed < ramp_elapsed_frame {
                 return Some(0xFFD0_0000);
             }
 
-            let ramp_frame =
-                elapsed - TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES;
+            let ramp_frame = elapsed - ramp_elapsed_frame;
             if ramp_frame < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES {
                 // ASM GfxObjects_Collision_BottomBoundary4:
                 // `move.l ($FFFFA656).w,d1; asr.l #4,d1; ... sub.l d1,($FFFFA656).w`
@@ -5868,12 +5890,19 @@ impl NativeRuntime {
                 carry_timeout_restart_hidden_camera_wrap: false,
                 ..
             } if self.title_screen_elapsed_frames
-                >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES =>
+                >= if self.cold_demo_timeout_intro_sequence_6_shell() {
+                    TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES
+                        .saturating_sub(1)
+                } else {
+                    TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES
+                } =>
             {
                 // ASM loc_1B5CE still owns the standard title-pose write on
                 // the later mode-$28 revisit, but oracle keeps Kid hidden for
                 // three extra local frames after the delayed `$FFD00000`
-                // camera-ramp lineage before exposing `x=$2E`, `y=$8C`.
+                // camera-ramp lineage before exposing `x=$2E`, `y=$8C`. The
+                // cold demo-2 timeout-return shell reaches the same visible
+                // pose one local frame earlier.
                 Some(PlayerState::title_pose())
             }
             BootState::IntroSequence6 {
@@ -6850,6 +6879,28 @@ impl NativeRuntime {
             // first Start press arms the active title menu.
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
+            if self.cold_demo_timeout_intro_sequence_6_shell() && !self.title_screen_ready() {
+                return match self.title_screen_elapsed_frames {
+                    // ASM loc_1BA5C -> Load_IntroSequence6 initial hidden
+                    // shell: loc_1BAB0, loc_1B37C, and sub_1B43A are counted
+                    // before sub_1B43A reaches its later palette/art phase.
+                    34..=196 => (3, 0),
+                    // ASM sub_1B43A has finished its early draw sequence and
+                    // the title shell temporarily reports two workers before
+                    // it allocates GfxObjects_Collision_BottomBoundary4.
+                    197..=237 => (2, 0),
+                    // ASM sub_1B43A allocates GfxObjects_Collision_BottomBoundary4
+                    // plus the next title workers before deleting itself.
+                    238..=264 => (4, 0),
+                    // After GfxObjects_Collision_BottomBoundary4 finishes its
+                    // 16-frame DBF ramp and deletes, oracle briefly reports
+                    // the three remaining hidden title workers before the
+                    // shell settles back to four counted objects.
+                    265..=268 => (3, 0),
+                    269.. => (4, 0),
+                    _ => (0, 0),
+                };
+            }
             if matches!(self.boot_state, BootState::TitleScreen { .. })
                 && let Some(counts) = self.hidden_title_screen_object_counts()
             {
