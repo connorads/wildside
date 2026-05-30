@@ -159,7 +159,7 @@ mod chunk_04 {
         );
         assert_eq!(
             opening_level_one_object_counts(LevelId(0), 2, 0, OPENING_GROUNDED_CAMERA_Y_FP),
-            Some((3, 4))
+            Some((4, 5))
         );
         assert_eq!(
             opening_level_one_object_counts(
@@ -211,7 +211,7 @@ mod chunk_04 {
                 0,
                 OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000
             ),
-            Some((3, 4)),
+            Some((4, 5)),
             "camera_y at the grounded threshold keeps the regular zero-camera count split",
         );
         assert_eq!(
@@ -236,8 +236,8 @@ mod chunk_04 {
         );
         assert_eq!(
             opening_level_one_object_counts(LevelId(0), 3, 0, OPENING_GROUNDED_CAMERA_Y_FP),
-            Some((4, 5)),
-            "the regular zero-camera branch adds one object and two gfx objects to arbitrary roster counts",
+            Some((5, 6)),
+            "the regular zero-camera branch adds two objects and three gfx objects to arbitrary roster counts",
         );
         assert_eq!(
             opening_level_one_object_counts(

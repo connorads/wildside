@@ -1745,7 +1745,7 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_holds_playback_velocity_after_transform_cleanup() {
+    fn trace_frame_reports_live_playback_velocity_after_transform_cleanup() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::DemoPlay {
             frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
@@ -1762,11 +1762,11 @@ mod tests {
         runtime.opening_slice = Some(slice);
 
         // ASM Kid_Transform loc_7E90 clears the transform flag before the
-        // top-level playback trace stops sampling the controller-side zero
-        // velocity during this post-transform hand-off window.
-        let held = runtime.trace_frame();
-        assert_eq!(held.kid_x_velocity, Some(0));
-        assert_eq!(held.kid_y_velocity, Some(0));
+        // next demo frontier. Oracle helper samples the live Kid gfx slot
+        // (`$FFFF24E0 + x_vel/y_vel`) here, not the stale controller slot.
+        let live_during_cleanup = runtime.trace_frame();
+        assert_eq!(live_during_cleanup.kid_x_velocity, Some(0x0002_0000));
+        assert_eq!(live_during_cleanup.kid_y_velocity, Some(0x0003_0000));
 
         runtime.demo_post_transform_trace_velocity_hold_frames = 0;
 
@@ -1776,7 +1776,7 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_holds_playback_velocity_only_after_bootstrap_gate() {
+    fn trace_frame_reports_live_playback_velocity_after_bootstrap_gate() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
             width_pixels: 320,
@@ -1786,9 +1786,9 @@ mod tests {
         slice.player.y_velocity = 0x0003_0000;
         runtime.opening_slice = Some(slice);
 
-        // ASM Load_DemoPlay -> loc_119D8 exposes the controller-side zero
-        // velocity only after the object bootstrap frame has passed; equality
-        // at the bootstrap boundary still reports live Kid WRAM velocity.
+        // Oracle helper samples Kid's live gfx slot velocity throughout demo
+        // playback. The hidden controller object stays count-visible, but it
+        // no longer owns the exported Kid velocity fields.
         runtime.boot_state = BootState::DemoPlay {
             frame_counter: demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME,
             data_index: 0,
@@ -1803,9 +1803,9 @@ mod tests {
             data_index: 0,
             use_demo_2: true,
         };
-        let held = runtime.trace_frame();
-        assert_eq!(held.kid_x_velocity, Some(0));
-        assert_eq!(held.kid_y_velocity, Some(0));
+        let post_bootstrap = runtime.trace_frame();
+        assert_eq!(post_bootstrap.kid_x_velocity, Some(0x0002_0000));
+        assert_eq!(post_bootstrap.kid_y_velocity, Some(0x0003_0000));
     }
 
     #[test]
@@ -2103,7 +2103,7 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_title_return_playback_velocity_requires_second_recording_lineage() {
+    fn trace_frame_title_return_playback_velocity_reports_live_kid_slot() {
         fn velocities_at(
             use_demo_2: bool,
             uses_intro_sequence_5_title_return_preload_row: bool,
@@ -2128,9 +2128,13 @@ mod tests {
             (frame.kid_x_velocity, frame.kid_y_velocity)
         }
 
-        // ASM Load_DemoPlay -> loc_119D8 keeps the long controller-side zero
-        // sample only for the demo-2 intro-sequence-5 title-return lineage.
-        assert_eq!(velocities_at(true, true), (Some(0), Some(0)));
+        // Oracle helper now reads Kid's live gfx slot velocity rather than the
+        // stale controller-side slot, even for the demo-2 intro-sequence-5
+        // title-return lineage.
+        assert_eq!(
+            velocities_at(true, true),
+            (Some(0x0002_0000), Some(0x0003_0000))
+        );
         assert_eq!(
             velocities_at(true, false),
             (Some(0x0002_0000), Some(0x0003_0000))
@@ -2142,7 +2146,7 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_late_playback_velocity_hold_is_first_recording_only() {
+    fn trace_frame_late_playback_velocity_reports_live_kid_slot() {
         fn velocities_at(
             use_demo_2: bool,
             intro_sequence_6_timeout_return: bool,
@@ -2167,14 +2171,14 @@ mod tests {
             (frame.kid_x_velocity, frame.kid_y_velocity)
         }
 
-        // ASM Load_DemoPlay -> loc_119D8 keeps sampling the late controller
-        // velocity only for the first recording after the shared grounded
-        // hold has ended; second-recording playback reports live Kid velocity.
-        assert_eq!(velocities_at(false, false), (Some(0), Some(0)));
         assert_eq!(
             velocities_at(false, true),
-            (Some(0), Some(0)),
-            "ASM loc_1BB02 -> Load_DemoPlay preserves the first-recording controller sample on the cold IntroSequence6 timeout-return lineage"
+            (Some(0x0002_0000), Some(0x0003_0000)),
+            "ASM loc_1BB02 -> Load_DemoPlay keeps controller objects count-visible, but velocity export follows the live Kid gfx slot"
+        );
+        assert_eq!(
+            velocities_at(false, false),
+            (Some(0x0002_0000), Some(0x0003_0000))
         );
         assert_eq!(
             velocities_at(true, false),
@@ -4768,7 +4772,6 @@ impl NativeRuntime {
         let level_header = self.level_header(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
         let player_state = self.current_player_state();
-        let demo_trace_velocity_hold = self.demo_trace_velocity_hold_active();
         let camera_state = self.current_camera_state();
         let active_objects = self.active_objects();
         let (number_objects, number_gfx_objects) = self
@@ -4916,19 +4919,7 @@ impl NativeRuntime {
             paused: self.paused || self.demo_1_late_controller_pause_active(),
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
-            kid_x_velocity: player_state.map(|state| {
-                if demo_trace_velocity_hold {
-                    // ASM loc_C22 (kid.asm:1389) advances the demo stream after
-                    // the object/gameplay body, while the Load_DemoPlay
-                    // `loc_119D8` controller object is still live. Oracle TAS
-                    // checkpoints sample visible player velocity as the held
-                    // bootstrap value through this hand-off window even though
-                    // raw WRAM starts integrating movement earlier.
-                    0
-                } else {
-                    state.x_velocity
-                }
-            }),
+            kid_x_velocity: player_state.map(|state| state.x_velocity),
             kid_y_velocity: player_state.map(|state| {
                 if self.intro_sequence_6_start_velocity_sample_active() {
                     // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
@@ -4938,8 +4929,6 @@ impl NativeRuntime {
                     // Raw Kid WRAM is still the title-pose object here; only
                     // the top-level oracle velocity sample carries `$60000`.
                     0x0006_0000
-                } else if demo_trace_velocity_hold {
-                    0
                 } else {
                     state.y_velocity
                 }
@@ -6077,43 +6066,6 @@ impl NativeRuntime {
                 }
             }
         }
-    }
-
-    fn demo_trace_velocity_hold_active(&self) -> bool {
-        if self.demo_post_transform_trace_velocity_hold_frames > 0 {
-            // ASM Kid_Transform loc_7E90 has already cleared the ROM
-            // `Currently_transforming` flag, but demo playback still samples
-            // player WRAM velocity as zero while the visible `kid_gfx` object
-            // carries the post-transform movement for this hand-off window.
-            return true;
-        }
-        self.demo_startup_frame()
-            .zip(self.demo_uses_second_recording())
-            .is_some_and(|(frame_counter, use_demo_2)| {
-                let late_demo_1_velocity_sample_end = if self
-                    .demo_started_from_timeout_restart_shell
-                    || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
-                {
-                    // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) still
-                    // leaves the timeout-restart demo-1 controller object
-                    // as the top-level velocity sample through the
-                    // ReadJoypad loc_C0A timeout edge. Raw Kid WRAM keeps
-                    // moving underneath; only the exported TAS sample is
-                    // still owned by the hidden controller object.
-                    demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
-                } else {
-                    demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
-                };
-                let timeout_restart_demo_2_velocity_sample = use_demo_2
-                    && self.demo_uses_intro_sequence_5_title_return_preload_row
-                    && (demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FRAME
-                        ..=demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAME)
-                        .contains(&frame_counter);
-                frame_counter > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
-                    && (frame_counter <= demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME
-                        || (!use_demo_2 && frame_counter <= late_demo_1_velocity_sample_end)
-                        || timeout_restart_demo_2_velocity_sample)
-            })
     }
 
     fn intro_sequence_6_start_velocity_sample_active(&self) -> bool {
@@ -7435,7 +7387,11 @@ pub(crate) fn opening_level_one_object_counts(
         return Some((roster_count + 2, roster_count + 2));
     }
     if camera_x_pos == 0 {
-        return Some((roster_count + 1, roster_count + 2));
+        // ASM Load_InGame allocates the player, DragonWalker, fixed manager
+        // object, and the extra gameplay gfx slot before the settled-recording
+        // helper starts frame 0. Oracle RAM for issue-211's level-00 settled
+        // path reports Number_Objects=4 / Number_GfxObjects=5 here.
+        return Some((roster_count + 2, roster_count + 3));
     }
     Some((roster_count + 2, roster_count + 3))
 }

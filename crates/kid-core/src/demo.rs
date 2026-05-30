@@ -193,6 +193,10 @@ pub(crate) const DEMO_1_LATE_JUMP_REENTRY_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME
 /// Last demo-1 frame where oracle top-level TAS state still samples Kid
 /// velocity from the hidden `loc_119D8` controller object rather than the live
 /// Kid object. Live physics continues independently.
+#[allow(
+    dead_code,
+    reason = "kept for regression tests around old trace-export windows"
+)]
 pub(crate) const DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME: u16 =
     DEMO_1_GAMEPLAY_START_FRAME + 514;
 /// Last demo-1 frame where oracle top-level TAS state still samples object
@@ -216,11 +220,19 @@ pub(crate) const DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME: u16 =
 /// Direct timeout-restart intro-sequence-5 title-return demo-2 keeps sampling
 /// the hidden `Load_DemoPlay -> loc_119D8` controller object for top-level TAS
 /// velocity after the live Cyclone Kid object has started its upward arc.
+#[allow(
+    dead_code,
+    reason = "kept for regression tests around old trace-export windows"
+)]
 pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FRAME: u16 =
     DEMO_GAMEPLAY_START_FRAME + 424;
 /// The matching controller-sampled velocity window reaches the adjusted demo-2
 /// auto-timeout edge. `ReadJoypad loc_C0A` owns the top-level sample while raw
 /// Kid WRAM continues moving under the controller shell.
+#[allow(
+    dead_code,
+    reason = "kept for regression tests around old trace-export windows"
+)]
 pub(crate) const DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_END_FRAME: u16 =
     DEMO_MAX_FRAMES + DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES;
 /// Later IntroSequence6 -> demo-2 starts with the same `Load_DemoPlay`

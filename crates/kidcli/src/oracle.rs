@@ -635,4 +635,15 @@ mod tests {
             "settled recording oracle bootstrap must not start scenario frame 0 on an empty Game_Mode=$000C shell"
         );
     }
+
+    #[test]
+    fn helper_samples_kid_velocity_from_live_kid_gfx_slot() {
+        assert!(
+            HELPER_TEMPLATE.contains("const KID_X_VEL_ADDR: usize = 0xFF_2506;")
+                && HELPER_TEMPLATE.contains("const KID_Y_VEL_ADDR: usize = 0xFF_250A;")
+                && HELPER_TEMPLATE.contains("Some(read_wram_i32(&work_ram, KID_X_VEL_ADDR))")
+                && HELPER_TEMPLATE.contains("Some(read_wram_i32(&work_ram, KID_Y_VEL_ADDR))"),
+            "oracle Kid velocity must come from $FFFF24E0 + x_vel/y_vel, not the stale first gfx slot"
+        );
+    }
 }
