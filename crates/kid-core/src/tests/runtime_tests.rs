@@ -54,6 +54,90 @@ fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
     );
 }
 
+#[test]
+fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut frame_3269 = None;
+    let mut frame_3270 = None;
+    let mut frame_3327 = None;
+    let mut frame_3328 = None;
+    let mut frame_3329 = None;
+
+    for frame_index in 0..=3_329 {
+        let trace = runtime.step_frame(FrameInput::default());
+        match frame_index {
+            3_269 => {
+                frame_3269 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                ));
+            }
+            3_270 => {
+                frame_3270 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                ));
+            }
+            3_327 => {
+                frame_3327 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            3_328 => {
+                frame_3328 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            3_329 => {
+                frame_3329 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BA5C enters Load_IntroSequence6, loc_1BAB0 burns the `$B8`
+    // pre-roll, then Obj_TitleMenu `loc_1BAEA/loc_1BAEE` owns the `$280`
+    // idle loop before `loc_1BB02` writes `Game_Mode=$10`.
+    assert_eq!(
+        frame_3269,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(873))),
+        "frame 3269 should still be the final cold-boot mode-$28 title frame",
+    );
+    assert_eq!(
+        frame_3270,
+        Some((GameMode::DemoPlay, LevelId(0x00), Some(0))),
+        "frame 3270 should be the first cold-boot idle demo-play frame",
+    );
+    assert_eq!(
+        frame_3327,
+        Some((GameMode::DemoPlay, LevelId(0x1B), Some(57), 0x01E8_0000)),
+        "frame 3327 should expose the cold-boot Skydragon preload camera row",
+    );
+    assert_eq!(
+        frame_3328,
+        Some((GameMode::DemoPlay, LevelId(0x1B), Some(58), 0x01C0_0000)),
+        "frame 3328 should keep the second cold-boot Skydragon preload camera row",
+    );
+    assert_eq!(
+        frame_3329,
+        Some((GameMode::DemoPlay, LevelId(0x1B), Some(59), 0x02A0_0000)),
+        "frame 3329 should settle to Load_InGame's respawn camera snap",
+    );
+}
+
 fn runtime_with_projectile_and_player(
     proj_x: u16,
     proj_y: u16,

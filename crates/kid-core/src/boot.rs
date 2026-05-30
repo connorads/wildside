@@ -5425,6 +5425,7 @@ impl NativeRuntime {
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = false;
         self.demo_started_from_timeout_restart_shell = false;
+        self.intro_sequence_6_entered_from_timeout_restart = false;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
         self.next_demo_uses_demo_title_return_camera_wrap = false;
@@ -5433,6 +5434,7 @@ impl NativeRuntime {
         self.demo_uses_intro_sequence_6_early_title_restore = false;
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row = false;
+        self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows = false;
         self.demo_uses_intro_sequence_5_title_return_preload_row = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
@@ -5481,6 +5483,7 @@ impl NativeRuntime {
     fn enter_intro_sequence_6_from_intro_sequence_5(
         &mut self,
         carry_timeout_restart_hidden_camera_wrap: bool,
+        entered_from_timeout_restart: bool,
     ) {
         self.enter_title_screen();
         self.boot_state = BootState::IntroSequence6 {
@@ -5489,6 +5492,7 @@ impl NativeRuntime {
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap,
         };
+        self.intro_sequence_6_entered_from_timeout_restart = entered_from_timeout_restart;
         // ASM loc_1BA5C: `move.w #$28,(Game_Mode).w` hands control to
         // Load_IntroSequence6 rather than the direct `sub_1C246 -> $2C`
         // title return. `loc_1BAB0` and `loc_1B37C` keep the hidden
@@ -5654,6 +5658,8 @@ impl NativeRuntime {
                 ..
             }
         );
+        let cold_intro_sequence_6_demo_2_preload_rows = intro_sequence_6_later_demo_2_preload_row
+            && !self.intro_sequence_6_entered_from_timeout_restart;
         let intro_sequence_5_title_return_preload_row = use_demo_2
             && ((matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.timeout_restart_title_intro_sequence_5_pose
@@ -5728,6 +5734,8 @@ impl NativeRuntime {
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row =
             intro_sequence_6_later_demo_2_preload_row;
+        self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows =
+            cold_intro_sequence_6_demo_2_preload_rows;
         self.demo_uses_intro_sequence_5_title_return_preload_row =
             intro_sequence_5_title_return_preload_row;
         // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
@@ -6766,13 +6774,14 @@ impl NativeRuntime {
                             self.enter_intro_sequence_6_from_intro_sequence_5(
                                 !self
                                     .demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff,
+                                true,
                             );
                         } else {
                             // ASM loc_1BA5C (kid.asm:30333) reaches
                             // `move.w #$28,(Game_Mode).w` on natural timeout;
                             // only sub_1C246/loc_1C264 Start-skip writes
                             // `$2C` title mode from intro sequence 5.
-                            self.enter_intro_sequence_6_from_intro_sequence_5(false);
+                            self.enter_intro_sequence_6_from_intro_sequence_5(false, false);
                         }
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =
@@ -6889,7 +6898,18 @@ impl NativeRuntime {
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;
-                        if self.title_idle_frames > INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
+                        let mut title_idle_frames = INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES;
+                        if !*carry_timeout_restart_hidden_camera_wrap {
+                            // ASM Obj_TitleMenu `loc_1BAEA/loc_1BAEE` owns the
+                            // cold-boot mode-$28 idle timeout too; oracle keeps
+                            // the non-wrapped lineage in that DBF loop for the
+                            // same three local frames as the later title-restore
+                            // revisit before `loc_1BB02` writes `Game_Mode=$10`.
+                            title_idle_frames = title_idle_frames.saturating_add(
+                                TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES,
+                            );
+                        }
+                        if self.title_idle_frames > title_idle_frames {
                             self.title_idle_frames = 0;
                             // ASM Load_DemoPlay (kid.asm:23585) always runs
                             // `not.b ($FFFFFBC8).w` before choosing the demo

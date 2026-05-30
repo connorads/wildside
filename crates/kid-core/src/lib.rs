@@ -355,6 +355,9 @@ pub struct NativeRuntime {
     /// the late demo-1 velocity sample, but oracle does not expose the older
     /// cold-boot controller pause/count sample on that lineage.
     demo_started_from_timeout_restart_shell: bool,
+    /// The current mode-$28 title shell came from a timeout-restart intro
+    /// replay rather than the original cold boot.
+    intro_sequence_6_entered_from_timeout_restart: bool,
     /// The next demo start comes from a Start-skip intro return rather than
     /// the cold-boot attract path.
     next_demo_uses_start_skip_intro_return_camera_wrap: bool,
@@ -389,6 +392,9 @@ pub struct NativeRuntime {
     /// that still carries the old `loc_1BCD0` slot-2 pose but no longer uses
     /// the earlier hidden-camera wrap.
     demo_uses_intro_sequence_6_later_demo_2_preload_row: bool,
+    /// Active demo-2 bootstrap came from the original cold-boot
+    /// IntroSequence6 shell rather than a later timeout-restart revisit.
+    demo_uses_cold_intro_sequence_6_demo_2_preload_rows: bool,
     /// Active demo-2 bootstrap came from the direct timeout-restart
     /// intro-sequence-5 title return. That `sub_1C246 -> loc_1C264` lineage
     /// exposes a lower one-frame camera preload row than the generic demo-2
@@ -1248,6 +1254,7 @@ impl NativeRuntime {
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,
             demo_started_from_timeout_restart_shell: false,
+            intro_sequence_6_entered_from_timeout_restart: false,
             next_demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_start_skip_intro_return_camera_wrap: false,
             next_demo_uses_demo_title_return_camera_wrap: false,
@@ -1256,6 +1263,7 @@ impl NativeRuntime {
             demo_uses_intro_sequence_6_early_title_restore: false,
             timeout_restart_intro_sequence_1_uses_early_title_restore: false,
             demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
+            demo_uses_cold_intro_sequence_6_demo_2_preload_rows: false,
             demo_uses_intro_sequence_5_title_return_preload_row: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,

@@ -107,6 +107,11 @@ pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
 /// Oracle WRAM reads `Camera_Y_pos=$0228_0000` on this preload frame for both
 /// the plain initial boot and the Start-skip intro-return lineage.
 pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
+/// The plain cold-boot `IntroSequence6 -> loc_1BB02 -> Load_DemoPlay`
+/// Skydragon hand-off exposes two hidden camera rows before `Load_InGame`
+/// reaches the standard respawn snap.
+pub(crate) const DEMO_2_COLD_INTRO_SEQUENCE_6_CAMERA_PRELOAD_Y_FP: u32 = 0x01E8_0000;
+pub(crate) const DEMO_2_COLD_INTRO_SEQUENCE_6_CAMERA_SETTLE_Y_FP: u32 = 0x01C0_0000;
 /// The direct timeout-restart intro-sequence-5 title return reaches the same
 /// demo-2 preload frame through a different hidden title shell. Oracle WRAM
 /// shows `Camera_Y_pos=$0220_0000` only for that `sub_1C246 -> loc_1C264 ->

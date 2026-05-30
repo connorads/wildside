@@ -6233,6 +6233,22 @@ impl NativeRuntime {
                 // exposes a one-frame Skydragon Castle preload row at
                 // `$0220_0000` instead of the generic `$0228_0000`.
                 demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CAMERA_PRELOAD_Y_FP
+            } else if self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows
+                && frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME
+            {
+                // ASM loc_1BA5C -> Load_IntroSequence6 -> Obj_TitleMenu
+                // loc_1BB02 reaches the cold-boot Skydragon demo through the
+                // hidden mode-$28 shell. Oracle exposes `$01E8_0000` for the
+                // preload frame, distinct from the later timeout-restore
+                // revisit that has already restored loc_1B5CE's title pose.
+                demo::DEMO_2_COLD_INTRO_SEQUENCE_6_CAMERA_PRELOAD_Y_FP
+            } else if self.demo_uses_cold_intro_sequence_6_demo_2_preload_rows
+                && frame_counter == demo::DEMO_CAMERA_HOLD_START_FRAME
+            {
+                // ASM same cold-boot `loc_1BB02 -> Load_DemoPlay` lineage:
+                // one more hidden camera row is visible before Load_InGame's
+                // standard `$02A0_0000` respawn snap takes over.
+                demo::DEMO_2_COLD_INTRO_SEQUENCE_6_CAMERA_SETTLE_Y_FP
             } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 // ASM Obj_TitleMenu loc_1BB02 flips into `Game_Mode=$10`, and
                 // the following `Load_DemoPlay -> Load_InGame` hand-off
