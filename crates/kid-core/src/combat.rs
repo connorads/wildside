@@ -8137,6 +8137,20 @@ impl NativeRuntime {
             if !enemy.is_vulnerable() {
                 return None;
             }
+            if matches!(enemy.family, EnemyFamily::Scorpion)
+                && enemy.scorpion_sting_frames > 0
+                && let Some(tail) = enemy.child_attachment_snapshot()
+                && player_touches_enemy_with_half_width(
+                    slice.player,
+                    &tail,
+                    self.progression.current_form.half_width() as i64,
+                )
+            {
+                // ASM Scorpion.asm loc_3DDEE sets the linked tail object's
+                // Kid-collision flag for `stru_3DB8E`; damage still flows
+                // through the normal Character_CheckCollision path.
+                return Some((tail.x_pos, enemy.family));
+            }
             let snapshot = enemy.snapshot();
             if player_touches_enemy_with_half_width(
                 slice.player,

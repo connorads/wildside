@@ -5418,6 +5418,7 @@ const SCORPION_BASE_SPEED: i32 = 0x1_8000;
 const SCORPION_STING_X_RANGE_LOC_3DDC8: i16 = 0x24;
 const SCORPION_STING_Y_MIN_LOC_3DDEE: i16 = -0x20;
 const SCORPION_STING_Y_MAX_LOC_3DDEE: i16 = 0x30;
+const SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE: u8 = 0x06 + 0x0F + 0x06;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -6440,6 +6441,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) boss_head_index: u8,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
+    /// Scorpion.asm loc_3DDEE: frames remaining in `stru_3DB8E` while the
+    /// linked tail object has Kid collision enabled.
+    pub(crate) scorpion_sting_frames: u8,
     /// ASM UFO.asm `$4E(a5)`; for Tornado, `$46(a5)` gates loc_3592E X-term doubling.
     pub(crate) flight_double_acceleration: bool,
     /// ASM UFO.asm `$4F(a5)`; for Tornado, `$47(a5)` gates loc_3593A Y-term doubling.
@@ -8335,6 +8339,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         ufo_beam_interval: 0,
         boss_head_index: BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        scorpion_sting_frames: 0,
         flight_double_acceleration: false,
         flight_double_terminal_speed: false,
         walk_speed_override: 0,
@@ -8716,50 +8721,71 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn child_attachment_snapshot(&self) -> Option<NativeObjectSnapshot> {
-        if !matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
-            return None;
-        }
         if self.hit_points == 0 {
-            // ASM Tank.asm loc_3B480 / Tank_Shooting.asm loc_3B6E6 hide the
-            // linked mouth/turret child before hibernating through the parent
-            // death animation.
+            // ASM Tank.asm loc_3B480 / Tank_Shooting.asm loc_3B6E6 and
+            // Scorpion.asm loc_3DCF4 hide/disable linked children once the
+            // parent enters the death sequence.
             return None;
         }
 
-        // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
-        // linked turret gfx object at `$3A(a5)`, then the shared walker
-        // `sub_3BF72` keeps it synced at parent_y - 8px.
-        let parent_x_direction = match self.facing {
-            Direction::Left => 0x00,
-            Direction::Right => 0xFF,
+        let (x_pos, y_pos, x_velocity, facing) = match self.family {
+            EnemyFamily::Tank | EnemyFamily::TankShooting => {
+                // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
+                // linked turret gfx object at `$3A(a5)`, then the shared walker
+                // `sub_3BF72` keeps it synced at parent_y - 8px.
+                let parent_x_direction = match self.facing {
+                    Direction::Left => 0x00,
+                    Direction::Right => 0xFF,
+                };
+                let attachment =
+                    shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+                        family: self.family,
+                        parent_x_pos: (self.x_pos >> 16) as i16,
+                        parent_y_pos: (self.y_pos >> 16) as i16,
+                        parent_x_direction,
+                        child_y_offset: 8,
+                        robot_parent_state: 0,
+                        robot_child_mapping: 0,
+                        child_x_direction: parent_x_direction,
+                    })
+                    .primary;
+                (
+                    u32::from(attachment.x_pos as u16) << 16,
+                    u32::from(attachment.y_pos as u16) << 16,
+                    attachment.x_velocity,
+                    attachment.x_direction.map(|x_direction| {
+                        if x_direction == 0 {
+                            Direction::Left
+                        } else {
+                            Direction::Right
+                        }
+                    }),
+                )
+            }
+            EnemyFamily::Scorpion => {
+                // ASM Scorpion.asm loc_3DC86 keeps the linked tail gfx object
+                // at `$3A(a5)` synced to the parent before collision dispatch.
+                let attachment = scorpion_tail_sync_loc_3dc86(self.x_pos, self.y_pos, self.facing);
+                (
+                    u32::from(attachment.x_word as u16) << 16,
+                    u32::from(attachment.y_word as u16) << 16,
+                    0,
+                    Some(self.facing),
+                )
+            }
+            _ => return None,
         };
-        let attachment = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
-            family: self.family,
-            parent_x_pos: (self.x_pos >> 16) as i16,
-            parent_y_pos: (self.y_pos >> 16) as i16,
-            parent_x_direction,
-            child_y_offset: 8,
-            robot_parent_state: 0,
-            robot_child_mapping: 0,
-            child_x_direction: parent_x_direction,
-        })
-        .primary;
+
         Some(NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
             },
-            x_pos: u32::from(attachment.x_pos as u16) << 16,
-            y_pos: u32::from(attachment.y_pos as u16) << 16,
+            x_pos,
+            y_pos,
             layout_index: Some(self.layout_index),
-            x_velocity: Some(attachment.x_velocity),
+            x_velocity: Some(x_velocity),
             y_velocity: Some(0),
-            facing: attachment.x_direction.map(|x_direction| {
-                if x_direction == 0 {
-                    Direction::Left
-                } else {
-                    Direction::Right
-                }
-            }),
+            facing,
             on_ground: None,
             hit_points: None,
             damage_flash: false,
@@ -9149,6 +9175,7 @@ pub(crate) fn activate_enemies_with_rng(
                     BOSS_HEAD_NONE
                 },
                 scorpion_tracking_lock: false,
+                scorpion_sting_frames: 0,
                 crab_frozen: false,
                 crab_berzerker_knockback: false,
                 flight_double_acceleration: matches!(
@@ -9376,6 +9403,21 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC
                     {
                         step_armadillo_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Scorpion)
+                        && enemy.scorpion_sting_frames > 0
+                    {
+                        // ASM Scorpion.asm loc_3DDEE runs `stru_3DB8E` and
+                        // hibernates until the animation completes; loc_3DE40
+                        // then clears the linked tail collision flag and
+                        // resumes the shared-walker loop.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.scorpion_sting_frames = enemy.scorpion_sting_frames.saturating_sub(1);
+                        if enemy.scorpion_sting_frames == 0 {
+                            enemy.walk_speed_override = 0;
+                        }
                         continue;
                     }
                     step_pacer(enemy, block_grid);
@@ -24645,11 +24687,17 @@ pub(crate) fn step_scorpion_tracking(
     if close_range_route.locks_tracking() {
         enemy.scorpion_tracking_lock = true;
         if let ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
+            linked_tail_has_kid_collision,
             walk_speed_override,
             ..
         } = close_range_route
         {
             enemy.walk_speed_override = walk_speed_override;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if linked_tail_has_kid_collision {
+                enemy.scorpion_sting_frames = SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE;
+            }
         }
     }
 }
@@ -25598,6 +25646,7 @@ mod tests {
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
             scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
             flight_double_acceleration: false,
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
@@ -28775,6 +28824,65 @@ mod tests {
             },
             "ASM Scorpion.asm loc_3DCAA subtracts $16 from the linked tail x word when x_direction is set"
         );
+    }
+
+    #[test]
+    fn scorpion_active_snapshot_exposes_tail_child_from_loc_3dc86() {
+        let scorpion = ActiveEnemy {
+            family: EnemyFamily::Scorpion,
+            x_pos: 0x0120_8000,
+            y_pos: 0x0040_4000,
+            facing: Direction::Right,
+            hit_points: 3,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        let child = scorpion
+            .child_attachment_snapshot()
+            .expect("ASM Scorpion.asm loc_3DBD8 allocates a linked tail child");
+
+        assert_eq!(
+            child.kind,
+            NativeObjectKind::Enemy {
+                object_type: EnemyFamily::Scorpion.object_type()
+            }
+        );
+        assert_eq!(
+            child.x_pos, 0x010A_0000,
+            "ASM Scorpion.asm loc_3DCAA subtracts $16 from the linked tail x word when x_direction is set"
+        );
+        assert_eq!(
+            child.y_pos, 0x002A_0000,
+            "ASM Scorpion.asm loc_3DC86 subtracts $16 from the linked tail y word"
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_arms_sting_tail_loc_3ddee() {
+        let mut scorpion = ActiveEnemy {
+            family: EnemyFamily::Scorpion,
+            enemy_level: 2,
+            hit_points: 5,
+            x_pos: 0x0120_0000,
+            y_pos: 0x0040_0000,
+            facing: Direction::Right,
+            x_velocity: 0x0001_8000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_scorpion_tracking(&mut scorpion, Some(0x0124_0000), Some(0x0038_0000), Some(0));
+
+        assert!(scorpion.scorpion_tracking_lock);
+        assert_eq!(
+            scorpion.scorpion_sting_frames, SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE,
+            "ASM Scorpion.asm loc_3DDEE arms the linked tail for the whole `stru_3DB8E` animation"
+        );
+        assert_eq!(
+            scorpion.walk_speed_override, 0,
+            "ASM Scorpion.asm loc_3DDEE clears `$50(a5)` before hibernating through the sting animation"
+        );
+        assert_eq!(scorpion.x_velocity, 0);
+        assert_eq!(scorpion.y_velocity, 0);
     }
 
     #[test]
@@ -34694,6 +34802,7 @@ mod tests {
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
             scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
             crab_frozen: false,
             crab_berzerker_knockback: false,
             flight_double_acceleration: false,

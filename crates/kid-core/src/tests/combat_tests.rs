@@ -281,6 +281,49 @@ mod chunk_03 {
     }
 
     #[test]
+    fn scorpion_sting_tail_contact_damages_player_loc_3ddee() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+        runtime.progression.invulnerable_frames = 0;
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0120_0000, 0x0040_0000, 3);
+        scorpion.facing = Direction::Right;
+        scorpion.scorpion_sting_frames = 1;
+        runtime.active_enemies = vec![scorpion];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x010A_0000;
+        slice.player.y_pos = 0x002A_0000;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        assert_eq!(
+            runtime.find_contact_damage_source(&slice),
+            Some((0x010A_0000, EnemyFamily::Scorpion)),
+            "ASM Scorpion.asm loc_3DDEE routes damage through the linked tail object during `stru_3DB8E`",
+        );
+        assert!(
+            runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "the armed tail contact should consume the frame via contact damage",
+        );
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+        assert_eq!(
+            runtime.progression.invulnerable_frames, PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+            "ASM loc_BC34 damage latch should arm the post-hit invulnerability window",
+        );
+    }
+
+    #[test]
     fn loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
@@ -6662,6 +6705,7 @@ mod chunk_03 {
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
             scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
             flight_double_acceleration: false,
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
@@ -7315,6 +7359,7 @@ mod chunk_03 {
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
             scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
             flight_double_acceleration: false,
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
