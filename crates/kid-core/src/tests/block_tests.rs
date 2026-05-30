@@ -5672,6 +5672,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_live_floor_contact_relaunches_like_loc_366d0() {
+        let grid = grid_with_floor_at_row(14);
+        let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0050_0000, 0x00DF_0000, 3);
+        skull.x_velocity = 0x0001_2222;
+        skull.y_velocity = 0x0000_F061;
+        skull.facing = Direction::Right;
+
+        enemies::step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(skull.y_pos, 0x00E0_0000);
+        assert_eq!(
+            skull.x_velocity, 0x0001_2222,
+            "ASM Big_Hopping_Skull.asm loc_36580 saves d0=x_vel before the floor wait; loc_366D0 restores it on relaunch",
+        );
+        assert_eq!(
+            skull.y_velocity,
+            i32::from_ne_bytes(0xFFFE_0001_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_366D0 should write only y_vel's high word to $FFFE, not negate the falling velocity",
+        );
+    }
+
+    #[test]
     fn big_hopping_skull_collision_dispatch_matches_loc_3674e() {
         assert_eq!(
             enemies::big_hopping_skull_collision_dispatch_loc_3674e(0),

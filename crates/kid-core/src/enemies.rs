@@ -13437,7 +13437,7 @@ pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i3
 
 /// Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 /// Gravity $FA0/frame, deflects off all surfaces. No ground delay.
-/// Floor: negate y_vel. Wall: backup 2x, negate x_vel, clear y_vel.
+/// Floor: relaunch with y_vel high word $FFFE. Wall: backup 2x, negate x_vel, clear y_vel.
 /// Ceiling: negate y_vel. Slope up: swap+negate both. Slope down: swap only.
 pub(crate) fn step_big_hopping_skull(
     enemy: &mut ActiveEnemy,
@@ -13473,15 +13473,17 @@ pub(crate) fn step_big_hopping_skull(
             enemy.facing = opposite_direction(enemy.facing);
         }
 
-        // Floor collision (ASM loc_36580: triggers kid-hit state, but for physics
-        // the restart at loc_366D0 resets y_vel to $FFFE0000. We negate as bounce.)
+        // Floor collision. ASM loc_36580 clears motion during the contact wait;
+        // loc_366D0 relaunches by restoring saved d0=x_vel and writing only
+        // y_vel's high word to $FFFE.
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
+            let saved_x_velocity = enemy.x_velocity;
             let floor_y_fp = (floor.floor_y_px as u32) << 16;
             if enemy.y_pos >= floor_y_fp {
                 enemy.y_pos = floor_y_fp;
-                // Floor bounce: negate y_velocity
-                enemy.y_velocity = -enemy.y_velocity;
+                enemy.x_velocity = saved_x_velocity;
+                enemy.y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
             }
 
             // Slope deflection: check if floor cell is a slope
