@@ -1110,6 +1110,51 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn diamond_power_aoe_routes_tank_through_loc_3b41c_damage_not_direct_delete() {
+        for power in [
+            helmets::DiamondPowerType::CircleOfDoom,
+            helmets::DiamondPowerType::WallOfDeath,
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.progression.diamond_power_type = power;
+            runtime.progression.diamond_power_frames = 2;
+            let mut tank = test_enemy(EnemyFamily::Tank, 0x0100_0000, 0x0020_0000, 4);
+            tank.x_velocity = 0x0001_0000;
+            runtime.active_enemies = vec![tank];
+            runtime.active_enemy_roster = runtime
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+
+            runtime.step_diamond_power(FrameInput::default());
+
+            assert_eq!(
+                runtime.active_enemies.len(),
+                1,
+                "ASM DiamondPower_Main_CircleOfDoom/WallOfDeath maintain DP object collision words; Tank damage still dispatches through Tank.asm loc_3B41C"
+            );
+            assert_eq!(
+                runtime.active_enemies[0].hit_points, 3,
+                "Tank.asm loc_3B464 should decrement HP once instead of bypassing straight to loc_3B480"
+            );
+            assert_eq!(
+                runtime.active_enemies[0].damage_flash_frames,
+                ENEMY_DAMAGE_FLASH_FRAMES
+            );
+            assert_eq!(
+                runtime.active_enemies[0].x_velocity, 0,
+                "Tank.asm loc_3B49A clears parent motion on a nonfatal DP hit"
+            );
+            assert_eq!(
+                runtime.active_enemy_roster.len(),
+                2,
+                "nonfatal Tank DP damage must keep the mouth child visible"
+            );
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Rain tracking enemy scan (loc_3FEE2, loc_3FF16, loc_3FF1C)
     // -----------------------------------------------------------------------

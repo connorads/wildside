@@ -6120,18 +6120,24 @@ impl NativeRuntime {
     /// AoE damage helper: kill all non-diamond enemies (used by CircleOfDoom, WallOfDeath).
     fn diamond_power_kill_enemies(&mut self) {
         let mut kill_indices = Vec::new();
+        let mut changed_enemy_state = false;
         for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
             if matches!(enemy.family, EnemyFamily::Diamond) {
                 continue;
             }
             if enemy.take_damage_or_queue_death() {
                 kill_indices.push(i);
+            } else {
+                // ASM DiamondPower_Main_CircleOfDoom/WallOfDeath route via
+                // object collision words; family handlers such as Tank.asm
+                // loc_3B41C may update parent state without deleting it.
+                changed_enemy_state = true;
             }
         }
         for &idx in kill_indices.iter().rev() {
             self.remove_dead_enemy(idx);
         }
-        if !kill_indices.is_empty() {
+        if changed_enemy_state || !kill_indices.is_empty() {
             self.rebuild_active_enemy_roster();
         }
     }
