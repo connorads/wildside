@@ -10646,7 +10646,7 @@ mod chunk_04 {
     // --- Orca ---
 
     #[test]
-    fn orca_lunges_when_player_nearby() {
+    fn orca_enters_windup_before_lunging_loc_3d320() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, floor_y, 4);
@@ -10655,8 +10655,14 @@ mod chunk_04 {
         enemy.wait_timer = 0; // no cooldown
         let player_x = Some((60 + 0x20) << 16); // within $30 range
         step_orca(&mut enemy, Some(&grid), player_x);
-        assert_eq!(enemy.orca_state, OrcaState::Lunging);
-        assert!(enemy.y_velocity < 0, "should launch upward");
+        assert_eq!(enemy.orca_state, OrcaState::Windup);
+        assert_eq!(
+            enemy.wait_timer,
+            orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320).hibernate_frames
+                as u16,
+            "ASM Orca.asm loc_3D320 hibernates six frames before loc_3D340/loc_3D348 launch"
+        );
+        assert_eq!(enemy.y_velocity, 0, "wind-up should not launch upward yet");
         assert_eq!(
             enemy.facing,
             Direction::Left,
@@ -10679,8 +10685,14 @@ mod chunk_04 {
         let player_x = Some((60 + 0x20) << 16);
         step_orca(&mut enemy, Some(&grid), player_x);
 
-        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+        assert_eq!(enemy.orca_state, OrcaState::Windup);
         assert_eq!(enemy.facing, Direction::Left);
+        for _ in
+            0..orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320).hibernate_frames
+        {
+            step_orca(&mut enemy, Some(&grid), player_x);
+        }
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
         assert_eq!(enemy.x_velocity, -ORCA_LUNGE_X_SPEED);
     }
 

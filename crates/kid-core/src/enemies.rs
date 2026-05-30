@@ -6304,6 +6304,8 @@ pub(crate) enum OrcaState {
     /// Walking patrol with proximity detection.
     #[default]
     Walking,
+    /// ASM Orca.asm loc_3D320: six hibernated frames before the lunge launch.
+    Windup,
     /// Airborne ballistic lunge toward the player.
     Lunging,
 }
@@ -19783,10 +19785,24 @@ pub(crate) fn step_orca(
                 return;
             };
 
-            // Launch lunge
+            // ASM Orca.asm loc_3D320: begin a six-frame hibernated wind-up
+            // before loc_3D340/loc_3D348 seed the lunge velocities.
+            enemy.orca_state = OrcaState::Windup;
+            enemy.facing = launch_facing;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.wait_timer = u16::from(
+                orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320).hibernate_frames,
+            );
+        }
+        OrcaState::Windup => {
+            if enemy.wait_timer > 1 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+            enemy.wait_timer = 0;
             enemy.orca_state = OrcaState::Lunging;
             enemy.on_ground = false;
-            enemy.facing = launch_facing;
             enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
             enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
         }

@@ -26,7 +26,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Lion (0x12) | partial | 3 |
 | Mini_Hopping_Skull (0x1C) | partial | 3 |
 | Ninja (0x11) | partial | 6 |
-| Orca (0x08) | partial | 4 |
+| Orca (0x08) | partial | 3 |
 | Robot (0x03) | partial | 4 |
 | Scorpion (0x13) | partial | 4 |
 | Sphere (0x06) | full | 0 |
@@ -37,7 +37,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 82 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 81 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -206,9 +206,6 @@ Native handles only wall/floor contact during jump attack; ceiling reflection an
 
 **Ninja — far-Kid facing turn during pacing not applied** (`loc_3D92A / loc_3D978 / loc_3D98A`)
 ROM turns to face Kid when >$80 away; native sets facing only inside the attack trigger. `enemies.rs:16614-16641`, `enemies.rs:16306` test-only.
-
-**Orca — lunge wind-up phase (6-frame loop with collision-abort) missing** (`loc_3D320`)
-Native transitions Walking→Lunging and assigns launch velocities same-frame; no hibernate/collision-abort. windup_frames is computed then discarded. `enemies.rs:18676-18687/6268-6274/1245`.
 
 **Orca — wall-pinned lunge X-drift handled, but side-collision Berzerker re-lunge absent** (`loc_3D4DE`)
 Live path probes terrain only; never reads Kid side contact or Berzerker_charging during the lunge. (Wall-pin X-drift suppression is correctly implemented.) `enemies.rs:18657-18780/18694-18701/18739-18743`; gate `enemies.rs:1301/1096` test-only.
