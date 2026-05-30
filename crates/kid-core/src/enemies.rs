@@ -8659,6 +8659,11 @@ impl ActiveEnemy {
                 self.wait_timer = ROBOT_CHARGE_FLIP_BASE;
                 self.x_velocity = horizontal_velocity(self.facing, ROBOT_CHARGE_SPEED);
                 self.y_velocity = 0;
+            } else if matches!(self.robot_state, RobotState::Aiming) {
+                // ASM Robot.asm loc_3AAD4 -> loc_3AB04 -> loc_3AAC4:
+                // a nonfatal collision during the shooting coroutine restores
+                // the walking animation path instead of resuming the shoot.
+                finish_robot_shoot_sequence(self);
             }
             return false;
         }

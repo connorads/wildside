@@ -9300,6 +9300,39 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_mid_shoot_nonfatal_projectile_hit_resumes_walk_loc_3aad4_3aac4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 3;
+        runtime.active_enemies = vec![robot];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 120 << 16,
+            friendly: true,
+            lifetime: 10,
+            ..Default::default()
+        });
+
+        runtime.process_friendly_projectile_hits();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Robot.asm loc_3AAD4 -> loc_3AB04 should still apply the nonfatal hit reaction"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].robot_state,
+            RobotState::Walking,
+            "ASM Robot.asm loc_3AAC4 clears the child collision word and resumes the shared walker after a nonfatal shoot-time hit"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL,
+            "native shoot-time restore should leave the Robot on the same walking shoot interval used after an uninterrupted shot"
+        );
+    }
+
+    #[test]
     fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);
