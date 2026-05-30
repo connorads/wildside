@@ -9362,6 +9362,51 @@ mod chunk_03 {
     }
 
     #[test]
+    fn scorpion_negative_parent_collision_enters_loc_3dcf4_death_before_hp_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 4);
+        scorpion.layout_index = 18;
+        let killed_identity = (scorpion.segment_index, scorpion.layout_index);
+        runtime.active_enemies = vec![scorpion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: scorpion.segment_index,
+                layout_index: scorpion.layout_index,
+                collision_type: 0xFFFF,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Scorpion.asm loc_3DCB0 routes signed-negative collision_type to loc_3DCF4, which hibernates before delete"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 0,
+            "ASM Scorpion.asm loc_3DCB0 must bypass the loc_3DCD4 HP decrement route for negative collision words"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            SCORPION_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "ASM Scorpion.asm loc_3DCF4 should leave the parent in its death animation"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Scorpion.asm loc_3DCF4 marks the linked tail `$3D`, so native should hide the tail child during death"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM loc_3E956 marks the layout killed only after stru_3DB80 finishes"
+        );
+    }
+
+    #[test]
     fn driller_death_waits_for_stru_3bcd4_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 1);

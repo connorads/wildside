@@ -7656,6 +7656,19 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Scorpion) {
+                if matches!(
+                    scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16),
+                    ScorpionCollisionRouteLoc3DCB0::Death
+                ) {
+                    // ASM Scorpion.asm loc_3DCB0: signed-negative parent
+                    // collision words branch straight to loc_3DCF4 before
+                    // the positive hurt/above HP damage route at loc_3DCD4.
+                    kill_indices.push(active_idx);
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::DragonWalking)
                 && collision.collision_type == DRAGON_COLID_KIDABOVE
             {
