@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Recording `debug-cold-loop-trace` has a failing reduced gameplay case in frames 0..120",
+        "reason": "Rejected 2026-05-30 after fixing compact file-backed recording replay. The original bundle was malformed: `trace_len=1` despite `frame_count=9000`, so `verify-recording --slug debug-cold-loop-trace` failed with missing native checkpoint/frame errors and `case derive --frame-start 0 --frame-end 120` panicked while slicing the one-byte idle script. Native recording, checkpoint rendering, diagnostic layer rendering, and case derivation now expand compact scripts to the declared `frame_count`; the regenerated bundle has `trace_len=9000` and `trace_match=true`. The first derived 0..120 case now passes after oracle Sega-screen semantic bookkeeping is normalised the same way as native (`case issue_210_cold_boot_idle_demo_loop_long_case_00000_00120: PASS`). The remaining cold-loop evidence is not an early gameplay case: full `verify-recording` still fails at `title_ready@2600` with native `number_objects=0` vs oracle `number_objects=2` and a frame MAE of 23.925629 / 7,831 changed pixels, so the next pass should target IntroSequence6/title VDP/object fidelity around frames 2480..2600."
+      },
+      {
         "name": "Issue #175 lower Forest flag-touch mismatch is fixed by a plain Forest ripple phase offset",
         "reason": "Rejected 2026-05-28. After adding row-offset native samples and extending `eol_vdp_pixel_samples_loc_c070` to the lower dominant pixels, the reduced `issue-175-eol-flag-touch-level12` bundle shows native applying row offsets `+4` at `y=125` and `+8` at `y=133`, while oracle Plane B H-scroll is `$160` at `y=125` and `$15B` at `y=133`. Plain small `Time_Frames >> 2` phase offsets do not explain both rows: `+1` worsens `flag_touch` to MAE 1.8521438 / 1,802 changed pixels, `+2` only nudges it to 1.8497349 / 1,785, and `+3` worsens it to 1.8543806 / 1,811. The follow-up fix is not a generic table nudge: native now feeds `loc_305E6` a named 52-VBlank settled-warp `Time_Frames` offset only while the ROM level-skip visual phase is armed."
       },

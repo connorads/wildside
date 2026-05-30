@@ -1255,6 +1255,7 @@ fn semantic_from_oracle(
     state: &OracleState,
     previous: Option<&SemanticGameState>,
 ) -> SemanticGameState {
+    let sega_screen_player_hidden = state.boot_phase.as_deref() == Some("sega_screen");
     let player = SemanticPlayerState {
         x_pos: Some(state.kid_x_pos),
         y_pos: Some(state.kid_y_pos),
@@ -1269,8 +1270,18 @@ fn semantic_from_oracle(
         movement_state: state
             .character_movement
             .map(|movement| format!("movement_{movement:04x}")),
-        current_form: Some(state.current_helmet_id),
-        hitpoints: Some(state.number_hitpoints),
+        // Match `semantic_from_native`: ASM loc_65C/sub_8A4 seed
+        // progression while Load_SegaScreen still has no gameplay player.
+        current_form: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            state.current_helmet_id
+        }),
+        hitpoints: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            state.number_hitpoints
+        }),
         invulnerable_frames: state.invulnerable_frames.map(u16::from),
         collision_type: state.kid_collision_type,
     };
@@ -1284,7 +1295,11 @@ fn semantic_from_oracle(
         player_1_level_id: state.player_1_level_id,
         current_player: state.current_player,
         score: Some(state.score),
-        number_lives: Some(state.number_lives),
+        number_lives: Some(if sega_screen_player_hidden {
+            0
+        } else {
+            state.number_lives
+        }),
         diamond_count: Some(state.number_diamonds),
         paused: state.game_paused,
         boot_phase: state.boot_phase.clone(),
@@ -1951,6 +1966,7 @@ fn build_case_verification_scenario(
         CaseSource::ScenarioPath { .. } | CaseSource::Recording { .. } => {
             let mut sliced = base_scenario.clone();
             sliced.script.truncate(frame_end);
+            sliced.script.resize(frame_end, 0);
             sliced.frame_count = frame_end;
             sliced.checkpoints = (frame_start..frame_end)
                 .map(|frame_index| DynamicCheckpoint {
@@ -2157,6 +2173,44 @@ mod tests {
         assert_eq!(scenario.frame_count, 14);
         assert_eq!(scenario.script.len(), 14);
         assert_eq!(&scenario.script[10..], &[MASK_RIGHT; 4]);
+    }
+
+    #[test]
+    fn recording_case_window_expands_compact_idle_script() {
+        let base = DynamicScenario {
+            slug: String::from("cold_boot_idle_demo_loop_long"),
+            script: vec![0],
+            frame_count: 9000,
+            checkpoints: vec![DynamicCheckpoint {
+                label: String::from("title_ready"),
+                frame_index: 2600,
+            }],
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        };
+
+        let scenario = build_case_verification_scenario(
+            &CaseSource::Recording {
+                path: String::from(".cache/recordings/debug-cold-loop-trace"),
+                slug: String::from("debug-cold-loop-trace"),
+            },
+            &base,
+            0,
+            120,
+        )
+        .expect("verification scenario")
+        .scenario;
+
+        assert_eq!(scenario.frame_count, 120);
+        assert_eq!(scenario.script.len(), 120);
+        assert_eq!(scenario.checkpoints.len(), 120);
+        assert!(
+            scenario.script.iter().all(|input| *input == 0),
+            "compact no-input scripts must be expanded before case slicing"
+        );
     }
 
     #[test]
@@ -3082,6 +3136,60 @@ mod tests {
         );
         assert_eq!(semantic.player.current_form, Some(0));
         assert_eq!(semantic.player.hitpoints, Some(0));
+        assert_eq!(semantic.world.number_lives, Some(0));
+    }
+
+    #[test]
+    fn semantic_from_oracle_zero_fills_hidden_sega_screen_bookkeeping() {
+        let state = OracleState {
+            label: String::from("frame_00030"),
+            frame_index: 30,
+            game_mode: 0,
+            boot_phase: Some(String::from("sega_screen")),
+            boot_phase_elapsed: Some(30),
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            current_helmet_id: 0,
+            number_hitpoints: 2,
+            number_lives: 3,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: Some(0),
+            just_received_damage: Some(false),
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0),
+            level_special_effects: Some(0),
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        };
+
+        let semantic = semantic_from_oracle(&state, None);
+
+        assert_eq!(semantic.player.current_form, Some(0));
+        assert_eq!(
+            semantic.player.hitpoints,
+            Some(0),
+            "ASM loc_65C/sub_8A4 bookkeeping is hidden while Load_SegaScreen has no gameplay player"
+        );
         assert_eq!(semantic.world.number_lives, Some(0));
     }
 

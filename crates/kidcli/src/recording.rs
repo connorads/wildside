@@ -444,14 +444,19 @@ pub(crate) fn run_recorded_trace(
 
     let mut trace = runtime.trace_frame();
     let mut current_level_id = trace.current_level.0;
-    let mut replay = Vec::with_capacity(scenario.script.len());
+    let frame_count = recording_trace_frame_count(scenario);
+    let mut replay = Vec::with_capacity(frame_count);
     let mut level_card_frames_remaining = 0usize;
     let mut script_index = 0usize;
 
-    while script_index < scenario.script.len() {
+    while replay.len() < frame_count {
         if level_card_frames_remaining == 0 {
-            let buttons = scenario.script[script_index];
-            script_index += 1;
+            let buttons = scenario
+                .script
+                .get(script_index)
+                .copied()
+                .unwrap_or_default();
+            script_index = script_index.saturating_add(1);
             let previous_trace = trace.clone();
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
             let mut recorded_frame = trace.clone();
@@ -489,6 +494,10 @@ pub(crate) fn run_recorded_trace(
     }
 
     Ok(replay)
+}
+
+fn recording_trace_frame_count(scenario: &DynamicScenario) -> usize {
+    scenario.frame_count.max(scenario.script.len())
 }
 
 struct RecordingRuntimeInit {
@@ -910,15 +919,20 @@ fn render_dynamic_checkpoint_frames(
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
 
-    while script_index < scenario.script.len() {
+    let frame_count = recording_trace_frame_count(scenario);
+    while replay_frame_index < frame_count {
         if level_card_frames_remaining > 0 {
             level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
             continue;
         }
 
         let previous_trace = runtime.trace_frame();
-        let buttons = scenario.script[script_index];
-        script_index += 1;
+        let buttons = scenario
+            .script
+            .get(script_index)
+            .copied()
+            .unwrap_or_default();
+        script_index = script_index.saturating_add(1);
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
             apply_settled_warp_oracle_visual_compatibility(&mut trace);
@@ -1051,15 +1065,20 @@ fn write_dynamic_checkpoint_layer_frames(
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
 
-    while script_index < scenario.script.len() {
+    let frame_count = recording_trace_frame_count(scenario);
+    while replay_frame_index < frame_count {
         if level_card_frames_remaining > 0 {
             level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
             continue;
         }
 
         let previous_trace = runtime.trace_frame();
-        let buttons = scenario.script[script_index];
-        script_index += 1;
+        let buttons = scenario
+            .script
+            .get(script_index)
+            .copied()
+            .unwrap_or_default();
+        script_index = script_index.saturating_add(1);
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
             apply_settled_warp_oracle_visual_compatibility(&mut trace);
@@ -2390,6 +2409,30 @@ mod tests {
         assert_eq!(
             recording.manifest.verify_command,
             "cargo run -p kidcli -- verify-recording --slug level1-tree-bug"
+        );
+    }
+
+    #[test]
+    fn file_recording_replay_uses_declared_frame_count_when_script_is_short() {
+        let scenario = DynamicScenario {
+            slug: "cold_boot_idle_demo_loop_long".into(),
+            script: vec![0],
+            frame_count: 9000,
+            checkpoints: vec![DynamicCheckpoint {
+                label: "title_ready".into(),
+                frame_index: 2600,
+            }],
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        };
+
+        assert_eq!(
+            recording_trace_frame_count(&scenario),
+            9000,
+            "file-backed recordings must cover their declared checkpoint window even when a compact idle script stores one zero input byte"
         );
     }
 
