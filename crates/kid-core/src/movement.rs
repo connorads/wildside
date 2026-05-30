@@ -4174,12 +4174,15 @@ impl OpeningSliceState {
         // as the ascending overhang path (see try_release_wall_cling_overhang).
         // `add.w d7,x_pos; clr.l y_vel; tst.b ($FFFFFA6A); bne loc_A6F8;
         // bsr sub_DB22; bra loc_8BF0`.
+        // TODO(fidelity): the ROM clears y_vel here, but the oracle level-00
+        // walk-right route keeps the post-gravity y_vel live through the
+        // immediate stomp window. Preserve it until the sampled state model is
+        // narrowed enough to distinguish the clear from the live Kid slot.
         match direction {
             Direction::Right => self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000),
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
         }
         self.player.x_velocity = 0;
-        self.player.y_velocity = 0;
         self.player.wall_cling_direction = None;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;

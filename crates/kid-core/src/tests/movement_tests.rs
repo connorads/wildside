@@ -19019,12 +19019,13 @@ mod chunk_12 {
         assert!(!release.player.right_wall_sticky);
     }
 
-    /// ASM loc_AB0A (kid.asm:13372): the descending wall-cling release tail is
-    /// the same shimmy-and-clear sequence as loc_AB4A. A clear wall column while
-    /// holding toward the cling side must release to the run path and zero both
-    /// velocity components.
+    /// ASM loc_AB0A (kid.asm:13372): the descending wall-cling release tail
+    /// shimmies 1px away from the wall and exits to the run path. Native keeps
+    /// the post-gravity y velocity live here because the oracle level-00
+    /// walk-right route reports that velocity through the immediate stomp
+    /// window; clearing it caused frame 124 to diverge.
     #[test]
-    fn loc_ab0a_descending_wall_cling_release_clears_y_velocity() {
+    fn loc_ab0a_descending_wall_cling_release_preserves_y_velocity() {
         let bounds = LevelBounds {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
@@ -19102,8 +19103,8 @@ mod chunk_12 {
             "loc_AB0A should clear x_vel after the descending release",
         );
         assert_eq!(
-            slice.player.y_velocity, 0,
-            "loc_AB0A should clear y_vel after the descending release",
+            slice.player.y_velocity, 0x0001_4000,
+            "loc_AB0A native release should preserve the post-gravity y_vel for the oracle stomp window",
         );
     }
 
