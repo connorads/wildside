@@ -16,8 +16,7 @@ use crate::boot::{
 };
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
-    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES,
-    INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
+    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -2541,18 +2540,17 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     elapsed: usize,
     intro_return_hidden_shell: bool,
 ) {
-    let d3_elapsed =
-        if intro_return_hidden_shell && elapsed < INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES {
-            // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
-            // Start-skip title VDP becomes visible. By the time native rebuilds
-            // the visible title frame, the preserved `d3` selector is one
-            // sub_1B71A tick past the next four-frame phase boundary. Once
-            // loc_1B5E4 has exposed the trace-ready title shell, the normal title
-            // worker cadence applies again.
-            elapsed.saturating_add(5)
-        } else {
-            elapsed
-        };
+    let d3_elapsed = if intro_return_hidden_shell {
+        // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
+        // Start-skip title VDP becomes visible. By the time native rebuilds
+        // the visible title frame, the preserved `d3` selector is one
+        // sub_1B71A tick past the next four-frame phase boundary, and that
+        // object-local phase remains ahead for the rest of the title/menu
+        // lineage.
+        elapsed.saturating_add(5)
+    } else {
+        elapsed
+    };
     let d3 = u16::try_from(d3_elapsed).unwrap_or(u16::MAX);
     let map_index = title_text_chameleon_anim_map_index(d3_elapsed);
     let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
@@ -2584,29 +2582,20 @@ fn title_text_chameleon_anim_map_index(elapsed: usize) -> usize {
 }
 
 #[allow(non_snake_case)]
-fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>, elapsed: usize) {
-    // ASM Obj_TitleTextKid / loc_1B5E4 (kid.asm:29834-29875): the visible
-    // title KID text is a sprite using `LnkTo_unk_E10FE`, tile `$4D3`, palette
-    // line 2. After the hibernate/drift/pop-up windows it settles at
-    // `x=$5A,y=$98`.
+fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>, _elapsed: usize) {
+    // ASM Obj_TitleTextKid / loc_1B5CE / loc_1B5E4 (kid.asm:29834-29875):
+    // the main title KID text sprite uses `LnkTo_unk_E10FE`, tile `$4D3`,
+    // palette line 2, and keeps x=`$2E` after its drift settles at y=`$A5`.
+    // ORIGINAL_QUIRK: the later `x=$2E,y=$8C` and `x=$5A,y=$98` writes occur
+    // after `sub_1B652`, which allocates a child popup gfx object and leaves
+    // `a3` pointing at that child, so those writes do not move the main KID
+    // title sprite.
     let setup = crate::boot::title_text_kid_setup_loc_1B5E4();
-    let first_popup_elapsed = usize::from(setup.pre_drift_hibernate_frames)
-        + usize::from(setup.drift_frame_count)
-        + usize::from(setup.post_drift_hibernate_frames);
-    let second_popup_elapsed =
-        first_popup_elapsed + usize::from(setup.interstitial_hibernate_frames);
-    let (x_pos, y_pos) = if elapsed >= second_popup_elapsed {
-        setup.popup_positions[1]
-    } else if elapsed >= first_popup_elapsed {
-        setup.popup_positions[0]
-    } else {
-        (setup.x_pos, 0x00A5)
-    };
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
         entries,
         IntroGfxObjectForSpriteTable {
-            x_pos,
-            y_pos,
+            x_pos: setup.x_pos,
+            y_pos: 0x00A5,
             palette_line: setup.palette_line,
             vram_tile: setup.vram_tile,
             priority: 0,

@@ -4123,6 +4123,7 @@ mod chunk_02 {
         let mut trace_2701 = None;
         let mut trace_2720 = None;
         let mut trace_3299 = None;
+        let mut frame_3299 = None;
 
         for frame_index in 0..=3_299 {
             let input = if matches!(frame_index, 2_600 | 2_700) {
@@ -4165,6 +4166,7 @@ mod chunk_02 {
                 trace_2720 = Some(trace);
             } else if frame_index == 3_299 {
                 trace_3299 = Some(trace);
+                frame_3299 = runtime.vdp_state().cloned();
             }
         }
 
@@ -4237,6 +4239,15 @@ mod chunk_02 {
             trace_3299.game_mode,
             GameMode::TitleScreen,
             "ASM Obj_TitleMenu Title_InputLoop should remain on the title screen at oracle frame 3299 after opening the menu"
+        );
+        let vdp_3299 = frame_3299.expect("frame 3299 should keep rendering the title VDP");
+        assert!(
+            vdp_sprite_table_contains(&vdp_3299, (0x00E8, 0x0F, 1, 0x44D3, 0x00AE)),
+            "ASM Obj_TitleTextKid/loc_1B5CE keeps the main KID title sprite at x=$2E after its drift; the later loc_1B5E4 pose writes follow sub_1B652 after it has clobbered a3 with the child popup gfx object"
+        );
+        assert!(
+            !vdp_sprite_table_contains(&vdp_3299, (0x00DB, 0x0F, 1, 0x44D3, 0x00DA)),
+            "ASM loc_1B5E4's x=$5A/y=$98 child-popup pose must not be applied to the main KID title sprite"
         );
     }
 
