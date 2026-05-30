@@ -2715,6 +2715,45 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_nonfatal_hurt_sets_recoil_state_and_hibernates_loc_3cb38() {
+        let grid = grid_with_floor_at_row(14);
+        let mut goat = make_pacer(EnemyFamily::Goat, 3, 0x80, 0xE0);
+        goat.x_velocity = -0x0000_8000;
+
+        assert!(!goat.take_damage_or_queue_death());
+        assert_eq!(goat.hit_points, 2);
+        assert_eq!(
+            goat.shared_walker_state, -0x0078,
+            "ASM Goat.asm loc_3CB38 should set `$42(a3)` to $FF88 after nonfatal hurt"
+        );
+        assert_eq!(
+            goat.walk_speed_override, 0x0000_8000,
+            "ASM Goat.asm loc_3CB38 should restore `$50(a5)` from saved `$5E(a5)`"
+        );
+
+        let mut active = vec![goat];
+        let mut drilled_blocks = Vec::new();
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            Some(0x0040_0000),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            active[0].x_pos, 0x0080_0000,
+            "ASM Goat.asm loc_3CB38 hibernates through `stru_3C9E4` before resuming the shared walker",
+        );
+        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].y_velocity, 0);
+    }
+
+    #[test]
     fn goat_death_sequence_matches_loc_3cb64() {
         assert_eq!(
             goat_death_sequence_loc_3cb64(),

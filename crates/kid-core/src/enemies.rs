@@ -8674,6 +8674,28 @@ impl ActiveEnemy {
                 }
             }
         }
+        if matches!(self.family, EnemyFamily::Goat) {
+            let saved_walk_speed = if self.walk_speed_override != 0 {
+                self.walk_speed_override
+            } else {
+                pacer_walk_speed(self.family, self.hit_points)
+            };
+            match goat_damage_response_loc_3cb38(u16::from(self.hit_points), saved_walk_speed) {
+                GoatDamageResponseLoc3CB38::Death => return true,
+                GoatDamageResponseLoc3CB38::Hurt {
+                    remaining_hp,
+                    recoil_state_word,
+                    restored_walk_speed,
+                    ..
+                } => {
+                    self.hit_points = remaining_hp as u8;
+                    self.shared_walker_state = recoil_state_word;
+                    self.walk_speed_override = restored_walk_speed;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+            }
+        }
         self.hit_points -= 1;
         self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
         if matches!(self.family, EnemyFamily::TankShooting) {
@@ -9490,6 +9512,14 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8
                     {
                         step_goat_berzerker_knockback(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Goat) && enemy.damage_flash_frames > 0 {
+                        // ASM Goat.asm loc_3CB38 plays `stru_3C9E4` and
+                        // hibernates before restoring the saved patrol
+                        // animation and resuming the shared walker.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Armadillo)
