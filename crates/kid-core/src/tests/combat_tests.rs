@@ -9594,6 +9594,37 @@ mod chunk_03 {
     }
 
     #[test]
+    fn spinning_twins_nonfatal_hurt_hibernates_through_stru_3b836_loc_3bc34() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 120 << 16, 2);
+        twins.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        twins.x_velocity = 0x0001_8000;
+        runtime.active_enemies = vec![twins];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 120 << 16,
+            friendly: true,
+            lifetime: 10,
+            ..Default::default()
+        });
+
+        runtime.process_friendly_projectile_hits();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Spinning_Twins.asm loc_3BC34 decrements `$44(a3)` before choosing recovery or death"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer, SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34,
+            "ASM Spinning_Twins.asm loc_3BC34 hibernates through stru_3B836 before restoring walk"
+        );
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "nonfatal loc_3BC34 recovery must not enter loc_3BC56 death"
+        );
+    }
+
+    #[test]
     fn hand_death_waits_for_stru_32b78_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 1);

@@ -8667,6 +8667,28 @@ impl ActiveEnemy {
             }
             return false;
         }
+        if matches!(self.family, EnemyFamily::SpinningTwins)
+            && matches!(self.spinning_twins_phase, SpinningTwinsPhase::Walking)
+        {
+            match spinning_twins_damage_contact_loc_3bc34(
+                u16::from(self.hit_points),
+                match self.facing {
+                    Direction::Left => 0,
+                    Direction::Right => 0xFF,
+                },
+            ) {
+                SpinningTwinsDamageContactLoc3BC34::Death { .. } => return true,
+                SpinningTwinsDamageContactLoc3BC34::Recover(recovery) => {
+                    // ASM Spinning_Twins.asm loc_3BC34: nonfatal settled
+                    // damage hibernates through `stru_3B836`, restores the
+                    // walking animation, then resumes through loc_3BBE6.
+                    self.hit_points = recovery.next_hit_points as u8;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    self.wait_timer = SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34;
+                    return false;
+                }
+            }
+        }
         if self.hit_points <= 1 {
             return true;
         }
@@ -9509,6 +9531,13 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
                     if enemy.wait_timer == SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22 {
                         step_spinning_twins_berzerker_launch(enemy);
+                    } else if matches!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking)
+                        && enemy.wait_timer > 0
+                    {
+                        // ASM Spinning_Twins.asm loc_3BC34: the settled hurt
+                        // path hibernates until `stru_3B836` finishes before
+                        // returning to the shared walker.
+                        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
                     } else {
                         step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
                     }
@@ -23495,6 +23524,7 @@ pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = 0x001C;
 pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = 0x0020;
 pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
