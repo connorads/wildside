@@ -1,0 +1,124 @@
+<!-- Generated 2026-05-30 by the `player-movement-fidelity-audit` workflow (1 read-only Explore scout enumerated 15 player move-states; one read-only Explore auditor per move-state compared native to kid.asm; every gap adversarially verified by an independent refuter — defaulting to refuted — before inclusion). 44 agents total. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
+
+# Player Movement Fidelity Audit
+
+Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
+
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. 18 of the 26 confirmed gaps are this "modelled-but-unwired" shape (`with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, `update_skycutter_horizontal_velocity_sub_9A20` for the air path, the discarded `sub_7A10.blocked`).
+
+Two findings are player-specific and do **not** fit that mould:
+
+- **Architectural (`$14/$18` compound corner):** the native collision pipeline is *decomposed per-axis* (separate floor/ceiling and wall passes), so it never forms the ROM's compound `collision_type` `$14`/`$18`. A whole class of slope-into-wall corner behaviour (crush kill; Juggernaut/Skycutter diagonal bounce-out; grid-aligned recovery snap) therefore has no executable counterpart — only documentation comments. Relates to #207.
+- **A genuine correctness bug (ice/rubber):** the ROM deliberately *cross-wires* its terrain index (ice block → index 1 → the "rubber"/slippery table; rubber block → index 2 → the "ice"/grippy table). The port maps terrain types symbolically by name, silently undoing the cross-wire, so **ice plays grippy and rubber plays slippery** — inverted from the original on every grounded frame. This is fixable and verifiable now without the object-active harness.
+
+## Coverage summary
+
+| Move-state | Coverage | Confirmed gaps |
+|---|---|---|
+| Kid main object update (integrate + collision dispatch) | partial | 1 |
+| Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
+| Ground walk/run horizontal acceleration | partial | 2 |
+| Braking / skid / turn-around | partial | 1 |
+| Duck / crawl (`MoveID_Crawling=1`) | partial | 3 |
+| Jump initiation (ground launch velocity) | partial | 2 |
+| Variable jump height (B-held gravity + terminal velocity) | full | 0 |
+| Airborne horizontal control | partial | 2 |
+| Secondary airborne path (`sub_8506`) | full | 0 |
+| Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 2 |
+| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 5 |
+| Landing / floor-support & platform riding | partial | 2 |
+| Wall-hit + ceiling-hit collision response | partial | 1 |
+| Damage recoil / knockback & Berzerker charge | partial | 3 |
+| Skycutter form-specific horizontal movement | partial | 2 |
+
+Totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 confirmed gaps** (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). Two pairs of gaps are the same underlying defect surfaced by different auditors — the `$14/$18` compound corner (main-object-update + wall/ceiling) and the airborne Skycutter `sub_9A20` (airborne-control + Skycutter-form) — and are noted as such below.
+
+## Confirmed gaps
+
+### High severity
+
+**Ground accel — terrain index selection inverts the ROM's ice/rubber swap** (`loc_9AE0`/`loc_9AF2`/`loc_9AFC` select; `sub_8600`/`loc_8680`/`loc_8688` write)
+`sub_8600` writes index 1 for ice blocks (`BlockType::Ice=2`) and 2 for rubber (`BlockType::Rubber=6`); the selector `loc_9AE0` reads them **inverted** (`#2`→`unk_9C7A` punchy table, `#1`→`unk_9CCE` slippery table). Net ROM behaviour: ice → slippery glide (`accel $200`, caps `$40000-$70000`), rubber → punchy (`accel $2000`/`decel $5000`). The port detects terrain faithfully (`grounded_surface_type_sub_8600` → `TerrainType::Ice`/`Rubber`, `movement.rs:6404-6424`) but then maps **symbolically** — `Ice → ICE_*`, `Rubber → RUBBER_*` (`types.rs:858-866`) — undoing the cross-wire, so ice gets the punchy constants and rubber the slippery ones. Player-felt accel/decel/caps are swapped on every ice and rubber surface, on every grounded frame (`movement.rs:4514-4518`). The doc comment at `types.rs:846-847` even states the ASM-correct fact while the adjacent code contradicts it. **Correctness bug, not a harness-blocked wiring item.**
+
+**Crawl — stand-up wall escape (`sub_81B4`) implemented and tested but never called** (`sub_81B4` @kid.asm:8952, from crawl stand-up `loc_8270` @9033)
+ROM stand-up runs `sub_DAA6` (overhead platform) → `sub_B43A` (floor) → Skycutter gate → `sub_81B4` (wall escape): probes 16px above the feet at `x±$E`; both sides solid → stay crawling (wedged); one side open → restore standing half-width and snap `x_pos` flush to the tile boundary. Native `crawl_wall_escape_sub_81B4` (`movement.rs:6431`, `#[allow(dead_code)]`) ports all of this but the only callers are tests; the live gate (`lib.rs:2516-2536`) consults only `sub_DAA6`. Missing: (1) Kid wedged in a 1-tile gap can wrongly stand; (2) the deterministic flush x-snap as the standing box re-expands.
+
+**Airborne control — Skycutter air-jump does not delegate to `sub_9A20`** (`sub_B084` @kid.asm:13921-13927; `sub_9A20` @11588) *(same defect as the Skycutter-form gap below)*
+`sub_B084`'s first action: `cmpi.w #Skycutter,(Current_Helmet); bne loc_B09E; move.l x_vel,d0; bsr sub_9A20` — airborne Skycutter **bypasses** the `unk_A4B2`/`unk_A4C6` air tables and uses `sub_9A20` (caps `$20000` walk/`$40000` run, `$2000`/`$4000` accel, two-tier cruise-decel). Native dispatches the air path unconditionally to `update_jump_horizontal_velocity` with `JUMP_AIR_PROFILES[helmet_id]`; for Skycutter (id=1) that is `{accel:0x3400, max:0x32000}` — ROM **dead data** never reached for Skycutter. `update_skycutter_horizontal_velocity_sub_9A20` (`physics.rs:561`) exists and is wired for the *grounded* path (`movement.rs:4474,4766`) but not the airborne one (`movement.rs:4521-4531`). Skycutter flight control diverges.
+
+**Slope walking — Up-held / Down-held do not drive uphill/downhill acceleration** (`loc_9DAA` @kid.asm:11986-11995, `loc_9DC0`/`loc_9DF2`)
+`loc_9DAA` dispatches slope accel on **four** inputs: Right→uphill, Left→downhill, **Up→uphill**, **Down→downhill**; only with none held does it fall to neutral `loc_9E2E`. Native `update_level_one_slope_ground_velocity` (`movement.rs:6154-6231`) derives `uphill_pressed`/`downhill_pressed` from `input.left`/`input.right` only, and `HorizontalInput` (`physics.rs:517-521`) has no up/down field, so holding only Up/Down on a slope falls to neutral-decel instead of climbing/descending.
+
+### Medium severity
+
+**Main object update — `$14/$18` compound-corner response absent** (`sub_A4EE`/`loc_A53C`/`loc_A594`/`loc_A556`/`loc_A5AE`; IK tails `loc_B9A2`/`loc_BA5A`/`loc_BB08`/`loc_BB30`) *(architectural; same root as the wall/ceiling-response gap below)*
+ROM integrates X+Y together then runs a single `j_GfxObjects_Collision`; `collision_type` `$14` (floor+right-wall corner)/`$18` (floor+left-wall) dispatch to corner handlers — Juggernaut/Skycutter get a diagonal escape (`x_vel`/`y_vel=$FFFE0000` for `$14`; `y_vel=$FFFE0000`, `x_vel=+$00020000` for `$18`) repositioned from the cached tile addr `$FFFFFB6C`; other helmets take `loc_B9A2` recovery. The native decomposed per-axis passes (`movement.rs:3374`/`3389` floor, `3563`/`3567` wall) never form the compound type; `movement.rs:3211` states plainly "The `$14/$18` crush paths are not yet ported". Only triggers on slope-into-wall corner geometry (hence medium).
+
+**Wall/ceiling response — slope-compound corner-crush (`loc_B9A2`/`loc_BA5A`) unported** (reached from `sub_A4EE` `loc_A53C`/`$14`, `loc_A594`/`$18`; Juggernaut bounce `loc_BB08`/`loc_BB30`; recovery snap `loc_BA1C`/`loc_BAD2`)
+Same compound-`collision_type` root as above, audited from the wall/ceiling angle: corner-crush kill (unless Juggernaut/Skycutter), the Juggernaut fixed-velocity bounce, and the grid-aligned wall-hit recovery snap have no executable counterpart — only the comment block at `movement.rs:3198-3243`. **Note:** the genuine `$04`/`$08` wall and `$10` ceiling responses *are* faithfully wired (`apply_wall_collision` `movement.rs:5057`, `apply_ceiling_collision` `movement.rs:5253`); only the compound `$14/$18` corner is missing. Relates to #207.
+
+**Braking — Left+Right conflict resolver (`sf Ctrl_Right_Held`) unwired** (`loc_7464` @kid.asm:7610-7614; affects facing gate `loc_9B14`)
+ROM clears Right once per frame when both are held, so both-held resolves to **LEFT**. `with_left_right_conflict_resolved` (`types.rs:929`, cites `loc_7464`) models this but is only called from tests; the live path builds `h_input` straight from `input.left`/`input.right` (`movement.rs:4453`) and `update_horizontal_velocity` tests `if input.right` first (`physics.rs:543`), so both-held resolves to **RIGHT**. Reachable via mask/demo/replay input (`from_mask` sets both bits independently). The brake mechanics themselves ($0C turn-brake vs $18 strong-brake asymmetry, run-reverse, over-cap decel, snap-to-zero) are faithful and test-locked (`physics.rs:1361-1397`).
+
+**Crawl — `sub_7A10` entry `blocked` result discarded** (`loc_8C70` @kid.asm:10092; `sub_7A10` `loc_7A90` @8143)
+ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native computes `DownHoldAlignmentSub7A10.blocked` correctly but `lib.rs:2982` reads only `.x_pos`; with no separate crawl `MoveID`, crawl-vs-walk velocity is decided solely by `input.down` (`movement.rs:4488`), so a blocked entry still applies crawl air-table velocity that frame.
+
+**Jump — `KidGrabbedByHand` `+$20000` weakening modelled but unwired** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
+ROM adds `$20000` to the (negated) `y_vel` when grabbed, shortening a jump made while held by a Hand. `initiate_jump_with_hand_grab` (`physics.rs:726-761`) ports the arithmetic, but every live caller goes through the `initiate_jump` wrapper that hardcodes `false` (`physics.rs:718-720`; callers `movement.rs:4555,4581,4947,4962,5009,5025`). The `KidGrabbedByHand` RAM flag is never plumbed from the Hand machinery into jump init. (Part of the cross-cutting "grab flag never surfaced" theme; see also the crawl-gate and climb-jump-off lows.)
+
+**Landing — moving-platform carry bypasses the `sub_8F26`/`sub_902A` move-and-collide passes** (`loc_8D72` @kid.asm:10150, `loc_82D8` @9063)
+ROM inherits platform motion into the player's **velocity** then re-runs the collision passes, so the carried displacement is wall/floor/ceiling-clamped. Native (`platforms.rs:780-783`) adds `platform.x_velocity`/`y_velocity` straight onto `x_pos`/`y_pos` with no wall pass on the carried X delta, so a platform pushing a grounded Kid into a wall drives him through it. Falls under #208 (platform physics).
+
+**Damage — `apply_damage` clears wall-grab/cling the ROM hurt path never touches** (`Check_for_recent_damge`/`loc_B700`/`loc_B72C` @kid.asm:14632-14659)
+Native `apply_damage` unconditionally clears `right_wall_sticky`/`left_wall_sticky`/`wall_cling_direction` (`combat.rs:8511-8516`). Tracing the full ROM hurt path, it only touches HP/flags/SFX — it never writes movement or wall-stick state. This is **invented behaviour with no ASM backing** (same class as the removed knockback-velocity approximation), firing on every non-fatal hit. Removal candidate.
+
+**Berzerker — charge negates Kid `x_vel` unconditionally; ROM gates on `object_meta` bit 15** (`loc_B678`/`loc_B692`/`return_B690` @kid.asm:14582-14598)
+ROM negates `x_vel` on a charging side-contact only when bit 15 of the enemy `object_meta` is set (`bclr #$F,d6; bne loc_B692`). Native `process_berzerker_charge_hits` (`helmets.rs:5259-5264`) negates on the first overlap unconditionally; the transient bit-15 recoil flag is neither set nor consulted. Net: native bounces off enemies the ROM passes through. (The authors documented the exact gate at `combat.rs:8158-8163` but did not model it.)
+
+### Low severity
+
+**Ground accel — stale `not(test)` dead_code attr on wired `grounded_surface_type_sub_8600`** *(hygiene → #209)* (`sub_8600`)
+Carries `#[cfg_attr(not(test), allow(dead_code))]` (`movement.rs:6355`) but has live callers (`movement.rs:4398-4399,5796-5797,5829-5830`; `boot.rs:6211`). Function itself faithful (incl. the `loc_8688` rubber-wins-ties quirk).
+
+**Crawl — `KidGrabbedByHand` not checked in the entry gate** *(grab-flag theme)* (`loc_8C70` @kid.asm:10084)
+ROM skips crawl entry when held by a Hand; native gate (`lib.rs:2968-2974`) omits the flag, which is never surfaced to the player path. Narrow (the grab pins position).
+
+**Jump — `sfx_Jump` not emitted on launch** (`sub_A432`/`loc_A480` @kid.asm:12821-12822)
+ROM plays `sfx_Jump` as part of launch; the native `initiate_jump` comment defers sound "to call sites" (`physics.rs:765-766`) but the call sites (`movement.rs:4549-4586`) emit none. Audio-only; the deferral note is unfulfilled.
+
+**Airborne control — Skycutter wrongly gets the 1.5× run-accel multiplier** (`sub_B084` `loc_B09E` @kid.asm:13935-13939)
+Secondary consequence of the unwired `sub_9A20` air branch: the 1.5× `Ctrl_A` multiplier (`physics.rs:297-301`) is correct for the nine helmets that reach `loc_B09E`, but is also applied to Skycutter (which should use `sub_9A20`'s flat `+$4000` step). No separate fix beyond wiring `sub_9A20`.
+
+**Slope walking — steady frame does not mirror `y_vel = ±x_vel`** (`loc_9D22` @kid.asm:11942-11949)
+ROM sets `y_vel = -x_vel` (SlopeUp) / `+x_vel` (SlopeDown) every grounded-slope frame; native sets it only on fresh recontact (`apply_immediate_slope_recontact` `movement.rs:5902-5903`) and otherwise re-snaps `y_pos` from `x_px` directly. Position is faithful; only the stored `y_velocity` is stale — near-non-observable.
+
+**Climb — wall-end release omits the −4 px/frame pop + jump-state handoff** (`loc_A2F6`/`loc_A30A` @kid.asm:12610-12625)
+At the top of a wall ROM sets `y_vel=$FFFC0000` (−4.0 px upward) and hands off to the jump state (`loc_A6F8`). Native resume (`helmets.rs:4765-4771`) just clears `iron_knight_climbing` with no `y_vel` write, so the climber keeps only the clamped climb velocity (≤−1.5 px) and drops into normal physics. The accel-ramp, detach, B-jump-off and entry seed are faithful; only this branch is approximated.
+
+**Climb — loop ignores the per-frame `Addr_PlatformStandingOn` moving-platform exit** (`loc_A28A`/`loc_A9AA` @kid.asm:12579-12585,13266-13283)
+ROM clears then re-checks `Addr_PlatformStandingOn` each climb iteration to transfer the climber onto a moving platform crossing the climb column. Neither `step_iron_knight_climb` nor `_resume` checks `active_platforms`. Edge geometry.
+
+**Climb — B-press jump-off bypasses the `KidGrabbedByHand` weakening** *(grab-flag theme)* (`loc_A426`→`sub_A432` `loc_A466` @kid.asm:12774-12805)
+Climb B-press calls `initiate_jump(0, jump_height)` (`helmets.rs:4727`), i.e. the `false` branch, dropping the grabbed-while-climbing adjustment. Very narrow.
+
+**Climb — stale dead-code attr on wired `iron_knight_climb_visual_sub_A3BC`** *(hygiene → #209)* (`sub_A3BC` @kid.asm:12694-12717)
+`#[cfg_attr(not(test), allow(dead_code))]` (`helmets.rs:868-869`) but called live every climb frame (`helmets.rs:4813`). Accumulator math faithful; only the sprite-mapping output is unconsumed (likely why the attr was left on).
+
+**Climb — airborne wall-attach is a native extension with no ROM entry** (`loc_7696` @kid.asm:7762-7769 is the sole `bra loc_A276`)
+The only ROM path into the wall-climb state is the grounded walk state; native additionally allows attach while airborne (`helmets.rs:4684-4698`), letting the Iron Knight grab a wall mid-jump where the ROM cannot. Over-permissive extension; grounded (common) case is faithful.
+
+**Landing — grounded platform carry never re-seats `y_pos = platform_top − 1`** *(→ #208)* (`loc_8D72` @kid.asm:10164-10165, `loc_8306` @9077-9078)
+ROM hard-reseats `y_pos` to `platform_y − 1` each frame; native only does additive carry (`platforms.rs:780-785`), so sub-pixel drift is never re-corrected. Normally invisible (the landing snap establishes alignment).
+
+**Damage — `clear_special_movement_state_sub_DB22` is test-only** *(hygiene → #209)* (`sub_DB22` @kid.asm:17170)
+`#[cfg(test)]` helper (`helmets.rs:4180-4207`); not a behavioural gap (production clears flags via `refresh_grounded_helmet_state_sub_78E8`) but the ASM symbol resolves only to a test fixture, so an auditor searching this symbol finds no live wiring.
+
+**Skycutter — both-direction-held facing flip diverges from `sub_9A20`'s sequential branch** (`sub_9A20` `loc_9A84`/`loc_9A32` @kid.asm:11589-11594,11631-11635)
+ROM tests left-first when facing right, so both-held → LEFT; native `next_facing` tests right-first → RIGHT (`physics.rs:573-579`). Velocity branch agrees; only reported facing differs, and only under simultaneous L+R. Edge-only.
+
+## Relationship to existing backlog
+
+- **Hygiene** (3 gaps: `grounded_surface_type_sub_8600`, `iron_knight_climb_visual_sub_A3BC`, `clear_special_movement_state_sub_DB22`) → fold into **#209** (strip stale `cfg_attr(not(test))` from wired helpers).
+- **Platform carry** (2 gaps: X-axis re-collision, `y_pos` re-seat) → under **#208** (all platform physics unwired).
+- **Compound `$14/$18` corner** (the architectural pair) → relates to **#207** (generic collision primitives unwired).
+- **Wiring gaps** that change behaviour against the ROM need the **#205** object/enemy-active oracle harness to verify, *except* the **ice/rubber inversion**, which is a deterministic table-mapping bug fixable and verifiable now via a grounded-walk scenario.
