@@ -1447,11 +1447,13 @@ impl NativeRuntime {
                     } else {
                         None
                     };
-                    vdp::build_title_screen_vdp_with_character_frame_and_menu(
+                    vdp::build_title_screen_vdp_with_character_frame_menu_and_title_objects(
                         data,
                         self.title_screen_character_frame_index_sub_1bf24(),
                         self.title_screen_region_byte,
                         menu_cursor,
+                        self.title_screen_ready(),
+                        self.title_screen_elapsed_frames,
                     )
                 })
             }
@@ -1496,7 +1498,13 @@ impl NativeRuntime {
     }
 
     fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
-        if !self.title_screen_uses_intro_return_hidden_shell || self.title_screen_ready() {
+        if self.title_screen_ready() {
+            // ASM Load_TitleScreen (kid.asm:29456): `moveq #7,d4; bsr.w
+            // sub_1BF24` draws the visible title character once the hidden
+            // intro-return rebuild has completed.
+            return 7;
+        }
+        if !self.title_screen_uses_intro_return_hidden_shell {
             return 0;
         }
 

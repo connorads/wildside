@@ -4203,6 +4203,13 @@ mod chunk_02 {
             1,
             "ASM loc_1B446 advances one byte from `unk_1B4D6` after each 3-frame hibernate",
         );
+
+        runtime.title_screen_ready_frame = 0;
+        assert_eq!(
+            runtime.title_screen_character_frame_index_sub_1bf24(),
+            7,
+            "ASM Load_TitleScreen uses `moveq #7,d4` before sub_1BF24 once the visible title shell is ready",
+        );
     }
 
     #[test]

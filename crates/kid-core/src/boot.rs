@@ -2414,7 +2414,9 @@ pub(crate) struct Prize10000PointsStarStepLoc10B74 {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
+    #[allow(dead_code)]
     pub(crate) vram_word_address: u16,
+    pub(crate) vram_byte_address: u16,
     pub(crate) filler_word: Option<u16>,
     pub(crate) words: Vec<u16>,
 }
@@ -3849,17 +3851,17 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         // clipped counter has already reached zero.
         let words = decoded_words[row_start..row_start + top_row_limit].to_vec();
         // ASM loc_1B758: `move.w d5,d0; lsl.w #7,d0; add.w d4,d0; add.w d4,d0`
-        // builds the row-`$12` VRAM word address, then `addi.w #$4000,d0;
-        // swap d0; clr.w d0` turns that into the VDP command whose high word
-        // exposes the `$04xx` word address we store here.
-        let row_base = 0x0480_u16
+        // builds the row-`$12` VRAM byte address, then `addi.w #$4000,d0;
+        // swap d0; clr.w d0` turns that into the VDP write command.
+        let row_base = 0x0900_u16
             .checked_add(horizontal_offset_words.saturating_mul(2))?
-            .checked_add(u16::try_from(row_index).ok()?.saturating_mul(64))?;
+            .checked_add(u16::try_from(row_index).ok()?.saturating_mul(128))?;
         // ASM loc_1B780 / loc_1B79A: positive `d4` first writes filler tile
         // `$00BC` one cell to the left, while zero `d4` falls through to the
         // plain `move.l d0,4(a6)` path with no filler write at all.
         rows.push(TitleTextChameleonRowWriteSub1B71A {
-            vram_word_address: row_base,
+            vram_word_address: row_base / 2,
+            vram_byte_address: row_base,
             filler_word: (horizontal_offset_words != 0).then_some(0x00BC),
             words,
         });
@@ -8505,7 +8507,8 @@ mod tests {
             .expect("ASM sub_1B71A should build a clipped upload for early reveal frames");
 
         assert_eq!(upload.rows.len(), 7);
-        assert_eq!(upload.rows[0].vram_word_address, 0x048A);
+        assert_eq!(upload.rows[0].vram_word_address, 0x0485);
+        assert_eq!(upload.rows[0].vram_byte_address, 0x090A);
         assert_eq!(
             upload.rows[0].filler_word,
             Some(0x00BC),
@@ -8526,9 +8529,10 @@ mod tests {
             .expect("ASM loc_1B734 should still upload after negative d2 is clamped back to zero");
 
         assert_eq!(
-            upload.rows[0].vram_word_address, 0x048A,
-            "ASM loc_1B734 forces negative `d2` to zero before loc_1B758 builds the `$048A` top-row write address"
+            upload.rows[0].vram_word_address, 0x0485,
+            "ASM loc_1B734 forces negative `d2` to zero before loc_1B758 builds the `$090A` top-row byte write address"
         );
+        assert_eq!(upload.rows[0].vram_byte_address, 0x090A);
         assert_eq!(
             upload.rows[0].filler_word,
             Some(0x00BC),
@@ -8572,11 +8576,12 @@ mod tests {
 
         assert_eq!(upload.tilemap_label, "unk_2E728");
         assert_eq!(
-            upload.rows[0].vram_word_address, 0x0486,
-            "ASM loc_1B758 starts from row `$12 << 7 = $900`, adds `d4+d4 = 6`, then the swapped VDP command exposes word address `$0486`"
+            upload.rows[0].vram_word_address, 0x0483,
+            "ASM loc_1B758 starts from row `$12 << 7 = $900`, adds `d4+d4 = 6`, then the VDP command targets byte address `$0906`"
         );
+        assert_eq!(upload.rows[0].vram_byte_address, 0x0906);
         assert_eq!(
-            upload.rows[1].vram_word_address, 0x04C6,
+            upload.rows[1].vram_word_address, 0x04C3,
             "ASM loc_1B79E adds `$800000` between rows, so the next word address should advance by `$40`"
         );
         assert_eq!(

@@ -1963,12 +1963,14 @@ fn asset_label_mapeni_filename(label: &str) -> String {
 pub(crate) struct TitleScreenData {
     /// 4 decompressed Saxman art chunks in upload order.
     art_chunks: [(usize, Vec<u8>); 4],
-    /// 3 decompressed Saxman art chunks from ASM `Load_TitleArt`.
-    title_art_chunks: [(usize, Vec<u8>); 3],
+    /// 4 decompressed Saxman art chunks from ASM `Load_TitleArt`.
+    title_art_chunks: [(usize, Vec<u8>); 4],
     /// Decoded Enigma tilemap for plane A (written starting at word $20C1).
     plane_a_tilemap: Vec<u16>,
     /// Plane-B title text tilemap rows from ASM `sub_1B532`.
     title_text_chameleon_rows: [[u16; 64]; 28],
+    /// Decoded Scroll-A Chameleon animation tilemaps from ASM `sub_1B71A`.
+    title_text_chameleon_anim_maps: [Vec<u16>; 3],
     /// Decoded interactive menu tilemap from ASM `Obj_TitleMenu loc_1BB52`.
     title_menu_tilemap_words: Vec<u16>,
     /// Decoded title character frames from ASM `sub_1BF24`.
@@ -2061,10 +2063,12 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         .try_into()
         .map_err(|_| anyhow::anyhow!("expected 4 art chunks"))?;
 
-    // ASM Load_TitleArt (kid.asm:29810): byte_22080 is decompressed to RAM for
-    // title text animation, while these three chunks are decompressed directly
-    // to VRAM at $9A60, $A360, and $A980.
-    let title_art_files: [(u16, &str); 3] = [
+    // ASM Load_TitleArt (kid.asm:29810): `DecompressToRAM` expands
+    // Title_text_CHAMELEON through RAM staging, then writes the transformed
+    // words to the VDP data port at `$6760`; the remaining three chunks go
+    // through the direct VRAM decompressor.
+    let title_art_files: [(u16, &str); 4] = [
+        (0x6760, "artcomp/Title_text_CHAMELEON.bin"),
         (0x9A60, "artcomp/Title_text_KID.bin"),
         (0xA360, "artcomp/Title_menu.bin"),
         (0xA980, "artcomp/Title_sparkles.bin"),
@@ -2078,9 +2082,9 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
             .with_context(|| format!("failed to decompress title art: {filename}"))?;
         title_art_chunks.push((*vram_addr as usize, decompressed));
     }
-    let title_art_chunks: [(usize, Vec<u8>); 3] = title_art_chunks
+    let title_art_chunks: [(usize, Vec<u8>); 4] = title_art_chunks
         .try_into()
-        .map_err(|_| anyhow::anyhow!("expected 3 title art chunks"))?;
+        .map_err(|_| anyhow::anyhow!("expected 4 title art chunks"))?;
 
     // Decode Enigma tilemap: unk_2F7D0 with base tile $20C1.
     // ASM sub_1B2A4: `move.w #$20C1,d0` then `jsr (j_EniDec)`.
@@ -2103,6 +2107,11 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let title_text_chameleon_upload =
         kid_data::title_text_chameleon_tilemap_upload_sub_1B532(&chameleon_decoded_words)
             .context("failed to build title chameleon tilemap upload")?;
+    let title_text_chameleon_anim_maps = [
+        decode_title_text_chameleon_anim_map(&scenes, "2E706.bin")?,
+        decode_title_text_chameleon_anim_map(&scenes, "2E728.bin")?,
+        decode_title_text_chameleon_anim_map(&scenes, "2E77A.bin")?,
+    ];
     let title_menu_tilemap_path = scenes.join("mapeni/2EAAE.bin");
     let title_menu_tilemap_raw = std::fs::read(&title_menu_tilemap_path).with_context(|| {
         format!(
@@ -2162,12 +2171,28 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         title_art_chunks,
         plane_a_tilemap,
         title_text_chameleon_rows: title_text_chameleon_upload.rows,
+        title_text_chameleon_anim_maps,
         title_menu_tilemap_words,
         character_frames,
         lightning_art_bytes,
         tile_patch_words,
         palette_words,
     })
+}
+
+fn decode_title_text_chameleon_anim_map(
+    scenes: &std::path::Path,
+    filename: &str,
+) -> Result<Vec<u16>> {
+    let path = scenes.join("mapeni").join(filename);
+    let raw = std::fs::read(&path).with_context(|| {
+        format!(
+            "failed to read title chameleon animation tilemap: {}",
+            path.display()
+        )
+    })?;
+    kid_data::decode_enigma(&raw, 0x433B)
+        .with_context(|| format!("failed to decode title chameleon animation tilemap: {filename}"))
 }
 
 pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCardData> {
@@ -2215,11 +2240,30 @@ fn build_title_screen_vdp_with_character_frame(
     build_title_screen_vdp_with_character_frame_and_menu(data, frame_index, region_byte, None)
 }
 
-pub(crate) fn build_title_screen_vdp_with_character_frame_and_menu(
+#[cfg(test)]
+fn build_title_screen_vdp_with_character_frame_and_menu(
     data: &TitleScreenData,
     frame_index: u8,
     region_byte: u8,
     menu_cursor: Option<u8>,
+) -> VdpState {
+    build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+        data,
+        frame_index,
+        region_byte,
+        menu_cursor,
+        false,
+        0,
+    )
+}
+
+pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+    data: &TitleScreenData,
+    frame_index: u8,
+    region_byte: u8,
+    menu_cursor: Option<u8>,
+    title_ready: bool,
+    title_elapsed_frames: usize,
 ) -> VdpState {
     let mut vdp = VdpState::new();
 
@@ -2261,9 +2305,18 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_and_menu(
         vdp.write_vram_word(0x1780 + word_index * 2, 0);
     }
     write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
+    let mut sprite_entries = Vec::new();
+    if title_ready {
+        append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
+        write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames);
+    }
     if let Some(cursor) = menu_cursor {
         write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
-        write_title_menu_cursor_sprite_loc_1bb52(&mut vdp, cursor);
+        append_title_menu_cursor_sprite_loc_1bb52(&mut sprite_entries, cursor);
+    }
+    if !sprite_entries.is_empty() {
+        let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
+        write_sprite_table_entries(&mut vdp, sprite_table_base, &sprite_entries);
     }
 
     vdp
@@ -2350,7 +2403,77 @@ fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16])
 }
 
 #[allow(non_snake_case)]
-fn write_title_menu_cursor_sprite_loc_1bb52(vdp: &mut VdpState, cursor: u8) {
+fn write_title_text_chameleon_anim_loc_1b71a(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    elapsed: usize,
+) {
+    let d3 = u16::try_from(elapsed).unwrap_or(u16::MAX);
+    let map_index = match d3 & 0x000C {
+        0x0000 => 0,
+        0x0008 => 2,
+        _ => 1,
+    };
+    let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
+        &data.title_text_chameleon_anim_maps[map_index],
+        0,
+        d3,
+    ) else {
+        return;
+    };
+    for row in upload.rows {
+        let mut byte_addr = usize::from(row.vram_byte_address);
+        if let Some(filler_word) = row.filler_word {
+            vdp.write_vram_word(byte_addr.saturating_sub(2), filler_word);
+        }
+        for word in row.words {
+            vdp.write_vram_word(byte_addr, word);
+            byte_addr += 2;
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>, elapsed: usize) {
+    // ASM Obj_TitleTextKid / loc_1B5E4 (kid.asm:29834-29875): the visible
+    // title KID text is a sprite using `LnkTo_unk_E10FE`, tile `$4D3`, palette
+    // line 2. After the hibernate/drift/pop-up windows it settles at
+    // `x=$5A,y=$98`.
+    let setup = crate::boot::title_text_kid_setup_loc_1B5E4();
+    let first_popup_elapsed = usize::from(setup.pre_drift_hibernate_frames)
+        + usize::from(setup.drift_frame_count)
+        + usize::from(setup.post_drift_hibernate_frames);
+    let second_popup_elapsed =
+        first_popup_elapsed + usize::from(setup.interstitial_hibernate_frames);
+    let (x_pos, y_pos) = if elapsed >= second_popup_elapsed {
+        setup.popup_positions[1]
+    } else if elapsed >= first_popup_elapsed {
+        setup.popup_positions[0]
+    } else {
+        (setup.x_pos, 0x00A5)
+    };
+    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+        entries,
+        IntroGfxObjectForSpriteTable {
+            x_pos,
+            y_pos,
+            palette_line: setup.palette_line,
+            vram_tile: setup.vram_tile,
+            priority: 0,
+            x_direction: 0,
+        },
+        IntroSpriteFrameVram {
+            sprite_index: 0,
+            x_center: 0,
+            y_center: 0,
+            width: 0x48,
+            height: 0x3D,
+        },
+    );
+}
+
+#[allow(non_snake_case)]
+fn append_title_menu_cursor_sprite_loc_1bb52(entries: &mut Vec<HardwareSpriteEntry>, cursor: u8) {
     // ASM Obj_TitleMenu loc_1BB52/loc_1BC0E (kid.asm:30438-30467) loads a
     // visible gfx slot on palette line 2, VRAM tile `$54B`, frame
     // `unk_E1196` (8x8), at x=$28 and y from word_1BC20.
@@ -2359,9 +2482,8 @@ fn write_title_menu_cursor_sprite_loc_1bb52(vdp: &mut VdpState, cursor: u8) {
         1 => 0x003A,
         _ => 0x0044,
     };
-    let mut sprite_entries = Vec::new();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        &mut sprite_entries,
+        entries,
         IntroGfxObjectForSpriteTable {
             x_pos: 0x0028,
             y_pos,
@@ -2371,11 +2493,6 @@ fn write_title_menu_cursor_sprite_loc_1bb52(vdp: &mut VdpState, cursor: u8) {
             x_direction: 0,
         },
         intro_sprite_frame_vram(0, 8, 8),
-    );
-    write_sprite_table_entries(
-        vdp,
-        sprite_table_base_byte_addr(&vdp.registers),
-        &sprite_entries,
     );
 }
 
@@ -4052,9 +4169,10 @@ mod tests {
         }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
-            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: tilemap,
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             lightning_art_bytes: vec![],
@@ -4225,9 +4343,10 @@ mod tests {
         patch[31] = 0x2222;
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
-            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             lightning_art_bytes: vec![],
@@ -4247,12 +4366,14 @@ mod tests {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             title_art_chunks: [
+                (0x6760, vec![0x77, 0x88]),
                 (0x9A60, vec![0x11, 0x22]),
                 (0xA360, vec![0x33, 0x44]),
                 (0xA980, vec![0x55, 0x66]),
             ],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             lightning_art_bytes: vec![],
@@ -4262,6 +4383,11 @@ mod tests {
 
         let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
 
+        assert_eq!(
+            &vdp.vram[0x6760..0x6762],
+            &[0x77, 0x88],
+            "ASM Load_TitleArt writes byte_22080 / Title_text_CHAMELEON to VRAM $6760 through DecompressToRAM"
+        );
         assert_eq!(
             &vdp.vram[0x9A60..0x9A62],
             &[0x11, 0x22],
@@ -4290,9 +4416,10 @@ mod tests {
         }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
-            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: menu_words,
             character_frames: Vec::new(),
             lightning_art_bytes: vec![],
@@ -4320,6 +4447,48 @@ mod tests {
     }
 
     #[test]
+    fn title_screen_vdp_obj_title_text_chameleon_sub_1b71a_writes_scroll_a_reveal_rows() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [decoded_words, vec![], vec![]],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let vdp = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+            &data, 0, 0, None, true, 0,
+        );
+
+        assert_eq!(
+            vram_word(&vdp, 0x0908),
+            0x00BC,
+            "ASM sub_1B71A loc_1B780 writes the `$BC` filler one cell before the early Chameleon reveal"
+        );
+        assert_eq!(
+            vram_word(&vdp, 0x090A),
+            0,
+            "ASM sub_1B71A loc_1B758 starts the first reveal row at row `$12`, column 5"
+        );
+        assert_eq!(
+            vram_word(&vdp, 0x0932),
+            20,
+            "ASM sub_1B71A caps the first copied row at 21 words"
+        );
+        assert_eq!(
+            vram_word(&vdp, 0x098A),
+            29,
+            "ASM sub_1B79E advances the next reveal row by one 64-cell nametable row"
+        );
+    }
+
+    #[test]
     fn title_screen_vdp_sub_1b532_writes_chameleon_plane_b_rows_after_clear() {
         let mut rows = [[0u16; 64]; 28];
         for row in 0..28u16 {
@@ -4335,9 +4504,10 @@ mod tests {
                 (0, vec![]),
                 (0, vec![]),
             ],
-            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: rows,
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: vec![],
             character_frames: Vec::new(),
             lightning_art_bytes: vec![],
@@ -4374,9 +4544,10 @@ mod tests {
         }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
-            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![], vec![], vec![]],
             title_menu_tilemap_words: vec![],
             character_frames: vec![TitleScreenCharacterFrameData {
                 frame_index: 7,
