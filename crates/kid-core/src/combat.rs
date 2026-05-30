@@ -8952,11 +8952,12 @@ impl NativeRuntime {
             player_object.y_pos = frozen_player.y_pos;
         }
 
-        let (base_number_objects, base_number_gfx_objects) = self.object_counts_from_roster(
-            &frozen_active_objects,
-            slice.camera.x_pos,
-            slice.camera.y_pos,
-        );
+        let (base_number_objects, base_number_gfx_objects) = self
+            .object_counts_from_roster_without_runtime_transients(
+                &frozen_active_objects,
+                slice.camera.x_pos,
+                slice.camera.y_pos,
+            );
 
         LevelSkipTransitionState {
             elapsed_frames: 0,

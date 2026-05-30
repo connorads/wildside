@@ -621,6 +621,37 @@ mod tests {
     }
 
     #[test]
+    fn in_game_object_counts_include_prize_block_transient_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.block_bounces.push(BlockBounceAnim {
+            cell_x: 0x0A,
+            cell_y: 0x0C,
+            remaining: 31,
+            kind: BlockBounceKind::Prize,
+            initial_duration: 31,
+            prize_content: Some(terrain::PrizeContent::Diamond),
+            y_offset_px: 0,
+        });
+        runtime.prize_block_worker_tails.push(PrizeBlockWorkerTail {
+            cell_x: 0x0A,
+            cell_y: 0x0C,
+            content: Some(terrain::PrizeContent::Diamond),
+            remaining: 1,
+        });
+        runtime.floating_items.push(diamond_at_x(0x00A8));
+
+        // ASM loc_1002E/sub_1007A and PrizeDiamond_Init (kid.asm:21496,21604)
+        // keep the wobble tail and live prize object count-visible through
+        // j_sub_E02/gfx collision even though native renders them separately.
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, OPENING_GROUNDED_CAMERA_Y_FP),
+            (5, 6)
+        );
+    }
+
+    #[test]
     fn camera_handoff_spans_late_intro_4_and_timeout_restart_intro_5() {
         fn uses_camera(
             segment: usize,
@@ -2653,7 +2684,7 @@ mod tests {
             }));
             runtime.prize_block_worker_tails.push(tail);
             runtime.floating_items.extend(items);
-            runtime.demo_count_visible_prize_block_worker_tails()
+            runtime.count_visible_prize_block_worker_tails()
         }
 
         let mut collected_match = diamond_for_cell(1, 1);
@@ -6525,6 +6556,25 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> (u16, u16) {
+        self.object_counts_from_roster_inner(active_objects, camera_x_pos, camera_y_pos, true)
+    }
+
+    pub(crate) fn object_counts_from_roster_without_runtime_transients(
+        &self,
+        active_objects: &[NativeObjectSnapshot],
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> (u16, u16) {
+        self.object_counts_from_roster_inner(active_objects, camera_x_pos, camera_y_pos, false)
+    }
+
+    fn object_counts_from_roster_inner(
+        &self,
+        active_objects: &[NativeObjectSnapshot],
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+        include_runtime_transients: bool,
+    ) -> (u16, u16) {
         if self.level_skip_resume_hold {
             return self.level_skip_resume_object_counts();
         }
@@ -6778,25 +6828,7 @@ impl NativeRuntime {
                     // sub_10EDA/sub_292E block debris workers, still allocate
                     // object+gfx slots during demo playback and must be
                     // counted above that four-object baseline.
-                    let live_floating_prize_objects = self
-                        .floating_items
-                        .iter()
-                        .filter(|item| !item.collected)
-                        .count();
-                    let prize_block_worker_tails =
-                        self.demo_count_visible_prize_block_worker_tails();
-                    let transient_gfx_workers = (self.block_bounces.len()
-                        + prize_block_worker_tails
-                        + self.prize_block_spawn_flashes.len()
-                        + self.block_destroy_effects.len()
-                        + live_floating_prize_objects
-                        // ASM PrizeDiamondCollected_Init (kid.asm:21100)
-                        // allocates an object/gfx pair, then hibernates
-                        // through the `$3E/$42` HUD-flight loop before
-                        // incrementing Number_Diamonds. Native models that
-                        // worker as the delayed award queue.
-                        + self.pending_prize_diamond_awards.len())
-                        as u16;
+                    let transient_gfx_workers = self.gameplay_transient_gfx_worker_count();
                     (
                         4u16.saturating_add(transient_gfx_workers),
                         4u16.saturating_add(transient_gfx_workers),
@@ -7026,7 +7058,11 @@ impl NativeRuntime {
             return counts;
         }
 
-        let transient_gfx_workers = self.block_destroy_effects.len() as u16;
+        let transient_gfx_workers = if include_runtime_transients {
+            self.gameplay_transient_gfx_worker_count()
+        } else {
+            0
+        };
         let roster_count = (active_objects.len() as u16).saturating_add(transient_gfx_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
@@ -7050,7 +7086,25 @@ impl NativeRuntime {
         (roster_count + 2 + extra, roster_count + 2 + extra)
     }
 
-    fn demo_count_visible_prize_block_worker_tails(&self) -> usize {
+    fn gameplay_transient_gfx_worker_count(&self) -> u16 {
+        let live_floating_prize_objects = self
+            .floating_items
+            .iter()
+            .filter(|item| !item.collected)
+            .count();
+        (self.block_bounces.len()
+            + self.count_visible_prize_block_worker_tails()
+            + self.prize_block_spawn_flashes.len()
+            + self.block_destroy_effects.len()
+            + live_floating_prize_objects
+            // ASM PrizeDiamondCollected_Init (kid.asm:21100) allocates an
+            // object/gfx pair, then hibernates through the `$3E/$42` HUD-flight
+            // loop before incrementing Number_Diamonds. Native models that
+            // worker as the delayed award queue.
+            + self.pending_prize_diamond_awards.len()) as u16
+    }
+
+    fn count_visible_prize_block_worker_tails(&self) -> usize {
         if self.prize_block_worker_tails.is_empty() {
             return 0;
         }
