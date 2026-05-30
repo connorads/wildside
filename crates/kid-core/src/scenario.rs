@@ -8,6 +8,12 @@ const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SettleWarpMode {
+    FullFrameOracle,
+    RecordingOracle,
+}
+
 fn is_live_unpaused_target_level(runtime: &NativeRuntime, level_id: LevelId) -> bool {
     runtime.trace_frame().game_mode == GameMode::InGame
         && runtime.current_level == level_id
@@ -141,7 +147,7 @@ impl NativeRuntime {
 pub struct ScriptRunner {
     assets: AssetManifest,
     warp_to_level: Option<u8>,
-    settle_warp: bool,
+    settle_warp: Option<SettleWarpMode>,
     physics_order: Option<PhysicsOrder>,
     trace_physics: bool,
     probe_start_position: Option<(u16, u16)>,
@@ -154,7 +160,7 @@ impl ScriptRunner {
         Self {
             assets,
             warp_to_level: None,
-            settle_warp: false,
+            settle_warp: None,
             physics_order: None,
             trace_physics: false,
             probe_start_position: None,
@@ -171,7 +177,13 @@ impl ScriptRunner {
 
     #[must_use]
     pub fn settle_warp(mut self) -> Self {
-        self.settle_warp = true;
+        self.settle_warp = Some(SettleWarpMode::FullFrameOracle);
+        self
+    }
+
+    #[must_use]
+    pub fn settle_recording_warp(mut self) -> Self {
+        self.settle_warp = Some(SettleWarpMode::RecordingOracle);
         self
     }
 
@@ -216,8 +228,14 @@ impl ScriptRunner {
         if let Some(level_id) = self.warp_to_level {
             let level_id = LevelId(level_id);
             runtime.boot_to_level(level_id);
-            if self.settle_warp {
-                runtime.settle_oracle_warp_live_window(level_id);
+            match self.settle_warp {
+                Some(SettleWarpMode::FullFrameOracle) => {
+                    runtime.settle_oracle_warp_live_window(level_id);
+                }
+                Some(SettleWarpMode::RecordingOracle) => {
+                    runtime.settle_recording_oracle_warp_live_window(level_id);
+                }
+                None => {}
             }
         }
         if let Some((x_px, y_px)) = self.probe_start_position {

@@ -6026,6 +6026,34 @@ mod chunk_09 {
     }
 
     #[test]
+    fn script_runner_recording_settle_uses_level_zero_recording_age() {
+        let manifest_path = repo_root()
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+
+        let first_recorded_frame = ScriptRunner::new(manifest)
+            .warp_to_level(0)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("one frame");
+        let first_dragon = first_recorded_frame
+            .active_objects
+            .into_iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0D }
+                    && object.layout_index == Some(2)
+            })
+            .expect("Level 0x00 settled recording should expose the opening dragon");
+
+        assert_eq!(
+            first_dragon.x_pos, 0x00AA_8000,
+            "ASM loc_1AE2E recording scenarios use the 60-frame title-card live window; full-frame sweep settle would over-advance this dragon by 48 frames",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_keeps_level_skip_resume_tail_age() {
         let manifest_path = repo_root()
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");

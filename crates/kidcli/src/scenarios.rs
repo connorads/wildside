@@ -307,8 +307,10 @@ pub(crate) fn run_native_dynamic_scenario(
     if let Some(level) = scenario.warp_to_level {
         runner = runner.warp_to_level(level);
     }
-    if options.settled_warp || scenario.settle_oracle_warp {
+    if options.settled_warp {
         runner = runner.settle_warp();
+    } else if scenario.settle_oracle_warp {
+        runner = runner.settle_recording_warp();
     }
     if options.trace_physics {
         runner = runner.trace_physics();
