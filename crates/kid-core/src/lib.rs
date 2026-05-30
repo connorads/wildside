@@ -153,6 +153,7 @@ pub struct NativeRuntime {
     /// `kidabove` collisions resolve on the next frame, not immediately on the
     /// overlap frame.
     pending_stomp_bounce: Option<PendingStompBounce>,
+    pending_enemy_collisions: Vec<PendingEnemyCollision>,
     /// ASM Init_RNG / Get_RandomNumber_byte global gameplay RNG state.
     rom_random: RomRandomState,
     /// Count of blocks hit by headbutt this frame.
@@ -1134,6 +1135,13 @@ struct PendingStompBounce {
     anchor_y_pos: u32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PendingEnemyCollision {
+    segment_index: usize,
+    layout_index: usize,
+    collision_type: u16,
+}
+
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
         let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
@@ -1200,6 +1208,7 @@ impl NativeRuntime {
             pending_dragon_death_animations: Vec::new(),
             stomped_this_frame: false,
             pending_stomp_bounce: None,
+            pending_enemy_collisions: Vec::new(),
             rom_random: RomRandomState::default(),
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,

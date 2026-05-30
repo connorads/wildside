@@ -7605,6 +7605,60 @@ impl NativeRuntime {
         self.stomped_this_frame = true;
     }
 
+    fn queue_pending_enemy_collision(&mut self, enemy: &ActiveEnemy, collision_type: u16) {
+        self.pending_enemy_collisions.push(PendingEnemyCollision {
+            segment_index: enemy.segment_index,
+            layout_index: enemy.layout_index,
+            collision_type,
+        });
+    }
+
+    fn apply_dragon_walking_stomp_hibernate(enemy: &mut ActiveEnemy) {
+        if enemy.is_dragon_walking_parent_spawned_child() && enemy.hit_points == 0 {
+            return;
+        }
+
+        // ASM Dragon.asm loc_3CEBE plays the hurt animation to completion
+        // before restoring the saved walking script when the hit is nonlethal.
+        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
+        enemy.grounded_frames = DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+    }
+
+    pub(crate) fn apply_pending_enemy_collisions(&mut self) {
+        let pending = std::mem::take(&mut self.pending_enemy_collisions);
+        let mut kill_indices = Vec::new();
+
+        for collision in pending {
+            let Some(active_idx) = self.active_enemies.iter().position(|enemy| {
+                enemy.segment_index == collision.segment_index
+                    && enemy.layout_index == collision.layout_index
+            }) else {
+                continue;
+            };
+
+            let enemy = &mut self.active_enemies[active_idx];
+            if matches!(enemy.family, EnemyFamily::DragonWalking)
+                && collision.collision_type == DRAGON_COLID_KIDABOVE
+            {
+                // ASM loc_1CF2 stores colid_kidabove into the object collision
+                // word; Dragon.asm loc_3CE9A consumes it on the next object pass.
+                if enemy.take_damage_or_queue_death() {
+                    kill_indices.push(active_idx);
+                } else {
+                    Self::apply_dragon_walking_stomp_hibernate(enemy);
+                }
+            }
+        }
+
+        kill_indices.sort_unstable();
+        kill_indices.dedup();
+        for idx in kill_indices.into_iter().rev() {
+            self.remove_dead_enemy(idx);
+        }
+    }
+
     pub(crate) fn spawn_enemy_death_effect(&mut self, family: EnemyFamily, x_pos: u32, y_pos: u32) {
         // ASM Enemy20_HeadyMetal_Init seeds $40(a1)=$01C2 and the boss death
         // routine drives the sub_37708/sub_3787C/sub_378A2 wobble worker for
@@ -7823,25 +7877,15 @@ impl NativeRuntime {
 
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
+        let mut pending_dragon_collisions = Vec::new();
         for &active_idx in &stomped_indices {
             if active_idx < self.active_enemies.len() {
                 let enemy = &mut self.active_enemies[active_idx];
-                if enemy.take_damage_or_queue_death() {
+                if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    pending_dragon_collisions.push(active_idx);
+                } else if enemy.take_damage_or_queue_death() {
                     kill_indices.push(active_idx);
                 } else {
-                    if matches!(enemy.family, EnemyFamily::DragonWalking)
-                        && !(enemy.is_dragon_walking_parent_spawned_child()
-                            && enemy.hit_points == 0)
-                    {
-                        // The stomp resolves after the landing frame. Give the
-                        // hurt hibernate a one-frame arm so DragonWalking still
-                        // reaches the oracle-backed frame-2938 contact tile
-                        // before freezing from frame 2939 onward.
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
-                        enemy.grounded_frames = DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES;
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
-                    }
                     // Bosses retaliate with projectiles when damaged
                     if matches!(
                         enemy.family,
@@ -7881,6 +7925,12 @@ impl NativeRuntime {
                         });
                     }
                 }
+            }
+        }
+        for active_idx in pending_dragon_collisions {
+            if active_idx < self.active_enemies.len() {
+                let enemy = self.active_enemies[active_idx];
+                self.queue_pending_enemy_collision(&enemy, DRAGON_COLID_KIDABOVE);
             }
         }
 

@@ -39848,6 +39848,7 @@ impl NativeRuntime {
                     &self.killed_enemies,
                     &mut self.rom_random,
                 );
+                self.apply_pending_enemy_collisions();
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),

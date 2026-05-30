@@ -8956,6 +8956,17 @@ mod chunk_03 {
             "Kid-above contact should still bounce from the child"
         );
         assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM loc_1CF2 only latches colid_kidabove on the overlap frame; Dragon.asm loc_3CE9A consumes it on the next object pass"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "the latched collision has not reached Dragon.asm loc_3CEE4 on the overlap frame"
+        );
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
             runtime.active_enemies.len(),
             1,
             "ASM Dragon.asm loc_3CEE4 sees `$5C(a5)` and branches to loc_3CF50 instead of loc_3CEFC"
@@ -9012,6 +9023,18 @@ mod chunk_03 {
         );
 
         assert!(stomped);
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM loc_1CF2 latches colid_kidabove for Dragon.asm loc_3CE9A next frame"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer, 0,
+            "the loc_3CEFC death animation should not start on the collision latch frame"
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.apply_pending_enemy_collisions();
+
         assert_eq!(
             runtime.active_enemies.len(),
             1,
