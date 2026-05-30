@@ -20152,7 +20152,7 @@ mod chunk_10 {
     }
 
     #[test]
-    fn robot_shot_loc_3ac48_deletes_after_camera_window_exit() {
+    fn robot_shot_loc_3ac48_enters_impact_after_camera_window_exit() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.camera.x_pos = 0;
@@ -20170,14 +20170,20 @@ mod chunk_10 {
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Robot.asm loc_3AC48 should leave flight once screen X is greater than `$1C0`"
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Robot.asm loc_3AC48 should leave flight via loc_3AC7E impact, not immediate deletion"
+        );
+        assert_eq!(
+            rt.projectiles[0].kind,
+            EnemyProjectileKind::RobotShotImpact,
+            "ASM Robot.asm loc_3AC92 should initialise the `stru_3A762` impact animation"
         );
     }
 
     #[test]
-    fn robot_shot_loc_3ac48_deletes_on_level_collision() {
+    fn robot_shot_loc_3ac48_enters_impact_on_level_collision() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.camera.x_pos = 0;
@@ -20197,9 +20203,24 @@ mod chunk_10 {
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Robot.asm loc_3AC48 should leave flight when collision_type becomes non-zero"
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Robot.asm loc_3AC48 should enter loc_3AC7E when collision_type becomes non-zero"
+        );
+        assert_eq!(
+            rt.projectiles[0].kind,
+            EnemyProjectileKind::RobotShotImpact,
+            "ASM Robot.asm loc_3AC92 should keep the shot alive for the impact animation"
+        );
+        assert_eq!(
+            rt.projectiles[0].x_velocity, 0,
+            "ASM Robot.asm loc_3AC7E clears x_vel before impact"
+        );
+        assert_eq!(
+            rt.projectiles[0].x_pos,
+            42 << 16,
+            "ASM Robot.asm loc_3AC92 should add +8px for a right-facing shot impact"
         );
     }
 

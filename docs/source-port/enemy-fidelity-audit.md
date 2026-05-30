@@ -207,8 +207,8 @@ ROM turns to face Kid when >$80 away; native sets facing only inside the attack 
 **Orca — wall-pinned lunge X-drift handled, but side-collision Berzerker re-lunge absent** (`loc_3D4DE`)
 Live path probes terrain only; never reads Kid side contact or Berzerker_charging during the lunge. (Wall-pin X-drift suppression is correctly implemented.) `enemies.rs:18657-18780/18694-18701/18739-18743`; gate `enemies.rs:1301/1096` test-only.
 
-**Robot — projectile lifecycle lacks impact animation** (`Enemy03_Robot_Shot_Init / loc_3ABB6 / loc_3AC7E / loc_3AC92`)
-Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, but impact still deletes immediately instead of entering `stru_3A762` before the delete tail.
+**Robot — projectile impact animation is only a typed lifetime state** (`Enemy03_Robot_Shot_Init / loc_3ABB6 / loc_3AC7E / loc_3AC92`)
+Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, then enter `RobotShotImpact` with the `loc_3AC7E/loc_3AC92` velocity clear and X offset. Exact `stru_3A762` impact frame rendering/duration remains approximate.
 
 **Robot — two-object body+head structure collapsed to one** (`Enemy03_Robot_Init / loc_3A8AE`)
 Single ActiveEnemy, no child-head object; per-part collision and head/leg sprite swaps absent. `enemies.rs:18494-18636`; dispatch `enemies.rs:17875-17876` and attachment helper `enemies.rs:38078` dead.

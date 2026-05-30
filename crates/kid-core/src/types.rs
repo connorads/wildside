@@ -2312,6 +2312,7 @@ pub(crate) enum EnemyProjectileKind {
     Hail,
     TankBullet,
     RobotShot,
+    RobotShotImpact,
     DragonFlyingDescentFire,
     ShooterBlock,
     ManiaxeAxe,

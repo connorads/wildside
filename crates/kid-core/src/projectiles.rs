@@ -28,8 +28,8 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
     drips_velocity_deltas_loc_33526, drips_vertical_bounds_contact_flag_loc_335b0,
     drips_wait_timer_with_rng_loc_3340e, robot_shot_flight_loop_loc_3ac48,
-    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
-    tar_monster_projectile_collision_loc_32682,
+    robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
+    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC,
@@ -1946,8 +1946,8 @@ impl NativeRuntime {
                 // ASM Robot.asm loc_3AC48: Robot shots have no DBF lifetime.
                 // Each frame clears collision_type, moves, then exits flight
                 // once the signed camera box is left or level collision becomes
-                // non-zero. Native deletes at the impact transition until the
-                // short `stru_3A762` impact animation is represented.
+                // non-zero. loc_3AC7E/loc_3AC92 then clears velocity and runs
+                // the short `stru_3A762` impact animation before deletion.
                 let collision_type = if let Some(g) = grid
                     && projectile_terrain_contact_loc_3345c(g, p)
                 {
@@ -1962,7 +1962,16 @@ impl NativeRuntime {
                 if robot_shot_flight_loop_loc_3ac48(screen_x, screen_y, collision_type).route
                     == RobotShotFlightRouteLoc3AC48::StartImpact
                 {
-                    return false;
+                    let x_direction = if p.x_velocity < 0 { 0 } else { 0xFF };
+                    let impact = robot_shot_impact_prep_loc_3ac7e(x_direction);
+                    p.x_velocity = impact.projectile_x_velocity;
+                    p.y_velocity = 0;
+                    p.x_pos = (p.x_pos as i64 + (i64::from(impact.impact_x_delta_px) << 16)) as u32;
+                    p.kind = EnemyProjectileKind::RobotShotImpact;
+                    // ASM loc_3AC92 hibernates until `stru_3A762` finishes.
+                    // Native does not yet render animation frames here, but
+                    // keeps the impact object alive past the transition.
+                    p.lifetime = 1;
                 }
             }
 
