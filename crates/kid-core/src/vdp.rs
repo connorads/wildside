@@ -16,7 +16,8 @@ use crate::boot::{
 };
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
-    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
+    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES,
+    INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -2403,7 +2404,12 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     if title_ready {
         append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
         append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
-        write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames);
+        write_title_text_chameleon_anim_loc_1b71a(
+            &mut vdp,
+            data,
+            title_elapsed_frames,
+            intro_return_hidden_shell,
+        );
         overlay_title_sega_text_worker_loc_1c7a0(
             &mut vdp,
             title_elapsed_frames,
@@ -2533,9 +2539,22 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     vdp: &mut VdpState,
     data: &TitleScreenData,
     elapsed: usize,
+    intro_return_hidden_shell: bool,
 ) {
-    let d3 = u16::try_from(elapsed).unwrap_or(u16::MAX);
-    let map_index = title_text_chameleon_anim_map_index(elapsed);
+    let d3_elapsed =
+        if intro_return_hidden_shell && elapsed < INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES {
+            // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
+            // Start-skip title VDP becomes visible. By the time native rebuilds
+            // the visible title frame, the preserved `d3` selector is one
+            // sub_1B71A tick past the next four-frame phase boundary. Once
+            // loc_1B5E4 has exposed the trace-ready title shell, the normal title
+            // worker cadence applies again.
+            elapsed.saturating_add(5)
+        } else {
+            elapsed
+        };
+    let d3 = u16::try_from(d3_elapsed).unwrap_or(u16::MAX);
+    let map_index = title_text_chameleon_anim_map_index(d3_elapsed);
     let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
         &data.title_text_chameleon_anim_maps[map_index],
         0,
@@ -4775,6 +4794,41 @@ mod tests {
             vram_word(&visible, usize::from(copyright_write.vram_word_address)),
             0x67FD,
             "ASM sub_1C246 -> Load_TitleScreen on the cold IntroSequence6 Start-skip path inherits the hidden loc_1B6AC/loc_1B6DC cadence, so SegaText is visible with the frame-2700 title VDP"
+        );
+    }
+
+    #[test]
+    fn title_screen_vdp_intro_return_chameleon_anim_inherits_loc_1b6dc_phase() {
+        let map0 = vec![0x1000; 7 * 29];
+        let map1 = vec![0x2000; 7 * 29];
+        let map2 = vec![0x3000; 7 * 29];
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [map0, map1, map2],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let visible = build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+            &data,
+            0,
+            0,
+            None,
+            true,
+            INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES + 1,
+            true,
+        );
+
+        assert_eq!(
+            vram_word(&visible, 0x090A),
+            0x3000,
+            "ASM loc_1B6AC/loc_1B6DC keeps sub_1B71A's preserved `d3` running before the Start-skip title VDP becomes visible, so frame 2700 uses the next four-frame Chameleon map phase"
         );
     }
 
