@@ -1713,6 +1713,25 @@ fn intro_sequence_5_text_art_loc_1B0F4(art: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+#[allow(non_snake_case)]
+fn title_text_chameleon_art_loc_1B4F4(art: &[u8]) -> Vec<u8> {
+    // ASM Load_TitleArt (kid.asm:29816): `a3 = unk_1B4F4` before
+    // `j_DecompressToRAM`, so the RAM-staged Chameleon logo remaps each
+    // unpacked 4bpp nibble through this table while streaming to VRAM `$6760`.
+    const PERMUTATION: [u8; 16] = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x00,
+        0x0F,
+    ];
+    art.iter()
+        .copied()
+        .map(|byte| {
+            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
+            let low = PERMUTATION[usize::from(byte & 0x0F)];
+            high | low
+        })
+        .collect()
+}
+
 fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> VdpState {
     let mut vdp = intro_sequence_base_vdp();
 
@@ -2067,19 +2086,22 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     // Title_text_CHAMELEON through RAM staging, then writes the transformed
     // words to the VDP data port at `$6760`; the remaining three chunks go
     // through the direct VRAM decompressor.
-    let title_art_files: [(u16, &str); 4] = [
-        (0x6760, "artcomp/Title_text_CHAMELEON.bin"),
-        (0x9A60, "artcomp/Title_text_KID.bin"),
-        (0xA360, "artcomp/Title_menu.bin"),
-        (0xA980, "artcomp/Title_sparkles.bin"),
+    let title_art_files: [(u16, &str, bool); 4] = [
+        (0x6760, "artcomp/Title_text_CHAMELEON.bin", true),
+        (0x9A60, "artcomp/Title_text_KID.bin", false),
+        (0xA360, "artcomp/Title_menu.bin", false),
+        (0xA980, "artcomp/Title_sparkles.bin", false),
     ];
     let mut title_art_chunks = Vec::new();
-    for (vram_addr, filename) in &title_art_files {
+    for (vram_addr, filename, uses_ram_permutation) in &title_art_files {
         let path = scenes.join(filename);
         let compressed = std::fs::read(&path)
             .with_context(|| format!("failed to read title art: {}", path.display()))?;
-        let decompressed = kid_data::decode_saxman(&compressed)
+        let mut decompressed = kid_data::decode_saxman(&compressed)
             .with_context(|| format!("failed to decompress title art: {filename}"))?;
+        if *uses_ram_permutation {
+            decompressed = title_text_chameleon_art_loc_1B4F4(&decompressed);
+        }
         title_art_chunks.push((*vram_addr as usize, decompressed));
     }
     let title_art_chunks: [(usize, Vec<u8>); 4] = title_art_chunks
@@ -4402,6 +4424,15 @@ mod tests {
             &vdp.vram[0xA980..0xA982],
             &[0x55, 0x66],
             "ASM Load_TitleArt uploads byte_2A479 / Title_sparkles to VRAM $A980"
+        );
+    }
+
+    #[test]
+    fn title_text_chameleon_art_loc_1b4f4_remaps_e_nibbles_to_transparent_zero() {
+        assert_eq!(
+            title_text_chameleon_art_loc_1B4F4(&[0xEF, 0xFE, 0xDE, 0x12]),
+            vec![0x0F, 0xF0, 0xD0, 0x12],
+            "ASM Load_TitleArt seeds `DecompressToRAM` with unk_1B4F4, whose only non-identity visible change maps nibble `$E` to `$0` before writing Title_text_CHAMELEON to VRAM `$6760`"
         );
     }
 
