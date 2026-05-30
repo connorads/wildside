@@ -23946,8 +23946,6 @@ pub(crate) const EMO_ROCK_GRAVITY: [i32; 3] = [0x4000, 0x6000, 0x8000];
 pub(crate) const EMO_ROCK_VELOCITY_THRESHOLD: i32 = 0x6_0000;
 pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 
-/// EmoRock walk speed after landing.
-pub(crate) const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
 pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24440,30 +24438,11 @@ pub(crate) fn step_emo_rock(
     }
 
     if enemy.on_ground {
-        // Walking phase: pacer-like ground movement facing player.
-        if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
-            enemy.facing = dir;
-        }
-        let Some(grid) = block_grid else { return };
-        enemy.x_velocity = horizontal_velocity(enemy.facing, EMO_ROCK_WALK_SPEED);
+        // ASM Emo_Rock.asm loc_362A4/loc_362B6: after landing, the rock clears
+        // vertical motion and waits in place for the landing animation instead
+        // of entering a pacer-style ground walk.
+        enemy.x_velocity = 0;
         enemy.y_velocity = 0;
-        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-
-        let cx = (enemy.x_pos >> 16) as i32;
-        let cy = (enemy.y_pos >> 16) as i32;
-        let moving_right = enemy.x_velocity >= 0;
-
-        let wall = terrain::probe_wall(
-            grid,
-            cx,
-            cy,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-            moving_right,
-        );
-        if wall.hit {
-            reverse_enemy_direction(enemy);
-        }
         return;
     }
 

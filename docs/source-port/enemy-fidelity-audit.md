@@ -18,7 +18,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Dragon_Flying (0x0C) | partial | 1 |
 | Driller (0x1A) | partial | 3 |
 | Drips (0x16) | full | 0 |
-| Emo_Rock (0x1B) | partial | 5 |
+| Emo_Rock (0x1B) | partial | 4 |
 | Fireball (0x19) | partial | 1 |
 | Fire_Demon (0x00) | partial | 3 |
 | Goat (0x10) | partial | 4 |

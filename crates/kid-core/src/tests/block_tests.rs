@@ -6506,7 +6506,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn emo_rock_lands_and_walks() {
+    fn emo_rock_lands_and_enters_settled_wait() {
         // Floor at row 5 (y=80px)
         let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 5)).collect();
         let grid = grid_with_solid_cells(20, 15, &solid);
@@ -6578,11 +6578,40 @@ mod chunk_04 {
         }
         assert!(enemy.on_ground, "should have landed on the floor");
 
-        // Once on ground, should walk toward player (player is to the right)
+        // Once on ground, ASM loc_362B6 waits in place instead of walking.
         let x_before = enemy.x_pos;
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), None);
-        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
-        assert!(enemy.x_pos > x_before, "should walk toward player");
+        assert_eq!(enemy.facing, Direction::Right, "landing should face Kid");
+        assert_eq!(enemy.x_pos, x_before, "settled wait should not walk");
+        assert_eq!(enemy.x_velocity, 0);
+    }
+
+    #[test]
+    fn emo_rock_settled_wait_does_not_walk_like_pacer_loc_362b6() {
+        let grid = grid_with_floor_at_row(14);
+        let mut enemy = test_enemy(EnemyFamily::EmoRock, 0x0064_0000, 0x00E0_0000, 1);
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        enemy.facing = Direction::Left;
+
+        step_emo_rock(
+            &mut enemy,
+            Some(&grid),
+            Some(0x00C8_0000),
+            Some(0x00E0_0000),
+        );
+
+        assert_eq!(
+            enemy.x_pos, 0x0064_0000,
+            "ASM Emo_Rock.asm loc_362B6 should keep the settled rock in its wait loop instead of walking toward Kid",
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Emo_Rock.asm loc_36274 chooses facing at landing; loc_362B6 does not re-face Kid each frame",
+        );
     }
 
     // --- Projectile system ---
