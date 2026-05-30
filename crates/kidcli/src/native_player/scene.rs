@@ -3505,6 +3505,15 @@ fn build_game_scene_filtered(
                         });
                     }
                 }
+                ActiveProjectileKind::DragonFlyingDescentFire => {
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 3,
+                        y: sy - 3,
+                        width: 6,
+                        height: 6,
+                        colour: [255, 110, 30],
+                    });
+                }
                 ActiveProjectileKind::DripsDrop | ActiveProjectileKind::DripsSurfaceCrawler => {
                     let pushed_sprite = level_visuals
                         .enemies

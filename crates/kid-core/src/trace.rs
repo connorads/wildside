@@ -49,6 +49,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::TankBullet {
         return ActiveProjectileKind::TankBullet;
     }
+    if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
+        return ActiveProjectileKind::DragonFlyingDescentFire;
+    }
 
     // ASM Fire_Demon loc_3A63C initialises a separate fire-trail object that
     // cycles `stru_3A622`'s six flame frames. Older native traces represented

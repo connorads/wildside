@@ -2,31 +2,34 @@ use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
+    DragonFlyingDescentFireFirstLoopLoc34C26, DragonFlyingDescentFireTravelLoopLoc34C3A,
     DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
     DripsSurfaceCrawlerTurnScriptLoc33AF6, RobotShotFlightRouteLoc3AC48,
     TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
     TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player, archer_reaim_loc_3432E,
-    drips_left_bounds_gate_loc_335aa, drips_right_bounds_gate_loc_33588,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
-    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
-    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
-    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
-    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
-    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
-    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
-    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
-    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
-    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
-    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
-    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
-    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
-    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
-    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
-    drips_velocity_apply_loc_33546, drips_velocity_deltas_loc_33526,
-    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_with_rng_loc_3340e,
-    robot_shot_flight_loop_loc_3ac48, spawn_tar_monster_retaliation,
-    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
+    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
+    dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_left_bounds_gate_loc_335aa,
+    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
+    drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
+    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
+    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
+    drips_surface_crawler_turn_script_loc_33a36, drips_surface_crawler_turn_script_loc_33a40,
+    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
+    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
+    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
+    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
+    drips_surface_crawler_turn_script_loc_339e6, drips_surface_crawler_turn_script_loc_339f0,
+    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
+    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
+    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
+    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
+    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
+    drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
+    drips_velocity_deltas_loc_33526, drips_vertical_bounds_contact_flag_loc_335b0,
+    drips_wait_timer_with_rng_loc_3340e, robot_shot_flight_loop_loc_3ac48,
+    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
+    tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC,
@@ -91,6 +94,95 @@ const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
+const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
+
+fn dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile: &mut EnemyProjectile) {
+    let cleanup = dragon_flying_descent_fire_cleanup_loc_34C4A();
+    projectile.x_velocity = cleanup.x_velocity;
+    projectile.y_velocity = cleanup.y_velocity;
+    projectile.terrain_kill = cleanup.has_level_collision;
+    projectile.dragon_flying_descent_fire_state =
+        DragonFlyingDescentFireState::CleanupFirstLoc34C4A;
+    projectile.dragon_flying_descent_fire_counter = cleanup.first_animation_hibernate_frames;
+}
+
+fn dragon_flying_descent_fire_offscreen_flag_loc_34c3a(
+    projectile: &EnemyProjectile,
+    camera: CameraState,
+) -> bool {
+    let screen_x = ((projectile.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+    let screen_y = ((projectile.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
+
+    // ASM Dragon_Flying.asm loc_34C3A tests byte `$19` after the hibernated
+    // travel frame. Native treats the same lifecycle flag as set once the child
+    // has left the broad object-retention box around the camera.
+    !(-0x80..=0x01C0).contains(&screen_x) || !(-0x80..=0x01C0).contains(&screen_y)
+}
+
+fn step_dragon_flying_descent_fire_loc_34c26(
+    projectile: &mut EnemyProjectile,
+    grid: Option<&terrain::BlockGrid>,
+    camera: Option<CameraState>,
+) -> bool {
+    let collision_type =
+        u16::from(grid.is_some_and(|grid| projectile_terrain_contact_loc_3345c(grid, projectile)));
+
+    match projectile.dragon_flying_descent_fire_state {
+        DragonFlyingDescentFireState::FirstAnimationLoc34C26 => {
+            match dragon_flying_descent_fire_first_loop_loc_34C26(
+                projectile.dragon_flying_descent_fire_counter,
+                collision_type,
+            ) {
+                DragonFlyingDescentFireFirstLoopLoc34C26::CollisionCleanup { .. } => {
+                    dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile);
+                }
+                DragonFlyingDescentFireFirstLoopLoc34C26::ContinueFirstAnimation { next_d0 } => {
+                    projectile.dragon_flying_descent_fire_counter = next_d0;
+                }
+                DragonFlyingDescentFireFirstLoopLoc34C26::EnterTravelAnimation { .. } => {
+                    projectile.dragon_flying_descent_fire_state =
+                        DragonFlyingDescentFireState::TravelAnimationLoc34C3A;
+                    projectile.dragon_flying_descent_fire_counter = 0;
+                }
+            }
+            true
+        }
+        DragonFlyingDescentFireState::TravelAnimationLoc34C3A => {
+            let flag_19 = camera.is_some_and(|camera| {
+                dragon_flying_descent_fire_offscreen_flag_loc_34c3a(projectile, camera)
+            });
+            match dragon_flying_descent_fire_travel_loop_loc_34C3A(collision_type, flag_19) {
+                DragonFlyingDescentFireTravelLoopLoc34C3A::ContinueTravelAnimation => true,
+                DragonFlyingDescentFireTravelLoopLoc34C3A::CollisionCleanup { .. }
+                | DragonFlyingDescentFireTravelLoopLoc34C3A::AnimationFinishedCleanup { .. } => {
+                    dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile);
+                    true
+                }
+            }
+        }
+        DragonFlyingDescentFireState::CleanupFirstLoc34C4A => {
+            if projectile.dragon_flying_descent_fire_counter > 1 {
+                projectile.dragon_flying_descent_fire_counter -= 1;
+                true
+            } else {
+                projectile.dragon_flying_descent_fire_state =
+                    DragonFlyingDescentFireState::CleanupSecondLoc34C4A;
+                projectile.dragon_flying_descent_fire_counter =
+                    DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A;
+                true
+            }
+        }
+        DragonFlyingDescentFireState::CleanupSecondLoc34C4A => {
+            if projectile.dragon_flying_descent_fire_counter > 1 {
+                projectile.dragon_flying_descent_fire_counter -= 1;
+                true
+            } else {
+                false
+            }
+        }
+        DragonFlyingDescentFireState::None => true,
+    }
+}
 
 fn apply_tar_monster_burst_child_collision_loc_32682(
     projectile: &mut EnemyProjectile,
@@ -1514,11 +1606,14 @@ impl NativeRuntime {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
             let is_cloud_lightning = p.kind == EnemyProjectileKind::CloudLightning;
+            let is_dragon_flying_descent_fire =
+                p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
+                && !is_dragon_flying_descent_fire
                 && !is_hail
                 && !is_diamond_power_rain
                 && p.lifetime == 0
@@ -1531,6 +1626,7 @@ impl NativeRuntime {
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
+                && !is_dragon_flying_descent_fire
                 && !is_hail
                 && !is_diamond_power_rain
             {
@@ -1774,6 +1870,12 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+            if is_dragon_flying_descent_fire
+                && !step_dragon_flying_descent_fire_loc_34c26(p, grid, camera)
+            {
+                return false;
+            }
 
             if p.kind == EnemyProjectileKind::ShooterBlock
                 && let Some(g) = grid

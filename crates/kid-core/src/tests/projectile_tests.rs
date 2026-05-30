@@ -5851,6 +5851,106 @@ mod chunk_06 {
     }
 
     #[test]
+    fn dragon_flying_descent_fire_loc_34c26_ignores_generic_lifetime() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut projectile = make_projectile(40, 48);
+        projectile.kind = EnemyProjectileKind::DragonFlyingDescentFire;
+        projectile.lifetime = 0;
+        projectile.x_velocity = 0x0001_0000;
+        projectile.y_velocity = 0x0003_0000;
+        projectile.terrain_kill = true;
+        projectile.dragon_flying_descent_fire_state =
+            DragonFlyingDescentFireState::FirstAnimationLoc34C26;
+        projectile.dragon_flying_descent_fire_counter = 6;
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_34C26 uses its own DBF counter; a zero native lifetime must not delete descent fire"
+        );
+        assert_eq!(rt.projectiles[0].lifetime, 0);
+        assert_eq!(
+            rt.projectiles[0].dragon_flying_descent_fire_counter, 5,
+            "ASM loc_34C26 DBF counter should decrement independently of generic lifetime"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_descent_fire_loc_34c26_enters_travel_after_startup() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut projectile = make_projectile(40, 48);
+        projectile.kind = EnemyProjectileKind::DragonFlyingDescentFire;
+        projectile.lifetime = 0;
+        projectile.x_velocity = 0;
+        projectile.y_velocity = 0;
+        projectile.terrain_kill = true;
+        projectile.dragon_flying_descent_fire_state =
+            DragonFlyingDescentFireState::FirstAnimationLoc34C26;
+        projectile.dragon_flying_descent_fire_counter = 0;
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].dragon_flying_descent_fire_state,
+            DragonFlyingDescentFireState::TravelAnimationLoc34C3A,
+            "ASM Dragon_Flying.asm loc_34C26 switches to LnkTo_unk_C75D6 when DBF decrements zero to `$FFFF`"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_descent_fire_loc_34c4a_keeps_impact_cleanup_then_deletes() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut projectile = make_projectile(30, 40);
+        projectile.kind = EnemyProjectileKind::DragonFlyingDescentFire;
+        projectile.lifetime = 0;
+        projectile.x_velocity = 0x0004_0000;
+        projectile.y_velocity = 0;
+        projectile.terrain_kill = true;
+        projectile.dragon_flying_descent_fire_state =
+            DragonFlyingDescentFireState::TravelAnimationLoc34C3A;
+        rt.projectiles.push(projectile);
+        // Post-step position is (34, 40), inside solid cell (2, 2).
+        rt.set_block_grid(bounce_grid(&[(2, 2)]));
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Dragon_Flying.asm loc_34C3A branches to loc_34C4A impact cleanup instead of deleting on the collision frame"
+        );
+        assert_eq!(
+            rt.projectiles[0].dragon_flying_descent_fire_state,
+            DragonFlyingDescentFireState::CleanupFirstLoc34C4A
+        );
+        assert_eq!(rt.projectiles[0].x_velocity, 0);
+        assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert!(
+            !rt.projectiles[0].terrain_kill,
+            "ASM loc_34C4A clears has_level_collision before the two cleanup sprites"
+        );
+
+        for _ in 0..5 {
+            rt.step_projectiles();
+            assert_eq!(
+                rt.projectiles.len(),
+                1,
+                "ASM loc_34C4A hibernates three frames on each cleanup sprite"
+            );
+        }
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Dragon_Flying.asm loc_34C4A deletes after both three-frame cleanup sprites"
+        );
+    }
+
+    #[test]
     fn tank_shooting_nonfatal_projectile_hit_hibernates_loc_3b700() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

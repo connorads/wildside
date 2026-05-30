@@ -92,6 +92,9 @@ pub enum ActiveProjectileKind {
     /// Shooting RockTank bullet: ASM `Tank_Shooting.asm loc_3B730`
     /// initialises `stru_3B526` as a hostile horizontal child.
     TankBullet,
+    /// Flying Dragon descent fire child: ASM `Dragon_Flying.asm loc_34BAC`
+    /// runs a startup sprite, travel loop, and two-stage cleanup.
+    DragonFlyingDescentFire,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -2304,6 +2307,7 @@ pub(crate) enum EnemyProjectileKind {
     Hail,
     TankBullet,
     RobotShot,
+    DragonFlyingDescentFire,
     ShooterBlock,
     ManiaxeAxe,
     DiamondPowerRain,
@@ -2324,6 +2328,16 @@ pub(crate) enum DripsSurfaceCrawlerState {
     IdleLoc33A7C,
     DiagonalLoc33810,
     DiagonalLoc33892,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DragonFlyingDescentFireState {
+    #[default]
+    None,
+    FirstAnimationLoc34C26,
+    TravelAnimationLoc34C3A,
+    CleanupFirstLoc34C4A,
+    CleanupSecondLoc34C4A,
 }
 
 /// Projectile fired by enemies and player helmet attacks.
@@ -2391,6 +2405,11 @@ pub(crate) struct EnemyProjectile {
     /// Tar_Monster.asm loc_3261C seeds d3=2; loc_32698 decrements this before
     /// each off_32656 collision dispatch and deletes once it underflows.
     pub(crate) tar_monster_collision_response_budget: u16,
+    /// Dragon_Flying.asm loc_34C26/loc_34C4A coroutine label for the descent
+    /// fire child.
+    pub(crate) dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
+    /// Dragon_Flying.asm loc_34C26 DBF counter or loc_34C4A hibernate count.
+    pub(crate) dragon_flying_descent_fire_counter: u16,
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.

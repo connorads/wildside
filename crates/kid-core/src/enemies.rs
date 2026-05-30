@@ -10032,6 +10032,8 @@ fn cloud_projectile_spawn_loc_35df0(
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
         tar_monster_collision_response_budget: 0,
+        dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+        dragon_flying_descent_fire_counter: 0,
     }
 }
 
@@ -14072,15 +14074,20 @@ fn step_dragon_descent(
                         y_pos: setup.y_pos,
                         x_velocity: setup.final_x_velocity,
                         y_velocity: setup.y_velocity,
-                        // ASM: no lifetime timer; projectile persists until off-screen
-                        // or terrain contact. Use large lifetime + terrain_kill.
-                        lifetime: 600,
+                        // ASM Dragon_Flying.asm loc_34C26/loc_34C3A has no
+                        // generic DBF lifetime; the child advances through its
+                        // own startup, travel, and cleanup coroutine.
+                        lifetime: 0,
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
                         speed_cap: 0,
                         wall_bounce: false,
                         terrain_kill: true,
+                        kind: EnemyProjectileKind::DragonFlyingDescentFire,
+                        dragon_flying_descent_fire_state:
+                            DragonFlyingDescentFireState::FirstAnimationLoc34C26,
+                        dragon_flying_descent_fire_counter: setup.first_animation_counter,
                         ..Default::default()
                     });
                 }
@@ -24541,6 +24548,8 @@ pub(crate) fn step_archer(
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
         tar_monster_collision_response_budget: 0,
+        dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+        dragon_flying_descent_fire_counter: 0,
     });
 }
 
