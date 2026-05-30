@@ -18563,6 +18563,32 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be8e_driller_requires_front_wall_collision_before_drilling() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        enemy.facing = Direction::Right;
+        let grid = grid_with_cells(
+            9,
+            8,
+            &[
+                // ASM Driller.asm loc_3BE8E reads the selected drill child's
+                // `collision_type`; a Smash block with empty collision bits
+                // leaves `$38(a4)=0`, so the block-type dispatch is skipped.
+                (7, 4, 0x80, 0x01),
+                (6, 5, 0x60, 0x00),
+                (7, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            Vec::new(),
+            "ASM loc_3BE8E should only drill after the linked child reports colid_rightwall/colid_leftwall, not from the block nibble alone",
+        );
+    }
+
+    #[test]
     fn loc_3bf02_driller_collision_dispatch_routes_stomp_hp_and_death() {
         assert_eq!(
             driller_collision_dispatch_loc_3bf02(0, 3),

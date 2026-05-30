@@ -192,14 +192,8 @@ Flame is a stationary multi-frame hazard in ROM; native pushes a generic project
 **Dragon_Flying — descent fireball uses a generic projectile instead of windup/travel/impact lifecycle** (`loc_34BAC / loc_34C26 / loc_34C3A / loc_34C4A`)
 No windup/travel sprite phase, no $19 off-screen kill (owner=None so never culled, persists to fixed 600-frame timer), no two-stage impact anim. `enemies.rs:13385-13400`, `projectiles.rs:1770`; lifecycle helpers `enemies.rs:8030/8078/8121` test-only.
 
-**Driller — drill probe uses parent half-width (12px) instead of child drill offset (24px)** (`loc_3BE78`)
-ROM reads the child drill object x_pos at parent±$18; native probes at ±12 (the parent collision box). Misses blocks one cell out. `enemies.rs:15325/15456-15460`.
-
-**Driller — drill fires every frame instead of only on the drill-bit animation frame** (`loc_3BE8E`)
-ROM gates on $38(a4)==d1 (8/4) then clears it (once per swing); native probes from facing every step. `enemies.rs:15450-15476/15436`.
-
-**Driller — drilling an Ice block does not spawn ice-shard bullets** (`loc_3BEF2`)
-`driller_drilled_cells` discards the Ice/Smash discriminant and just clears the cell; no ice-bullet emitter exists. `enemies.rs:15468-15475`, `enemies.rs:38779-38781`.
+**Driller — probe offset, wall-collision gate, and Ice bullet dispatch closed** (`loc_3BE78` / `loc_3BE8E` / `loc_3BEF2`)
+The earlier audit overstated the remaining gap. `$38(a4)` is `collision_type`, not an animation timer: ROM gates on `colid_leftwall`/`colid_rightwall`, then clears the child collision word before dispatching Smash/Prize or Ice block destruction. Native now probes the linked drill child at parent±$18, requires a Solid front-wall cell before drilling, preserves the Smash/Ice action discriminant, and spawns the three Ice shooter bullets. Regressions: `loc_3be78_driller_probes_right_child_x_not_parent_collision_width`, `loc_3bef2_driller_preserves_ice_block_dispatch_for_runtime_bullets`, `loc_3bef2_driller_ice_block_spawns_three_shooter_bullets_when_target_open`, `loc_3be8e_driller_requires_front_wall_collision_before_drilling`.
 
 **Fireball — fire-trail child objects never spawned** (`Enemy19_Fireball_BounceFloorCeiling / loc_32CE4 / loc_330D0 / loc_33128`)
 ROM allocates trail children (≤5) on every bounce/slope; `step_bouncer_with_rng` only mutates velocity. `enemies.rs:12824-12845`; trail helpers `enemies.rs:12116/12564` dead.
