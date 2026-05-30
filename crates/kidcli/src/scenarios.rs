@@ -265,6 +265,11 @@ pub struct DynamicScenario {
     /// oracle: memory write + cheat flag). The script runs after warping.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warp_to_level: Option<u8>,
+    /// When true, native/oracle warped scenarios wait until the target level is
+    /// live and unpaused before scenario frame 0. Focused object probes need
+    /// this so checkpoint 0 samples gameplay, not the title-card shell.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub settle_oracle_warp: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,6 +282,14 @@ pub struct DynamicCheckpoint {
 pub struct DynamicStartPosition {
     pub x: u16,
     pub y: u16,
+}
+
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires a reference predicate"
+)]
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -294,7 +307,7 @@ pub(crate) fn run_native_dynamic_scenario(
     if let Some(level) = scenario.warp_to_level {
         runner = runner.warp_to_level(level);
     }
-    if options.settled_warp {
+    if options.settled_warp || scenario.settle_oracle_warp {
         runner = runner.settle_warp();
     }
     if options.trace_physics {
@@ -346,6 +359,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         camera_position: None,
         playtest_form: None,
         warp_to_level: Some(level_id),
+        settle_oracle_warp: false,
     }
 }
 
@@ -357,6 +371,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
 pub fn idle_level_full_frame_scenario(level_id: u8) -> DynamicScenario {
     let mut scenario = idle_level_scenario(level_id, None);
     scenario.slug = format!("idle_level_full_frames_{level_id:02x}");
+    scenario.settle_oracle_warp = true;
     scenario.checkpoints = vec![
         DynamicCheckpoint {
             label: "frame_000".into(),
@@ -428,6 +443,7 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
         camera_position: None,
         playtest_form: None,
         warp_to_level: Some(level_id),
+        settle_oracle_warp: false,
     }
 }
 
@@ -503,6 +519,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         camera_position: None,
         playtest_form: None,
         warp_to_level: Some(level_id),
+        settle_oracle_warp: false,
     }
 }
 
@@ -556,6 +573,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         camera_position: None,
         playtest_form: None,
         warp_to_level: Some(level_id),
+        settle_oracle_warp: false,
     }
 }
 
@@ -601,6 +619,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         camera_position: None,
         playtest_form: None,
         warp_to_level: Some(level_id),
+        settle_oracle_warp: false,
     }
 }
 
@@ -688,6 +707,7 @@ impl Scenario {
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         }
     }
 }
@@ -847,6 +867,7 @@ impl GameplayScenario {
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         })
     }
 
@@ -868,6 +889,7 @@ impl GameplayScenario {
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         }
     }
 }
@@ -921,7 +943,8 @@ mod tests {
                 "warp_to_level": 0,
                 "start_position": {"x": 3152, "y": 176},
                 "camera_position": {"x": 3008, "y": 64},
-                "playtest_form": 7
+                "playtest_form": 7,
+                "settle_oracle_warp": true
             }"#,
         )
         .expect("scenario");
@@ -935,6 +958,7 @@ mod tests {
             Some(DynamicStartPosition { x: 3008, y: 64 })
         );
         assert_eq!(scenario.playtest_form, Some(7));
+        assert!(scenario.settle_oracle_warp);
     }
 
     #[test]
@@ -951,6 +975,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             warp_to_level: Some(0),
+            settle_oracle_warp: false,
         };
 
         let json = serde_json::to_string(&scenario).expect("json");
@@ -965,6 +990,10 @@ mod tests {
         );
         assert!(
             !json.contains("playtest_form"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+        assert!(
+            !json.contains("settle_oracle_warp"),
             "legacy scenarios should keep their compact JSON shape"
         );
     }
@@ -1228,6 +1257,13 @@ mod tests {
     fn idle_level_scenario_script_length_matches_frame_count() {
         let scenario = idle_level_scenario(0x03, Some(200));
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn idle_full_frame_scenario_requests_settled_oracle_warp_explicitly() {
+        let scenario = idle_level_full_frame_scenario(0x01);
+
+        assert!(scenario.settle_oracle_warp);
     }
 
     #[test]

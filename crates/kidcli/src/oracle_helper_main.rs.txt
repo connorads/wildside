@@ -59,6 +59,8 @@ struct ScenarioFile {
     playtest_form: Option<u16>,
     #[serde(default)]
     warp_to_level: Option<u8>,
+    #[serde(default)]
+    settle_oracle_warp: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -534,7 +536,8 @@ fn resolve_scenario(
                     frame_index: cp.frame_index,
                 }
             }).collect();
-            let settle_oracle_warp = sf.slug.starts_with("idle_level_full_frames_")
+            let settle_oracle_warp = sf.settle_oracle_warp
+                || sf.slug.starts_with("idle_level_full_frames_")
                 || sf.slug.ends_with("_settled_recording_oracle");
             Ok(ResolvedScenario {
                 slug: sf.slug,
@@ -595,11 +598,17 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                 matches!(checkpoint.label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail")
                     .then(|| eol_vdp_pixel_samples_debug_loc_c070(&mut emulator, None))
             });
+        if resolved.playtest_form.is_some() {
+            clear_probe_transform_residue(&mut emulator);
+        }
         let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
         loop {
             if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
                 TickEffect::FrameRendered
             {
+                if resolved.playtest_form.is_some() {
+                    clear_probe_transform_residue(&mut emulator);
+                }
                 while checkpoint_index < resolved.checkpoints.len()
                     && resolved.checkpoints[checkpoint_index].frame_index == frame_index
                 {
@@ -2072,13 +2081,19 @@ fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: Scenari
 
 fn apply_probe_playtest_form(emulator: &mut GenesisEmulator, helmet_id: u16) -> Result<()> {
     // ASM variables.asm: Number_hitpoints/Current_Helmet_ID are `$FFFFFC40`
-    // and `$FFFFFC46`. Probe scenarios patch both together so form-specific
-    // routes begin with the same live state as native `set_playtest_form`.
+    // and `$FFFFFC46`. `Currently_transforming` is `$FFFFFA6D`; clear it
+    // here because probe playtest forms are direct live-state seeds, not
+    // helmet pickup transforms.
     let hitpoints = max_hitpoints_for_helmet_id(helmet_id)
         .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
     write_emulator_wram_u16(emulator, CURRENT_HELMET_ID_ADDR, helmet_id);
     write_emulator_wram_u16(emulator, NUMBER_HITPOINTS_ADDR, hitpoints);
+    clear_probe_transform_residue(emulator);
     Ok(())
+}
+
+fn clear_probe_transform_residue(emulator: &mut GenesisEmulator) {
+    write_emulator_wram_u8(emulator, CURRENTLY_TRANSFORMING_ADDR, 0);
 }
 
 fn max_hitpoints_for_helmet_id(helmet_id: u16) -> Option<u16> {
@@ -2155,6 +2170,11 @@ fn write_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize, value
     let [hi, lo] = value.to_be_bytes();
     mem.write(work_ram_index(address), hi);
     mem.write(work_ram_index(address) + 1, lo);
+}
+
+fn write_emulator_wram_u8(emulator: &mut GenesisEmulator, address: usize, value: u8) {
+    let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    mem.write(work_ram_index(address), value);
 }
 
 fn write_emulator_wram_u32(emulator: &mut GenesisEmulator, address: usize, value: u32) {

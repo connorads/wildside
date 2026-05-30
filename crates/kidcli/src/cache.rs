@@ -159,6 +159,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         };
         let key_v1 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v1");
         let key_v2 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v2");

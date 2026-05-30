@@ -2011,6 +2011,7 @@ fn build_branch_scenario(
         camera_position: manifest.scenario.camera_position,
         playtest_form: manifest.scenario.playtest_form,
         warp_to_level: manifest.scenario.warp_to_level,
+        settle_oracle_warp: manifest.scenario.settle_oracle_warp,
     }
 }
 
@@ -2129,6 +2130,7 @@ mod tests {
                 camera_position: None,
                 playtest_form: None,
                 warp_to_level: None,
+                settle_oracle_warp: false,
             },
             prefix_script: vec![0; 10],
             continuation_script: vec![0; 10],
@@ -2449,6 +2451,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         };
         manifest.prefix_script = vec![0; 10];
         manifest.continuation_script = vec![0; 10];
@@ -2495,6 +2498,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             warp_to_level: Some(0),
+            settle_oracle_warp: false,
         };
 
         let verification = build_case_verification_scenario(&source, &base, 0, 120)
@@ -2541,6 +2545,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],
@@ -2592,6 +2597,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default(), NativeTraceFrame::default()],
@@ -2643,6 +2649,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0x15),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],
@@ -2695,6 +2702,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0x01),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],
@@ -2748,6 +2756,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0x0c),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],
@@ -2806,6 +2815,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0x12),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],
@@ -2871,6 +2881,7 @@ mod tests {
                     camera_position: None,
                     playtest_form: None,
                     warp_to_level: Some(0x03),
+                    settle_oracle_warp: true,
                 },
             },
             trace: vec![NativeTraceFrame::default()],

@@ -3902,6 +3902,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             warp_to_level: None,
+            settle_oracle_warp: false,
         };
 
         let start = recording_start_for_dynamic_scenario(&scenario);
@@ -3924,6 +3925,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             warp_to_level: Some(0x15),
+            settle_oracle_warp: false,
         };
 
         let start = recording_start_for_dynamic_scenario(&scenario);

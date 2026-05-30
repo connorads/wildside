@@ -283,6 +283,7 @@ pub(crate) fn build_recording(
                 camera_position: None,
                 playtest_form: None,
                 warp_to_level: start.warp_level,
+                settle_oracle_warp: start.settled && start.warp_level.is_some(),
             },
         },
         trace,
@@ -813,6 +814,7 @@ pub(crate) fn oracle_scenario_for_recording(
             camera_position: recording.manifest.scenario.camera_position,
             playtest_form: recording.manifest.scenario.playtest_form,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
+            settle_oracle_warp: true,
         },
         0,
     )
