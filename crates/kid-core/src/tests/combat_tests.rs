@@ -8670,6 +8670,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.progression.score, 0,
+            "ASM Crab.asm loc_3B094 reaches the shared loc_3C46E delete tail, which removes the object without writing `(Score).w`"
+        );
     }
 
     #[test]

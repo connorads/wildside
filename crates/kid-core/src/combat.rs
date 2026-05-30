@@ -7742,8 +7742,10 @@ impl NativeRuntime {
                 });
             self.pending_dragon_death_animations.push(animation);
         }
+        // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
+        // death-animation tails) updates EnemyStatus_Table and deletes the
+        // object; it does not touch `(Score).w`.
         self.rebuild_active_enemy_roster();
-        self.add_score(1000);
     }
 
     pub(crate) fn rebuild_active_enemy_roster(&mut self) {
