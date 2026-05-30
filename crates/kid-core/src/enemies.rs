@@ -24192,9 +24192,28 @@ pub(crate) fn step_spinning_twins(
             if enemy.on_ground {
                 step_pacer(enemy, block_grid);
             } else {
+                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
                 enemy.y_velocity =
                     spinning_twins_walking_child_y_velocity_loc_3bb2c(enemy.y_velocity);
+                enemy.x_velocity = if enemy.x_velocity < 0 {
+                    spinning_twins_walking_child_left_x_velocity_loc_3bb42(enemy.x_velocity)
+                } else {
+                    spinning_twins_walking_child_right_x_velocity_loc_3bb52(enemy.x_velocity)
+                };
+                if matches!(
+                    spinning_twins_walking_velocity_gate_loc_3bb5a(enemy.x_velocity),
+                    SpinningTwinsWalkingVelocityGateLoc3BB5A::Settle
+                ) {
+                    let _settle = spinning_twins_settle_entry_loc_3bb94(match enemy.facing {
+                        Direction::Left => 0,
+                        Direction::Right => 0xFF,
+                    });
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                    enemy.on_ground = true;
+                    return;
+                }
                 // Check floor
                 if let Some(grid) = block_grid {
                     let x_px = (enemy.x_pos >> 16) as i32;

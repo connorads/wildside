@@ -11575,6 +11575,39 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_live_walking_child_applies_x_motion_and_drag_loc_3bb2c_3bb52() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        enemy.on_ground = false;
+        enemy.x_velocity = SPINNING_TWINS_DROP_X_VEL_RIGHT;
+        enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+        let start_x = enemy.x_pos;
+        let start_y = enemy.y_pos;
+
+        step_spinning_twins(&mut enemy, None, None, None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (i64::from(start_x) + i64::from(SPINNING_TWINS_DROP_X_VEL_RIGHT)) as u32,
+            "ASM Spinning_Twins.asm loc_3BB2C runs sub_3C3CE before applying the x-drag block"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            (i64::from(start_y) + i64::from(SPINNING_TWINS_DROP_Y_VEL)) as u32
+        );
+        assert_eq!(
+            enemy.x_velocity,
+            spinning_twins_walking_child_right_x_velocity_loc_3bb52(
+                SPINNING_TWINS_DROP_X_VEL_RIGHT
+            )
+        );
+        assert_eq!(
+            enemy.y_velocity,
+            spinning_twins_walking_child_y_velocity_loc_3bb2c(SPINNING_TWINS_DROP_Y_VEL)
+        );
+    }
+
+    #[test]
     fn spinning_twins_walking_velocity_gate_loc_3bb5a_settles_only_inside_asymmetric_band() {
         assert_eq!(
             spinning_twins_walking_velocity_gate_loc_3bb5a(0x0000_3001),
