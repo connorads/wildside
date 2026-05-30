@@ -204,6 +204,11 @@ pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME: u16 =
 /// uses `$3F2`, but native's frame counter is offset to match oracle WRAM.
 pub(crate) const DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME: u16 =
     DEMO_MAX_FRAMES + DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES + 84;
+/// The cold IntroSequence6 timeout-return lineage reaches the ROM's demo
+/// timeout edge one native startup frame after the published TAS demo-1
+/// offset. The visible mode-0 return lands on the following frame.
+pub(crate) const DEMO_1_INTRO_SEQUENCE_6_TIMEOUT_RETURN_AUTO_END_FRAME: u16 =
+    DEMO_MAX_FRAMES + DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES + 1;
 /// Timeout-restart demo-1 exposes one additional object-only controller-side
 /// worker after the initial extended `loc_119D8` sample settles.
 pub(crate) const DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME: u16 =

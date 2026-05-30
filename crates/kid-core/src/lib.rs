@@ -291,6 +291,9 @@ pub struct NativeRuntime {
     /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
     /// paused title helper used by manual Start aborts.
     demo_auto_timeout_handoff_active: bool,
+    /// The cold IntroSequence6 timeout-return path preserves the late demo-1
+    /// controller sample into the first mode-0 timeout frames.
+    demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: bool,
     /// Timeout restart hands the generic intro state machine a different
     /// sequence-1 duration than cold boot.
     demo_auto_timeout_intro_sequence_1_frames_override: Option<usize>,
@@ -1240,6 +1243,7 @@ impl NativeRuntime {
             demo_auto_timeout_return_pending: false,
             demo_auto_timeout_freeze_gameplay_frame: false,
             demo_auto_timeout_handoff_active: false,
+            demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: false,
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,
             demo_auto_timeout_intro_sequence_3_frames_override: None,

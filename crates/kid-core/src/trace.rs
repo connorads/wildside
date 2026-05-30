@@ -2134,13 +2134,18 @@ mod tests {
 
     #[test]
     fn trace_frame_late_playback_velocity_hold_is_first_recording_only() {
-        fn velocities_at(use_demo_2: bool) -> (Option<i32>, Option<i32>) {
+        fn velocities_at(
+            use_demo_2: bool,
+            intro_sequence_6_timeout_return: bool,
+        ) -> (Option<i32>, Option<i32>) {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::DemoPlay {
                 frame_counter: demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
                 data_index: 0,
                 use_demo_2,
             };
+            runtime.demo_uses_intro_sequence_6_timeout_return_velocity_sample =
+                intro_sequence_6_timeout_return;
             let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
@@ -2156,8 +2161,16 @@ mod tests {
         // ASM Load_DemoPlay -> loc_119D8 keeps sampling the late controller
         // velocity only for the first recording after the shared grounded
         // hold has ended; second-recording playback reports live Kid velocity.
-        assert_eq!(velocities_at(false), (Some(0), Some(0)));
-        assert_eq!(velocities_at(true), (Some(0x0002_0000), Some(0x0003_0000)));
+        assert_eq!(velocities_at(false, false), (Some(0), Some(0)));
+        assert_eq!(
+            velocities_at(false, true),
+            (Some(0), Some(0)),
+            "ASM loc_1BB02 -> Load_DemoPlay preserves the first-recording controller sample on the cold IntroSequence6 timeout-return lineage"
+        );
+        assert_eq!(
+            velocities_at(true, false),
+            (Some(0x0002_0000), Some(0x0003_0000))
+        );
     }
 
     #[test]
@@ -2997,6 +3010,7 @@ mod tests {
             frame_counter: u16,
             use_demo_2: bool,
             started_from_timeout_restart_shell: bool,
+            intro_sequence_6_timeout_return: bool,
         ) -> (u16, u16) {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::DemoPlay {
@@ -3005,6 +3019,8 @@ mod tests {
                 use_demo_2,
             };
             runtime.demo_started_from_timeout_restart_shell = started_from_timeout_restart_shell;
+            runtime.demo_uses_intro_sequence_6_timeout_return_velocity_sample =
+                intro_sequence_6_timeout_return;
             runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
@@ -3017,12 +3033,18 @@ mod tests {
         // ASM Load_DemoPlay -> loc_119D8 keeps controller-side object/gfx
         // samples visible through the late first-recording playback windows.
         assert_eq!(
-            counts_at(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1, false, false),
+            counts_at(
+                demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
+                false,
+                false,
+                false
+            ),
             (6, 5)
         );
         assert_eq!(
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME,
+                false,
                 false,
                 false
             ),
@@ -3032,6 +3054,7 @@ mod tests {
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME,
                 false,
+                false,
                 false
             ),
             (7, 5)
@@ -3039,6 +3062,7 @@ mod tests {
         assert_eq!(
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME,
+                false,
                 false,
                 false
             ),
@@ -3048,27 +3072,45 @@ mod tests {
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME - 1,
                 false,
-                true
+                true,
+                false
             ),
             (8, 4)
         );
         assert_eq!(
-            counts_at(demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME, false, true),
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME,
+                false,
+                true,
+                false
+            ),
             (8, 7)
         );
         assert_eq!(
             counts_at(
                 demo::DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME,
                 false,
-                true
+                true,
+                false
             ),
             (9, 4)
         );
         assert_eq!(
             counts_at(
-                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME,
+                demo::DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME,
+                false,
                 false,
                 true
+            ),
+            (9, 4),
+            "ASM loc_1BB02 -> Load_DemoPlay keeps the cold IntroSequence6 timeout-return controller object sample through the same late demo-1 window"
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME,
+                false,
+                true,
+                false
             ),
             (8, 7)
         );
@@ -3076,13 +3118,15 @@ mod tests {
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
                 false,
-                true
+                true,
+                false
             ),
             (8, 4)
         );
         assert_eq!(
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
+                false,
                 false,
                 false
             ),
@@ -3092,7 +3136,8 @@ mod tests {
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME + 1,
                 true,
-                true
+                true,
+                false
             ),
             (4, 4)
         );
@@ -3100,6 +3145,7 @@ mod tests {
             counts_at(
                 demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME,
                 true,
+                false,
                 false
             ),
             (4, 4)
@@ -4280,6 +4326,12 @@ impl NativeRuntime {
             return MOVE_STANDINGSTILL;
         }
         if self.demo_auto_timeout_handoff_active {
+            if self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot {
+                // ASM ReadJoypad loc_C0A (kid.asm:1380) flips to mode 0
+                // after the final loc_A6F8/sub_B168 jump frame has already
+                // populated Character_Movement.
+                return MOVE_JUMP;
+            }
             // ASM ReadJoypad loc_C0A (kid.asm:1380) enters the timeout restart
             // by writing Game_Mode=$00 and jumping through loc_6E2. The title
             // snapshot can still carry Kid's pose, but oracle WRAM exposes an
@@ -6015,18 +6067,20 @@ impl NativeRuntime {
         self.demo_startup_frame()
             .zip(self.demo_uses_second_recording())
             .is_some_and(|(frame_counter, use_demo_2)| {
-                let late_demo_1_velocity_sample_end =
-                    if self.demo_started_from_timeout_restart_shell {
-                        // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) still
-                        // leaves the timeout-restart demo-1 controller object
-                        // as the top-level velocity sample through the
-                        // ReadJoypad loc_C0A timeout edge. Raw Kid WRAM keeps
-                        // moving underneath; only the exported TAS sample is
-                        // still owned by the hidden controller object.
-                        demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
-                    } else {
-                        demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
-                    };
+                let late_demo_1_velocity_sample_end = if self
+                    .demo_started_from_timeout_restart_shell
+                    || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+                {
+                    // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) still
+                    // leaves the timeout-restart demo-1 controller object
+                    // as the top-level velocity sample through the
+                    // ReadJoypad loc_C0A timeout edge. Raw Kid WRAM keeps
+                    // moving underneath; only the exported TAS sample is
+                    // still owned by the hidden controller object.
+                    demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
+                } else {
+                    demo::DEMO_1_LATE_CONTROLLER_VELOCITY_SAMPLE_END_FRAME
+                };
                 let timeout_restart_demo_2_velocity_sample = use_demo_2
                     && self.demo_uses_intro_sequence_5_title_return_preload_row
                     && (demo::DEMO_2_INTRO_SEQUENCE_5_TITLE_RETURN_CONTROLLER_SAMPLE_START_FRAME
@@ -6101,7 +6155,10 @@ impl NativeRuntime {
             // hidden camera row is sampled.
             return Some((2, 0));
         }
-        if !use_demo_2 && self.demo_started_from_timeout_restart_shell {
+        if !use_demo_2
+            && (self.demo_started_from_timeout_restart_shell
+                || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample)
+        {
             if frame_counter > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
                 && frame_counter <= demo::DEMO_1_TIMEOUT_RESTART_CONTROLLER_SAMPLE_END_FRAME
             {

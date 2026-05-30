@@ -157,8 +157,11 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
     let mut frame_7689 = None;
     let mut frame_7748 = None;
     let mut frame_7749 = None;
+    let mut frame_8851 = None;
+    let mut frame_8852 = None;
+    let mut frame_8853 = None;
 
-    for frame_index in 0..=7_749 {
+    for frame_index in 0..=8_853 {
         let trace = runtime.step_frame(FrameInput::default());
         match frame_index {
             6_849 => {
@@ -296,6 +299,36 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
                     trace.camera_y_pos,
                 ));
             }
+            8_851 => {
+                frame_8851 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_y_velocity,
+                ));
+            }
+            8_852 => {
+                frame_8852 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_y_velocity,
+                ));
+            }
+            8_853 => {
+                frame_8853 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                    trace.character_movement,
+                ));
+            }
             _ => {}
         }
     }
@@ -413,6 +446,35 @@ fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() 
         frame_7749,
         Some((GameMode::DemoPlay, Some(60), 2, 0xFD40_0000)),
         "frame 7749 should expose the cold timeout-return Knights Isle hidden camera row",
+    );
+    assert_eq!(
+        frame_8851,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(1079),
+            Some(0x039B_7C80),
+            Some(0x0185_7680),
+            Some(0),
+        )),
+        "frame 8851 should still expose the final cold timeout-return Knights Isle demo step",
+    );
+    assert_eq!(
+        frame_8852,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(1079),
+            Some(0x0399_D280),
+            Some(0x0186_B680),
+            Some(0),
+        )),
+        "frame 8852 should replay the final buffered demo step before ReadJoypad's deferred timeout return",
+    );
+    assert_eq!(
+        frame_8853,
+        Some((GameMode::SegaScreen, LevelId(0x00), None, 9, 4, Some(3))),
+        "frame 8853 should apply ReadJoypad loc_C0A's mode-0 timeout return while preserving the final demo jump snapshot",
     );
 }
 

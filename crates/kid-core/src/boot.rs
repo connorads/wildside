@@ -5408,6 +5408,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_return_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
+        self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot = false;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
@@ -5606,6 +5607,17 @@ impl NativeRuntime {
         }
     }
 
+    fn demo_auto_timeout_reached(&self, frame_counter: u16, use_demo_2: bool) -> bool {
+        if !use_demo_2 && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample {
+            // ASM ReadJoypad loc_C0A (kid.asm:1379) owns the demo timeout
+            // compare, but the cold `loc_1BB02 -> Load_DemoPlay` timeout-return
+            // lineage reaches the deferred mode-0 restart one native startup
+            // frame after the published TAS demo-1 counter offset.
+            return frame_counter >= demo::DEMO_1_INTRO_SEQUENCE_6_TIMEOUT_RETURN_AUTO_END_FRAME;
+        }
+        Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES
+    }
+
     pub(crate) fn demo_title_full_snapshot_frames(&self) -> usize {
         if self.demo_auto_timeout_handoff_active {
             DEMO_AUTO_TIMEOUT_FULL_SNAPSHOT_FRAMES
@@ -5720,6 +5732,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_return_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
+        self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot = false;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
@@ -5807,17 +5820,27 @@ impl NativeRuntime {
             self.demo_uses_intro_sequence_6_early_title_restore;
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
-        let frozen_counts = self.object_counts_from_roster(
+        let intro_sequence_6_timeout_return_snapshot =
+            self.demo_uses_intro_sequence_6_timeout_return_velocity_sample;
+        let mut frozen_counts = self.object_counts_from_roster(
             &self.active_objects(),
             self.current_camera_state().x_pos,
             self.current_camera_state().y_pos,
         );
+        if intro_sequence_6_timeout_return_snapshot {
+            // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the
+            // timeout-return controller object count-visible through the
+            // ReadJoypad loc_C0A mode-0 handoff.
+            frozen_counts.0 = frozen_counts.0.saturating_add(5);
+        }
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;
         self.pause_toggle_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = true;
+        self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
+            intro_sequence_6_timeout_return_snapshot;
         self.demo_auto_timeout_intro_sequence_1_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES);
         self.demo_auto_timeout_intro_sequence_2_frames_override =
@@ -6410,7 +6433,7 @@ impl NativeRuntime {
         // `move.w #$82A,($FFFFFBCC); clr.w Current_LevelID; jsr StopMusic;
         // jmp j_loc_6E2`.  Native defers the title-return to
         // `finish_demo_auto_timeout_return` via `demo_auto_timeout_return_pending`.
-        if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
+        if self.demo_auto_timeout_reached(frame_counter, use_demo_2) {
             self.demo_auto_timeout_return_pending = true;
             self.demo_auto_timeout_freeze_gameplay_frame = use_demo_2;
             return Some(input);
@@ -6845,6 +6868,8 @@ impl NativeRuntime {
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
                     self.demo_auto_timeout_handoff_active = false;
+                    self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
+                        false;
                     self.timeout_restart_intro_sequence_4_pose_carry = false;
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
@@ -7011,6 +7036,8 @@ impl NativeRuntime {
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
                     self.demo_auto_timeout_handoff_active = false;
+                    self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
+                        false;
                     self.timeout_restart_intro_sequence_4_pose_carry = false;
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
