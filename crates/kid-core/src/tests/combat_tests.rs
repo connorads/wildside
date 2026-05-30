@@ -8918,6 +8918,68 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_walking_spawned_child_stomp_resumes_instead_of_death_loc_3cee4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let parent = test_enemy(EnemyFamily::Dragon, 0x006c_0000, 0x0100_0000, 1);
+        let mut child = dragon_flying_death_child_loc_3492C(&parent);
+        child.x_pos = 100 << 16;
+        child.y_pos = 120 << 16;
+        child.layout_index = 17;
+        let killed_identity = (child.segment_index, child.layout_index);
+        runtime.active_enemies = vec![child];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x2_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(
+            stomped,
+            "Kid-above contact should still bounce from the child"
+        );
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEE4 sees `$5C(a5)` and branches to loc_3CF50 instead of loc_3CEFC"
+        );
+        let child = runtime.active_enemies[0];
+        assert_eq!(
+            child.hit_points, 0,
+            "ASM Dragon.asm loc_3CEBE decrements `$44(a3)` before the spawned-child terminal branch"
+        );
+        assert!(
+            !child.death_animation_active,
+            "spawned walking dragon children resume live pacing; zero HP alone is not the death hibernate state"
+        );
+        assert_ne!(
+            child.wait_timer, DRAGON_WALKING_DEATH_ANIMATION_FRAMES,
+            "loc_3CEFC death animation must not be initialised for the `$5C(a5)` resume route"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "the spawned-child resume route does not write the layout killed bit"
+        );
+    }
+
+    #[test]
     fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

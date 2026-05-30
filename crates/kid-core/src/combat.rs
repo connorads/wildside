@@ -7829,7 +7829,10 @@ impl NativeRuntime {
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(active_idx);
                 } else {
-                    if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    if matches!(enemy.family, EnemyFamily::DragonWalking)
+                        && !(enemy.is_dragon_walking_parent_spawned_child()
+                            && enemy.hit_points == 0)
+                    {
                         // The stomp resolves after the landing frame. Give the
                         // hurt hibernate a one-frame arm so DragonWalking still
                         // reaches the oracle-backed frame-2938 contact tile

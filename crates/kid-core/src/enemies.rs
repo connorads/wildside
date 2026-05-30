@@ -6408,6 +6408,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) dragon_phase: DragonFlyingState,
     pub(crate) dragon_phase_frames: u16,
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
+    /// Dragon Walking reuses bit 7 for the ASM Dragon.asm loc_3CD16 `$5C(a5)`
+    /// parent-spawned-child flag; no layout walking-dragon variant uses it.
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
@@ -6477,6 +6479,8 @@ pub(crate) struct ActiveEnemy {
     /// Frontier-only trace of the last terrain probes used by the shared walker.
     pub(crate) shared_walker_terrain_trace: SharedWalkerTerrainTrace,
 }
+
+pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PendingDragonDeathChild {
@@ -8325,7 +8329,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         wait_timer: DRAGON_WALKING_BREATH_INITIAL,
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
-        dragon_script_variant: 0,
+        dragon_script_variant: DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -8551,6 +8555,45 @@ impl ActivationWindow {
 }
 
 impl ActiveEnemy {
+    pub(crate) fn is_dragon_walking_parent_spawned_child(&self) -> bool {
+        matches!(self.family, EnemyFamily::DragonWalking)
+            && self.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG != 0
+    }
+
+    fn take_dragon_walking_damage_or_queue_death(&mut self) -> bool {
+        let parent_spawned_child = self.is_dragon_walking_parent_spawned_child();
+        match dragon_walking_damage_route_loc_3cebe(
+            u16::from(self.hit_points),
+            parent_spawned_child,
+        ) {
+            DragonWalkingDamageRouteLoc3CEBE::Death { remaining_hp } => {
+                match dragon_walking_terminal_route_loc_3cee4(
+                    DRAGON_COLID_KIDABOVE as i16,
+                    parent_spawned_child,
+                ) {
+                    DragonWalkingTerminalRouteLoc3CEE4::DeathAnimation { .. } => true,
+                    DragonWalkingTerminalRouteLoc3CEE4::SpawnedChildResume { .. } => {
+                        // ASM Dragon.asm loc_3CEE4: a `$5C(a5)` walking-dragon
+                        // child stores collision `$FFFE` and resumes via loc_3CF50
+                        // instead of entering the loc_3CEFC death animation.
+                        self.hit_points = remaining_hp as u8;
+                        self.death_animation_active = false;
+                        false
+                    }
+                }
+            }
+            DragonWalkingDamageRouteLoc3CEBE::SpawnedChildContinue { remaining_hp } => {
+                self.hit_points = remaining_hp as u8;
+                false
+            }
+            DragonWalkingDamageRouteLoc3CEBE::ParentHurt { remaining_hp, .. } => {
+                self.hit_points = remaining_hp as u8;
+                self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                false
+            }
+        }
+    }
+
     pub(crate) fn take_colid_hurt_or_queue_death(&mut self, player_x_pos: Option<u32>) -> bool {
         if matches!(self.family, EnemyFamily::Crab)
             && let Some(player_x_pos) = player_x_pos
@@ -8580,6 +8623,9 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn take_damage_or_queue_death(&mut self) -> bool {
+        if matches!(self.family, EnemyFamily::DragonWalking) {
+            return self.take_dragon_walking_damage_or_queue_death();
+        }
         if self.hit_points <= 1 {
             return true;
         }
