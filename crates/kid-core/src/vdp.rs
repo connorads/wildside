@@ -2640,7 +2640,7 @@ fn append_title_intro_text_sprite_loc_1bb10(
             // ASM unk_E0ED6: sprite_frame_vram $2C3, $00, $08, $10, $08.
             sprite_index: 0x02C3,
             x_center: 0,
-            y_center: 0,
+            y_center: 0x0008,
             width: 0x0010,
             height: 0x0008,
         },
@@ -4866,8 +4866,8 @@ mod tests {
         );
 
         assert!(
-            sprite_table_index_without_link(&vdp, (0x010C, 0x04, 0x4780, 0x018C)).is_some(),
-            "ASM loc_1BB10/unk_E0ED6 should keep the settled x=$10C,y=$94 title text sprite visible after Obj_TitleMenu reveals the menu"
+            sprite_table_index_without_link(&vdp, (0x0114, 0x04, 0x4780, 0x018C)).is_some(),
+            "ASM loc_1BB10/unk_E0ED6 should keep the settled x=$10C,y=$94 title text sprite visible after Obj_TitleMenu reveals the menu; sprite_frame_vram's y_center `$08` makes the hardware Y word `$114`"
         );
     }
 
