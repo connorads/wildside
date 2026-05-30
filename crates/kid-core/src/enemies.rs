@@ -19001,6 +19001,7 @@ pub(crate) fn robot_charge_flip_reload_with_rng(rng: &mut RomRandomState) -> u16
 
 /// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
 pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
+pub(crate) const ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762: u16 = 3 + 4 + 8;
 
 #[cfg(test)]
 pub(crate) fn robot_jump_sound_edge_loc_3a890(

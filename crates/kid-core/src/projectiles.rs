@@ -5,10 +5,11 @@ use crate::enemies::{
     DragonFlyingDescentFireFirstLoopLoc34C26, DragonFlyingDescentFireTravelLoopLoc34C3A,
     DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
-    DripsSurfaceCrawlerTurnScriptLoc33AF6, RobotShotFlightRouteLoc3AC48,
-    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
-    TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player, archer_reaim_loc_3432E,
-    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
+    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
+    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
+    archer_angle_to_player, archer_reaim_loc_3432E, dragon_flying_descent_fire_cleanup_loc_34C4A,
+    dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
     drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
@@ -1968,10 +1969,9 @@ impl NativeRuntime {
                     p.y_velocity = 0;
                     p.x_pos = (p.x_pos as i64 + (i64::from(impact.impact_x_delta_px) << 16)) as u32;
                     p.kind = EnemyProjectileKind::RobotShotImpact;
-                    // ASM loc_3AC92 hibernates until `stru_3A762` finishes.
-                    // Native does not yet render animation frames here, but
-                    // keeps the impact object alive past the transition.
-                    p.lifetime = 1;
+                    // ASM loc_3AC92 hibernates until `stru_3A762` finishes:
+                    // waits 3, 4, and 8 frames before deleting the shot.
+                    p.lifetime = ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762;
                 }
             }
 

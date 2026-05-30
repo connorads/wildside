@@ -208,7 +208,7 @@ ROM turns to face Kid when >$80 away; native sets facing only inside the attack 
 Live path probes terrain only; never reads Kid side contact or Berzerker_charging during the lunge. (Wall-pin X-drift suppression is correctly implemented.) `enemies.rs:18657-18780/18694-18701/18739-18743`; gate `enemies.rs:1301/1096` test-only.
 
 **Robot — projectile impact animation is only a typed lifetime state** (`Enemy03_Robot_Shot_Init / loc_3ABB6 / loc_3AC7E / loc_3AC92`)
-Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, then enter `RobotShotImpact` with the `loc_3AC7E/loc_3AC92` velocity clear and X offset. Exact `stru_3A762` impact frame rendering/duration remains approximate.
+Live shots now use the `loc_3AC0C` muzzle offset and `loc_3AC48` camera/collision gate, then enter `RobotShotImpact` with the `loc_3AC7E/loc_3AC92` velocity clear and X offset. The impact object now survives the exact `stru_3A762` 3+4+8 frame duration; per-frame impact art selection remains approximate.
 
 **Robot — body/head per-part collision and sprite swaps still absent** (`Enemy03_Robot_Init / loc_3A8AE`)
 Live roster now exposes the linked head object from `loc_3A7EE/loc_3A816`, friendly projectile damage scans both the parent body and linked head before entering `loc_3A8FC`, charging Berzerker side contact now targets the linked head `$38(a2)` only before routing `$20/$24` through `loc_3A9CC -> loc_3A9D2`, and stomp candidates cover both parent and linked-head hit reactions without double-applying damage on an overlapping frame. Shoot/hit head-leg sprite swaps are still approximate.

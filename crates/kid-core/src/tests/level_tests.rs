@@ -20180,6 +20180,10 @@ mod chunk_10 {
             EnemyProjectileKind::RobotShotImpact,
             "ASM Robot.asm loc_3AC92 should initialise the `stru_3A762` impact animation"
         );
+        assert_eq!(
+            rt.projectiles[0].lifetime, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
+            "ASM Robot.asm loc_3AC92 should keep the impact alive for the full `stru_3A762` 3+4+8 frame animation"
+        );
     }
 
     #[test]
@@ -20221,6 +20225,37 @@ mod chunk_10 {
             rt.projectiles[0].x_pos,
             42 << 16,
             "ASM Robot.asm loc_3AC92 should add +8px for a right-facing shot impact"
+        );
+    }
+
+    #[test]
+    fn robot_shot_impact_lasts_for_stru_3a762_duration() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 42 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
+            kind: EnemyProjectileKind::RobotShotImpact,
+            ..Default::default()
+        });
+
+        for _ in 0..ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762 {
+            assert_eq!(
+                rt.projectiles.len(),
+                1,
+                "ASM Robot.asm loc_3AC92 hibernates until all `stru_3A762` impact frames finish"
+            );
+            rt.step_projectiles();
+        }
+        assert_eq!(rt.projectiles[0].lifetime, 0);
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Robot.asm loc_3AC92 deletes the shot after the impact animation finishes"
         );
     }
 
