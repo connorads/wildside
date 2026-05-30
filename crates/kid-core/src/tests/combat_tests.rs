@@ -9137,6 +9137,78 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_body_stomp_damages_parent_loc_3a8ae() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2)];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped);
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Robot.asm loc_3A8AE checks parent collision_type before the linked head collision word"
+        );
+    }
+
+    #[test]
+    fn robot_head_stomp_damages_parent_loc_3a8ae() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2)];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 97 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(
+            stomped,
+            "ASM Robot.asm loc_3A8AE should let linked head `$38(a2)` colid_kidabove route into the parent hit reaction"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+    }
+
+    #[test]
     fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);

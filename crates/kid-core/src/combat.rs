@@ -7840,6 +7840,17 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Robot) {
+                // ASM Robot.asm loc_3A8AE checks parent `collision_type(a3)`
+                // first, then the linked head `$38(a2)`, and either `$1C`
+                // or `$2C` enters the shared loc_3A8FC hit reaction.
+                candidates.push((active_index, enemy.snapshot()));
+                if let Some(child) = enemy.child_attachment_snapshot() {
+                    candidates.push((active_index, child));
+                }
+                continue;
+            }
+
             candidates.push((active_index, enemy.snapshot()));
         }
         candidates
@@ -7872,6 +7883,8 @@ impl NativeRuntime {
                 stomped_indices.push(active_index);
             }
         }
+        stomped_indices.sort_unstable();
+        stomped_indices.dedup();
 
         if stomped_indices.is_empty() {
             return false;
