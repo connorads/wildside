@@ -8644,6 +8644,24 @@ impl ActiveEnemy {
         if matches!(self.family, EnemyFamily::DragonWalking) {
             return self.take_dragon_walking_damage_or_queue_death();
         }
+        if matches!(self.family, EnemyFamily::Robot) {
+            if self.hit_points == 0 {
+                return false;
+            }
+            let reaction = robot_hit_reaction_loc_3a8fc(u16::from(self.hit_points), false, false);
+            self.hit_points = reaction.remaining_hp as u8;
+            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            if matches!(reaction.route, RobotHitReactionRouteLoc3A8Fc::EnterCharge) {
+                // ASM Robot.asm loc_3A8FC -> loc_3A96C: a final hit does not
+                // delete the Robot; it seeds the `$800` collision charge state
+                // and resumes via the current x_direction.
+                self.robot_state = RobotState::Charging;
+                self.wait_timer = ROBOT_CHARGE_FLIP_BASE;
+                self.x_velocity = horizontal_velocity(self.facing, ROBOT_CHARGE_SPEED);
+                self.y_velocity = 0;
+            }
+            return false;
+        }
         if self.hit_points <= 1 {
             return true;
         }
@@ -19073,21 +19091,21 @@ pub(crate) fn robot_destroy_prep_loc_3a9d2() -> RobotDestroyPrepLoc3A9D2 {
     }
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotHitReactionRouteLoc3A8Fc {
     ClearAndWalk,
     EnterCharge,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotChildSpriteUpdateLoc3A8Fc {
     KeepCurrent,
     UseHitFrame,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) remaining_hp: u16,
@@ -19102,7 +19120,7 @@ pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) replay_jump_sound: bool,
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_hit_reaction_loc_3a8fc(
     current_hp: u16,
     tracking_latch_set: bool,

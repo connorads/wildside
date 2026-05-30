@@ -104,7 +104,7 @@ NinjaState has only Stealth/JumpAttack; no Block/Guard, no $44, no sfx_Ninja_blo
 No kid-above contact handling and no knockdown state. `enemies.rs:6257-6263`, `enemies.rs:16680-16693`; knockdown helpers test-only.
 
 **Robot — live collision/hit routing into charge still absent** (`loc_3A96C / loc_3A890 / loc_3A9F0`)
-ROM enters charge via routed damaging contact ($38(a2)<0 or $44 hits 0). Native no longer enters charge after ordinary shooting, but the live collision/hit router still does not drive `loc_3A96C` for Robot body/head contacts.
+ROM enters charge via routed damaging contact ($38(a2)<0 or $44 hits 0). Native final damage now enters `loc_3A96C` charge instead of generic death, but child-negative collision and shoot-time collision routes are still not fully live.
 
 **Scorpion — sting attack never produced** (`loc_3DDEE / loc_3DE40`)
 StingAnimation route only sets tracking_lock + walk_speed_override; the `..` discards tail hurtbox, object_meta $C000, stru_3DB8E, and recovery. Sting deals no damage. `enemies.rs:23838-23847`, `enemies.rs:5496`.

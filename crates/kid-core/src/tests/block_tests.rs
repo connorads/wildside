@@ -10660,6 +10660,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_live_final_hit_enters_charge_instead_of_death_loc_3a8fc_3a96c() {
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, 80 << 16, 0);
+        enemy.hit_points = 1;
+        enemy.robot_state = RobotState::Walking;
+        enemy.facing = Direction::Right;
+
+        let queued_death = enemy.take_damage_or_queue_death();
+
+        assert!(
+            !queued_death,
+            "ASM Robot.asm loc_3A8FC branches to loc_3A96C on the final HP hit instead of deleting the Robot"
+        );
+        assert_eq!(
+            enemy.robot_state,
+            RobotState::Charging,
+            "ASM Robot.asm loc_3A96C should seed the live Robot charge state"
+        );
+        assert_eq!(enemy.hit_points, 0);
+        assert_eq!(enemy.wait_timer, ROBOT_CHARGE_FLIP_BASE);
+    }
+
+    #[test]
     fn robot_collision_clear_loc_3a958_clears_words_then_resumes_walk_direction() {
         assert_eq!(
             robot_collision_clear_loc_3a958(Direction::Left),
