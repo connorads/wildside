@@ -2144,7 +2144,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn falling_onto_diamond_collects_without_stomp_bounce() {
+    fn falling_onto_diamond_enemy_does_not_collect_or_stomp_bounce_loc_3ad16() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
@@ -2157,9 +2157,16 @@ mod chunk_04 {
         }
         runtime.step_frame(FrameInput::default());
 
+        let diamond_pos = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Diamond)
+            .map(|enemy| (enemy.x_pos, enemy.y_pos))
+            .expect("Diamond should activate before the fall-through check");
+
         if let Some(ref mut slice) = runtime.opening_slice {
-            slice.player.x_pos = 0x0120_0000;
-            slice.player.y_pos = 0x00D8_0000;
+            slice.player.x_pos = diamond_pos.0;
+            slice.player.y_pos = diamond_pos.1.saturating_sub(8 << 16);
             slice.player.y_velocity = 0x0002_0000;
             slice.player.on_ground = false;
             slice.camera.x_pos = 0;
@@ -2171,20 +2178,19 @@ mod chunk_04 {
             .opening_slice
             .expect("opening slice should remain active");
         assert_eq!(
-            runtime.progression.diamond_count,
-            diamonds_before + 1,
-            "falling through a diamond should still collect it"
+            runtime.progression.diamond_count, diamonds_before,
+            "ASM Diamond.asm loc_3AD16 creates an enemy object, not a prize diamond award"
         );
         assert_ne!(
             slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
-            "diamond collection should not trigger stomp bounce"
+            "Diamond enemy contact should not reuse the prize-pickup path as a stomp bounce"
         );
         assert!(
-            !runtime
+            runtime
                 .active_enemies
                 .iter()
                 .any(|enemy| enemy.family == EnemyFamily::Diamond),
-            "diamond should be removed after collection"
+            "Diamond enemy should remain active instead of being removed as a collected prize"
         );
     }
 

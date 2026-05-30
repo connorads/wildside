@@ -15801,11 +15801,11 @@ mod chunk_02 {
     }
 
     // -----------------------------------------------------------------------
-    // US-006: Static enemy archetype (Diamond)
+    // US-006: Diamond enemy low-HP shared walker
     // -----------------------------------------------------------------------
 
     #[test]
-    fn diamond_stays_at_spawn_position() {
+    fn diamond_low_hp_walks_from_spawn_position_loc_3aec4_loc_3af14() {
         let mut runtime = NativeRuntime::new(manifest());
         // Diamond at (0x0120, 0x00E0) = (288, 224)px — within activation window at camera origin.
         runtime.set_block_grid(grid_with_floor_at_row(14));
@@ -15815,8 +15815,9 @@ mod chunk_02 {
         let expected_y: u32 = 0x00E0_0000;
         let player_x: u32 = 0x0080_0000; // 128px, safely left of diamond at 288px
 
-        // Pin camera near origin so the diamond stays in the activation window.
-        // Diamond is culled by segment change after ~33 frames, so check 30.
+        // Pin camera near origin so the Diamond stays in the activation window.
+        // ASM Diamond.asm loc_3AEC4 falls through to loc_3AF14, which resumes
+        // the shared walker instead of staying static.
         for frame in 0..30 {
             if let Some(ref mut slice) = runtime.opening_slice {
                 slice.player.x_pos = player_x;
@@ -15834,25 +15835,25 @@ mod chunk_02 {
                 "Diamond should be active on frame {frame}"
             );
             let diamond = diamond.unwrap();
-            assert_eq!(
-                diamond.x_pos, expected_x,
-                "Diamond x should stay at spawn on frame {frame}"
-            );
+            if frame == 0 {
+                assert_ne!(
+                    diamond.x_pos, expected_x,
+                    "ASM Diamond.asm loc_3AF14 should enter the shared walker on the first live frame"
+                );
+            }
             assert_eq!(
                 diamond.y_pos, expected_y,
-                "Diamond y should stay at spawn on frame {frame}"
+                "low-HP Diamond should stay grounded on the flat shared-walker floor at frame {frame}"
             );
         }
     }
 
     #[test]
-    fn diamond_collected_on_touch() {
-        // US-014: Diamonds are collectibles, not damage sources.
+    fn diamond_enemy_is_not_collected_on_touch_loc_3ad16() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
 
-        let hp_before = runtime.progression.number_hitpoints;
         let diamonds_before = runtime.progression.diamond_count;
 
         // Activate Diamond
@@ -15862,10 +15863,17 @@ mod chunk_02 {
         }
         runtime.step_frame(FrameInput::default());
 
+        let diamond_pos = runtime
+            .active_enemies
+            .iter()
+            .find(|e| e.family == EnemyFamily::Diamond)
+            .map(|e| (e.x_pos, e.y_pos))
+            .expect("Diamond should activate before the touch check");
+
         // Place player on the Diamond
         if let Some(ref mut slice) = runtime.opening_slice {
-            slice.player.x_pos = 0x0120_0000;
-            slice.player.y_pos = 0x00E0_0000;
+            slice.player.x_pos = diamond_pos.0;
+            slice.player.y_pos = diamond_pos.1;
             slice.player.on_ground = true;
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
@@ -15873,20 +15881,15 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.progression.number_hitpoints, hp_before,
-            "Diamond should not deal damage"
-        );
-        assert_eq!(
-            runtime.progression.diamond_count,
-            diamonds_before + 1,
-            "Diamond should increment diamond_count"
+            runtime.progression.diamond_count, diamonds_before,
+            "ASM Diamond.asm loc_3AD16 creates an HP enemy, not a prize diamond counter award"
         );
         assert!(
-            !runtime
+            runtime
                 .active_enemies
                 .iter()
                 .any(|e| e.family == EnemyFamily::Diamond),
-            "Diamond should be removed after collection"
+            "Diamond enemy should remain in the active enemy list instead of being collected"
         );
     }
 

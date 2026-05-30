@@ -7922,59 +7922,6 @@ impl NativeRuntime {
         None
     }
 
-    /// Collect Diamond enemies on touch: remove from active list, increment count.
-    pub(crate) fn collect_diamonds(&mut self, slice: &OpeningSliceState) {
-        if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
-            return;
-        }
-
-        let mut collected_indices = Vec::new();
-        for (i, enemy) in self.active_enemies.iter().enumerate() {
-            if enemy.family != EnemyFamily::Diamond {
-                continue;
-            }
-            let snapshot = NativeObjectSnapshot {
-                kind: NativeObjectKind::Enemy {
-                    object_type: enemy.family.object_type(),
-                },
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
-                layout_index: Some(enemy.layout_index),
-                x_velocity: Some(enemy.x_velocity),
-                y_velocity: Some(enemy.y_velocity),
-                facing: Some(enemy.facing),
-                on_ground: Some(enemy.on_ground),
-                hit_points: Some(enemy.hit_points),
-                damage_flash: false,
-                palette_variant: enemy.palette_variant,
-                stationary: false,
-                shared_walker_state: None,
-                shared_walker_patrol_timer: None,
-                shared_walker_patrol_short_next: None,
-                walk_phase: None,
-                wait_timer: None,
-                debug_fields: std::collections::BTreeMap::new(),
-            };
-            if player_touches_enemy_with_half_width(
-                slice.player,
-                &snapshot,
-                self.progression.current_form.half_width() as i64,
-            ) {
-                collected_indices.push(i);
-            }
-        }
-
-        for &idx in collected_indices.iter().rev() {
-            self.active_enemies.remove(idx);
-            self.collect_diamond();
-        }
-
-        if !collected_indices.is_empty() {
-            // Rebuild roster after removal
-            self.rebuild_active_enemy_roster();
-        }
-    }
-
     /// Add one life, capped at 9 per ASM.
     pub(crate) fn add_life(&mut self) {
         if self.progression.number_lives < 9 {
@@ -10056,8 +10003,9 @@ impl NativeRuntime {
         self.process_friendly_projectile_hits();
         self.process_berzerker_charge_hits(slice);
 
-        // Diamond collection: touching a Diamond picks it up
-        self.collect_diamonds(slice);
+        // Layout Diamond objects are hostile enemies, not prize pickups.
+        // ASM Diamond.asm loc_3AD16 initialises HP and routes through
+        // loc_3AEC4/loc_3AF14; prize diamonds use PrizeDiamond_Init instead.
 
         // Cyclone-Tornado bounce: ASM Tornado.asm loc_3597E/loc_35984 -> loc_35986.
         // When Cyclone-flying player contacts Tornado, bounce instead of damage.

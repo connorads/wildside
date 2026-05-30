@@ -6516,7 +6516,6 @@ impl PendingDragonDeathAnimation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EnemyArchetype {
     Bouncer,
-    Collectible,
     Flyer,
     Hopper,
     Hoverer,
@@ -8799,7 +8798,7 @@ fn format_shared_walker_wall_probe(probe: terrain::WallProbe) -> String {
 impl EnemyFamily {
     pub(crate) fn archetype(self) -> EnemyArchetype {
         match self {
-            Self::Diamond => EnemyArchetype::Collectible,
+            Self::Diamond => EnemyArchetype::Pacer,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
             Self::DragonWalking => EnemyArchetype::Pacer, // paces + breath attack
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
@@ -9244,7 +9243,7 @@ pub(crate) fn step_active_enemies_with_rng(
             continue;
         }
         match enemy.family.archetype() {
-            EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
+            EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => {
                 if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
                     step_big_hopping_skull(enemy, block_grid);
@@ -14189,7 +14188,7 @@ pub(crate) fn enemy_should_remain_active(
             FLYER_RETENTION_X_PADDING,
             FLYER_RETENTION_Y_PADDING,
         ),
-        EnemyArchetype::Collectible if matches!(enemy.family, EnemyFamily::Diamond) => {
+        EnemyArchetype::Pacer if matches!(enemy.family, EnemyFamily::Diamond) => {
             shared_enemy_should_remain_active_sub_3C3CE(
                 enemy.x_pos,
                 enemy.y_pos,
