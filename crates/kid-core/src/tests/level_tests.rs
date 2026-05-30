@@ -4100,6 +4100,87 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce() {
+        let mut runtime = cached_generated_runtime();
+        let mut frame_2600 = None;
+        let mut trace_2602 = None;
+        let mut trace_2660 = None;
+        let mut trace_2701 = None;
+        let mut trace_2720 = None;
+
+        for frame_index in 0..=2_720 {
+            let input = if matches!(frame_index, 2_600 | 2_700) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_600 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert!(
+                    !trace.title_screen_ready,
+                    "ASM Load_IntroSequence6 keeps the hidden transformation shell live until loc_1B5CE writes the title pose"
+                );
+                assert_eq!(
+                    trace.kid_x_pos, None,
+                    "ASM loc_1B37C/sub_1B43A should still be driving the lightning shell, not the top-right title Kid pose"
+                );
+                frame_2600 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 2_602 {
+                trace_2602 = Some(trace);
+            } else if frame_index == 2_660 {
+                trace_2660 = Some(trace);
+            } else if frame_index == 2_701 {
+                trace_2701 = Some(trace);
+            } else if frame_index == 2_720 {
+                trace_2720 = Some(trace);
+            }
+        }
+
+        let vdp = frame_2600.expect("IntroSequence6 Start edge should expose a VDP shell");
+        let word_at =
+            |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
+
+        assert_eq!(
+            word_at(0xE000),
+            0x00BD,
+            "ASM Load_IntroSequence6 loc_1B194 should still own Scroll B at the manual Start edge"
+        );
+        assert!(
+            vdp.vram[0x9A60..0xA360].iter().all(|&byte| byte == 0),
+            "ASM loc_1B5CE has not yet reached the title art upload at the manual Start edge"
+        );
+        let trace_2602 = trace_2602.expect("Start skip should have a frame-2602 trace");
+        assert_eq!(
+            trace_2602.game_mode,
+            GameMode::TitleScreen,
+            "ASM sub_1C246 -> loc_1C264 should switch Game_Mode=$28 to $2C two traced frames after Start"
+        );
+        assert!(!trace_2602.title_screen_ready);
+        assert_eq!(trace_2602.kid_x_pos, None);
+
+        let trace_2660 = trace_2660.expect("hidden title rebuild should reach frame 2660");
+        assert!(
+            trace_2660.title_screen_ready,
+            "ASM Load_TitleScreen hidden rebuild should expose the title shell after the 58-frame loc_1B446-style delay"
+        );
+
+        let trace_2701 = trace_2701.expect("second Start edge should have a post-frame trace");
+        assert_eq!(
+            trace_2701.game_mode,
+            GameMode::TitleScreen,
+            "ASM Obj_TitleMenu should build the visible menu from the second Start edge, not immediately jump to level entry"
+        );
+        let trace_2720 = trace_2720.expect("menu build delay should have elapsed");
+        assert_eq!(trace_2720.game_mode, GameMode::TitleScreen);
+        assert_eq!(trace_2720.options_cursor, Some(0));
+    }
+
+    #[test]
     fn intro_return_hidden_title_shell_selects_sub_1bf24_frames() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.enter_title_screen();
@@ -4391,6 +4472,7 @@ mod chunk_02 {
         let mut runtime = cached_generated_runtime();
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 2,
+            pending_title_skip: 0,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: false,
         };

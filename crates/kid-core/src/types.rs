@@ -1710,6 +1710,11 @@ pub(crate) enum BootState {
     },
     IntroSequence6 {
         cursor: u8,
+        /// Countdown for deferred Start→title skip from `Game_Mode=$28`.
+        /// ASM `sub_1C246 -> loc_1C264` consumes the Start edge inside the
+        /// IntroSequence6 object coroutine, so the traced mode flip follows
+        /// two frames after the manual press.
+        pending_title_skip: u8,
         /// ASM loc_1BA5C switches to `Game_Mode=$28`, then Load_IntroSequence6
         /// rebuilds the title shell while the old loc_1BCD0 slot-2 pose still
         /// survives in WRAM. This flag tracks that later timeout-restart

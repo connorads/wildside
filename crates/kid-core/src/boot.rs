@@ -5483,16 +5483,22 @@ impl NativeRuntime {
         self.enter_title_screen();
         self.boot_state = BootState::IntroSequence6 {
             cursor: 0,
+            pending_title_skip: 0,
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap,
         };
         // ASM loc_1BA5C: `move.w #$28,(Game_Mode).w` hands control to
         // Load_IntroSequence6 rather than the direct `sub_1C246 -> $2C`
-        // title return. Keep the carried loc_1BCD0 slot-2 pose visible while
-        // this timeout-restart lineage rebuilds the title shell.
-        self.title_screen_ready_frame = self
-            .frame_index
-            .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
+        // title return. `loc_1BAB0` and `loc_1B37C` keep the hidden
+        // transformation shell live until `loc_1B5CE` writes the standard
+        // title pose, so the generic 150-frame early-title ready point would
+        // expose the top-right title Kid over the lightning scene.
+        let title_pose_ready_frames = if carry_timeout_restart_hidden_camera_wrap {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRAMES
+        } else {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES
+        };
+        self.title_screen_ready_frame = self.frame_index.saturating_add(title_pose_ready_frames);
         // ASM Load_IntroSequence6 `loc_1BAB0` runs a separate `$B8` `dbf`
         // loop before it ever reaches Obj_TitleMenu `loc_1BAEA`'s shared
         // `$280` title idle countdown. Delay this lineage's title arm until
@@ -6794,10 +6800,29 @@ impl NativeRuntime {
             }
             BootState::IntroSequence6 {
                 cursor,
+                pending_title_skip,
                 carry_intro_sequence_5_slot_2_pose: _,
                 carry_timeout_restart_hidden_camera_wrap,
             } => {
                 let mut just_activated_title_menu = false;
+                if *pending_title_skip > 0 {
+                    *pending_title_skip -= 1;
+                    if *pending_title_skip == 0 {
+                        // ASM sub_1C246 -> loc_1C264 switches
+                        // Game_Mode=$28 to $2C after the hibernating
+                        // IntroSequence6 object consumes Start. The title art
+                        // is still rebuilt through the hidden shell before
+                        // Obj_TitleMenu accepts the next Start edge.
+                        self.enter_title_screen();
+                        self.title_screen_uses_intro_return_hidden_shell = true;
+                        self.title_screen_ready_frame =
+                            self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                        self.title_menu_arm_frame =
+                            self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                    }
+                    self.title_screen_elapsed_frames += 1;
+                    return;
+                }
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
@@ -6850,7 +6875,9 @@ impl NativeRuntime {
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
                 } else if !self.title_menu_active {
-                    if start_pressed {
+                    if start_pressed && self.frame_index < self.title_screen_ready_frame {
+                        *pending_title_skip = 2;
+                    } else if start_pressed {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
