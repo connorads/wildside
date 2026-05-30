@@ -7639,6 +7639,23 @@ impl NativeRuntime {
             };
 
             let enemy = &mut self.active_enemies[active_idx];
+            if matches!(enemy.family, EnemyFamily::Tank) {
+                let route = tank_update_loc_3b41c(
+                    collision.collision_type,
+                    0,
+                    u16::from(enemy.hit_points),
+                    TankMouthFrameLoc3B41C::Other,
+                    false,
+                );
+                if matches!(route.route, TankUpdateRouteLoc3B41C::Death) {
+                    // ASM Tank.asm loc_3B41C: negative parent collision_type
+                    // branches directly to loc_3B480 before the mouth-child
+                    // `$38(a2)` damage/HP route is inspected.
+                    kill_indices.push(active_idx);
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::DragonWalking)
                 && collision.collision_type == DRAGON_COLID_KIDABOVE
             {
