@@ -116,6 +116,10 @@ impl VdpState {
     }
 }
 
+pub(crate) fn blank_vdp_state() -> VdpState {
+    VdpState::new()
+}
+
 /// Cached Sega screen art and palette data, loaded once from the asset bundle
 /// and reused across frames (only the palette changes during the fade).
 #[derive(Debug, Clone)]

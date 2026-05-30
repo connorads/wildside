@@ -41,6 +41,11 @@ pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 /// rebuilt title shell hidden from the frame-2634 `sub_1C246` handoff until
 /// frame 2720, when the standard title text/Kid workers are visible.
 pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES: usize = 86;
+/// The same cold IntroSequence6 Start-skip route draws the visible
+/// `Load_TitleScreen` VDP shell before the trace-facing title pose is exposed.
+/// Oracle frame 2700 is visually complete while state still reports
+/// `title_screen_ready=false`; frame 2720 is the later trace-ready point.
+pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES: usize = 66;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.

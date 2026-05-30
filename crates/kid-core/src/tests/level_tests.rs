@@ -4105,7 +4105,9 @@ mod chunk_02 {
         let mut frame_2600 = None;
         let mut trace_2602 = None;
         let mut trace_2640 = None;
+        let mut frame_2640 = None;
         let mut trace_2700 = None;
+        let mut frame_2700 = None;
         let mut trace_2701 = None;
         let mut trace_2720 = None;
         let mut trace_3299 = None;
@@ -4136,8 +4138,10 @@ mod chunk_02 {
                 trace_2602 = Some(trace);
             } else if frame_index == 2_640 {
                 trace_2640 = Some(trace);
+                frame_2640 = runtime.vdp_state().cloned();
             } else if frame_index == 2_700 {
                 trace_2700 = Some(trace);
+                frame_2700 = runtime.vdp_state().cloned();
             } else if frame_index == 2_701 {
                 trace_2701 = Some(trace);
             } else if frame_index == 2_720 {
@@ -4179,11 +4183,22 @@ mod chunk_02 {
             !trace_2640.title_screen_ready,
             "ASM Load_TitleScreen hidden rebuild should still be invisible at oracle frame 2640"
         );
+        let vdp_2640 = frame_2640.expect("frame 2640 should have a VDP snapshot");
+        assert!(
+            vdp_2640.vram.iter().all(|&byte| byte == 0)
+                && vdp_2640.cram.iter().all(|&byte| byte == 0),
+            "ASM loc_1B45A blackout window should render a blank VDP frame at oracle frame 2640"
+        );
 
         let trace_2700 = trace_2700.expect("second Start edge should have a frame-2700 trace");
         assert!(
             !trace_2700.title_screen_ready,
             "ASM loc_1B5E4 has not yet exposed the visible title text/Kid shell at oracle frame 2700"
+        );
+        let vdp_2700 = frame_2700.expect("frame 2700 should have a VDP snapshot");
+        assert!(
+            vdp_2700.vram[0x9A60..0xA360].iter().any(|&byte| byte != 0),
+            "ASM Load_TitleArt should have restored the visible title text art before trace title_screen_ready flips"
         );
 
         let trace_2701 = trace_2701.expect("second Start edge should have a post-frame trace");

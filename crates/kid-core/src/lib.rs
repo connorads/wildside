@@ -1448,7 +1448,7 @@ impl NativeRuntime {
                     )
                 })
             }
-            BootState::IntroSequence6 { .. } if !self.title_screen_ready() => {
+            BootState::IntroSequence6 { .. } if !self.title_screen_vdp_ready() => {
                 self.title_screen_data.as_ref().map(|data| {
                     vdp::build_intro_sequence_6_vdp_with_character_frame(
                         data,
@@ -1457,6 +1457,9 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                     )
                 })
+            }
+            BootState::TitleScreen { .. } if self.title_screen_vdp_blackout() => {
+                Some(vdp::blank_vdp_state())
             }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
@@ -1469,12 +1472,18 @@ impl NativeRuntime {
                     } else {
                         None
                     };
+                    let title_vdp_ready = self.title_screen_vdp_ready();
+                    let frame_index = if title_vdp_ready {
+                        7
+                    } else {
+                        self.title_screen_character_frame_index_sub_1bf24()
+                    };
                     vdp::build_title_screen_vdp_with_character_frame_menu_and_title_objects(
                         data,
-                        self.title_screen_character_frame_index_sub_1bf24(),
+                        frame_index,
                         self.title_screen_region_byte,
                         menu_cursor,
-                        self.title_screen_ready(),
+                        title_vdp_ready,
                         self.title_screen_elapsed_frames,
                     )
                 })
@@ -1517,6 +1526,17 @@ impl NativeRuntime {
             flash_frame = step.flash_frame;
         }
         flash_frame
+    }
+
+    fn title_screen_vdp_ready(&self) -> bool {
+        self.title_screen_ready()
+            || (self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_elapsed_frames
+                    >= INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES)
+    }
+
+    fn title_screen_vdp_blackout(&self) -> bool {
+        self.intro_sequence_6_start_skip_cursor_trace_priority && !self.title_screen_vdp_ready()
     }
 
     fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
