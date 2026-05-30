@@ -144,6 +144,9 @@ pub struct ScriptRunner {
     settle_warp: bool,
     physics_order: Option<PhysicsOrder>,
     trace_physics: bool,
+    probe_start_position: Option<(u16, u16)>,
+    probe_camera_position: Option<(u16, u16)>,
+    playtest_form: Option<PlayerForm>,
 }
 
 impl ScriptRunner {
@@ -154,6 +157,9 @@ impl ScriptRunner {
             settle_warp: false,
             physics_order: None,
             trace_physics: false,
+            probe_start_position: None,
+            probe_camera_position: None,
+            playtest_form: None,
         }
     }
 
@@ -181,6 +187,24 @@ impl ScriptRunner {
         self
     }
 
+    #[must_use]
+    pub fn probe_start_position(mut self, x_px: u16, y_px: u16) -> Self {
+        self.probe_start_position = Some((x_px, y_px));
+        self
+    }
+
+    #[must_use]
+    pub fn probe_camera_position(mut self, x_px: u16, y_px: u16) -> Self {
+        self.probe_camera_position = Some((x_px, y_px));
+        self
+    }
+
+    #[must_use]
+    pub fn playtest_form(mut self, form: PlayerForm) -> Self {
+        self.playtest_form = Some(form);
+        self
+    }
+
     pub fn run(self, script: &[u8], frame_count: usize) -> Vec<NativeTraceFrame> {
         let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
         if let Some(order) = self.physics_order {
@@ -195,6 +219,15 @@ impl ScriptRunner {
             if self.settle_warp {
                 runtime.settle_oracle_warp_live_window(level_id);
             }
+        }
+        if let Some((x_px, y_px)) = self.probe_start_position {
+            runtime.set_player_probe_position(x_px, y_px);
+        }
+        if let Some((x_px, y_px)) = self.probe_camera_position {
+            runtime.set_camera_probe_position(x_px, y_px);
+        }
+        if let Some(form) = self.playtest_form {
+            runtime.set_playtest_form(form);
         }
         let mut trace = Vec::with_capacity(frame_count);
         for frame_index in 0..frame_count {

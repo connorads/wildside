@@ -3,7 +3,9 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::oracle::OracleState;
-use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
+use crate::scenarios::{
+    DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, run_native_dynamic_scenario,
+};
 
 /// Parsed BK2 (BizHawk) TAS recording.
 #[derive(Debug)]
@@ -361,12 +363,11 @@ pub fn verify_tas(
 
     // Run native
     println!("  running native ({end} frames)...");
-    let native_trace = kid_core::run_script_with_warp(
+    let native_trace = run_native_dynamic_scenario(
         manifest.clone(),
-        &scenario.script,
-        scenario.frame_count,
-        scenario.warp_to_level,
-    );
+        &scenario,
+        NativeDynamicRunOptions::default(),
+    )?;
 
     let mut native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -640,12 +641,11 @@ fn probe_tas(
     };
 
     // Run native
-    let native_trace = kid_core::run_script_with_warp(
+    let native_trace = run_native_dynamic_scenario(
         manifest.clone(),
-        &probe_scenario.script,
-        probe_scenario.frame_count,
-        probe_scenario.warp_to_level,
-    );
+        &probe_scenario,
+        NativeDynamicRunOptions::default(),
+    )?;
 
     let native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &probe_scenario.checkpoints);
@@ -737,12 +737,21 @@ pub fn bisect_tas(
     if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay) {
         // Fast path: use per-frame CRC arrays if oracle supports them
         println!("  computing native CRCs ({end} frames)...");
-        let native_trace = kid_core::run_script_with_warp(
+        let crc_scenario = DynamicScenario {
+            slug: scenario.slug.clone(),
+            script: scenario.script[..end.min(scenario.script.len())].to_vec(),
+            frame_count: end,
+            checkpoints: Vec::new(),
+            start_position: scenario.start_position,
+            camera_position: scenario.camera_position,
+            playtest_form: scenario.playtest_form,
+            warp_to_level: scenario.warp_to_level,
+        };
+        let native_trace = run_native_dynamic_scenario(
             manifest.clone(),
-            &scenario.script[..end.min(scenario.script.len())],
-            end,
-            scenario.warp_to_level,
-        );
+            &crc_scenario,
+            NativeDynamicRunOptions::default(),
+        )?;
         let native_crcs: Vec<u32> = native_trace
             .iter()
             .map(kid_core::NativeTraceFrame::authoritative_crc32)
@@ -755,14 +764,8 @@ pub fn bisect_tas(
             frame_index: end.saturating_sub(1),
         }];
         let crc_scenario = DynamicScenario {
-            slug: scenario.slug.clone(),
-            script: scenario.script[..end.min(scenario.script.len())].to_vec(),
-            frame_count: end,
             checkpoints: crc_checkpoints,
-            start_position: scenario.start_position,
-            camera_position: scenario.camera_position,
-            playtest_form: scenario.playtest_form,
-            warp_to_level: scenario.warp_to_level,
+            ..crc_scenario
         };
         let run_dir = repo_root
             .join(".cache/tas-verify")

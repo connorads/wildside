@@ -4,7 +4,9 @@ use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene, load_session_assets, render_scene,
 };
 use crate::oracle::{OracleManifest, ensure_oracles, run_jgenesis_capture_dynamic};
-use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
+use crate::scenarios::{
+    DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, run_native_dynamic_scenario,
+};
 use crate::sweep::{
     ADVISORY_FIELDS, FrontierKind, StateDiff, compare_sweep_states_for_frontier,
     extract_checkpoint_states, find_first_crc_mismatch,
@@ -163,12 +165,11 @@ pub(crate) fn prepare_tas_comparison_run(
         sliced.slug, frontier_kind
     );
     println!("  running native ({end} frames)...");
-    let native_trace = kid_core::run_script_with_warp(
+    let native_trace = run_native_dynamic_scenario(
         manifest.clone(),
-        &sliced.script,
-        sliced.frame_count,
-        sliced.warp_to_level,
-    );
+        &sliced,
+        NativeDynamicRunOptions::default(),
+    )?;
 
     println!("  running oracle ({end} frames)...");
     let env = ensure_oracles(repo_root)?;

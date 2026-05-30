@@ -9,7 +9,10 @@ use crate::recording::{
     NativeRecording, first_trace_prefix_drift, load_recording, oracle_scenario_for_recording,
     run_recorded_trace,
 };
-use crate::scenarios::{DynamicCheckpoint, DynamicScenario, GameplayScenario};
+use crate::scenarios::{
+    DynamicCheckpoint, DynamicScenario, GameplayScenario, NativeDynamicRunOptions,
+    run_native_dynamic_scenario,
+};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Subcommand, ValueEnum};
 use kid_core::{NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
@@ -752,12 +755,11 @@ fn run_case_verification(
                 }
                 replay_trace
             } else {
-                kid_core::run_script_with_warp(
+                run_native_dynamic_scenario(
                     manifest.clone(),
-                    &verification.scenario.script,
-                    verification.scenario.frame_count,
-                    verification.scenario.warp_to_level,
-                )
+                    &verification.scenario,
+                    NativeDynamicRunOptions::default(),
+                )?
             };
 
             let env = ensure_oracles(repo_root)?;

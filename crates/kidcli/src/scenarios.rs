@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::ValueEnum;
+use kid_core::{NativeTraceFrame, PlayerForm, ScriptRunner};
+use kid_data::AssetManifest;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -275,6 +277,42 @@ pub struct DynamicCheckpoint {
 pub struct DynamicStartPosition {
     pub x: u16,
     pub y: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct NativeDynamicRunOptions {
+    pub(crate) settled_warp: bool,
+    pub(crate) trace_physics: bool,
+}
+
+pub(crate) fn run_native_dynamic_scenario(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+) -> Result<Vec<NativeTraceFrame>> {
+    let mut runner = ScriptRunner::new(manifest);
+    if let Some(level) = scenario.warp_to_level {
+        runner = runner.warp_to_level(level);
+    }
+    if options.settled_warp {
+        runner = runner.settle_warp();
+    }
+    if options.trace_physics {
+        runner = runner.trace_physics();
+    }
+    if let Some(position) = scenario.start_position {
+        runner = runner.probe_start_position(position.x, position.y);
+    }
+    if let Some(position) = scenario.camera_position {
+        runner = runner.probe_camera_position(position.x, position.y);
+    }
+    if let Some(helmet_id) = scenario.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow::anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runner = runner.playtest_form(form);
+    }
+
+    Ok(runner.run(&scenario.script, scenario.frame_count))
 }
 
 /// Idle on a level for `idle_frames` (default 300, ~5 s at 60 fps).

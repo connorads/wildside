@@ -363,6 +363,27 @@ fn scenario_settled_warp_adds_oracle_observed_live_settle_window() {
 }
 
 #[test]
+fn scenario_runner_applies_probe_fields_before_first_script_frame() {
+    let trace = ScriptRunner::new(manifest())
+        .warp_to_level(0)
+        .probe_start_position(0x0120, 0x00e0)
+        .probe_camera_position(0x0100, 0x0080)
+        .playtest_form(PlayerForm::Cyclone)
+        .run(&[0x00], 1);
+    let first = trace.first().expect("one trace frame");
+
+    assert_eq!(first.current_level, LevelId(0));
+    assert_eq!(first.kid_x_pos, Some(0x0120_0000));
+    assert_eq!(first.kid_y_pos, Some(0x00e0_0000));
+    // The frame step applies normal camera follow after the probe write; the
+    // observed value proves the custom seed was used before that follow pass.
+    assert_eq!(first.camera_x_pos, 0x00f8_0000);
+    assert_eq!(first.camera_y_pos, 0x0078_0000);
+    assert_eq!(first.current_helmet_id, PlayerForm::Cyclone.helmet_id());
+    assert_eq!(first.number_hitpoints, PlayerForm::Cyclone.max_hitpoints());
+}
+
+#[test]
 fn load_block_grid_resolves_decoded_resource_layout_for_mapped_level() {
     let output_root = unique_temp_path("decoded-resource-block-layout");
     let block_dir = output_root.join("decoded/level/56");

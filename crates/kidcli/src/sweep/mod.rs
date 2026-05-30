@@ -32,7 +32,8 @@ use oracle::{
 use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
 use scenarios::{
-    DynamicCheckpoint, DynamicScenario, idle_level_full_frame_scenario, idle_level_scenario,
+    DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, idle_level_full_frame_scenario,
+    idle_level_scenario, run_native_dynamic_scenario,
 };
 #[cfg(test)]
 use scenarios::{prize_block_scenario, walk_right_scenario};
@@ -800,21 +801,14 @@ fn sweep_single_level(
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
     // Run native (with warp if specified)
-    let native_trace = if requested_tier == SweepTier::Full {
-        kid_core::run_script_with_settled_warp(
-            manifest.clone(),
-            &scenario.script,
-            scenario.frame_count,
-            scenario.warp_to_level,
-        )
-    } else {
-        kid_core::run_script_with_warp(
-            manifest.clone(),
-            &scenario.script,
-            scenario.frame_count,
-            scenario.warp_to_level,
-        )
-    };
+    let native_trace = run_native_dynamic_scenario(
+        manifest.clone(),
+        &scenario,
+        NativeDynamicRunOptions {
+            settled_warp: requested_tier == SweepTier::Full,
+            trace_physics: false,
+        },
+    )?;
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
