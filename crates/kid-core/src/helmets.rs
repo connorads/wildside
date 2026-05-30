@@ -5399,6 +5399,27 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
+                if matches!(enemy.family, EnemyFamily::Scorpion)
+                    && let ScorpionBerzerkerSideGateLoc3DD0E::Knockback(knockback) =
+                        scorpion_berzerker_side_gate_loc_3dd0e(
+                            true,
+                            enemy.scorpion_sting_frames == 0,
+                        )
+                {
+                    // ASM Scorpion.asm loc_3DD0E: charging Berzerker side
+                    // contact sets the linked tail flag, disables the shared
+                    // walker, and enters the loc_3DD4A airborne loop instead
+                    // of generic HP damage/death.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A;
+                    enemy.scorpion_sting_frames = 0;
+                    enemy.walk_speed_override = 0;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
                 if enemy.take_damage_or_queue_death() {
                     kill_indices.push(i);
                 } else {

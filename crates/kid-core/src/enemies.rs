@@ -5806,6 +5806,7 @@ pub(crate) fn scorpion_berzerker_side_gate_loc_3dd0e(
 }
 
 pub(crate) const SCORPION_BERZERKER_KNOCKBACK_GRAVITY_LOC_3DD4A: i32 = 0x0000_4000;
+pub(crate) const SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A: u16 = 0x3DD4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9403,6 +9404,12 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC
                     {
                         step_armadillo_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Scorpion)
+                        && enemy.wait_timer == SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A
+                    {
+                        step_scorpion_berzerker_knockback(enemy);
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Scorpion)
@@ -24879,6 +24886,16 @@ fn step_armadillo_berzerker_launch(enemy: &mut ActiveEnemy) {
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     enemy.y_velocity =
         armadillo_berzerker_launch_loop_tick_loc_3c8cc(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
+}
+
+fn step_scorpion_berzerker_knockback(enemy: &mut ActiveEnemy) {
+    // ASM Scorpion.asm loc_3DD4A: hibernate one frame, run sub_3E8BA motion,
+    // add `$4000` to y_vel, and repeat the launched Scorpion loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity =
+        scorpion_berzerker_airborne_frame_loc_3dd4a(enemy.y_velocity).next_y_velocity;
     enemy.on_ground = false;
 }
 
