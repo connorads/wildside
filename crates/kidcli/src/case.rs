@@ -1420,10 +1420,22 @@ fn semantic_events(
 ) -> Vec<String> {
     let mut events = Vec::new();
     if let Some(previous) = previous {
-        if previous.player.on_ground == Some(true) && player.on_ground == Some(false) {
+        let movement_started_jump = previous.player.movement_state.as_deref()
+            != Some("movement_0003")
+            && player.movement_state.as_deref() == Some("movement_0003");
+        let ground_started_jump =
+            previous.player.on_ground == Some(true) && player.on_ground == Some(false);
+        if movement_started_jump || ground_started_jump {
             events.push(String::from("jump_started"));
         }
-        if previous.player.on_ground == Some(false) && player.on_ground == Some(true) {
+        let movement_landed = previous.player.movement_state.as_deref() == Some("movement_0003")
+            && player
+                .movement_state
+                .as_deref()
+                .is_some_and(|movement| movement != "movement_0003");
+        let ground_landed =
+            previous.player.on_ground == Some(false) && player.on_ground == Some(true);
+        if movement_landed || ground_landed {
             events.push(String::from("landed"));
         }
         if let (Some(prev), Some(curr)) = (previous.player.hitpoints, player.hitpoints)
@@ -2381,6 +2393,50 @@ mod tests {
             "native cannot observe oracle layout pointers, and oracle may leave entity on-ground metadata unknown; case semantics should compare shared gameplay fields"
         );
         assert!(report.matching_fields.contains(&String::from("entities")));
+    }
+
+    #[test]
+    fn semantic_events_use_movement_state_when_ground_flags_are_unknown() {
+        let previous = SemanticGameState {
+            frame_index: 3335,
+            player: SemanticPlayerState {
+                x_pos: Some(0x0020_0000),
+                y_pos: Some(0x02dd_0000),
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(2),
+                invulnerable_frames: Some(0),
+                collision_type: Some(0),
+            },
+            camera: SemanticCameraState { x_pos: 0, y_pos: 0 },
+            world: SemanticWorldState {
+                game_mode: 0x0010,
+                current_level_id: 0x1b,
+                player_1_level_id: 0,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: Some(String::from("demo_play")),
+            },
+            entities: vec![],
+            events: vec![],
+        };
+        let mut player = previous.player.clone();
+        player.movement_state = Some(String::from("movement_0003"));
+
+        let events = semantic_events(Some(&previous), &player, &[]);
+
+        assert_eq!(
+            events,
+            vec![String::from("jump_started")],
+            "oracle helper-backed demo frames leave on-ground unknown, so jump events must derive from the shared movement-state transition"
+        );
     }
 
     #[test]

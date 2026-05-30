@@ -76,6 +76,11 @@ pub(crate) const INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC: u16 = 0x002C 
 /// alongside the hidden title shell.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 =
     TITLE_IDLE_DBF_FRAMES_LOC_1BAEA + INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC;
+/// Plain cold-boot `Load_IntroSequence6 -> loc_1BAB0 -> loc_1BAEA` reaches
+/// `loc_1BB02` on global frame 3270. Native starts counting the shared title
+/// idle only after the trace-facing title arm point, so the effective cold
+/// threshold is shorter than the later timeout-restart rebuild.
+pub(crate) const COLD_INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 637;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.

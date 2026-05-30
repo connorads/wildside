@@ -1684,7 +1684,13 @@ fn trace_frames_match(
         && !title_screen_ready_affects_recording_match(expected.game_mode)
     {
         normalised_expected.title_screen_ready = actual.title_screen_ready;
-        return &normalised_expected == actual;
+    }
+
+    if expected.game_mode == actual.game_mode
+        && !matches!(expected.game_mode, GameMode::InGame | GameMode::DemoPlay)
+    {
+        normalised_expected.number_objects = actual.number_objects;
+        normalised_expected.number_gfx_objects = actual.number_gfx_objects;
     }
 
     &normalised_expected == actual
@@ -2269,6 +2275,31 @@ mod tests {
         .expect("drift");
 
         assert_eq!(drift.frame_index, 0);
+    }
+
+    #[test]
+    fn first_trace_drift_ignores_non_gameplay_shell_object_counters() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.game_mode = GameMode::IntroSequence6;
+        recorded.game_mode_value = GameMode::IntroSequence6.as_disassembly_value();
+        recorded.number_objects = 0;
+        recorded.number_gfx_objects = 0;
+        let mut replay = recorded.clone();
+        replay.number_objects = 4;
+        replay.number_gfx_objects = 4;
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "intro/title shell visual workers should not make native recording replay look stale; gameplay case semantics own InGame entities"
+        );
     }
 
     #[test]

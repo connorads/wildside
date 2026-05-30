@@ -6941,7 +6941,12 @@ impl NativeRuntime {
                         just_activated_title_menu = true;
                     } else {
                         self.title_idle_frames += 1;
-                        let mut title_idle_frames = INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES;
+                        let mut title_idle_frames =
+                            if self.intro_sequence_6_entered_from_timeout_restart {
+                                INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES
+                            } else {
+                                COLD_INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES
+                            };
                         let cold_demo_timeout_intro_sequence_6_shell =
                             self.intro_sequence_6_entered_from_timeout_restart
                                 && self.demo_toggle
@@ -6950,7 +6955,9 @@ impl NativeRuntime {
                                 && !self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay
                                 && !self
                                     .demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff;
-                        if !*carry_timeout_restart_hidden_camera_wrap {
+                        if self.intro_sequence_6_entered_from_timeout_restart
+                            && !*carry_timeout_restart_hidden_camera_wrap
+                        {
                             // ASM Obj_TitleMenu `loc_1BAEA/loc_1BAEE` owns the
                             // later title-restore revisit for three extra
                             // local frames before `loc_1BB02` writes
