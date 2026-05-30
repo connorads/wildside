@@ -13,7 +13,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Big_Hopping_Skull (0x1D) | partial | 4 |
 | Cloud (0x0E) | partial | 1 |
 | Crab (0x09) | partial | 2 |
-| Diamond (0x01) | stub | 5 |
+| Diamond (0x01) | partial | 2 |
 | Dragon walking (0x0D) | partial | 1 |
 | Dragon_Flying (0x0C) | partial | 1 |
 | Driller (0x1A) | partial | 3 |
@@ -37,23 +37,17 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 24 partial, 1 stub. 88 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 85 confirmed gaps.
 
 ## Confirmed gaps
 
 ### High severity
 
-**Diamond — treated as a passive collectible, not a hostile enemy** (`Enemy01_Diamond_Init / loc_3AEC4 / loc_3AD7C`)
-ASM Diamond is a hostile HP-bearing enemy (HP=enemy_level+2, min 2) running a per-frame move/collision state machine (pace ≤3 HP, targeting physics ball >3 HP). Native: `EnemyFamily::Diamond` is `Collectible`, removed on touch with diamond-count increment, and excluded from contact damage. `enemies.rs:8706`, `combat.rs:7928-7978`, `combat.rs:8183-8185`.
+**Diamond — live HP damage and hurt/death collision words not plumbed** (`loc_3ADFA / loc_3AE28 / loc_3AEE6 / loc_3AEF8`)
+ASM decrements HP on `colid_hurt`, hibernates through hurt/death animations, then either restores `stru_3ACA8` or deletes. Native now spawns Diamond as an HP-bearing Pacer, keeps prize-diamond collection separate, routes low-HP Diamonds through the shared walker, routes high-HP Diamonds through `loc_3AD7C`/`loc_3ADA4`, and waits for the ROM death animation on final damage. The live Diamond step still cannot receive the Kid/enemy `colid_hurt` word that selects the Diamond-specific hurt routes.
 
-**Diamond — per-frame state machine never executed** (`loc_3ADA4 / loc_3AEC4 / loc_3AF14`)
-`Collectible|Inert => {}` no-op in the step dispatch means no `step_diamond` ever runs. `enemies.rs:9150-9151`, `enemies.rs:8706`; the only live Diamond branch (`enemies.rs:13490`) is retention/culling, not movement.
-
-**Diamond — high-HP movement/physics modeled but not wired** (`loc_3AD7C / loc_3AE3E / loc_3AE4A / loc_3AE68 / loc_3AE78`)
-HP>3 target/fall/wall-bounce/slope physics is fully implemented as pure helpers but dead-code-gated; callers are only each other and tests. `enemies.rs:4413-4628`.
-
-**Diamond — HP damage and hurt/death animations not applied** (`loc_3ADFA / loc_3AE28 / loc_3AEE6 / loc_3AEF8`)
-ASM decrements HP on colid_hurt with hurt/death animations; native never decrements Diamond HP (instant pickup) and excludes it from sword/stealth/contact damage. `combat.rs:7969-7972`, `helmets.rs:5094-5095/5234/5922`, `combat.rs:8183-8185`.
+**Diamond — Berzerker side-launch not plumbed** (`loc_3AE84 / loc_3AF24`)
+ASM routes Kid side contacts through Berzerker charge gates that disable level collision, keep Kid collision, freeze animation, and launch the Diamond upward at `-$48000`. Native has unit-tested high/low-HP gate helpers, but the live Diamond terrain loop does not yet receive `colid_kidright`/`colid_kidleft`, so side-launch cannot fire.
 
 **Armadillo — damage recoil/invulnerability window not applied** (`loc_3C848`)
 Survivors should set `$42=$FF88` (~120-frame recoil) gating re-hits. Native `take_damage_or_queue_death` has no recoil gate and `is_vulnerable` no Armadillo case, so multi-HP Armadillos can be re-hit every frame. `combat.rs:7810-7872`, `enemies.rs:8519-8540`; faithful `armadillo_damage_response_loc_3c848` (`enemies.rs:3648`) is test-only.

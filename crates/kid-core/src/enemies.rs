@@ -9259,6 +9259,15 @@ pub(crate) fn activate_enemies_with_rng(
                 shared_walker_dx_to_kid_px: None,
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             };
+            if matches!(family, EnemyFamily::Diamond) && hit_points > 3 {
+                // ASM Diamond.asm loc_3AD7C: HP above 3 bypasses the low-HP
+                // shared-walker setup and seeds a Kid-facing physics velocity.
+                let init =
+                    diamond_high_hp_init_loc_3ad7c((head_x >> 16) as i32, (player_x >> 16) as i32);
+                enemy.x_velocity = init.x_velocity;
+                enemy.y_velocity = 0;
+                enemy.on_ground = false;
+            }
             if matches!(family, EnemyFamily::Tornado) {
                 // ASM Tornado.asm seeds a movement pattern before entering the
                 // per-frame loop, so activate the first script entry here.
@@ -9498,6 +9507,12 @@ pub(crate) fn step_active_enemies_with_rng(
                         if enemy.scorpion_sting_frames == 0 {
                             enemy.walk_speed_override = 0;
                         }
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Diamond) && enemy.hit_points > 3 {
+                        // ASM Diamond.asm loc_3ADA4: high-HP Diamonds run
+                        // their physics-ball collision loop, not loc_3AF14.
+                        step_diamond_high_hp(enemy, block_grid);
                         continue;
                     }
                     step_pacer(enemy, block_grid);
@@ -16152,6 +16167,77 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         register_shared_walker_turnaround(enemy);
     }
+}
+
+pub(crate) fn step_diamond_high_hp(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    // ASM Diamond.asm loc_3ADA4 hibernates one frame, runs sub_3C3CE, then
+    // dispatches the collision word captured by the level-collision pass.
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let collision_type = diamond_high_hp_collision_type(enemy, block_grid);
+    match diamond_high_hp_collision_dispatch_loc_3ada4(
+        collision_type,
+        enemy.x_velocity,
+        enemy.y_velocity,
+    )
+    .route
+    {
+        DiamondHighHpCollisionRouteLoc3ADA4::Loop => {}
+        DiamondHighHpCollisionRouteLoc3ADA4::Fall { y_velocity }
+        | DiamondHighHpCollisionRouteLoc3ADA4::Slope { y_velocity } => {
+            enemy.y_velocity = y_velocity;
+        }
+        DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
+            x_velocity,
+            y_velocity,
+        } => {
+            enemy.x_velocity = x_velocity;
+            enemy.y_velocity = y_velocity;
+        }
+        // ASM Diamond.asm loc_3ADFA and loc_3AE84 require the live Kid/enemy
+        // collision word, which is not plumbed through this terrain probe yet.
+        DiamondHighHpCollisionRouteLoc3ADA4::Damage
+        | DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate => {}
+    }
+}
+
+fn diamond_high_hp_collision_type(
+    enemy: &ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) -> u16 {
+    let Some(grid) = block_grid else {
+        return 0;
+    };
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        return if moving_right {
+            DIAMOND_COLID_RIGHTWALL
+        } else {
+            DIAMOND_COLID_LEFTWALL
+        };
+    }
+
+    let floor = terrain::probe_floor(grid, cx, cy);
+    if floor.on_ground && enemy.y_velocity >= 0 {
+        return DIAMOND_COLID_FLOOR;
+    }
+
+    0
 }
 
 /// Driller linked drill child X offset for block drilling.
@@ -25897,6 +25983,55 @@ mod tests {
             diamond_high_hp_init_loc_3ad7c(96, 96).x_velocity,
             -0x0001_8000,
             "ASM Diamond.asm loc_3AD7C uses `bmi`, so exact alignment takes the negate path",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_runtime_uses_loc_3ad7c_collision_loop_instead_of_shared_walker() {
+        let mut diamond = ActiveEnemy {
+            family: EnemyFamily::Diamond,
+            hit_points: 4,
+            x_pos: 80 << 16,
+            y_pos: 112 << 16,
+            x_velocity: diamond_high_hp_init_loc_3ad7c(80, 112).x_velocity,
+            y_velocity: 0,
+            on_ground: false,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [diamond];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(112 << 16),
+            Some(112 << 16),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+        );
+        diamond = enemies[0];
+
+        assert_eq!(
+            diamond.x_velocity, 0x0001_8000,
+            "ASM Diamond.asm loc_3AD7C should keep the high-HP seeded X velocity instead of entering the low-HP shared walker",
+        );
+        assert_eq!(
+            diamond.x_pos,
+            (80 << 16) + 0x0001_8000,
+            "ASM Diamond.asm loc_3ADA4 hibernates then resumes the collision loop with high-HP horizontal motion",
+        );
+        assert_eq!(
+            diamond.y_velocity, 0x0001_C000,
+            "ASM Diamond.asm loc_3AE78 should store +$1C000 when loc_3ADA4 observes no collision",
         );
     }
 
