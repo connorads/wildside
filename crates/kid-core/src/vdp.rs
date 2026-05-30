@@ -2357,6 +2357,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
     let mut sprite_entries = Vec::new();
     if title_ready {
         append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
+        append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
         write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames);
         overlay_title_sega_text_worker_loc_1c7a0(&mut vdp, title_elapsed_frames);
     }
@@ -2447,20 +2448,21 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
 fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16]) {
     // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): decode `unk_2EAAE` with
     // base `$451B`, then call sub_1C5D0 with d4=$04,d5=$04,d6=$0D,d7=$05.
-    // That writes a 14x6 tile rectangle at cell (4,4), revealing the
+    // sub_1C5D0 pre-decrements d6/d7 before the DBF loops, so this writes a
+    // 13x5 tile rectangle at cell (4,4), revealing the
     // interactive 1P/2P/options menu after the first Start press.
     let tilemap_words = title_menu_tilemap_buffer_loc_1bb52(tilemap_words);
-    write_tilemap_rect_at_cell(vdp, &tilemap_words, 14, 6, 4, 4);
+    write_tilemap_rect_at_cell(vdp, &tilemap_words, 13, 5, 4, 4);
 }
 
 fn title_menu_tilemap_buffer_loc_1bb52(menu_words: &[u16]) -> Vec<u16> {
     // ASM loc_1BB52 (kid.asm:30428): EniDec writes the menu map at the start
-    // of Decompression_Buffer, then sub_1C5D0 blindly consumes 14x6 words.
+    // of Decompression_Buffer, then sub_1C5D0 blindly consumes 13x5 words.
     // The source-port renderer is stateless and rebuilds the title VDP frame
     // after the ROM would have cached the menu rectangle, so pad the short
     // extracted decode with the menu's own blank interior word instead of
     // leaking current-frame background art into the persisted rectangle.
-    const MENU_WORD_COUNT: usize = 14 * 6;
+    const MENU_WORD_COUNT: usize = 13 * 5;
     const MENU_BLANK_WORD: u16 = 0x4528;
     let mut words = Vec::with_capacity(MENU_WORD_COUNT);
     for index in 0..MENU_WORD_COUNT {
@@ -2541,6 +2543,38 @@ fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>
             y_center: 0,
             width: 0x48,
             height: 0x3D,
+        },
+    );
+}
+
+#[allow(non_snake_case)]
+fn append_title_intro_text_sprite_loc_1bb10(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    elapsed: usize,
+) {
+    // ASM loc_1BB10/loc_1BB44 (kid.asm:30405-30425): the small title text
+    // sprite slides in from x=-44 to x=$10C, then persists through the menu.
+    let setup = crate::boot::title_text_intro_sprite_loc_1BB10();
+    let elapsed = u16::try_from(elapsed).unwrap_or(u16::MAX);
+    let counter = 0x0027u16.saturating_sub(elapsed);
+    let x_pos = crate::boot::title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter);
+    append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+        entries,
+        IntroGfxObjectForSpriteTable {
+            x_pos: x_pos as u16,
+            y_pos: setup.y_pos,
+            palette_line: setup.palette_line,
+            vram_tile: setup.vram_tile,
+            priority: 0,
+            x_direction: 0,
+        },
+        IntroSpriteFrameVram {
+            // ASM unk_E0ED6: sprite_frame_vram $2C3, $00, $08, $10, $08.
+            sprite_index: 0x02C3,
+            x_center: 0,
+            y_center: 0,
+            width: 0x0010,
+            height: 0x0008,
         },
     );
 }
@@ -4490,10 +4524,10 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn title_screen_vdp_obj_title_menu_loc_1bb52_writes_menu_and_cursor() {
-        let mut menu_words = vec![0u16; 14 * 6];
-        for row in 0..6u16 {
-            for col in 0..14u16 {
-                menu_words[(row as usize) * 14 + (col as usize)] = 0x4500 | (row << 4) | col;
+        let mut menu_words = vec![0u16; 13 * 5];
+        for row in 0..5u16 {
+            for col in 0..13u16 {
+                menu_words[(row as usize) * 13 + (col as usize)] = 0x4500 | (row << 4) | col;
             }
         }
         let data = TitleScreenData {
@@ -4511,13 +4545,21 @@ mod tests {
 
         let vdp = build_title_screen_vdp_with_character_frame_and_menu(&data, 0, 0, Some(2));
 
-        for &(row, col) in &[(0u16, 0u16), (0, 13), (5, 0), (5, 13), (3, 7)] {
+        for &(row, col) in &[(0u16, 0u16), (0, 12), (4, 0), (4, 12), (3, 7)] {
             let addr = (4 + row as usize) * 128 + (4 + col as usize) * 2;
             let word = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
             assert_eq!(
                 word,
                 0x4500 | (row << 4) | col,
                 "ASM Obj_TitleMenu loc_1BB52 writes menu cell row {row}, col {col}"
+            );
+        }
+        for &(row, col) in &[(0u16, 13u16), (5, 0)] {
+            let addr = (4 + row as usize) * 128 + (4 + col as usize) * 2;
+            let word = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            assert_eq!(
+                word, 0x20BC,
+                "ASM sub_1C5D0 pre-decrements d6/d7 before DBF, so menu row {row}, col {col} must stay on the title fill tile"
             );
         }
 
@@ -4530,19 +4572,19 @@ mod tests {
 
     #[test]
     fn title_menu_tilemap_loc_1bb52_pads_short_decode_with_menu_blank() {
-        let menu_words = (0x4500u16..0x4500 + 65).collect::<Vec<_>>();
+        let menu_words = (0x4500u16..0x4500 + 60).collect::<Vec<_>>();
 
         let composed = title_menu_tilemap_buffer_loc_1bb52(&menu_words);
 
-        assert_eq!(composed.len(), 14 * 6);
+        assert_eq!(composed.len(), 13 * 5);
         assert_eq!(
-            &composed[..65],
+            &composed[..60],
             menu_words.as_slice(),
             "ASM loc_1BB52 should use the freshly decoded `unk_2EAAE` words first"
         );
         assert_eq!(
-            &composed[65..],
-            &[0x4528; 19],
+            &composed[60..],
+            &[0x4528; 5],
             "the stateless title renderer should preserve the cached menu rectangle by padding the short extracted loc_1BB52 decode with the menu blank tile"
         );
     }
@@ -4628,6 +4670,36 @@ mod tests {
             vram_word(&visible, usize::from(sega_s_write.vram_word_address)),
             0x67E5,
             "ASM SegaText writes the `S` in `SEGA` after the copyright and year glyphs"
+        );
+    }
+
+    #[test]
+    fn title_screen_vdp_loc_1bb10_keeps_intro_text_sprite_visible_on_menu() {
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![0; 7 * 29], vec![], vec![]],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let vdp = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
+            &data,
+            0,
+            0,
+            Some(0),
+            true,
+            0x0027,
+        );
+
+        assert!(
+            sprite_table_index_without_link(&vdp, (0x010C, 0x04, 0x4780, 0x018C)).is_some(),
+            "ASM loc_1BB10/unk_E0ED6 should keep the settled x=$10C,y=$94 title text sprite visible after Obj_TitleMenu reveals the menu"
         );
     }
 
