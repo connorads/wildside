@@ -95,6 +95,14 @@ impl VdpState {
         }
     }
 
+    /// Write a single big-endian word to VSRAM at the given byte address.
+    fn write_vsram_word(&mut self, byte_addr: usize, word: u16) {
+        if byte_addr + 1 < self.vsram.len() {
+            self.vsram[byte_addr] = (word >> 8) as u8;
+            self.vsram[byte_addr + 1] = word as u8;
+        }
+    }
+
     /// Write palette words to CRAM at the given word offset.
     ///
     /// Each word is 2 bytes in Mega Drive 0BGR format (3 bits per channel).
@@ -2419,6 +2427,7 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     frame_index: Option<u8>,
     lightning_flash_frame: u8,
     region_byte: u8,
+    camera_y_pos: u32,
 ) -> VdpState {
     let mut vdp = VdpState::new();
 
@@ -2464,6 +2473,12 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
         vdp.write_vram_word(hscroll_base + line * 4, 0xFFB8);
         vdp.write_vram_word(hscroll_base + line * 4 + 2, 0);
     }
+    // ASM sub_1B222 copies `$FFFFA656` into Camera_Y_pos before the common VDP
+    // scroll transfer mirrors it into the first VSRAM word. With the cold
+    // `$FFD0_0000` hidden camera seed this shifts the transformation tilemap
+    // down by 48px.
+    vdp.write_vsram_word(0, (camera_y_pos >> 16) as u16);
+    vdp.write_vsram_word(2, 0);
 
     // ASM sub_1B2A4 uploads the transformation/title base art and palette.
     for (vram_byte_addr, art_bytes) in &data.art_chunks {

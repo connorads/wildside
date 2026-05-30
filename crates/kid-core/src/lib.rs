@@ -1464,6 +1464,7 @@ impl NativeRuntime {
                         self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
                         self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                         self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
                     )
                 })
             }
@@ -1518,7 +1519,14 @@ impl NativeRuntime {
         let local = elapsed - initial;
         let step = usize::from(script.loop_hibernate_frames).max(1);
         let frame_index = local / step;
-        script.title_frames.get(frame_index).copied()
+        script.title_frames.get(frame_index).copied().or_else(|| {
+            // ASM sub_1B43A/loc_1B446 stops dispatching sub_1BF24 after the
+            // `$FF` sentinel, but it does not clear the VRAM rectangle; the
+            // final `unk_1B4D6` frame remains visible until loc_1B45A/loc_1B5CE
+            // overwrite it. Native rebuilds VDP state from scratch each frame,
+            // so replay the retained frame explicitly.
+            script.title_frames.last().copied()
+        })
     }
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {

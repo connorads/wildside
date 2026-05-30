@@ -4038,6 +4038,8 @@ mod chunk_02 {
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
         let word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
+        let vsram_word_at =
+            |byte_addr: usize| u16::from_be_bytes([vdp.vsram[byte_addr], vdp.vsram[byte_addr + 1]]);
         let tile_pixel_nibble = |entry: u16, tile_x: usize, tile_y: usize| {
             let tile_index = usize::from(entry & 0x07FF);
             let tile_byte_addr = tile_index * 32 + tile_y * 4 + tile_x / 2;
@@ -4063,6 +4065,16 @@ mod chunk_02 {
             word_at(0x1402),
             0,
             "ASM sub_1B222 loc_1B23A keeps Scroll B hscroll at zero in the seeded longword",
+        );
+        assert_eq!(
+            vsram_word_at(0),
+            0xFFD0,
+            "ASM sub_1B222 mirrors `$FFFFA656=$FFD0_0000` into Camera_Y_pos before the VDP scroll transfer writes the first VSRAM word",
+        );
+        assert_eq!(
+            vsram_word_at(2),
+            0,
+            "ASM sub_1B222 leaves Scroll B vertical scroll cleared during the hidden title shell",
         );
         assert!(
             vdp.vram[0x17A0..0x1820].iter().any(|&byte| byte != 0),
@@ -4127,6 +4139,11 @@ mod chunk_02 {
                 assert!(
                     !trace.title_screen_ready,
                     "ASM Load_IntroSequence6 keeps the hidden transformation shell live until loc_1B5CE writes the title pose"
+                );
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    Some(6),
+                    "ASM sub_1B43A/loc_1B446 leaves the final `unk_1B4D6` frame in VRAM after the `$FF` sentinel until loc_1B45A or loc_1B5CE overwrites it"
                 );
                 assert_eq!(
                     trace.kid_x_pos, None,
