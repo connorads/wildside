@@ -1990,6 +1990,43 @@ mod tests {
     }
 
     #[test]
+    fn highwater_foreground_palette_rotates_lava_water_cram_words_loc_1223c() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let visuals = load_level_visuals(&manifest, 0x02).expect("Highwater Pass visuals");
+        assert_eq!(visuals.level.foreground_theme_id, 7);
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x02);
+        trace.frame_index = 0;
+        let palette0 = foreground_palette_for_scene(&trace, &visuals);
+        assert_eq!(
+            &palette0.colours[6..10],
+            &[
+                MdColour::from_word(0x0E40),
+                MdColour::from_word(0x0E62),
+                MdColour::from_word(0x0EC4),
+                MdColour::from_word(0x0E20),
+            ],
+            "ASM RotatePalette_Lava_Water loc_1223C starts from Palette_Buffer+$E/$10/$12/$14"
+        );
+
+        trace.frame_index = 5;
+        let palette5 = foreground_palette_for_scene(&trace, &visuals);
+        assert_eq!(
+            &palette5.colours[6..10],
+            &[
+                MdColour::from_word(0x0E20),
+                MdColour::from_word(0x0E40),
+                MdColour::from_word(0x0E62),
+                MdColour::from_word(0x0EC4),
+            ],
+            "ASM loc_1223A hibernates 5 Mountain frames before the first loc_1223C rotation"
+        );
+    }
+
+    #[test]
     fn highwater_live_trace_shooter_projectile_renders_real_spike_tile_loc_ef62() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

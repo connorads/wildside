@@ -1358,6 +1358,18 @@ pub(super) fn resolve_ingame_vram_tile(
     level_visuals: &NativeLevelVisuals,
     tile_ref: TileRef,
 ) -> Option<ResolvedSceneTile> {
+    resolve_ingame_vram_tile_with_foreground_palette(
+        level_visuals,
+        &level_visuals.palettes.foreground,
+        tile_ref,
+    )
+}
+
+fn resolve_ingame_vram_tile_with_foreground_palette(
+    level_visuals: &NativeLevelVisuals,
+    foreground_palette: &Palette,
+    tile_ref: TileRef,
+) -> Option<ResolvedSceneTile> {
     let foreground_range_end =
         FOREGROUND_TILE_VRAM_BASE + level_visuals.foreground_tiles.tiles.len() as u16;
     if (FOREGROUND_TILE_VRAM_BASE..foreground_range_end).contains(&tile_ref.tile_index) {
@@ -1367,7 +1379,7 @@ pub(super) fn resolve_ingame_vram_tile(
                 tile_index: tile_ref.tile_index - FOREGROUND_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            palette: Arc::new(foreground_palette.clone()),
         });
     }
 
@@ -1379,7 +1391,7 @@ pub(super) fn resolve_ingame_vram_tile(
                 tile_index: tile_ref.tile_index - BLOCK_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            palette: Arc::new(foreground_palette.clone()),
         });
     }
 
@@ -1391,7 +1403,7 @@ pub(super) fn resolve_ingame_vram_tile(
                 tile_index: tile_ref.tile_index - HUD_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            palette: Arc::new(foreground_palette.clone()),
         });
     }
 
@@ -1404,7 +1416,7 @@ pub(super) fn resolve_ingame_vram_tile(
                 tile_index: tile_ref.tile_index - HUD_DIAMOND_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level_visuals.palettes.foreground.clone()),
+            palette: Arc::new(foreground_palette.clone()),
         });
     }
 
@@ -1434,7 +1446,7 @@ pub(super) fn push_background_tiles(
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
     let tile_sheet = Arc::new(level_visuals.background_tiles.clone());
-    let palette = Arc::new(background_palette_for_scene(level_visuals));
+    let palette = Arc::new(background_palette_for_scene(trace, level_visuals));
 
     match &level_visuals.background {
         kid_render::BackgroundVisuals::Chunked(background) => {
@@ -1560,7 +1572,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
 ) -> Option<BackgroundPixelSample> {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-    let palette = background_palette_for_scene(level_visuals);
+    let palette = background_palette_for_scene(trace, level_visuals);
     let mut sample = None;
 
     match &level_visuals.background {
@@ -1870,7 +1882,41 @@ fn push_layered_background_tile(
     }
 }
 
-fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
+pub(super) fn foreground_palette_for_scene(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Palette {
+    let mut palette = level_visuals.palettes.foreground.clone();
+    let delay = match level_visuals.level.foreground_theme_id {
+        7 => 5usize,
+        8 => 8usize,
+        _ => return palette,
+    };
+    if palette.colours.len() < 10 {
+        return palette;
+    }
+
+    // ASM RotatePalette_Lava_Water loc_1223A/loc_1223C: Mountain levels
+    // hibernate 5 frames (Cave 8), then rotate CRAM words
+    // Palette_Buffer+$E/$10/$12/$14. Native foreground palettes omit CRAM
+    // word 0, so those ROM words map to visible colour indices 6..=9. The
+    // extracted level palette is already one ROM rotation ahead of oracle
+    // settled-playtest frame 0, so start three rotations later to realign it.
+    for _ in 0..((trace.frame_index / delay + 3) % 4) {
+        let saved = palette.colours[9];
+        palette.colours[9] = palette.colours[8];
+        palette.colours[8] = palette.colours[7];
+        palette.colours[7] = palette.colours[6];
+        palette.colours[6] = saved;
+    }
+
+    palette
+}
+
+fn background_palette_for_scene(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Palette {
     let mut palette = level_visuals.palettes.background.clone();
     if level_visuals.level.background_theme_id == 7
         && level_visuals.palettes.foreground.colours.len() >= PALETTE_LINE_COLOUR_COUNT - 1
@@ -1883,7 +1929,7 @@ fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
         // foreground holes show the waterfall/mountain Plane B instead of
         // disappearing.
         let original = palette.colours.clone();
-        let mut combined = level_visuals.palettes.foreground.colours.clone();
+        let mut combined = foreground_palette_for_scene(trace, level_visuals).colours;
         combined.truncate(PALETTE_LINE_COLOUR_COUNT - 1);
         combined.resize(
             PALETTE_LINE_COLOUR_COUNT * 2,
@@ -1901,7 +1947,7 @@ fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
         // line 0.  The background palette is only copied into line 1 slots
         // 8..15, then ASM sub_129AE swaps line-1 slots 8 and 10.
         let original = palette.colours.clone();
-        let mut combined = level_visuals.palettes.foreground.colours.clone();
+        let mut combined = foreground_palette_for_scene(trace, level_visuals).colours;
         if combined.len() < PALETTE_LINE_COLOUR_COUNT {
             return palette;
         }
@@ -2698,6 +2744,7 @@ pub(super) fn background_scroll_x_px(
 pub(super) fn push_tile_quad(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
+    foreground_palette: &Palette,
     x: i32,
     y: i32,
     quad: &kid_render::TileQuad,
@@ -2705,7 +2752,11 @@ pub(super) fn push_tile_quad(
     for (index, tile_ref) in quad.tiles.iter().copied().enumerate() {
         let tile_x = x + if index % 2 == 0 { 0 } else { 8 };
         let tile_y = y + if index < 2 { 0 } else { 8 };
-        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, tile_ref) {
+        if let Some(tile) = resolve_ingame_vram_tile_with_foreground_palette(
+            level_visuals,
+            foreground_palette,
+            tile_ref,
+        ) {
             push_resolved_tile(commands, tile_x, tile_y, tile);
         }
     }
@@ -2805,6 +2856,7 @@ pub(super) fn push_level_layout_terrain(
     let row_start = (camera_y_px / 16).max(0) as u16;
     let row_end =
         ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(layout.height_cells)) as u16;
+    let foreground_palette = foreground_palette_for_scene(trace, level_visuals);
 
     for row in row_start..row_end {
         for col in col_start..col_end {
@@ -2815,6 +2867,7 @@ pub(super) fn push_level_layout_terrain(
             push_tile_quad(
                 commands,
                 level_visuals,
+                &foreground_palette,
                 i32::from(col) * 16 - camera_x_px,
                 i32::from(row) * 16 - camera_y_px,
                 resolved.quad,
@@ -2841,6 +2894,7 @@ pub(super) fn push_block_grid_overrides(
     let row_start = (camera_y_px / 16).max(0) as u16;
     let row_end =
         ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(grid.height_cells)) as u16;
+    let foreground_palette = foreground_palette_for_scene(trace, level_visuals);
 
     for row in row_start..row_end {
         for col in col_start..col_end {
@@ -2878,6 +2932,7 @@ pub(super) fn push_block_grid_overrides(
             push_tile_quad(
                 commands,
                 level_visuals,
+                &foreground_palette,
                 i32::from(col) * 16 - camera_x_px,
                 i32::from(row) * 16 - camera_y_px + y_offset,
                 resolved.quad,
