@@ -7779,6 +7779,10 @@ impl NativeRuntime {
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
+        let segment_index = enemy.segment_index;
+        let layout_index = enemy.layout_index;
+        let spinning_twins_phase = enemy.spinning_twins_phase;
+        let shared_walker_state = enemy.shared_walker_state;
         if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 {
             let hurt_tail = ufo_hurt_tail_loc_35174(enemy.x_velocity, enemy.ufo_beam_segments != 0);
             let enemy = &mut self.active_enemies[idx];
@@ -7831,9 +7835,34 @@ impl NativeRuntime {
         } else {
             None
         };
-        self.killed_enemies
-            .insert((enemy.segment_index, enemy.layout_index));
+        self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
+        if matches!(family, EnemyFamily::SpinningTwins)
+            && matches!(spinning_twins_phase, SpinningTwinsPhase::Walking)
+            && shared_walker_state == 0
+        {
+            let signal = spinning_twins_partner_signal_tail_loc_3bca6(layout_index as u8);
+            for (partner_idx, partner) in self.active_enemies.iter_mut().enumerate() {
+                if partner_idx == idx {
+                    continue;
+                }
+                if matches!(partner.family, EnemyFamily::SpinningTwins)
+                    && matches!(partner.spinning_twins_phase, SpinningTwinsPhase::Walking)
+                    && partner.segment_index == segment_index
+                    && partner.layout_index == layout_index
+                {
+                    // ASM Spinning_Twins.asm loc_3BCA6: when the dying
+                    // walking child has clear `$5B(a5)`, follow its linked
+                    // `$5C(a5)` partner and set `$5B(a2)` with `st`.
+                    debug_assert_eq!(
+                        i16::from(signal.next_partner_flag_5b as i8),
+                        SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6
+                    );
+                    partner.shared_walker_state = SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6;
+                    break;
+                }
+            }
+        }
         if matches!(family, EnemyFamily::FireDemon) {
             self.fire_demon_trails
                 .push(fire_demon_death_trail_child_loc_3a63c(x_pos, y_pos));

@@ -9751,6 +9751,28 @@ mod chunk_03 {
     }
 
     #[test]
+    fn spinning_twins_deleting_one_walking_child_marks_partner_loc_3bca6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut left = test_enemy(EnemyFamily::SpinningTwins, 0x0080_0000, 0x0040_0000, 1);
+        left.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        left.hit_points = 0;
+        left.layout_index = 12;
+        let mut right = test_enemy(EnemyFamily::SpinningTwins, 0x00C0_0000, 0x0040_0000, 1);
+        right.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        right.layout_index = 12;
+        runtime.active_enemies = vec![left, right];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(runtime.active_enemies.len(), 1);
+        assert_eq!(
+            runtime.active_enemies[0].shared_walker_state,
+            SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6,
+            "ASM Spinning_Twins.asm loc_3BCA6 stores `$FF` in the linked walking twin `$5B(a2)` before deleting the current child"
+        );
+    }
+
+    #[test]
     fn hand_death_waits_for_stru_32b78_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 1);

@@ -23537,6 +23537,7 @@ pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
+pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
