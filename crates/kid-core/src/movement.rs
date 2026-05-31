@@ -4505,11 +4505,7 @@ impl OpeningSliceState {
         }
         if self.player.on_ground && jump_pressed {
             if let Some(collision) = grounded_slope {
-                let h_input = HorizontalInput {
-                    left: input.left,
-                    right: input.right,
-                    run: input.a,
-                };
+                let h_input = slope_horizontal_input_loc_9DAA(input, collision);
                 let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,
@@ -4537,16 +4533,17 @@ impl OpeningSliceState {
         };
         let (new_vel, new_facing) = if self.player.on_ground {
             if let Some(collision) = grounded_slope {
+                let slope_input = slope_horizontal_input_loc_9DAA(input, collision);
                 self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
                     self.walk_visual_accumulator,
                     self.player.facing,
-                    h_input,
+                    slope_input,
                     collision,
                 );
                 update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,
-                    h_input,
+                    slope_input,
                     collision,
                     form,
                     self.terrain.floor_terrain_type,
@@ -4796,11 +4793,7 @@ impl OpeningSliceState {
         }
         if self.player.on_ground && jump_pressed {
             if let Some(collision) = grounded_slope {
-                let h_input = HorizontalInput {
-                    left: input.left,
-                    right: input.right,
-                    run: input.a,
-                };
+                let h_input = slope_horizontal_input_loc_9DAA(input, collision);
                 let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,
@@ -4828,16 +4821,17 @@ impl OpeningSliceState {
         };
         let (new_vel, new_facing) = if self.player.on_ground {
             if let Some(collision) = grounded_slope {
+                let slope_input = slope_horizontal_input_loc_9DAA(input, collision);
                 self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
                     self.walk_visual_accumulator,
                     self.player.facing,
-                    h_input,
+                    slope_input,
                     collision,
                 );
                 update_level_one_slope_ground_velocity(
                     self.player.x_velocity,
                     self.player.facing,
-                    h_input,
+                    slope_input,
                     collision,
                     form,
                     self.terrain.floor_terrain_type,
@@ -5952,11 +5946,7 @@ impl OpeningSliceState {
         collision_hw: i32,
         x_velocity_for_handoff_step: Option<i32>,
     ) {
-        let h_input = HorizontalInput {
-            left: input.left,
-            right: input.right,
-            run: input.a,
-        };
+        let h_input = slope_horizontal_input_loc_9DAA(input, collision);
         let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
             self.player.x_velocity,
             self.player.facing,
@@ -6090,6 +6080,41 @@ fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {
     // ASM loc_9F32 (kid.asm:12232): negate the cap and clamp negative values
     // below `$FFFC0000` before storing `x_vel` again at loc_9F3A.
     x_vel.clamp(-KID_SLOPE_MAX_SPEED_FP, KID_SLOPE_MAX_SPEED_FP)
+}
+
+#[allow(non_snake_case)]
+fn slope_horizontal_input_loc_9DAA(
+    input: FrameInput,
+    collision: terrain::CollisionKind,
+) -> HorizontalInput {
+    let horizontal_held = input.left || input.right;
+    if horizontal_held {
+        return HorizontalInput {
+            left: input.left,
+            right: input.right,
+            run: input.a,
+        };
+    }
+
+    // ASM loc_9D94-loc_9DAA: after optional SlopeDown d1/d2 swap, Right/Up
+    // enter loc_9DC0 (uphill) and Left/Down enter loc_9DF2 (downhill).  Native
+    // keeps `HorizontalInput` as the shared table shape, so vertical-only slope
+    // commands are mapped onto the equivalent horizontal command for the active
+    // slope before running the ROM velocity table.
+    let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
+    let (left, right) = if input.up {
+        (slope_descends_right, !slope_descends_right)
+    } else if input.down {
+        (!slope_descends_right, slope_descends_right)
+    } else {
+        (false, false)
+    };
+
+    HorizontalInput {
+        left,
+        right,
+        run: input.a,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

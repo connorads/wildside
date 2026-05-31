@@ -12910,6 +12910,96 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9DAA (kid.asm:11986): with no horizontal d1/d2 input, held Up
+    /// still branches to loc_9DC0 and drives uphill acceleration.
+    #[test]
+    fn slope_up_held_only_drives_uphill_accel_loc_9daa() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (3usize * usize::from(w) + 4) * 2;
+        data[slope_offset] = 0x40;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                up: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+            false,
+        );
+
+        assert!(stepped, "current SlopeUp support should enter loc_9D22");
+        assert_eq!(
+            slice.player.x_velocity, 0x1000,
+            "ASM loc_9DAA: Up held with no d1/d2 input must branch to loc_9DC0 uphill accel",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Right,
+            "ASM loc_9DC0 copies SlopeUp $FA26=0 into x_direction",
+        );
+    }
+
+    /// ASM loc_9DAA (kid.asm:11990): with no horizontal d1/d2 input, held Down
+    /// branches to loc_9DF2 and drives downhill acceleration.
+    #[test]
+    fn slope_down_held_only_drives_downhill_accel_loc_9daa() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (3usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+            false,
+        );
+
+        assert!(stepped, "current SlopeDown support should enter loc_9D22");
+        assert_eq!(
+            slice.player.x_velocity, 0x4000,
+            "ASM loc_9DAA: Down held with no d1/d2 input must branch to loc_9DF2 downhill accel",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Right,
+            "ASM loc_9DF2 stores x_direction=0 for SlopeDown downhill movement",
+        );
+    }
+
     // --- loc_9DE4: uphill, above cap → brake towards max_speed ---
 
     /// ASM loc_9DE4 (kid.asm:12017): uphill path when canonical vel exceeds the
