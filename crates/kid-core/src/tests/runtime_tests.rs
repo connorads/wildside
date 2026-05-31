@@ -9890,6 +9890,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_block_debris_culls_against_camera_not_world_origin_sub_2a4c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 2048,
+        });
+        slice.camera.y_pos = 1500 << 16;
+        rt.opening_slice = Some(slice);
+        rt.block_destroy_effects.clear();
+        rt.block_debris_swarms.clear();
+        rt.block_destroy_effects.push(BlockDestroyEffect {
+            x_px: 244,
+            y_px: 1552,
+            remaining: 1,
+            direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+        });
+
+        rt.step_visual_effects();
+
+        assert!(
+            !rt.trace_frame().block_debris_pieces.is_empty(),
+            "ASM sub_2A4C culls debris after subtracting Camera_Y_pos; Highwater shards around world y=1552 should remain visible when the camera is on that band"
+        );
+    }
+
+    #[test]
     fn prize_block_spawn_flash_counts_down_and_is_traced_with_loc_102b8_position() {
         let mut rt = NativeRuntime::new(manifest());
         rt.prize_block_spawn_flashes.push(PrizeBlockSpawnFlash {

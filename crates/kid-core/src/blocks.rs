@@ -3857,12 +3857,23 @@ impl NativeRuntime {
                     .wrapping_add(Self::BLOCK_DEBRIS_GRAVITY_STEP_FP_SUB_2A4C);
             }
         }
+        let (camera_x_px, camera_y_px) = self.opening_slice.as_ref().map_or((0, 0), |slice| {
+            (
+                (slice.camera.x_pos >> 16) as i32,
+                (slice.camera.y_pos >> 16) as i32,
+            )
+        });
         self.block_debris_swarms.retain(|swarm| {
-            swarm.pieces.iter().any(|piece| {
-                let x = piece.x_pos_fp >> 16;
-                let y = piece.y_pos_fp >> 16;
-                (-0x0100..0x2000).contains(&x) && (-0x0100..0x0400).contains(&y)
-            })
+            let first_piece = swarm.pieces[0];
+            // ASM sub_2A4C (kid.asm:5071-5090): the first shard is culled
+            // after subtracting Camera_Y_pos/Camera_X_pos, not against the
+            // absolute level origin. Highwater debris lives far below y=$400.
+            let screen_y = (first_piece.y_pos_fp >> 16).wrapping_sub(camera_y_px);
+            if !(-0x64..0xE0).contains(&screen_y) {
+                return false;
+            }
+            let screen_x = (first_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
+            (0..0x140).contains(&screen_x)
         });
 
         for f in &mut self.floating_items {

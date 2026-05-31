@@ -377,6 +377,19 @@ issue-214-highwater-shooter-barrier-audit` still fails on pixel parity
 reported shooter-block player-overlap launch. Gate: `mise run
 verify-slice-fast`.
 
+Note 2026-05-31 debris follow-up for #214: `sub_2A4C` debris culling was
+wrongly using absolute world bounds, which deleted Highwater ice/smash shards
+around y=1552 immediately after the hibernate handoff. Native now culls the
+first shard after subtracting the current camera position, matching ASM
+`sub_2A4C` and preserving the falling debris in the Level 02 shooter/barrier
+recording. Regression:
+`highwater_block_debris_culls_against_camera_not_world_origin_sub_2a4c`.
+Regenerated `.cache/recordings/issue-214-highwater-shooter-barrier-audit`
+returns to `trace_match=true` and `oracle_state_match=true`; full verification
+still fails `oracle_frame_match=false`, with remaining pixel deltas dominated
+by existing route-start palette/layer differences plus shooter/projectile
+timing at `projectile_barrier_window@90`.
+
 | 215 | [ ] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | Evidence source: human playtest after pushed commits. Symptom: water animation appears inactive or the player renders above foreground/water elements that should cover him. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: capture Level 02 water/foreground frames with layer diagnostics, compare VDP priority bits and native render layer ordering against oracle before touching renderer composition. |
 | 216 | [ ] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and diamond collection sounds are delayed; level-complete sound does not finish cleanly. #160 covers continuous BGM/SFX output but not these event-specific timing edges. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: audio event trace for prize/block/diamond and flag-touch/EOL path, compare queued GEMS commands and rendered audio windows against oracle where available. |
 | 217 | [ ] | P1 | player | Wire ASM-faithful player move-state helpers into the live step (systemic root cause, movement layer) | Player-movement fidelity audit 2026-05-30 (`docs/source-port/movement-fidelity-audit.md`, `player-movement-fidelity-audit` workflow, 44 agents) confirmed 26 gaps across 15 move-states (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). Same root cause as #176/#203: move-state helpers are modelled + unit-tested but unwired, so the live path uses generic profiles / hardcoded `false` / omits behaviour (`with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, `update_skycutter_horizontal_velocity_sub_9A20` air path, discarded `sub_7A10.blocked`). Children #218-#226 below; 3 hygiene gaps fold into #209, 2 platform-carry gaps into #208, the compound-corner pair relates #207. Highest-leverage first move: **#218** (ice/rubber inversion) — a deterministic correctness bug fixable and verifiable now without the #205 object-active harness. Evidence: ASM-vs-native audit, adversarially verified; not exercised by the idle oracle sweep. |
