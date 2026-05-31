@@ -1224,6 +1224,48 @@ mod chunk_03 {
     }
 
     #[test]
+    fn extra_hit_point_activation_respects_four_slot_cap_loc_3fc4c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.extra_hitpoint_slots = 4;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints() + 4;
+        runtime.progression.diamond_count = 50;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_extra_hp_life_slots.len(),
+            10,
+            "ASM loc_3FB96/loc_3FB9A still seeds the reward orbit even when Extra_hitpoint_slots is capped"
+        );
+
+        for _ in 0..97 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 4,
+            "ASM loc_3FC4C: ExtraHitPoint does not increment Extra_hitpoint_slots once the four-slot cap is reached"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints() + 4,
+            "ASM loc_3FC4C: capped ExtraHitPoint convergence clears the DP list without adding Number_Hitpoints"
+        );
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            DiamondPowerType::None,
+            "ASM loc_3FC52 clears the DP object list after the first capped convergence"
+        );
+        assert!(runtime.diamond_power_extra_hp_life_slots.is_empty());
+    }
+
+    #[test]
     fn extra_life_activation_waits_for_orbit_convergence_loc_3fb94_loc_3fc4e() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
