@@ -507,6 +507,21 @@ struct RecordingRuntimeInit {
     pre_probe_render_trace: Option<NativeTraceFrame>,
 }
 
+fn apply_recording_probe_state(
+    runtime: &mut NativeRuntime,
+    scenario: &DynamicScenario,
+) -> Result<()> {
+    if let Some(helmet_id) = scenario.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runtime.set_playtest_form(form);
+    }
+    if let Some(count) = scenario.initial_diamond_count {
+        runtime.set_probe_diamond_count(count);
+    }
+    Ok(())
+}
+
 fn initialise_recording_runtime(
     manifest: &AssetManifest,
     start: RecordingStart,
@@ -544,11 +559,7 @@ fn initialise_recording_runtime(
     if let Some(position) = scenario.camera_position {
         runtime.set_camera_probe_position(position.x, position.y);
     }
-    if let Some(helmet_id) = scenario.playtest_form {
-        let form = PlayerForm::from_helmet_id(helmet_id)
-            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
-        runtime.set_playtest_form(form);
-    }
+    apply_recording_probe_state(&mut runtime, scenario)?;
 
     let current_level_id = runtime.trace_frame().current_level.0;
     let (level_visuals, _) = load_session_assets(manifest, current_level_id)?;
@@ -2468,6 +2479,32 @@ mod tests {
             recording_trace_frame_count(&scenario),
             9000,
             "file-backed recordings must cover their declared checkpoint window even when a compact idle script stores one zero input byte"
+        );
+    }
+
+    #[test]
+    fn recording_probe_state_applies_initial_diamond_count_probe() {
+        let scenario = DynamicScenario {
+            slug: "diamond_power_wall_audit_00".into(),
+            script: vec![(1 << 7) | (1 << 6), 0],
+            frame_count: 2,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: Some(7),
+            initial_diamond_count: Some(50),
+            warp_to_level: Some(0),
+            settle_oracle_warp: true,
+        };
+        let manifest = fixture_manifest();
+        let mut runtime = NativeRuntime::new(manifest);
+        apply_recording_probe_state(&mut runtime, &scenario).expect("probe state");
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.diamond_count, 50,
+            "initial_diamond_count must apply to native recording as well as the oracle scenario"
         );
     }
 

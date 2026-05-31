@@ -61,9 +61,9 @@ use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
-    enemy_spawn_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
-    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario, idle_level_scenario,
+    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -101,6 +101,8 @@ enum RecordScenarioKind {
     LavaWeatherAudit,
     /// seed 20 diamonds and hold Start+A to audit The Kid's Circle of Doom.
     DiamondPowerCircleAudit,
+    /// seed 50 diamonds and hold Start+A to audit Berzerker's Wall of Death.
+    DiamondPowerWallAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2166,6 +2168,7 @@ fn build_record_scenario(
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
         RecordScenarioKind::LavaWeatherAudit => lava_weather_audit_scenario(level),
         RecordScenarioKind::DiamondPowerCircleAudit => diamond_power_circle_audit_scenario(level),
+        RecordScenarioKind::DiamondPowerWallAudit => diamond_power_wall_audit_scenario(level),
     }
 }
 
@@ -2210,6 +2213,7 @@ fn record_scenario_command(
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
         RecordScenarioKind::LavaWeatherAudit => "lava-weather-audit",
         RecordScenarioKind::DiamondPowerCircleAudit => "diamond-power-circle-audit",
+        RecordScenarioKind::DiamondPowerWallAudit => "diamond-power-wall-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -3890,6 +3894,8 @@ AddrTbl_LevelNames:
                 RecordScenarioKind::PrizeBlock,
                 RecordScenarioKind::StompEnemy,
                 RecordScenarioKind::LavaWeatherAudit,
+                RecordScenarioKind::DiamondPowerCircleAudit,
+                RecordScenarioKind::DiamondPowerWallAudit,
             ] {
                 let scenario = build_record_scenario(kind, level, None);
                 assert_eq!(
@@ -3939,6 +3945,16 @@ AddrTbl_LevelNames:
         assert_eq!(scenario.slug, "diamond_power_circle_audit_00");
         assert_eq!(scenario.playtest_form, Some(0));
         assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
+    fn build_record_scenario_diamond_power_wall_audit_seeds_berzerker_tier2_probe() {
+        let scenario = build_record_scenario(RecordScenarioKind::DiamondPowerWallAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "diamond_power_wall_audit_00");
+        assert_eq!(scenario.playtest_form, Some(7));
+        assert_eq!(scenario.initial_diamond_count, Some(50));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
     }
 

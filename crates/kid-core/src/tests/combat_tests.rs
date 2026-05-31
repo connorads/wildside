@@ -1088,6 +1088,46 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn wall_of_death_activation_exposes_live_dp_sprites_loc_3ffea_loc_4009c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.progression.diamond_count = 50;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_wall_slots.len(),
+            10,
+            "ASM DiamondPower_Init_WallOfDeath loc_3FFEA seeds ten DP-object slots"
+        );
+        assert!(
+            runtime.trace_frame().diamond_power_sprites.is_empty(),
+            "ASM DiamondPower_Run initialises Wall slots on activation; sprites are emitted by the next Wall main pass"
+        );
+
+        runtime.step_diamond_power(FrameInput::default());
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.diamond_power_sprites.len(),
+            10,
+            "ASM DiamondPower_Main_WallOfDeath loc_40026/loc_4009C should expose ten compiled DP sprites"
+        );
+        assert!(
+            trace
+                .diamond_power_sprites
+                .iter()
+                .any(|sprite| { sprite.size_word == 0x0500 && sprite.pattern_word == 0x86F6 }),
+            "ASM loc_4009C with initial size index 6 should map through word_4020E to `$0500,$86F6`"
+        );
+    }
+
     /// ASM DiamondPower_Main_CircleOfDoom damages ordinary enemies while
     /// diamond pickups stay collectible. Native AoE keeps that filtering and
     /// refreshes the authoritative active roster after a kill.

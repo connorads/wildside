@@ -4263,6 +4263,45 @@ impl NativeRuntime {
         self.diamond_power_circle_slots = retained_slots;
     }
 
+    fn step_diamond_power_wall_of_death_slots_loc_40026(&mut self) {
+        self.diamond_power_sprites.clear();
+        let camera_x = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.x_pos >> 16) as i16);
+        let camera_y = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
+        let timer = self.progression.diamond_power_frames as i16;
+
+        let mut retained_slots = Vec::with_capacity(self.diamond_power_wall_slots.len());
+        for mut slot in self.diamond_power_wall_slots.drain(..) {
+            match diamond_power_main_wall_of_death_slot(&mut slot, camera_x, camera_y, timer) {
+                WallOfDeathSlotAction::Visible {
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                    ..
+                } => {
+                    // ASM DiamondPower_Main_WallOfDeath loc_4006E/loc_4009C
+                    // compiles sprite-buffer coordinates and `word_4020E`
+                    // attrs after moving each DP-object slot.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    retained_slots.push(slot);
+                }
+                WallOfDeathSlotAction::Removed => {}
+            }
+        }
+        self.diamond_power_wall_slots = retained_slots;
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -5980,7 +6019,11 @@ impl NativeRuntime {
                     self.diamond_power_kill_enemies();
                 }
                 DiamondPowerType::WallOfDeath => {
-                    // AoE damage: kill enemies each frame (wall)
+                    // ASM DiamondPower_Main_WallOfDeath loc_40026 moves the
+                    // ten DP-object slots and compiles `word_4020E` sprites at
+                    // loc_4009C. Collision is still the coarse native AoE
+                    // path until the slot collision words are promoted.
+                    self.step_diamond_power_wall_of_death_slots_loc_40026();
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
                     self.diamond_power_kill_enemies();
@@ -6108,6 +6151,7 @@ impl NativeRuntime {
             if self.progression.diamond_power_frames == 0 {
                 self.progression.diamond_power_type = DiamondPowerType::None;
                 self.diamond_power_circle_slots.clear();
+                self.diamond_power_wall_slots.clear();
                 self.diamond_power_sprites.clear();
             }
             return;
@@ -6154,6 +6198,7 @@ impl NativeRuntime {
         let power = diamond_power_for_form(self.progression.current_form, tier2);
         self.progression.diamond_power_type = power;
         self.diamond_power_circle_slots.clear();
+        self.diamond_power_wall_slots.clear();
         self.diamond_power_sprites.clear();
 
         // Instant effects (no timer)
@@ -6182,6 +6227,11 @@ impl NativeRuntime {
             // then DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds
             // eight live DP-object slots before the main loop renders them.
             self.diamond_power_circle_slots = diamond_power_init_circle_of_doom_sub_3F7D0();
+        }
+        if power == DiamondPowerType::WallOfDeath {
+            // ASM DiamondPower_Init_WallOfDeath loc_3FFE4/loc_3FFEA seeds ten
+            // DP-object slots and stores `$4B0` into `Diamond_power_timer`.
+            self.diamond_power_wall_slots = diamond_power_init_wall_of_death().slots;
         }
     }
 

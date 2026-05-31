@@ -687,13 +687,12 @@ pub fn lava_weather_audit_scenario(level_id: u8) -> DynamicScenario {
     }
 }
 
-/// Focused #206 Diamond Power audit for The Kid's Circle of Doom.
-///
-/// ASM `DiamondPower_Check` spends from `Number_Diamonds` and dispatches id 0
-/// to `DiamondPower_Init_CircleOfDoom` / `loc_3F7D0`. The probe seeds exactly
-/// 20 diamonds, holds Start+A across the first input window, and samples the
-/// early object lifecycle where native currently uses a coarse AoE stub.
-pub fn diamond_power_circle_audit_scenario(level_id: u8) -> DynamicScenario {
+fn diamond_power_activation_audit_scenario(
+    level_id: u8,
+    slug_name: &str,
+    playtest_form: u16,
+    initial_diamond_count: u16,
+) -> DynamicScenario {
     const FRAME_COUNT: usize = 120;
     const START_A: u8 = (1 << 7) | (1 << 6);
 
@@ -701,7 +700,7 @@ pub fn diamond_power_circle_audit_scenario(level_id: u8) -> DynamicScenario {
     apply_range(&mut script, 0, 2, START_A);
 
     DynamicScenario {
-        slug: format!("diamond_power_circle_audit_{level_id:02x}"),
+        slug: format!("{slug_name}_{level_id:02x}"),
         script,
         frame_count: FRAME_COUNT,
         checkpoints: vec![
@@ -728,11 +727,31 @@ pub fn diamond_power_circle_audit_scenario(level_id: u8) -> DynamicScenario {
         ],
         start_position: None,
         camera_position: None,
-        playtest_form: Some(0),
-        initial_diamond_count: Some(20),
+        playtest_form: Some(playtest_form),
+        initial_diamond_count: Some(initial_diamond_count),
         warp_to_level: Some(level_id),
         settle_oracle_warp: true,
     }
+}
+
+/// Focused #206 Diamond Power audit for The Kid's Circle of Doom.
+///
+/// ASM `DiamondPower_Check` spends from `Number_Diamonds` and dispatches id 0
+/// to `DiamondPower_Init_CircleOfDoom` / `loc_3F7D0`. The probe seeds exactly
+/// 20 diamonds, holds Start+A across the first input window, and samples the
+/// early object lifecycle where native currently uses live Circle slots.
+pub fn diamond_power_circle_audit_scenario(level_id: u8) -> DynamicScenario {
+    diamond_power_activation_audit_scenario(level_id, "diamond_power_circle_audit", 0, 20)
+}
+
+/// Focused #206 Diamond Power audit for Berzerker's Wall of Death.
+///
+/// ASM `DiamondPower_Check` spends 20 diamonds, then spends the tier-2 30
+/// diamonds and dispatches Berzerker to `DiamondPower_Init_WallOfDeath`
+/// / `loc_3FFE4`. The probe seeds exactly 50 diamonds so the tier branch is
+/// deliberate and does not depend on ignored `.cache` state.
+pub fn diamond_power_wall_audit_scenario(level_id: u8) -> DynamicScenario {
+    diamond_power_activation_audit_scenario(level_id, "diamond_power_wall_audit", 7, 50)
 }
 
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
@@ -1090,10 +1109,10 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
-        diamond_power_circle_audit_scenario, enemy_spawn_audit_scenario,
-        idle_level_full_frame_scenario, idle_level_scenario, lava_weather_audit_scenario,
-        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-        walk_right_scenario,
+        diamond_power_circle_audit_scenario, diamond_power_wall_audit_scenario,
+        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
+        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+        stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -1176,6 +1195,18 @@ mod tests {
         assert_eq!(scenario.slug, "diamond_power_circle_audit_00");
         assert_eq!(scenario.playtest_form, Some(0));
         assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+    }
+
+    #[test]
+    fn diamond_power_wall_audit_seeds_berzerker_tier2_start_a_and_fifty_diamonds() {
+        let scenario = diamond_power_wall_audit_scenario(0x00);
+
+        assert_eq!(scenario.slug, "diamond_power_wall_audit_00");
+        assert_eq!(scenario.playtest_form, Some(7));
+        assert_eq!(scenario.initial_diamond_count, Some(50));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
         assert!(scenario.settle_oracle_warp);
         assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");

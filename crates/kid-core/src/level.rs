@@ -17197,6 +17197,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
+        self.diamond_power_wall_slots.clear();
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.enemy_death_effects.clear();
@@ -17298,6 +17299,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
+        self.diamond_power_wall_slots.clear();
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
@@ -17356,6 +17358,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
+        self.diamond_power_wall_slots.clear();
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
