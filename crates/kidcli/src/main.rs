@@ -60,9 +60,10 @@ use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
-    DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario, idle_level_scenario,
-    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-    stomp_enemy_scenario, walk_right_scenario,
+    DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
+    enemy_spawn_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
+    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+    walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -98,6 +99,8 @@ enum RecordScenarioKind {
     EnemySpawnAuditHeadyMetal,
     /// idle in a settled lava level to sample special-effect object workers.
     LavaWeatherAudit,
+    /// seed 20 diamonds and hold Start+A to audit The Kid's Circle of Doom.
+    DiamondPowerCircleAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2162,6 +2165,7 @@ fn build_record_scenario(
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
         RecordScenarioKind::LavaWeatherAudit => lava_weather_audit_scenario(level),
+        RecordScenarioKind::DiamondPowerCircleAudit => diamond_power_circle_audit_scenario(level),
     }
 }
 
@@ -2205,6 +2209,7 @@ fn record_scenario_command(
         RecordScenarioKind::StompEnemy => "stomp-enemy",
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
         RecordScenarioKind::LavaWeatherAudit => "lava-weather-audit",
+        RecordScenarioKind::DiamondPowerCircleAudit => "diamond-power-circle-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -3926,6 +3931,17 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn build_record_scenario_diamond_power_audit_seeds_activation_probe() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::DiamondPowerCircleAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "diamond_power_circle_audit_00");
+        assert_eq!(scenario.playtest_form, Some(0));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
     fn record_scenario_command_preserves_scripted_provenance() {
         let command = record_scenario_command(
             "issue-136-prize-emergence",
@@ -3950,6 +3966,7 @@ AddrTbl_LevelNames:
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -3973,6 +3990,7 @@ AddrTbl_LevelNames:
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: Some(0x15),
             settle_oracle_warp: false,
         };
@@ -3996,6 +4014,7 @@ AddrTbl_LevelNames:
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: Some(0x00),
             settle_oracle_warp: false,
         };

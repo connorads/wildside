@@ -282,6 +282,7 @@ pub(crate) fn build_recording(
                 start_position: None,
                 camera_position: None,
                 playtest_form: None,
+                initial_diamond_count: None,
                 warp_to_level: start.warp_level,
                 settle_oracle_warp: start.settled && start.warp_level.is_some(),
             },
@@ -822,6 +823,7 @@ pub(crate) fn oracle_scenario_for_recording(
             start_position: recording.manifest.scenario.start_position,
             camera_position: recording.manifest.scenario.camera_position,
             playtest_form: recording.manifest.scenario.playtest_form,
+            initial_diamond_count: recording.manifest.scenario.initial_diamond_count,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
             settle_oracle_warp: true,
         },
@@ -2456,6 +2458,7 @@ mod tests {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };

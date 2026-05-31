@@ -1353,6 +1353,10 @@ impl NativeRuntime {
         self.progression.number_hitpoints = form.max_hitpoints();
     }
 
+    pub fn set_probe_diamond_count(&mut self, count: u16) {
+        self.progression.diamond_count = count;
+    }
+
     #[allow(non_snake_case)]
     #[allow(dead_code)]
     fn stop_z80_guard_sub_914(&mut self) {

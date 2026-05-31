@@ -158,6 +158,7 @@ mod tests {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };

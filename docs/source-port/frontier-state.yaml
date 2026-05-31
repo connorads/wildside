@@ -534,7 +534,8 @@
     "140": 1,
     "143": 1,
     "175": 3,
-    "205": 2
+    "205": 2,
+    "206": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,

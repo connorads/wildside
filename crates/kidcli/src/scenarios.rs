@@ -259,6 +259,11 @@ pub struct DynamicScenario {
     /// (variables.asm); form-specific probes need both patched together.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playtest_form: Option<u16>,
+    /// Optional probe-only diamond count applied after a settled level warp.
+    /// ASM `Number_Diamonds` lives at `$FFFFFC42`; `DiamondPower_Check`
+    /// (`kid.asm:44357`) compares/subtracts it before dispatching the weapon.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_diamond_count: Option<u16>,
     /// Target level to warp to before running the script.
     /// Both native and oracle boot to level 0 first, then advance
     /// to this level using their own mechanism (native: direct skip,
@@ -326,6 +331,9 @@ pub(crate) fn run_native_dynamic_scenario(
             .ok_or_else(|| anyhow::anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
         runner = runner.playtest_form(form);
     }
+    if let Some(count) = scenario.initial_diamond_count {
+        runner = runner.initial_diamond_count(count);
+    }
 
     Ok(runner.run(&scenario.script, scenario.frame_count))
 }
@@ -360,6 +368,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -444,6 +453,7 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -493,6 +503,7 @@ pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
         start_position: Some(DynamicStartPosition { x: 760, y: 231 }),
         camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(0x00),
         settle_oracle_warp: true,
     }
@@ -569,6 +580,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -623,6 +635,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -668,6 +681,55 @@ pub fn lava_weather_audit_scenario(level_id: u8) -> DynamicScenario {
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(level_id),
+        settle_oracle_warp: true,
+    }
+}
+
+/// Focused #206 Diamond Power audit for The Kid's Circle of Doom.
+///
+/// ASM `DiamondPower_Check` spends from `Number_Diamonds` and dispatches id 0
+/// to `DiamondPower_Init_CircleOfDoom` / `loc_3F7D0`. The probe seeds exactly
+/// 20 diamonds, holds Start+A across the first input window, and samples the
+/// early object lifecycle where native currently uses a coarse AoE stub.
+pub fn diamond_power_circle_audit_scenario(level_id: u8) -> DynamicScenario {
+    const FRAME_COUNT: usize = 120;
+    const START_A: u8 = (1 << 7) | (1 << 6);
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, 2, START_A);
+
+    DynamicScenario {
+        slug: format!("diamond_power_circle_audit_{level_id:02x}"),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "diamond_power_input".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "diamond_power_activation".into(),
+                frame_index: 1,
+            },
+            DynamicCheckpoint {
+                label: "diamond_power_slot_window".into(),
+                frame_index: 8,
+            },
+            DynamicCheckpoint {
+                label: "diamond_power_mid".into(),
+                frame_index: 32,
+            },
+            DynamicCheckpoint {
+                label: "diamond_power_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form: Some(0),
+        initial_diamond_count: Some(20),
         warp_to_level: Some(level_id),
         settle_oracle_warp: true,
     }
@@ -714,6 +776,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         start_position: None,
         camera_position: None,
         playtest_form: None,
+        initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -802,6 +865,7 @@ impl Scenario {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         }
@@ -962,6 +1026,7 @@ impl GameplayScenario {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         })
@@ -984,6 +1049,7 @@ impl GameplayScenario {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         }
@@ -1024,9 +1090,10 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
-        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
-        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_scenario,
+        diamond_power_circle_audit_scenario, enemy_spawn_audit_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario, lava_weather_audit_scenario,
+        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+        walk_right_scenario,
     };
 
     #[test]
@@ -1041,6 +1108,7 @@ mod tests {
                 "start_position": {"x": 3152, "y": 176},
                 "camera_position": {"x": 3008, "y": 64},
                 "playtest_form": 7,
+                "initial_diamond_count": 20,
                 "settle_oracle_warp": true
             }"#,
         )
@@ -1055,6 +1123,7 @@ mod tests {
             Some(DynamicStartPosition { x: 3008, y: 64 })
         );
         assert_eq!(scenario.playtest_form, Some(7));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
         assert!(scenario.settle_oracle_warp);
     }
 
@@ -1071,6 +1140,7 @@ mod tests {
             start_position: None,
             camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
             warp_to_level: Some(0),
             settle_oracle_warp: false,
         };
@@ -1090,9 +1160,25 @@ mod tests {
             "legacy scenarios should keep their compact JSON shape"
         );
         assert!(
+            !json.contains("initial_diamond_count"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+        assert!(
             !json.contains("settle_oracle_warp"),
             "legacy scenarios should keep their compact JSON shape"
         );
+    }
+
+    #[test]
+    fn diamond_power_circle_audit_seeds_start_a_and_twenty_diamonds() {
+        let scenario = diamond_power_circle_audit_scenario(0x00);
+
+        assert_eq!(scenario.slug, "diamond_power_circle_audit_00");
+        assert_eq!(scenario.playtest_form, Some(0));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
     }
 
     #[test]

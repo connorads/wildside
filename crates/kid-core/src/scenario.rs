@@ -153,6 +153,7 @@ pub struct ScriptRunner {
     probe_start_position: Option<(u16, u16)>,
     probe_camera_position: Option<(u16, u16)>,
     playtest_form: Option<PlayerForm>,
+    initial_diamond_count: Option<u16>,
 }
 
 impl ScriptRunner {
@@ -166,6 +167,7 @@ impl ScriptRunner {
             probe_start_position: None,
             probe_camera_position: None,
             playtest_form: None,
+            initial_diamond_count: None,
         }
     }
 
@@ -217,6 +219,12 @@ impl ScriptRunner {
         self
     }
 
+    #[must_use]
+    pub fn initial_diamond_count(mut self, count: u16) -> Self {
+        self.initial_diamond_count = Some(count);
+        self
+    }
+
     pub fn run(self, script: &[u8], frame_count: usize) -> Vec<NativeTraceFrame> {
         let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
         if let Some(order) = self.physics_order {
@@ -246,6 +254,9 @@ impl ScriptRunner {
         }
         if let Some(form) = self.playtest_form {
             runtime.set_playtest_form(form);
+        }
+        if let Some(count) = self.initial_diamond_count {
+            runtime.set_probe_diamond_count(count);
         }
         let delay_recording_input = self.settle_warp == Some(SettleWarpMode::RecordingOracle);
         let mut trace = Vec::with_capacity(frame_count);
