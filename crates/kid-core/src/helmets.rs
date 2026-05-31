@@ -2057,6 +2057,50 @@ pub(crate) enum WallOfDeathSlotAction {
     Removed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerCollisionRectLoc1D84 {
+    pub(crate) left_px: i32,
+    pub(crate) right_px: i32,
+    pub(crate) top_px: i32,
+    pub(crate) bottom_px: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn wall_of_death_collision_rect_loc_1d84(
+    world_x: i16,
+    world_y: i16,
+    size_index: u16,
+) -> DiamondPowerCollisionRectLoc1D84 {
+    // ASM sub_1D84 (kid.asm:3558) uses `$22(a2)` as a CollisionSize_Index
+    // word. Wall slots write `$22 = $1144 + $24*4` at loc_4006E; size `$06`
+    // selects `unk_31DCC` (`dc.w -$7,$E,-$7,$E`), with the smaller fade
+    // sizes walking back through `unk_31D90`..`unk_31DC2`.
+    let half_size = i32::from(size_index.saturating_add(1));
+    let world_x = i32::from(world_x);
+    let world_y = i32::from(world_y);
+    DiamondPowerCollisionRectLoc1D84 {
+        left_px: world_x - half_size,
+        right_px: world_x + half_size,
+        top_px: world_y - half_size,
+        bottom_px: world_y + half_size,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn diamond_power_rects_overlap_loc_1d84(
+    target: DiamondPowerCollisionRectLoc1D84,
+    candidate: DiamondPowerCollisionRectLoc1D84,
+) -> bool {
+    // ASM sub_1D84 loc_1DF2/loc_1E1E uses inclusive signed comparisons:
+    // candidate.left <= target.right, candidate.right >= target.left,
+    // candidate.top <= target.bottom, candidate.bottom >= target.top.
+    candidate.left_px <= target.right_px
+        && candidate.right_px >= target.left_px
+        && candidate.top_px <= target.bottom_px
+        && candidate.bottom_px >= target.top_px
+}
+
 /// ASM DiamondPower_Main_WallOfDeath (kid.asm:45390) per-slot processing.
 ///
 /// Called once per slot in the linked list. The outer loop decrements
@@ -3314,6 +3358,51 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_wall_of_death_collision_rect_uses_unk_31dcc_loc_1d84() {
+        assert_eq!(
+            wall_of_death_collision_rect_loc_1d84(0x0091, 0x0104, 6),
+            DiamondPowerCollisionRectLoc1D84 {
+                left_px: 0x008A,
+                right_px: 0x0098,
+                top_px: 0x00FD,
+                bottom_px: 0x010B,
+            },
+            "ASM sub_1D84 should resolve Wall `$22=$115C` through CollisionSize_Index to `unk_31DCC` (-7,+14,-7,+14)",
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_overlap_loc_1d84_is_inclusive() {
+        let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 138,
+            right_px: 170,
+            top_px: 240,
+            bottom_px: 272,
+        };
+        let touching_slot = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 170,
+            right_px: 184,
+            top_px: 253,
+            bottom_px: 267,
+        };
+        let separated_slot = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 171,
+            right_px: 185,
+            top_px: 253,
+            bottom_px: 267,
+        };
+
+        assert!(
+            diamond_power_rects_overlap_loc_1d84(enemy_rect, touching_slot),
+            "ASM sub_1D84 loc_1DF2/loc_1E1E uses inclusive `bgt`/`blt` rejection, so equal edges still collide",
+        );
+        assert!(
+            !diamond_power_rects_overlap_loc_1d84(enemy_rect, separated_slot),
+            "ASM sub_1D84 should reject only once the candidate edge is beyond the target edge",
+        );
+    }
+
+    #[test]
     fn diamond_sprite_attr_reads_first_post_table_word_from_sub_40236_loc_3ffca() {
         // ASM loc_3FFCA / word_4020E / sub_40236
         // (kid.asm:45354, 45605, 45618): `move.b (a1,d6.w)` and
@@ -4231,6 +4320,54 @@ fn helmet_enemy_projectile_damage_target_snapshots(
 }
 
 impl NativeRuntime {
+    fn queue_wall_of_death_slot_collisions_loc_1d84(
+        &mut self,
+        world_x: i16,
+        world_y: i16,
+        size_index: u16,
+        queued_collisions: &mut Vec<(usize, usize)>,
+    ) {
+        let slot_rect = wall_of_death_collision_rect_loc_1d84(world_x, world_y, size_index);
+        let mut collisions = Vec::new();
+
+        for enemy in &self.active_enemies {
+            if queued_collisions
+                .iter()
+                .any(|&(segment_index, layout_index)| {
+                    segment_index == enemy.segment_index && layout_index == enemy.layout_index
+                })
+            {
+                continue;
+            }
+
+            let snapshot = enemy.snapshot();
+            let bounds = crate::combat::enemy_contact_bounds(&snapshot);
+            let enemy_x = (enemy.x_pos >> 16) as i32;
+            let enemy_y = (enemy.y_pos >> 16) as i32;
+            let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
+                left_px: enemy_x + bounds.left_px as i32,
+                right_px: enemy_x + bounds.right_px as i32,
+                top_px: enemy_y + bounds.top_px as i32,
+                bottom_px: enemy_y + bounds.bottom_px as i32,
+            };
+
+            if diamond_power_rects_overlap_loc_1d84(enemy_rect, slot_rect) {
+                // ASM loc_1EA0 (kid.asm:3665) maps the collided object's
+                // `$3A(a2) & $FF` through `unk_1EBE`; the family object type is
+                // the native equivalent for live enemy objects.
+                let collision_type = crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(
+                    enemy.family.object_type(),
+                );
+                collisions.push((*enemy, collision_type));
+                queued_collisions.push((enemy.segment_index, enemy.layout_index));
+            }
+        }
+
+        for (enemy, collision_type) in collisions {
+            self.queue_pending_enemy_collision(&enemy, collision_type);
+        }
+    }
+
     fn step_diamond_power_circle_of_doom_slots_loc_3f81a(&mut self) {
         self.diamond_power_sprites.clear();
         let Some(slice) = self.opening_slice.as_ref() else {
@@ -4275,10 +4412,14 @@ impl NativeRuntime {
             .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
         let timer = self.progression.diamond_power_frames as i16;
 
-        let mut retained_slots = Vec::with_capacity(self.diamond_power_wall_slots.len());
-        for mut slot in self.diamond_power_wall_slots.drain(..) {
+        let wall_slots = std::mem::take(&mut self.diamond_power_wall_slots);
+        let mut retained_slots = Vec::with_capacity(wall_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in wall_slots {
             match diamond_power_main_wall_of_death_slot(&mut slot, camera_x, camera_y, timer) {
                 WallOfDeathSlotAction::Visible {
+                    world_x,
+                    world_y,
                     y,
                     size_byte,
                     pattern,
@@ -4294,6 +4435,12 @@ impl NativeRuntime {
                         size_word: u16::from(size_byte) << 8,
                         pattern_word: pattern,
                     });
+                    self.queue_wall_of_death_slot_collisions_loc_1d84(
+                        world_x,
+                        world_y,
+                        slot.size_index,
+                        &mut queued_collisions,
+                    );
                     retained_slots.push(slot);
                 }
                 WallOfDeathSlotAction::Removed => {}

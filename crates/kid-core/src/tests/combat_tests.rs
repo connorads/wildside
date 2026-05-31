@@ -6930,6 +6930,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_walking_death_animation_bypasses_live_retention_loc_3cefc() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x0D,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 336,
+                y: 432,
+            }],
+            segments: vec![],
+        };
+        let enemy = ActiveEnemy {
+            x_pos: 0x009A_0000,
+            y_pos: 0x0110_0000,
+            family: EnemyFamily::DragonWalking,
+            on_ground: true,
+            hit_points: 0,
+            death_animation_active: true,
+            wait_timer: DRAGON_WALKING_DEATH_ANIMATION_FRAMES,
+            ..test_enemy(EnemyFamily::DragonWalking, 0, 0, 1)
+        };
+        let live_enemy = ActiveEnemy {
+            death_animation_active: false,
+            hit_points: 1,
+            ..enemy
+        };
+        let window = ActivationWindow::from_camera(CameraState {
+            x_pos: 0,
+            y_pos: 0x0073_0000,
+        });
+        let view = enemy_layout_view(&layout, 0, 0x0073);
+        let level_bounds = physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 224,
+        };
+
+        assert!(
+            !enemy_should_remain_active(&live_enemy, &view, window, 0, 0x0073, level_bounds, 4),
+            "this reproduces the wall-audit failure: the live DragonWalking cull would drop the death object by y bounds"
+        );
+        assert!(
+            enemy_should_remain_active(&enemy, &view, window, 0, 0x0073, level_bounds, 4),
+            "ASM Dragon.asm loc_3CEFC hibernates through `stru_3CCEC` before loc_3E956 can delete the walking dragon",
+        );
+    }
+
+    #[test]
     fn lion_sub_3e8ba_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
         // ASM Lion.asm sub_3E8BA culls from the lion's live position, not its
         // layout anchor. With 11..20 active objects, the live lion stays loaded
@@ -9147,6 +9200,34 @@ mod chunk_03 {
             dragon.wait_timer, 1,
             "live walker cadence must not be consumed by the death-animation hibernate path"
         );
+    }
+
+    #[test]
+    fn dragon_walking_death_ignores_repeated_pending_collision_loc_3cefc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 1);
+        dragon.layout_index = 16;
+        dragon.hit_points = 0;
+        dragon.death_animation_active = true;
+        dragon.wait_timer = DRAGON_WALKING_DEATH_ANIMATION_FRAMES - 8;
+        let killed_identity = (dragon.segment_index, dragon.layout_index);
+        runtime.active_enemies = vec![dragon];
+        let collision_target = runtime.active_enemies[0];
+
+        runtime.queue_pending_enemy_collision(&collision_target, DRAGON_COLID_KIDABOVE);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEFC is hibernating inside `stru_3CCEC`, so a repeated Wall-of-Death collision word must not jump to loc_3E956 early",
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRAGON_WALKING_DEATH_ANIMATION_FRAMES - 8
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
     }
 
     #[test]

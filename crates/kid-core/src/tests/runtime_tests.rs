@@ -12271,6 +12271,47 @@ mod chunk_09 {
     }
 
     #[test]
+    fn wall_of_death_slot_collision_queues_dragon_kidabove_loc_1d84_1ea0() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.y_pos = 0x0073_0000;
+        rt.opening_slice = Some(slice);
+        rt.progression.diamond_power_type = crate::helmets::DiamondPowerType::WallOfDeath;
+        rt.progression.diamond_power_frames = 100;
+        rt.diamond_power_wall_slots = vec![crate::helmets::WallOfDeathSlot {
+            x_offset: 0x0091,
+            y_offset: 0x0091,
+            reached_right_edge: false,
+            size_index: 6,
+        }];
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            0x009A_0000,
+            0x0110_0000,
+            1,
+        ));
+
+        rt.step_diamond_power(FrameInput::default());
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_1EA0 writes the collision word during the DP-object scan; the enemy family consumes it on the next object pass",
+        );
+
+        rt.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            rt.active_enemies.len(),
+            1,
+            "ASM Dragon.asm loc_3CEFC enters the death animation instead of deleting the live object immediately",
+        );
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 0,
+            "ASM loc_1EA0 should map DragonWalking `$3A & $FF == $0D` to `$002C`, then Dragon.asm loc_3CE9A/loc_3CEBE should consume it as damage",
+        );
+        assert!(rt.active_enemies[0].death_animation_active);
+    }
+
+    #[test]
     fn kid_projectile_helper_spawn_loc_1e5e_allocates_loc_1f08_and_copies_projectile_coordinates() {
         assert_eq!(
             crate::projectiles::kid_projectile_helper_spawn_loc_1E5E(0x0123, 0x0456, 0x0000),

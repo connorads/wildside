@@ -7605,7 +7605,11 @@ impl NativeRuntime {
         self.stomped_this_frame = true;
     }
 
-    fn queue_pending_enemy_collision(&mut self, enemy: &ActiveEnemy, collision_type: u16) {
+    pub(crate) fn queue_pending_enemy_collision(
+        &mut self,
+        enemy: &ActiveEnemy,
+        collision_type: u16,
+    ) {
         self.pending_enemy_collisions.push(PendingEnemyCollision {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
@@ -7643,6 +7647,14 @@ impl NativeRuntime {
             let berzerker_charging = matches!(self.progression.current_form, PlayerForm::Berzerker)
                 && self.helmet.berzerker_charging;
             let enemy = &mut self.active_enemies[active_idx];
+            if enemy.death_animation_active && enemy_death_animation_frames(enemy.family).is_some()
+            {
+                // ASM Dragon.asm loc_3CEFC and sibling death tails are inside
+                // j_Hibernate_UntilAnimFinished; freshly written collision
+                // words are not consumed until the death tail deletes the
+                // object.
+                continue;
+            }
             if matches!(enemy.family, EnemyFamily::Tank) {
                 let route = tank_update_loc_3b41c(
                     collision.collision_type,

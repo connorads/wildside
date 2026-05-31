@@ -14466,6 +14466,13 @@ pub(crate) fn enemy_should_remain_active(
     level_bounds: physics::LevelBounds,
     active_enemy_count: usize,
 ) -> bool {
+    if enemy.death_animation_active && enemy_death_animation_frames(enemy.family).is_some() {
+        // ASM Dragon.asm loc_3CEFC and the other family death tails hibernate
+        // until the death animation finishes, then enter their delete tail.
+        // They do not run the live object offscreen/deactivation checks while
+        // the corpse animation is hibernating.
+        return true;
+    }
     if enemy.segment_index != view.segment_index {
         return false;
     }
