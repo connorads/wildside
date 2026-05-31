@@ -966,8 +966,11 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
         DiamondPowerType::FiveWayShot => 80,   // $50
         DiamondPowerType::MiniSnake => 480,    // $1E0
         DiamondPowerType::DeathSnake => 1200,  // $4B0
-        DiamondPowerType::ExtraHitPoint => 0,  // instant
-        DiamondPowerType::ExtraLife => 0,      // instant
+        // ASM ExtraHPLife clears Diamond_power_timer at init and increments
+        // it in DiamondPower_Main_ExtraHPLife until the orbit converges. The
+        // native countdown uses this window to keep the runtime path active.
+        DiamondPowerType::ExtraHitPoint => 96,
+        DiamondPowerType::ExtraLife => 96,
         DiamondPowerType::WallOfDeath => 1200, // $4B0
     }
 }
@@ -4740,6 +4743,87 @@ impl NativeRuntime {
         self.diamond_power_snake_slots = retained_slots;
     }
 
+    fn initialise_diamond_power_extra_hp_life_slots_loc_3fb96(&mut self, power: DiamondPowerType) {
+        let is_extra_life = match power {
+            DiamondPowerType::ExtraHitPoint => false,
+            DiamondPowerType::ExtraLife => true,
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_ExtraHitPoint loc_3FB90 /
+        // DiamondPower_Init_ExtraLife loc_3FB94 fall through to loc_3FB96,
+        // allocate ten DP-object slots, then clear Diamond_power_timer.
+        self.diamond_power_extra_hp_life_slots =
+            diamond_power_init_extra_hp_life(is_extra_life).slots;
+    }
+
+    fn step_diamond_power_extra_hp_life_slots_loc_3fbe4(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+        let duration = diamond_power_duration(self.progression.diamond_power_type);
+        let timer = duration.saturating_sub(self.progression.diamond_power_frames);
+
+        let slots = std::mem::take(&mut self.diamond_power_extra_hp_life_slots);
+        let mut retained_slots = Vec::with_capacity(slots.len());
+        for mut slot in slots {
+            match diamond_power_main_extra_hp_life_slot(
+                &mut slot,
+                kid_x,
+                kid_y,
+                camera_x,
+                camera_y,
+                timer,
+                self.progression.extra_hitpoint_slots,
+            ) {
+                ExtraHPLifeSlotAction::Visible {
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                } => {
+                    // ASM loc_3FC56 compiles the orbiting reward sprites
+                    // through word_4020E while the slots expand/contract.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    retained_slots.push(slot);
+                }
+                ExtraHPLifeSlotAction::Converged {
+                    awarded_hp,
+                    awarded_life,
+                } => {
+                    if awarded_hp {
+                        self.progression.extra_hitpoint_slots =
+                            self.progression.extra_hitpoint_slots.saturating_add(1);
+                        self.progression.number_hitpoints =
+                            self.progression.number_hitpoints.saturating_add(1);
+                    }
+                    if awarded_life {
+                        self.progression.number_lives =
+                            self.progression.number_lives.saturating_add(1);
+                    }
+                    // ASM loc_3FC52 branches to sub_3F63C, clearing all live
+                    // DP-object slots after the first converged reward.
+                    self.progression.diamond_power_frames = 0;
+                    self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.diamond_power_sprites.clear();
+                    self.diamond_power_extra_hp_life_slots.clear();
+                    return;
+                }
+            }
+        }
+        self.diamond_power_extra_hp_life_slots = retained_slots;
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -6553,9 +6637,13 @@ impl NativeRuntime {
                     }
                     self.step_diamond_power_snake_slots_loc_3f978();
                 }
-                DiamondPowerType::None
-                | DiamondPowerType::ExtraHitPoint
-                | DiamondPowerType::ExtraLife => {}
+                DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife => {
+                    // ASM DiamondPower_Main_ExtraHPLife increments
+                    // Diamond_power_timer, renders the ten reward slots, and
+                    // awards HP/life only when loc_3FC2A converges.
+                    self.step_diamond_power_extra_hp_life_slots_loc_3fbe4();
+                }
+                DiamondPowerType::None => {}
             }
 
             if self.progression.diamond_power_frames == 0 {
@@ -6564,6 +6652,7 @@ impl NativeRuntime {
                 self.diamond_power_wall_slots.clear();
                 self.diamond_power_five_way_slots.clear();
                 self.diamond_power_snake_slots.clear();
+                self.diamond_power_extra_hp_life_slots.clear();
                 self.diamond_power_sprites.clear();
             }
             return;
@@ -6613,23 +6702,8 @@ impl NativeRuntime {
         self.diamond_power_wall_slots.clear();
         self.diamond_power_five_way_slots.clear();
         self.diamond_power_snake_slots.clear();
+        self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_sprites.clear();
-
-        // Instant effects (no timer)
-        match power {
-            DiamondPowerType::ExtraHitPoint => {
-                self.progression.number_hitpoints =
-                    self.progression.number_hitpoints.saturating_add(1);
-                self.progression.diamond_power_frames = 1; // single frame for visual feedback
-                return;
-            }
-            DiamondPowerType::ExtraLife => {
-                self.progression.number_lives = self.progression.number_lives.saturating_add(1);
-                self.progression.diamond_power_frames = 1;
-                return;
-            }
-            _ => {}
-        }
 
         // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for
         // DiamondPower_Init_TrackingRain/SlashingRain — clr.w ($FFFFF5C0).w
@@ -6670,6 +6744,12 @@ impl NativeRuntime {
             DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake
         ) {
             self.initialise_diamond_power_snake_slots_loc_3f91c(power);
+        }
+        if matches!(
+            power,
+            DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife
+        ) {
+            self.initialise_diamond_power_extra_hp_life_slots_loc_3fb96(power);
         }
     }
 }

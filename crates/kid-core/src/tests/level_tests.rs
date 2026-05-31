@@ -17941,7 +17941,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn diamond_power_iron_knight_tier2_grants_hp() {
+    fn diamond_power_iron_knight_tier2_grants_hp_after_reward_orbit_loc_3fc4c() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
@@ -17954,9 +17954,16 @@ mod chunk_02 {
             ..FrameInput::default()
         });
         assert_eq!(
+            runtime.progression.number_hitpoints, hp_before,
+            "ASM DiamondPower_Init_ExtraHitPoint loc_3FB90 seeds the reward orbit; loc_3FC4C grants HP only after convergence"
+        );
+        for _ in 0..97 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
             runtime.progression.number_hitpoints,
             hp_before + 1,
-            "IronKnight tier2 grants +1 HP"
+            "ASM loc_3FC4C: IronKnight tier2 grants +1 HP after the reward orbit converges"
         );
     }
 }

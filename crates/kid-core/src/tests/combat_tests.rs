@@ -47,7 +47,7 @@ mod chunk_03 {
     use crate::helmets::DiamondPowerType;
 
     #[test]
-    fn diamond_power_maniaxe_tier2_grants_life() {
+    fn diamond_power_maniaxe_tier2_grants_life_after_reward_orbit_loc_3fc4e() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
@@ -60,9 +60,16 @@ mod chunk_03 {
             ..FrameInput::default()
         });
         assert_eq!(
+            runtime.progression.number_lives, lives_before,
+            "ASM DiamondPower_Init_ExtraLife loc_3FB94 seeds the reward orbit; loc_3FC4E grants the life only after convergence"
+        );
+        for _ in 0..97 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
             runtime.progression.number_lives,
             lives_before + 1,
-            "Maniaxe tier2 grants +1 life"
+            "ASM loc_3FC4E: Maniaxe tier2 grants +1 life after the reward orbit converges"
         );
     }
 
@@ -1160,6 +1167,97 @@ mod chunk_03 {
                 .iter()
                 .any(|sprite| { sprite.size_word == 0x0500 && sprite.pattern_word == 0x86F6 }),
             "ASM loc_4009C with initial size index 6 should map through word_4020E to `$0500,$86F6`"
+        );
+    }
+
+    #[test]
+    fn extra_hit_point_activation_waits_for_orbit_convergence_loc_3fb96_loc_3fc2a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        runtime.progression.extra_hitpoint_slots = 0;
+        runtime.progression.diamond_count = 50;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_extra_hp_life_slots.len(),
+            10,
+            "ASM loc_3FB96/loc_3FB9A: ExtraHitPoint seeds ten orbiting DP-object slots"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints(),
+            "ASM DiamondPower_Main_ExtraHPLife awards HP at loc_3FC2A convergence, not on activation"
+        );
+        assert_eq!(runtime.progression.extra_hitpoint_slots, 0);
+
+        runtime.step_diamond_power(FrameInput::default());
+        assert_eq!(
+            runtime.trace_frame().diamond_power_sprites.len(),
+            10,
+            "ASM loc_3FC56: reward orbit should emit ten sprites before convergence"
+        );
+
+        for _ in 0..96 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 1,
+            "ASM loc_3FC4C: ExtraHitPoint increments Extra_hitpoint_slots once after convergence"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints() + 1,
+            "ASM loc_3FC4C: ExtraHitPoint increments Number_Hitpoints once after convergence"
+        );
+        assert!(
+            runtime.diamond_power_extra_hp_life_slots.is_empty(),
+            "ASM loc_3FC52 branches to sub_3F63C and clears the DP-object list"
+        );
+    }
+
+    #[test]
+    fn extra_life_activation_waits_for_orbit_convergence_loc_3fb94_loc_3fc4e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Maniaxe;
+        runtime.progression.number_lives = 3;
+        runtime.progression.diamond_count = 50;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_extra_hp_life_slots.len(),
+            10,
+            "ASM loc_3FB94/loc_3FB96: ExtraLife seeds ten orbiting DP-object slots"
+        );
+        assert_eq!(
+            runtime.progression.number_lives, 3,
+            "ASM loc_3FC4E awards the life only when the orbit converges"
+        );
+
+        for _ in 0..97 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.number_lives, 4,
+            "ASM loc_3FC4E: ExtraLife increments Number_Lives once after convergence"
+        );
+        assert!(
+            runtime.diamond_power_extra_hp_life_slots.is_empty(),
+            "ASM loc_3FC52 clears reward slots after the first convergence"
         );
     }
 
