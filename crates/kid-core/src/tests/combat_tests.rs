@@ -9435,6 +9435,69 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_mid_shoot_child_kidabove_collision_hits_parent_loc_3aad4_3ab04() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 3;
+        robot.layout_index = 19;
+        runtime.active_enemies = vec![robot];
+        runtime.rebuild_active_enemy_roster();
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: robot.segment_index,
+                layout_index: robot.layout_index,
+                collision_type: 0x002C,
+                target: PendingEnemyCollisionTarget::ChildAttachment,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Robot.asm loc_3AAD4 treats live child `$38(a2)==$2C` as the shoot-time hit-reaction route"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].robot_state,
+            RobotState::Walking,
+            "ASM Robot.asm loc_3AB04 -> loc_3AAC4 should resume walking after a nonfatal shoot-time child hit"
+        );
+        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL);
+    }
+
+    #[test]
+    fn robot_mid_shoot_child_side_without_berzerker_restores_walk_loc_3aafa_3aa9e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = false;
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 3;
+        robot.layout_index = 20;
+        runtime.active_enemies = vec![robot];
+        runtime.rebuild_active_enemy_roster();
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: robot.segment_index,
+                layout_index: robot.layout_index,
+                collision_type: 0x0020,
+                target: PendingEnemyCollisionTarget::ChildAttachment,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Robot.asm loc_3AAFA branches to loc_3AA9E, not destroy or HP damage, when Berzerker_charging is clear"
+        );
+        assert_eq!(runtime.active_enemies[0].robot_state, RobotState::Walking);
+        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_SHOOT_INTERVAL);
+        assert!(!runtime.active_enemies[0].death_animation_active);
+    }
+
+    #[test]
     fn scorpion_death_waits_for_stru_3db80_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 1);

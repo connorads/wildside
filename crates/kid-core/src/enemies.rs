@@ -19060,7 +19060,6 @@ pub(crate) fn robot_jump_sound_edge_loc_3a890(
     body_sprite_is_landing_frame && animation_timer == 4 && !motion_suppressed
 }
 
-#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotCollisionRouteLoc3A8Ae {
     ClearAndWalk,
@@ -19070,7 +19069,6 @@ pub(crate) enum RobotCollisionRouteLoc3A8Ae {
     Destroy,
 }
 
-#[cfg(test)]
 pub(crate) fn robot_collision_dispatch_loc_3a8ae(
     parent_collision_type: i16,
     child_collision_type: i16,
@@ -19098,7 +19096,6 @@ pub(crate) fn robot_collision_dispatch_loc_3a8ae(
     }
 }
 
-#[cfg(test)]
 pub(crate) fn robot_berzerker_side_gate_loc_3a9cc(
     berzerker_charging: bool,
 ) -> RobotCollisionRouteLoc3A8Ae {
@@ -19112,7 +19109,6 @@ pub(crate) fn robot_berzerker_side_gate_loc_3a9cc(
     }
 }
 
-#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotDestroyPrepLoc3A9D2 {
     pub(crate) child_status_13: bool,
@@ -19123,7 +19119,6 @@ pub(crate) struct RobotDestroyPrepLoc3A9D2 {
     pub(crate) route: RobotCollisionRouteLoc3A8Ae,
 }
 
-#[cfg(test)]
 pub(crate) fn robot_destroy_prep_loc_3a9d2() -> RobotDestroyPrepLoc3A9D2 {
     // ASM Robot.asm loc_3A9D2: hide the child (`sf $13(a2)`), mark child and
     // parent Kid collision flags, run `stru_3A74A` to completion, then branch
@@ -19453,7 +19448,6 @@ pub(crate) fn robot_shoot_resume_loc_3aac4(x_direction: u8) -> RobotShootResumeL
     }
 }
 
-#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotShootCollisionRouteLoc3AAD4 {
     RestoreShootWalk,
@@ -19461,7 +19455,6 @@ pub(crate) enum RobotShootCollisionRouteLoc3AAD4 {
     Destroy,
 }
 
-#[cfg(test)]
 pub(crate) fn robot_shoot_berzerker_side_gate_loc_3aafa(
     berzerker_charging: bool,
 ) -> RobotShootCollisionRouteLoc3AAD4 {
@@ -19475,7 +19468,6 @@ pub(crate) fn robot_shoot_berzerker_side_gate_loc_3aafa(
     }
 }
 
-#[cfg(test)]
 pub(crate) fn robot_shoot_collision_dispatch_loc_3aad4(
     child_collision_type_d0: u16,
     latched_child_collision_type_d4: u16,
@@ -19716,7 +19708,7 @@ fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyP
     }
 }
 
-fn finish_robot_shoot_sequence(enemy: &mut ActiveEnemy) {
+pub(crate) fn finish_robot_shoot_sequence(enemy: &mut ActiveEnemy) {
     // ASM Robot.asm loc_3AAC4: the completed shoot sequence clears the child
     // collision word and resumes the shared walker. loc_3A96C charge entry is
     // reached by collision/hit routes, not by ordinary shooting.

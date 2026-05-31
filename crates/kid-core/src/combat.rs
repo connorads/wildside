@@ -7711,25 +7711,84 @@ impl NativeRuntime {
                 continue;
             }
 
-            if matches!(enemy.family, EnemyFamily::Robot)
-                && (collision.collision_type as i16).is_negative()
-            {
-                match collision.target {
-                    PendingEnemyCollisionTarget::Parent => {
+            if matches!(enemy.family, EnemyFamily::Robot) {
+                let parent_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => collision.collision_type as i16,
+                    PendingEnemyCollisionTarget::ChildAttachment => 0,
+                };
+                let child_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => 0,
+                    PendingEnemyCollisionTarget::ChildAttachment => collision.collision_type as i16,
+                };
+                let enter_charge = |enemy: &mut ActiveEnemy| {
+                    enemy.robot_state = RobotState::Charging;
+                    enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
+                    enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
+                    enemy.y_velocity = 0;
+                };
+
+                if matches!(enemy.robot_state, RobotState::Aiming) {
+                    let route = robot_shoot_collision_dispatch_loc_3aad4(
+                        child_collision as u16,
+                        child_collision as u16,
+                        parent_collision as u16,
+                        berzerker_charging,
+                    );
+                    match route {
+                        RobotShootCollisionRouteLoc3AAD4::HitReaction => {
+                            // ASM Robot.asm loc_3AAD4 -> loc_3AB04: shoot-time
+                            // child `$2C`, stale child `$1C`, or parent
+                            // colid_hurt enter the Robot hit reaction before
+                            // either resuming walk or charging on the final HP.
+                            if enemy.take_damage_or_queue_death() {
+                                kill_indices.push(active_idx);
+                            }
+                            changed_enemy_state = true;
+                        }
+                        RobotShootCollisionRouteLoc3AAD4::Destroy => {
+                            // ASM Robot.asm loc_3AAFA: only an active Berzerker
+                            // charge turns shoot-time side contact into the
+                            // shared loc_3A9D2 destroy-animation route.
+                            kill_indices.push(active_idx);
+                        }
+                        RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk => {
+                            // ASM Robot.asm loc_3AA9E -> loc_3AAC4: ordinary
+                            // side contact during the shoot coroutine restores
+                            // the shooting head and then resumes the walker.
+                            finish_robot_shoot_sequence(enemy);
+                            changed_enemy_state = true;
+                        }
+                    }
+                    continue;
+                }
+
+                let route = robot_collision_dispatch_loc_3a8ae(
+                    parent_collision,
+                    child_collision,
+                    berzerker_charging,
+                );
+                match route {
+                    RobotCollisionRouteLoc3A8Ae::Destroy => {
                         // ASM Robot.asm loc_3A8AE: a signed-negative parent
                         // `collision_type(a3)` branches to loc_3A9D2, the
                         // destroy-animation prep path.
                         kill_indices.push(active_idx);
                     }
-                    PendingEnemyCollisionTarget::ChildAttachment => {
-                        // ASM Robot.asm loc_3A8AE: a signed-negative linked
-                        // head `$38(a2)` branches to loc_3A96C, bypassing the
-                        // loc_3A8FC HP decrement path.
-                        enemy.robot_state = RobotState::Charging;
-                        enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
-                        enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
-                        enemy.y_velocity = 0;
+                    RobotCollisionRouteLoc3A8Ae::EnterCharge
+                    | RobotCollisionRouteLoc3A8Ae::ContinueCharge => {
+                        // ASM Robot.asm loc_3A8AE/loc_3A96C: child negative
+                        // or `$800` collision enters/continues the charge path
+                        // without the loc_3A8FC HP decrement route.
+                        enter_charge(enemy);
+                        changed_enemy_state = true;
                     }
+                    RobotCollisionRouteLoc3A8Ae::HitReaction => {
+                        if enemy.take_damage_or_queue_death() {
+                            kill_indices.push(active_idx);
+                        }
+                        changed_enemy_state = true;
+                    }
+                    RobotCollisionRouteLoc3A8Ae::ClearAndWalk => {}
                 }
                 continue;
             }
