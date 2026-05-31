@@ -699,32 +699,52 @@ fn diamond_power_activation_audit_scenario(
     let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
     apply_range(&mut script, 0, 2, START_A);
 
+    let mut checkpoints = vec![
+        DynamicCheckpoint {
+            label: "diamond_power_input".into(),
+            frame_index: 0,
+        },
+        DynamicCheckpoint {
+            label: "diamond_power_activation".into(),
+            frame_index: 1,
+        },
+        DynamicCheckpoint {
+            label: "diamond_power_slot_window".into(),
+            frame_index: 8,
+        },
+        DynamicCheckpoint {
+            label: "diamond_power_mid".into(),
+            frame_index: 32,
+        },
+    ];
+
+    // ASM `DiamondPower_Check` dispatches the power object quickly, but #206
+    // failures can surface much later after the settled warp starts moving.
+    // Keep a dense tail window so recording verification identifies the first
+    // causal frame instead of only reporting the final-frame divergence.
+    for frame_index in (40..FRAME_COUNT.saturating_sub(1)).step_by(8) {
+        checkpoints.push(DynamicCheckpoint {
+            label: format!("diamond_power_tail_probe_{frame_index:03}"),
+            frame_index,
+        });
+    }
+    for frame_index in 57..64 {
+        checkpoints.push(DynamicCheckpoint {
+            label: format!("diamond_power_transition_probe_{frame_index:03}"),
+            frame_index,
+        });
+    }
+    checkpoints.sort_by_key(|checkpoint| checkpoint.frame_index);
+    checkpoints.push(DynamicCheckpoint {
+        label: "diamond_power_tail".into(),
+        frame_index: FRAME_COUNT.saturating_sub(1),
+    });
+
     DynamicScenario {
         slug: format!("{slug_name}_{level_id:02x}"),
         script,
         frame_count: FRAME_COUNT,
-        checkpoints: vec![
-            DynamicCheckpoint {
-                label: "diamond_power_input".into(),
-                frame_index: 0,
-            },
-            DynamicCheckpoint {
-                label: "diamond_power_activation".into(),
-                frame_index: 1,
-            },
-            DynamicCheckpoint {
-                label: "diamond_power_slot_window".into(),
-                frame_index: 8,
-            },
-            DynamicCheckpoint {
-                label: "diamond_power_mid".into(),
-                frame_index: 32,
-            },
-            DynamicCheckpoint {
-                label: "diamond_power_tail".into(),
-                frame_index: FRAME_COUNT.saturating_sub(1),
-            },
-        ],
+        checkpoints,
         start_position: None,
         camera_position: None,
         playtest_form: Some(playtest_form),
@@ -1231,6 +1251,20 @@ mod tests {
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
         assert!(scenario.settle_oracle_warp);
         assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(
+                    |checkpoint| checkpoint.label == "diamond_power_tail_probe_040"
+                        && checkpoint.frame_index == 40
+                )
+        );
+        assert_eq!(
+            scenario.checkpoints.last().unwrap().label,
+            "diamond_power_tail"
+        );
+        assert_eq!(scenario.checkpoints.last().unwrap().frame_index, 119);
     }
 
     #[test]
@@ -1243,6 +1277,29 @@ mod tests {
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
         assert!(scenario.settle_oracle_warp);
         assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(
+                    |checkpoint| checkpoint.label == "diamond_power_tail_probe_040"
+                        && checkpoint.frame_index == 40
+                )
+        );
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(
+                    |checkpoint| checkpoint.label == "diamond_power_transition_probe_057"
+                        && checkpoint.frame_index == 57
+                )
+        );
+        assert_eq!(
+            scenario.checkpoints.last().unwrap().label,
+            "diamond_power_tail"
+        );
+        assert_eq!(scenario.checkpoints.last().unwrap().frame_index, 119);
     }
 
     #[test]
