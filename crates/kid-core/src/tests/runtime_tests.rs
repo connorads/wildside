@@ -6383,6 +6383,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_probe_level_one_suppresses_inner_visible_drips_spawn() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(1));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(1));
+        assert!(
+            runtime
+                .active_enemies
+                .iter()
+                .all(|enemy| { enemy.family != crate::enemies::EnemyFamily::Drips }),
+            "settled Level 1 recording baseline should not already contain the lower Drips controllers"
+        );
+        runtime.set_player_probe_position(0x0158, 0x023F);
+        runtime.set_camera_probe_position(0x00C0, 0x0160);
+        assert!(runtime.enemy_loading_initial_pass_complete);
+
+        let frame = runtime.step_frame(FrameInput::default());
+
+        assert!(
+            frame.active_objects.iter().all(|object| {
+                object.kind != (NativeObjectKind::Enemy { object_type: 0x16 })
+                    || object.layout_index != Some(7)
+            }),
+            "ASM Manage_EnemyLoading loc_36900 skips post-initial-pass spawns inside the inner visible box; the Level 1 Drips at layout index 7 sits at dx=$0108/dy=$00BF and must not pop into a settled recording probe",
+        );
+    }
+
+    #[test]
     fn settled_recording_level_12_flag_touch_preserves_oracle_stale_enemy_gfx_loc_c056() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

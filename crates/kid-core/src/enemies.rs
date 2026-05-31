@@ -8574,6 +8574,20 @@ impl ActivationWindow {
     }
 }
 
+fn enemy_spawn_inside_visible_inner_window_loc_36900(
+    object_x_px: u32,
+    object_y_px: u32,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) -> bool {
+    let dx = object_x_px as i32 - camera_x_px as i32;
+    let dy = object_y_px as i32 - camera_y_px as i32;
+    // ASM Manage_EnemyLoading loc_36900 (kid.asm:38042-38053): after
+    // `$FFFFFB51` has been set by the first pass, objects already inside the
+    // visible inner box are skipped so they do not pop into view.
+    (-0x20..=0x160).contains(&dx) && (-0x20..=0x100).contains(&dy)
+}
+
 impl ActiveEnemy {
     pub(crate) fn is_dragon_walking_parent_spawned_child(&self) -> bool {
         matches!(self.family, EnemyFamily::DragonWalking)
@@ -9201,6 +9215,7 @@ pub(crate) fn activate_enemies(
         player_x,
         player_y,
         0,
+        false,
         killed,
         &mut rng,
     );
@@ -9217,6 +9232,7 @@ pub(crate) fn activate_enemies_with_rng(
     player_x: u32,
     player_y: u32,
     blank_top_rows: u16,
+    enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
     rng: &mut RomRandomState,
 ) {
@@ -9258,6 +9274,17 @@ pub(crate) fn activate_enemies_with_rng(
         let object_x = u32::from(object.x);
         let object_y = u32::from(object.y);
         if !window.contains(object_x, object_y) {
+            continue;
+        }
+        let object_y_with_blank_rows = object_y + u32::from(blank_top_rows) * 8;
+        if enemy_loading_initial_pass_complete
+            && enemy_spawn_inside_visible_inner_window_loc_36900(
+                object_x,
+                object_y_with_blank_rows,
+                camera_x_px,
+                camera_y_px,
+            )
+        {
             continue;
         }
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
@@ -40372,6 +40399,7 @@ impl NativeRuntime {
                 frame.kid_x_pos,
                 frame.kid_y_pos,
                 blank_top_rows,
+                self.enemy_loading_initial_pass_complete,
                 &self.killed_enemies,
                 &mut self.rom_random,
             );
@@ -40427,6 +40455,7 @@ impl NativeRuntime {
             self.pending_dragon_death_children.clear();
             self.pending_dragon_death_animations.clear();
             self.enemy_status_words.fill(0);
+            self.enemy_loading_initial_pass_complete = false;
             self.block_state.evanescent_blocks.clear();
             self.block_state.reset_shooter_state_sub_F06A();
             self.block_state.ghost_groups.clear();
@@ -40472,6 +40501,7 @@ impl NativeRuntime {
                     slice.player.x_pos,
                     slice.player.y_pos,
                     blank_top_rows,
+                    self.enemy_loading_initial_pass_complete,
                     &self.killed_enemies,
                     &mut self.rom_random,
                 );
@@ -40530,6 +40560,7 @@ impl NativeRuntime {
                 self.pending_dragon_death_children.clear();
                 self.pending_dragon_death_animations.clear();
                 self.enemy_status_words.fill(0);
+                self.enemy_loading_initial_pass_complete = false;
                 self.active_enemy_roster.clear();
             }
         }

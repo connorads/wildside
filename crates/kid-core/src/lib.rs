@@ -91,6 +91,10 @@ pub struct NativeRuntime {
     /// `loc_31F9A`. Loader usage is still approximated by `killed_enemies`,
     /// but death/deactivation routes write their table side effects here.
     enemy_status_words: [u16; 0x001E],
+    /// ASM `$FFFFFB51`: set after `Manage_EnemyLoading` has completed one pass.
+    /// Native currently mirrors it for settled recording/oracle-warps, where
+    /// probe frames start after the hidden first pass has already happened.
+    enemy_loading_initial_pass_complete: bool,
     /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
@@ -1201,6 +1205,7 @@ impl NativeRuntime {
             active_enemies: Vec::new(),
             killed_enemies: HashSet::new(),
             enemy_status_words: [0; 0x001E],
+            enemy_loading_initial_pass_complete: false,
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),

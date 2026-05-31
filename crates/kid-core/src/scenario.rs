@@ -116,6 +116,13 @@ impl NativeRuntime {
             }
             self.step_frame(idle);
         }
+        if stable_target_frames >= target_live_frames && target_live_frames > 0 {
+            // ASM Manage_EnemyLoading loc_36968 sets `$FFFFFB51` at the end
+            // of its first pass. Settled warp helpers fast-forward over that
+            // hidden/live window, so preserve the same post-initial-pass spawn
+            // gate for subsequent probe frames.
+            self.enemy_loading_initial_pass_complete = true;
+        }
     }
 
     pub fn settle_oracle_warp_live_window(&mut self, level_id: LevelId) {

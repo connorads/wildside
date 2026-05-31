@@ -17188,6 +17188,7 @@ impl NativeRuntime {
         self.pending_dragon_death_animations.clear();
         self.killed_enemies.clear();
         self.enemy_status_words.fill(0);
+        self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
@@ -17297,6 +17298,7 @@ impl NativeRuntime {
         self.pending_dragon_death_animations.clear();
         self.killed_enemies.clear();
         self.enemy_status_words.fill(0);
+        self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
@@ -17362,6 +17364,7 @@ impl NativeRuntime {
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
         self.enemy_status_words.fill(0);
+        self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
@@ -17446,6 +17449,7 @@ impl NativeRuntime {
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
         self.enemy_status_words.fill(0);
+        self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
@@ -17547,6 +17551,7 @@ impl NativeRuntime {
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
         self.enemy_status_words.fill(0);
+        self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
