@@ -15665,27 +15665,34 @@ mod chunk_02 {
     }
 
     #[test]
-    fn damage_clears_wall_sticky() {
+    fn damage_preserves_wall_sticky_loc_b700() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
         start_level(&mut runtime);
 
-        // Set wall-sticky as if player is grabbing a wall
+        // ASM Check_for_recent_damge -> loc_B700 only touches HP, damage flags,
+        // sound, and helmet/death routing. It does not clear wall-cling latches.
         if let Some(ref mut slice) = runtime.opening_slice {
             slice.player.right_wall_sticky = true;
             slice.player.left_wall_sticky = true;
+            slice.player.wall_cling_direction = Some(Direction::Right);
         }
 
         runtime.apply_damage();
 
         let slice = runtime.opening_slice.as_ref().unwrap();
         assert!(
-            !slice.player.right_wall_sticky,
-            "right wall sticky should be cleared on damage"
+            slice.player.right_wall_sticky,
+            "ASM loc_B700 should preserve the right wall sticky latch"
         );
         assert!(
-            !slice.player.left_wall_sticky,
-            "left wall sticky should be cleared on damage"
+            slice.player.left_wall_sticky,
+            "ASM loc_B700 should preserve the left wall sticky latch"
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction,
+            Some(Direction::Right),
+            "ASM loc_B700 should preserve the current wall-cling direction"
         );
     }
 

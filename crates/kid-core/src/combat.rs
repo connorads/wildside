@@ -8802,12 +8802,6 @@ impl NativeRuntime {
         // thread which runs the 66-frame palette flash cycle (loc_BC56–
         // loc_BC6E) before clearing the flag.
         self.just_received_damage = true;
-        // Clear wall-grab so the player isn't stuck to the wall during invulnerability
-        if let Some(slice) = self.opening_slice.as_mut() {
-            slice.player.right_wall_sticky = false;
-            slice.player.left_wall_sticky = false;
-            slice.player.wall_cling_direction = None;
-        }
         let max_hitpoints = self
             .progression
             .current_form
