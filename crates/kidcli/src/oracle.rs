@@ -646,4 +646,16 @@ mod tests {
             "oracle Kid velocity must come from $FFFF24E0 + x_vel/y_vel, not the stale first gfx slot"
         );
     }
+
+    #[test]
+    fn helper_seeds_playtest_form_collision_half_width() {
+        assert!(
+            HELPER_TEMPLATE.contains(
+                "const PLAYER_COLLISION_HALF_WIDTH_ADDR: usize = 0xFF_FA78;"
+            ) && HELPER_TEMPLATE.contains("fn collision_half_width_for_helmet_id")
+                && HELPER_TEMPLATE.contains("ASM unk_B408/sub_B41C")
+                && HELPER_TEMPLATE.contains("write_emulator_wram_u16(\n        emulator,\n        PLAYER_COLLISION_HALF_WIDTH_ADDR,\n        collision_half_width,\n    );"),
+            "oracle playtest_form must seed ASM sub_B41C's $FFFFFA78 half-width alongside Current_Helmet"
+        );
+    }
 }

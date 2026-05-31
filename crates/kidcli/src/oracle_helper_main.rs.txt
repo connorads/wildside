@@ -338,6 +338,7 @@ const CURRENT_PLAYER_ADDR: usize = 0xFF_FC39;
 const NUMBER_HITPOINTS_ADDR: usize = 0xFF_FC40;
 const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
 const CURRENT_HELMET_ID_ADDR: usize = 0xFF_FC46;
+const PLAYER_COLLISION_HALF_WIDTH_ADDR: usize = 0xFF_FA78;
 const PLAYER_1_LEVEL_ID_ADDR: usize = 0xFF_FC5A;
 const CAMERA_X_POS_ADDR: usize = 0xFF_F81C;
 const CAMERA_Y_POS_ADDR: usize = 0xFF_F820;
@@ -2096,13 +2097,21 @@ fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: Scenari
 
 fn apply_probe_playtest_form(emulator: &mut GenesisEmulator, helmet_id: u16) -> Result<()> {
     // ASM variables.asm: Number_hitpoints/Current_Helmet_ID are `$FFFFFC40`
-    // and `$FFFFFC46`. `Currently_transforming` is `$FFFFFA6D`; clear it
-    // here because probe playtest forms are direct live-state seeds, not
-    // helmet pickup transforms.
+    // and `$FFFFFC46`. ASM sub_B41C (kid.asm:14331) also derives `$FFFFFA78`
+    // collision half-width from Current_Helmet; seed it here because probe
+    // playtest forms are direct live-state seeds, not helmet pickup transforms.
+    // `Currently_transforming` is `$FFFFFA6D`; clear it for the same reason.
     let hitpoints = max_hitpoints_for_helmet_id(helmet_id)
+        .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+    let collision_half_width = collision_half_width_for_helmet_id(helmet_id)
         .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
     write_emulator_wram_u16(emulator, CURRENT_HELMET_ID_ADDR, helmet_id);
     write_emulator_wram_u16(emulator, NUMBER_HITPOINTS_ADDR, hitpoints);
+    write_emulator_wram_u16(
+        emulator,
+        PLAYER_COLLISION_HALF_WIDTH_ADDR,
+        collision_half_width,
+    );
     clear_probe_transform_residue(emulator);
     Ok(())
 }
@@ -2123,6 +2132,19 @@ fn max_hitpoints_for_helmet_id(helmet_id: u16) -> Option<u16> {
         0 => Some(2),
         6 => Some(5),
         1..=5 | 7..=9 => Some(3),
+        _ => None,
+    }
+}
+
+fn collision_half_width_for_helmet_id(helmet_id: u16) -> Option<u16> {
+    // ASM unk_B408/sub_B41C (kid.asm:14307/14331): byte table indexed by
+    // Current_Helmet * 2, then stored as a word in `$FFFFFA78`.
+    match helmet_id {
+        0 => Some(5),
+        1 => Some(10),
+        2..=4 | 6..=8 => Some(7),
+        5 => Some(23),
+        9 => Some(4),
         _ => None,
     }
 }
