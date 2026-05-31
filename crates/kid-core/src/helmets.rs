@@ -4992,7 +4992,7 @@ impl NativeRuntime {
             PlayerForm::Maniaxe => {
                 if previous_maniaxe_axe_active
                     && self.projectiles.iter().any(|projectile| {
-                        projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
+                        projectile.kind == EnemyProjectileKind::ManiaxeAxe && projectile.friendly
                     })
                 {
                     self.helmet.maniaxe_axe_active = true;
@@ -6337,7 +6337,9 @@ impl NativeRuntime {
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (16 << 16)) as u32,
                 x_velocity,
-                lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
+                // ASM loc_8A52/loc_8B32: the axe loops until collision or
+                // camera-relative out-of-bounds; there is no DBF lifetime.
+                lifetime: 0,
                 friendly: true,
                 // ASM loc_8ACC (kid.asm:9913): solid terrain routes the axe
                 // through its hit animation and then deletes it.
@@ -6359,14 +6361,20 @@ impl NativeRuntime {
                 if let Some(p) = self
                     .projectiles
                     .iter_mut()
-                    .find(|p| p.kind == EnemyProjectileKind::ManiaxeAxe && p.lifetime > 0)
+                    .find(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
                 {
                     p.x_velocity = -p.x_velocity;
                     self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
                 }
             }
-            // Check if axe expired
-            if !self.projectiles.iter().any(|p| p.lifetime > 0) {
+            // ASM loc_8ABC/loc_8AF2 clear Maniaxe_throwing_axe by deleting the
+            // axe object; native mirrors that by checking object existence,
+            // not a generic lifetime.
+            if !self
+                .projectiles
+                .iter()
+                .any(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
+            {
                 self.helmet.maniaxe_axe_active = false;
             }
         }

@@ -1790,12 +1790,14 @@ impl NativeRuntime {
                 p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
+            let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
                 && !is_dragon_flying_descent_fire
                 && !is_hail
                 && !is_diamond_power_rain
+                && !is_maniaxe_axe
                 && p.lifetime == 0
             {
                 if let Some(owner) = p.owner {
@@ -1809,6 +1811,7 @@ impl NativeRuntime {
                 && !is_dragon_flying_descent_fire
                 && !is_hail
                 && !is_diamond_power_rain
+                && !is_maniaxe_axe
             {
                 p.lifetime -= 1;
             }

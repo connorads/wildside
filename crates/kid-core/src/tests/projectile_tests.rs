@@ -3461,9 +3461,8 @@ mod chunk_06 {
             "Maniaxe axe has no vertical launch velocity"
         );
         assert_eq!(
-            axe.lifetime,
-            (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
-            "native lifetime covers startup plus out-and-back travel"
+            axe.lifetime, 0,
+            "ASM loc_8A52 loops until collision or ManiaxeAxe_CheckOutOfBounds; there is no generic lifetime counter"
         );
         assert!(axe.friendly, "Maniaxe axe should be player-friendly");
         assert_eq!(axe.gravity, 0, "Maniaxe axe is not gravity-driven");
@@ -3543,12 +3542,13 @@ mod chunk_06 {
             y_pos: 100 << 16,
             x_velocity: 0x2_0000,
             y_velocity: 0,
-            lifetime: 30,
+            lifetime: 0,
             friendly: true,
             gravity: 0,
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -3792,7 +3792,7 @@ mod chunk_06 {
     #[test]
     /// ASM loc_8A52 (kid.asm:9868): axe main flight loop — per-frame hibernate.
     /// `jsr Hibernate_Object_1Frame` advances the axe one frame. The native
-    /// equivalent is step_projectiles decrementing lifetime and advancing position.
+    /// equivalent is step_projectiles advancing position without a generic lifetime.
     /// `tst.b $18(a3); beq.w loc_8A74` — animation-done flag. If set, reinit
     /// animation (stru_8B86) and play sfx_Maniaxe_throw_axe. Visual/audio looping.
     /// Verify that the axe projectile advances position each frame.
@@ -3803,12 +3803,13 @@ mod chunk_06 {
             y_pos: 100 << 16,
             x_velocity: 5 << 16, // +5 px/frame
             y_velocity: 0,
-            lifetime: 30,
+            lifetime: 0,
             friendly: true,
             gravity: 0,
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -3820,8 +3821,8 @@ mod chunk_06 {
             "ASM loc_8A52: after one Hibernate_Object_1Frame, axe x_pos should advance by x_vel"
         );
         assert_eq!(
-            rt.projectiles[0].lifetime, 29,
-            "ASM loc_8A52: lifetime decrements each frame (native equivalent of the loop counter)"
+            rt.projectiles[0].lifetime, 0,
+            "ASM loc_8A52: Maniaxe axe has no DBF/generic lifetime counter"
         );
     }
 
@@ -4401,7 +4402,7 @@ mod chunk_06 {
             y_pos: 40 << 16,
             x_velocity: 4 << 16,
             y_velocity: 0,
-            lifetime: 20,
+            lifetime: 0,
             friendly: true,
             terrain_kill: true,
             kind: EnemyProjectileKind::ManiaxeAxe,
@@ -4418,7 +4419,7 @@ mod chunk_06 {
             "ASM loc_8A84: slope collision bits are not `$6000`, so the axe should keep flying"
         );
         assert_eq!(rt.projectiles[0].x_pos, 34 << 16);
-        assert_eq!(rt.projectiles[0].lifetime, 19);
+        assert_eq!(rt.projectiles[0].lifetime, 0);
     }
 
     #[test]
@@ -4431,7 +4432,7 @@ mod chunk_06 {
             y_pos: 40 << 16,
             x_velocity: 4 << 16,
             y_velocity: 0,
-            lifetime: 20,
+            lifetime: 0,
             friendly: true,
             terrain_kill: true,
             kind: EnemyProjectileKind::ManiaxeAxe,
@@ -4448,36 +4449,42 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — axe deletion
-    /// after solid-block explosion or out-of-bounds. Native still removes
-    /// zero-lifetime projectiles through the shared projectile shell.
+    /// ASM loc_8A52 (kid.asm:9868): the axe flight loop has no generic
+    /// lifetime counter; zero native lifetime must still survive while the
+    /// camera-relative bounds check passes.
     #[test]
-    fn maniaxe_axe_deleted_on_lifetime_expiry_loc_8af2() {
+    fn maniaxe_axe_zero_lifetime_survives_inside_camera_bounds_loc_8a52() {
         let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
             x_velocity: 5 << 16,
             y_velocity: 0,
-            lifetime: 0, // already expired — removed on next step
+            lifetime: 0,
             friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM loc_8AF2: `jmp Delete_CurrentObject` — native equivalent is lifetime=0 removal"
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_8A52: zero native lifetime must not delete an in-bounds Maniaxe axe"
         );
+        assert_eq!(rt.projectiles[0].lifetime, 0);
     }
 
-    /// ASM loc_8AF2 (kid.asm:9925): after ManiaxeAxe_CheckOutOfBounds or the
-    /// solid-block explosion path, the axe object is deleted. Native mirrors
-    /// this by clearing Maniaxe's active flag once only expired axe projectiles
-    /// remain.
+    /// ASM loc_8A52 keeps `Maniaxe_throwing_axe` live while the axe object
+    /// exists; the flag clears when loc_8ABC/loc_8AF2 deletes the object, not
+    /// when a generic lifetime reaches zero.
     #[test]
-    fn maniaxe_axe_active_clears_when_only_expired_projectile_remains_loc_8af2() {
+    fn maniaxe_axe_active_preserves_zero_lifetime_live_axe_loc_8a52() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
@@ -4489,22 +4496,23 @@ mod chunk_06 {
             x_velocity: MANIAXE_BASE_SPEED << 16,
             lifetime: 0,
             friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
         rt.step_maniaxe_axe(&slice, FrameInput::default());
 
         assert!(
-            !rt.helmet.maniaxe_axe_active,
-            "ASM loc_8AF2: deleted/expired axe must clear Maniaxe_throwing_axe"
+            rt.helmet.maniaxe_axe_active,
+            "ASM loc_8A52: live axe object keeps Maniaxe_throwing_axe set even with no native lifetime"
         );
     }
 
     /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
-    /// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Native still assigns a finite
-    /// fallback lifetime, but the primary delete path is the camera bound below.
+    /// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Native should not assign a
+    /// finite fallback lifetime; the delete path is the camera bound below.
     #[test]
-    fn maniaxe_axe_bounded_lifetime_loc_8b32() {
+    fn maniaxe_axe_spawn_has_no_generic_lifetime_loc_8a52() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         let slice = combat_slice();
@@ -4515,12 +4523,9 @@ mod chunk_06 {
 
         rt.step_maniaxe_axe(&slice, input);
         assert_eq!(rt.projectiles.len(), 1);
-        let lifetime = rt.projectiles[0].lifetime;
-        // This is a native safety fallback; ASM lifetime is governed by the
-        // camera-relative loc_8B32 checks below.
-        assert!(
-            lifetime > 0 && lifetime < 200,
-            "native Maniaxe axe fallback lifetime should stay finite (got {lifetime})"
+        assert_eq!(
+            rt.projectiles[0].lifetime, 0,
+            "ASM loc_8A52/loc_8B32: axe lifetime is governed by bounds/collision, not DBF"
         );
     }
 

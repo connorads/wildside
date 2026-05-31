@@ -639,7 +639,6 @@ pub(crate) const RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX: i32 = 12;
 
 /// Maniaxe thrown axe: travels 12 frames outward at ±5 px/frame then
 /// reverses for 12 frames. Damages enemies on contact, breaks on walls.
-pub(crate) const MANIAXE_STARTUP_FRAMES: u8 = 6;
 pub(crate) const MANIAXE_BASE_SPEED: i32 = 5;
 pub(crate) const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 /// ASM ManiaxeAxe_Init uses `stru_8B86`; active frames map through

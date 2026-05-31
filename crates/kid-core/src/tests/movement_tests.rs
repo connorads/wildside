@@ -2810,12 +2810,13 @@ mod chunk_11 {
             y_pos: 100 << 16,
             x_velocity: 0x2_0000,
             y_velocity: 0,
-            lifetime: 20,
+            lifetime: 0,
             friendly: true,
             gravity: 0,
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -2827,12 +2828,10 @@ mod chunk_11 {
         );
     }
 
-    /// ASM sub_78E8 (kid.asm:7973) Maniaxe arm — the live-axe predicate is
-    /// `friendly AND lifetime>0 AND gravity==0`. Each leg below pins one factor
-    /// so a relaxed (`||`) or shifted (`>=` / `==`) form would wrongly restore
-    /// the axe flag after `clear_special_movement_state_sub_DB22` zeroes it.
-    /// ASM loc_9454 (kid.asm:10891): `sf (Maniaxe_throwing_axe).w` is the
-    /// unconditional clear; only a still-live thrown axe should survive.
+    /// ASM sub_78E8 (kid.asm:7973) Maniaxe arm preserves the thrown-axe flag
+    /// only while the Maniaxe axe object still exists. Native keys that
+    /// identity off `EnemyProjectileKind::ManiaxeAxe`; generic friendly shots
+    /// and hostile axes must not hold the latch open.
     #[test]
     fn maniaxe_sub_78e8_clears_axe_when_only_live_projectile_is_unfriendly() {
         // ASM sub_78E8 Maniaxe arm: predicate's `friendly` leg.
@@ -2842,9 +2841,10 @@ mod chunk_11 {
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
         rt.projectiles.push(EnemyProjectile {
-            lifetime: 20,
+            lifetime: 0,
             friendly: false, // hostile projectile must not preserve axe
             gravity: 0,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
 
@@ -2857,17 +2857,17 @@ mod chunk_11 {
     }
 
     #[test]
-    fn maniaxe_sub_78e8_clears_axe_when_only_live_projectile_has_zero_lifetime() {
-        // ASM sub_78E8 Maniaxe arm: predicate's `lifetime > 0` leg.
-        // Mutation guard: `>` → `>=` (or `==`) and `&&` → `||` against the
-        // gravity leg both flip a stale (lifetime=0) axe back on.
+    fn maniaxe_sub_78e8_clears_axe_when_projectile_is_not_maniaxe_axe() {
+        // ASM sub_78E8 Maniaxe arm is preserving the specific ManiaxeAxe_Init
+        // worker, not any friendly projectile in the global list.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
         rt.projectiles.push(EnemyProjectile {
-            lifetime: 0, // expired axe must not preserve flag
+            lifetime: 0,
             friendly: true,
             gravity: 0,
+            kind: EnemyProjectileKind::Generic,
             ..Default::default()
         });
 
@@ -2875,18 +2875,14 @@ mod chunk_11 {
 
         assert!(
             !rt.helmet.maniaxe_axe_active,
-            "ASM sub_78E8 / loc_9454: lifetime>0 is strict — a 0-lifetime axe is destroyed",
+            "ASM sub_78E8 / loc_9454: only the Maniaxe axe object preserves the latch",
         );
     }
 
     #[test]
     fn maniaxe_sub_78e8_clears_axe_when_only_live_projectile_has_gravity() {
-        // ASM sub_78E8 Maniaxe arm: predicate's `gravity == 0` leg.
-        // The thrown axe is a flat horizontal projectile (no gravity); a
-        // Juggernaut skull (gravity != 0) must not be mistaken for a live
-        // axe even if it is friendly and live.
-        // Mutation guards: `&& gravity==0` → `|| gravity==0` would accept the
-        // skull; `==` → `!=` would invert the gravity test.
+        // Gravity-bearing friendly projectiles such as Juggernaut skulls must
+        // not be mistaken for the ManiaxeAxe_Init worker.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
