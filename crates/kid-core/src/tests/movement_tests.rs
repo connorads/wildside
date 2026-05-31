@@ -18234,7 +18234,8 @@ mod chunk_12 {
 
         let pre_x = slice.player.x_pos;
         let pre_y = slice.player.y_pos;
-        let snapped = slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             !snapped,
@@ -18293,7 +18294,8 @@ mod chunk_12 {
         slice.player.jump_buffer_frames = 3;
 
         // Pull-up should fail when adjacent/above tiles are solid.
-        let result = slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH);
+        let result =
+            slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
         assert!(
             !result,
             "loc_ABD4: pull-up should be rejected when tiles above the ledge are solid",
@@ -18327,7 +18329,8 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             snapped,
@@ -18344,6 +18347,64 @@ mod chunk_12 {
             slice.player.jump_buffer_frames, 0,
             "successful native pull-up should consume the buffered jump edge",
         );
+    }
+
+    /// ASM kid_flip -> loc_ABA4 (kid.asm:13408-13422): the pull-up branch is
+    /// guarded by `cmpi.w #The_Kid,(Current_Helmet); bne.w loc_AC42`. Helmet
+    /// forms must not run The Kid's `stru_8BB4` ledge pull-up.
+    #[test]
+    fn loc_aba4_pullup_is_the_kid_only() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        for form in [
+            PlayerForm::Skycutter,
+            PlayerForm::Cyclone,
+            PlayerForm::RedStealth,
+            PlayerForm::Eyeclops,
+            PlayerForm::Juggernaut,
+            PlayerForm::IronKnight,
+            PlayerForm::Berzerker,
+            PlayerForm::Maniaxe,
+            PlayerForm::Micromax,
+        ] {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.x_pos = 68 << 16;
+            slice.player.y_pos = 64 << 16;
+            slice.player.y_velocity = 0x0001_0000;
+            slice.player.on_ground = false;
+            slice.player.right_wall_sticky = true;
+            slice.player.jump_buffer_frames = 3;
+
+            let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, form.half_width(), form);
+
+            assert!(
+                !snapped,
+                "ASM loc_ABA4 should be unreachable for {form:?}; helmet forms must not pull up ledges",
+            );
+            assert_eq!(
+                slice.player.x_pos,
+                68 << 16,
+                "rejected {form:?} pull-up must not move x_pos",
+            );
+            assert_eq!(
+                slice.player.y_pos,
+                64 << 16,
+                "rejected {form:?} pull-up must not move y_pos",
+            );
+            assert!(!slice.player.on_ground);
+            assert!(slice.player.right_wall_sticky);
+        }
     }
 
     /// ASM loc_ABA4 mirrors the ledge probe offset when `$FA72` marks a left
@@ -18372,7 +18433,8 @@ mod chunk_12 {
         slice.player.left_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             snapped,
@@ -18423,7 +18485,8 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             snapped,
@@ -18465,7 +18528,7 @@ mod chunk_12 {
             slice.player.on_ground = false;
             slice.player.right_wall_sticky = true;
             slice.player.jump_buffer_frames = jump_buffer_frames;
-            slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH)
+            slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid)
         };
 
         assert!(
@@ -18505,7 +18568,8 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             snapped,
@@ -18541,7 +18605,7 @@ mod chunk_12 {
             slice.player.on_ground = false;
             slice.player.right_wall_sticky = true;
             slice.player.jump_buffer_frames = 3;
-            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH)
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid)
         };
 
         assert!(
@@ -18581,7 +18645,8 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             !snapped,
@@ -18615,7 +18680,8 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
         slice.player.jump_buffer_frames = 3;
 
-        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
 
         assert!(
             snapped,

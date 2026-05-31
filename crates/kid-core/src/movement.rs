@@ -2834,7 +2834,7 @@ impl OpeningSliceState {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -2908,7 +2908,7 @@ impl OpeningSliceState {
                 }
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid), collision_hw);
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -3646,7 +3646,7 @@ impl OpeningSliceState {
                             self.player.x_velocity = 0;
                         }
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
                         kid_flip_follow_on_stages.after_wall =
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
@@ -4374,9 +4374,17 @@ impl OpeningSliceState {
         jump_pressed: bool,
         grid: &terrain::BlockGrid,
         collision_hw: i32,
+        form: PlayerForm,
     ) -> bool {
         let jump_requested = jump_pressed || self.player.jump_buffer_frames > 0;
         if !jump_requested || self.player.on_ground {
+            return false;
+        }
+        // ASM kid_flip -> loc_ABA4 (kid.asm:13408-13422): the pull-up path is
+        // guarded by `cmpi.w #The_Kid,(Current_Helmet); bne.w loc_AC42`.
+        // Helmet forms can wall-cling, detach, or use their own abilities, but
+        // they cannot run The Kid's `stru_8BB4` ledge pull-up.
+        if form != PlayerForm::TheKid {
             return false;
         }
 

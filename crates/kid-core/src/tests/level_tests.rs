@@ -6773,7 +6773,12 @@ mod chunk_02 {
         slice.player.on_ground = false;
         slice.player.right_wall_sticky = true;
 
-        assert!(slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH));
+        assert!(slice.try_snap_wall_sticky_ledge(
+            true,
+            &grid,
+            PLAYER_HALF_WIDTH,
+            PlayerForm::TheKid
+        ));
 
         assert_eq!(slice.player.x_pos, 68 << 16);
         // Wall-sticky ledge snap preserves sub-pixel from the player's trajectory,
