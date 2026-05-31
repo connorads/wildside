@@ -436,6 +436,32 @@ fn load_block_grid_refuses_raw_decoded_block_resource_for_mapped_level() {
 }
 
 #[test]
+fn gameplay_input_applies_loc_7464_left_right_conflict_resolution() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.previous_input = FrameInput {
+        left: true,
+        right: true,
+        b: true,
+        ..FrameInput::default()
+    };
+
+    let gameplay_input = runtime.gameplay_input(FrameInput::default());
+
+    assert!(
+        gameplay_input.left,
+        "ASM loc_7464 keeps Ctrl_Left_Held set when Left+Right are held"
+    );
+    assert!(
+        !gameplay_input.right,
+        "ASM loc_7464 clears Ctrl_Right_Held when Left+Right are held"
+    );
+    assert!(
+        gameplay_input.b,
+        "non-direction gameplay latches are preserved"
+    );
+}
+
+#[test]
 fn scenario_settled_warp_starts_later_levels_in_live_gameplay() {
     let settled = run_script_with_settled_warp(manifest(), &[0x00], 1, Some(9));
 

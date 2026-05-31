@@ -2236,11 +2236,14 @@ impl NativeRuntime {
     }
 
     fn gameplay_input(&self, input: FrameInput) -> FrameInput {
+        let held = self.previous_input.with_left_right_conflict_resolved();
         FrameInput {
-            up: self.previous_input.up,
-            down: self.previous_input.down,
-            left: self.previous_input.left,
-            right: self.previous_input.right,
+            up: held.up,
+            down: held.down,
+            // ASM loc_7464 clears Ctrl_Right_Held when Left+Right are both
+            // latched, before gameplay movement reads the direction bytes.
+            left: held.left,
+            right: held.right,
             // ASM loc_7452 hibernates before loc_7464 refreshes `Ctrl_A_Held`.
             // The Skycutter ground path at sub_9A20 exposes that older A/run
             // latch in the Invulnerability audit; non-Skycutter movement stays
