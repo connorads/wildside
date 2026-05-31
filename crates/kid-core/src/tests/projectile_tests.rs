@@ -8556,6 +8556,32 @@ mod chunk_06 {
         assert_eq!(slice.player.x_velocity, -0x0002_0000);
     }
 
+    #[test]
+    fn berzerker_charge_robot_mid_shoot_head_side_destroys_parent_loc_3aafa_3a9d2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+
+        let mut robot = test_enemy(EnemyFamily::Robot, 0x0040_0000, 0x0050_0000, 2);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 3;
+        rt.active_enemies.push(robot);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 0,
+            "ASM Robot.asm loc_3AAD4 -> loc_3AAFA should route shoot-time head side contact to loc_3A9D2 while Berzerker_charging is set"
+        );
+        assert!(rt.active_enemies[0].death_animation_active);
+        assert_eq!(slice.player.x_velocity, -0x0002_0000);
+    }
+
     /// ASM loc_9564 -> loc_B678 -> loc_B692: a live frame that overflows the
     /// Berzerker charge accumulator must immediately let the horn-side contact
     /// damage the enemy in front of Kid.

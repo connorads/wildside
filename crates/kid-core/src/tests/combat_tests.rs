@@ -9334,6 +9334,38 @@ mod chunk_03 {
     }
 
     #[test]
+    fn robot_mid_shoot_final_projectile_hit_enters_charge_loc_3ab56_3a96c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 1);
+        robot.robot_state = RobotState::Aiming;
+        robot.wait_timer = 3;
+        runtime.active_enemies = vec![robot];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 120 << 16,
+            friendly: true,
+            lifetime: 10,
+            ..Default::default()
+        });
+
+        runtime.process_friendly_projectile_hits();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Robot.asm loc_3AB56 hibernates through the destroy animation before resuming as charge, so the Robot is not deleted immediately"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].robot_state,
+            RobotState::Charging,
+            "ASM Robot.asm loc_3AB56 mirrors loc_3A96C charge entry after a final shoot-time hit"
+        );
+        assert_eq!(runtime.active_enemies[0].wait_timer, ROBOT_CHARGE_FLIP_BASE);
+    }
+
+    #[test]
     fn robot_parent_negative_collision_enters_loc_3a9d2_destroy_not_charge() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut robot = test_enemy(EnemyFamily::Robot, 100 << 16, 120 << 16, 2);
