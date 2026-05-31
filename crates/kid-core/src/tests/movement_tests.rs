@@ -4462,6 +4462,71 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_B084 (kid.asm:13921): airborne Skycutter branches to sub_9A20
+    /// before the generic jump-air table lookup at loc_B09E. Both native live
+    /// horizontal helpers must therefore use Skycutter's `$2000/$4000` accel
+    /// path while airborne, not `JUMP_AIR_PROFILES[1]`.
+    #[test]
+    fn sub_b084_airborne_skycutter_uses_sub_9a20_velocity() {
+        let input = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
+
+        let mut velocity_only = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        velocity_only.player.on_ground = false;
+        velocity_only.player.just_jumped = false;
+        velocity_only.player.facing = Direction::Right;
+        velocity_only.player.x_velocity = 0;
+
+        let stepped = velocity_only.update_horizontal_velocity_only(
+            input,
+            false,
+            PlayerForm::Skycutter,
+            None,
+            false,
+        );
+
+        assert!(
+            stepped,
+            "sub_B084 should still run airborne horizontal velocity for Skycutter",
+        );
+        assert_eq!(
+            velocity_only.player.x_velocity, 0x2000,
+            "ASM sub_B084 -> sub_9A20: airborne Skycutter walk accel is $2000, not generic jump-air accel $3400",
+        );
+
+        let mut full_motion = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        full_motion.player.on_ground = false;
+        full_motion.player.just_jumped = false;
+        full_motion.player.facing = Direction::Right;
+        full_motion.player.x_pos = 32 << 16;
+        full_motion.player.x_velocity = 0;
+
+        let moved =
+            full_motion.update_horizontal_motion(input, false, PlayerForm::Skycutter, None, false);
+
+        assert!(
+            moved,
+            "sub_B084 should feed the live full-motion path while airborne",
+        );
+        assert_eq!(
+            full_motion.player.x_velocity, 0x2000,
+            "full-motion airborne Skycutter must use sub_9A20 before x_pos advances",
+        );
+        assert_eq!(
+            full_motion.player.x_pos,
+            (32 << 16) + 0x2000,
+            "full-motion airborne Skycutter should advance by the sub_9A20 velocity",
+        );
+    }
+
     /// ASM loc_8382 (kid.asm:9122): sub_8600 is called with `d0=-$10, d1=$F`
     /// to scan the full crawl width for surface type (ice/rubber/normal).
     /// Verify that `grounded_surface_type_sub_8600` preserves the loc_8688

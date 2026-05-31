@@ -4597,6 +4597,14 @@ impl OpeningSliceState {
             }
         } else if self.player.just_jumped {
             (self.player.x_velocity, self.player.facing)
+        } else if form == PlayerForm::Skycutter {
+            // ASM sub_B084 (kid.asm:13921): airborne Skycutter branches to
+            // sub_9A20 before loc_B09E can load the generic jump-air tables.
+            physics::update_skycutter_horizontal_velocity_sub_9A20(
+                self.player.x_velocity,
+                self.player.facing,
+                h_input,
+            )
         } else {
             let jump_profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
             physics::update_jump_horizontal_velocity(
@@ -4852,6 +4860,14 @@ impl OpeningSliceState {
             }
         } else if self.player.just_jumped {
             (self.player.x_velocity, self.player.facing)
+        } else if form == PlayerForm::Skycutter {
+            // ASM sub_B084 (kid.asm:13921): airborne Skycutter branches to
+            // sub_9A20 before loc_B09E can load the generic jump-air tables.
+            physics::update_skycutter_horizontal_velocity_sub_9A20(
+                self.player.x_velocity,
+                self.player.facing,
+                h_input,
+            )
         } else {
             let jump_profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
             physics::update_jump_horizontal_velocity(
