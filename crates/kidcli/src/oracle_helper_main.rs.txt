@@ -1118,6 +1118,7 @@ fn capture_enemy_states(
 ) -> Vec<OracleEnemyState> {
     let mut enemies = Vec::new();
     let layout_object_ptr = read_wram_u32(work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR) as usize;
+    let layout_object_count = read_rom_u8(rom, layout_object_ptr + 1);
     for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
         let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
         if read_wram_u8(work_ram, base + DISPLAY_FLAG_OFFSET) == 0 {
@@ -1131,6 +1132,11 @@ fn capture_enemy_states(
         if layout_ptr == 0 {
             continue;
         }
+        let Some(layout_index) =
+            layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr)
+        else {
+            continue;
+        };
         let object_type = read_rom_u8(rom, layout_ptr);
         let collision_type = read_wram_u16(work_ram, base + OBJECT_COLLISION_TYPE_OFFSET);
         let collision_source = read_wram_u16(work_ram, base + OBJECT_COLLISION_SOURCE_OFFSET);
@@ -1152,7 +1158,7 @@ fn capture_enemy_states(
             },
             collision_type: Some(collision_type),
             collision_source: Some(collision_source),
-            layout_index: layout_index_from_ptr(layout_object_ptr, layout_ptr),
+            layout_index: Some(layout_index),
             layout_ptr: Some(layout_ptr as u32),
             parent_object_ptr: Some(parent_object as u32),
             gfx_slot_index: Some(slot_index),
@@ -1165,8 +1171,16 @@ fn capture_enemy_states(
     enemies
 }
 
-fn layout_index_from_ptr(layout_object_ptr: usize, layout_ptr: usize) -> Option<usize> {
+fn layout_index_from_ptr(
+    layout_object_ptr: usize,
+    layout_object_count: u8,
+    layout_ptr: usize,
+) -> Option<usize> {
     if layout_object_ptr == 0 || layout_ptr < layout_object_ptr + 2 {
+        return None;
+    }
+    let object_table_end = layout_object_ptr + 2 + usize::from(layout_object_count) * 8;
+    if layout_ptr >= object_table_end {
         return None;
     }
     let relative_offset = layout_ptr - (layout_object_ptr + 2);
