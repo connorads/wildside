@@ -6329,10 +6329,57 @@ mod chunk_09 {
             })
             .expect("Level 0x01 settled recording should expose the first RockTank body");
         assert_eq!(
-            first_tank_body.x_pos, 0x00A4_0000,
-            "ASM loc_74E0 level-skip resume has a live title-card tail that native `boot_to_level` shortcuts; Level 1 settled recordings need the same 108-frame age as full-frame sweeps",
+            first_tank_body.x_pos, 0x00A4_8000,
+            "ASM loc_74E0 level-skip resume has a live title-card tail that native `boot_to_level` shortcuts; Level 1 settled recordings wait one extra live frame so Tank.asm loc_3B40A reaches the same shared-walker phase as oracle frame 0",
         );
         assert_eq!(first_tank_body.facing, Some(Direction::Right));
+    }
+
+    #[test]
+    fn settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(1)
+            .settle_recording_warp()
+            .run(&[0, 0], 2);
+
+        let tank_pair = |frame: &NativeTraceFrame| {
+            let body = frame
+                .active_objects
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                        && object.layout_index == Some(1)
+                        && object.y_pos == 0x00E0_0000
+                        && object.hit_points == Some(2)
+                })
+                .expect("Level 0x01 first RockTank body should be active");
+            let turret = frame
+                .active_objects
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                        && object.layout_index == Some(1)
+                        && object.y_pos == 0x00D8_0000
+                        && object.hit_points.is_none()
+                })
+                .expect("Level 0x01 first RockTank turret child should be active");
+            (body.x_pos, turret.x_pos)
+        };
+
+        assert_eq!(
+            tank_pair(&trace[0]),
+            (0x00A4_8000, 0x00A4_0000),
+            "ASM Tank.asm loc_3B40A enters shared walker loc_3C026, and loc_3C03A/loc_3C044 syncs the child on the hibernate boundary; oracle frame 0 sees the body one half-pixel ahead of the turret",
+        );
+        assert_eq!(
+            tank_pair(&trace[1]),
+            (0x00A5_0000, 0x00A5_0000),
+            "ASM shared walker loc_3C03A syncs the turret before the next hibernate, so oracle frame 1 has both Tank objects at the same X",
+        );
     }
 
     #[test]
