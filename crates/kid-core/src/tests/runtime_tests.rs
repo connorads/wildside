@@ -12242,6 +12242,35 @@ mod chunk_09 {
     }
 
     #[test]
+    fn kid_projectile_dp_collision_word_loc_1ea0_uses_object_meta_low_byte_table() {
+        assert_eq!(
+            crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(0x00),
+            0x001C,
+            "ASM loc_1EA0 should map `unk_1EBE[0]` to `colid_hurt` for Diamond Power list collisions",
+        );
+        assert_eq!(
+            crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(0x02),
+            0x0000,
+            "ASM loc_1EA0 should preserve the explicit zero collision word at `unk_1EBE[2]`",
+        );
+        assert_eq!(
+            crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(0x0D),
+            0x002C,
+            "ASM loc_1EA0 should map DragonWalking's `$3A & $FF == $0D` through `unk_1EBE` to `colid_kidabove`",
+        );
+        assert_eq!(
+            crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(0x20),
+            0xFFFF,
+            "ASM loc_1EA0 should expose the terminal `$FFFF` table entries used by high object metadata values",
+        );
+        assert_eq!(
+            crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(0xFF),
+            0xFFFF,
+            "Native code treats out-of-table values defensively as `$FFFF`; the ROM table is only defined for known `$3A & $FF` values",
+        );
+    }
+
+    #[test]
     fn kid_projectile_helper_spawn_loc_1e5e_allocates_loc_1f08_and_copies_projectile_coordinates() {
         assert_eq!(
             crate::projectiles::kid_projectile_helper_spawn_loc_1E5E(0x0123, 0x0456, 0x0000),

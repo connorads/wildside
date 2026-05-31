@@ -1117,6 +1117,25 @@ pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_dp_collision_word_loc_1EA0(object_meta_low_byte_3a: u8) -> u16 {
+    // ASM loc_1EA0 (kid.asm:3665): the Diamond Power pass swaps d7, reads
+    // `$3A(a2) & $00FF`, doubles it, and indexes `unk_1EBE` for the collision
+    // word written back to the collided object at `$38(a2)`.
+    const DP_COLLISION_WORDS_UNK_1EBE: [u16; 37] = [
+        0x001C, 0x001C, 0x0000, 0x002C, 0x001C, 0x001C, 0x001C, 0x001C, 0x002C, 0x002C, 0x002C,
+        0x002C, 0x001C, 0x002C, 0x001C, 0x001C, 0x002C, 0x002C, 0x002C, 0x002C, 0x002C, 0x001C,
+        0x001C, 0x001C, 0x001C, 0x001C, 0x002C, 0x001C, 0x002C, 0x001C, 0x001C, 0x001C, 0xFFFF,
+        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+    ];
+
+    DP_COLLISION_WORDS_UNK_1EBE
+        .get(usize::from(object_meta_low_byte_3a))
+        .copied()
+        .unwrap_or(0xFFFF)
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidProjectileHelperSpawnLoc1E5E {
