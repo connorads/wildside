@@ -3510,6 +3510,40 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_exports_diamond_power_snake_probe_loc_3fad4() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        runtime.progression.diamond_power_frames = 1;
+        runtime.diamond_power_snake_head_angle = 0x0040;
+        runtime.diamond_power_snake_turn_rate = 0x0006;
+        runtime.diamond_power_snake_movement_speed = 0x0300;
+        runtime.diamond_power_snake_slots.push(helmets::SnakeSlot {
+            x_pos: 0x0020,
+            y_pos: 0x010f,
+            x_subpixel: 0x8000,
+            y_subpixel: 0x4000,
+            diamond_size: 4,
+            trail: [(0x20, 0x10f); 3],
+        });
+
+        let trace = runtime.trace_frame();
+        let probe = trace
+            .gameplay_debug_fields
+            .get("diamond_power_snake_probe")
+            .unwrap_or_else(|| panic!("trace should expose Snake DP probe diagnostics"));
+
+        assert!(
+            probe.contains("head=0x0020.0x8000,0x010f.0x4000"),
+            "ASM loc_3FAD4 low-word position should be visible, got {probe}",
+        );
+        assert!(
+            probe.contains("angle=0x0040/turn=0x0006/speed=0x0300"),
+            "ASM loc_3F92A/loc_3FAD4 steering fields should be visible, got {probe}",
+        );
+    }
+
+    #[test]
     fn trace_frame_exports_live_effects_with_pixel_coordinates() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -4943,6 +4977,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_wall_cling_release_probe_debug() {
             gameplay_debug_fields.insert("kid_wall_cling_release_probe".into(), summary);
         }
+        if let Some(summary) = self.diamond_power_snake_probe_debug() {
+            gameplay_debug_fields.insert("diamond_power_snake_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -5843,6 +5880,65 @@ impl NativeRuntime {
             probe.sub_ae6e_gate.as_debug_label(),
             wall_probe_debug_summary(probe.forward_wall_probe),
             wall_probe_debug_summary(probe.top_edge_probe),
+        ))
+    }
+
+    fn diamond_power_snake_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.progression.diamond_power_type,
+            helmets::DiamondPowerType::MiniSnake | helmets::DiamondPowerType::DeathSnake
+        ) || self.diamond_power_snake_slots.is_empty()
+        {
+            return None;
+        }
+
+        let head = &self.diamond_power_snake_slots[0];
+        let (camera_x, camera_y, kid_x, kid_y) =
+            self.opening_slice.as_ref().map_or((0, 0, 0, 0), |slice| {
+                (
+                    (slice.camera.x_pos >> 16) as i16,
+                    (slice.camera.y_pos >> 16) as i16,
+                    (slice.player.x_pos >> 16) as i16,
+                    (slice.player.y_pos >> 16) as i16,
+                )
+            });
+        let enemies: Vec<helmets::SnakeTargetCandidate> = self
+            .active_enemies
+            .iter()
+            .map(|enemy| {
+                let snapshot = enemy.snapshot();
+                helmets::SnakeTargetCandidate {
+                    x_pos: (snapshot.x_pos >> 16) as i16,
+                    y_pos: (snapshot.y_pos >> 16) as i16,
+                }
+            })
+            .collect();
+        let target = helmets::diamond_power_snake_find_target(
+            head.x_pos, head.y_pos, camera_x, camera_y, &enemies, kid_x, kid_y,
+        );
+        let first_sprite = self.diamond_power_sprites.first().map_or_else(
+            || String::from("none"),
+            |sprite| {
+                format!(
+                    "{},{}:{:#06x}/{:#06x}",
+                    sprite.screen_x, sprite.screen_y, sprite.size_word, sprite.pattern_word
+                )
+            },
+        );
+
+        Some(format!(
+            "slots={}/head={:#06x}.{:#06x},{:#06x}.{:#06x}/angle={:#06x}/turn={:#06x}/speed={:#06x}/target={:#06x},{:#06x}/sprite={}",
+            self.diamond_power_snake_slots.len(),
+            head.x_pos as u16,
+            head.x_subpixel,
+            head.y_pos as u16,
+            head.y_subpixel,
+            self.diamond_power_snake_head_angle,
+            self.diamond_power_snake_turn_rate,
+            self.diamond_power_snake_movement_speed,
+            target.x as u16,
+            target.y as u16,
+            first_sprite,
         ))
     }
 

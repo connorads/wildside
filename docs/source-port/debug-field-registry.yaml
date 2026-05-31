@@ -132,6 +132,15 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed floating-item pickup/contact state."
     },
     {
+      "key": "diamond_power_snake_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-206-diamond-power-snake-audit",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native MiniSnake/DeathSnake DP-slot head position high/low words, steering angle/speeds, selected target, and first compiled sprite for the #206 Snake audit.",
+      "promotion_trigger": "Promote if Snake oracle parity or checked-in regressions start depending on typed DP snake head/target state."
+    },
+    {
       "key": "kid_object_support_candidates",
       "scope": "frame",
       "status": "exploratory",
