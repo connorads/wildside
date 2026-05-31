@@ -117,7 +117,22 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
 fn transform_hitpoints_sub_7eb2(form: PlayerForm, extra_hitpoint_slots: u16) -> u16 {
     // ASM sub_7EB2 (kid.asm:8614): load the base hitpoint byte from `unk_7EC2`
     // using the helmet id, extend it to a word, then add `Extra_hitpoint_slots`.
-    form.max_hitpoints().saturating_add(extra_hitpoint_slots)
+    // This is deliberately not HelmetHitpoint_Table from loc_B700/sub_BDC0:
+    // IronKnight/Maniaxe/Micromax transform with oversized HP values, then the
+    // first damage frame caps them to the damage/HUD table before subtracting.
+    let base_hitpoints: u16 = match form {
+        PlayerForm::TheKid => 2,
+        PlayerForm::Skycutter
+        | PlayerForm::Cyclone
+        | PlayerForm::RedStealth
+        | PlayerForm::Eyeclops
+        | PlayerForm::Juggernaut => 3,
+        PlayerForm::IronKnight => 0x0C,
+        PlayerForm::Berzerker => 4,
+        PlayerForm::Maniaxe => 8,
+        PlayerForm::Micromax => 0x10,
+    };
+    base_hitpoints.saturating_add(extra_hitpoint_slots)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

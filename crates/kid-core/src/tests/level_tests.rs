@@ -5906,10 +5906,7 @@ mod chunk_02 {
 
         let trace = runtime.trace_frame();
         assert_eq!(trace.current_helmet_id, PlayerForm::IronKnight.helmet_id());
-        assert_eq!(
-            trace.number_hitpoints,
-            PlayerForm::IronKnight.max_hitpoints()
-        );
+        assert_eq!(trace.number_hitpoints, 0x0C);
     }
 
     #[test]
@@ -5922,8 +5919,8 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.progression.number_hitpoints, 7,
-            "ASM sub_7EB2 should load Iron Knight's `unk_7EC2` base value `5` and add `Extra_hitpoint_slots` before storing `Number_Hitpoints`",
+            runtime.progression.number_hitpoints, 0x0E,
+            "ASM sub_7EB2 should load IronKnight's `unk_7EC2` base value `$0C` and add `Extra_hitpoint_slots` before storing `Number_Hitpoints`",
         );
     }
 

@@ -5413,9 +5413,8 @@ mod chunk_03 {
 
         assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
         assert_eq!(
-            runtime.progression.number_hitpoints,
-            PlayerForm::IronKnight.max_hitpoints(),
-            "hitpoints should match IronKnight max"
+            runtime.progression.number_hitpoints, 0x0C,
+            "ASM sub_7EB2 should seed IronKnight from `unk_7EC2`, not the loc_B700 damage cap table"
         );
     }
 
@@ -5483,9 +5482,8 @@ mod chunk_03 {
 
         assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
         assert_eq!(
-            runtime.progression.number_hitpoints,
-            PlayerForm::IronKnight.max_hitpoints(),
-            "ASM loc_7C76 same-helmet path replenishes health before loc_7E14 cleanup"
+            runtime.progression.number_hitpoints, 0x0C,
+            "ASM loc_7C76 same-helmet path replenishes from sub_7EB2 before loc_7E14 cleanup"
         );
         assert_eq!(
             runtime.progression.form_change_flash_frames, 0,
@@ -5644,6 +5642,33 @@ mod chunk_03 {
             runtime.progression.number_hitpoints, 4,
             "ASM loc_7CD0 → sub_7EB2: hitpoints = base(3) + extra_slots(1)"
         );
+    }
+
+    #[test]
+    fn sub_7eb2_uses_transform_hp_table_not_damage_cap_table() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        for (form, expected_hp) in [
+            (PlayerForm::TheKid, 2),
+            (PlayerForm::Skycutter, 3),
+            (PlayerForm::Cyclone, 3),
+            (PlayerForm::RedStealth, 3),
+            (PlayerForm::Eyeclops, 3),
+            (PlayerForm::Juggernaut, 3),
+            (PlayerForm::IronKnight, 0x0C),
+            (PlayerForm::Berzerker, 4),
+            (PlayerForm::Maniaxe, 8),
+            (PlayerForm::Micromax, 0x10),
+        ] {
+            runtime.queue_form_change(form);
+            runtime.resolve_pending_form_change();
+
+            assert_eq!(
+                runtime.progression.number_hitpoints, expected_hp,
+                "ASM sub_7EB2 / unk_7EC2 should seed transform HP for {form:?}",
+            );
+        }
     }
 
     /// ASM loc_7CFE (kid.asm:8439): `add.w d7,d7; lea off_7EE2(pc),a0;
