@@ -7610,11 +7610,24 @@ impl NativeRuntime {
         enemy: &ActiveEnemy,
         collision_type: u16,
     ) {
+        self.queue_pending_enemy_collision_target(
+            enemy,
+            collision_type,
+            PendingEnemyCollisionTarget::Parent,
+        );
+    }
+
+    pub(crate) fn queue_pending_enemy_collision_target(
+        &mut self,
+        enemy: &ActiveEnemy,
+        collision_type: u16,
+        target: PendingEnemyCollisionTarget,
+    ) {
         self.pending_enemy_collisions.push(PendingEnemyCollision {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
             collision_type,
-            target: PendingEnemyCollisionTarget::Parent,
+            target,
         });
     }
 
@@ -7655,19 +7668,41 @@ impl NativeRuntime {
                 // object.
                 continue;
             }
-            if matches!(enemy.family, EnemyFamily::Tank) {
+            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                let parent_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => collision.collision_type,
+                    PendingEnemyCollisionTarget::ChildAttachment => 0,
+                };
+                let child_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => 0,
+                    PendingEnemyCollisionTarget::ChildAttachment => collision.collision_type,
+                };
                 let route = tank_update_loc_3b41c(
-                    collision.collision_type,
-                    0,
+                    parent_collision,
+                    child_collision,
                     u16::from(enemy.hit_points),
                     TankMouthFrameLoc3B41C::Other,
                     false,
                 );
-                if matches!(route.route, TankUpdateRouteLoc3B41C::Death) {
-                    // ASM Tank.asm loc_3B41C: negative parent collision_type
-                    // branches directly to loc_3B480 before the mouth-child
-                    // `$38(a2)` damage/HP route is inspected.
-                    kill_indices.push(active_idx);
+                match route.route {
+                    TankUpdateRouteLoc3B41C::Death => {
+                        // ASM Tank.asm loc_3B41C: negative parent collisions
+                        // and terminal mouth-child hits both route to loc_3B480.
+                        kill_indices.push(active_idx);
+                    }
+                    TankUpdateRouteLoc3B41C::Hurt { remaining_hp } => {
+                        // ASM Tank.asm loc_3B464/loc_3B49A reads damage words
+                        // from the linked mouth child, decrements `$44(a3)`,
+                        // and clears parent motion on a nonfatal hit.
+                        enemy.hit_points = remaining_hp as u8;
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        if route.clears_parent_motion_speed {
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                        }
+                        changed_enemy_state = true;
+                    }
+                    TankUpdateRouteLoc3B41C::Walk => {}
                 }
                 continue;
             }

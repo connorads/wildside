@@ -1263,6 +1263,10 @@ pub(crate) const CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E: [(u16, u16); 10] = [
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CircleOfDoomSpriteResult {
+    /// $1A(a0) world X before camera offset.
+    pub(crate) world_x: i16,
+    /// $1E(a0) world Y before camera offset.
+    pub(crate) world_y: i16,
     /// Screen X after camera offset (d0 + d3 in ASM).
     pub(crate) screen_x: i16,
     /// Screen Y after camera offset (d1 + d4 in ASM).
@@ -1335,6 +1339,8 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
     // ASM: tst.w $38(a0); bne.s loc_3F87A (remove)
     if slot.status != 0 {
         return CircleOfDoomSpriteResult {
+            world_x,
+            world_y,
             screen_x,
             screen_y,
             half_size,
@@ -1350,6 +1356,8 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
         slot.radius = slot.radius.wrapping_sub(0x19000);
         if (slot.radius as i32) < 0 {
             return CircleOfDoomSpriteResult {
+                world_x,
+                world_y,
                 screen_x,
                 screen_y,
                 half_size,
@@ -1370,6 +1378,8 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
     // here. In native code the caller iterates the slot Vec, so this
     // linked-list plumbing is implicit.
     CircleOfDoomSpriteResult {
+        world_x,
+        world_y,
         screen_x,
         screen_y,
         half_size,
@@ -2066,16 +2076,19 @@ pub(crate) struct DiamondPowerCollisionRectLoc1D84 {
     pub(crate) bottom_px: i32,
 }
 
+const DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0: u16 = 0x0004;
+
 #[cfg_attr(not(test), allow(dead_code))]
-fn wall_of_death_collision_rect_loc_1d84(
+fn diamond_power_collision_rect_loc_1d84(
     world_x: i16,
     world_y: i16,
     size_index: u16,
 ) -> DiamondPowerCollisionRectLoc1D84 {
     // ASM sub_1D84 (kid.asm:3558) uses `$22(a2)` as a CollisionSize_Index
-    // word. Wall slots write `$22 = $1144 + $24*4` at loc_4006E; size `$06`
-    // selects `unk_31DCC` (`dc.w -$7,$E,-$7,$E`), with the smaller fade
-    // sizes walking back through `unk_31D90`..`unk_31DC2`.
+    // word. Circle loc_3F880 and Wall loc_4006E both write
+    // `$22 = $1144 + size*4`; size `$06` selects `unk_31DCC`
+    // (`dc.w -$7,$E,-$7,$E`), with smaller sizes walking back through
+    // `unk_31D90`..`unk_31DC2`.
     let half_size = i32::from(size_index.saturating_add(1));
     let world_x = i32::from(world_x);
     let world_y = i32::from(world_y);
@@ -2085,6 +2098,15 @@ fn wall_of_death_collision_rect_loc_1d84(
         top_px: world_y - half_size,
         bottom_px: world_y + half_size,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn wall_of_death_collision_rect_loc_1d84(
+    world_x: i16,
+    world_y: i16,
+    size_index: u16,
+) -> DiamondPowerCollisionRectLoc1D84 {
+    diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4320,14 +4342,14 @@ fn helmet_enemy_projectile_damage_target_snapshots(
 }
 
 impl NativeRuntime {
-    fn queue_wall_of_death_slot_collisions_loc_1d84(
+    fn queue_diamond_power_slot_collisions_loc_1d84(
         &mut self,
         world_x: i16,
         world_y: i16,
         size_index: u16,
         queued_collisions: &mut Vec<(usize, usize)>,
-    ) {
-        let slot_rect = wall_of_death_collision_rect_loc_1d84(world_x, world_y, size_index);
+    ) -> bool {
+        let slot_rect = diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index);
         let mut collisions = Vec::new();
 
         for enemy in &self.active_enemies {
@@ -4340,32 +4362,67 @@ impl NativeRuntime {
                 continue;
             }
 
-            let snapshot = enemy.snapshot();
-            let bounds = crate::combat::enemy_contact_bounds(&snapshot);
-            let enemy_x = (enemy.x_pos >> 16) as i32;
-            let enemy_y = (enemy.y_pos >> 16) as i32;
-            let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
-                left_px: enemy_x + bounds.left_px as i32,
-                right_px: enemy_x + bounds.right_px as i32,
-                top_px: enemy_y + bounds.top_px as i32,
-                bottom_px: enemy_y + bounds.bottom_px as i32,
-            };
-
-            if diamond_power_rects_overlap_loc_1d84(enemy_rect, slot_rect) {
-                // ASM loc_1EA0 (kid.asm:3665) maps the collided object's
-                // `$3A(a2) & $FF` through `unk_1EBE`; the family object type is
-                // the native equivalent for live enemy objects.
-                let collision_type = crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(
-                    enemy.family.object_type(),
+            let mut targets = vec![(enemy.snapshot(), PendingEnemyCollisionTarget::Parent)];
+            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                targets.clear();
+            }
+            if matches!(
+                enemy.family,
+                EnemyFamily::Tank | EnemyFamily::TankShooting | EnemyFamily::Robot
+            ) {
+                targets.extend(
+                    enemy
+                        .child_attachment_snapshot()
+                        .map(|snapshot| (snapshot, PendingEnemyCollisionTarget::ChildAttachment)),
                 );
-                collisions.push((*enemy, collision_type));
-                queued_collisions.push((enemy.segment_index, enemy.layout_index));
+            }
+
+            for (snapshot, target) in targets {
+                let bounds = crate::combat::enemy_contact_bounds(&snapshot);
+                let enemy_x = (snapshot.x_pos >> 16) as i32;
+                let enemy_y = (snapshot.y_pos >> 16) as i32;
+                let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
+                    left_px: enemy_x + bounds.left_px as i32,
+                    right_px: enemy_x + bounds.right_px as i32,
+                    top_px: enemy_y + bounds.top_px as i32,
+                    bottom_px: enemy_y + bounds.bottom_px as i32,
+                };
+
+                if diamond_power_rects_overlap_loc_1d84(enemy_rect, slot_rect) {
+                    // ASM loc_1EA0 (kid.asm:3665) maps the collided object's
+                    // `$3A(a2) & $FF` through `unk_1EBE`; the family object
+                    // type is the native equivalent for live enemy objects.
+                    let collision_type =
+                        crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(
+                            enemy.family.object_type(),
+                        );
+                    collisions.push((*enemy, collision_type, target));
+                    queued_collisions.push((enemy.segment_index, enemy.layout_index));
+                    break;
+                }
             }
         }
 
-        for (enemy, collision_type) in collisions {
-            self.queue_pending_enemy_collision(&enemy, collision_type);
+        let collided = !collisions.is_empty();
+        for (enemy, collision_type, target) in collisions {
+            self.queue_pending_enemy_collision_target(&enemy, collision_type, target);
         }
+        collided
+    }
+
+    fn queue_wall_of_death_slot_collisions_loc_1d84(
+        &mut self,
+        world_x: i16,
+        world_y: i16,
+        size_index: u16,
+        queued_collisions: &mut Vec<(usize, usize)>,
+    ) {
+        let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+            world_x,
+            world_y,
+            size_index,
+            queued_collisions,
+        );
     }
 
     fn step_diamond_power_circle_of_doom_slots_loc_3f81a(&mut self) {
@@ -4378,8 +4435,10 @@ impl NativeRuntime {
         let camera_x = (slice.camera.x_pos >> 16) as i16;
         let camera_y = (slice.camera.y_pos >> 16) as i16;
 
-        let mut retained_slots = Vec::with_capacity(self.diamond_power_circle_slots.len());
-        for mut slot in self.diamond_power_circle_slots.drain(..) {
+        let circle_slots = std::mem::take(&mut self.diamond_power_circle_slots);
+        let mut retained_slots = Vec::with_capacity(circle_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in circle_slots {
             let result =
                 diamond_power_main_circle_of_doom_slot(&mut slot, kid_x, kid_y, camera_x, camera_y);
             if result.removed {
@@ -4395,6 +4454,16 @@ impl NativeRuntime {
                 size_word,
                 pattern_word,
             });
+            if self.queue_diamond_power_slot_collisions_loc_1d84(
+                result.world_x,
+                result.world_y,
+                u16::from(result.half_size),
+                &mut queued_collisions,
+            ) {
+                // ASM loc_1EA0 writes `colid_rightwall` to the DP object
+                // `$38(a0)` after writing the collided object's collision word.
+                slot.status = DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0;
+            }
             retained_slots.push(slot);
         }
         self.diamond_power_circle_slots = retained_slots;
@@ -6163,7 +6232,6 @@ impl NativeRuntime {
                     self.step_diamond_power_circle_of_doom_slots_loc_3f81a();
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
-                    self.diamond_power_kill_enemies();
                 }
                 DiamondPowerType::WallOfDeath => {
                     // ASM DiamondPower_Main_WallOfDeath loc_40026 moves the
@@ -6379,31 +6447,6 @@ impl NativeRuntime {
             // ASM DiamondPower_Init_WallOfDeath loc_3FFE4/loc_3FFEA seeds ten
             // DP-object slots and stores `$4B0` into `Diamond_power_timer`.
             self.diamond_power_wall_slots = diamond_power_init_wall_of_death().slots;
-        }
-    }
-
-    /// Temporary CircleOfDoom AoE damage helper.
-    fn diamond_power_kill_enemies(&mut self) {
-        let mut kill_indices = Vec::new();
-        let mut changed_enemy_state = false;
-        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
-            if matches!(enemy.family, EnemyFamily::Diamond) {
-                continue;
-            }
-            if enemy.take_damage_or_queue_death() {
-                kill_indices.push(i);
-            } else {
-                // ASM DiamondPower_Main_CircleOfDoom/WallOfDeath route via
-                // object collision words; family handlers such as Tank.asm
-                // loc_3B41C may update parent state without deleting it.
-                changed_enemy_state = true;
-            }
-        }
-        for &idx in kill_indices.iter().rev() {
-            self.remove_dead_enemy(idx);
-        }
-        if changed_enemy_state || !kill_indices.is_empty() {
-            self.rebuild_active_enemy_roster();
         }
     }
 }

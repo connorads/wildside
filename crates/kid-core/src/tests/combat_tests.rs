@@ -1163,76 +1163,19 @@ mod chunk_03 {
         );
     }
 
-    /// ASM DiamondPower_Main_CircleOfDoom damages ordinary enemies while
-    /// diamond pickups stay collectible. Native AoE keeps that filtering and
-    /// refreshes the authoritative active roster after a kill.
     #[test]
-    fn diamond_power_aoe_skips_diamonds_and_refreshes_roster_loc_3f81a() {
+    fn circle_of_doom_main_does_not_blanket_delete_enemies_loc_3f81a_loc_1d84() {
         let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
         runtime.progression.diamond_power_frames = 2;
-        runtime.active_enemies = vec![
-            test_enemy(EnemyFamily::Dragon, 0x0100_0000, 0x0020_0000, 1),
-            test_enemy(EnemyFamily::Diamond, 0x0110_0000, 0x0020_0000, 1),
-            test_enemy(EnemyFamily::Robot, 0x0120_0000, 0x0020_0000, 2),
-        ];
-        runtime.active_enemy_roster = runtime
-            .active_enemies
-            .iter()
-            .map(ActiveEnemy::snapshot)
-            .collect();
-
-        runtime.step_diamond_power(FrameInput::default());
-
-        assert_eq!(runtime.active_enemies.len(), 2);
-        assert_eq!(
-            runtime.active_enemies[0].family,
-            EnemyFamily::Diamond,
-            "ASM DiamondPower_Main_CircleOfDoom: diamond pickup objects are not AoE targets"
-        );
-        assert_eq!(runtime.active_enemies[0].hit_points, 1);
-        assert_eq!(runtime.active_enemies[1].family, EnemyFamily::Robot);
-        assert_eq!(runtime.active_enemies[1].hit_points, 1);
-        assert_eq!(
-            runtime.active_enemies[1].damage_flash_frames,
-            ENEMY_DAMAGE_FLASH_FRAMES
-        );
-        assert_eq!(
-            runtime.pending_dragon_death_children.len(),
-            1,
-            "ASM Dragon_Flying.asm loc_3492C queues the walking-dragon child until the two-frame hibernate finishes"
-        );
-        assert_eq!(
-            runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len() + 2,
-            "native AoE kill path must refresh the trace roster with the visual Dragon_Flying.asm loc_3492C death object and Robot.asm loc_3A7EE head child"
-        );
-
-        runtime.step_pending_dragon_death_children();
-        assert_eq!(runtime.active_enemies.len(), 2);
-        runtime.step_pending_dragon_death_children();
-
-        assert_eq!(runtime.active_enemies.len(), 3);
-        assert_eq!(
-            runtime.active_enemies[2].family,
+        runtime.diamond_power_circle_slots = helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+        runtime.active_enemies = vec![test_enemy(
             EnemyFamily::DragonWalking,
-            "ASM Dragon_Flying.asm loc_3492C death removes the flying parent, waits two hibernate frames, then leaves a walking-dragon child at the shared death boundary"
-        );
-        assert_eq!(
-            runtime.active_enemy_roster.len(),
-            runtime.active_enemies.len() + 2,
-            "native pending child spawn must keep the visual Dragon_Flying.asm loc_3492C death object and Robot.asm loc_3A7EE head child until stru_345E4 finishes"
-        );
-    }
-
-    #[test]
-    fn diamond_power_aoe_routes_tank_through_loc_3b41c_damage_not_direct_delete() {
-        let mut runtime = NativeRuntime::new(manifest());
-        runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
-        runtime.progression.diamond_power_frames = 2;
-        let mut tank = test_enemy(EnemyFamily::Tank, 0x0100_0000, 0x0020_0000, 4);
-        tank.x_velocity = 0x0001_0000;
-        runtime.active_enemies = vec![tank];
+            0x0400_0000,
+            0x0020_0000,
+            1,
+        )];
         runtime.active_enemy_roster = runtime
             .active_enemies
             .iter()
@@ -1244,7 +1187,108 @@ mod chunk_03 {
         assert_eq!(
             runtime.active_enemies.len(),
             1,
-            "ASM DiamondPower_Main_CircleOfDoom maintains DP object collision words; Tank damage still dispatches through Tank.asm loc_3B41C"
+            "ASM DiamondPower_Main_CircleOfDoom loc_3F81A/loc_3F880 writes live DP-object positions and sizes; generic sub_1D84/loc_1EA0 collisions, not a native AoE sweep, decide enemy hits"
+        );
+        assert_eq!(runtime.active_enemies[0].family, EnemyFamily::DragonWalking);
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+    }
+
+    #[test]
+    fn circle_of_doom_slot_collision_refreshes_roster_loc_3f81a_loc_1d84() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
+        runtime.progression.diamond_power_frames = 2;
+        runtime.diamond_power_circle_slots = helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+        let slice = runtime.opening_slice.as_ref().expect("level started");
+        let mut probe_slot = runtime.diamond_power_circle_slots[0].clone();
+        let slot_hit = helmets::diamond_power_main_circle_of_doom_slot(
+            &mut probe_slot,
+            (slice.player.x_pos >> 16) as i16,
+            (slice.player.y_pos >> 16) as i16,
+            (slice.camera.x_pos >> 16) as i16,
+            (slice.camera.y_pos >> 16) as i16,
+        );
+        let mut hit_dragon = test_enemy(
+            EnemyFamily::DragonWalking,
+            u32::from(slot_hit.world_x as u16) << 16,
+            u32::from(slot_hit.world_y as u16) << 16,
+            2,
+        );
+        hit_dragon.layout_index = 11;
+        let mut far_dragon = test_enemy(EnemyFamily::DragonWalking, 0x0400_0000, 0x0020_0000, 2);
+        far_dragon.layout_index = 12;
+        runtime.active_enemies = vec![hit_dragon, far_dragon];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        runtime.step_diamond_power(FrameInput::default());
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(runtime.active_enemies.len(), 2);
+        assert_eq!(
+            runtime.active_enemies[0].family,
+            EnemyFamily::DragonWalking,
+            "ASM loc_1EA0 maps DragonWalking object type $0D through `unk_1EBE` to `colid_kidabove` for the overlapped Circle slot"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert_eq!(runtime.active_enemies[1].family, EnemyFamily::DragonWalking);
+        assert_eq!(
+            runtime.active_enemies[1].hit_points, 2,
+            "ASM sub_1D84 only writes collision words for objects whose `CollisionSize_Index` bounds overlap a live DP-object slot"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames,
+            ENEMY_DAMAGE_FLASH_FRAMES + 1,
+            "ASM Dragon.asm loc_3CEBE hibernates the nonfatal hurt animation one frame beyond the shared flash window"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            runtime.active_enemies.len(),
+            "native collision-word damage must rebuild the authoritative trace roster after the overlapped DragonWalking object changes state"
+        );
+    }
+
+    #[test]
+    fn circle_of_doom_slot_collision_routes_tank_child_through_loc_3b41c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
+        runtime.progression.diamond_power_frames = 2;
+        runtime.diamond_power_circle_slots = helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+        let slice = runtime.opening_slice.as_ref().expect("level started");
+        let mut probe_slot = runtime.diamond_power_circle_slots[0].clone();
+        let slot_hit = helmets::diamond_power_main_circle_of_doom_slot(
+            &mut probe_slot,
+            (slice.player.x_pos >> 16) as i16,
+            (slice.player.y_pos >> 16) as i16,
+            (slice.camera.x_pos >> 16) as i16,
+            (slice.camera.y_pos >> 16) as i16,
+        );
+        let mut tank = test_enemy(
+            EnemyFamily::Tank,
+            u32::from(slot_hit.world_x as u16) << 16,
+            u32::from(slot_hit.world_y.wrapping_add(8) as u16) << 16,
+            4,
+        );
+        tank.x_velocity = 0x0001_0000;
+        runtime.active_enemies = vec![tank];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        runtime.step_diamond_power(FrameInput::default());
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM DiamondPower_Main_CircleOfDoom maintains DP object collision words; Tank child damage still dispatches through Tank.asm loc_3B41C"
         );
         assert_eq!(
             runtime.active_enemies[0].hit_points, 3,
