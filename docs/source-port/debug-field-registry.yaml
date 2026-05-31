@@ -382,6 +382,15 @@
       "first_added_commit": "c2b88970",
       "intended_meaning": "The wall probe result for the most recent DragonWalking terrain decision, including negative hits.",
       "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
+    },
+    {
+      "key": "highwater_shooter_barrier_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-214-highwater-shooter",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native Highwater Pass 1 shooter/barrier route diagnostics: shooter scan cursor, active shooter slots, shooter headbutt workers, typed projectiles, source shooter cells, and first ice-barrier cells.",
+      "promotion_trigger": "Promote if #214 parity or checked-in regressions start depending on typed shooter slot/barrier-cell state."
     }
   ]
 }

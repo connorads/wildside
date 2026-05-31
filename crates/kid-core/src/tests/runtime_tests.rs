@@ -8776,6 +8776,45 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_trace_exposes_shooter_barrier_probe_loc_eae4_f02a() {
+        // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A is the #214 live
+        // playtest route. Trace needs the shooter slots, projectile, and
+        // barrier cell words visible before patching the worker lifecycle.
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
+        rt.projectiles.clear();
+
+        for _ in 0..90 {
+            rt.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        let trace = rt.trace_frame();
+        let probe = trace
+            .gameplay_debug_fields
+            .get("highwater_shooter_barrier_probe")
+            .expect("Highwater trace should expose #214 shooter/barrier probe");
+        assert!(
+            probe.contains("projectiles=[kind=ShooterBlock"),
+            "probe should expose typed shooter-block projectile: {probe}"
+        );
+        assert!(
+            probe.contains("shooters=[11:97="),
+            "probe should expose the first Highwater shooter column: {probe}"
+        );
+        assert!(
+            probe.contains("barrier=[15:97="),
+            "probe should expose the first Highwater ice barrier column: {probe}"
+        );
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
         // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater

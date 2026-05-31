@@ -74,6 +74,16 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     }
 }
 
+fn trace_cell_word(cell: terrain::Cell) -> u16 {
+    let block_type = if cell.has_block {
+        cell.block_type as u8 & 0x0F
+    } else {
+        0
+    };
+    let hi = u8::from(cell.has_block) << 7 | ((cell.collision as u8 & 0x07) << 4) | block_type;
+    u16::from_be_bytes([hi, cell.skin])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5001,6 +5011,9 @@ impl NativeRuntime {
         if let Some(summary) = self.diamond_power_snake_probe_debug() {
             gameplay_debug_fields.insert("diamond_power_snake_probe".into(), summary);
         }
+        if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
+            gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -5364,6 +5377,76 @@ impl NativeRuntime {
             gameplay_debug_fields,
             physics_trace: self.opening_slice.and_then(|s| s.physics_trace),
         }
+    }
+
+    fn highwater_shooter_barrier_probe_debug(&self) -> Option<String> {
+        if self.current_level != LevelId(0x02) || !matches!(self.game_mode(), GameMode::InGame) {
+            return None;
+        }
+        let grid = self.block_grid.as_ref()?;
+        let shooter_cells = (97..=103)
+            .map(|row| format!("11:{row}={:04X}", trace_cell_word(grid.cell_at(11, row))))
+            .collect::<Vec<_>>()
+            .join(",");
+        let barrier_cells = (97..=103)
+            .map(|row| format!("15:{row}={:04X}", trace_cell_word(grid.cell_at(15, row))))
+            .collect::<Vec<_>>()
+            .join(",");
+        let shooter_slots = self
+            .block_state
+            .shooter_blocks
+            .iter()
+            .map(|entry| {
+                format!(
+                    "{}:{} dirs={:#04x} age={} supported={}",
+                    entry.col,
+                    entry.row,
+                    entry.directions,
+                    entry.age,
+                    u8::from(entry.supported_by_neighbour)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let headbutt_workers = self
+            .block_state
+            .shooter_headbutt_workers
+            .iter()
+            .map(|worker| {
+                format!(
+                    "{}:{} {:?} age={}",
+                    worker.col, worker.row, worker.kind, worker.age
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let projectiles = self
+            .projectiles
+            .iter()
+            .map(|projectile| {
+                format!(
+                    "kind={:?} x={:#010x} y={:#010x} vel={:#010x},{:#010x} life={}",
+                    active_projectile_kind(projectile),
+                    projectile.x_pos,
+                    projectile.y_pos,
+                    projectile.x_velocity,
+                    projectile.y_velocity,
+                    projectile.lifetime
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+
+        Some(format!(
+            "scan={},{} slots=[{}] headbutt=[{}] projectiles=[{}] shooters=[{}] barrier=[{}]",
+            self.block_state.shooter_last_scanned_col,
+            self.block_state.shooter_last_scanned_row,
+            shooter_slots,
+            headbutt_workers,
+            projectiles,
+            shooter_cells,
+            barrier_cells
+        ))
     }
 
     fn kid_object_support_candidates(&self, player: PlayerState) -> Option<String> {
