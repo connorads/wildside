@@ -402,6 +402,12 @@ fn projectile_terrain_contact_loc_3345c(
         let col = terrain::pixel_to_cell(px_i).max(0) as u16;
         let row = terrain::pixel_to_cell(py_i).max(0) as u16;
         let cell = grid.cell_at(col, row);
+        if projectile.kind == EnemyProjectileKind::ManiaxeAxe {
+            // ASM loc_8A84 (kid.asm:9895): `andi.w #$7000,d7;
+            // cmpi.w #$6000,d7; beq loc_8ACC` deletes the axe only on
+            // solid-block collision bits. Slopes/hurt cells fall through.
+            return cell.has_block && cell.collision == terrain::CollisionKind::Solid;
+        }
         cell.has_block && cell.collision != terrain::CollisionKind::Empty
     }
 }

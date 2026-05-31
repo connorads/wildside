@@ -4372,6 +4372,82 @@ mod chunk_06 {
         );
     }
 
+    fn maniaxe_collision_grid(collision: terrain::CollisionKind) -> terrain::BlockGrid {
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let off = (2 * usize::from(w) + 2) * 2;
+        let collision_bits = match collision {
+            terrain::CollisionKind::SlopeUp => 0x40,
+            terrain::CollisionKind::SlopeDown => 0x50,
+            terrain::CollisionKind::Solid => 0x60,
+            terrain::CollisionKind::Spikes => 0x70,
+            terrain::CollisionKind::HiddenBlock => 0x20,
+            terrain::CollisionKind::Empty => 0x00,
+        };
+        data[off] = 0x80 | collision_bits;
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    /// ASM loc_8A84 (kid.asm:9895): Maniaxe masks tile collision with `$7000`
+    /// and branches to loc_8ACC only for `$6000` solid. `$4000/$5000` slopes
+    /// fall through to bounds/enemy checks, so a slope overlap must not delete
+    /// the axe through native terrain_kill.
+    fn maniaxe_axe_slope_contact_survives_loc_8a84() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: true,
+            terrain_kill: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        // Post-step position is (34, 40), inside cell (2, 2).
+        rt.set_block_grid(maniaxe_collision_grid(terrain::CollisionKind::SlopeUp));
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_8A84: slope collision bits are not `$6000`, so the axe should keep flying"
+        );
+        assert_eq!(rt.projectiles[0].x_pos, 34 << 16);
+        assert_eq!(rt.projectiles[0].lifetime, 19);
+    }
+
+    #[test]
+    /// ASM loc_8A84 -> loc_8ACC (kid.asm:9895-9913): only `$6000` solid
+    /// collision enters the axe terrain-hit delete path.
+    fn maniaxe_axe_solid_contact_deletes_loc_8acc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: true,
+            terrain_kill: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        // Post-step position is (34, 40), inside cell (2, 2).
+        rt.set_block_grid(maniaxe_collision_grid(terrain::CollisionKind::Solid));
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_8ACC: `$6000` solid collision should delete the axe"
+        );
+    }
+
     /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — axe deletion
     /// after solid-block explosion or out-of-bounds. Native still removes
     /// zero-lifetime projectiles through the shared projectile shell.
