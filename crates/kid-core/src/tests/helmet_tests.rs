@@ -4473,7 +4473,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_stays_in_gameplay_on_frame_4905() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_4905 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(4_906) {
@@ -4493,7 +4495,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_4966 = None;
         let mut frame_4967 = None;
         let mut frame_4998 = None;
@@ -4691,7 +4695,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_1_start_abort_preserves_live_title_snapshot_on_frame_1837() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_1837 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_838) {
@@ -4718,7 +4724,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_1_title_return_keeps_snapshot_counts_until_hidden_rebuild() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frames = std::collections::BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_897) {
@@ -4782,7 +4790,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_bootstrap_keeps_character_movement_inert() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2535 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_536) {
@@ -4807,7 +4817,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_bootstrap_counts_hidden_rom_objects() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frames = std::collections::BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_694) {
@@ -4909,7 +4921,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_grounded_run_holds_y_through_frame_2665() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2665 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_666) {
@@ -4949,7 +4963,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_timeout_restart_demo_1_grounded_run_holds_y_through_frame_21896() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21896 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(21_897) {
@@ -4994,7 +5010,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_floor_release_splits_horizontal_and_vertical_steps() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2693 = None;
         let mut frame_2694 = None;
 
@@ -5057,7 +5075,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_timeout_restart_demo_1_floor_release_splits_horizontal_and_vertical_steps() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21924 = None;
         let mut frame_21925 = None;
 
@@ -5120,7 +5140,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_trace_hold_keeps_controller_worker_counts_visible() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2703 = None;
         let mut frame_2747 = None;
         let mut frame_2786 = None;
@@ -5228,7 +5250,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_late_floor_release_splits_horizontal_and_vertical_steps() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2748 = None;
         let mut frame_2749 = None;
 
@@ -5303,7 +5327,9 @@ mod chunk_08 {
     #[test]
     fn published_tas_timeout_restart_demo_1_late_floor_release_splits_horizontal_and_vertical_steps()
      {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21979 = None;
         let mut frame_21980 = None;
 
@@ -5366,7 +5392,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_timeout_restart_demo_1_late_jump_reentry_keeps_live_velocity() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_22017 = None;
         let mut frame_22018 = None;
 
@@ -5427,7 +5455,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_late_jump_reentry_keeps_live_loc_a6f8_state() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_2787 = None;
         let mut frame_2788 = None;
 
@@ -5490,7 +5520,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_late_jump_trace_export_keeps_controller_sample() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frames = std::collections::BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_058) {
@@ -5622,7 +5654,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_demo_late_fall_keeps_live_loc_a6f8_velocity() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         runtime.set_trace_physics(true);
         let mut frames = std::collections::BTreeMap::new();
 
@@ -5741,7 +5775,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_4966 = None;
         let mut frame_4967 = None;
 
@@ -5773,7 +5809,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_4994 = None;
         let mut frame_4995 = None;
 
@@ -5833,7 +5871,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_clears_camera_and_progression_on_frame_4999() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_4998 = None;
         let mut frame_4999 = None;
 
@@ -5875,7 +5915,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_keeps_kid_hidden_during_timeout_restart() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_5116 = None;
         let mut frame_5184 = None;
 
@@ -5917,7 +5959,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_5142 = None;
         let mut frame_5143 = None;
 
@@ -6165,7 +6209,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_5503 = None;
         let mut frame_5504 = None;
 
@@ -6209,7 +6255,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_intro_sequence_counts_timeout_restart_workers() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frames = Vec::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(6_269) {
@@ -6291,7 +6339,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_holds_intro_sequence_2_until_frame_5953() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_5584 = None;
         let mut frame_5952 = None;
         let mut frame_5953 = None;
@@ -6354,7 +6404,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_5993 = None;
         let mut frame_5994 = None;
 
@@ -6396,7 +6448,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_6033 = None;
         let mut frame_6198 = None;
         let mut frame_6208 = None;
@@ -6506,7 +6560,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_6357 = None;
         let mut frame_6358 = None;
         let mut frame_6359 = None;
@@ -6576,7 +6632,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9096 = None;
         let mut frame_9097 = None;
         let mut frame_9098 = None;
@@ -6957,7 +7015,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
-        let (_, script) = cached_any_percent_published_runtime_and_script();
+        let Some((_, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let first_visit_start_frames = (6_204..=6_211)
             .filter(|&frame| script[frame] & 0x80 != 0)
             .collect::<Vec<_>>();
@@ -6979,7 +7039,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9311 = None;
         let mut frame_9312 = None;
         let mut frame_9354 = None;
@@ -7035,7 +7097,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_carries_intro_sequence_3_pose_into_intro_sequence_4() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9355 = None;
         let mut frame_9381 = None;
         let mut frame_9382 = None;
@@ -7099,7 +7163,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_delays_intro_sequence_4_camera_until_sub_1b988() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9391 = None;
         let mut frame_9392 = None;
         let mut frame_9393 = None;
@@ -7143,7 +7209,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_9435() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9434 = None;
         let mut frame_9435 = None;
         let mut frame_9436 = None;
@@ -7187,7 +7255,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_9895() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9894 = None;
         let mut frame_9895 = None;
         let mut frame_9896 = None;
@@ -7233,7 +7303,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_carries_camera_into_intro_sequence_5_on_frame_9949() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9948 = None;
         let mut frame_9949 = None;
         let mut frame_9950 = None;
@@ -7279,7 +7351,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_clears_intro_sequence_5_camera_on_frame_9980() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_9979 = None;
         let mut frame_9980 = None;
         let mut frame_9981 = None;
@@ -7330,7 +7404,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame_10007() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_10006 = None;
         let mut frame_10007 = None;
         let mut frame_10008 = None;
@@ -7384,7 +7460,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_keeps_intro_sequence_5_alive_past_frame_10029() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_10028 = None;
         let mut frame_10029 = None;
         let mut frame_10030 = None;
@@ -7440,7 +7518,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_carries_intro_sequence_5_pose_into_title() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_10288 = None;
         let mut frame_10289 = None;
         let mut frame_10290 = None;
@@ -7575,7 +7655,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_starts_demo_play_on_frame_10986() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_10985 = None;
         let mut frame_10986 = None;
         let mut frame_10987 = None;
@@ -7671,7 +7753,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame_11043() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_11042 = None;
         let mut frame_11043 = None;
         let mut frame_11044 = None;
@@ -7732,7 +7816,9 @@ mod chunk_08 {
     #[test]
     fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11548()
      {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_11547 = None;
         let mut frame_11547_special_motion = None;
         let mut frame_11548 = None;
@@ -7826,7 +7912,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_6905 = None;
         let mut frame_6906 = None;
         let mut frame_6907 = None;
@@ -7897,7 +7985,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_6943 = None;
         let mut frame_6945 = None;
         let mut frame_6947 = None;
@@ -7938,7 +8028,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_demo_2_uses_the_oracle_hidden_camera_wrap_on_frame_6966() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_6965 = None;
         let mut frame_6966 = None;
         let mut frame_6967 = None;
@@ -7979,7 +8071,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_timeout_restarted_demo_stays_unpaused_on_frame_7493() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7486 = None;
         let mut frame_7492 = None;
         let mut frame_7493 = None;
@@ -8049,7 +8143,9 @@ mod chunk_08 {
 
     #[test]
     fn published_tas_timeout_restarted_demo_keeps_controller_sample_until_timeout() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7525 = None;
         let mut frame_8068 = None;
 
@@ -8208,7 +8304,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_reports_grounded_walk_on_frame_720() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_720 = None;
@@ -8232,7 +8330,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_keeps_loc_9d22_uphill_state_on_frame_1003() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1003 = None;
@@ -8261,7 +8361,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_returns_to_plain_walk_on_frame_1044() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1044 = None;
@@ -8285,7 +8387,9 @@ mod chunk_08 {
 
     #[test]
     fn published_demo_wall_jump_stall_keeps_loc_a6f8_jump_movement_until_settle() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
 
         let mut frame_957 = None;
         let mut frame_977 = None;
@@ -8321,7 +8425,9 @@ mod chunk_08 {
 
     #[test]
     fn published_demo_grounded_run_resumes_with_loc_9b62_normal_acceleration() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
 
         let mut frame_979 = None;
         let mut frame_1004 = None;
@@ -8346,7 +8452,9 @@ mod chunk_08 {
             "published TAS trace export still masks visible velocity while raw WRAM advances",
         );
 
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_005) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 1_004 {
@@ -8365,7 +8473,9 @@ mod chunk_08 {
 
     #[test]
     fn published_demo_prize_block_bounce_counts_loc_1002e_transient_worker() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
 
         let mut frame_989 = None;
         let mut frame_1020 = None;
@@ -8609,7 +8719,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1680 = None;
@@ -8633,7 +8745,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_936 = None;
@@ -8667,7 +8781,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_945() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.set_trace_physics(true);
         let script = death_respawn_level_1_script();
 
@@ -8724,7 +8840,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_990 = None;
@@ -8748,7 +8866,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_waits_until_frame_990_to_land() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_989 = None;
@@ -8777,7 +8897,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frames = BTreeMap::new();
@@ -8818,7 +8940,9 @@ mod chunk_08 {
 
     #[test]
     fn death_respawn_level_1_stays_alive_past_frame_1161() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1161 = None;
@@ -8854,7 +8978,9 @@ mod chunk_08 {
 
     #[test]
     fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.warp_to_level(LevelId(0x29));
         let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x29));
 
@@ -8868,7 +8994,9 @@ mod chunk_08 {
 
     #[test]
     fn respawn_settle_level_52_uses_stair_step_support_path() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.warp_to_level(LevelId(0x52));
         let frames = runtime.inspect_respawn_settle(LevelId(0x52), 16);
         let settle_step_1 = frames.get(1).expect("step 1 should exist");
@@ -8885,7 +9013,9 @@ mod chunk_08 {
 
     #[test]
     fn respawn_settle_level_24_matches_oracle_camera_convergence() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.warp_to_level(LevelId(0x24));
         let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x24));
 
@@ -8898,7 +9028,9 @@ mod chunk_08 {
 
     #[test]
     fn respawn_settle_level_51_matches_oracle_camera_convergence() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.warp_to_level(LevelId(0x51));
         let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x51));
 
@@ -8910,7 +9042,9 @@ mod chunk_08 {
 
     #[test]
     fn respawn_settle_level_01_lands_on_blue_lake_woods_2_floor() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.warp_to_level(LevelId(0x01));
         let frames = runtime.inspect_respawn_settle(LevelId(0x01), 40);
         let spawn = frames.first().expect("spawn frame should exist");

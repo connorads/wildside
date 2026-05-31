@@ -1120,7 +1120,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_rubber_contact_rebounds_into_jump_path() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1216 = None;
@@ -1151,7 +1153,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_rubber_wall_hit_rebounds_without_entering_wall_cling() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1291 = None;
@@ -1187,7 +1191,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1684 = None;
@@ -1209,7 +1215,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_live_tumble_arc_on_frame_1700() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1700 = None;
@@ -1238,7 +1246,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1758 = None;
@@ -1265,7 +1275,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_enters_hidden_lose_life_path_on_frame_1759() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1759 = None;
@@ -1293,7 +1305,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_hides_shell_pose_on_frame_1780() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1779 = None;
@@ -1336,7 +1350,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_clears_hidden_shell_camera_by_frame_1785() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1785 = None;
@@ -1363,7 +1379,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1791 = None;
@@ -1391,7 +1409,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_uses_hidden_respawn_bootstrap_path_through_frame_1855() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1809 = None;
@@ -1425,7 +1445,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2216() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_2215 = None;
@@ -1464,7 +1486,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2999() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_2998 = None;
@@ -1503,7 +1527,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3100() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_3099 = None;
@@ -1546,7 +1572,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_9000() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_8999 = None;
@@ -1590,7 +1618,9 @@ mod chunk_06 {
 
     #[test]
     fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let script = death_respawn_level_1_script();
 
         let mut frame_1570 = None;

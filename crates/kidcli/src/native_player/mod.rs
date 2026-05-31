@@ -1925,7 +1925,9 @@ mod tests {
 
     #[test]
     fn highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62() {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let visuals = load_level_visuals(&manifest, 0x02).expect("Highwater Pass visuals");
         let mut trace = sample_trace(GameMode::InGame);
         trace.current_level = LevelId(0x02);
@@ -1973,7 +1975,9 @@ mod tests {
 
     #[test]
     fn highwater_live_trace_shooter_projectile_renders_real_spike_tile_loc_ef62() {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let session_assets =
             load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
         let mut runtime = NativeRuntime::new(manifest);
@@ -2027,7 +2031,9 @@ mod tests {
 
     #[test]
     fn highwater_juggernaut_shooter_clears_visible_ice_barrier_loc_f02a() {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let session_assets =
             load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
         let mut runtime = NativeRuntime::new(manifest);
@@ -2070,7 +2076,9 @@ mod tests {
     #[test]
     fn highwater_berzerker_live_charge_from_spawn_renders_spikes_and_clears_barrier_loc_ef62_f02a()
     {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let session_assets =
             load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
         let mut runtime = NativeRuntime::new(manifest);
@@ -2162,7 +2170,9 @@ mod tests {
 
     #[test]
     fn blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730() {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let session_assets =
             load_native_session_assets(&manifest, 0x01).expect("Blue Lake Woods 2 session assets");
         let mut runtime = NativeRuntime::new(manifest);
@@ -4600,15 +4610,29 @@ mod tests {
         sample_level_visuals_with_background([33, 66, 99])
     }
 
-    fn cached_generated_manifest() -> AssetManifest {
-        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let repo_root = crate_dir
-            .parent()
-            .and_then(Path::parent)
-            .expect("kidcli crate should live under <repo>/crates/kidcli");
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(Path::parent)
+                .expect("kidcli crate should live under <repo>/crates/kidcli")
+                .to_path_buf()
+        };
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        load_manifest(&manifest_path).expect("load cached generated asset manifest")
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed native-player test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(load_manifest(&manifest_path).expect("load cached generated asset manifest"))
     }
 
     #[test]
@@ -6187,7 +6211,9 @@ mod tests {
 
     #[test]
     fn highwater_layered_background_rows_wrap_vertically_like_plane_b_loc_11b7a() {
-        let manifest = cached_generated_manifest();
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let visuals = load_level_visuals(&manifest, 0x02).expect("Highwater Pass visuals");
         let mut trace = sample_trace(GameMode::InGame);
         trace.current_level = LevelId(0x02);

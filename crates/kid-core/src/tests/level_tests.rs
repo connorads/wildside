@@ -2702,7 +2702,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_keeps_title_shell_through_frame_360() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_360 = None;
 
         for frame_index in 0..=360 {
@@ -2797,7 +2799,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_stays_hidden_through_frame_520_then_enters_ingame() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_520 = None;
         let mut frame_719 = None;
 
@@ -2840,7 +2844,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
 
         let slot_2 = runtime
@@ -2860,7 +2866,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_exposes_load_title_card_vdp_shell() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
 
         runtime.step_frame(FrameInput::default());
@@ -2889,7 +2897,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
 
         let number_worker = runtime
@@ -2908,7 +2918,9 @@ mod chunk_02 {
 
     #[test]
     fn two_player_level_entry_allocates_loc_1ad80_waiter_sprites() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.two_player = true;
         runtime.current_player_index = 1;
 
@@ -2960,7 +2972,9 @@ mod chunk_02 {
 
     #[test]
     fn level_entry_level_1_exposes_letters_on_local_frame_43_and_number_on_44() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
 
         let mut frame_41_slots = None;
@@ -3023,7 +3037,9 @@ mod chunk_02 {
 
     #[test]
     fn level_entry_title_workers_seed_only_on_activation_frame_and_only_once() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
         runtime.starting_level_title_workers.truncate(1);
 
@@ -3055,7 +3071,9 @@ mod chunk_02 {
 
     #[test]
     fn early_start_title_workers_use_preserved_title_rng_after_bootstrap_starts() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
         runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
         runtime.begin_level_entry(LevelId(0));
@@ -3086,7 +3104,9 @@ mod chunk_02 {
 
     #[test]
     fn early_start_deferred_title_number_keeps_one_frame_activation_offset() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
         runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
         runtime.begin_level_entry(LevelId(0));
@@ -3129,7 +3149,9 @@ mod chunk_02 {
 
     #[test]
     fn level_entry_slot_2_pose_appears_on_exact_activation_frame() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
 
         let activation_frame = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
@@ -3151,7 +3173,9 @@ mod chunk_02 {
 
     #[test]
     fn level_entry_title_active_objects_ignore_unseeded_activation_frame_workers() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(0));
         runtime.starting_level_title_workers.truncate(1);
 
@@ -3175,7 +3199,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_matches_oracle_slot_2_pose_on_frame_520() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_520 = None;
 
         for frame_index in 0..=520 {
@@ -3208,7 +3234,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_settles_slot_2_and_number_worker_on_frame_719() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_719 = None;
 
         for frame_index in 0..=719 {
@@ -3248,7 +3276,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_1_hidden_gameplay_bootstrap_matches_settled_spawn() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
 
         for frame_index in 0..=504 {
             let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
@@ -3281,7 +3311,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(1));
 
         let number_workers: Vec<_> = runtime
@@ -3301,7 +3333,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(7));
 
         // ASM loc_1AB26 advances to the next `(x,y)` pair on `0`, skips worker
@@ -3336,7 +3370,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_isle_of_the_lion_lord_reloads_line_destination_loc_1abe2() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.begin_level_entry(LevelId(7));
 
         let third_line_l = runtime
@@ -3354,10 +3390,14 @@ mod chunk_02 {
 
     #[test]
     fn boot_title_start_elsewhere_2_reuses_loc_1ab52_first_elsewhere_title_text() {
-        let mut first_elsewhere = cached_generated_runtime();
+        let Some(mut first_elsewhere) = cached_generated_runtime() else {
+            return;
+        };
         first_elsewhere.begin_level_entry(LevelId(crate::constants::FIRST_ELSEWHERE_LEVEL_ID));
 
-        let mut later_elsewhere = cached_generated_runtime();
+        let Some(mut later_elsewhere) = cached_generated_runtime() else {
+            return;
+        };
         later_elsewhere.begin_level_entry(LevelId(crate::constants::FIRST_ELSEWHERE_LEVEL_ID + 1));
 
         assert_eq!(
@@ -3369,7 +3409,9 @@ mod chunk_02 {
 
     #[test]
     fn native_debug_prev_level_id_keeps_first_logical_level_and_steps_back_from_second() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.current_level = LevelId(0);
 
         assert_eq!(
@@ -3388,7 +3430,9 @@ mod chunk_02 {
 
     #[test]
     fn native_debug_level_entry_from_ingame_starts_on_local_frame_zero() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::InGame;
         runtime.frame_index = runtime.title_screen_ready_frame;
 
@@ -3409,7 +3453,9 @@ mod chunk_02 {
 
     #[test]
     fn native_debug_level_entry_from_ingame_does_not_use_title_bootstrap() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::InGame;
         runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
 
@@ -3430,7 +3476,9 @@ mod chunk_02 {
 
     #[test]
     fn title_screen_level_entry_before_ready_uses_load_ingame_bootstrap() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
         runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
 
@@ -3456,7 +3504,9 @@ mod chunk_02 {
 
     #[test]
     fn title_screen_level_entry_after_ready_starts_on_first_mode_8_frame() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };
         runtime.frame_index = runtime.title_screen_ready_frame;
 
@@ -3510,7 +3560,9 @@ mod chunk_02 {
 
     #[test]
     fn generated_level_reload_loads_extracted_block_list_for_level_0() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
 
         runtime.reload_block_grid_for_level(LevelId(0));
 
@@ -3630,7 +3682,9 @@ mod chunk_02 {
 
     #[test]
     fn inspect_respawn_settle_records_one_based_step_indices() {
-        let runtime = cached_generated_runtime();
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
 
         let frames = runtime.inspect_respawn_settle(LevelId(0), 2);
 
@@ -3646,7 +3700,9 @@ mod chunk_02 {
 
     #[test]
     fn inspect_respawn_settle_stops_after_stable_grounded_frames() {
-        let runtime = cached_generated_runtime();
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
 
         let frames = runtime.inspect_respawn_settle(LevelId(0), 180);
 
@@ -3961,7 +4017,9 @@ mod chunk_02 {
 
     #[test]
     fn cold_boot_intro_sequence_6_holds_intro_5_vdp_through_loc_1ba90_fade() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_2400 = None;
 
         for frame_index in 0..=2_400 {
@@ -4013,7 +4071,9 @@ mod chunk_02 {
 
     #[test]
     fn cold_boot_intro_sequence_6_uses_load_intro_sequence_6_vdp_before_title_ready() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_2460 = None;
 
         for frame_index in 0..=2_460 {
@@ -4113,7 +4173,9 @@ mod chunk_02 {
 
     #[test]
     fn cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_2600 = None;
         let mut trace_2602 = None;
         let mut trace_2640 = None;
@@ -4285,7 +4347,9 @@ mod chunk_02 {
 
     #[test]
     fn boot_with_start_presses_keep_title_visible_until_frame_460_selection() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_178 = None;
         let mut frame_360 = None;
         let mut frame_460 = None;
@@ -4521,7 +4585,9 @@ mod chunk_02 {
 
     #[test]
     fn title_menu_cursor_input_does_not_write_character_movement() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut trace = Vec::new();
         for frame in 0..=837 {
             trace.push(runtime.step_frame(FrameInput::from_mask(
@@ -4547,7 +4613,9 @@ mod chunk_02 {
 
     #[test]
     fn intro_sequence_6_title_menu_vdp_uses_live_cursor_row() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 2,
             pending_title_skip: 0,
@@ -5610,7 +5678,9 @@ mod chunk_02 {
         // spawn, so the camera and Kid reach further right by frame 900.  The
         // transition structure (frame offsets, object counts, reload sequence) is
         // unchanged — only absolute positions shifted.
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
         for frame_index in 0..=997 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
@@ -5687,7 +5757,9 @@ mod chunk_02 {
 
     #[test]
     fn progress_two_transitions_skip_cheat_matches_resume_timeline() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
         for frame_index in 0..=2214 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
@@ -5785,7 +5857,9 @@ mod chunk_02 {
 
     #[test]
     fn progress_two_transitions_rearms_level_2_into_live_gameplay() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
         for frame_index in 0..=2_701 {
             let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
@@ -6518,7 +6592,9 @@ mod chunk_02 {
 
     #[test]
     fn pause_resume_level1_generated_runtime_matches_oracle_level_settle_on_frame_719() {
-        let mut runtime = cached_generated_runtime();
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
         let mut frame_719 = None;
 
         for frame in 0..=719 {

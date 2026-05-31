@@ -669,7 +669,8 @@ pub(super) fn combat_slice() -> OpeningSliceState {
 // insta snapshot tests — detect NativeTraceFrame state drift (#028)
 // -------------------------------------------------------------------
 
-pub(super) fn cached_any_percent_published_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
+pub(super) fn cached_any_percent_published_runtime_and_script() -> Option<(NativeRuntime, Vec<u8>)>
+{
     cached_tas_runtime_and_script("any-percent-published")
 }
 
@@ -692,16 +693,30 @@ pub(super) fn repo_root() -> PathBuf {
         .expect("repo root")
 }
 
-pub(super) fn cached_generated_runtime() -> NativeRuntime {
+pub(super) fn cached_generated_manifest() -> Option<kid_data::AssetManifest> {
     let manifest_path = repo_root()
         .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-    let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
-    let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
-    runtime.set_trace_physics(false);
-    runtime
+    if !manifest_path.is_file() {
+        eprintln!(
+            "skipping cache-backed source-port test: generated asset manifest missing at {}",
+            manifest_path.display()
+        );
+        return None;
+    }
+    Some(kid_data::load_manifest(&manifest_path).expect("load cached manifest"))
 }
 
-pub(super) fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>) {
+pub(super) fn cached_generated_runtime() -> Option<NativeRuntime> {
+    let manifest = cached_generated_manifest()?;
+    let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+    runtime.set_trace_physics(false);
+    Some(runtime)
+}
+
+pub(super) fn cached_tas_runtime_and_script(
+    scenario_slug: &str,
+) -> Option<(NativeRuntime, Vec<u8>)> {
+    let runtime = cached_generated_runtime()?;
     let scenario_path = repo_root().join(format!("tests/data/tas/{scenario_slug}/scenario.json"));
     let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
     let scenario_json: serde_json::Value =
@@ -713,7 +728,7 @@ pub(super) fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRunti
         .map(|value| value.as_u64().expect("script byte") as u8)
         .collect();
 
-    (cached_generated_runtime(), script)
+    Some((runtime, script))
 }
 
 pub(super) fn death_respawn_level_1_script() -> Vec<u8> {

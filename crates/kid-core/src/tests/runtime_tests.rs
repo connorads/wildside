@@ -18,13 +18,15 @@ fn kid_projectile_collision_object_loc_1dcc(
     }
 }
 
-fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
+fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8>)> {
     cached_tas_runtime_and_script("kc_any_percent_2024")
 }
 
 #[test]
 fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
-    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+        return;
+    };
     let mut frame_834 = None;
     let mut frame_835 = None;
 
@@ -140,7 +142,9 @@ fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
 
 #[test]
 fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() {
-    let mut runtime = cached_generated_runtime();
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
     let mut frame_6849 = None;
     let mut frame_6850 = None;
     let mut frame_6851 = None;
@@ -498,7 +502,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_538) {
@@ -533,7 +539,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_bootstrap_holds_pose_and_input_until_frame_2571() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_578) {
@@ -563,7 +571,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_handoff_stays_airborne_until_frame_2625() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_626) {
@@ -595,7 +605,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_post_landing_hold_preserves_standingstill_through_frame_2714() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_715) {
@@ -629,7 +641,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_wall_cling_snap_releases_into_run_on_frame_2723() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_726) {
@@ -665,7 +679,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_left_wall_snap_lands_flush_on_frame_2773() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_776) {
@@ -701,7 +717,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_2831 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(2_832) {
@@ -736,7 +754,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lands_on_the_walking_dragon_on_frame_2938() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_2938 = None;
         let mut dragon_positions = Vec::new();
 
@@ -773,7 +793,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_2994 = None;
         let mut frame_3001 = None;
 
@@ -814,7 +836,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_holds_the_post_stomp_tile_through_frame_2962() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_2962 = None;
         let mut dragon_2963 = None;
 
@@ -855,7 +879,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_reenters_walking_from_standingstill_on_frame_3252() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frames = BTreeMap::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_259) {
@@ -903,7 +929,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_loads_the_second_knights_isle_dragon_by_frame_3400() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_layout_indices = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
@@ -932,7 +960,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_reaches_the_last_oracle_backed_pre_stomp_arc_on_frame_3399() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_3399 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
@@ -958,7 +988,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragons_3399 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
@@ -998,7 +1030,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_frame_3400_reports_kid_object_support_candidates() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_3400 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
@@ -1027,7 +1061,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_7969_reports_kid_ground_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7969 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
@@ -1060,7 +1096,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_7968_reports_kid_special_motion_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
@@ -1089,7 +1127,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_7969_reports_kid_goal_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7969 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
@@ -1122,7 +1162,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_7968_reports_kid_gameplay_path_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
@@ -1170,7 +1212,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_7969_matches_oracle_iron_knight_climb_resume_pose() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7969 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
@@ -1205,7 +1249,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8000_stays_on_live_climb_gameplay() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8000 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_001) {
@@ -1240,7 +1286,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8001_delays_demo_1_timeout_handoff_by_one_more_climb_step() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8001 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_002) {
@@ -1275,7 +1323,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8002_keeps_demo_1_in_live_climb_gameplay() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8002 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_003) {
@@ -1315,7 +1365,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8003_keeps_demo_1_in_live_climb_gameplay() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8003 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_004) {
@@ -1355,7 +1407,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8004_keeps_demo_1_in_live_climb_gameplay() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8004 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_005) {
@@ -1387,7 +1441,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8068 = None;
         let mut frame_8069 = None;
 
@@ -1417,7 +1473,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_demo_1_preserves_the_oracle_timeout_snapshot_on_frames_8069_and_8070() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8069 = None;
         let mut frame_8070 = None;
 
@@ -1472,7 +1530,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8056_hibernates_the_iron_knight_wall_release() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8056 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_057) {
@@ -1502,7 +1562,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_8057_matches_the_oracle_wall_release_carry() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8057 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_058) {
@@ -1537,7 +1599,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_8056_to_8058_match_the_oracle_wall_release_camera_carry() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_8056 = None;
         let mut frame_8057 = None;
         let mut frame_8058 = None;
@@ -1574,7 +1638,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1633,7 +1699,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1680,7 +1748,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_collision_handoff_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1732,7 +1802,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1787,7 +1859,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_iron_knight_attach_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
@@ -1825,7 +1899,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_flip_branch_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1875,7 +1951,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_flip_follow_on_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1933,7 +2011,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_jump_gravity_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -1980,7 +2060,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_iron_knight_block_breaker_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -2023,7 +2105,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frames_7968_7969_report_kid_wall_cling_release_probe() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_7968 = None;
         let mut frame_7969 = None;
 
@@ -2078,7 +2162,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_frame_1406_reports_prize_diamond_frontier_debug_fields() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_1406 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_407) {
@@ -2110,7 +2196,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_prize_diamond_queue_is_counting_down_on_frame_1407() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut pending_debug = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_408) {
@@ -2134,7 +2222,9 @@ mod chunk_09 {
     #[test]
     #[ignore = "Advisory enemy-roster debt: layout #01 is still half a pixel right of oracle while TAS CRC is clean"]
     fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragons_3399 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
@@ -2176,7 +2266,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3048 = None;
         let mut dragon_3049 = None;
 
@@ -2217,7 +2309,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3170 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_171) {
@@ -2243,7 +2337,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3391 = None;
         let mut dragon_3392 = None;
 
@@ -2284,7 +2380,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_does_not_freeze_twelve_pixels_ahead_on_frame_3206() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3206 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_207) {
@@ -2310,7 +2408,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3384 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_385) {
@@ -2337,7 +2437,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_lower_dragon_turns_right_without_advancing_on_frame_3126() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3125 = None;
         let mut dragon_3126 = None;
 
@@ -2413,7 +2515,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_3400 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
@@ -2443,7 +2547,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_matches_the_oracle_pause_snapshot_on_frame_3414() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_3414 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(3_415) {
@@ -2481,7 +2587,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragons_3123 = None;
         let mut dragons_3124 = None;
 
@@ -2548,7 +2656,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1055 = None;
         let mut frame_1056 = None;
 
@@ -2580,7 +2690,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_3170 = None;
         let mut dragon_3170 = None;
         let mut dragon_3171 = None;
@@ -2639,7 +2751,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_1_transform_freeze_preserves_lower_dragon_state_through_frame_3206() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut dragon_3170 = None;
         let mut dragon_3206 = None;
 
@@ -2694,7 +2808,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_transform_exit_rewinds_frame_counter_for_byte_parity() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut previous_flash_frames = 0u8;
         let mut previous_demo_counter = None;
         let mut observed_rewind = None;
@@ -2722,7 +2838,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_inputs_match_oracle_controls_after_transform_exit() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut observed_masks = Vec::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_153) {
@@ -2759,7 +2877,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1396 = None;
         let mut frame_1397 = None;
 
@@ -2795,7 +2915,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_start_abort_stays_in_demo_until_frame_1774() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1772 = None;
         let mut frame_1773 = None;
         let mut frame_1774 = None;
@@ -2838,7 +2960,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1774 = None;
         let mut frame_1779 = None;
 
@@ -2890,7 +3014,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_23954 = None;
         let mut frame_23955 = None;
         let mut frame_23956 = None;
@@ -2955,7 +3081,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1801 = None;
         let mut frame_1802 = None;
 
@@ -3012,7 +3140,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_title_return_clears_camera_and_progression_on_frame_1806() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1805 = None;
         let mut frame_1806 = None;
 
@@ -3062,7 +3192,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_title_return_keeps_kid_hidden_until_frame_1924() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1923 = None;
         let mut frame_1924 = None;
 
@@ -3101,7 +3233,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_12429 = None;
         let mut frame_12430 = None;
 
@@ -3156,7 +3290,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_13187 = None;
         let mut frame_13188 = None;
         let mut frame_13189 = None;
@@ -3238,7 +3374,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_16227 = None;
         let mut frame_16228 = None;
         let mut frame_16229 = None;
@@ -3309,7 +3447,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_16647 = None;
         let mut frame_16648 = None;
         let mut frame_16649 = None;
@@ -3406,7 +3546,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_title_keeps_kid_hidden_through_frame_16798() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_16798 = None;
         let mut frame_16799 = None;
 
@@ -3457,7 +3599,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_17345 = None;
         let mut frame_17346 = None;
         let mut frame_17347 = None;
@@ -3532,7 +3676,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_17403 = None;
         let mut frame_17404 = None;
         let mut frame_17405 = None;
@@ -3598,7 +3744,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_20835 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(20_836) {
@@ -3634,7 +3782,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_20852 = None;
         let mut frame_20893 = None;
         let mut frame_20894 = None;
@@ -3709,7 +3859,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_20911 = None;
         let mut frame_20912 = None;
 
@@ -3760,7 +3912,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_20925 = None;
         let mut frame_20926 = None;
         let mut frame_20927 = None;
@@ -3836,7 +3990,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_starts_hidden_camera_ramp_on_frame_21142() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21141 = None;
         let mut frame_21142 = None;
         let mut frame_21143 = None;
@@ -3918,7 +4074,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21223 = None;
         let mut frame_21224 = None;
         let mut frame_21225 = None;
@@ -3999,7 +4157,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21717 = None;
         let mut frame_21718 = None;
 
@@ -4059,7 +4219,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21719() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21718 = None;
         let mut frame_21719 = None;
 
@@ -4119,7 +4281,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21764() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21763 = None;
         let mut frame_21764 = None;
 
@@ -4179,7 +4343,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21765() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21764 = None;
         let mut frame_21765 = None;
 
@@ -4238,7 +4404,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21824 = None;
         let mut frame_21825 = None;
         let mut frame_21826 = None;
@@ -4319,7 +4487,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_21837 = None;
         let mut frame_21838 = None;
 
@@ -4383,7 +4553,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_287 = None;
         let mut frame_288 = None;
         let mut frame_289 = None;
@@ -4445,7 +4617,9 @@ mod chunk_09 {
     #[test]
     fn published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701()
     {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_22699 = None;
         let mut frame_22700 = None;
         let mut frame_22701 = None;
@@ -4513,7 +4687,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_23247 = None;
         let mut frame_23248 = None;
         let mut frame_23249 = None;
@@ -4584,7 +4760,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_timeout_restore_demo_2_uses_timeout_preload_row_on_frame_23305() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_23279 = None;
         let mut frame_23304 = None;
         let mut frame_23305 = None;
@@ -4666,7 +4844,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_timeout_restore_demo_1_uses_cold_boot_wrap_on_frame_24563() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_24562 = None;
         let mut frame_24563 = None;
         let mut frame_24564 = None;
@@ -4728,7 +4908,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_27602 = None;
         let mut frame_27603 = None;
         let mut frame_27604 = None;
@@ -4799,7 +4981,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_28065 = None;
         let mut frame_28066 = None;
 
@@ -4856,7 +5040,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_28097 = None;
         let mut frame_28098 = None;
         let mut frame_28099 = None;
@@ -4918,7 +5104,9 @@ mod chunk_09 {
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101()
     {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_28100 = None;
         let mut frame_28101 = None;
         let mut frame_28102 = None;
@@ -4989,7 +5177,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_28316 = None;
         let mut frame_28317 = None;
         let mut frame_28318 = None;
@@ -5065,7 +5255,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_28396 = None;
         let mut frame_28398 = None;
         let mut frame_28399 = None;
@@ -5146,7 +5338,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_diamond_prize_has_not_queued_collection_on_frame_1404() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1404 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_405) {
@@ -5173,7 +5367,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1405 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_406) {
@@ -5200,7 +5396,9 @@ mod chunk_09 {
 
     #[test]
     fn demo_prize_diamond_awards_on_frame_1438_without_score() {
-        let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
+            return;
+        };
         let mut frame_1438 = None;
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_439) {
@@ -5220,7 +5418,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_mode_28_through_frame_29404() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_29401 = None;
         let mut frame_29402 = None;
         let mut frame_29404 = None;
@@ -5360,7 +5560,9 @@ mod chunk_09 {
     #[test]
     fn published_tas_later_intro_sequence_6_revisit_uses_intro_return_demo_2_preload_row_on_frame_29462()
      {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_29461 = None;
         let mut frame_29462 = None;
         let mut frame_29463 = None;
@@ -5426,7 +5628,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_32004 = None;
         let mut frame_32005 = None;
         let mut frame_32006 = None;
@@ -5491,7 +5695,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_title_clears_intro_sequence_4_camera_on_frame_32039() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_32038 = None;
         let mut frame_32039 = None;
         let mut frame_32040 = None;
@@ -5536,7 +5742,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_title_restores_pose_on_frame_32156() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_32155 = None;
         let mut frame_32156 = None;
         let mut frame_32157 = None;
@@ -5606,7 +5814,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_title_resumes_demo_play_on_frame_32704() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_32703 = None;
         let mut frame_32704 = None;
         let mut frame_32705 = None;
@@ -5682,7 +5892,9 @@ mod chunk_09 {
     #[test]
     fn published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369()
     {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_34367 = None;
         let mut frame_34368 = None;
         let mut frame_34369 = None;
@@ -5746,7 +5958,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_34915 = None;
         let mut frame_34916 = None;
         let mut frame_34917 = None;
@@ -5834,7 +6048,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_35146 = None;
         let mut frame_35147 = None;
         let mut frame_35148 = None;
@@ -5879,7 +6095,9 @@ mod chunk_09 {
 
     #[test]
     fn published_tas_later_timeout_restart_intro_sequence_2_start_title_jump_keeps_mode_18() {
-        let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
         let mut frame_36819 = None;
         let mut frame_36820 = None;
         let mut frame_36821 = None;
@@ -5964,9 +6182,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_warp_runner_starts_after_stable_ingame_window() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let script = vec![0u8; 2];
 
         let fresh = run_script_with_warp(manifest.clone(), &script, 1, Some(1));
@@ -6002,9 +6220,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_recording_warp_level_zero_uses_title_card_live_window() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
 
         runtime.boot_to_level(LevelId(0));
@@ -6027,9 +6245,9 @@ mod chunk_09 {
 
     #[test]
     fn script_runner_recording_settle_uses_level_zero_recording_age() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
 
         let first_recorded_frame = ScriptRunner::new(manifest)
             .warp_to_level(0)
@@ -6055,9 +6273,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_recording_warp_level_zero_delays_first_gameplay_input_until_next_frame() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
 
         let mut script = vec![0; 64];
         script[60..].fill(0x08);
@@ -6092,9 +6310,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_recording_warp_level_one_keeps_level_skip_resume_tail_age() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
 
         runtime.boot_to_level(LevelId(1));
@@ -6119,9 +6337,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_recording_level_12_flag_touch_preserves_oracle_stale_enemy_gfx_loc_c056() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
 
         runtime.boot_to_level(LevelId(0x12));
@@ -6153,9 +6371,9 @@ mod chunk_09 {
 
     #[test]
     fn settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300() {
-        let manifest_path = repo_root()
-            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-        let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
         let script = vec![0u8; 301];
 
         let trace = run_script_with_settled_warp(manifest, &script, 301, Some(1));
@@ -8332,7 +8550,9 @@ mod chunk_09 {
         // layout, then EvanescentBlock_Trigger stores `skin - $1C` as direction
         // bits for loc_EC76. Highwater Pass 1's first post-rhino shooter column
         // is `$EA24` at (47,44), which must fire left (`$24 - $1C = $08`).
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Juggernaut;
         rt.projectiles.clear();
@@ -8372,7 +8592,9 @@ mod chunk_09 {
         // normal native frame loop must still fire the first post-rhino
         // Highwater Pass 1 `$EA24` touch shooter; a direct worker call can hide
         // stale slice/order bugs.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Juggernaut;
         rt.projectiles.clear();
@@ -8403,7 +8625,9 @@ mod chunk_09 {
         // first Highwater Pass 1 touch-shooter column. The `$EA1E` skin stores
         // `skin - $1C == $02`, so loc_EC76 must fire right when Juggernaut
         // brushes the column through the normal frame loop.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Juggernaut;
         rt.projectiles.clear();
@@ -8434,7 +8658,9 @@ mod chunk_09 {
         // loc_EAE4 evanescent scan runs. This is the live Highwater Pass 1
         // route from the playtest: charge into the first `$EA1E` touch-shooter
         // column and it must spawn the rightward shooter object.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charge_accum = 0xF0;
@@ -8487,7 +8713,9 @@ mod chunk_09 {
         // `$EA1F` shooter cells at rows 100-102 at the actual Berzerker
         // charge height, so repeated frame-loop scans must clear the matching
         // `$E203` ice barrier rows through loc_EE2A -> loc_F02A.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charge_accum = 0xF0;
@@ -8523,7 +8751,9 @@ mod chunk_09 {
         // enters Highwater Pass 1 at x=48/y=1632, builds Berzerker's head-forward
         // charge pose while moving right, touches the stacked `$EA1F` shooter
         // cells, and the fired shooter objects erase the `$E203` ice barrier.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
@@ -8551,7 +8781,9 @@ mod chunk_09 {
         // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater
         // Pass 1 `$EA1E` touch shooter sits just outside Berzerker's narrow
         // standing half-width, so this must use the live charge-pose hitbox.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x02));
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charge_pose = true;
@@ -8584,7 +8816,9 @@ mod chunk_09 {
         // Blue Lake Woods 2 resource level `$4B` has a literal `$0B` object at
         // x=1544/y=383. Once its animation gate reaches loc_3C50E, the live
         // frame loop must allocate loc_3B730 and expose a typed TankBullet.
-        let mut rt = cached_generated_runtime();
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
         rt.enter_level_playtest(LevelId(0x01));
         rt.active_enemies.clear();
         rt.projectiles.clear();
