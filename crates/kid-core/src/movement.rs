@@ -3028,6 +3028,31 @@ impl OpeningSliceState {
                     self.update_camera_follow(y_look_offset);
                     return;
                 }
+                if on_ground_before
+                    && self.terrain.floor_terrain_type == TerrainType::Rubber
+                    // Oracle frame 438 is the low-speed walking return from
+                    // loc_9FBC. Higher-speed rubber/death seams keep the old
+                    // latch and are guarded by death_respawn_level_1_* tests.
+                    && self.player.x_velocity.unsigned_abs() <= 0x0000_6000
+                    && grounded_slope_before.is_none()
+                    && grounded_edge_slope_before.is_none()
+                    && let Some(grid) = block_grid.as_deref()
+                    && flat_solid_after_adjacent_slope_exit_loc_8e16(
+                        grid,
+                        self.player.x_pos,
+                        self.player.y_pos,
+                        collision_hw,
+                    )
+                {
+                    // ASM loc_8E16: refresh `$FFFFFA0A` with sub_8600 before
+                    // sub_9A0A chooses the ground speed table. This narrow
+                    // detector covers the loc_9FBC/loc_A0B4 slope-to-solid
+                    // return without refreshing every stale-rubber route.
+                    let x_px = (self.player.x_pos >> 16) as i32;
+                    let y_px = (self.player.y_pos >> 16) as i32;
+                    self.terrain.floor_terrain_type =
+                        grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
+                }
 
                 let entry_stage = self.kid_flip_follow_on_stage_state();
                 let mut kid_flip_follow_on_stages = KidFlipFollowOnStages {
@@ -6522,6 +6547,41 @@ pub(crate) fn grounded_surface_type_sub_8600(
     }
     // ASM loc_8688 (kid.asm:9513): move.w d0,($FFFFFA0A).w — store result.
     terrain_type
+}
+
+fn flat_solid_after_adjacent_slope_exit_loc_8e16(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    half_width_px: i32,
+) -> bool {
+    // ASM loc_9FBC/loc_A0B4 returns to loc_8BF0 after moving horizontally out
+    // of a slope tile onto a neighbouring flat solid tile. On the next frame
+    // loc_8E16 refreshes `$FFFFFA0A` before sub_9A0A, so stale rubber from an
+    // earlier empty-foot scan must not choose the rubber speed table.
+    let x_px = (x_pos >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let row = ((y_px + 1).max(0) >> 4) as u16;
+    let left_col = ((x_px - half_width_px).max(0) >> 4) as u16;
+    let right_col = ((x_px + half_width_px).max(0) >> 4)
+        .min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
+
+    let mut saw_plain_solid = false;
+    let mut saw_adjacent_slope = false;
+    for col in left_col..=right_col {
+        let cell = grid.cell_at(col, row);
+        match cell.collision {
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes if !cell.has_block => {
+                saw_plain_solid = true;
+            }
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown => {
+                saw_adjacent_slope = true;
+            }
+            _ => {}
+        }
+    }
+
+    saw_plain_solid && saw_adjacent_slope
 }
 
 #[allow(non_snake_case)]

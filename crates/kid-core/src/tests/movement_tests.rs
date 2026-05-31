@@ -16760,6 +16760,32 @@ mod chunk_12 {
             slice.player.y_velocity, 0,
             "ASM loc_9FBC clears y_vel before returning to loc_8BF0 walking",
         );
+        assert_eq!(
+            slice.player.x_velocity, 0x0000_6000,
+            "ASM loc_9D58/loc_9FBC should leave the slope-exit frame with oracle frame 437's walking x_vel",
+        );
+        slice.terrain.floor_terrain_type = TerrainType::Rubber;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_velocity, 0x0000_7000,
+            "ASM loc_8E16 calls sub_8600 before sub_9A0A, so the first flat walking frame after loc_9FBC must use normal $1000 acceleration",
+        );
     }
 
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
