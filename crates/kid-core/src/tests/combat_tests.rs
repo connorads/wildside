@@ -9551,6 +9551,53 @@ mod chunk_03 {
     }
 
     #[test]
+    fn scorpion_pending_zero_and_unknown_positive_collision_resume_loc_3dcb0_3dd5c() {
+        for collision_type in [0x0000, 0x0010] {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 4);
+            scorpion.layout_index = usize::from(collision_type) + 20;
+            scorpion.x_velocity = 0x0001_8000;
+            scorpion.y_velocity = 0;
+            scorpion.on_ground = true;
+            runtime.active_enemies = vec![scorpion];
+            runtime
+                .pending_enemy_collisions
+                .push(PendingEnemyCollision {
+                    segment_index: scorpion.segment_index,
+                    layout_index: scorpion.layout_index,
+                    collision_type,
+                    target: PendingEnemyCollisionTarget::Parent,
+                });
+
+            runtime.apply_pending_enemy_collisions();
+
+            assert!(runtime.pending_enemy_collisions.is_empty());
+            assert_eq!(
+                runtime.active_enemies.len(),
+                1,
+                "ASM Scorpion.asm loc_3DCB0 sends collision_type {collision_type:#06X} to loc_3DD5C resume, not deletion"
+            );
+            let scorpion = runtime.active_enemies[0];
+            assert_eq!(
+                scorpion.hit_points, 4,
+                "ASM Scorpion.asm loc_3DCB0 should not enter loc_3DCD4 HP damage for collision_type {collision_type:#06X}"
+            );
+            assert_eq!(
+                scorpion.x_velocity, 0x0001_8000,
+                "ASM Scorpion.asm loc_3DD5C only clears collision_type before resuming the shared walker branch"
+            );
+            assert_eq!(scorpion.y_velocity, 0);
+            assert!(scorpion.on_ground);
+            assert_eq!(scorpion.damage_flash_frames, 0);
+            assert_eq!(scorpion.wait_timer, 0);
+            assert!(
+                !scorpion.death_animation_active,
+                "ASM Scorpion.asm loc_3DCB0 should not route collision_type {collision_type:#06X} to loc_3DCF4 death"
+            );
+        }
+    }
+
+    #[test]
     fn driller_death_waits_for_stru_3bcd4_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 1);
