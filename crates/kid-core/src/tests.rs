@@ -462,6 +462,38 @@ fn gameplay_input_applies_loc_7464_left_right_conflict_resolution() {
 }
 
 #[test]
+fn grounded_jump_queues_sfx_jump_loc_a480() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.physics_order = PhysicsOrder::AsmFaithful;
+    runtime.block_grid = Some(grid_with_floor_at_row(6));
+
+    let mut slice = OpeningSliceState::new(LevelBounds {
+        width_pixels: 6 * 20 * 16,
+        height_pixels: 4 * 14 * 16,
+    });
+    slice.player.on_ground = true;
+    slice.player.x_pos = 60 << 16;
+    slice.player.y_pos = 96 << 16;
+    runtime.opening_slice = Some(slice);
+
+    runtime.refresh_opening_slice(
+        FrameInput {
+            b: true,
+            ..FrameInput::default()
+        },
+        true,
+    );
+
+    assert!(
+        runtime
+            .played_sound_effects
+            .contains(&QueuedSoundEffect::Jump),
+        "ASM sub_A432 loc_A480 plays sfx_Jump after launching from the ground"
+    );
+}
+
+#[test]
 fn scenario_settled_warp_starts_later_levels_in_live_gameplay() {
     let settled = run_script_with_settled_warp(manifest(), &[0x00], 1, Some(9));
 

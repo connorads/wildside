@@ -2264,6 +2264,21 @@ impl NativeRuntime {
         self.previous_input.b && !self.prior_input.b
     }
 
+    #[allow(non_snake_case)]
+    fn queue_jump_sound_from_probe_loc_A480(&mut self) {
+        let Some(probe) = self.last_kid_frame_jump_gravity_probe else {
+            return;
+        };
+        if matches!(
+            probe.branch,
+            KidJumpGravityBranch::JumpPressed | KidJumpGravityBranch::JumpBuffered
+        ) {
+            // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
+            // is stored and x_vel is scaled by 3/4.
+            self.played_sound_effects.push(QueuedSoundEffect::Jump);
+        }
+    }
+
     fn update_demo_transform_parity(&mut self) {
         let transform_active = self.progression.form_change_flash_frames > 0;
         if let BootState::DemoPlay {
@@ -2760,6 +2775,7 @@ impl NativeRuntime {
                     &deferred_prize_ceiling_cells,
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+                self.queue_jump_sound_from_probe_loc_A480();
             } else {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
                 // ASM sub_902A lands only after the contact row is reached. The
@@ -2790,6 +2806,7 @@ impl NativeRuntime {
                     &deferred_prize_ceiling_cells,
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+                self.queue_jump_sound_from_probe_loc_A480();
             }
             self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.

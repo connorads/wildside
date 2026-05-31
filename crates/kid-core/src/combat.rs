@@ -37,6 +37,7 @@ pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
+    Jump,
     MiniHoppingSkullScream,
     VoiceOuch,
     VoiceOuch1,
@@ -54,6 +55,8 @@ pub(crate) enum QueuedSoundEffect {
 impl QueuedSoundEffect {
     pub(crate) fn sound_id(self) -> u8 {
         match self {
+            // constants.asm: sfx_Jump = $17; played by sub_A432 loc_A480.
+            Self::Jump => 0x17,
             // constants.asm: sfx_Mini_Hopping_Skull_screams = $3F.
             Self::MiniHoppingSkullScream => 0x3F,
             // ASM loc_B778 / constants.asm: sfx_Voice_ouch = $61.
