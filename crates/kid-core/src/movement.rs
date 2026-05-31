@@ -2875,6 +2875,7 @@ impl OpeningSliceState {
                         collision,
                         grid,
                         collision_hw,
+                        None,
                     );
                 }
             }
@@ -2948,6 +2949,7 @@ impl OpeningSliceState {
                         collision,
                         grid,
                         collision_hw,
+                        None,
                     );
                 }
                 // Apply gravity after collisions (ASM sub_B168 runs after collision checks)
@@ -3129,6 +3131,7 @@ impl OpeningSliceState {
                 //
                 // Step 1: sub_B084 — horizontal velocity only (no x_pos update).
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
+                let x_velocity_before_sub_b084 = self.player.x_velocity;
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
                     false
                 } else {
@@ -3427,12 +3430,19 @@ impl OpeningSliceState {
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
                 {
+                    let handoff_x_velocity = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+                        x_velocity_before_sub_b084,
+                        self.player.x_velocity,
+                        input,
+                        form,
+                    );
                     self.apply_immediate_slope_recontact(
                         input,
                         form,
                         collision,
                         grid,
                         collision_hw,
+                        handoff_x_velocity,
                     );
                 }
                 if let Some(grid) = block_grid.as_deref() {
@@ -5891,6 +5901,7 @@ impl OpeningSliceState {
         collision: terrain::CollisionKind,
         grid: &terrain::BlockGrid,
         collision_hw: i32,
+        x_velocity_for_handoff_step: Option<i32>,
     ) {
         let h_input = HorizontalInput {
             left: input.left,
@@ -5905,9 +5916,10 @@ impl OpeningSliceState {
             form,
             self.terrain.floor_terrain_type,
         );
+        let handoff_x_velocity = x_velocity_for_handoff_step.unwrap_or(new_vel);
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
-        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+        let next_x = i64::from(self.player.x_pos) + i64::from(handoff_x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
 
         let x_px = (self.player.x_pos >> 16) as i32;
@@ -5969,6 +5981,38 @@ impl OpeningSliceState {
         self.camera.x_pos = (new_cx.max(0) as u32) << 16;
         self.camera.y_pos = (new_cy.max(0) as u32) << 16;
     }
+}
+
+fn airborne_slope_landing_handoff_x_velocity_loc_a99e(
+    x_vel_before_sub_b084: i32,
+    x_vel_after_sub_b084: i32,
+    input: FrameInput,
+    form: PlayerForm,
+) -> Option<i32> {
+    let profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
+    let accel = profile.accel;
+
+    // ASM loc_A99E -> loc_8BF0 lands from the jump loop into the walking
+    // coroutine after sub_B084 has already run. When loc_B0E2/loc_B0B6 take the
+    // airborne cap-bleed branch, x_vel moves back toward the cap instead of
+    // accelerating. That cap tail is still carried into the first walking
+    // sub_8F26 advance before loc_9D22/loc_9F18 own the slope velocity. Do not
+    // apply this to merely near-cap A-held landings; the death-respawn Level 1
+    // route bleeds from 0x27480 to 0x27380, but the base-accel cap tail does not
+    // cross the cap and oracle keeps the ordinary x advance.
+    if input.right && x_vel_after_sub_b084 < x_vel_before_sub_b084 {
+        let over_cap = x_vel_after_sub_b084.saturating_add(accel) - profile.max_speed;
+        if over_cap > 0 {
+            return Some(x_vel_after_sub_b084.saturating_sub(over_cap.saturating_add(0x200)));
+        }
+    } else if input.left && x_vel_after_sub_b084 > x_vel_before_sub_b084 {
+        let over_cap = (-x_vel_after_sub_b084).saturating_add(accel) - profile.max_speed;
+        if over_cap > 0 {
+            return Some(x_vel_after_sub_b084.saturating_add(over_cap.saturating_add(0x200)));
+        }
+    }
+
+    None
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

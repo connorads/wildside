@@ -16628,6 +16628,7 @@ mod chunk_12 {
             terrain::CollisionKind::SlopeDown,
             &grid,
             0,
+            None,
         );
 
         assert_eq!(
@@ -16695,6 +16696,10 @@ mod chunk_12 {
         assert!(
             slice.player.on_ground,
             "ASM sub_902A should land from the leading-edge SlopeUp contact",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x02c6_5000,
+            "Oracle frame 428 for ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22 should preserve the slope-landing x subpixel",
         );
         assert_eq!(
             slice.player.y_velocity, -slice.player.x_velocity,
