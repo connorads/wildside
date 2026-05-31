@@ -6405,11 +6405,11 @@ mod chunk_09 {
         let frame = runtime.step_frame(FrameInput::default());
 
         assert!(
-            frame.active_objects.iter().all(|object| {
-                object.kind != (NativeObjectKind::Enemy { object_type: 0x16 })
-                    || object.layout_index != Some(7)
-            }),
-            "ASM Manage_EnemyLoading loc_36900 skips post-initial-pass spawns inside the inner visible box; the Level 1 Drips at layout index 7 sits at dx=$0108/dy=$00BF and must not pop into a settled recording probe",
+            frame
+                .active_objects
+                .iter()
+                .all(|object| { object.kind != (NativeObjectKind::Enemy { object_type: 0x16 }) }),
+            "ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the parent/controller gfx object hidden; settled probes must not expose Level 1 Drips layout indices 7 or 8 as active enemy sprites",
         );
     }
 

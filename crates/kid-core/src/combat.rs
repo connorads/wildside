@@ -8011,7 +8011,15 @@ impl NativeRuntime {
             .active_enemies
             .iter()
             .flat_map(|enemy| {
-                std::iter::once(enemy.snapshot()).chain(enemy.child_attachment_snapshot())
+                let mut snapshots = Vec::new();
+                if !matches!(enemy.family, EnemyFamily::Drips) {
+                    // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
+                    // parent/controller gfx object hidden; visible Drips
+                    // children are exported through projectile snapshots.
+                    snapshots.push(enemy.snapshot());
+                }
+                snapshots.extend(enemy.child_attachment_snapshot());
+                snapshots
             })
             .chain(
                 self.pending_dragon_death_animations
