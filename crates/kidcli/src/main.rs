@@ -61,6 +61,7 @@ use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
+    diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
     diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
     enemy_spawn_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
     level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
@@ -106,6 +107,10 @@ enum RecordScenarioKind {
     DiamondPowerWallAudit,
     /// seed 20 diamonds and hold Start+A to audit Micromax's MiniSnake.
     DiamondPowerSnakeAudit,
+    /// seed 20 diamonds and hold Start+A to audit Skycutter's Invulnerability.
+    DiamondPowerInvulnerabilityAudit,
+    /// seed 20 diamonds and hold Start+A to audit Red Stealth's Samurai Haze.
+    DiamondPowerSamuraiHazeAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2173,6 +2178,12 @@ fn build_record_scenario(
         RecordScenarioKind::DiamondPowerCircleAudit => diamond_power_circle_audit_scenario(level),
         RecordScenarioKind::DiamondPowerWallAudit => diamond_power_wall_audit_scenario(level),
         RecordScenarioKind::DiamondPowerSnakeAudit => diamond_power_snake_audit_scenario(level),
+        RecordScenarioKind::DiamondPowerInvulnerabilityAudit => {
+            diamond_power_invulnerability_audit_scenario(level)
+        }
+        RecordScenarioKind::DiamondPowerSamuraiHazeAudit => {
+            diamond_power_samurai_haze_audit_scenario(level)
+        }
     }
 }
 
@@ -2219,6 +2230,10 @@ fn record_scenario_command(
         RecordScenarioKind::DiamondPowerCircleAudit => "diamond-power-circle-audit",
         RecordScenarioKind::DiamondPowerWallAudit => "diamond-power-wall-audit",
         RecordScenarioKind::DiamondPowerSnakeAudit => "diamond-power-snake-audit",
+        RecordScenarioKind::DiamondPowerInvulnerabilityAudit => {
+            "diamond-power-invulnerability-audit"
+        }
+        RecordScenarioKind::DiamondPowerSamuraiHazeAudit => "diamond-power-samurai-haze-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -3971,6 +3986,31 @@ AddrTbl_LevelNames:
 
         assert_eq!(scenario.slug, "diamond_power_snake_audit_00");
         assert_eq!(scenario.playtest_form, Some(9));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
+    fn build_record_scenario_diamond_power_invulnerability_audit_seeds_skycutter_tier1_probe() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::DiamondPowerInvulnerabilityAudit,
+            0x02,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "diamond_power_invulnerability_audit_02");
+        assert_eq!(scenario.playtest_form, Some(1));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
+    fn build_record_scenario_diamond_power_samurai_haze_audit_seeds_red_stealth_tier1_probe() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::DiamondPowerSamuraiHazeAudit, 0x02, None);
+
+        assert_eq!(scenario.slug, "diamond_power_samurai_haze_audit_02");
+        assert_eq!(scenario.playtest_form, Some(3));
         assert_eq!(scenario.initial_diamond_count, Some(20));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
     }

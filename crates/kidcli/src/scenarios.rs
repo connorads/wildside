@@ -765,6 +765,26 @@ pub fn diamond_power_snake_audit_scenario(level_id: u8) -> DynamicScenario {
     diamond_power_activation_audit_scenario(level_id, "diamond_power_snake_audit", 9, 20)
 }
 
+/// Focused #206 Diamond Power audit for Skycutter's Invulnerability.
+///
+/// ASM `DiamondPower_Check` dispatches Skycutter tier 1 to
+/// `DiamondPower_Init_Invulnerability loc_3FC78`, which seeds the shared
+/// `DiamondPower_Main_Invulnerability_And_SamuraiHaze loc_3FD28` DP-object
+/// slot path. The probe seeds exactly 20 diamonds so it stays on tier 1.
+pub fn diamond_power_invulnerability_audit_scenario(level_id: u8) -> DynamicScenario {
+    diamond_power_activation_audit_scenario(level_id, "diamond_power_invulnerability_audit", 1, 20)
+}
+
+/// Focused #206 Diamond Power audit for Red Stealth's Samurai Haze.
+///
+/// ASM `DiamondPower_Check` dispatches Red Stealth tier 1 to
+/// `DiamondPower_Init_SamuraiHaze loc_3FC82`, which then reuses the
+/// invulnerability/haze display worker at `loc_3FD28`. The probe seeds exactly
+/// 20 diamonds so it stays on tier 1 rather than tier-2 Shuriken.
+pub fn diamond_power_samurai_haze_audit_scenario(level_id: u8) -> DynamicScenario {
+    diamond_power_activation_audit_scenario(level_id, "diamond_power_samurai_haze_audit", 3, 20)
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1120,7 +1140,8 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
-        diamond_power_circle_audit_scenario, diamond_power_snake_audit_scenario,
+        diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
+        diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
         diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
         idle_level_full_frame_scenario, idle_level_scenario, lava_weather_audit_scenario,
         level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
@@ -1230,6 +1251,30 @@ mod tests {
 
         assert_eq!(scenario.slug, "diamond_power_snake_audit_00");
         assert_eq!(scenario.playtest_form, Some(9));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+    }
+
+    #[test]
+    fn diamond_power_invulnerability_audit_seeds_skycutter_tier1_start_a_and_twenty_diamonds() {
+        let scenario = diamond_power_invulnerability_audit_scenario(0x02);
+
+        assert_eq!(scenario.slug, "diamond_power_invulnerability_audit_02");
+        assert_eq!(scenario.playtest_form, Some(1));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+    }
+
+    #[test]
+    fn diamond_power_samurai_haze_audit_seeds_red_stealth_tier1_start_a_and_twenty_diamonds() {
+        let scenario = diamond_power_samurai_haze_audit_scenario(0x02);
+
+        assert_eq!(scenario.slug, "diamond_power_samurai_haze_audit_02");
+        assert_eq!(scenario.playtest_form, Some(3));
         assert_eq!(scenario.initial_diamond_count, Some(20));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
         assert!(scenario.settle_oracle_warp);
