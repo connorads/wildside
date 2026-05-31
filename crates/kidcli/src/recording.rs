@@ -106,6 +106,8 @@ pub(crate) struct RecordingVerificationReport {
     pub(crate) native_replay_only: bool,
     pub(crate) trace_match: bool,
     pub(crate) oracle_state_match: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) oracle_state_error: Option<String>,
     pub(crate) oracle_frame_match: bool,
     pub(crate) replay_trace_len: usize,
     pub(crate) recorded_trace_len: usize,
@@ -645,8 +647,8 @@ pub(crate) fn verify_recording(
         &native_dir.join("layers"),
     )?;
 
-    let (oracle_state_match, oracle_frame_match, frame_diffs) = if native_only {
-        (true, true, Vec::new())
+    let (oracle_state_match, oracle_state_error, oracle_frame_match, frame_diffs) = if native_only {
+        (true, None, true, Vec::new())
     } else {
         let env = ensure_oracles(repo_root)?;
         let (oracle_scenario, oracle_frame_prefix) = oracle_scenario_for_recording(&recording);
@@ -670,9 +672,12 @@ pub(crate) fn verify_recording(
             )
         })?;
 
-        let oracle_state_match =
-            compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states)
-                .is_ok();
+        let (oracle_state_match, oracle_state_error) =
+            match compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states)
+            {
+                Ok(()) => (true, None),
+                Err(error) => (false, Some(error.to_string())),
+            };
         let mut frame_diffs =
             compare_recording_frames(
                 &native_dir,
@@ -693,7 +698,12 @@ pub(crate) fn verify_recording(
         let oracle_frame_match = frame_diffs
             .iter()
             .all(|diff| diff.max_channel_delta == 0 && diff.mean_absolute_error == 0.0);
-        (oracle_state_match, oracle_frame_match, frame_diffs)
+        (
+            oracle_state_match,
+            oracle_state_error,
+            oracle_frame_match,
+            frame_diffs,
+        )
     };
 
     let report = RecordingVerificationReport {
@@ -701,6 +711,7 @@ pub(crate) fn verify_recording(
         native_replay_only: native_only,
         trace_match,
         oracle_state_match,
+        oracle_state_error,
         oracle_frame_match,
         replay_trace_len: replay_trace.len(),
         recorded_trace_len: recording.trace.len(),
@@ -731,8 +742,13 @@ pub(crate) fn verify_recording(
         );
     }
     if !native_only && !report.oracle_state_match {
+        let state_error = report
+            .oracle_state_error
+            .as_deref()
+            .unwrap_or("unknown oracle state mismatch");
         bail!(
-            "recording checkpoints diverged from oracle state; artefacts in {}",
+            "recording checkpoints diverged from oracle state: {}; artefacts in {}",
+            state_error,
             verify_dir.display()
         );
     }
@@ -2587,6 +2603,29 @@ mod tests {
                 record_frames: None,
             }),
             0
+        );
+    }
+
+    #[test]
+    fn verification_report_preserves_oracle_state_error() {
+        let report = RecordingVerificationReport {
+            slug: "issue-206".into(),
+            native_replay_only: false,
+            trace_match: true,
+            oracle_state_match: false,
+            oracle_state_error: Some("state tail@119 diverged in object counts".into()),
+            oracle_frame_match: false,
+            replay_trace_len: 120,
+            recorded_trace_len: 120,
+            first_trace_drift: None,
+            frame_diffs: Vec::new(),
+        };
+
+        let json = serde_json::to_value(&report).expect("report json");
+
+        assert_eq!(
+            json["oracle_state_error"], "state tail@119 diverged in object counts",
+            "verify-recording reports must keep the comparator error that explains a red oracle_state_match"
         );
     }
 

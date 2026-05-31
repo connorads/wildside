@@ -2056,6 +2056,25 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_keeps_skycutter_walking_on_zero_velocity_wall_hit() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 40 << 16;
+        player.y_pos = 32 << 16;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::Skycutter;
+
+        assert_eq!(
+            runtime.current_character_movement(player),
+            2,
+            "ASM loc_8E16/loc_8E5A: Skycutter zero-velocity wall-hit frames route back to MoveID_Walking, unlike non-Skycutter loc_8DFC"
+        );
+    }
+
+    #[test]
     fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
         fn runtime_at(frame_counter: u16, probe: KidJumpGravityProbe) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -4496,10 +4515,12 @@ impl NativeRuntime {
         if self.trace_input.down {
             return MOVE_CRAWLING;
         }
-        // ASM loc_8DFC / loc_8E16: grounded motion that settles with zero
-        // horizontal velocity writes `MoveID_Standingstill` before the ROM
-        // reaches the walking/slope continuation.
-        if player.x_velocity == 0 {
+        // ASM loc_8DFC / loc_8E16: grounded non-Skycutter motion that settles
+        // with zero horizontal velocity writes `MoveID_Standingstill` before
+        // the ROM reaches the walking/slope continuation. Skycutter is the
+        // explicit exception: loc_8E16/loc_8E5A routes zero-velocity Skycutter
+        // wall-hit frames back to the walking continuation.
+        if player.x_velocity == 0 && self.progression.current_form != PlayerForm::Skycutter {
             return MOVE_STANDINGSTILL;
         }
         let half_width = self.progression.current_form.half_width();
