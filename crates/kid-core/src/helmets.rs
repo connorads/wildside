@@ -4362,6 +4362,17 @@ fn helmet_enemy_berzerker_damage_target_snapshot(
     helmet_enemy_damage_target_snapshot(enemy)
 }
 
+fn berzerker_charge_reflects_player_velocity_loc_b678(enemy: &ActiveEnemy) -> bool {
+    // ASM Character_CheckCollision loc_B678: Kid-side contact copies the other
+    // object's `object_meta` into d6, then `bclr #$F,d6; bne.w loc_B692`.
+    // Regular enemy init metadata has bit 15 clear; multi-head boss objects
+    // set it in their head init paths before the common collision setup.
+    matches!(
+        enemy.family,
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
+    )
+}
+
 fn helmet_enemy_projectile_damage_target_snapshots(
     enemy: &ActiveEnemy,
 ) -> Vec<NativeObjectSnapshot> {
@@ -5971,7 +5982,9 @@ impl NativeRuntime {
             if dx <= player_contact_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
                 && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
             {
-                if !reflected_player_velocity {
+                if !reflected_player_velocity
+                    && berzerker_charge_reflects_player_velocity_loc_b678(&self.active_enemies[i])
+                {
                     // ASM loc_B692: charging Berzerker side contact with
                     // object_meta bit 15 set performs `neg.l x_vel(a3)`.
                     slice.player.x_velocity = slice.player.x_velocity.wrapping_neg();

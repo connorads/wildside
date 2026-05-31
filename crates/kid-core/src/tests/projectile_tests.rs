@@ -8070,8 +8070,8 @@ mod chunk_06 {
         assert!(crab.crab_berzerker_knockback);
         assert!(!crab.crab_frozen);
         assert_eq!(
-            slice.player.x_velocity, -0x0001_8000,
-            "ASM loc_B692 reflection still applies once for the player contact"
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_B678 skips loc_B692 for Crab because copied object_meta bit 15 is clear"
         );
     }
 
@@ -8107,8 +8107,8 @@ mod chunk_06 {
             "native marker keeps the live enemy in ASM loc_3A610 instead of resuming the shared walker"
         );
         assert_eq!(
-            slice.player.x_velocity, -0x0001_8000,
-            "ASM loc_B692 reflection still applies once for the player contact"
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_B678 skips loc_B692 for Fire Demon because copied object_meta bit 15 is clear"
         );
 
         let y_before = rt.active_enemies[0].y_pos;
@@ -8332,8 +8332,8 @@ mod chunk_06 {
             "native marker keeps the live enemy in ASM Emo_Rock.asm loc_3630A"
         );
         assert_eq!(
-            slice.player.x_velocity, -0x0001_8000,
-            "ASM loc_B692 reflection still applies once for the player contact"
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_B678 skips loc_B692 for Emo Rock because copied object_meta bit 15 is clear"
         );
 
         let x_before = rt.active_enemies[0].x_pos;
@@ -8399,8 +8399,8 @@ mod chunk_06 {
             "native marker keeps the live enemy in ASM Mini_Hopping_Skull.asm loc_3F288"
         );
         assert_eq!(
-            slice.player.x_velocity, -0x0001_8000,
-            "ASM loc_B692 reflection still applies once for the player contact"
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_B678 skips loc_B692 for Mini Hopping Skull because copied object_meta bit 15 is clear"
         );
 
         let y_before = rt.active_enemies[0].y_pos;
@@ -8566,8 +8566,8 @@ mod chunk_06 {
             "native marker keeps the live enemy in ASM Scorpion.asm loc_3DD4A"
         );
         assert_eq!(
-            slice.player.x_velocity, -0x0001_8000,
-            "ASM loc_B692 reflection still applies once for the player contact"
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_B678 skips loc_B692 for Scorpion because copied object_meta bit 15 is clear"
         );
 
         let y_before = rt.active_enemies[0].y_pos;
@@ -8698,7 +8698,10 @@ mod chunk_06 {
             rt.active_enemies[0].x_velocity, 0,
             "ASM Tank.asm loc_3B49A clears parent motion after a nonfatal mouth hit"
         );
-        assert_eq!(slice.player.x_velocity, -0x0002_0000);
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_0000,
+            "ASM loc_B678 skips loc_B692 for Tank mouth contact because copied object_meta bit 15 is clear"
+        );
     }
 
     #[test]
@@ -8747,7 +8750,10 @@ mod chunk_06 {
             rt.active_enemies[0].death_animation_active,
             "ASM Robot.asm loc_3A9CC should fall through to loc_3A9D2 destroy prep for a charging Berzerker head-side hit"
         );
-        assert_eq!(slice.player.x_velocity, -0x0002_0000);
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_0000,
+            "ASM loc_B678 skips loc_B692 for Robot head contact because copied object_meta bit 15 is clear"
+        );
     }
 
     #[test]
@@ -8773,7 +8779,10 @@ mod chunk_06 {
             "ASM Robot.asm loc_3AAD4 -> loc_3AAFA should route shoot-time head side contact to loc_3A9D2 while Berzerker_charging is set"
         );
         assert!(rt.active_enemies[0].death_animation_active);
-        assert_eq!(slice.player.x_velocity, -0x0002_0000);
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_0000,
+            "ASM loc_B678 skips loc_B692 for Robot shoot-time head contact because copied object_meta bit 15 is clear"
+        );
     }
 
     /// ASM loc_9564 -> loc_B678 -> loc_B692: a live frame that overflows the
@@ -8876,7 +8885,7 @@ mod chunk_06 {
     /// side contact tests object_meta bit 15, then `neg.l x_vel(a3)` before
     /// returning without contact damage to Kid.
     #[test]
-    fn berzerker_charge_loc_b692_reflects_player_x_velocity_once() {
+    fn berzerker_charge_loc_b692_skips_reflect_when_object_meta_bit_15_clear() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charging = true;
@@ -8897,8 +8906,43 @@ mod chunk_06 {
         rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(
+            slice.player.x_velocity, 0x0002_0000,
+            "ASM loc_B678 returns without loc_B692 when the copied object_meta bit 15 is clear"
+        );
+        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(rt.active_enemies[1].hit_points, 1);
+    }
+
+    /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
+    /// side contact only negates x_vel when copied object_meta bit 15 was set.
+    #[test]
+    fn berzerker_charge_loc_b692_reflects_player_x_velocity_once_for_bit_15_collision() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Shishkaboss,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::BoomerangBosses,
+            0x0041_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
             slice.player.x_velocity, -0x0002_0000,
-            "ASM loc_B692 negates Kid x_vel once even if multiple enemies overlap"
+            "ASM loc_B692 negates Kid x_vel once even if multiple bit-15 objects overlap"
         );
         assert_eq!(rt.active_enemies[0].hit_points, 1);
         assert_eq!(rt.active_enemies[1].hit_points, 1);
