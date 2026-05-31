@@ -778,41 +778,45 @@ mod chunk_03 {
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0050_0000;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
         runtime.opening_slice = Some(slice);
 
         runtime.step_diamond_power(FrameInput::default());
 
-        let expected_spreads = [
-            (0x0006_0000, -0x0004_0000),
-            (0x0007_0000, -0x0002_0000),
-            (0x0008_0000, 0),
-            (0x0007_0000, 0x0002_0000),
-            (0x0006_0000, 0x0004_0000),
-        ];
+        let expected_spreads = [(6, -4), (7, -2), (8, 0), (7, 2), (6, 4)];
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime.diamond_power_five_way_slots.len(),
             expected_spreads.len(),
             "ASM loc_400F4: dbf with d1=4 allocates five FiveWayShot slots"
         );
-        for (projectile, (expected_xv, expected_yv)) in
-            runtime.projectiles.iter().zip(expected_spreads)
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM FiveWayShot uses DP-object slots, not generic native projectiles"
+        );
+        assert_eq!(
+            runtime.diamond_power_sprites.len(),
+            expected_spreads.len(),
+            "ASM loc_401BA compiles one sprite for each live FiveWayShot slot"
+        );
+        for (slot, (expected_xv, expected_yv)) in runtime
+            .diamond_power_five_way_slots
+            .iter()
+            .zip(expected_spreads)
         {
             assert_eq!(
-                projectile.x_pos, 0x0060_0000,
-                "ASM loc_400DE: clear x_direction adds $20 to Kid screen X"
-            );
-            assert_eq!(projectile.y_pos, 0x0050_0000);
-            assert_eq!(projectile.x_velocity, expected_xv);
-            assert_eq!(projectile.y_velocity, expected_yv);
-            assert_eq!(
-                projectile.lifetime, 0x50,
-                "ASM loc_40110: Diamond_power_timer is seeded to $50"
+                slot.screen_x,
+                0x0060 + expected_xv,
+                "ASM loc_400DE seeds screen X at Kid+$20, then loc_4014C advances by word_40124 x velocity"
             );
             assert_eq!(
-                projectile.gravity, 0,
-                "ASM loc_4014C/loc_40176: FiveWayShot slots advance by table velocity without gravity"
+                slot.screen_y,
+                0x0050 + expected_yv,
+                "ASM loc_40176 advances screen Y by word_40124 y velocity"
             );
-            assert!(projectile.friendly);
+            assert_eq!(slot.x_vel, expected_xv);
+            assert_eq!(slot.y_vel, expected_yv);
+            assert_eq!(slot.size_index, 5);
         }
     }
 
@@ -829,7 +833,11 @@ mod chunk_03 {
 
         assert!(
             runtime.projectiles.is_empty(),
-            "ASM DiamondPower_Main_FiveWayShot: only the first active frame spawns the spread"
+            "ASM DiamondPower_Main_FiveWayShot: generic projectile fallback must stay unused"
+        );
+        assert!(
+            runtime.diamond_power_five_way_slots.is_empty(),
+            "ASM DiamondPower_Main_FiveWayShot walks existing DP slots; it does not allocate new slots after startup"
         );
     }
 
@@ -845,30 +853,27 @@ mod chunk_03 {
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0050_0000;
         slice.player.facing = Direction::Left;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
         runtime.opening_slice = Some(slice);
 
         runtime.step_diamond_power(FrameInput::default());
 
-        let x_velocities: Vec<i32> = runtime
-            .projectiles
+        let x_velocities: Vec<i16> = runtime
+            .diamond_power_five_way_slots
             .iter()
-            .map(|projectile| {
+            .map(|slot| {
                 assert_eq!(
-                    projectile.x_pos, 0x0020_0000,
-                    "ASM loc_400DE: nonzero x_direction negates `$20` spawn offset"
+                    slot.screen_x,
+                    0x0020 + slot.x_vel,
+                    "ASM loc_400DE negates `$20`, then loc_4014C advances by the mirrored x velocity"
                 );
-                projectile.x_velocity
+                slot.x_vel
             })
             .collect();
         assert_eq!(
             x_velocities,
-            vec![
-                -0x0006_0000,
-                -0x0007_0000,
-                -0x0008_0000,
-                -0x0007_0000,
-                -0x0006_0000
-            ],
+            vec![-6, -7, -8, -7, -6],
             "ASM loc_400F4: nonzero x_direction negates each word_40124 x velocity"
         );
     }
@@ -889,7 +894,12 @@ mod chunk_03 {
 
         assert_eq!(
             runtime.projectiles.len(),
-            MAX_PROJECTILES + 5,
+            MAX_PROJECTILES,
+            "ASM loc_400F4: Allocate_DiamondPowerObjectSlot emits five DP slots without using generic projectile capacity"
+        );
+        assert_eq!(
+            runtime.diamond_power_five_way_slots.len(),
+            5,
             "ASM loc_400F4: Allocate_DiamondPowerObjectSlot emits five DP slots even when generic projectiles already occupy four native entries"
         );
     }

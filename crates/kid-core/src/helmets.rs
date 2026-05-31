@@ -4518,6 +4518,55 @@ impl NativeRuntime {
         self.diamond_power_wall_slots = retained_slots;
     }
 
+    fn step_diamond_power_five_way_shot_slots_loc_40140(&mut self) {
+        self.diamond_power_sprites.clear();
+        let camera_x = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.x_pos >> 16) as i16);
+        let camera_y = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
+        let timer = self.progression.diamond_power_frames as i16;
+
+        let five_way_slots = std::mem::take(&mut self.diamond_power_five_way_slots);
+        let mut retained_slots = Vec::with_capacity(five_way_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in five_way_slots {
+            match diamond_power_main_five_way_shot_slot(&mut slot, camera_x, camera_y, timer) {
+                FiveWayShotSlotAction::Visible {
+                    world_x,
+                    world_y,
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                    ..
+                } => {
+                    // ASM DiamondPower_Main_FiveWayShot loc_401BA compiles
+                    // sprite-buffer coordinates and `word_4020E` attrs after
+                    // moving each DP-object slot.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+                        world_x,
+                        world_y,
+                        slot.size_index,
+                        &mut queued_collisions,
+                    );
+                    retained_slots.push(slot);
+                }
+                FiveWayShotSlotAction::Removed => {}
+            }
+        }
+        self.diamond_power_five_way_slots = retained_slots;
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -6287,44 +6336,35 @@ impl NativeRuntime {
                     }
                 }
                 DiamondPowerType::FiveWayShot => {
-                    // ASM DiamondPower_Init_FiveWayShot loc_400DE/loc_400F4:
-                    // `moveq #4,d1` allocates five Diamond Power object slots
-                    // at Kid's position plus the facing-dependent `$20` X
-                    // offset, then seeds velocities from word_40124.
+                    // ASM DiamondPower_Main_FiveWayShot loc_40140 walks the
+                    // five DP-object slots seeded by loc_400DE/loc_400F4,
+                    // bounces them in screen space, then compiles sprites at
+                    // loc_401BA.
                     if self.progression.diamond_power_frames
                         == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1
+                        && self.diamond_power_five_way_slots.is_empty()
                     {
                         let slice = self.opening_slice.as_ref();
-                        let (px, py, x_direction_nonzero) = slice.map_or((0, 0, false), |s| {
-                            (
-                                s.player.x_pos,
-                                s.player.y_pos,
-                                s.player.facing == Direction::Left,
-                            )
-                        });
-                        let x_offset = if x_direction_nonzero {
-                            -0x20_0000
-                        } else {
-                            0x20_0000
-                        };
-                        let projectile_x = px.wrapping_add_signed(x_offset);
-                        for &(raw_x_vel, y_vel) in &FIVE_WAY_SHOT_VELOCITY_TABLE {
-                            let x_vel = if x_direction_nonzero {
-                                raw_x_vel.wrapping_neg()
-                            } else {
-                                raw_x_vel
-                            };
-                            self.projectiles.push(EnemyProjectile {
-                                x_pos: projectile_x,
-                                y_pos: py,
-                                x_velocity: i32::from(x_vel) << 16,
-                                y_velocity: i32::from(y_vel) << 16,
-                                lifetime: diamond_power_duration(DiamondPowerType::FiveWayShot),
-                                friendly: true,
-                                ..Default::default()
+                        let (px, py, camera_x, camera_y, x_direction_nonzero) =
+                            slice.map_or((0, 0, 0, 0, false), |s| {
+                                (
+                                    (s.player.x_pos >> 16) as i16,
+                                    (s.player.y_pos >> 16) as i16,
+                                    (s.camera.x_pos >> 16) as i16,
+                                    (s.camera.y_pos >> 16) as i16,
+                                    s.player.facing == Direction::Left,
+                                )
                             });
-                        }
+                        self.diamond_power_five_way_slots = diamond_power_init_five_way_shot(
+                            px,
+                            py,
+                            camera_x,
+                            camera_y,
+                            x_direction_nonzero,
+                        )
+                        .slots;
                     }
+                    self.step_diamond_power_five_way_shot_slots_loc_40140();
                 }
                 DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
                     // Forward-firing diamond chain: spawn projectile every 8 frames
@@ -6367,6 +6407,7 @@ impl NativeRuntime {
                 self.progression.diamond_power_type = DiamondPowerType::None;
                 self.diamond_power_circle_slots.clear();
                 self.diamond_power_wall_slots.clear();
+                self.diamond_power_five_way_slots.clear();
                 self.diamond_power_sprites.clear();
             }
             return;
@@ -6414,6 +6455,7 @@ impl NativeRuntime {
         self.progression.diamond_power_type = power;
         self.diamond_power_circle_slots.clear();
         self.diamond_power_wall_slots.clear();
+        self.diamond_power_five_way_slots.clear();
         self.diamond_power_sprites.clear();
 
         // Instant effects (no timer)
@@ -6447,6 +6489,24 @@ impl NativeRuntime {
             // ASM DiamondPower_Init_WallOfDeath loc_3FFE4/loc_3FFEA seeds ten
             // DP-object slots and stores `$4B0` into `Diamond_power_timer`.
             self.diamond_power_wall_slots = diamond_power_init_wall_of_death().slots;
+        }
+        if power == DiamondPowerType::FiveWayShot {
+            // ASM DiamondPower_Init_FiveWayShot loc_400DE/loc_400F4 seeds
+            // five DP-object slots at Kid's screen-relative position.
+            let slice = self.opening_slice.as_ref();
+            let (px, py, camera_x, camera_y, x_direction_nonzero) =
+                slice.map_or((0, 0, 0, 0, false), |s| {
+                    (
+                        (s.player.x_pos >> 16) as i16,
+                        (s.player.y_pos >> 16) as i16,
+                        (s.camera.x_pos >> 16) as i16,
+                        (s.camera.y_pos >> 16) as i16,
+                        s.player.facing == Direction::Left,
+                    )
+                });
+            self.diamond_power_five_way_slots =
+                diamond_power_init_five_way_shot(px, py, camera_x, camera_y, x_direction_nonzero)
+                    .slots;
         }
     }
 }
