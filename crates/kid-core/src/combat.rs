@@ -7640,6 +7640,8 @@ impl NativeRuntime {
                 continue;
             };
 
+            let berzerker_charging = matches!(self.progression.current_form, PlayerForm::Berzerker)
+                && self.helmet.berzerker_charging;
             let enemy = &mut self.active_enemies[active_idx];
             if matches!(enemy.family, EnemyFamily::Tank) {
                 let route = tank_update_loc_3b41c(
@@ -7683,8 +7685,28 @@ impl NativeRuntime {
                             }
                         }
                     }
-                    ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate
-                    | ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker => {}
+                    ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate => {
+                        if let ScorpionBerzerkerSideGateLoc3DD0E::Knockback(knockback) =
+                            scorpion_berzerker_side_gate_loc_3dd0e(
+                                berzerker_charging,
+                                enemy.scorpion_sting_frames == 0,
+                            )
+                        {
+                            // ASM Scorpion.asm loc_3DD0E: side contact during
+                            // a Berzerker charge bypasses HP damage, disables
+                            // the shared walker, and enters the loc_3DD4A
+                            // airborne loop.
+                            enemy.x_velocity = knockback.x_velocity;
+                            enemy.y_velocity = knockback.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A;
+                            enemy.scorpion_sting_frames = 0;
+                            enemy.walk_speed_override = 0;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker => {}
                 }
                 continue;
             }

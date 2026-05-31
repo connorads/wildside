@@ -9511,6 +9511,46 @@ mod chunk_03 {
     }
 
     #[test]
+    fn scorpion_pending_side_collision_enters_loc_3dd0e_berzerker_launch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0040_0000, 4);
+        scorpion.layout_index = 19;
+        scorpion.x_velocity = 0x0001_0000;
+        scorpion.y_velocity = 0;
+        scorpion.on_ground = true;
+        runtime.active_enemies = vec![scorpion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: scorpion.segment_index,
+                layout_index: scorpion.layout_index,
+                collision_type: SCORPION_COLID_KIDRIGHT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let scorpion = runtime.active_enemies[0];
+        assert_eq!(
+            scorpion.hit_points, 4,
+            "ASM Scorpion.asm loc_3DD0E preserves HP for charging-Berzerker side contact"
+        );
+        assert_eq!(scorpion.x_velocity, 0);
+        assert_eq!(
+            scorpion.y_velocity, -0x0004_8000,
+            "ASM Scorpion.asm loc_3DD0E seeds the upward launch before loc_3DD4A gravity"
+        );
+        assert!(!scorpion.on_ground);
+        assert_eq!(
+            scorpion.wait_timer, SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A,
+            "pending side collision should enter the same loc_3DD4A airborne loop as direct Berzerker contact"
+        );
+        assert_eq!(scorpion.damage_flash_frames, 0);
+    }
+
+    #[test]
     fn driller_death_waits_for_stru_3bcd4_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 1);
