@@ -384,12 +384,12 @@ fn scenario_runner_applies_probe_fields_before_first_script_frame() {
 }
 
 #[test]
-fn load_block_grid_resolves_decoded_resource_layout_for_mapped_level() {
+fn load_block_grid_refuses_raw_decoded_block_resource_for_mapped_level() {
     let output_root = unique_temp_path("decoded-resource-block-layout");
     let block_dir = output_root.join("decoded/level/56");
     fs::create_dir_all(&block_dir).expect("decoded block directory should be creatable");
     let block_path = block_dir.join("block.bin");
-    fs::write(&block_path, [0x60, 0x2A]).expect("decoded block layout should be writable");
+    fs::write(&block_path, [0x60, 0x2A]).expect("raw decoded block asset should be writable");
 
     let mut mapped = manifest();
     mapped.output_root = output_root.clone();
@@ -424,13 +424,13 @@ fn load_block_grid_resolves_decoded_resource_layout_for_mapped_level() {
     }];
 
     let runtime = NativeRuntime::new(mapped);
-    let grid = runtime
-        .load_block_grid_for_level(LevelId(9))
-        .expect("ASM MapOrder_Index lookup should resolve logical level 09 to decoded resource 56");
+    let grid = runtime.load_block_grid_for_level(LevelId(9));
 
-    assert_eq!(grid.width_cells, 240);
-    assert_eq!(grid.height_cells, 28);
-    assert_eq!(grid.cell_at(0, 0).collision, terrain::CollisionKind::Solid);
+    assert!(
+        grid.is_none(),
+        "decoded.block is the raw BLOCK resource, not decoded Level_Layout cells; \
+         missing generated level-layout dumps must fail closed instead of building corrupt terrain"
+    );
 
     fs::remove_dir_all(output_root).ok();
 }

@@ -17609,7 +17609,11 @@ impl NativeRuntime {
         let layout_dir = self.assets.output_root.join("level-layout");
         let layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
         if !layout_path.is_file() {
-            return self.load_decoded_block_grid_for_level(level_id);
+            // ASM BlockLayoutDecodeWordsLoc1354E decodes the compressed BLOCK
+            // resource into Level_Layout cells. Native has not ported that
+            // decoder yet, so fail closed instead of treating the raw BLOCK
+            // resource as already-decoded collision cells.
+            return None;
         }
         let mut data = fs::read(layout_path).ok()?;
         let metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
@@ -17621,32 +17625,6 @@ impl NativeRuntime {
             &data,
             metadata.width_blocks,
             metadata.height_blocks,
-        ))
-    }
-
-    fn load_decoded_block_grid_for_level(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
-        let resource_level = resource_level_id(&self.assets, level_id.0);
-        let decoded = self
-            .assets
-            .decoded_levels
-            .iter()
-            .find(|decoded| decoded.level_id == resource_level)
-            .or_else(|| {
-                self.assets
-                    .decoded_levels
-                    .iter()
-                    .find(|decoded| decoded.level_id == level_id.0)
-            })?;
-        let header = self.level_header(level_id)?;
-        let layout_path = self.assets.output_root.join(&decoded.block.relative_path);
-        let data = fs::read(layout_path).ok()?;
-
-        // ASM BlockLayoutDecodeWordsLoc1354E decodes the resource-level block
-        // stream into Kid's 20x14 collision cells per screen.
-        Some(terrain::BlockGrid::from_level_layout(
-            &data,
-            u16::from(header.width_screens) * 20,
-            u16::from(header.height_screens) * 14,
         ))
     }
 
