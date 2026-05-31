@@ -5888,6 +5888,46 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8C70 (kid.asm:10092): if sub_7A10 reports blocked, the walking
+    /// state branches to loc_8CB6 and must not enter MoveID_Crawling. Native
+    /// should therefore keep the walking no-input decel path for gameplay
+    /// motion instead of feeding `down=true` into the crawl/air table.
+    #[test]
+    fn loc_8c70_sub_7a10_blocked_keeps_walking_velocity_path() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.x_velocity = 0x3000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        let player = runtime
+            .opening_slice
+            .expect("refresh should keep the level slice active")
+            .player;
+        assert_eq!(
+            player.x_velocity, 0x0800,
+            "ASM loc_8C70 -> sub_7A10 blocked should skip crawling; walking decel is $3000-$2800, not air-table crawl decel $3000-$1800",
+        );
+    }
+
     /// ASM loc_8C70: TheKid (no helmet) can enter crawl.
     #[test]
     fn loc_8c70_thekid_allowed_to_crawl() {

@@ -2665,7 +2665,7 @@ impl NativeRuntime {
                     slice.player.y_pos,
                     self.progression.current_form,
                 );
-            let movement_input = if crawl_standup_platform_blocked {
+            let mut movement_input = if crawl_standup_platform_blocked {
                 // ASM loc_8270 -> sub_DAA6: NE returns to loc_82D8, so the
                 // frame remains on the crawling movement path even after Down
                 // is released. Native has no explicit movement ID, so keep the
@@ -2704,6 +2704,31 @@ impl NativeRuntime {
                 // Native only models the Y component ($FFFFFA2E); the X
                 // counterpart ($FFFFFA2C) is not consumed by any camera logic.
                 self.camera_last_kid_y = kid_y;
+            }
+
+            // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
+            // Micromax/Juggernaut and sub_7A10-blocked frames branch to
+            // loc_8CB6 instead of entering MoveID_Crawling. Native has no
+            // explicit crawl movement ID, so suppress Down only for gameplay
+            // movement while keeping the original input for look offset.
+            if input.down && slice.player.on_ground {
+                if matches!(
+                    self.progression.current_form,
+                    PlayerForm::Micromax | PlayerForm::Juggernaut
+                ) {
+                    movement_input.down = false;
+                } else if let Some(grid) = self.block_grid.as_ref() {
+                    let down_hold_alignment = movement::align_player_for_down_hold_sub_7A10(
+                        grid,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        slice.level_bounds.width_pixels,
+                    );
+                    slice.player.x_pos = down_hold_alignment.x_pos;
+                    if down_hold_alignment.blocked {
+                        movement_input.down = false;
+                    }
+                }
             }
 
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
@@ -3102,31 +3127,6 @@ impl NativeRuntime {
         // #Button_B,(Ctrl_Pressed)`, `bra.w loc_8E3E`. Visual-only: the
         // walk accumulator and sprite dispatch at loc_8E3E are not modelled.
         //
-        // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
-        // `bclr #Button_B,(Ctrl_Pressed); bne.w loc_A426` (jump dispatch),
-        // then `tst.b (Ctrl_Down_Held); beq.s loc_8CB6` (skip if down not
-        // held), `tst.b (KidGrabbedByHand); bne.w loc_8CB6` (skip if hand-
-        // grabbed), `addq.w #1,($FFFFFB58)`, helmet != Micromax(9) and
-        // != Juggernaut(5), `bsr.w sub_7A10` (overhead clearance), then
-        // MoveID_Crawling → loc_8218. Native: down-held + on_ground +
-        // form check + sub_7A10 alignment merged here.
-        if input.down
-            && slice.player.on_ground
-            && !matches!(
-                self.progression.current_form,
-                PlayerForm::Micromax | PlayerForm::Juggernaut
-            )
-            && let Some(grid) = self.block_grid.as_ref()
-        {
-            let down_hold_alignment = movement::align_player_for_down_hold_sub_7A10(
-                grid,
-                slice.player.x_pos,
-                slice.player.y_pos,
-                slice.level_bounds.width_pixels,
-            );
-            slice.player.x_pos = down_hold_alignment.x_pos;
-        }
-
         // Berzerker charge: break Smash blocks on wall contact
         if self.helmet.berzerker_charging {
             self.berzerker_break_wall_block(&slice);
