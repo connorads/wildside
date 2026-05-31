@@ -190,6 +190,7 @@ fn run_one_player_playable_gate(
         GameplayScenario::PauseResumeLevel1,
         GameplayScenario::ProgressTwoTransitions,
         GameplayScenario::DeathRespawnLevel1,
+        GameplayScenario::SoakLevel10m,
     ] {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
         let step_name = format!("native_gameplay:{}", scenario.slug());
