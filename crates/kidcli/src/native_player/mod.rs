@@ -1217,6 +1217,7 @@ mod gems_bgm {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeBgmCue {
     TitleShell,
+    Options,
     Level(LevelId),
     ScoreBoard,
 }
@@ -1231,10 +1232,19 @@ enum NativeBgmPlaybackCommand {
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
     match trace.game_mode {
         // ASM Load_IntroSequence1 / Load_TitleScreen both queue `bgm_Ice` via
-        // `j_PlaySound`; later intro modes inherit the active shell cue.
-        GameMode::IntroSequence1 | GameMode::TitleScreen | GameMode::OptionsMenu => {
-            Some(NativeBgmCue::TitleShell)
-        }
+        // `j_PlaySound`; later intro/title-shell modes inherit that cue. Native
+        // may enter those modes directly through manual Start/demo paths, so
+        // keep them recoverable instead of requiring the cold first sequence.
+        GameMode::IntroSequence1
+        | GameMode::IntroSequence2
+        | GameMode::IntroSequence3
+        | GameMode::IntroSequence4
+        | GameMode::IntroSequence5
+        | GameMode::IntroSequence6
+        | GameMode::TitleScreen => Some(NativeBgmCue::TitleShell),
+        // ASM Load_OptionMenu (kid.asm:31570-31572) stops the active shell
+        // music, then queues bgm_City before drawing the options screen.
+        GameMode::OptionsMenu => Some(NativeBgmCue::Options),
         // ASM Score_Board (kid.asm:15838): after the flagpole transition
         // sleeps, the EOL sequence queues bgm_Score_Board before loc_D55E.
         GameMode::InGame | GameMode::DemoPlay if trace.level_complete => {
@@ -1301,6 +1311,7 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
     match cue {
         // ASM Load_TitleScreen queues bgm_Ice through j_PlaySound before loading title art.
         NativeBgmCue::TitleShell => Some(gems_bgm::ICE),
+        NativeBgmCue::Options => Some(gems_bgm::CITY),
         NativeBgmCue::Level(level) => resolved_level_header(manifest, level.0)
             .and_then(|header| theme_to_bgm(header.level_theme)),
         NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
@@ -10435,17 +10446,19 @@ mod tests {
             "ASM Load_IntroSequence1 queues bgm_Ice via j_PlaySound before intro objects are allocated"
         );
         assert_eq!(
-            native_bgm_cue_for_trace(&options),
-            native_bgm_cue_for_trace(&title),
-            "the options shell inherits the title music context instead of restarting or falling silent"
+            native_bgm_cue_for_trace(&options)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::CITY),
+            "ASM Load_OptionMenu stops the title shell and queues bgm_City"
         );
 
         title.game_mode = GameMode::SegaScreen;
-        options.game_mode = GameMode::IntroSequence1;
+        options.game_mode = GameMode::IntroSequence6;
         assert_eq!(native_bgm_cue_for_trace(&title), None);
         assert_eq!(
             native_bgm_cue_for_trace(&options),
-            Some(NativeBgmCue::TitleShell)
+            Some(NativeBgmCue::TitleShell),
+            "late IntroSequence6 title/menu states should recover the shell cue when native enters them directly"
         );
         Ok(())
     }
@@ -10477,6 +10490,22 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
             ),
             "ASM StopMusic reloads/resets GEMS before title-to-gameplay BGM replacement; `$16` stop-all leaves stale title sequence state in native playback"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_options_bgm_replaces_title_shell_with_city() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = sample_trace(GameMode::OptionsMenu);
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &trace, Some(NativeBgmCue::TitleShell)),
+            (
+                Some(NativeBgmCue::Options),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CITY)),
+            ),
+            "ASM Load_OptionMenu (kid.asm:31570-31572) runs StopMusic, then PlaySound(bgm_City)"
         );
         Ok(())
     }
