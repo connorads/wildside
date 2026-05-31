@@ -1048,6 +1048,46 @@ mod chunk_03 {
         assert_eq!(below.progression.diamond_count, 19);
     }
 
+    #[test]
+    fn circle_of_doom_activation_exposes_live_dp_sprites_loc_3f7d0_loc_3f880() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_circle_slots.len(),
+            8,
+            "ASM DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds eight DP-object slots"
+        );
+        assert!(
+            runtime.trace_frame().diamond_power_sprites.is_empty(),
+            "ASM DiamondPower_Run initialises slots on activation; sprites are emitted by the next Circle main pass"
+        );
+
+        runtime.step_diamond_power(FrameInput::default());
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.diamond_power_sprites.len(),
+            8,
+            "ASM DiamondPower_Main_CircleOfDoom loc_3F81A/loc_3F880 should expose eight compiled DP sprites"
+        );
+        assert!(
+            trace
+                .diamond_power_sprites
+                .iter()
+                .any(|sprite| { sprite.size_word == 0x0500 && sprite.pattern_word == 0x86F2 }),
+            "ASM word_4020E should map Circle half-size 5 to `$0500,$86F2`"
+        );
+    }
+
     /// ASM DiamondPower_Main_CircleOfDoom damages ordinary enemies while
     /// diamond pickups stay collectible. Native AoE keeps that filtering and
     /// refreshes the authoritative active roster after a kill.

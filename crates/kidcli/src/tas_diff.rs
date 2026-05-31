@@ -858,6 +858,7 @@ mod tests {
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
+            diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             active_objects: vec![NativeObjectSnapshot {

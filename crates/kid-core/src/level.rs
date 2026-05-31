@@ -17195,6 +17195,9 @@ impl NativeRuntime {
         self.block_state.ghost_groups.clear();
         self.block_state.lift_platforms.clear();
         self.projectiles.clear();
+        self.diamond_power_rain_slots.clear();
+        self.diamond_power_circle_slots.clear();
+        self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.enemy_death_effects.clear();
         self.pending_dragon_death_children.clear();
@@ -17293,6 +17296,9 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.diamond_power_rain_slots.clear();
+        self.diamond_power_circle_slots.clear();
+        self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
@@ -17348,6 +17354,9 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.diamond_power_rain_slots.clear();
+        self.diamond_power_circle_slots.clear();
+        self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);

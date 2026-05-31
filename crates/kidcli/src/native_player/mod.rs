@@ -6,9 +6,9 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, FrameInput, GameMode, LevelId,
-    NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
-    physics::Direction, terrain::BlockGrid,
+    ActiveProjectileKind, ActiveProjectileSnapshot, DiamondPowerSpriteSnapshot, FrameInput,
+    GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
+    PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{
     AssetManifest, DecodedLevelAssets, LevelHeader, resource_level_id, resource_level_record,
@@ -1823,6 +1823,7 @@ mod tests {
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
+            diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -5523,6 +5524,34 @@ mod tests {
                 )
             }),
             "10-diamond prize should not fall back to the placeholder square while its ROM workers are visible"
+        );
+    }
+
+    #[test]
+    fn build_scene_draws_circle_of_doom_sprites_from_hud_diamond_rom_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        // ASM DiamondPower_Main_CircleOfDoom loc_3F880 emits `word_4020E`
+        // sprite attrs. `$86F2` is a 16x16 HUD diamond tile with priority set.
+        trace.diamond_power_sprites = vec![DiamondPowerSpriteSnapshot {
+            screen_x: 0x00A0,
+            screen_y: 0x0090,
+            size_word: 0x0500,
+            pattern_word: 0x86F2,
+        }];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                )
+            }),
+            "ASM loc_3F880/word_4020E should render Circle of Doom from HUD diamond VRAM art"
         );
     }
 

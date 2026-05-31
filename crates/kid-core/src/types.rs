@@ -120,6 +120,18 @@ pub struct ActiveProjectileSnapshot {
     pub kind: ActiveProjectileKind,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct DiamondPowerSpriteSnapshot {
+    /// VDP sprite X after the ROM's `$7F - Camera_X_pos` screen offset.
+    pub screen_x: i16,
+    /// VDP sprite Y after the ROM's `$7F - Camera_Y_pos` screen offset.
+    pub screen_y: i16,
+    /// ROM sprite size word, e.g. `0` for 8x8 and `$0500` for 16x16.
+    pub size_word: u16,
+    /// ROM tile/palette/priority attribute word from Diamond Power tables.
+    pub pattern_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FireDemonTrailChild {
     pub(crate) x_pos: u32,
@@ -1211,6 +1223,10 @@ pub struct NativeTraceFrame {
     /// still load cleanly.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_projectile_details: Vec<ActiveProjectileSnapshot>,
+    /// Visual-only Diamond Power object sprites compiled from the native
+    /// DP-object slots. Gameplay parity still comes from the core fields above.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
     /// Metal block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
@@ -1389,6 +1405,7 @@ impl Default for NativeTraceFrame {
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
+            diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),

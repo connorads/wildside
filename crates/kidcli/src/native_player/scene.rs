@@ -11,6 +11,7 @@ const FIRE_TRAIL_PLACEHOLDER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
 const ROBOT_SHOT_IMPACT_LIFETIME_LOC_3A762: u16 = 3 + 4 + 8;
+const VDP_SPRITE_SCREEN_BIAS_LOC_13C0: i32 = 0x80;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
@@ -1966,6 +1967,43 @@ pub(super) fn push_sprite_frame_top_left(
     push_sprite_frame(commands, frame, palette, screen_x, screen_y);
 }
 
+fn push_diamond_power_sprite_loc_3f880(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    sprite: DiamondPowerSpriteSnapshot,
+) -> bool {
+    let size_code = sprite.size_word >> 8;
+    let width_px = ((size_code & 0x03) + 1) * 8;
+    let height_px = (((size_code >> 2) & 0x03) + 1) * 8;
+    let vram_tile = sprite.pattern_word & 0x07FF;
+    let Some(tile_base_index) = vram_tile.checked_sub(level_visuals.hud.diamond_base_tile_index)
+    else {
+        return false;
+    };
+    if usize::from(tile_base_index) >= level_visuals.hud.diamond_tiles.tiles.len() {
+        return false;
+    }
+    let frame = kid_render::SpriteFrame {
+        origin_x: 0,
+        origin_y: 0,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+    };
+    // ASM DiamondPower_Main_CircleOfDoom loc_3F880 writes VDP sprite
+    // coordinates already biased by `$7F-Camera`; native drawing uses
+    // top-left screen pixels, so strip the VDP sprite bias here.
+    push_sprite_frame_top_left(
+        commands,
+        &frame,
+        &level_visuals.palettes.foreground,
+        i32::from(sprite.screen_x) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
+        i32::from(sprite.screen_y) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
+    );
+    true
+}
+
 fn push_murder_wall_warning_sprite_sub_5e02(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::MurderWallVisuals,
@@ -3634,6 +3672,10 @@ fn build_game_scene_filtered(
                     }
                 }
             }
+        }
+
+        for sprite in &trace.diamond_power_sprites {
+            let _ = push_diamond_power_sprite_loc_3f880(&mut commands, level_visuals, *sprite);
         }
 
         // ASM sub_1007A bounce coroutine: the block itself moves with the

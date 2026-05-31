@@ -1243,6 +1243,22 @@ pub(crate) const CIRCLE_OF_DOOM_SIZE_TABLE: [u8; 28] = [
     0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
 ];
 
+/// ASM word_4020E (kid.asm:45605): sprite size/tile pairs used by
+/// DiamondPower_Main_CircleOfDoom loc_3F880 after the half-size lookup.
+#[allow(non_snake_case)]
+pub(crate) const CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E: [(u16, u16); 10] = [
+    (0x0000, 0x86EA),
+    (0x0000, 0x86EB),
+    (0x0000, 0x86EC),
+    (0x0000, 0x86ED),
+    (0x0500, 0x86EE),
+    (0x0500, 0x86F2),
+    (0x0500, 0x86F6),
+    (0x0500, 0x8231),
+    (0x0000, 0x822D),
+    (0x0500, 0xE6FA),
+];
+
 /// Per-slot position and size result from DiamondPower_Main_CircleOfDoom.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4215,6 +4231,38 @@ fn helmet_enemy_projectile_damage_target_snapshots(
 }
 
 impl NativeRuntime {
+    fn step_diamond_power_circle_of_doom_slots_loc_3f81a(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+
+        let mut retained_slots = Vec::with_capacity(self.diamond_power_circle_slots.len());
+        for mut slot in self.diamond_power_circle_slots.drain(..) {
+            let result =
+                diamond_power_main_circle_of_doom_slot(&mut slot, kid_x, kid_y, camera_x, camera_y);
+            if result.removed {
+                continue;
+            }
+            let (size_word, pattern_word) = CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E
+                .get(usize::from(result.half_size))
+                .copied()
+                .unwrap_or(CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E[0]);
+            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                screen_x: result.screen_x,
+                screen_y: result.screen_y,
+                size_word,
+                pattern_word,
+            });
+            retained_slots.push(slot);
+        }
+        self.diamond_power_circle_slots = retained_slots;
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -5916,13 +5964,23 @@ impl NativeRuntime {
     /// Two tiers: 20 diamonds = basic power, 50 diamonds (20+30) = enhanced power.
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
+        self.diamond_power_sprites.clear();
         // Count down active Diamond Power
         if self.progression.diamond_power_frames > 0 {
             self.progression.diamond_power_frames -= 1;
 
             match self.progression.diamond_power_type {
-                DiamondPowerType::CircleOfDoom | DiamondPowerType::WallOfDeath => {
-                    // AoE damage: kill enemies each frame (orbiting diamonds / wall)
+                DiamondPowerType::CircleOfDoom => {
+                    // ASM DiamondPower_Main_CircleOfDoom loc_3F81A walks the
+                    // DP-object linked list, compiles `word_4020E` sprites at
+                    // loc_3F880, then converges through loc_3F8AA.
+                    self.step_diamond_power_circle_of_doom_slots_loc_3f81a();
+                    self.progression.invulnerable_frames =
+                        self.progression.invulnerable_frames.max(1);
+                    self.diamond_power_kill_enemies();
+                }
+                DiamondPowerType::WallOfDeath => {
+                    // AoE damage: kill enemies each frame (wall)
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
                     self.diamond_power_kill_enemies();
@@ -6049,6 +6107,8 @@ impl NativeRuntime {
 
             if self.progression.diamond_power_frames == 0 {
                 self.progression.diamond_power_type = DiamondPowerType::None;
+                self.diamond_power_circle_slots.clear();
+                self.diamond_power_sprites.clear();
             }
             return;
         }
@@ -6093,6 +6153,8 @@ impl NativeRuntime {
 
         let power = diamond_power_for_form(self.progression.current_form, tier2);
         self.progression.diamond_power_type = power;
+        self.diamond_power_circle_slots.clear();
+        self.diamond_power_sprites.clear();
 
         // Instant effects (no timer)
         match power {
@@ -6115,6 +6177,12 @@ impl NativeRuntime {
         // resets active rain object count to 0. Native has no explicit count
         // (projectile list length serves as the equivalent).
         self.progression.diamond_power_frames = diamond_power_duration(power);
+        if power == DiamondPowerType::CircleOfDoom {
+            // ASM DiamondPower_Check calls Initialize_DiamondPowerObjectSlots,
+            // then DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds
+            // eight live DP-object slots before the main loop renders them.
+            self.diamond_power_circle_slots = diamond_power_init_circle_of_doom_sub_3F7D0();
+        }
     }
 
     /// AoE damage helper: kill all non-diamond enemies (used by CircleOfDoom, WallOfDeath).

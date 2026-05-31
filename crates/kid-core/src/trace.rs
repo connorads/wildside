@@ -5238,6 +5238,7 @@ impl NativeRuntime {
                         }),
                 )
                 .collect(),
+            diamond_power_sprites: self.diamond_power_sprites.clone(),
             active_geysers: self
                 .weather
                 .lava_geysers
