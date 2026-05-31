@@ -2242,23 +2242,164 @@ impl NativeRuntime {
             self.block_state.evanescent_blocks.push(EvanescentEntry {
                 col,
                 row,
+                directions: initial_timer as u8,
                 timer: initial_timer,
             });
             self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
         }
 
-        // Tick timers and remove expired blocks
+        let evanescent_layout_writes = self.evanescent_layout_writes_loc_ED04();
+        let evanescent_expiry_restores = self
+            .block_state
+            .evanescent_blocks
+            .iter()
+            .filter(|entry| entry.timer.saturating_add(1) >= EVANESCENT_REMOVAL_THRESHOLD)
+            .filter_map(|entry| {
+                self.evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
+                    .map(|cell| (entry.col, entry.row, cell))
+            })
+            .collect::<Vec<_>>();
         if let Some(grid) = &mut self.block_grid {
+            for (col, row, cell) in evanescent_layout_writes {
+                grid.set_cell_at(col, row, cell);
+            }
             self.block_state.evanescent_blocks.retain_mut(|entry| {
                 entry.timer += 1;
                 if entry.timer >= EVANESCENT_REMOVAL_THRESHOLD {
-                    grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
+                    // ASM loc_ECA6 removes the active evanescent object after
+                    // the loc_ED04 action sequence has already restored the
+                    // source Level_Layout word. Synthetic tests without a
+                    // generated foreground layout still fall back to clearing.
+                    let restored = evanescent_expiry_restores
+                        .iter()
+                        .find_map(|(col, row, cell)| {
+                            (*col == entry.col && *row == entry.row).then_some(*cell)
+                        })
+                        .unwrap_or_else(|| terrain::Cell::from_be_bytes(0, 0));
+                    grid.set_cell_at(entry.col, entry.row, restored);
                     false
                 } else {
                     true
                 }
             });
         }
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_layout_writes_loc_ED04(&self) -> Vec<(u16, u16, terrain::Cell)> {
+        self.block_state
+            .evanescent_blocks
+            .iter()
+            .filter_map(|entry| {
+                let age = u16::try_from(entry.timer).ok()?;
+                let action =
+                    *crate::level::EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC.get(usize::from(age))?;
+                if action == 0 {
+                    return None;
+                }
+                let cell = if action & 0x80 == 0 {
+                    // ASM loc_EDBC: positive action bytes write
+                    // `$E31C + 6(a0)`, where `6(a0)` is the direction bitfield
+                    // saved by EvanescentBlock_Trigger.
+                    terrain::Cell::from_be_bytes(0xE3, 0x1C_u8.wrapping_add(entry.directions))
+                } else if action & 0x01 == 0 {
+                    if action == 0x80 && entry.timer >= 18 {
+                        return self
+                            .evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
+                            .map(|cell| (entry.col, entry.row, cell));
+                    }
+                    return None;
+                } else {
+                    // TODO(fidelity): ASM loc_ED04 has the `$83`
+                    // collision-overlay action at table index 13, but the
+                    // Highwater oracle keeps the source shooter cell solid
+                    // through that visible phase and exposes the non-solid
+                    // terrain on the later `$80` sprite-only cadence. Native
+                    // currently folds the evanescent object's hibernate cadence
+                    // into this timer, so preserve the solid terrain restore
+                    // until the observed final overlay window.
+                    let use_collision_overlay = action & 0x02 != 0 && entry.timer >= 18;
+                    self.evanescent_restored_cell_loc_ED52(
+                        entry.col,
+                        entry.row,
+                        use_collision_overlay,
+                    )?
+                };
+                Some((entry.col, entry.row, cell))
+            })
+            .collect()
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_restored_cell_loc_ED52(
+        &self,
+        col: u16,
+        row: u16,
+        use_collision_overlay: bool,
+    ) -> Option<terrain::Cell> {
+        let resource_level = resource_level_id(&self.assets, self.current_level.0);
+        let decoded = self
+            .assets
+            .decoded_levels
+            .iter()
+            .find(|decoded| decoded.level_id == resource_level)
+            .or_else(|| {
+                self.assets
+                    .decoded_levels
+                    .iter()
+                    .find(|decoded| decoded.level_id == self.current_level.0)
+            })?;
+        let header = self.level_header(self.current_level)?;
+        let terrain_path = self
+            .assets
+            .output_root
+            .join(&decoded.foreground.relative_path);
+        let terrain_bytes = fs::read(terrain_path).ok()?;
+        let width = u16::from(header.width_screens) * 20;
+        let index = usize::from(row) * usize::from(width) + usize::from(col);
+        let terrain_byte = *terrain_bytes.get(index)?;
+        let layout_word = if use_collision_overlay {
+            let collision_byte = self
+                .evanescent_theme_collision_byte_loc_ED7C(header.level_theme, terrain_byte)
+                .unwrap_or(0);
+            crate::level::evanescent_bullet_collision_overlay_loc_ED7C(terrain_byte, collision_byte)
+        } else {
+            0x6000 | u16::from(terrain_byte)
+        };
+        Some(terrain::Cell::from_be_bytes(
+            (layout_word >> 8) as u8,
+            layout_word as u8,
+        ))
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_theme_collision_byte_loc_ED7C(
+        &self,
+        foreground_theme: u8,
+        terrain_byte: u8,
+    ) -> Option<u8> {
+        let filename = match foreground_theme & 0x0F {
+            0 => "theme0.bin",
+            1 => "sky.bin",
+            2 => "ice.bin",
+            3 => "hill.bin",
+            4 => "island.bin",
+            5 => "desert.bin",
+            6 => "swamp.bin",
+            7 => "mountain.bin",
+            8 => "cave.bin",
+            9 => "forest.bin",
+            10 => "city.bin",
+            _ => return None,
+        };
+        let path = self
+            .assets
+            .output_root
+            .join("theme")
+            .join("collision")
+            .join(filename);
+        let collision = fs::read(path).ok()?;
+        collision.get(usize::from(terrain_byte)).copied()
     }
 
     #[allow(non_snake_case)]

@@ -17682,6 +17682,7 @@ mod chunk_02 {
             vec![EvanescentEntry {
                 col: 2,
                 row: 2,
+                directions: 2,
                 timer: 3,
             }]
         );

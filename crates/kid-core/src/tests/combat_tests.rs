@@ -12855,6 +12855,7 @@ mod chunk_05 {
             vec![EvanescentEntry {
                 col: 2,
                 row: 3,
+                directions: 3,
                 timer: 4,
             }],
             "ASM loc_EAE4 -> loc_EB72 should trigger the type-$A block when it overlaps Kid's expanded airborne hitbox; native advances the active evanescent timer in the same frame"

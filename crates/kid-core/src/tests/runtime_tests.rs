@@ -8735,7 +8735,20 @@ mod chunk_09 {
             );
         }
 
-        for _ in 100..120 {
+        for _ in 100..110 {
+            rt.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        let source_cell = rt.block_grid.as_ref().unwrap().cell_at(11, 103);
+        assert!(
+            !source_cell.has_block,
+            "ASM loc_ED04 -> loc_ED52 should restore Highwater's lower source shooter terrain by the oracle frame-110 unblock window"
+        );
+
+        for _ in 110..120 {
             rt.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
@@ -8743,9 +8756,9 @@ mod chunk_09 {
         }
 
         for row in 97..=103 {
-            assert_eq!(
-                rt.block_grid.as_ref().unwrap().cell_at(15, row),
-                terrain::Cell::from_be_bytes(0, 0),
+            let cell = rt.block_grid.as_ref().unwrap().cell_at(15, row);
+            assert!(
+                !cell.has_block,
                 "ASM loc_EAE4 -> loc_EC76 -> loc_F02A should clear Highwater Pass 1 ice barrier row {row} on the live spawn-to-barrier route"
             );
         }
@@ -9853,6 +9866,7 @@ mod chunk_09 {
             runtime.block_state.evanescent_blocks.push(EvanescentEntry {
                 col: 10 + i as u16,
                 row: 10,
+                directions: 0,
                 timer: 0,
             });
         }

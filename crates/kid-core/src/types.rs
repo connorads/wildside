@@ -2273,6 +2273,8 @@ impl LevelTimer {
 pub(crate) struct EvanescentEntry {
     pub(crate) col: u16,
     pub(crate) row: u16,
+    /// ASM EvanescentBlock_Trigger stores `skin - $1C` at slot word 6.
+    pub(crate) directions: u8,
     /// Timer value (starts negative from skin offset, incremented each frame).
     pub(crate) timer: i16,
 }
