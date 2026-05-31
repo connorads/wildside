@@ -628,6 +628,51 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
     }
 }
 
+/// Idle inside an active lava-weather level so the ROM's special-effect object
+/// workers are visible to native-vs-oracle comparison.
+///
+/// ASM `Init_SpecialEffect_Lava -> loc_14C5E/loc_14C6A` allocates lava geyser
+/// objects from the per-level position table, then `Obj_Lava_Geyser` runs the
+/// script loop starting at `loc_147BA`. Keeping this as a named scenario makes
+/// #205's weather-object harness reproducible without checking in `.cache/`
+/// recordings.
+pub fn lava_weather_audit_scenario(level_id: u8) -> DynamicScenario {
+    let frame_count: usize = 180;
+
+    DynamicScenario {
+        slug: format!("lava_weather_audit_{level_id:02x}"),
+        script: vec![0u8; frame_count.saturating_add(1)],
+        frame_count,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "weather_object_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "weather_object_window_30".into(),
+                frame_index: 30,
+            },
+            DynamicCheckpoint {
+                label: "weather_object_window_60".into(),
+                frame_index: 60,
+            },
+            DynamicCheckpoint {
+                label: "weather_object_window_120".into(),
+                frame_index: 120,
+            },
+            DynamicCheckpoint {
+                label: "weather_object_tail".into(),
+                frame_index: frame_count.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form: None,
+        warp_to_level: Some(level_id),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -980,8 +1025,8 @@ mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
         enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
-        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-        walk_right_scenario,
+        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+        stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -1564,5 +1609,23 @@ mod tests {
             .expect("checkpoints");
         assert!(scenario.frame_count > max_cp);
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn lava_weather_audit_scenario_targets_settled_lava_object_window() {
+        let scenario = lava_weather_audit_scenario(0x05);
+
+        assert_eq!(scenario.slug, "lava_weather_audit_05");
+        assert_eq!(scenario.warp_to_level, Some(0x05));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.frame_count, 180);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert!(scenario.script.iter().all(|&buttons| buttons == 0));
+        assert_eq!(scenario.checkpoints[0].label, "weather_object_start");
+        assert_eq!(scenario.checkpoints[0].frame_index, 0);
+        assert_eq!(
+            scenario.checkpoints.last().expect("tail checkpoint").label,
+            "weather_object_tail"
+        );
     }
 }

@@ -61,8 +61,8 @@ use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario, idle_level_scenario,
-    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -96,6 +96,8 @@ enum RecordScenarioKind {
     /// idle 10 s in-arena to sample enemy roster across the spawn window —
     /// pair with `--level 0x33` to probe HeadyMetal (kind 0x20) on Plethora 1.
     EnemySpawnAuditHeadyMetal,
+    /// idle in a settled lava level to sample special-effect object workers.
+    LavaWeatherAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2159,6 +2161,7 @@ fn build_record_scenario(
         RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
+        RecordScenarioKind::LavaWeatherAudit => lava_weather_audit_scenario(level),
     }
 }
 
@@ -2201,6 +2204,7 @@ fn record_scenario_command(
         RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
         RecordScenarioKind::StompEnemy => "stomp-enemy",
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
+        RecordScenarioKind::LavaWeatherAudit => "lava-weather-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -3879,6 +3883,7 @@ AddrTbl_LevelNames:
                 RecordScenarioKind::WalkRight,
                 RecordScenarioKind::PrizeBlock,
                 RecordScenarioKind::StompEnemy,
+                RecordScenarioKind::LavaWeatherAudit,
             ] {
                 let scenario = build_record_scenario(kind, level, None);
                 assert_eq!(
@@ -3908,6 +3913,16 @@ AddrTbl_LevelNames:
                 .map(|position| (position.x, position.y)),
             Some((760, 231))
         );
+    }
+
+    #[test]
+    fn build_record_scenario_lava_weather_audit_uses_named_settled_window() {
+        let scenario = build_record_scenario(RecordScenarioKind::LavaWeatherAudit, 0x05, None);
+
+        assert_eq!(scenario.slug, "lava_weather_audit_05");
+        assert_eq!(scenario.warp_to_level, Some(0x05));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.frame_count, 180);
     }
 
     #[test]
