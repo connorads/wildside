@@ -6377,6 +6377,8 @@ pub(crate) enum SpinningTwinsPhase {
     Orbiting,
     /// Dropped to ground, walking as a pacer.
     Walking,
+    /// ASM Spinning_Twins.asm loc_3B9B0 falling transition visual worker.
+    FallingVisual,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -8766,6 +8768,15 @@ impl ActiveEnemy {
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
         if self.hit_points == 0 {
+            return false;
+        }
+        if matches!(
+            (self.family, self.spinning_twins_phase),
+            (
+                EnemyFamily::SpinningTwins,
+                SpinningTwinsPhase::FallingVisual
+            )
+        ) {
             return false;
         }
         if matches!(self.family, EnemyFamily::TarMonster) {
@@ -23525,6 +23536,7 @@ pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = 0x0020;
 pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
+pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -24024,6 +24036,7 @@ pub(crate) fn spinning_twins_drop_transition_loc_3b93c(
     // walking children enter loc_3BA74 for their initial launch velocities.
     enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
     enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+    enemy.wait_timer = SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
     enemy.x_velocity = match enemy.facing {
         Direction::Left => SPINNING_TWINS_DROP_X_VEL_LEFT,
         Direction::Right => SPINNING_TWINS_DROP_X_VEL_RIGHT,
@@ -24140,6 +24153,68 @@ pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
     SpinningTwinsFallingVisualStepLoc3BA00 { state, alive: true }
 }
 
+pub(crate) fn materialize_spinning_twins_drop_splits(active: &mut Vec<ActiveEnemy>) {
+    let mut idx = 0;
+    while idx < active.len() {
+        let split_pending = matches!(active[idx].family, EnemyFamily::SpinningTwins)
+            && matches!(
+                active[idx].spinning_twins_phase,
+                SpinningTwinsPhase::Walking
+            )
+            && active[idx].wait_timer == SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+        if !split_pending {
+            idx += 1;
+            continue;
+        }
+
+        let source = active[idx];
+        let first = spinning_twins_first_walking_child_init_loc_3bb0c(source.x_pos, source.y_pos);
+        let second = spinning_twins_second_walking_child_init_loc_3bb06(source.x_pos, source.y_pos);
+        let visual = spinning_twins_falling_visual_init_loc_3b9b0(source.x_pos, source.y_pos);
+
+        let mut first_child = source;
+        first_child.x_pos = first.x_pos;
+        first_child.y_pos = first.y_pos;
+        first_child.x_velocity = first.x_velocity;
+        first_child.y_velocity = first.y_velocity;
+        first_child.facing = Direction::Left;
+        first_child.on_ground = false;
+        first_child.wait_timer = 0;
+        first_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
+
+        let mut second_child = source;
+        second_child.x_pos = second.x_pos;
+        second_child.y_pos = second.y_pos;
+        second_child.x_velocity = second.x_velocity;
+        second_child.y_velocity = second.y_velocity;
+        second_child.facing = Direction::Right;
+        second_child.on_ground = false;
+        second_child.wait_timer = 0;
+        second_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
+
+        let mut falling_visual = source;
+        falling_visual.x_pos = visual.x_pos;
+        falling_visual.y_pos = visual.y_pos;
+        falling_visual.x_velocity = 0;
+        falling_visual.y_velocity = 0;
+        falling_visual.hit_points = 0;
+        falling_visual.on_ground = false;
+        falling_visual.wait_timer = 0;
+        falling_visual.grounded_frames = visual.frames_until_next_step_index;
+        falling_visual.spinning_twins_orbit_index = visual.step_index;
+        falling_visual.shared_walker_patrol_short_next = false;
+        falling_visual.spinning_twins_phase = SpinningTwinsPhase::FallingVisual;
+
+        // ASM Spinning_Twins.asm loc_3B93C deletes the original orbit object
+        // after allocating both loc_3BA74 walking children and the loc_3B9B0
+        // transition visual; native replaces the source with those live slots.
+        active[idx] = first_child;
+        active.insert(idx + 1, second_child);
+        active.insert(idx + 2, falling_visual);
+        idx += 3;
+    }
+}
+
 fn step_spinning_twins_berzerker_launch(enemy: &mut ActiveEnemy) {
     // ASM Spinning_Twins.asm loc_3BC22: hibernate one frame, run the shared
     // retention check `sub_3C3CE`, then add `$4000` to y_vel and loop.
@@ -24225,6 +24300,24 @@ pub(crate) fn step_spinning_twins(
                         enemy.on_ground = true;
                     }
                 }
+            }
+        }
+        SpinningTwinsPhase::FallingVisual => {
+            let state = SpinningTwinsFallingVisualStateLoc3BA00 {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                step_index: enemy.spinning_twins_orbit_index,
+                frames_until_next_step_index: enemy.grounded_frames,
+                reverse_x_motion: enemy.shared_walker_patrol_short_next,
+            };
+            let stepped = spinning_twins_falling_visual_step_loc_3ba00(state, 0, 0);
+            enemy.x_pos = stepped.state.x_pos;
+            enemy.y_pos = stepped.state.y_pos;
+            enemy.spinning_twins_orbit_index = stepped.state.step_index;
+            enemy.grounded_frames = stepped.state.frames_until_next_step_index;
+            enemy.shared_walker_patrol_short_next = stepped.state.reverse_x_motion;
+            if !stepped.alive {
+                enemy.hit_points = 0;
             }
         }
     }
@@ -40323,6 +40416,7 @@ impl NativeRuntime {
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
                 );
+                materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();
                 for (idx, enemy) in self.active_enemies.iter_mut().enumerate() {
                     if Self::hibernate_enemy_death_animation_frame(enemy) {

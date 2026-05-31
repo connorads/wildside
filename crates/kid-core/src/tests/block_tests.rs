@@ -11463,6 +11463,52 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_runtime_drop_materializes_two_children_and_visual_loc_3b93c() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        enemy.facing = Direction::Right;
+        let mut enemies = vec![enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut enemies,
+            None,
+            Some(100 << 16),
+            Some(50 << 16),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        materialize_spinning_twins_drop_splits(&mut enemies);
+
+        assert_eq!(
+            enemies.len(),
+            3,
+            "ASM Spinning_Twins.asm loc_3B93C allocates two loc_3BA74 walking children plus one loc_3B9B0 falling visual"
+        );
+        assert_eq!(enemies[0].spinning_twins_phase, SpinningTwinsPhase::Walking);
+        assert_eq!(enemies[1].spinning_twins_phase, SpinningTwinsPhase::Walking);
+        assert_eq!(
+            enemies[2].spinning_twins_phase,
+            SpinningTwinsPhase::FallingVisual
+        );
+        let split_source_x = (100 - 0x0A) << 16;
+        assert_eq!(enemies[0].x_pos, split_source_x - (0x20 << 16));
+        assert_eq!(enemies[1].x_pos, split_source_x + (0x20 << 16));
+        assert_eq!(
+            enemies[2].x_pos,
+            split_source_x - (0x13 << 16),
+            "ASM loc_3B9B0 subtracts `$13` from the parent X for the falling visual"
+        );
+        assert_eq!(enemies[0].x_velocity, SPINNING_TWINS_DROP_X_VEL_LEFT);
+        assert_eq!(enemies[1].x_velocity, SPINNING_TWINS_DROP_X_VEL_RIGHT);
+        assert_eq!(enemies[0].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
+        assert_eq!(enemies[1].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
+        assert!(!enemies[2].is_vulnerable());
+    }
+
+    #[test]
     fn spinning_twins_drop_transition_loc_3b93c_splits_orbit_object() {
         let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
         enemy.facing = Direction::Right;
