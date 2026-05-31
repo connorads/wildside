@@ -2987,18 +2987,24 @@ mod chunk_03 {
             helmets::SnakeSlot {
                 x_pos: 100,
                 y_pos: 200,
+                x_subpixel: 0,
+                y_subpixel: 0,
                 diamond_size: 4,
                 trail: [(110, 210), (120, 220), (130, 230)],
             },
             helmets::SnakeSlot {
                 x_pos: 150,
                 y_pos: 250,
+                x_subpixel: 0,
+                y_subpixel: 0,
                 diamond_size: 3,
                 trail: [(160, 260), (170, 270), (180, 280)],
             },
             helmets::SnakeSlot {
                 x_pos: 190,
                 y_pos: 290,
+                x_subpixel: 0,
+                y_subpixel: 0,
                 diamond_size: 2,
                 trail: [(200, 300), (210, 310), (220, 320)],
             },
@@ -3070,6 +3076,8 @@ mod chunk_03 {
         let mut slots = vec![helmets::SnakeSlot {
             x_pos: 50,
             y_pos: 60,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 1,
             trail: [(70, 80), (90, 100), (110, 120)],
         }];
@@ -3382,6 +3390,38 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn diamond_power_snake_move_head_retains_fraction_loc_3fad4() {
+        // ASM loc_3FAD4 uses `add.l`/`sub.l` against the `$1A/$1E` longword
+        // position. With angle 0 and speed $100, sub_40236 yields a nearly
+        // one-pixel X delta ($FFF8), so two frames must cross into the high
+        // word instead of truncating both moves to zero.
+        let mut slot = helmets::SnakeSlot {
+            x_pos: 0,
+            y_pos: 0,
+            x_subpixel: 0,
+            y_subpixel: 0,
+            diamond_size: 4,
+            trail: [(0, 0); 3],
+        };
+
+        helmets::diamond_power_snake_move_head_loc_3fad4(&mut slot, 0, 0x100, 0, 0);
+        assert_eq!(slot.x_pos, 0, "first fractional move stays below one pixel");
+        assert_eq!(
+            slot.x_subpixel, 0xFFF8,
+            "ASM loc_3FAD4: low word retains the first add.l remainder"
+        );
+
+        helmets::diamond_power_snake_move_head_loc_3fad4(&mut slot, 0, 0x100, 0, 0);
+        assert_eq!(
+            slot.x_pos, 1,
+            "ASM loc_3FAD4: second add.l carries the retained fraction into the high word"
+        );
+        assert_eq!(slot.x_subpixel, 0xFFF0);
+        assert_eq!(slot.y_pos, 0);
+        assert_eq!(slot.y_subpixel, 0);
+    }
+
     // -----------------------------------------------------------------------
     // Snake slot sprite compilation (loc_3FB20, loc_3FB3E, loc_3FB88)
     // -----------------------------------------------------------------------
@@ -3395,6 +3435,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 3,
             trail: [(0, 0); 3],
         };
@@ -3417,6 +3459,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: -200,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 3,
             trail: [(0, 0); 3],
         };
@@ -3434,6 +3478,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 500,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 1,
             trail: [(0, 0); 3],
         };
@@ -3452,6 +3498,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 4,
             trail: [(0, 0); 3],
         };
@@ -3471,6 +3519,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 1,
             trail: [(0, 0); 3],
         };
@@ -3489,6 +3539,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 4,
             trail: [(0, 0); 3],
         };
@@ -3510,6 +3562,8 @@ mod chunk_03 {
         let mut slot = helmets::SnakeSlot {
             x_pos: 100,
             y_pos: 80,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 2,
             trail: [(0, 0); 3],
         };

@@ -1401,6 +1401,10 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
 pub(crate) struct SnakeSlot {
     pub(crate) x_pos: i16,
     pub(crate) y_pos: i16,
+    /// Low word of the ROM longword at `$1A(a0)`.
+    pub(crate) x_subpixel: u16,
+    /// Low word of the ROM longword at `$1E(a0)`.
+    pub(crate) y_subpixel: u16,
     /// Diamond size from the variant's init-data table.
     pub(crate) diamond_size: u16,
     /// Trail buffer: 3 previous positions (x,y pairs).
@@ -1472,6 +1476,8 @@ pub(crate) fn diamond_power_init_snake(
         let slot = SnakeSlot {
             x_pos: kid_x,
             y_pos: kid_y,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: init_data[i as usize],
             trail: [(kid_x, kid_y); 3],
         };
@@ -2739,6 +2745,37 @@ pub(crate) fn diamond_power_snake_steer(
     }
 }
 
+/// ASM loc_3FAD4 (kid.asm:44822): move the Snake head as a 32-bit object
+/// position.
+///
+/// The ROM stores `$1A/$1E` as longwords. Most Snake code reads/writes only
+/// the high word, but the head movement uses `add.l`/`sub.l`, so the low word
+/// must survive between frames or slow fractional motion truncates away.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_move_head_loc_3fad4(
+    slot: &mut SnakeSlot,
+    angle: u16,
+    movement_speed: u16,
+    kid_x_velocity: i32,
+    kid_y_velocity: i32,
+) {
+    use crate::boot::sin_cos_sub_40236;
+
+    let (cos, sin) = sin_cos_sub_40236(angle as u8);
+    let dx_fp = ((cos as i32).wrapping_mul(i32::from(movement_speed))) >> 6;
+    let dy_fp = ((sin as i32).wrapping_mul(i32::from(movement_speed))) >> 6;
+
+    let mut x_fp = (i32::from(slot.x_pos) << 16) | i32::from(slot.x_subpixel);
+    let mut y_fp = (i32::from(slot.y_pos) << 16) | i32::from(slot.y_subpixel);
+    x_fp = x_fp.wrapping_add(dx_fp).wrapping_add(kid_x_velocity >> 1);
+    y_fp = y_fp.wrapping_sub(dy_fp).wrapping_add(kid_y_velocity >> 1);
+
+    slot.x_pos = (x_fp >> 16) as i16;
+    slot.y_pos = (y_fp >> 16) as i16;
+    slot.x_subpixel = x_fp as u16;
+    slot.y_subpixel = y_fp as u16;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3447,6 +3484,8 @@ mod tests {
         let mut slot = SnakeSlot {
             x_pos: 0x20,
             y_pos: 0x90,
+            x_subpixel: 0,
+            y_subpixel: 0,
             diamond_size: 10,
             trail: [(0, 0); 3],
         };
@@ -4597,8 +4636,6 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_snake_slots_loc_3f978(&mut self) {
-        use crate::boot::sin_cos_sub_40236;
-
         self.diamond_power_sprites.clear();
         if self.diamond_power_snake_slots.is_empty() {
             return;
@@ -4654,23 +4691,13 @@ impl NativeRuntime {
                 self.diamond_power_snake_head_angle = angle;
             }
 
-            // ASM loc_3FAD4: sub_40236(angle), multiply by `$30(a0)` speed,
-            // shift by six, add to head position, then add half Kid velocity.
-            let (cos, sin) = sin_cos_sub_40236(self.diamond_power_snake_head_angle as u8);
-            let dx_fp = ((cos as i32)
-                .wrapping_mul(i32::from(self.diamond_power_snake_movement_speed)))
-                >> 6;
-            let dy_fp = ((sin as i32)
-                .wrapping_mul(i32::from(self.diamond_power_snake_movement_speed)))
-                >> 6;
-            head.x_pos = head
-                .x_pos
-                .wrapping_add((dx_fp >> 16) as i16)
-                .wrapping_add((kid_x_velocity >> 17) as i16);
-            head.y_pos = head
-                .y_pos
-                .wrapping_sub((dy_fp >> 16) as i16)
-                .wrapping_add((kid_y_velocity >> 17) as i16);
+            diamond_power_snake_move_head_loc_3fad4(
+                head,
+                self.diamond_power_snake_head_angle,
+                self.diamond_power_snake_movement_speed,
+                kid_x_velocity,
+                kid_y_velocity,
+            );
         }
 
         let timer = self.progression.diamond_power_frames as i16;
