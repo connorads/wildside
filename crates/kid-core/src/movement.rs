@@ -2875,7 +2875,7 @@ impl OpeningSliceState {
                         collision,
                         grid,
                         collision_hw,
-                        None,
+                        SlopeRecontactHandoff::default(),
                     );
                 }
             }
@@ -2949,7 +2949,7 @@ impl OpeningSliceState {
                         collision,
                         grid,
                         collision_hw,
-                        None,
+                        SlopeRecontactHandoff::default(),
                     );
                 }
                 // Apply gravity after collisions (ASM sub_B168 runs after collision checks)
@@ -3418,6 +3418,7 @@ impl OpeningSliceState {
                 // wall_cling_into_run) which consume pre_vertical_y_px.
                 let pre_vertical_y_px = (self.player.y_pos >> 16) as i32;
                 self.apply_y_velocity_to_position();
+                let post_vertical_y_pos = self.player.y_pos;
 
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
@@ -3467,7 +3468,10 @@ impl OpeningSliceState {
                         collision,
                         grid,
                         collision_hw,
-                        handoff_x_velocity,
+                        SlopeRecontactHandoff {
+                            x_velocity: handoff_x_velocity,
+                            post_vertical_y_pos: Some(post_vertical_y_pos),
+                        },
                     );
                 }
                 if let Some(grid) = block_grid.as_deref() {
@@ -5960,7 +5964,7 @@ impl OpeningSliceState {
         collision: terrain::CollisionKind,
         grid: &terrain::BlockGrid,
         collision_hw: i32,
-        x_velocity_for_handoff_step: Option<i32>,
+        handoff: SlopeRecontactHandoff,
     ) {
         let h_input = slope_horizontal_input_loc_9DAA(input, collision);
         let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
@@ -5971,11 +5975,48 @@ impl OpeningSliceState {
             form,
             self.terrain.floor_terrain_type,
         );
-        let handoff_x_velocity = x_velocity_for_handoff_step.unwrap_or(new_vel);
+        let has_air_cap_handoff = handoff.x_velocity.is_some();
+        let handoff_x_velocity = handoff.x_velocity.unwrap_or(new_vel);
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
         let next_x = i64::from(self.player.x_pos) + i64::from(handoff_x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+        if collision == terrain::CollisionKind::SlopeUp
+            && has_air_cap_handoff
+            && let Some(post_vertical_y_pos) = handoff.post_vertical_y_pos
+        {
+            let future_x_pos = (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
+                .clamp(0, i64::from(u32::MAX)) as u32;
+            let x_px = (future_x_pos >> 16) as i32;
+            let y_px = (self.player.y_pos >> 16) as i32;
+            let row = ((y_px + 1).max(0) >> 4) as u16;
+            let right_col = ((x_px + collision_hw).max(0) >> 4)
+                .min(i32::from(grid.width_cells.saturating_sub(1)))
+                as u16;
+            let right_cell = grid.cell_at(right_col, row);
+            if !right_cell.has_block
+                && matches!(
+                    right_cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                )
+            {
+                // ASM loc_A99E -> loc_8BF0 -> loc_9D22: on a fresh SlopeUp
+                // landing whose leading edge also overlaps the next solid
+                // tile, the ROM keeps the sub_902A vertical fractional
+                // crossing as the slope-entry subpixel instead of snapping to
+                // the fully advanced integer slope point. This is the reduced
+                // #211 frame-478 SlopeUp/Solid edge handoff.
+                let frac = post_vertical_y_pos & 0x0000_FFFF;
+                if frac != 0 {
+                    let rounded_frac = ((frac + 0x01FF) & !0x01FF).min(0xFFFF);
+                    let corrected_high = (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000);
+                    let corrected_future_x = corrected_high | rounded_frac;
+                    self.player.x_pos = (i64::from(corrected_future_x)
+                        - i64::from(self.player.x_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+                }
+            }
+        }
 
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
@@ -6088,6 +6129,12 @@ pub(crate) struct CrawlWallEscapeSub81B4 {
 pub(crate) struct CrawlSlopeSnapSub83E6 {
     pub(crate) x_pos: u32,
     pub(crate) adjusted: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct SlopeRecontactHandoff {
+    pub(crate) x_velocity: Option<i32>,
+    pub(crate) post_vertical_y_pos: Option<u32>,
 }
 
 fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {

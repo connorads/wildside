@@ -16935,7 +16935,7 @@ mod chunk_12 {
             terrain::CollisionKind::SlopeDown,
             &grid,
             0,
-            None,
+            SlopeRecontactHandoff::default(),
         );
 
         assert_eq!(
@@ -17011,6 +17011,68 @@ mod chunk_12 {
         assert_eq!(
             slice.player.y_velocity, -slice.player.x_velocity,
             "ASM loc_9D22: SlopeUp same-frame recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the later Level 00
+    /// natural route recontact lands on the next SlopeUp/Solid edge at high
+    /// air speed. The first reduced #211 route divergence was frame 478, where
+    /// native over-advanced the landing handoff by almost one pixel.
+    #[test]
+    fn level00_frame_478_slope_up_recontact_preserves_oracle_landing_x_loc_a99e() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+        };
+        set(&mut data, 49, 12, 0x40);
+        set(&mut data, 50, 12, 0x60);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0316_5700;
+        slice.player.y_pos = 0x00c3_9f00;
+        slice.player.x_velocity = 0x0002_8f00;
+        slice.player.y_velocity = 0x0001_6d80;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x031a_4e00,
+            "ASM loc_A99E/loc_8BF0 handoff should match oracle frame 478 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00c5_0000,
+            "ASM loc_9D22 recontact should match oracle frame 478 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_4e00,
+            "ASM loc_9D22 should keep the oracle frame 478 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
         );
     }
 
