@@ -11257,7 +11257,9 @@ mod chunk_04 {
         let expected_wait_timer =
             drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, 0x1234_0000);
         let mut rng = RomRandomState::default();
-        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        }
         assert_eq!(projectiles.len(), 1, "should drop one projectile");
         assert_eq!(projectiles[0].x_velocity, 0, "drops straight down");
         assert_eq!(
@@ -11314,7 +11316,9 @@ mod chunk_04 {
         let mut rng = RomRandomState::default();
 
         for _ in 0..3 {
-            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+            for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+                step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+            }
             enemy.wait_timer = 0;
         }
 
@@ -11413,8 +11417,18 @@ mod chunk_04 {
 
         assert_eq!(
             projectiles.len(),
+            MAX_PROJECTILES,
+            "ASM Drips.asm loc_33424 starts stru_33F90 before exposing the falling child",
+        );
+
+        for _ in 0..DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        }
+
+        assert_eq!(
+            projectiles.len(),
             MAX_PROJECTILES + 1,
-            "ASM Drips.asm loc_33424 uses Drips' preallocated falling child, so unrelated generic projectiles must not block the drop"
+            "ASM Drips.asm loc_33424 uses Drips' preallocated falling child after stru_33F90, so unrelated generic projectiles must not block the drop"
         );
         assert_eq!(
             projectiles.last().map(|projectile| projectile.kind),

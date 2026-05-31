@@ -22001,6 +22001,23 @@ pub(crate) const DRIPS_DROP_LIFETIME: u16 = u16::MAX;
 /// active. ASM Drips.asm loc_33424/loc_3345C does not branch back to
 /// loc_3340E until the child reaches loc_33488.
 pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
+/// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
+/// animation finishes before exposing the falling child. The script has
+/// frame durations `$A,$A,8,6,1`.
+pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
+const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
+
+fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
+    DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424 | frames_remaining
+}
+
+fn drips_pre_drop_animation_remaining_loc_33424(wait_timer: u16) -> Option<u16> {
+    if wait_timer & DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424 == 0 {
+        None
+    } else {
+        Some(wait_timer & !DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424)
+    }
+}
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRIPS_COLID_CEILING: u16 = 0x0010;
 
@@ -23501,8 +23518,19 @@ pub(crate) fn step_drips(
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
         return;
     }
-    if enemy.wait_timer > 0 {
+    if let Some(frames_remaining) = drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) {
+        if frames_remaining > 1 {
+            enemy.wait_timer = drips_pre_drop_animation_timer_loc_33424(frames_remaining - 1);
+            return;
+        }
+    } else if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
+        return;
+    } else {
+        // ASM Drips.asm loc_33424 waits through `stru_33F90` before setting
+        // `$13/$14/$3C(a1)` on the falling child.
+        enemy.wait_timer =
+            drips_pre_drop_animation_timer_loc_33424(DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424);
         return;
     }
     // ASM Drips.asm loc_33424/loc_3345C: the ROM reuses the preallocated
@@ -32808,7 +32836,9 @@ mod tests {
         let mut projectiles = Vec::new();
         let mut rng = RomRandomState::default();
 
-        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+        for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+        }
 
         assert_eq!(projectiles.len(), 1);
         assert_eq!(
@@ -38307,7 +38337,9 @@ mod tests {
         let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
         let mut rng = RomRandomState::default();
 
-        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
+            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        }
 
         assert_eq!(
             projectiles.len(),
