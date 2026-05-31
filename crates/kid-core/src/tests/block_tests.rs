@@ -12679,6 +12679,16 @@ mod chunk_04 {
             platform.script, None,
             "ASM loc_2822 is still on the stationary-platform path; without a relative script offset the native port should leave motion scripting unset",
         );
+        assert_eq!(
+            platform.x_pos,
+            (24u32 << 4) << 16,
+            "ASM loc_2762 (kid.asm:4717) should scale the `ptfm` x word by 16 before native collision uses fixed-point world pixels",
+        );
+        assert_eq!(
+            platform.y_pos,
+            (25u32 << 4) << 16,
+            "ASM loc_2762 (kid.asm:4721) should scale the `ptfm` y word by 16 before native collision uses fixed-point world pixels",
+        );
     }
 
     #[test]
@@ -13007,23 +13017,17 @@ mod chunk_04 {
 
     #[test]
     fn advance_to_window_stops_at_exact_preload_limit() {
-        // Mutant: line 11, replace > with >= or ==
-        // A placement whose x equals the preload limit exactly should be consumed
-        // (> means "strictly past limit → stop"). If > became >=, this placement
-        // would NOT be consumed.
         let window = ActivationWindow {
             x_min: 0,
             x_max: 100,
             y_min: 0,
             y_max: 224,
         };
-        let preload_limit = 100u32
-            .saturating_add(PLATFORM_PRELOAD_X_PADDING)
-            .saturating_add(0); // buffer_right = 0
+        let preload_limit = 100u32.saturating_add(PLATFORM_PRELOAD_X_PADDING);
         let placement = PlatformPlacement {
-            x: preload_limit as u16, // exactly at limit
+            x: 100,
             y: 50,
-            buffer_left: 0,
+            buffer_left: (preload_limit / 32) as u8,
             buffer_right: 0,
             buffer_top: 0,
             buffer_bottom: 0,
@@ -13041,10 +13045,9 @@ mod chunk_04 {
         };
         let mut state = PlatformLoaderState::default();
         state.advance_to_window(&layout, window);
-        // x == limit is NOT > limit, so placement should be consumed
         assert_eq!(
             state.next_index, 1,
-            "placement at exact preload limit should be consumed"
+            "ASM loc_2762 compares Kid/player pixels against absolute buffer edges scaled by 32; an exact preload edge should be consumed"
         );
     }
 
@@ -13057,13 +13060,11 @@ mod chunk_04 {
             y_min: 0,
             y_max: 224,
         };
-        let preload_limit = 100u32
-            .saturating_add(PLATFORM_PRELOAD_X_PADDING)
-            .saturating_add(0);
+        let preload_limit = 100u32.saturating_add(PLATFORM_PRELOAD_X_PADDING);
         let placement = PlatformPlacement {
-            x: (preload_limit + 1) as u16, // past limit
+            x: 100,
             y: 50,
-            buffer_left: 0,
+            buffer_left: ((preload_limit / 32) + 1) as u8,
             buffer_right: 0,
             buffer_top: 0,
             buffer_bottom: 0,
@@ -13083,7 +13084,7 @@ mod chunk_04 {
         state.advance_to_window(&layout, window);
         assert_eq!(
             state.next_index, 0,
-            "placement past preload limit should NOT be consumed"
+            "a platform whose absolute left buffer edge is past the preloaded player window should not be consumed"
         );
     }
 
@@ -13101,9 +13102,9 @@ mod chunk_04 {
             x: 50,  // outside x range
             y: 100, // inside y range
             buffer_left: 0,
-            buffer_right: 0,
+            buffer_right: 2,
             buffer_top: 0,
-            buffer_bottom: 0,
+            buffer_bottom: 5,
             kind: 0,
             subtype: 0,
             h_variant: 1,
@@ -13120,6 +13121,10 @@ mod chunk_04 {
         let outside_y = PlatformPlacement {
             x: 150, // inside x
             y: 200, // outside y
+            buffer_left: 0,
+            buffer_right: 7,
+            buffer_top: 0,
+            buffer_bottom: 1,
             ..outside_x.clone()
         };
         assert!(
@@ -13131,18 +13136,18 @@ mod chunk_04 {
     #[test]
     fn platform_is_active_loc_2762_keeps_exact_buffer_edges_in_range() {
         let window = ActivationWindow {
-            x_min: 100,
-            x_max: 200,
-            y_min: 50,
-            y_max: 150,
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
         };
         let placement = PlatformPlacement {
-            x: 90,
-            y: 40,
+            x: 20,
+            y: 20,
             buffer_left: 10,
-            buffer_right: 0,
+            buffer_right: 10,
             buffer_top: 10,
-            buffer_bottom: 0,
+            buffer_bottom: 10,
             kind: 0,
             subtype: 0,
             h_variant: 1,
@@ -13158,12 +13163,12 @@ mod chunk_04 {
         );
 
         let right_bottom_edge = PlatformPlacement {
-            x: 200,
-            y: 150,
+            x: 20,
+            y: 20,
             buffer_left: 0,
-            buffer_right: 0,
+            buffer_right: 10,
             buffer_top: 0,
-            buffer_bottom: 0,
+            buffer_bottom: 10,
             ..placement
         };
         assert!(
@@ -14156,7 +14161,7 @@ mod chunk_04 {
         assert_eq!(
             platform.special,
             Some(PlatformSpecialState::Soft(SoftPlatformState {
-                original_y_pos: 128 << 16,
+                original_y_pos: (128u32 << 4) << 16,
                 phase: SoftPlatformPhase::Wait,
             })),
             "ASM loc_2876/off_40D2 (kid.asm:4799/5195): special platform script word 0 dispatches to SoftPlatform_Init",
@@ -14167,7 +14172,7 @@ mod chunk_04 {
         assert_eq!(
             platform.special,
             Some(PlatformSpecialState::Soft(SoftPlatformState {
-                original_y_pos: 128 << 16,
+                original_y_pos: (128u32 << 4) << 16,
                 phase: SoftPlatformPhase::Bounce,
             })),
         );
@@ -14175,7 +14180,7 @@ mod chunk_04 {
         platform.step_soft_platform_loc_40E2(true);
         assert_eq!(
             platform.y_pos,
-            130 << 16,
+            ((128u32 << 4) + 2) << 16,
             "ASM SoftPlatform_Move adds platform `$E(a3)` into platform `6(a3)`; Kid is carried later by platform collision",
         );
         assert_eq!(platform.y_velocity, 0x0001_9000);
@@ -14183,12 +14188,12 @@ mod chunk_04 {
         for _ in 0..16 {
             platform.step_soft_platform_loc_40E2(true);
         }
-        assert_eq!(platform.y_pos, 128 << 16);
+        assert_eq!(platform.y_pos, (128u32 << 4) << 16);
         assert_eq!(platform.y_velocity, 0);
         assert_eq!(
             platform.special,
             Some(PlatformSpecialState::Soft(SoftPlatformState {
-                original_y_pos: 128 << 16,
+                original_y_pos: (128u32 << 4) << 16,
                 phase: SoftPlatformPhase::Settled,
             })),
         );

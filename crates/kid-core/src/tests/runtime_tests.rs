@@ -6441,9 +6441,13 @@ mod chunk_09 {
             "ASM CharacterCollision_TouchFlagpole loc_C056 preserves the stale DragonWalking gfx slot observed in issue-175 oracle flag_touch before loc_C070 deletes object threads",
         );
         assert_eq!(
+            flag_touch.active_platform_object_count, 4,
+            "ASM Manage_PlatformLoading loc_2762 keeps the four visible Level 0x12 platform slots live through the flag-touch frame",
+        );
+        assert_eq!(
             (flag_touch.number_objects, flag_touch.number_gfx_objects),
-            (5, 6),
-            "issue-175 oracle flag_touch reports Kid + 2 EOL workers + 2 stale enemy gfx slots"
+            (9, 10),
+            "issue-175 oracle flag_touch reports Kid + 2 EOL workers + 2 stale enemy gfx slots plus the four live platform slots"
         );
     }
 

@@ -2104,7 +2104,7 @@ impl ActivePlatform {
                 command_index: 0,
                 remaining_duration: first_cmd.duration,
             });
-        let y_pos = u32::from(placement.y) << 16;
+        let y_pos = crate::platforms::platform_layout_coord_fixed_loc_2762(placement.y);
         let special = if placement.kind == 8 && placement.script.raw.trim() == "0" {
             Some(PlatformSpecialState::Soft(SoftPlatformState {
                 original_y_pos: y_pos,
@@ -2118,7 +2118,7 @@ impl ActivePlatform {
             layout_index: None,
             kind: placement.kind,
             subtype: placement.subtype,
-            x_pos: u32::from(placement.x) << 16,
+            x_pos: crate::platforms::platform_layout_coord_fixed_loc_2762(placement.x),
             y_pos,
             width_px: u16::from(placement.h_variant) * 16 + 15,
             height_px: u16::from(placement.v_variant) * 16 + 15,

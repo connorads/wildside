@@ -40565,13 +40565,21 @@ impl NativeRuntime {
             }
         }
         if let Some(platform_layout) = platform_layout.as_ref() {
+            let player_x_px = slice.player.x_pos >> 16;
+            let player_y_px = slice.player.y_pos >> 16;
+            let platform_window = ActivationWindow {
+                x_min: player_x_px,
+                x_max: player_x_px,
+                y_min: player_y_px,
+                y_max: player_y_px,
+            };
             let mut objects = slice.objects;
             objects
                 .platform_loader
-                .advance_to_window(platform_layout, window);
+                .advance_to_window(platform_layout, platform_window);
             self.active_platform_roster = objects
                 .platform_loader
-                .active_platforms(platform_layout, window);
+                .active_platforms(platform_layout, platform_window);
             let script_table = self.platform_script_table.as_ref();
             let previous_platforms = self.active_platforms.clone();
             self.active_platforms = platform_layout
@@ -40579,7 +40587,7 @@ impl NativeRuntime {
                 .iter()
                 .enumerate()
                 .take(objects.platform_loader.next_index)
-                .filter(|(_, p)| platform_is_active(p, window))
+                .filter(|(_, p)| platform_is_active(p, platform_window))
                 .map(|(layout_index, placement)| {
                     previous_platforms
                         .iter()

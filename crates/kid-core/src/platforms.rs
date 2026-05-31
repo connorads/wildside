@@ -519,6 +519,27 @@ pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u1
     platform_loader_offset.wrapping_add(0x000C)
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn platform_layout_coord_px_loc_2762(layout_coord: u16) -> u32 {
+    // ASM loc_2762/Manage_PlatformLoading (kid.asm:4717): the `ptfm` x/y
+    // words are 16 px block coordinates; the ROM shifts them left four bits
+    // before storing platform world pixels into `$2/$6(a3)`.
+    u32::from(layout_coord) << 4
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn platform_layout_coord_fixed_loc_2762(layout_coord: u16) -> u32 {
+    platform_layout_coord_px_loc_2762(layout_coord) << 16
+}
+
+#[allow(non_snake_case)]
+fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
+    // ASM loc_2762 (kid.asm:4690): activation-buffer bytes are absolute edges
+    // in 32 px units, loaded into `d7` and shifted left five bits before the
+    // comparison with Kid's current pixel coordinate.
+    u32::from(buffer_edge) << 5
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
@@ -579,11 +600,8 @@ impl PlatformLoaderState {
         for (placement_index, placement) in
             layout.placements.iter().enumerate().skip(self.next_index)
         {
-            let preload_limit = window
-                .x_max
-                .saturating_add(PLATFORM_PRELOAD_X_PADDING)
-                .saturating_add(u32::from(placement.buffer_right));
-            if u32::from(placement.x) > preload_limit {
+            let preload_limit = window.x_max.saturating_add(PLATFORM_PRELOAD_X_PADDING);
+            if platform_buffer_edge_px_loc_2762(placement.buffer_left) > preload_limit {
                 break;
             }
             self.next_index = placement_index + 1;
@@ -605,8 +623,8 @@ impl PlatformLoaderState {
                     kind: placement.kind,
                     subtype: placement.subtype,
                 },
-                x_pos: u32::from(placement.x) << 16,
-                y_pos: u32::from(placement.y) << 16,
+                x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
+                y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
                 layout_index: None,
                 x_velocity: None,
                 y_velocity: None,
@@ -634,19 +652,13 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
     }
     // ASM loc_2762 (kid.asm:4684): after loading Kid's X/Y into `d6`, the ROM
     // rejects only strict out-of-range placements via `bgt`/`blt` against the
-    // buffered left/right/top/bottom edges. Equality stays in range, so the
-    // native port mirrors that with inclusive `RangeInclusive` checks.
-    let object_x = u32::from(platform.x);
-    let object_y = u32::from(platform.y);
-    let x_min = window.x_min.saturating_sub(u32::from(platform.buffer_left));
-    let x_max = window
-        .x_max
-        .saturating_add(u32::from(platform.buffer_right));
-    let y_min = window.y_min.saturating_sub(u32::from(platform.buffer_top));
-    let y_max = window
-        .y_max
-        .saturating_add(u32::from(platform.buffer_bottom));
-    (x_min..=x_max).contains(&object_x) && (y_min..=y_max).contains(&object_y)
+    // absolute buffered left/right/top/bottom edges. Equality stays in range,
+    // so a one-point Kid window at an exact edge must still activate.
+    let x_min = platform_buffer_edge_px_loc_2762(platform.buffer_left);
+    let x_max = platform_buffer_edge_px_loc_2762(platform.buffer_right);
+    let y_min = platform_buffer_edge_px_loc_2762(platform.buffer_top);
+    let y_max = platform_buffer_edge_px_loc_2762(platform.buffer_bottom);
+    window.x_max >= x_min && window.x_min <= x_max && window.y_max >= y_min && window.y_min <= y_max
 }
 
 fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {

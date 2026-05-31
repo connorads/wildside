@@ -5099,7 +5099,7 @@ mod chunk_02 {
     fn activates_visible_platforms_in_level_window() {
         let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
         start_level(&mut runtime);
-        let trace = runtime.trace_frame();
+        let trace = runtime.step_frame(FrameInput::default());
         let platforms = trace
             .active_objects
             .iter()
