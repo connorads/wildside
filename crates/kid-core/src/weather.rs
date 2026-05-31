@@ -1299,7 +1299,6 @@ const LAVA_FIREBALL_SCRIPT: [LavaFireballSegment; 11] = [
     },
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn kid_hitbox_bounds_px_at_screen(
     kid_x_px: i32,
     kid_foot_y_px: i32,
@@ -1324,7 +1323,6 @@ fn kid_hitbox_bounds_px(slice: &OpeningSliceState) -> (i32, i32, i32, i32) {
     kid_hitbox_bounds_px_at_screen(x_px, foot_y_px)
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserHitboxWindowLoc14AAA {
     pub(crate) left_px: i32,
@@ -1334,7 +1332,6 @@ pub(crate) struct LavaGeyserHitboxWindowLoc14AAA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_hitbox_window_loc_14AAA(
     geyser_x_px: u16,
     geyser_base_y_px: u16,
@@ -1424,7 +1421,6 @@ pub fn lava_geyser_sprite_chunks_loc_14BE8(
     sprite_rows
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballVerticalWindowLoc14AFC {
     pub(crate) top_px: i32,
@@ -1432,7 +1428,6 @@ pub(crate) struct LavaFireballVerticalWindowLoc14AFC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
     baseline_y_px: u16,
     sprite_kind: LavaFireballSpriteKind,
@@ -1454,7 +1449,6 @@ pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_rejects_kid_loc_14B22(
     kid_left_px: i32,
     kid_right_px: i32,
@@ -1473,7 +1467,6 @@ pub(crate) fn lava_fireball_rejects_kid_loc_14B22(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
     kid_left_px: i32,
     kid_right_px: i32,
@@ -1498,7 +1491,6 @@ pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_hitbox_x_window_loc_14AB0(fireball_x_px: u16) -> (i32, i32) {
     // ASM sub_14AB0 (kid.asm:28151-28157): `move.w $44(a5),d6; subi.w #$80,d6;
     // addq.w #1,d6` shapes the inclusive left column after the shared sprite
@@ -1533,7 +1525,6 @@ fn lava_fireball_hits_kid_sub_14AB0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u16) -> u16 {
     // ASM Obj_Lava_Geyser -> loc_14772 (kid.asm:27810-27820): the low nibble of
     // the encoded height indexes `word_14710`, whose entries are `0, 10, 20,
@@ -2181,7 +2172,6 @@ const LAVA_GEYSER_POSITIONS_OTHER_LOC_14C5E: &[(u16, u16, u16)] = &[
     (0x110, 0x1D0, 0x090),
 ];
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserPositionTableLoc14C5E {
     Usm2,
@@ -2189,7 +2179,6 @@ pub(crate) enum LavaGeyserPositionTableLoc14C5E {
     Other,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserInitLoc14C6A {
     pub(crate) x_px: u16,
@@ -2199,7 +2188,6 @@ pub(crate) struct LavaGeyserInitLoc14C6A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_position_table_loc_14C5E(
     resource_level_id: u8,
 ) -> LavaGeyserPositionTableLoc14C5E {
@@ -2215,7 +2203,6 @@ pub(crate) fn lava_geyser_position_table_loc_14C5E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_lava_geyser_loc_14C6A(
     x_px: u16,
     y_px: u16,
