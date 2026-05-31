@@ -3146,15 +3146,19 @@ impl OpeningSliceState {
                 // moves diagonally along the 45° surface. SlopeUp (/): going
                 // right means going up → y_vel = -x_vel. SlopeDown (\): going
                 // right means going down → y_vel = +x_vel.
-                if self.player.on_ground
-                    && let Some(grid) = block_grid.as_deref()
-                {
-                    let slope = self.grounded_slope_collision(Some(grid));
+                let grounded_slope_for_loc_9d22 = if self.player.on_ground {
+                    block_grid
+                        .as_deref()
+                        .and_then(|grid| self.grounded_slope_collision(Some(grid)))
+                } else {
+                    None
+                };
+                if let Some(slope) = grounded_slope_for_loc_9d22 {
                     match slope {
-                        Some(terrain::CollisionKind::SlopeUp) => {
+                        terrain::CollisionKind::SlopeUp => {
                             self.player.y_velocity = -self.player.x_velocity;
                         }
-                        Some(terrain::CollisionKind::SlopeDown) => {
+                        terrain::CollisionKind::SlopeDown => {
                             self.player.y_velocity = self.player.x_velocity;
                         }
                         _ => {}
@@ -3172,6 +3176,20 @@ impl OpeningSliceState {
                 // Step 2: sub_B168 — jump initiation + gravity (velocity only)
                 let pre_gravity_y_vel = self.player.y_velocity;
                 self.apply_jump_and_gravity_vel_only(input, jump_pressed, form, custom_gravity);
+                if self.player.on_ground
+                    && !jump_pressed
+                    && let Some(slope) = grounded_slope_for_loc_9d22
+                {
+                    // ASM loc_9D22 -> loc_9F18: slope-walk frames do not run
+                    // sub_B168's grounded y_vel clear. After loc_9D94/loc_9E64
+                    // updates x_vel, the diagonal y component must still mirror
+                    // the current x_vel for the following sub_A254 slope snap.
+                    self.player.y_velocity = match slope {
+                        terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
+                        terrain::CollisionKind::SlopeDown => self.player.x_velocity,
+                        _ => self.player.y_velocity,
+                    };
+                }
                 // In AsmFaithful, gravity runs before position, so pre_gravity_y_vel
                 // is the velocity before gravity was applied (same as GravityFirst).
                 self.pre_gravity_y_vel = pre_gravity_y_vel;
@@ -5668,10 +5686,17 @@ impl OpeningSliceState {
                     terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
                 ) {
                     let center_floor_fp = (center_probe.floor_y_px.max(0) as u32) << 16;
-                    let near_center_slope = self.player.y_pos >= center_floor_fp
-                        || self.player.y_pos.abs_diff(center_floor_fp)
-                            <= SLOPE_AIR_SNAP_TOLERANCE_FP;
-                    if near_center_slope {
+                    let center_within_downward_touch =
+                        self.player.y_pos.abs_diff(center_floor_fp) <= 0x0001_0000;
+                    let center_can_land_downward = self.player.y_velocity >= 0
+                        && (self.player.y_pos >= center_floor_fp || center_within_downward_touch);
+                    let center_can_land_upward = allow_upward_slope_snap
+                        && self.player.y_velocity < 0
+                        && self.player.y_velocity >= -(SLOPE_AIR_SNAP_TOLERANCE_FP as i32)
+                        && (self.player.y_pos >= center_floor_fp
+                            || self.player.y_pos.abs_diff(center_floor_fp)
+                                <= SLOPE_AIR_SNAP_TOLERANCE_FP);
+                    if center_can_land_downward || center_can_land_upward {
                         probe = center_probe;
                         center_slope_snap_candidate = true;
                     } else {
@@ -5707,8 +5732,10 @@ impl OpeningSliceState {
                     terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp => {
                         let within_slope_touch_snap =
                             self.player.y_pos.abs_diff(floor_y_fp) <= 0x0001_0000;
+                        let downward_motion_reached_slope =
+                            self.player.y_velocity > 0 && self.player.y_pos >= floor_y_fp;
                         (self.player.y_velocity >= 0
-                            && (self.player.y_pos >= floor_y_fp || within_slope_touch_snap))
+                            && (downward_motion_reached_slope || within_slope_touch_snap))
                             || (allow_upward_slope_snap
                                 && center_slope_snap_candidate
                                 && self.player.y_velocity < 0

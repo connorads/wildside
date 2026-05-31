@@ -16636,6 +16636,72 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> sub_9386 -> loc_9D22:
+    /// when an airborne rightward frame lands by the leading edge on SlopeUp,
+    /// the same frame must enter the slope-walk handoff and mirror x_vel into
+    /// negative y_vel.
+    #[test]
+    fn level00_airborne_leading_edge_slope_up_recontact_enters_loc_9d22_same_frame() {
+        let w: u16 = 50;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (15usize * usize::from(w) + 44) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 0x02c1_8d00;
+        slice.player.y_pos = 0x00f8_b000;
+        slice.player.x_velocity = 0x0002_9100;
+        slice.player.y_velocity = 0x0003_bc00;
+
+        let mut direct_floor = slice;
+        direct_floor.player.y_pos = direct_floor.player.y_pos.wrapping_add(0x0003_fc00);
+        direct_floor.player.y_velocity = 0x0003_fc00;
+        let direct_probe = terrain::probe_floor_hitbox(
+            &grid,
+            (direct_floor.player.x_pos >> 16) as i32,
+            (direct_floor.player.y_pos >> 16) as i32,
+            5,
+        );
+        assert_eq!(direct_probe.cell.collision, terrain::CollisionKind::SlopeUp);
+        assert!(direct_probe.on_ground);
+        assert_eq!(
+            direct_floor.apply_floor_collision(Some(&grid), false, false, 5, true),
+            Some(terrain::CollisionKind::SlopeUp),
+            "ASM sub_902A leading-edge SlopeUp contact should be visible before the horizontal sub_8F26 step",
+        );
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_902A should land from the leading-edge SlopeUp contact",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp same-frame recontact stores y_vel = -x_vel",
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6
