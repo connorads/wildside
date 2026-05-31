@@ -21882,6 +21882,49 @@ mod chunk_05 {
         );
     }
 
+    /// ASM loc_A30A (kid.asm:12618): when the climb wall probe no longer finds
+    /// `$6000`, the ROM seeds `y_vel=$FFFC0000` before leaving wall-climb state.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A30A_wall_gone_releases_with_upward_pop_velocity() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::IronKnight;
+        rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        rt.block_grid = Some(grid_with_cells(16, 8, &[]));
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0x120;
+        rt.helmet.iron_knight_climb_pose_accum = 0x40;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+
+        let result = rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+        assert!(
+            matches!(result, IronKnightClimbStep::None),
+            "ASM loc_A30A wall-gone path exits the climb loop through loc_A6F8",
+        );
+        assert!(
+            !rt.helmet.iron_knight_climbing,
+            "wall-gone path should leave Iron Knight climb state",
+        );
+        assert_eq!(
+            rt.helmet.iron_knight_climb_accel, 0,
+            "wall-gone path should clear climb acceleration",
+        );
+        assert_eq!(
+            rt.helmet.iron_knight_climb_pose_accum, 0,
+            "wall-gone path should clear climb pose accumulator",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x4_0000,
+            "ASM loc_A30A: move.l #$FFFC0000,y_vel(a3)",
+        );
+    }
+
     /// ASM loc_A382 (kid.asm:12666): when C is NOT pressed during wall climb,
     /// `Get_RandomNumber_wordC` caps Cyclone_YAcceleration at $1800.
     /// `cmpi.w #$1800,d7; ble.w loc_A38E; move.w #$1800,d7`.

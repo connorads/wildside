@@ -5476,10 +5476,12 @@ impl NativeRuntime {
                 facing_right,
             );
             if !probe.hit {
-                // Wall gone, fall off
+                // ASM loc_A30A: wall probe no longer sees `$6000`; seed the
+                // upward pop velocity before leaving the climb loop.
                 self.helmet.iron_knight_climbing = false;
                 self.helmet.iron_knight_climb_accel = 0;
                 self.helmet.iron_knight_climb_pose_accum = 0;
+                slice.player.y_velocity = -0x4_0000;
                 return IronKnightClimbStep::None;
             }
         }
