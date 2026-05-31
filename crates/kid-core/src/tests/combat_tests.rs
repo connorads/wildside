@@ -1128,6 +1128,41 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn wall_of_death_main_does_not_blanket_delete_enemies_loc_40026() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::WallOfDeath;
+        runtime.progression.diamond_power_frames = 2;
+        runtime.diamond_power_wall_slots = helmets::diamond_power_init_wall_of_death().slots;
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::DragonWalking,
+            0x0100_0000,
+            0x0020_0000,
+            1,
+        )];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM DiamondPower_Main_WallOfDeath loc_40026/loc_4009C moves DP object slots and writes their world/sprite fields; enemy damage must come from DP-object collision words, not a blanket native delete"
+        );
+        assert_eq!(runtime.active_enemies[0].family, EnemyFamily::DragonWalking);
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert_eq!(
+            runtime.trace_frame().diamond_power_sprites.len(),
+            10,
+            "Wall slots should still compile while the enemy remains alive"
+        );
+    }
+
     /// ASM DiamondPower_Main_CircleOfDoom damages ordinary enemies while
     /// diamond pickups stay collectible. Native AoE keeps that filtering and
     /// refreshes the authoritative active roster after a kill.
@@ -1192,47 +1227,42 @@ mod chunk_03 {
 
     #[test]
     fn diamond_power_aoe_routes_tank_through_loc_3b41c_damage_not_direct_delete() {
-        for power in [
-            helmets::DiamondPowerType::CircleOfDoom,
-            helmets::DiamondPowerType::WallOfDeath,
-        ] {
-            let mut runtime = NativeRuntime::new(manifest());
-            runtime.progression.diamond_power_type = power;
-            runtime.progression.diamond_power_frames = 2;
-            let mut tank = test_enemy(EnemyFamily::Tank, 0x0100_0000, 0x0020_0000, 4);
-            tank.x_velocity = 0x0001_0000;
-            runtime.active_enemies = vec![tank];
-            runtime.active_enemy_roster = runtime
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
+        runtime.progression.diamond_power_frames = 2;
+        let mut tank = test_enemy(EnemyFamily::Tank, 0x0100_0000, 0x0020_0000, 4);
+        tank.x_velocity = 0x0001_0000;
+        runtime.active_enemies = vec![tank];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
 
-            runtime.step_diamond_power(FrameInput::default());
+        runtime.step_diamond_power(FrameInput::default());
 
-            assert_eq!(
-                runtime.active_enemies.len(),
-                1,
-                "ASM DiamondPower_Main_CircleOfDoom/WallOfDeath maintain DP object collision words; Tank damage still dispatches through Tank.asm loc_3B41C"
-            );
-            assert_eq!(
-                runtime.active_enemies[0].hit_points, 3,
-                "Tank.asm loc_3B464 should decrement HP once instead of bypassing straight to loc_3B480"
-            );
-            assert_eq!(
-                runtime.active_enemies[0].damage_flash_frames,
-                ENEMY_DAMAGE_FLASH_FRAMES
-            );
-            assert_eq!(
-                runtime.active_enemies[0].x_velocity, 0,
-                "Tank.asm loc_3B49A clears parent motion on a nonfatal DP hit"
-            );
-            assert_eq!(
-                runtime.active_enemy_roster.len(),
-                2,
-                "nonfatal Tank DP damage must keep the mouth child visible"
-            );
-        }
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM DiamondPower_Main_CircleOfDoom maintains DP object collision words; Tank damage still dispatches through Tank.asm loc_3B41C"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 3,
+            "Tank.asm loc_3B464 should decrement HP once instead of bypassing straight to loc_3B480"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].damage_flash_frames,
+            ENEMY_DAMAGE_FLASH_FRAMES
+        );
+        assert_eq!(
+            runtime.active_enemies[0].x_velocity, 0,
+            "Tank.asm loc_3B49A clears parent motion on a nonfatal DP hit"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            2,
+            "nonfatal Tank DP damage must keep the mouth child visible"
+        );
     }
 
     // -----------------------------------------------------------------------

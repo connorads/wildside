@@ -6021,12 +6021,12 @@ impl NativeRuntime {
                 DiamondPowerType::WallOfDeath => {
                     // ASM DiamondPower_Main_WallOfDeath loc_40026 moves the
                     // ten DP-object slots and compiles `word_4020E` sprites at
-                    // loc_4009C. Collision is still the coarse native AoE
-                    // path until the slot collision words are promoted.
+                    // loc_4009C. Enemy damage belongs to the generic
+                    // DP-object collision word path; native does not model
+                    // those collision words for Wall yet.
                     self.step_diamond_power_wall_of_death_slots_loc_40026();
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
-                    self.diamond_power_kill_enemies();
                 }
                 DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze => {
                     // Pure invulnerability, no AoE damage
@@ -6235,7 +6235,7 @@ impl NativeRuntime {
         }
     }
 
-    /// AoE damage helper: kill all non-diamond enemies (used by CircleOfDoom, WallOfDeath).
+    /// Temporary CircleOfDoom AoE damage helper.
     fn diamond_power_kill_enemies(&mut self) {
         let mut kill_indices = Vec::new();
         let mut changed_enemy_state = false;
