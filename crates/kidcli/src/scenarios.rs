@@ -805,6 +805,60 @@ pub fn diamond_power_samurai_haze_audit_scenario(level_id: u8) -> DynamicScenari
     diamond_power_activation_audit_scenario(level_id, "diamond_power_samurai_haze_audit", 3, 20)
 }
 
+/// Focused #214 Highwater Pass shooter/barrier live-route audit.
+///
+/// ASM `loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A` is the live Berzerker
+/// route from the Level 02 spawn: holding Right builds the head-forward hitbox,
+/// touches the stacked `$EA1F` shooter cells, emits typed shooter-block shots,
+/// and should erase the first `$E203` ice barrier rows. This scenario keeps the
+/// route as a reproducible recording source instead of relying on ignored
+/// `.cache` playtest bundles.
+pub fn highwater_shooter_barrier_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 150;
+    const RIGHT: u8 = 1 << 3;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, FRAME_COUNT.saturating_sub(1), RIGHT);
+
+    DynamicScenario {
+        slug: "highwater_shooter_barrier_audit_02".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "route_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "charge_building".into(),
+                frame_index: 30,
+            },
+            DynamicCheckpoint {
+                label: "shooter_contact_window".into(),
+                frame_index: 60,
+            },
+            DynamicCheckpoint {
+                label: "projectile_barrier_window".into(),
+                frame_index: 90,
+            },
+            DynamicCheckpoint {
+                label: "barrier_clear_check".into(),
+                frame_index: 120,
+            },
+            DynamicCheckpoint {
+                label: "route_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form: Some(7),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x02),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {

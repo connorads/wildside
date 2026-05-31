@@ -63,9 +63,9 @@ use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
     diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
     diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
-    enemy_spawn_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
-    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    enemy_spawn_audit_scenario, highwater_shooter_barrier_audit_scenario, idle_level_scenario,
+    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -111,6 +111,8 @@ enum RecordScenarioKind {
     DiamondPowerInvulnerabilityAudit,
     /// seed 20 diamonds and hold Start+A to audit Red Stealth's Samurai Haze.
     DiamondPowerSamuraiHazeAudit,
+    /// drive Berzerker through Highwater Pass 1's first shooter/barrier stack.
+    HighwaterShooterBarrierAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2184,6 +2186,9 @@ fn build_record_scenario(
         RecordScenarioKind::DiamondPowerSamuraiHazeAudit => {
             diamond_power_samurai_haze_audit_scenario(level)
         }
+        RecordScenarioKind::HighwaterShooterBarrierAudit => {
+            highwater_shooter_barrier_audit_scenario()
+        }
     }
 }
 
@@ -2234,6 +2239,7 @@ fn record_scenario_command(
             "diamond-power-invulnerability-audit"
         }
         RecordScenarioKind::DiamondPowerSamuraiHazeAudit => "diamond-power-samurai-haze-audit",
+        RecordScenarioKind::HighwaterShooterBarrierAudit => "highwater-shooter-barrier-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -4042,6 +4048,38 @@ AddrTbl_LevelNames:
         assert_eq!(scenario.playtest_form, Some(3));
         assert_eq!(scenario.initial_diamond_count, Some(20));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
+    fn build_record_scenario_highwater_shooter_barrier_audit_drives_berzerker_route() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::HighwaterShooterBarrierAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "highwater_shooter_barrier_audit_02");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x02),
+            "the named #214 probe must target Highwater Pass 1 regardless of the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.playtest_form,
+            Some(7),
+            "ASM loc_9564 Berzerker charge hitbox is required for the first live shooter/barrier route"
+        );
+        assert!(
+            scenario.script[..scenario.frame_count]
+                .iter()
+                .all(|mask| mask & (1 << 3) != 0),
+            "the #214 route holds Right from the settled Level 02 spawn"
+        );
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "barrier_clear_check"),
+            "recording evidence needs a durable checkpoint after loc_F02A should clear the ice barrier"
+        );
     }
 
     #[test]
