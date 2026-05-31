@@ -17414,6 +17414,11 @@ mod chunk_02 {
             1,
             "headbutting lift block should spawn a lift platform"
         );
+        let lift = &runtime.block_state.lift_platforms[0];
+        assert_eq!(
+            lift.y_velocity, -0x0001_0000,
+            "ASM sub_FB3E (kid.asm:20999): spawned lift slot seeds y_vel with `$FFFF0000` before sub_FCA6 steps it"
+        );
         // Block should be cleared from grid
         let grid = runtime.block_grid.as_ref().unwrap();
         let cell = grid.cell_at(2, 2);

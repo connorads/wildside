@@ -3442,7 +3442,10 @@ impl NativeRuntime {
             self.block_state.lift_platforms.push(LiftPlatform {
                 x_pos: u32::from(x_px) << 16,
                 y_pos: u32::from(y_px) << 16,
-                y_velocity: 0,
+                // ASM sub_FB3E (kid.asm:20999): after allocating the lift
+                // platform slot, `move.l #$FFFF0000,$E(a3)` seeds it moving
+                // upward one pixel per frame before sub_FCA6 applies accel.
+                y_velocity: -0x0001_0000,
                 age: 0,
                 last_integer_y: y_px,
                 moved_y_steps: 0,
