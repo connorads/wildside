@@ -458,7 +458,8 @@ pub(crate) fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
         );
     }
     let soak_end = gameplay_checkpoint(capture, "soak_end")?;
-    if gameplay_checkpoint(capture, "level_settle")?.game_mode != 0x000C {
+    let reached_stable_gameplay = capture.states.iter().any(|state| state.game_mode == 0x000C);
+    if !reached_stable_gameplay {
         bail!("soak_level_10m never reached stable in-level gameplay");
     }
     if soak_end.game_mode == 0 || soak_end.number_objects == 0 || soak_end.number_gfx_objects == 0 {

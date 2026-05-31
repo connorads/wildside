@@ -2531,6 +2531,7 @@ mod tests {
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
     use crate::recording;
+    use crate::verify::verify_soak_level_10m;
     use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
@@ -3657,6 +3658,33 @@ AddrTbl_LevelNames:
             gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 920),
             String::from("paused_tail@919 -> resumed_tail@1119")
         );
+    }
+
+    #[test]
+    fn soak_level_10m_verifier_uses_captured_stable_gameplay_not_stale_checkpoint() {
+        let mut stale_level_settle = gameplay_state("level_settle", 719);
+        stale_level_settle.game_mode = GameMode::LevelTransition.as_disassembly_value();
+
+        let mut states = Vec::new();
+        for level in 0..8u16 {
+            let mut state = gameplay_state(&format!("frame_{:05}", 720 + usize::from(level)), 720);
+            state.current_level_id = level;
+            state.player_1_level_id = level;
+            states.push(state);
+        }
+        let mut soak_end = states.last().cloned().expect("states");
+        soak_end.label = String::from("soak_end");
+
+        let capture = GameplayCapture {
+            scenario: String::from("native_soak_level_10m"),
+            frame_count: 800,
+            missed_vblank_frames: 0,
+            states,
+            checkpoints: vec![stale_level_settle, soak_end],
+        };
+
+        verify_soak_level_10m(&capture)
+            .expect("stable captured gameplay should satisfy the soak gate");
     }
 
     #[test]
