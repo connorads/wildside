@@ -3200,6 +3200,10 @@ impl NativeRuntime {
             self.begin_death_windup();
             return;
         }
+        self.exit_iron_knight_climb_on_platform_landing_loc_A9AA(
+            player_before_platform_collision,
+            &slice,
+        );
         if let Some(platform_index) = find_standing_platform_index_loc_8ED0(
             &self.active_platforms,
             slice.player,
@@ -3331,6 +3335,34 @@ impl NativeRuntime {
             return;
         }
         self.opening_slice = Some(slice);
+    }
+
+    #[allow(non_snake_case)]
+    fn exit_iron_knight_climb_on_platform_landing_loc_A9AA(
+        &mut self,
+        player_before_platform_collision: PlayerState,
+        slice: &OpeningSliceState,
+    ) {
+        if self.progression.current_form != PlayerForm::IronKnight
+            || !self.helmet.iron_knight_climbing
+            || player_before_platform_collision.on_ground
+            || !slice.player.on_ground
+            || find_standing_platform_index_loc_8ED0(
+                &self.active_platforms,
+                slice.player,
+                self.progression.current_form,
+            )
+            .is_none()
+        {
+            return;
+        }
+
+        // ASM loc_A9AA: a platform object wrote Addr_PlatformStandingOn during
+        // the wall-climb hibernate frame; with Skycutter's board flag clear,
+        // loc_A9BE leaves wall climb for the platform-walking path.
+        self.helmet.iron_knight_climbing = false;
+        self.helmet.iron_knight_climb_accel = 0;
+        self.helmet.iron_knight_climb_pose_accum = 0;
     }
 
     pub(crate) fn trigger_skycutter_top_boundary_bounce_loc_9114(

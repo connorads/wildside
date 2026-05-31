@@ -21925,6 +21925,60 @@ mod chunk_05 {
         );
     }
 
+    /// ASM loc_A28A -> loc_A9AA (kid.asm:12579,13266): after the climb
+    /// hibernate frame, a non-zero `Addr_PlatformStandingOn` exits the Iron
+    /// Knight climb loop through the platform-walking path instead of applying
+    /// another climb-acceleration frame.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A9AA_platform_landing_exits_iron_knight_climb_same_frame() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::IronKnight;
+        rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        rt.active_platforms.push(make_test_platform(128, 80, 2, 1));
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0;
+        rt.helmet.iron_knight_climb_pose_accum = 0x40;
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 256,
+            height_pixels: 224,
+        });
+        // Right-facing Iron Knight, flush with the wall at x=144 and with feet
+        // already on the platform top so the hibernate/platform collision phase
+        // should take the loc_A9AA exit immediately.
+        slice.player.x_pos = 136 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0;
+        let player_before_platform_collision = slice.player;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        rt.exit_iron_knight_climb_on_platform_landing_loc_A9AA(
+            player_before_platform_collision,
+            &slice,
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "test setup should land Iron Knight on the platform during the frame",
+        );
+        assert!(
+            !rt.helmet.iron_knight_climbing,
+            "ASM loc_A9AA: platform landing during climb should leave wall-climb state immediately",
+        );
+        assert_eq!(
+            rt.helmet.iron_knight_climb_accel, 0,
+            "loc_A9AA platform exit should not run the climb acceleration update",
+        );
+        assert_eq!(
+            rt.helmet.iron_knight_climb_pose_accum, 0,
+            "native climb-only pose state should be cleared when loc_A9AA exits to platform walking",
+        );
+    }
+
     /// ASM loc_A382 (kid.asm:12666): when C is NOT pressed during wall climb,
     /// `Get_RandomNumber_wordC` caps Cyclone_YAcceleration at $1800.
     /// `cmpi.w #$1800,d7; ble.w loc_A38E; move.w #$1800,d7`.
