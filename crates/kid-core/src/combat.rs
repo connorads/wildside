@@ -7630,6 +7630,7 @@ impl NativeRuntime {
     pub(crate) fn apply_pending_enemy_collisions(&mut self) {
         let pending = std::mem::take(&mut self.pending_enemy_collisions);
         let mut kill_indices = Vec::new();
+        let mut changed_enemy_state = false;
 
         for collision in pending {
             let Some(active_idx) = self.active_enemies.iter().position(|enemy| {
@@ -7658,14 +7659,32 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::Scorpion) {
-                if matches!(
-                    scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16),
-                    ScorpionCollisionRouteLoc3DCB0::Death
-                ) {
-                    // ASM Scorpion.asm loc_3DCB0: signed-negative parent
-                    // collision words branch straight to loc_3DCF4 before
-                    // the positive hurt/above HP damage route at loc_3DCD4.
-                    kill_indices.push(active_idx);
+                match scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16) {
+                    ScorpionCollisionRouteLoc3DCB0::Death => {
+                        // ASM Scorpion.asm loc_3DCB0: signed-negative parent
+                        // collision words branch straight to loc_3DCF4 before
+                        // the positive hurt/above HP damage route at loc_3DCD4.
+                        kill_indices.push(active_idx);
+                    }
+                    ScorpionCollisionRouteLoc3DCB0::Damage => {
+                        // ASM Scorpion.asm loc_3DCB0 routes hurt/above contact
+                        // through loc_3DCD4, which decrements `$44(a3)` before
+                        // either entering death or hibernating through stru_3DB7A.
+                        match scorpion_damage_route_loc_3dcd4(u16::from(enemy.hit_points)) {
+                            ScorpionDamageRouteLoc3DCD4::Death => {
+                                kill_indices.push(active_idx);
+                            }
+                            ScorpionDamageRouteLoc3DCD4::Hurt { remaining_hp, .. } => {
+                                enemy.hit_points = remaining_hp as u8;
+                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                enemy.x_velocity = 0;
+                                enemy.y_velocity = 0;
+                                changed_enemy_state = true;
+                            }
+                        }
+                    }
+                    ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate
+                    | ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker => {}
                 }
                 continue;
             }
@@ -7710,6 +7729,9 @@ impl NativeRuntime {
         kill_indices.dedup();
         for idx in kill_indices.into_iter().rev() {
             self.remove_dead_enemy(idx);
+        }
+        if changed_enemy_state {
+            self.rebuild_active_enemy_roster();
         }
     }
 
