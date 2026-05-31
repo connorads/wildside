@@ -6353,8 +6353,14 @@ impl NativeRuntime {
                 self.helmet.maniaxe_turnaround -= 1;
             }
             if self.helmet.maniaxe_turnaround == 0 {
-                // Reverse the axe projectile direction
-                if let Some(p) = self.projectiles.last_mut() {
+                // ASM loc_8A74 (kid.asm:9879): the turnaround mutates the
+                // Maniaxe axe object being stepped in a3, not the newest
+                // projectile in the global list.
+                if let Some(p) = self
+                    .projectiles
+                    .iter_mut()
+                    .find(|p| p.kind == EnemyProjectileKind::ManiaxeAxe && p.lifetime > 0)
+                {
                     p.x_velocity = -p.x_velocity;
                     self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
                 }

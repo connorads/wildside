@@ -3846,6 +3846,7 @@ mod chunk_06 {
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
         let slice = combat_slice();
@@ -3861,6 +3862,55 @@ mod chunk_06 {
         assert_eq!(
             rt.helmet.maniaxe_turnaround, MANIAXE_TRAVEL_FRAMES,
             "ASM loc_8A74: `moveq #$C,d0` resets turnaround counter to 12"
+        );
+    }
+
+    #[test]
+    /// ASM loc_8A74 (kid.asm:9879): turnaround flips `x_direction(a3)` and
+    /// `$17(a3)` on the active Maniaxe axe object. A later projectile in the
+    /// native vector must not receive that reversal.
+    fn loc_8a74_turnaround_reverses_live_axe_not_last_projectile() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        rt.helmet.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_turnaround = 1; // will reach 0 on this tick
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 200 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 5 << 16,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 260 << 16,
+            y_pos: 120 << 16,
+            x_velocity: 3 << 16,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: false,
+            kind: EnemyProjectileKind::Generic,
+            ..Default::default()
+        });
+        let slice = combat_slice();
+
+        rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+        assert_eq!(
+            rt.projectiles[0].x_velocity,
+            -(5 << 16),
+            "ASM loc_8A74: the live Maniaxe axe object is the one whose direction flips"
+        );
+        assert_eq!(
+            rt.projectiles[1].x_velocity,
+            3 << 16,
+            "ASM loc_8A74: unrelated projectile slots are not touched by axe turnaround"
+        );
+        assert_eq!(
+            rt.helmet.maniaxe_turnaround, MANIAXE_TRAVEL_FRAMES,
+            "ASM loc_8A74: `moveq #$C,d0` resets turnaround counter after the axe flips"
         );
     }
 
@@ -3883,6 +3933,7 @@ mod chunk_06 {
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
         });
         let slice = combat_slice();
