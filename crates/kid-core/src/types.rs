@@ -2417,6 +2417,14 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
+    /// ASM loc_EC76 stores `(a3)` as the shooter object's current Level_Layout
+    /// word pointer and `$8(a3)=#$FFFE`. Native keeps the equivalent cell
+    /// coordinates/state for shooter-block workers so loc_EE2A/loc_EF2E timing
+    /// is driven by the source layout cell, not by post-move sprite pixels.
+    pub(crate) shooter_tracks_layout: bool,
+    pub(crate) shooter_layout_col: u16,
+    pub(crate) shooter_layout_row: u16,
+    pub(crate) shooter_state_word: u16,
     /// Object animation elapsed frames for projectile workers whose ROM script
     /// is not represented by their lifetime counter.
     pub(crate) animation_elapsed_frames: u16,
@@ -2449,6 +2457,32 @@ pub(crate) struct EnemyProjectile {
     pub(crate) dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     /// Dragon_Flying.asm loc_34C26 DBF counter or loc_34C4A hibernate count.
     pub(crate) dragon_flying_descent_fire_counter: u16,
+}
+
+impl EnemyProjectile {
+    #[allow(non_snake_case)]
+    pub(crate) fn shooter_block_loc_EC76(
+        source_col: u16,
+        source_row: u16,
+        x_velocity: i32,
+        y_velocity: i32,
+    ) -> Self {
+        let centre_x = u32::from(source_col) * 16 + 8;
+        let centre_y = u32::from(source_row) * 16 + 8;
+        Self {
+            x_pos: centre_x << 16,
+            y_pos: centre_y << 16,
+            x_velocity,
+            y_velocity,
+            lifetime: 120,
+            kind: EnemyProjectileKind::ShooterBlock,
+            shooter_tracks_layout: true,
+            shooter_layout_col: source_col,
+            shooter_layout_row: source_row,
+            shooter_state_word: 0xFFFE,
+            ..Default::default()
+        }
+    }
 }
 
 /// DiamondPower_Main_SlashingRain DP object-list slot.

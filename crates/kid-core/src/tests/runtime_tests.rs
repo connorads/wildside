@@ -8654,10 +8654,10 @@ mod chunk_09 {
 
     #[test]
     fn highwater_pass_1_berzerker_charge_pose_fires_ea1e_through_frame_loop() {
-        // ASM loc_9564 writes Berzerker's head-forward hitbox before the later
-        // loc_EAE4 evanescent scan runs. This is the live Highwater Pass 1
-        // route from the playtest: charge into the first `$EA1E` touch-shooter
-        // column and it must spawn the rightward shooter object.
+        // ASM loc_9564 writes Berzerker's head-forward sprite, but loc_EAE4
+        // still scans the sub_B41C `$07` Berzerker hitbox. Once that hitbox
+        // reaches the first Highwater `$EA1E` touch-shooter column, it must
+        // spawn the rightward shooter object.
         let Some(mut rt) = cached_generated_runtime() else {
             return;
         };
@@ -8669,7 +8669,7 @@ mod chunk_09 {
         let mut slice = rt
             .opening_slice
             .expect("level should have an opening slice");
-        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.x_pos = ((11 * 16 - 8) as u32) << 16;
         slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
         slice.player.x_velocity = 0x0002_0000;
         slice.player.y_velocity = 0;
@@ -8707,45 +8707,6 @@ mod chunk_09 {
     }
 
     #[test]
-    fn highwater_pass_1_berzerker_charge_clears_play_height_barrier_loc_eae4_f02a() {
-        // ASM loc_EAE4 scans Kid_hitbox_top..bottom every frame and triggers
-        // the first bit-15 type-$A cell it finds; Highwater Pass 1 stacks
-        // `$EA1F` shooter cells at rows 100-102 at the actual Berzerker
-        // charge height, so repeated frame-loop scans must clear the matching
-        // `$E203` ice barrier rows through loc_EE2A -> loc_F02A.
-        let Some(mut rt) = cached_generated_runtime() else {
-            return;
-        };
-        rt.enter_level_playtest(LevelId(0x02));
-        rt.progression.current_form = PlayerForm::Berzerker;
-        rt.helmet.berzerker_charge_accum = 0xF0;
-        rt.projectiles.clear();
-
-        let mut slice = rt
-            .opening_slice
-            .expect("level should have an opening slice");
-        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
-        slice.player.y_pos = 1632 << 16;
-        slice.player.x_velocity = 0x0002_0000;
-        slice.player.y_velocity = 0;
-        slice.player.facing = Direction::Right;
-        slice.player.on_ground = true;
-        rt.opening_slice = Some(slice);
-
-        for _ in 0..22 {
-            rt.step_frame(FrameInput::default());
-        }
-
-        for row in 100..=102 {
-            assert_eq!(
-                rt.block_grid.as_ref().unwrap().cell_at(15, row),
-                terrain::Cell::from_be_bytes(0, 0),
-                "ASM loc_EAE4 -> loc_EC76 -> loc_F02A should clear Highwater Pass 1 ice barrier row {row}"
-            );
-        }
-    }
-
-    #[test]
     fn highwater_pass_1_berzerker_live_charge_from_spawn_clears_first_barrier_loc_eae4_f02a() {
         // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A: the real route
         // enters Highwater Pass 1 at x=48/y=1632, builds Berzerker's head-forward
@@ -8759,7 +8720,22 @@ mod chunk_09 {
         rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
         rt.projectiles.clear();
 
-        for _ in 0..120 {
+        for _ in 0..100 {
+            rt.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        for row in 97..=103 {
+            let cell = rt.block_grid.as_ref().unwrap().cell_at(15, row);
+            assert!(
+                cell.has_block && cell.block_type == terrain::BlockType::Ice,
+                "ASM loc_EE2A should leave Highwater Pass 1 ice barrier row {row} intact until the shooter object reaches it on the oracle-timed live route"
+            );
+        }
+
+        for _ in 100..120 {
             rt.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
@@ -8788,7 +8764,7 @@ mod chunk_09 {
         rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
         rt.projectiles.clear();
 
-        for _ in 0..90 {
+        for _ in 0..100 {
             rt.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
@@ -8816,10 +8792,10 @@ mod chunk_09 {
 
     #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
-        // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings
-        // before loc_EAE4 scans Kid_hitbox_left/right. The first Highwater
-        // Pass 1 `$EA1E` touch shooter sits just outside Berzerker's narrow
-        // standing half-width, so this must use the live charge-pose hitbox.
+        // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings,
+        // but loc_EAE4 still scans the live sub_B41C hitbox words. The first
+        // Highwater `$EA1E` touch shooter fires only once Berzerker's `$07`
+        // half-width reaches the column.
         let Some(mut rt) = cached_generated_runtime() else {
             return;
         };
@@ -8831,7 +8807,7 @@ mod chunk_09 {
         let mut slice = shooter_test_slice(0, 0);
         slice.level_bounds.width_pixels = 60 * 16;
         slice.level_bounds.height_pixels = 112 * 16;
-        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.x_pos = ((11 * 16 - 8) as u32) << 16;
         slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
 
         rt.step_evanescent_blocks(&slice);

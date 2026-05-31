@@ -1262,6 +1262,160 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    fn shooter_layout_word_loc_EE38(cell: terrain::Cell) -> u16 {
+        let block_flag = if cell.has_block { 0x8000 } else { 0 };
+        let collision_bits = (cell.collision as u16) << 12;
+        let block_type_bits = if cell.has_block {
+            (cell.block_type as u16) << 8
+        } else {
+            0
+        };
+        block_flag | collision_bits | block_type_bits | u16::from(cell.skin)
+    }
+
+    #[allow(non_snake_case)]
+    fn shooter_layout_interaction_at_cell_loc_F00A(
+        grid: &terrain::BlockGrid,
+        col: u16,
+        row: u16,
+        direction: u16,
+    ) -> ShooterObjectLayoutInteractionLocF00A {
+        let cell = grid.cell_at(col, row);
+        ShooterObjectLayoutInteractionLocF00A {
+            col,
+            row,
+            block_type: cell.block_type,
+            skin: cell.skin,
+            // ASM ShooterObject_InteractLevelLayout loc_F00A: `eori.w #2,d6`.
+            destroy_direction: direction ^ 2,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn step_tracked_shooter_object_loc_EDFA(
+        grid: &terrain::BlockGrid,
+        projectile: &mut EnemyProjectile,
+    ) -> Result<(), ShooterObjectLayoutInteractionLocF00A> {
+        let direction = Self::shooter_object_direction_from_velocity_loc_EDFA(projectile);
+        let age_after_increment = projectile.shooter_state_word.wrapping_add(1);
+        let mut state_word = age_after_increment;
+        let mut layout_col = projectile.shooter_layout_col;
+        let mut layout_row = projectile.shooter_layout_row;
+        let mut check_collision = true;
+
+        match direction {
+            0 => {
+                if (projectile.y_pos >> 16) <= 4 {
+                    return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                        grid, layout_col, layout_row, direction,
+                    ));
+                }
+                if age_after_increment == 0 {
+                    layout_row = layout_row.saturating_sub(1);
+                    check_collision = false;
+                } else if age_after_increment == 0xFFFF {
+                    check_collision = false;
+                } else if age_after_increment == 4 {
+                    state_word = 0;
+                    layout_row = layout_row.saturating_sub(1);
+                }
+            }
+            1 => {
+                if ((projectile.x_pos >> 16) as i32 + 4) >= grid.width_pixels() {
+                    return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                        grid, layout_col, layout_row, direction,
+                    ));
+                }
+                if age_after_increment == 0 {
+                    layout_col = layout_col.saturating_add(1);
+                    check_collision = false;
+                } else if age_after_increment == 0xFFFF {
+                    check_collision = false;
+                } else if age_after_increment == 4 {
+                    state_word = 0;
+                    layout_col = layout_col.saturating_add(1);
+                }
+            }
+            2 => {
+                if ((projectile.y_pos >> 16) as i32 + 4) >= grid.height_pixels() {
+                    return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                        grid, layout_col, layout_row, direction,
+                    ));
+                }
+                if age_after_increment == 0 {
+                    layout_row = layout_row.saturating_add(1);
+                    check_collision = false;
+                } else if age_after_increment == 0xFFFF {
+                    check_collision = false;
+                } else if age_after_increment == 4 {
+                    state_word = 0;
+                    layout_row = layout_row.saturating_add(1);
+                }
+            }
+            _ => {
+                if (projectile.x_pos >> 16) <= 4 {
+                    return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                        grid, layout_col, layout_row, direction,
+                    ));
+                }
+                if age_after_increment == 0 {
+                    layout_col = layout_col.saturating_sub(1);
+                    check_collision = false;
+                } else if age_after_increment == 0xFFFF {
+                    check_collision = false;
+                } else if age_after_increment == 4 {
+                    state_word = 0;
+                    layout_col = layout_col.saturating_sub(1);
+                }
+            }
+        }
+
+        if check_collision {
+            let layout_word =
+                Self::shooter_layout_word_loc_EE38(grid.cell_at(layout_col, layout_row));
+            let interacts = match direction {
+                // ASM loc_EE92: moving up interacts with bit-14 cells while
+                // state<2, or at older states when the moving-up `$2000` bit remains.
+                0 => (layout_word & 0x4000) != 0 && (state_word < 2 || (layout_word & 0x2000) != 0),
+                // ASM loc_EE38: moving right ages >=2 interact immediately;
+                // ages 0/1 require bits `$3000`.
+                1 => {
+                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x3000) != 0)
+                }
+                // ASM loc_EF40: moving down matches right except the young-age
+                // directional bit is `$2000`.
+                2 => {
+                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x2000) != 0)
+                }
+                // ASM loc_EEE4: moving left ages >=2 interact immediately;
+                // ages 0/1 interact when the `$1000` left bit is clear.
+                _ => {
+                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x1000) == 0)
+                }
+            };
+
+            if interacts {
+                return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                    grid, layout_col, layout_row, direction,
+                ));
+            }
+        }
+
+        projectile.shooter_state_word = state_word;
+        projectile.shooter_layout_col = layout_col;
+        projectile.shooter_layout_row = layout_row;
+
+        match direction {
+            0 => projectile.y_pos = projectile.y_pos.wrapping_sub(4 << 16),
+            1 => projectile.x_pos = projectile.x_pos.wrapping_add(4 << 16),
+            2 => projectile.y_pos = projectile.y_pos.wrapping_add(4 << 16),
+            _ => projectile.x_pos = projectile.x_pos.wrapping_sub(4 << 16),
+        }
+
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
     fn apply_shooter_object_layout_interaction_loc_F00A(
         &mut self,
         interaction: ShooterObjectLayoutInteractionLocF00A,
@@ -1881,6 +2035,19 @@ impl NativeRuntime {
                 p.y_velocity = tracking.y_vel;
                 p.diamond_power_rain_tracking_word_3e =
                     p.diamond_power_rain_tracking_word_3e.wrapping_add(1);
+            }
+
+            if p.kind == EnemyProjectileKind::ShooterBlock
+                && p.shooter_tracks_layout
+                && let Some(g) = grid
+            {
+                match Self::step_tracked_shooter_object_loc_EDFA(g, p) {
+                    Ok(()) => return true,
+                    Err(interaction) => {
+                        pending_shooter_layout_interactions.push(interaction);
+                        return false;
+                    }
+                }
             }
 
             let x_velocity = if is_diamond_power_rain && p.diamond_power_rain_tracking_word_3e == 0

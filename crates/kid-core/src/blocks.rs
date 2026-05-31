@@ -358,11 +358,6 @@ pub(crate) const SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4: [i16; 8] =
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188: [i16; 4] = [-2, -2, -2, -2];
-/// ASM loc_9564 selects the Berzerker head-forward `off_9688` mappings before
-/// loc_EAE4 scans the live Kid_hitbox words. Those charge mappings reach the
-/// Highwater Pass touch-shooter cells that the standing Berzerker body misses.
-const BERZERKER_CHARGE_HITBOX_HALF_WIDTH_LOC_9564_EAE4: i32 = 23;
-
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MetalBlockPushWakeStep {
@@ -2150,6 +2145,10 @@ impl NativeRuntime {
                 y_velocity,
                 lifetime: 120,
                 kind: EnemyProjectileKind::ShooterBlock,
+                shooter_tracks_layout: true,
+                shooter_layout_col: source_col,
+                shooter_layout_row: source_row,
+                shooter_state_word: 0xFFFE,
                 ..Default::default()
             })
             .collect()
@@ -2264,17 +2263,10 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     fn evanescent_hitbox_half_width_loc_EAE4(&self) -> i32 {
-        if self.progression.current_form == PlayerForm::Berzerker
-            && (self.helmet.berzerker_charge_pose || self.helmet.berzerker_charging)
-        {
-            // ASM loc_9564 writes one of the `off_9688` head-forward mappings
-            // before loc_EAE4 reads Kid_hitbox_left/right for evanescent
-            // touch-shooter contact. The ordinary Berzerker half-width from
-            // unk_B408 is only the narrow movement body, not this live pose.
-            BERZERKER_CHARGE_HITBOX_HALF_WIDTH_LOC_9564_EAE4
-        } else {
-            self.progression.current_form.half_width()
-        }
+        // ASM loc_EAE4 reads the live `Kid_hitbox_left/right` words. Berzerker
+        // charge setup at loc_9564 changes only `addroffset_sprite(a3)` and
+        // `Berzerker_charging`; it does not call sub_B41C or widen the hitbox.
+        self.progression.current_form.half_width()
     }
 
     #[allow(non_snake_case)]
@@ -2340,8 +2332,6 @@ impl NativeRuntime {
         let skin_offset =
             u8::try_from(EVANESCENT_SKIN_OFFSET).expect("evanescent skin offset fits in u8");
         let directions = skin.wrapping_sub(skin_offset);
-        let block_x = u32::from(col) * 16 + 8;
-        let block_y = u32::from(row) * 16 + 8;
         let speed = Self::SHOOTER_PROJECTILE_SPEED;
         for (mask, xv, yv) in [
             (0x08, -speed, 0),
@@ -2350,18 +2340,11 @@ impl NativeRuntime {
             (0x01, 0, -speed),
         ] {
             if directions & mask != 0 {
-                self.projectiles.push(EnemyProjectile {
-                    x_pos: block_x << 16,
-                    y_pos: block_y << 16,
-                    x_velocity: xv,
-                    y_velocity: yv,
-                    lifetime: 120,
-                    kind: EnemyProjectileKind::ShooterBlock,
-                    // ASM loc_EC76 allocates through the same shooter-object
-                    // free list as visible shooter blocks, so traces/rendering
-                    // must keep touch-triggered Highwater shots in that family.
-                    ..Default::default()
-                });
+                // ASM loc_EC76 allocates through the same shooter-object free
+                // list as visible shooter blocks, with `(a3)` pointing at this
+                // source layout word and `$8(a3)=#$FFFE`.
+                self.projectiles
+                    .push(EnemyProjectile::shooter_block_loc_EC76(col, row, xv, yv));
             }
         }
     }
@@ -2854,8 +2837,6 @@ impl NativeRuntime {
             }
 
             if entry.age == 0 {
-                let block_x = u32::from(entry.col) * 16 + 8;
-                let block_y = u32::from(entry.row) * 16 + 8;
                 let directions: [(u8, i32, i32); 4] = [
                     (1, 0, -Self::SHOOTER_PROJECTILE_SPEED),
                     (2, Self::SHOOTER_PROJECTILE_SPEED, 0),
@@ -2864,18 +2845,13 @@ impl NativeRuntime {
                 ];
                 for (mask, xv, yv) in directions {
                     if entry.directions & mask != 0 {
-                        self.projectiles.push(EnemyProjectile {
-                            x_pos: block_x << 16,
-                            y_pos: block_y << 16,
-                            x_velocity: xv,
-                            y_velocity: yv,
-                            lifetime: 120,
-                            kind: EnemyProjectileKind::ShooterBlock,
-                            // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
-                            // stores a plain shooter object: no gravity, homing,
-                            // friendly damage, or wall bounce metadata.
-                            ..Default::default()
-                        });
+                        // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
+                        // stores a plain shooter object and advances its own
+                        // Level_Layout pointer through loc_EE2A/loc_EF2E.
+                        self.projectiles
+                            .push(EnemyProjectile::shooter_block_loc_EC76(
+                                entry.col, entry.row, xv, yv,
+                            ));
                     }
                 }
             }
