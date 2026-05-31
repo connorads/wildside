@@ -5346,8 +5346,8 @@ impl NativeRuntime {
     }
 
     /// IronKnight wall climb: the ROM accepts the attach from the grounded
-    /// walking path as well as from airborne wall contact. C presses while
-    /// climbing boost upward, natural drift slides down.
+    /// standing/walking path at loc_7664. C presses while climbing boost
+    /// upward, natural drift slides down.
     //
     // Iron Knight has no enemy-damage path in the ROM during climb. Verified
     // 2026-04-25 — no enemy ASM file in
@@ -5375,35 +5375,32 @@ impl NativeRuntime {
         // only triggers on the immediate rising edge, not two frames later.
         let c_pressed = input.c && !self.previous_input.c;
 
-        // ROM walking state `loc_7664` and jump state `kid_flip` both allow a
-        // raw C edge to enter wall climbing when Iron Knight is pressed against
-        // a wall in the facing direction.
+        // ROM walking state `loc_7664` allows a raw C edge to enter wall
+        // climbing when Iron Knight is pressed against a wall in the facing
+        // direction. The airborne `kid_flip` C-press path handles Cyclone,
+        // Maniaxe, and Skycutter only, so airborne Iron Knight must not attach.
         // ASM loc_7696: add.w d6,d7 / bmi skip / cmp.w Level_width_pixels,d7 /
         //   bge skip / bsr.w sub_922C / beq skip / bra.w loc_A276
         //   — offset x_pos by half_width+1 (direction-adjusted), bounds-check,
         //   wall-probe, then enter wall climb if hit.
         if c_pressed
+            && slice.player.on_ground
             && !self.helmet.iron_knight_climbing
             && let Some(ref grid) = self.block_grid
         {
-            let attach_from_grounded_walk = slice.player.on_ground;
             let facing_right = slice.player.facing == Direction::Right;
             let px = (slice.player.x_pos >> 16) as i32;
             let py = (slice.player.y_pos >> 16) as i32;
-            let probe = if attach_from_grounded_walk {
-                // ROM walking-state `loc_7664` uses `sub_922C`: a single edge
-                // column at half_width + 1 through the form's full height.
-                terrain::probe_wall_column(
-                    grid,
-                    px,
-                    py,
-                    self.progression.current_form.half_width(),
-                    PLAYER_HEIGHT,
-                    facing_right,
-                )
-            } else {
-                terrain::probe_wall(grid, px, py, 5, 31, facing_right)
-            };
+            // ROM walking-state `loc_7664` uses `sub_922C`: a single edge
+            // column at half_width + 1 through the form's full height.
+            let probe = terrain::probe_wall_column(
+                grid,
+                px,
+                py,
+                self.progression.current_form.half_width(),
+                PLAYER_HEIGHT,
+                facing_right,
+            );
             if probe.hit {
                 self.helmet.iron_knight_climbing = true;
                 self.helmet.iron_knight_climb_accel = 0;
@@ -5411,11 +5408,7 @@ impl NativeRuntime {
                 slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
                 slice.player.x_velocity = 0;
                 slice.player.on_ground = false;
-                return if attach_from_grounded_walk {
-                    IronKnightClimbStep::AttachHibernate
-                } else {
-                    IronKnightClimbStep::None
-                };
+                return IronKnightClimbStep::AttachHibernate;
             }
         }
 

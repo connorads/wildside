@@ -21430,13 +21430,14 @@ mod chunk_05 {
     }
 
     #[test]
-    fn iron_knight_c_press_attaches_to_wall_when_airborne() {
+    fn iron_knight_c_press_does_not_attach_to_wall_when_airborne() {
         let mut rt = iron_knight_runtime_with_wall();
         // Position player next to wall (wall at col 10 = pixel 160), facing right
         let mut slice = airborne_slice();
         slice.player.x_pos = 154 << 16; // just left of wall col 10
         slice.player.y_pos = 32 << 16;
         slice.player.facing = Direction::Right;
+        slice.player.y_velocity = 0x4000;
 
         let input = FrameInput {
             c: true,
@@ -21444,9 +21445,14 @@ mod chunk_05 {
         };
         rt.step_iron_knight_climb(&mut slice, input);
 
-        assert!(rt.helmet.iron_knight_climbing, "should attach to wall");
-        assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
-        assert_eq!(slice.player.x_velocity, 0);
+        assert!(
+            !rt.helmet.iron_knight_climbing,
+            "ASM loc_7664 is the only Iron Knight attach entry; airborne kid_flip has no Iron Knight branch"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x4000,
+            "airborne C press should not seed the Iron Knight attach velocity"
+        );
     }
 
     #[test]
@@ -21495,7 +21501,7 @@ mod chunk_05 {
         slice.player.x_pos = 154 << 16;
         slice.player.y_pos = 80 << 16;
         slice.player.facing = Direction::Right;
-        slice.player.on_ground = false;
+        slice.player.on_ground = true;
 
         let input = FrameInput {
             c: true,
