@@ -6510,6 +6510,38 @@ mod chunk_06 {
     }
 
     #[test]
+    fn drips_drop_loc_3345c_ignores_lion_projectile_camera_box() {
+        let mut rt = NativeRuntime::new(manifest());
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0x0100 << 16;
+        slice.camera.y_pos = 0x0100 << 16;
+        rt.opening_slice = Some(slice);
+
+        let mut projectile = make_projectile(0x0288, 0x0150);
+        projectile.kind = EnemyProjectileKind::DripsDrop;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: 0,
+            layout_index: 8,
+            token: 0,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Drips.asm loc_3345C calls Object_CheckInRange on the hidden controller, not Lion.asm sub_3E2CE's narrow projectile box; a lower Level 1 drop at screen_x=$188 must survive"
+        );
+        assert_eq!(
+            rt.projectiles[0].kind,
+            EnemyProjectileKind::DripsDrop,
+            "the surviving child should remain the falling Drips worker until terrain contact reaches loc_33488"
+        );
+    }
+
+    #[test]
     #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE: the camera box reaches negative screen offsets
     /// down to -$40 on both axes (the lion's "still on screen" margin).

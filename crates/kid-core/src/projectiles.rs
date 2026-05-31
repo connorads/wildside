@@ -2224,8 +2224,13 @@ impl NativeRuntime {
 
             // ASM Lion.asm sub_3E2CE: lion projectiles only survive while the
             // parent token matches and the object stays inside the camera box
-            // x=[-0x40,0x180], y=[-0x40,0x120].
-            if let (Some(owner), Some(camera)) = (p.owner, camera) {
+            // x=[-0x40,0x180], y=[-0x40,0x120]. Drips.asm loc_3345C instead
+            // checks the hidden controller through Object_CheckInRange's wider
+            // normal range, so the falling child must not use this narrow
+            // generic projectile cull.
+            if let (Some(owner), Some(camera)) = (p.owner, camera)
+                && p.kind != EnemyProjectileKind::DripsDrop
+            {
                 let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
                 let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
                 let in_camera_box =
