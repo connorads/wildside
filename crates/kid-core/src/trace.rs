@@ -5200,7 +5200,8 @@ impl NativeRuntime {
                         self.player_lifecycle,
                         PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
                     )),
-            diamond_power_active: self.progression.diamond_power_frames > 0,
+            diamond_power_active: self.progression.diamond_power_frames > 0
+                || !self.diamond_power_invuln_haze_slots.is_empty(),
             diamond_count: self.progression.diamond_count,
             // ASM loc_D17E (kid.asm:16428): the flagpole score-screen setup
             // copies `(Score).w` into an EOL number object and clears the live

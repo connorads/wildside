@@ -1262,6 +1262,121 @@ mod chunk_03 {
     }
 
     #[test]
+    fn invulnerability_activation_exposes_live_dp_sprites_loc_3fc78_loc_3fdc2() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Skycutter;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_invuln_haze_slots.len(),
+            10,
+            "ASM DiamondPower_Init_Invulnerability loc_3FC78/loc_3FC8A seeds ten DP-object slots"
+        );
+        assert!(
+            runtime.trace_frame().diamond_power_sprites.is_empty(),
+            "ASM DiamondPower_Run initialises slots on activation; sprites are emitted by the next Invuln/Haze main pass"
+        );
+
+        runtime.step_diamond_power(FrameInput::default());
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.diamond_power_sprites.len(),
+            10,
+            "ASM DiamondPower_Main_InvulnAndHaze loc_3FD4C should expose ten compiled DP sprites"
+        );
+        assert!(
+            trace
+                .diamond_power_sprites
+                .iter()
+                .any(|sprite| sprite.pattern_word == 0x86ED),
+            "ASM loc_3FDC2 should compile Invulnerability large sprites through word_4020E"
+        );
+    }
+
+    #[test]
+    fn samurai_haze_activation_uses_haze_slot_table_loc_3fc82_loc_3fc8c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.diamond_power_invuln_haze_slots.len(),
+            10,
+            "ASM DiamondPower_Init_SamuraiHaze loc_3FC82/loc_3FC8A seeds ten DP-object slots"
+        );
+        assert_eq!(
+            runtime.diamond_power_invuln_haze_slots[0].rotation_speed, 2,
+            "ASM DiamondPower_InitData_SamuraiHaze stores rotation_speed=2"
+        );
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.trace_frame().diamond_power_sprites.len(),
+            10,
+            "ASM DiamondPower_Main_InvulnAndHaze should render Samurai Haze's live slots"
+        );
+    }
+
+    #[test]
+    fn invulnerability_slots_survive_positive_timer_for_fade_loc_3fd28() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Skycutter;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        for _ in 0..480 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.diamond_power_frames, 0,
+            "Native public countdown reaches zero at the ROM timer boundary"
+        );
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::Invulnerability,
+            "ASM loc_3FD28 keeps Invulnerability active while Diamond_power_timer fades negative"
+        );
+        assert!(
+            !runtime.diamond_power_invuln_haze_slots.is_empty(),
+            "ASM loc_3FD28 should not clear slots until timer drops below -$1B"
+        );
+
+        for _ in 0..28 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::None,
+            "ASM loc_3FD28: timer below -$1B clears Invulnerability through sub_3F63C"
+        );
+        assert!(runtime.diamond_power_invuln_haze_slots.is_empty());
+    }
+
+    #[test]
     fn wall_of_death_main_does_not_blanket_delete_enemies_loc_40026() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

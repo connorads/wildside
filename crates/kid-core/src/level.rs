@@ -17201,6 +17201,8 @@ impl NativeRuntime {
         self.diamond_power_five_way_slots.clear();
         self.diamond_power_snake_slots.clear();
         self.diamond_power_extra_hp_life_slots.clear();
+        self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_invuln_haze_timer = 0;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.enemy_death_effects.clear();
@@ -17306,6 +17308,8 @@ impl NativeRuntime {
         self.diamond_power_five_way_slots.clear();
         self.diamond_power_snake_slots.clear();
         self.diamond_power_extra_hp_life_slots.clear();
+        self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_invuln_haze_timer = 0;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
@@ -17368,6 +17372,8 @@ impl NativeRuntime {
         self.diamond_power_five_way_slots.clear();
         self.diamond_power_snake_slots.clear();
         self.diamond_power_extra_hp_life_slots.clear();
+        self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_invuln_haze_timer = 0;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();

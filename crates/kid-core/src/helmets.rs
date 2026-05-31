@@ -4824,6 +4824,77 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots = retained_slots;
     }
 
+    fn initialise_diamond_power_invuln_haze_slots_loc_3fc8a(&mut self, power: DiamondPowerType) {
+        let is_invulnerability = match power {
+            DiamondPowerType::Invulnerability => true,
+            DiamondPowerType::SamuraiHaze => false,
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_Invulnerability loc_3FC78 /
+        // DiamondPower_Init_SamuraiHaze loc_3FC82 fall through to loc_3FC8A,
+        // allocate ten orbiting slots, then set Diamond_power_timer=$1E0.
+        let init = diamond_power_init_invuln_haze(is_invulnerability);
+        self.diamond_power_invuln_haze_slots = init.slots;
+        self.diamond_power_invuln_haze_timer = init.diamond_power_timer as i16;
+    }
+
+    fn step_diamond_power_invuln_haze_slots_loc_3fd28(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+
+        match diamond_power_invuln_haze_frame(&mut self.diamond_power_invuln_haze_timer) {
+            InvulnHazeFrameAction::Expired => {
+                // ASM DiamondPower_Main_InvulnAndHaze: timer below -$1B
+                // branches to sub_3F63C and clears the DP-object list.
+                self.diamond_power_invuln_haze_slots.clear();
+                self.progression.diamond_power_frames = 0;
+                self.progression.diamond_power_type = DiamondPowerType::None;
+            }
+            InvulnHazeFrameAction::Active { fade } => {
+                for slot in &mut self.diamond_power_invuln_haze_slots {
+                    match diamond_power_invuln_haze_slot_sprite(
+                        slot, fade, kid_x, kid_y, camera_x, camera_y,
+                    ) {
+                        InvulnHazeSpriteAction::SmallSprite {
+                            y,
+                            size_link,
+                            pattern,
+                            x,
+                        } => {
+                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                                screen_x: x as i16,
+                                screen_y: y as i16,
+                                size_word: size_link,
+                                pattern_word: pattern,
+                            });
+                        }
+                        InvulnHazeSpriteAction::LargeSprite {
+                            y,
+                            size_byte,
+                            pattern,
+                            x,
+                        } => {
+                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                                screen_x: x as i16,
+                                screen_y: y as i16,
+                                size_word: u16::from(size_byte) << 8,
+                                pattern_word: pattern,
+                            });
+                        }
+                        InvulnHazeSpriteAction::Skipped => {}
+                    }
+                }
+            }
+        }
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -6526,9 +6597,13 @@ impl NativeRuntime {
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         self.diamond_power_sprites.clear();
-        // Count down active Diamond Power
-        if self.progression.diamond_power_frames > 0 {
-            self.progression.diamond_power_frames -= 1;
+        // Count down active Diamond Power.
+        let diamond_power_active = self.progression.diamond_power_frames > 0
+            || !self.diamond_power_invuln_haze_slots.is_empty();
+        if diamond_power_active {
+            if self.progression.diamond_power_frames > 0 {
+                self.progression.diamond_power_frames -= 1;
+            }
 
             match self.progression.diamond_power_type {
                 DiamondPowerType::CircleOfDoom => {
@@ -6550,7 +6625,9 @@ impl NativeRuntime {
                         self.progression.invulnerable_frames.max(1);
                 }
                 DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze => {
-                    // Pure invulnerability, no AoE damage
+                    // ASM DiamondPower_Main_InvulnAndHaze loc_3FD28 keeps
+                    // rendering its ten DP slots while the signed timer fades.
+                    self.step_diamond_power_invuln_haze_slots_loc_3fd28();
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
                 }
@@ -6647,13 +6724,24 @@ impl NativeRuntime {
             }
 
             if self.progression.diamond_power_frames == 0 {
-                self.progression.diamond_power_type = DiamondPowerType::None;
-                self.diamond_power_circle_slots.clear();
-                self.diamond_power_wall_slots.clear();
-                self.diamond_power_five_way_slots.clear();
-                self.diamond_power_snake_slots.clear();
-                self.diamond_power_extra_hp_life_slots.clear();
-                self.diamond_power_sprites.clear();
+                if matches!(
+                    self.progression.diamond_power_type,
+                    DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze
+                ) {
+                    // The ROM keeps these slots alive for the negative timer
+                    // fade window; `step_diamond_power_invuln_haze_slots_loc_3fd28`
+                    // clears them when the signed timer drops below -$1B.
+                } else {
+                    self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.diamond_power_circle_slots.clear();
+                    self.diamond_power_wall_slots.clear();
+                    self.diamond_power_five_way_slots.clear();
+                    self.diamond_power_snake_slots.clear();
+                    self.diamond_power_extra_hp_life_slots.clear();
+                    self.diamond_power_invuln_haze_slots.clear();
+                    self.diamond_power_invuln_haze_timer = 0;
+                    self.diamond_power_sprites.clear();
+                }
             }
             return;
         }
@@ -6703,6 +6791,8 @@ impl NativeRuntime {
         self.diamond_power_five_way_slots.clear();
         self.diamond_power_snake_slots.clear();
         self.diamond_power_extra_hp_life_slots.clear();
+        self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_invuln_haze_timer = 0;
         self.diamond_power_sprites.clear();
 
         // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for
@@ -6750,6 +6840,12 @@ impl NativeRuntime {
             DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife
         ) {
             self.initialise_diamond_power_extra_hp_life_slots_loc_3fb96(power);
+        }
+        if matches!(
+            power,
+            DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze
+        ) {
+            self.initialise_diamond_power_invuln_haze_slots_loc_3fc8a(power);
         }
     }
 }
