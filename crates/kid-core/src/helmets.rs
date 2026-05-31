@@ -4567,6 +4567,147 @@ impl NativeRuntime {
         self.diamond_power_five_way_slots = retained_slots;
     }
 
+    fn initialise_diamond_power_snake_slots_loc_3f91c(&mut self, power: DiamondPowerType) {
+        let slice = self.opening_slice.as_ref();
+        let (kid_x, kid_y) = slice.map_or((0, 0), |s| {
+            ((s.player.x_pos >> 16) as i16, (s.player.y_pos >> 16) as i16)
+        });
+
+        let (turn_rate, movement_speed, init_data, power_timer) = match power {
+            DiamondPowerType::MiniSnake => (6, 0x300, &SNAKE_INIT_DATA_MINI, 0x1E0),
+            DiamondPowerType::DeathSnake => (6, 0x400, &SNAKE_INIT_DATA_DEATH, 0x4B0),
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_Snake loc_3F91C/loc_3F946 allocates six
+        // DP-object slots at Kid's current position, with slot 0 carrying the
+        // head angle/turn/speed fields from loc_3F92A.
+        let init = diamond_power_init_snake(
+            turn_rate,
+            movement_speed,
+            init_data,
+            power_timer,
+            kid_x,
+            kid_y,
+        );
+        self.diamond_power_snake_slots = init.slots;
+        self.diamond_power_snake_head_angle = init.head_timer;
+        self.diamond_power_snake_turn_rate = init.wander_speed;
+        self.diamond_power_snake_movement_speed = init.movement_speed;
+    }
+
+    fn step_diamond_power_snake_slots_loc_3f978(&mut self) {
+        use crate::boot::sin_cos_sub_40236;
+
+        self.diamond_power_sprites.clear();
+        if self.diamond_power_snake_slots.is_empty() {
+            return;
+        }
+
+        let (camera_x, camera_y, kid_x, kid_y, kid_x_velocity, kid_y_velocity) = self
+            .opening_slice
+            .as_ref()
+            .map_or((0, 0, 0, 0, 0, 0), |slice| {
+                (
+                    (slice.camera.x_pos >> 16) as i16,
+                    (slice.camera.y_pos >> 16) as i16,
+                    (slice.player.x_pos >> 16) as i16,
+                    (slice.player.y_pos >> 16) as i16,
+                    slice.player.x_velocity,
+                    slice.player.y_velocity,
+                )
+            });
+        let enemies: Vec<SnakeTargetCandidate> = self
+            .active_enemies
+            .iter()
+            .map(|enemy| {
+                let snapshot = enemy.snapshot();
+                SnakeTargetCandidate {
+                    x_pos: (snapshot.x_pos >> 16) as i16,
+                    y_pos: (snapshot.y_pos >> 16) as i16,
+                }
+            })
+            .collect();
+
+        // ASM DiamondPower_Main_Snake loc_3F978 shifts the trail slots before
+        // steering the head at loc_3F9A2.
+        diamond_power_snake_update_trails(&mut self.diamond_power_snake_slots);
+
+        if let Some(head) = self.diamond_power_snake_slots.first_mut() {
+            let target = diamond_power_snake_find_target(
+                head.x_pos, head.y_pos, camera_x, camera_y, &enemies, kid_x, kid_y,
+            );
+            let target_octant =
+                diamond_power_snake_octant(target.x, target.y, head.x_pos, head.y_pos);
+            let abs_dx = target.x.wrapping_sub(head.x_pos).unsigned_abs();
+            let abs_dy = head
+                .y_pos
+                .wrapping_sub(target.y.wrapping_sub(0x10))
+                .unsigned_abs();
+            if let SnakeSteerResult::Adjusted(angle) = diamond_power_snake_steer(
+                target_octant,
+                abs_dx,
+                abs_dy,
+                self.diamond_power_snake_head_angle,
+                self.diamond_power_snake_turn_rate,
+            ) {
+                self.diamond_power_snake_head_angle = angle;
+            }
+
+            // ASM loc_3FAD4: sub_40236(angle), multiply by `$30(a0)` speed,
+            // shift by six, add to head position, then add half Kid velocity.
+            let (cos, sin) = sin_cos_sub_40236(self.diamond_power_snake_head_angle as u8);
+            let dx_fp = ((cos as i32)
+                .wrapping_mul(i32::from(self.diamond_power_snake_movement_speed)))
+                >> 6;
+            let dy_fp = ((sin as i32)
+                .wrapping_mul(i32::from(self.diamond_power_snake_movement_speed)))
+                >> 6;
+            head.x_pos = head
+                .x_pos
+                .wrapping_add((dx_fp >> 16) as i16)
+                .wrapping_add((kid_x_velocity >> 17) as i16);
+            head.y_pos = head
+                .y_pos
+                .wrapping_sub((dy_fp >> 16) as i16)
+                .wrapping_add((kid_y_velocity >> 17) as i16);
+        }
+
+        let timer = self.progression.diamond_power_frames as i16;
+        let time_frames = self.frame_index as u16;
+        let snake_slots = std::mem::take(&mut self.diamond_power_snake_slots);
+        let mut retained_slots = Vec::with_capacity(snake_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in snake_slots {
+            match diamond_power_snake_slot_sprite(&mut slot, camera_x, camera_y, timer, time_frames)
+            {
+                SnakeSlotSpriteAction::Visible {
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                } => {
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+                        slot.x_pos,
+                        slot.y_pos,
+                        slot.diamond_size,
+                        &mut queued_collisions,
+                    );
+                    retained_slots.push(slot);
+                }
+                SnakeSlotSpriteAction::Skipped => retained_slots.push(slot),
+                SnakeSlotSpriteAction::Removed => {}
+            }
+        }
+        self.diamond_power_snake_slots = retained_slots;
+    }
+
     #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
@@ -6367,36 +6508,18 @@ impl NativeRuntime {
                     self.step_diamond_power_five_way_shot_slots_loc_40140();
                 }
                 DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
-                    // Forward-firing diamond chain: spawn projectile every 8 frames
+                    // ASM DiamondPower_Main_Snake loc_3F978 shifts the six
+                    // DP-object slots, steers the head from loc_3F9A2 through
+                    // loc_3FAD4, then compiles `word_4020E` sprites at
+                    // loc_3FB3E.
                     self.progression.invulnerable_frames =
                         self.progression.invulnerable_frames.max(1);
-                    if self.progression.diamond_power_frames.is_multiple_of(8)
-                        && self.projectiles.len() < MAX_PROJECTILES
-                    {
-                        let slice = self.opening_slice.as_ref();
-                        let (px, py, facing) = slice.map_or((0, 0, Direction::Right), |s| {
-                            (s.player.x_pos, s.player.y_pos, s.player.facing)
-                        });
-                        let speed =
-                            if self.progression.diamond_power_type == DiamondPowerType::MiniSnake {
-                                0x3_0000 // 0x300 scaled
-                            } else {
-                                0x4_0000 // 0x400 scaled
-                            };
-                        let xv = if facing == Direction::Right {
-                            speed
-                        } else {
-                            -speed
-                        };
-                        self.projectiles.push(EnemyProjectile {
-                            x_pos: px,
-                            y_pos: py,
-                            x_velocity: xv,
-                            lifetime: 90,
-                            friendly: true,
-                            ..Default::default()
-                        });
+                    if self.diamond_power_snake_slots.is_empty() {
+                        self.initialise_diamond_power_snake_slots_loc_3f91c(
+                            self.progression.diamond_power_type,
+                        );
                     }
+                    self.step_diamond_power_snake_slots_loc_3f978();
                 }
                 DiamondPowerType::None
                 | DiamondPowerType::ExtraHitPoint
@@ -6408,6 +6531,7 @@ impl NativeRuntime {
                 self.diamond_power_circle_slots.clear();
                 self.diamond_power_wall_slots.clear();
                 self.diamond_power_five_way_slots.clear();
+                self.diamond_power_snake_slots.clear();
                 self.diamond_power_sprites.clear();
             }
             return;
@@ -6456,6 +6580,7 @@ impl NativeRuntime {
         self.diamond_power_circle_slots.clear();
         self.diamond_power_wall_slots.clear();
         self.diamond_power_five_way_slots.clear();
+        self.diamond_power_snake_slots.clear();
         self.diamond_power_sprites.clear();
 
         // Instant effects (no timer)
@@ -6507,6 +6632,12 @@ impl NativeRuntime {
             self.diamond_power_five_way_slots =
                 diamond_power_init_five_way_shot(px, py, camera_x, camera_y, x_direction_nonzero)
                     .slots;
+        }
+        if matches!(
+            power,
+            DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake
+        ) {
+            self.initialise_diamond_power_snake_slots_loc_3f91c(power);
         }
     }
 }

@@ -905,62 +905,94 @@ mod chunk_03 {
     }
 
     /// ASM DiamondPower_Init_MiniSnake (loc_3F8EE) seeds speed `$300`;
-    /// native approximates the snake chain as a forward friendly projectile.
+    /// native now keeps the six DP-object slots used by Main_Snake.
     #[test]
-    fn diamond_power_mini_snake_spawns_forward_on_cadence_loc_3f8ee() {
+    fn diamond_power_mini_snake_seeds_live_slots_loc_3f8ee_3f91c() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
-        // step_diamond_power decrements first: 17 -> 16, and 16 is the spawn cadence.
         runtime.progression.diamond_power_frames = 17;
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0060_0000;
         slice.player.y_pos = 0x0070_0000;
-        slice.player.facing = Direction::Right;
         runtime.opening_slice = Some(slice);
 
         runtime.step_diamond_power(FrameInput::default());
 
-        assert_eq!(runtime.projectiles.len(), 1);
-        let projectile = &runtime.projectiles[0];
-        assert_eq!(projectile.x_pos, 0x0060_0000);
-        assert_eq!(projectile.y_pos, 0x0070_0000);
-        assert_eq!(
-            projectile.x_velocity, 0x3_0000,
-            "ASM loc_3F8EE: MiniSnake d5=$300, native scales to 16.16"
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM DiamondPower_Main_Snake uses DP-object slots, not generic projectiles"
         );
-        assert_eq!(projectile.y_velocity, 0);
-        assert_eq!(projectile.lifetime, 90);
-        assert_eq!(projectile.gravity, 0);
-        assert!(projectile.friendly);
+        assert_eq!(
+            runtime.diamond_power_snake_slots.len(),
+            6,
+            "ASM loc_3F91C: moveq #5,d1 allocates six snake slots"
+        );
+        let sizes: Vec<u16> = runtime
+            .diamond_power_snake_slots
+            .iter()
+            .map(|slot| slot.diamond_size)
+            .collect();
+        assert_eq!(
+            sizes,
+            vec![4, 3, 2, 1, 1, 1],
+            "ASM DiamondPower_InitData_MiniSnake drives slot sizes"
+        );
+        assert_eq!(
+            runtime.diamond_power_snake_turn_rate, 6,
+            "ASM loc_3F8EE: MiniSnake d4=6"
+        );
+        assert_eq!(
+            runtime.diamond_power_snake_movement_speed, 0x300,
+            "ASM loc_3F8EE: MiniSnake d5=$300"
+        );
+        assert!(
+            !runtime.diamond_power_sprites.is_empty(),
+            "ASM loc_3FB3E compiles visible snake slot sprites"
+        );
     }
 
     /// ASM DiamondPower_Init_DeathSnake (loc_3F90C) seeds speed `$400`;
-    /// native keeps the sign tied to Kid's facing.
+    /// native should use the DeathSnake slot-size table and movement speed.
     #[test]
-    fn diamond_power_death_snake_uses_left_facing_speed_loc_3f90c() {
+    fn diamond_power_death_snake_uses_death_table_loc_3f90c() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.diamond_power_type = helmets::DiamondPowerType::DeathSnake;
         runtime.progression.diamond_power_frames = 17;
         let mut slice = combat_slice();
-        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
         runtime.opening_slice = Some(slice);
 
         runtime.step_diamond_power(FrameInput::default());
 
-        assert_eq!(runtime.projectiles.len(), 1);
+        assert!(runtime.projectiles.is_empty());
         assert_eq!(
-            runtime.projectiles[0].x_velocity, -0x4_0000,
-            "ASM loc_3F90C: DeathSnake d5=$400 and native fires opposite when facing left"
+            runtime.diamond_power_snake_movement_speed, 0x400,
+            "ASM loc_3F90C: DeathSnake d5=$400"
+        );
+        let sizes: Vec<u16> = runtime
+            .diamond_power_snake_slots
+            .iter()
+            .map(|slot| slot.diamond_size)
+            .collect();
+        assert_eq!(
+            sizes,
+            vec![6, 6, 5, 4, 3, 2],
+            "ASM DiamondPower_InitData_DeathSnake drives slot sizes"
         );
     }
 
-    /// ASM loc_3F92A allocates from a bounded object list. Native snake uses
-    /// the shared projectile cap and must also honour its 8-frame cadence.
+    /// ASM loc_3F92A allocates from the DP-object list, independent of the
+    /// native generic projectile list.
     #[test]
-    fn diamond_power_snake_respects_cap_and_cadence_loc_3f92a() {
+    fn diamond_power_snake_bypasses_generic_projectile_cap_loc_3f92a() {
         let mut capped = NativeRuntime::new(manifest());
         capped.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
         capped.progression.diamond_power_frames = 17;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
+        capped.opening_slice = Some(slice);
         capped
             .projectiles
             .resize(MAX_PROJECTILES, EnemyProjectile::default());
@@ -970,19 +1002,12 @@ mod chunk_03 {
         assert_eq!(
             capped.projectiles.len(),
             MAX_PROJECTILES,
-            "ASM loc_3F92A: native snake must not exceed the projectile list cap"
+            "ASM loc_3F92A: snake DP slots must not consume generic projectile capacity"
         );
-
-        let mut off_cadence = NativeRuntime::new(manifest());
-        off_cadence.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
-        // 18 -> 17 after decrement; 17 is not a spawn cadence.
-        off_cadence.progression.diamond_power_frames = 18;
-
-        off_cadence.step_diamond_power(FrameInput::default());
-
-        assert!(
-            off_cadence.projectiles.is_empty(),
-            "ASM DiamondPower_Main_Snake: native snake should skip non-cadence frames"
+        assert_eq!(
+            capped.diamond_power_snake_slots.len(),
+            6,
+            "ASM loc_3F92A: Allocate_DiamondPowerObjectSlot emits six snake slots even when generic projectiles are full"
         );
     }
 

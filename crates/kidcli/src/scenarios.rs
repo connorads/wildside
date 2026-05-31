@@ -754,6 +754,17 @@ pub fn diamond_power_wall_audit_scenario(level_id: u8) -> DynamicScenario {
     diamond_power_activation_audit_scenario(level_id, "diamond_power_wall_audit", 7, 50)
 }
 
+/// Focused #206 Diamond Power audit for Micromax's MiniSnake.
+///
+/// ASM `DiamondPower_Check` dispatches Micromax tier 1 to
+/// `DiamondPower_Init_MiniSnake loc_3F8EE`, which then converges on the shared
+/// `DiamondPower_Init_Snake loc_3F91C` / `DiamondPower_Main_Snake loc_3F978`
+/// slot path. The probe seeds exactly 20 diamonds so it stays on MiniSnake
+/// rather than tier-2 DeathSnake.
+pub fn diamond_power_snake_audit_scenario(level_id: u8) -> DynamicScenario {
+    diamond_power_activation_audit_scenario(level_id, "diamond_power_snake_audit", 9, 20)
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1109,10 +1120,11 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
-        diamond_power_circle_audit_scenario, diamond_power_wall_audit_scenario,
-        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
-        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_scenario,
+        diamond_power_circle_audit_scenario, diamond_power_snake_audit_scenario,
+        diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario, lava_weather_audit_scenario,
+        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+        walk_right_scenario,
     };
 
     #[test]
@@ -1207,6 +1219,18 @@ mod tests {
         assert_eq!(scenario.slug, "diamond_power_wall_audit_00");
         assert_eq!(scenario.playtest_form, Some(7));
         assert_eq!(scenario.initial_diamond_count, Some(50));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");
+    }
+
+    #[test]
+    fn diamond_power_snake_audit_seeds_micromax_tier1_start_a_and_twenty_diamonds() {
+        let scenario = diamond_power_snake_audit_scenario(0x00);
+
+        assert_eq!(scenario.slug, "diamond_power_snake_audit_00");
+        assert_eq!(scenario.playtest_form, Some(9));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
         assert!(scenario.settle_oracle_warp);
         assert_eq!(scenario.checkpoints[2].label, "diamond_power_slot_window");

@@ -61,9 +61,10 @@ use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
-    diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario, idle_level_scenario,
-    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-    stomp_enemy_scenario, walk_right_scenario,
+    diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
+    enemy_spawn_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
+    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+    walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -103,6 +104,8 @@ enum RecordScenarioKind {
     DiamondPowerCircleAudit,
     /// seed 50 diamonds and hold Start+A to audit Berzerker's Wall of Death.
     DiamondPowerWallAudit,
+    /// seed 20 diamonds and hold Start+A to audit Micromax's MiniSnake.
+    DiamondPowerSnakeAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2169,6 +2172,7 @@ fn build_record_scenario(
         RecordScenarioKind::LavaWeatherAudit => lava_weather_audit_scenario(level),
         RecordScenarioKind::DiamondPowerCircleAudit => diamond_power_circle_audit_scenario(level),
         RecordScenarioKind::DiamondPowerWallAudit => diamond_power_wall_audit_scenario(level),
+        RecordScenarioKind::DiamondPowerSnakeAudit => diamond_power_snake_audit_scenario(level),
     }
 }
 
@@ -2214,6 +2218,7 @@ fn record_scenario_command(
         RecordScenarioKind::LavaWeatherAudit => "lava-weather-audit",
         RecordScenarioKind::DiamondPowerCircleAudit => "diamond-power-circle-audit",
         RecordScenarioKind::DiamondPowerWallAudit => "diamond-power-wall-audit",
+        RecordScenarioKind::DiamondPowerSnakeAudit => "diamond-power-snake-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -3896,6 +3901,7 @@ AddrTbl_LevelNames:
                 RecordScenarioKind::LavaWeatherAudit,
                 RecordScenarioKind::DiamondPowerCircleAudit,
                 RecordScenarioKind::DiamondPowerWallAudit,
+                RecordScenarioKind::DiamondPowerSnakeAudit,
             ] {
                 let scenario = build_record_scenario(kind, level, None);
                 assert_eq!(
@@ -3955,6 +3961,17 @@ AddrTbl_LevelNames:
         assert_eq!(scenario.slug, "diamond_power_wall_audit_00");
         assert_eq!(scenario.playtest_form, Some(7));
         assert_eq!(scenario.initial_diamond_count, Some(50));
+        assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
+    }
+
+    #[test]
+    fn build_record_scenario_diamond_power_snake_audit_seeds_micromax_tier1_probe() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::DiamondPowerSnakeAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "diamond_power_snake_audit_00");
+        assert_eq!(scenario.playtest_form, Some(9));
+        assert_eq!(scenario.initial_diamond_count, Some(20));
         assert_eq!(scenario.script[0], (1 << 7) | (1 << 6));
     }
 
