@@ -2233,19 +2233,7 @@ impl NativeRuntime {
             });
 
         if let Some((col, row, skin)) = trigger {
-            if let Some(grid) = &mut self.block_grid {
-                // ASM EvanescentBlock_Trigger writes `#$E3` to the high byte
-                // immediately, preserving the low skin byte for later redraws.
-                grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, skin));
-            }
-            let initial_timer = i16::from(skin) - EVANESCENT_SKIN_OFFSET;
-            self.block_state.evanescent_blocks.push(EvanescentEntry {
-                col,
-                row,
-                directions: initial_timer as u8,
-                timer: initial_timer,
-            });
-            self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
+            self.trigger_evanescent_block_loc_EB72(col, row, skin);
         }
 
         let evanescent_layout_writes = self.evanescent_layout_writes_loc_ED04();
@@ -2283,6 +2271,32 @@ impl NativeRuntime {
                 }
             });
         }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn trigger_evanescent_block_loc_EB72(&mut self, col: u16, row: u16, skin: u8) {
+        if self
+            .block_state
+            .evanescent_blocks
+            .iter()
+            .any(|entry| entry.col == col && entry.row == row)
+            || self.block_state.evanescent_blocks.len() >= EVANESCENT_MAX_ENTRIES
+        {
+            return;
+        }
+        if let Some(grid) = &mut self.block_grid {
+            // ASM EvanescentBlock_Trigger writes `#$E3` to the high byte
+            // immediately, preserving the low skin byte for loc_ED04 redraws.
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, skin));
+        }
+        let initial_timer = i16::from(skin) - EVANESCENT_SKIN_OFFSET;
+        self.block_state.evanescent_blocks.push(EvanescentEntry {
+            col,
+            row,
+            directions: initial_timer as u8,
+            timer: initial_timer,
+        });
+        self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
     }
 
     #[allow(non_snake_case)]

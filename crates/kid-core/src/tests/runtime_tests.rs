@@ -8886,6 +8886,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_projectile_triggered_evanescent_cells_expire_loc_f04a_eb72() {
+        // ASM loc_F04A routes shooter-object hits on evanescent source cells
+        // back through EvanescentBlock_Trigger. The #214 oracle recording shows
+        // the upward shots cascading through Highwater's upper `$EA1E/$EA1F`
+        // source cells, then those cells restore before the route tail; leaving
+        // them as `$E3xx` is the stuck-top-block playtest bug.
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.progression.number_hitpoints = PlayerForm::Berzerker.max_hitpoints();
+        rt.projectiles.clear();
+
+        for _ in 0..150 {
+            rt.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        for row in 97..=100 {
+            let cell = rt.block_grid.as_ref().unwrap().cell_at(11, row);
+            assert!(
+                !cell.has_block,
+                "ASM loc_F04A -> loc_EB72 -> loc_ED04 should expire projectile-triggered Highwater source row {row}, got {cell:?}"
+            );
+        }
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings,
         // but loc_EAE4 still scans the live sub_B41C hitbox words. The first

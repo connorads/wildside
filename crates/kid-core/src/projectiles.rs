@@ -1458,14 +1458,12 @@ impl NativeRuntime {
                 );
             }
             terrain::BlockType::Evanescent => {
-                if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
-                        interaction.col,
-                        interaction.row,
-                        terrain::Cell::from_be_bytes(0xE3, interaction.skin),
-                    );
-                }
-                self.fire_evanescent_block_projectiles_loc_EC76(
+                // ASM loc_F04A dispatches shooter-object hits on type-$A
+                // blocks through EvanescentBlock_Trigger, the same routine
+                // used by Kid's body-contact path at loc_EB72. Register the
+                // timer entry too; otherwise projectile-triggered Highwater
+                // source cells stay stuck as `$E3xx`.
+                self.trigger_evanescent_block_loc_EB72(
                     interaction.col,
                     interaction.row,
                     interaction.skin,
