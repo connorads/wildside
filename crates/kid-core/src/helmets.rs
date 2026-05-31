@@ -4834,6 +4834,7 @@ impl NativeRuntime {
         // ASM DiamondPower_Init_Invulnerability loc_3FC78 /
         // DiamondPower_Init_SamuraiHaze loc_3FC82 fall through to loc_3FC8A,
         // allocate ten orbiting slots, then set Diamond_power_timer=$1E0.
+        self.kid_is_invulnerable = is_invulnerability;
         let init = diamond_power_init_invuln_haze(is_invulnerability);
         self.diamond_power_invuln_haze_slots = init.slots;
         self.diamond_power_invuln_haze_timer = init.diamond_power_timer as i16;
@@ -4856,6 +4857,7 @@ impl NativeRuntime {
                 self.diamond_power_invuln_haze_slots.clear();
                 self.progression.diamond_power_frames = 0;
                 self.progression.diamond_power_type = DiamondPowerType::None;
+                self.kid_is_invulnerable = false;
             }
             InvulnHazeFrameAction::Active { fade } => {
                 for slot in &mut self.diamond_power_invuln_haze_slots {
@@ -6740,6 +6742,7 @@ impl NativeRuntime {
                     self.diamond_power_extra_hp_life_slots.clear();
                     self.diamond_power_invuln_haze_slots.clear();
                     self.diamond_power_invuln_haze_timer = 0;
+                    self.kid_is_invulnerable = false;
                     self.diamond_power_sprites.clear();
                 }
             }
@@ -6793,6 +6796,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
 
         // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for

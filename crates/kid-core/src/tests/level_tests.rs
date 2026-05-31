@@ -410,6 +410,16 @@ fn grid_with_hidden_block() -> terrain::BlockGrid {
 mod chunk_02 {
     use super::*;
 
+    fn press_start_a_through_diamond_power_run(runtime: &mut NativeRuntime) {
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
+    }
+
     #[test]
     fn transfer_scroll_data_storm_loc_30110_uploads_storm_pairs_and_reseeds_the_scroll_state() {
         assert_eq!(
@@ -17764,12 +17774,10 @@ mod chunk_02 {
         runtime.progression.diamond_count = 25;
         assert_eq!(runtime.progression.diamond_power_frames, 0);
 
-        // Press Start+A
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        // ASM Mode_Level loc_7D2 runs DiamondPower_Run before ReadJoypad, so
+        // the full-frame API observes Start+A through the pre-read Ctrl_Held
+        // latch rather than activating on the same sampled frame.
+        press_start_a_through_diamond_power_run(&mut runtime);
 
         assert!(
             runtime.progression.diamond_power_frames > 0,
@@ -17787,11 +17795,7 @@ mod chunk_02 {
         start_level(&mut runtime);
 
         runtime.progression.diamond_count = 19;
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        press_start_a_through_diamond_power_run(&mut runtime);
         assert_eq!(
             runtime.progression.diamond_power_frames, 0,
             "should not activate with <20 diamonds"
@@ -17809,11 +17813,7 @@ mod chunk_02 {
 
         // 50+ diamonds triggers tier 2: costs 20 + 30 = 50
         runtime.progression.diamond_count = 55;
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        press_start_a_through_diamond_power_run(&mut runtime);
         assert!(
             runtime.progression.diamond_power_frames > 0,
             "Diamond Power should activate"
@@ -17831,11 +17831,7 @@ mod chunk_02 {
 
         // 49 diamonds: deduct 20, remaining 29 < 30, so tier 1 only
         runtime.progression.diamond_count = 49;
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        press_start_a_through_diamond_power_run(&mut runtime);
         assert!(
             runtime.progression.diamond_power_frames > 0,
             "Diamond Power should activate"
@@ -17853,11 +17849,7 @@ mod chunk_02 {
 
         runtime.progression.diamond_count = 25;
         runtime.progression.current_form = PlayerForm::Eyeclops;
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        press_start_a_through_diamond_power_run(&mut runtime);
         assert_eq!(
             runtime.progression.diamond_power_frames, 0,
             "Eyeclops cannot use Diamond Power"
@@ -17871,11 +17863,7 @@ mod chunk_02 {
 
         runtime.progression.current_form = PlayerForm::Juggernaut;
         runtime.progression.diamond_count = 10;
-        runtime.step_frame(FrameInput {
-            start: true,
-            a: true,
-            ..FrameInput::default()
-        });
+        press_start_a_through_diamond_power_run(&mut runtime);
         assert!(
             runtime.progression.diamond_power_frames > 0,
             "Juggernaut 5-Way Shot should activate"

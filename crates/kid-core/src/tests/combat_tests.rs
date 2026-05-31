@@ -54,7 +54,7 @@ mod chunk_03 {
         runtime.progression.current_form = PlayerForm::Maniaxe;
         runtime.progression.diamond_count = 55;
         let lives_before = runtime.progression.number_lives;
-        runtime.step_frame(FrameInput {
+        runtime.step_diamond_power(FrameInput {
             start: true,
             a: true,
             ..FrameInput::default()
@@ -80,7 +80,7 @@ mod chunk_03 {
 
         runtime.progression.current_form = PlayerForm::Cyclone;
         runtime.progression.diamond_count = 25;
-        runtime.step_frame(FrameInput {
+        runtime.step_diamond_power(FrameInput {
             start: true,
             a: true,
             ..FrameInput::default()
@@ -394,7 +394,7 @@ mod chunk_03 {
 
         runtime.progression.current_form = PlayerForm::Cyclone;
         runtime.progression.diamond_count = 25; // enough for tier-1
-        runtime.step_frame(FrameInput {
+        runtime.step_diamond_power(FrameInput {
             start: true,
             a: true,
             ..FrameInput::default()
@@ -420,7 +420,7 @@ mod chunk_03 {
 
         runtime.progression.current_form = PlayerForm::Cyclone;
         runtime.progression.diamond_count = 55; // 20+30 for tier-2
-        runtime.step_frame(FrameInput {
+        runtime.step_diamond_power(FrameInput {
             start: true,
             a: true,
             ..FrameInput::default()
@@ -459,7 +459,7 @@ mod chunk_03 {
 
         runtime.progression.current_form = PlayerForm::Cyclone;
         runtime.progression.diamond_count = 25;
-        runtime.step_frame(FrameInput {
+        runtime.step_diamond_power(FrameInput {
             start: true,
             a: true,
             ..FrameInput::default()
@@ -1280,6 +1280,10 @@ mod chunk_03 {
             "ASM DiamondPower_Init_Invulnerability loc_3FC78/loc_3FC8A seeds ten DP-object slots"
         );
         assert!(
+            runtime.trace_frame().kid_is_invulnerable,
+            "ASM loc_3FC78 sets KidIsInvulnerable at $FFFFFA2B"
+        );
+        assert!(
             runtime.trace_frame().diamond_power_sprites.is_empty(),
             "ASM DiamondPower_Run initialises slots on activation; sprites are emitted by the next Invuln/Haze main pass"
         );
@@ -1322,6 +1326,10 @@ mod chunk_03 {
         assert_eq!(
             runtime.diamond_power_invuln_haze_slots[0].rotation_speed, 2,
             "ASM DiamondPower_InitData_SamuraiHaze stores rotation_speed=2"
+        );
+        assert!(
+            !runtime.trace_frame().kid_is_invulnerable,
+            "ASM loc_3FC82 sets SamuraiHazeActive, not KidIsInvulnerable"
         );
 
         runtime.step_diamond_power(FrameInput::default());
@@ -1374,6 +1382,55 @@ mod chunk_03 {
             "ASM loc_3FD28: timer below -$1B clears Invulnerability through sub_3F63C"
         );
         assert!(runtime.diamond_power_invuln_haze_slots.is_empty());
+        assert!(
+            !runtime.trace_frame().kid_is_invulnerable,
+            "ASM sub_3F63C clears KidIsInvulnerable with the DP-object list"
+        );
+    }
+
+    #[test]
+    fn diamond_power_run_uses_pre_readjoypad_ctrl_held_latch_loc_7d2() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Skycutter;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.diamond_count, 20,
+            "ASM Mode_Level calls DiamondPower_Run before ReadJoypad, so frame-0 Start+A is not visible yet"
+        );
+        assert!(
+            !runtime.trace_frame().kid_is_invulnerable,
+            "ASM loc_3FC78 cannot run until the previous-frame Ctrl_Held contains Start+A"
+        );
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_count, 20,
+            "Native frame 1 still samples the pre-ReadJoypad Ctrl_Held latch before frame-0 input reaches DiamondPower_Run"
+        );
+        assert!(
+            !runtime.trace_frame().kid_is_invulnerable,
+            "ASM loc_3FC78 should still be dormant on native trace frame 1"
+        );
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_count, 0,
+            "ASM DiamondPower_Check consumes diamonds once native's two-frame Ctrl_Held latch carries Start+A"
+        );
+        assert!(
+            runtime.trace_frame().kid_is_invulnerable,
+            "ASM loc_3FC78 sets KidIsInvulnerable once DiamondPower_Run sees prior Start+A"
+        );
     }
 
     #[test]

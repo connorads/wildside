@@ -847,6 +847,7 @@ mod tests {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,

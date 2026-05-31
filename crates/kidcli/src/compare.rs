@@ -1062,7 +1062,9 @@ pub(crate) fn native_trace_to_oracle_state(
             Some(kid_core::physics::Direction::Left) => 0xFFu8,
             None => 0u8,
         }),
-        invulnerable_frames: Some(frame.invulnerable_frames as u8),
+        // Oracle helper reads ROM `KidIsInvulnerable` (`$FFFFFA2B`) here, not
+        // the separate native damage-flash countdown.
+        invulnerable_frames: Some(if frame.kid_is_invulnerable { 0xFF } else { 0 }),
         // ASM Kid_Transform loc_7E90 clears `Currently_transforming` during
         // the final cleanup frame, while the gameplay loop is still hibernated
         // until the coroutine returns. Native keeps that cleanup frame in

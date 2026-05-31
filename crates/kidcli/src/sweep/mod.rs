@@ -1227,7 +1227,9 @@ pub(crate) fn extract_checkpoint_states(
                     Some(kid_core::physics::Direction::Left) => 0xFFu8,
                     None => 0u8,
                 }),
-                invulnerable_frames: Some(frame.invulnerable_frames as u8),
+                // Oracle helper reads ROM `KidIsInvulnerable` (`$FFFFFA2B`) here, not
+                // the separate native damage-flash countdown.
+                invulnerable_frames: Some(if frame.kid_is_invulnerable { 0xFF } else { 0 }),
                 // ASM Kid_Transform loc_7E90 clears `Currently_transforming`
                 // on the final cleanup frame before the coroutine returns.
                 // Native still uses `form_change_flash_frames == 1` to keep
@@ -2658,6 +2660,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                kid_is_invulnerable: false,
                 just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
@@ -2770,6 +2773,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                kid_is_invulnerable: false,
                 just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
@@ -2895,6 +2899,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                kid_is_invulnerable: false,
                 just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
@@ -4657,6 +4662,7 @@ mod tests {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,
@@ -4769,6 +4775,7 @@ mod tests {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,

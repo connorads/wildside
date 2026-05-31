@@ -112,6 +112,10 @@ pub struct NativeRuntime {
     diamond_power_extra_hp_life_slots: Vec<helmets::ExtraHPLifeSlot>,
     diamond_power_invuln_haze_slots: Vec<helmets::InvulnHazeSlot>,
     diamond_power_invuln_haze_timer: i16,
+    /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), set only by
+    /// `DiamondPower_Init_Invulnerability loc_3FC78` and cleared by the shared
+    /// Diamond Power reset tails. Damage flash uses `progression.invulnerable_frames`.
+    kid_is_invulnerable: bool,
     diamond_power_snake_head_angle: u16,
     diamond_power_snake_turn_rate: u16,
     diamond_power_snake_movement_speed: u16,
@@ -1215,6 +1219,7 @@ impl NativeRuntime {
             diamond_power_extra_hp_life_slots: Vec::new(),
             diamond_power_invuln_haze_slots: Vec::new(),
             diamond_power_invuln_haze_timer: 0,
+            kid_is_invulnerable: false,
             diamond_power_snake_head_angle: 0,
             diamond_power_snake_turn_rate: 0,
             diamond_power_snake_movement_speed: 0,
@@ -1795,7 +1800,12 @@ impl NativeRuntime {
                 && gameplay_slice_active
                 && !self.paused
             {
-                self.step_diamond_power(input);
+                // ASM Mode_Level calls DiamondPower_Run before ReadJoypad.
+                // In native's post-step trace indexing, the ROM `Ctrl_Held`
+                // value visible to DiamondPower_Run is the two-frame
+                // `prior_input` latch; `previous_input` is already the value
+                // movement sees for this traced frame.
+                self.step_diamond_power(self.prior_input);
             }
             if gameplay_slice_active {
                 // ASM loc_1AE2E only gates the later `Game_Mode=$000C`

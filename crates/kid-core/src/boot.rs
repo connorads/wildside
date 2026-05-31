@@ -7553,6 +7553,7 @@ impl NativeRuntime {
             self.progression.number_continues = 3;
             self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
             self.progression.invulnerable_frames = 0;
+            self.kid_is_invulnerable = false;
             self.paused = false;
             self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
@@ -7654,6 +7655,7 @@ impl NativeRuntime {
                 } else {
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                    self.kid_is_invulnerable = false;
                 }
                 return false;
             }

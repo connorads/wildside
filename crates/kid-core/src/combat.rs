@@ -8423,6 +8423,7 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
     ) -> Option<(u32, EnemyFamily)> {
         if self.progression.invulnerable_frames != 0
+            || self.kid_is_invulnerable
             || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             return None;
@@ -10265,7 +10266,10 @@ impl NativeRuntime {
         // ASM Character_CheckCollision checks invulnerability timer before all
         // non-spike damage, including projectiles.
         self.step_projectiles();
-        if self.progression.invulnerable_frames == 0 && self.projectile_hits_player(slice) {
+        if self.progression.invulnerable_frames == 0
+            && !self.kid_is_invulnerable
+            && self.projectile_hits_player(slice)
+        {
             self.opening_slice = Some(*slice);
             self.apply_damage();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
@@ -10275,7 +10279,10 @@ impl NativeRuntime {
         // Murder wall: advance and damage player on contact.
         // ASM loc_7396/loc_73B8: reversed wall can push camera_x.
         self.step_murder_wall(&mut slice.camera.x_pos);
-        if self.murder_wall_kills_player(slice) && self.progression.invulnerable_frames == 0 {
+        if self.murder_wall_kills_player(slice)
+            && self.progression.invulnerable_frames == 0
+            && !self.kid_is_invulnerable
+        {
             self.apply_damage();
             self.opening_slice = Some(*slice);
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::MurderWallDamage;

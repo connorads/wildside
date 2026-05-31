@@ -2925,6 +2925,7 @@ AddrTbl_LevelNames:
             ending_elapsed: None,
             number_continues: 3,
             invulnerable_frames: 0,
+            kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,

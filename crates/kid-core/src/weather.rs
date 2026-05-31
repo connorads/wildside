@@ -2504,7 +2504,7 @@ impl NativeRuntime {
             advance_lava_fireball(fireball);
         }
 
-        if should_damage && self.progression.invulnerable_frames == 0 {
+        if should_damage && self.progression.invulnerable_frames == 0 && !self.kid_is_invulnerable {
             self.apply_damage();
         }
     }

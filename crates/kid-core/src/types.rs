@@ -1190,6 +1190,10 @@ pub struct NativeTraceFrame {
     pub options_controls_scheme: u8,
     pub options_speed_button_fast: bool,
     pub invulnerable_frames: usize,
+    /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), separate from the damage
+    /// flash countdown above.
+    #[serde(default)]
+    pub kid_is_invulnerable: bool,
     /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
     pub just_received_damage: bool,
     pub diamond_power_active: bool,
@@ -1393,6 +1397,7 @@ impl Default for NativeTraceFrame {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            kid_is_invulnerable: false,
             just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,
