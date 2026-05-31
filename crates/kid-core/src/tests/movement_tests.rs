@@ -16707,6 +16707,61 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9F18 -> loc_9FBC (kid.asm:12223-12290): after SlopeUp motion,
+    /// a non-slope/solid current tile takes the wall-exit tail, snaps the high
+    /// Y word to the adjacent solid row, and clears y_vel before returning to
+    /// walking through loc_8BF0. This is the refreshed #211 natural-route frame
+    /// 437 hand-off from Blue Lake Woods 1's first slope into the solid tile.
+    #[test]
+    fn level00_slope_up_to_solid_exit_clears_y_velocity_loc_9fbc() {
+        let w: u16 = 50;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+        };
+        set(&mut data, 44, 15, 0x40);
+        set(&mut data, 45, 15, 0x60);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02cf_d000;
+        slice.player.y_pos = 0x00f0_0000;
+        slice.player.x_velocity = 0x0000_5000;
+        slice.player.y_velocity = -0x0000_b000;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_pos, 0x00ef_0000,
+            "ASM loc_9FBC should snap the slope-to-solid exit to oracle frame 437's solid row",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_9FBC clears y_vel before returning to loc_8BF0 walking",
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6

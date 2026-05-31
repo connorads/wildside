@@ -3680,6 +3680,30 @@ impl OpeningSliceState {
                     //
                     // Native: visual-only — slope walk animation sprites and the
                     // $FFFFF8F0 accumulator are not modelled.
+                    if self.player.on_ground
+                        && grounded_slope_for_loc_9d22.is_some()
+                        && self.grounded_slope_collision(Some(grid)).is_none()
+                        && self.player.y_velocity != 0
+                    {
+                        let x_px = (self.player.x_pos >> 16) as i32;
+                        let y_px = (self.player.y_pos >> 16) as i32;
+                        let solid_probe =
+                            terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+                        if matches!(
+                            solid_probe.cell.collision,
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                        ) && solid_probe.on_ground
+                        {
+                            // ASM loc_9FBC/loc_A0B4: after sub_8F26 has moved
+                            // horizontally off the active slope into a solid
+                            // support tile, the slope tail snaps to the solid
+                            // floor row and clears y_vel before loc_8BF0.
+                            let floor_y_px = solid_probe.floor_y_px.saturating_sub(1);
+                            self.player.y_pos = (floor_y_px.max(0) as u32) << 16;
+                            self.terrain.floor_y_pos = self.player.y_pos;
+                            self.player.y_velocity = 0;
+                        }
+                    }
                     if self.player.on_ground {
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;
