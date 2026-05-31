@@ -23513,6 +23513,7 @@ pub(crate) fn step_drips(
 // Applied relative to spawn position during orbit phase.
 pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
     [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11];
+pub(crate) const SPINNING_TWINS_ORBIT_FRAME_DURATION_LOC_3B904: u16 = 6;
 /// Orbit-to-walk transition: collision-triggered. ASM loc_3B904 checks
 /// collision_type each frame — negative, $2C, or $1C all trigger the drop.
 /// In native, we check player hitbox overlap with the orbiting enemy.
@@ -23538,6 +23539,67 @@ pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SpinningTwinsOrbitTickLoc3B904 {
+    pub(crate) next_animation_timer: u16,
+    pub(crate) next_orbit_index: u8,
+    pub(crate) child_x_offset_px: i32,
+    pub(crate) advances_child_x: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SpinningTwinsOrbitCollisionRouteLoc3B904 {
+    ContinueOrbit,
+    DropSplit,
+}
+
+pub(crate) fn spinning_twins_orbit_collision_route_loc_3b904(
+    collision_type: i16,
+) -> SpinningTwinsOrbitCollisionRouteLoc3B904 {
+    // ASM Spinning_Twins.asm loc_3B904: branch to loc_3B93C when
+    // `collision_type(a3)` is signed-negative, `colid_kidabove` ($2C), or
+    // `colid_hurt` ($1C); every other word keeps orbiting.
+    if collision_type.is_negative()
+        || matches!(
+            collision_type as u16,
+            SPINNING_TWINS_COLID_KIDABOVE | SPINNING_TWINS_COLID_HURT
+        )
+    {
+        SpinningTwinsOrbitCollisionRouteLoc3B904::DropSplit
+    } else {
+        SpinningTwinsOrbitCollisionRouteLoc3B904::ContinueOrbit
+    }
+}
+
+pub(crate) fn spinning_twins_orbit_tick_loc_3b904(
+    animation_timer: u16,
+    orbit_index: u8,
+) -> SpinningTwinsOrbitTickLoc3B904 {
+    // ASM Spinning_Twins.asm loc_3B904: after the one-frame hibernate, the
+    // global animation step leaves `animation_timer(a3)` at 6..1 for
+    // `stru_3B7F0`; only the exact `#1` frame increments `d1` and writes
+    // `d2 + word_3B9A0[d1]` to the linked child GFX `$1A(a1)`.
+    let next_animation_timer = match animation_timer {
+        // Native `0` is an uninitialised sentinel; the ROM starts at
+        // `animation_timer=1`, so the first hibernate/animate tick reloads
+        // `stru_3B7F0` frame duration 6 before loc_3B904 observes it.
+        0 | 1 => SPINNING_TWINS_ORBIT_FRAME_DURATION_LOC_3B904,
+        timer => timer - 1,
+    };
+    let advances_child_x = next_animation_timer == 1;
+    let next_orbit_index = if advances_child_x {
+        (orbit_index + 1) & 7
+    } else {
+        orbit_index & 7
+    };
+    SpinningTwinsOrbitTickLoc3B904 {
+        next_animation_timer,
+        next_orbit_index,
+        child_x_offset_px: SPINNING_TWINS_ORBIT_OFFSETS[usize::from(next_orbit_index)],
+        advances_child_x,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -24237,15 +24299,6 @@ pub(crate) fn step_spinning_twins(
 ) {
     match enemy.spinning_twins_phase {
         SpinningTwinsPhase::Orbiting => {
-            // Advance orbit index each frame
-            enemy.spinning_twins_orbit_index =
-                (enemy.spinning_twins_orbit_index + 1) % SPINNING_TWINS_ORBIT_OFFSETS.len() as u8;
-            let offset = SPINNING_TWINS_ORBIT_OFFSETS[enemy.spinning_twins_orbit_index as usize];
-            // Apply X oscillation as velocity (visual only, resets each frame)
-            enemy.x_velocity = offset << 16;
-            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-            enemy.x_velocity = 0;
-
             // Check player collision — triggers orbit-to-walk transition.
             // ASM loc_3B904: collision_type negative/$2C/$1C all trigger drop.
             let player_contact = if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
@@ -24259,9 +24312,26 @@ pub(crate) fn step_spinning_twins(
                 false
             };
 
-            if player_contact {
+            let collision_type = if player_contact {
+                SPINNING_TWINS_COLID_KIDABOVE as i16
+            } else {
+                0
+            };
+            if matches!(
+                spinning_twins_orbit_collision_route_loc_3b904(collision_type),
+                SpinningTwinsOrbitCollisionRouteLoc3B904::DropSplit
+            ) {
                 let _transition = spinning_twins_drop_transition_loc_3b93c(enemy);
+                return;
             }
+
+            let orbit_tick = spinning_twins_orbit_tick_loc_3b904(
+                enemy.wait_timer,
+                enemy.spinning_twins_orbit_index,
+            );
+            enemy.wait_timer = orbit_tick.next_animation_timer;
+            enemy.spinning_twins_orbit_index = orbit_tick.next_orbit_index;
+            enemy.x_velocity = 0;
         }
         SpinningTwinsPhase::Walking => {
             // Apply gravity while airborne until grounded, then walk as pacer

@@ -11430,11 +11430,12 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
         assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
 
-        // Step through orbit phase — X position should oscillate
+        // ASM Spinning_Twins.asm loc_3B904 keeps the parent object at the
+        // spawn X (`d2`) and only applies `word_3B9A0` to the linked child GFX.
         let initial_x = enemy.x_pos;
         step_spinning_twins(&mut enemy, None, None, None);
         assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
-        assert_ne!(enemy.x_pos, initial_x, "orbit should move X position");
+        assert_eq!(enemy.x_pos, initial_x, "orbit parent should stay anchored");
 
         // Step many more frames — should still orbit without player contact
         for _ in 0..200 {
@@ -11445,6 +11446,62 @@ mod chunk_04 {
             SpinningTwinsPhase::Orbiting,
             "should orbit indefinitely without player contact (ASM: no timer fallback)"
         );
+    }
+
+    #[test]
+    fn spinning_twins_orbit_loc_3b904_advances_only_on_animation_timer_one() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+
+        for frame in 1..=5 {
+            step_spinning_twins(&mut enemy, None, None, None);
+            assert_eq!(
+                enemy.spinning_twins_orbit_index, 0,
+                "ASM Spinning_Twins.asm loc_3B904 should not advance d1 before animation_timer(a3) reaches 1; frame {frame}"
+            );
+        }
+
+        step_spinning_twins(&mut enemy, None, None, None);
+
+        assert_eq!(
+            enemy.spinning_twins_orbit_index, 1,
+            "ASM Spinning_Twins.asm loc_3B904 increments d1 only after `cmpi.w #1,animation_timer(a3)` matches"
+        );
+        assert_eq!(
+            enemy.x_pos,
+            100 << 16,
+            "ASM Spinning_Twins.asm loc_3B904 writes the offset X to linked child GFX `$1A(a1)`, not parent `x_pos(a3)`"
+        );
+    }
+
+    #[test]
+    fn spinning_twins_orbit_collision_route_loc_3b904_drops_only_for_rom_contact_words() {
+        assert_eq!(
+            spinning_twins_orbit_collision_route_loc_3b904(-1),
+            SpinningTwinsOrbitCollisionRouteLoc3B904::DropSplit,
+            "ASM Spinning_Twins.asm loc_3B904 `bmi.s loc_3B93C` drops on signed-negative collision_type"
+        );
+        assert_eq!(
+            spinning_twins_orbit_collision_route_loc_3b904(SPINNING_TWINS_COLID_KIDABOVE as i16),
+            SpinningTwinsOrbitCollisionRouteLoc3B904::DropSplit,
+            "ASM Spinning_Twins.asm loc_3B904 drops on `colid_kidabove` `$2C`"
+        );
+        assert_eq!(
+            spinning_twins_orbit_collision_route_loc_3b904(SPINNING_TWINS_COLID_HURT as i16),
+            SpinningTwinsOrbitCollisionRouteLoc3B904::DropSplit,
+            "ASM Spinning_Twins.asm loc_3B904 drops on `colid_hurt` `$1C`"
+        );
+        for collision_type in [
+            0,
+            SPINNING_TWINS_COLID_RIGHTWALL as i16,
+            SPINNING_TWINS_COLID_KIDLEFT as i16,
+            SPINNING_TWINS_COLID_KIDRIGHT as i16,
+        ] {
+            assert_eq!(
+                spinning_twins_orbit_collision_route_loc_3b904(collision_type),
+                SpinningTwinsOrbitCollisionRouteLoc3B904::ContinueOrbit,
+                "ASM Spinning_Twins.asm loc_3B904 should keep orbiting for collision_type {collision_type:#06X}"
+            );
+        }
     }
 
     #[test]
@@ -11493,7 +11550,7 @@ mod chunk_04 {
             enemies[2].spinning_twins_phase,
             SpinningTwinsPhase::FallingVisual
         );
-        let split_source_x = (100 - 0x0A) << 16;
+        let split_source_x = 100 << 16;
         assert_eq!(enemies[0].x_pos, split_source_x - (0x20 << 16));
         assert_eq!(enemies[1].x_pos, split_source_x + (0x20 << 16));
         assert_eq!(
