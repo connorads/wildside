@@ -1230,7 +1230,11 @@ enum NativeBgmPlaybackCommand {
 
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
     match trace.game_mode {
-        GameMode::TitleScreen | GameMode::OptionsMenu => Some(NativeBgmCue::TitleShell),
+        // ASM Load_IntroSequence1 / Load_TitleScreen both queue `bgm_Ice` via
+        // `j_PlaySound`; later intro modes inherit the active shell cue.
+        GameMode::IntroSequence1 | GameMode::TitleScreen | GameMode::OptionsMenu => {
+            Some(NativeBgmCue::TitleShell)
+        }
         // ASM Score_Board (kid.asm:15838): after the flagpole transition
         // sleeps, the EOL sequence queues bgm_Score_Board before loc_D55E.
         GameMode::InGame | GameMode::DemoPlay if trace.level_complete => {
@@ -10416,12 +10420,19 @@ mod tests {
         let fixture = ManifestFixture::new()?;
         let mut title = sample_trace(GameMode::TitleScreen);
         let mut options = sample_trace(GameMode::OptionsMenu);
+        let intro = sample_trace(GameMode::IntroSequence1);
 
         assert_eq!(
             native_bgm_cue_for_trace(&title)
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::ICE),
             "ASM Load_TitleScreen queues bgm_Ice via j_PlaySound before title/menu objects are allocated"
+        );
+        assert_eq!(
+            native_bgm_cue_for_trace(&intro)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::ICE),
+            "ASM Load_IntroSequence1 queues bgm_Ice via j_PlaySound before intro objects are allocated"
         );
         assert_eq!(
             native_bgm_cue_for_trace(&options),
@@ -10432,7 +10443,10 @@ mod tests {
         title.game_mode = GameMode::SegaScreen;
         options.game_mode = GameMode::IntroSequence1;
         assert_eq!(native_bgm_cue_for_trace(&title), None);
-        assert_eq!(native_bgm_cue_for_trace(&options), None);
+        assert_eq!(
+            native_bgm_cue_for_trace(&options),
+            Some(NativeBgmCue::TitleShell)
+        );
         Ok(())
     }
 
