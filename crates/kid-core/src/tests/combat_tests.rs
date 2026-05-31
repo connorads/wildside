@@ -934,8 +934,8 @@ mod chunk_03 {
             .collect();
         assert_eq!(
             sizes,
-            vec![4, 3, 2, 1, 1, 1],
-            "ASM DiamondPower_InitData_MiniSnake drives slot sizes"
+            vec![1, 1, 1, 2, 3, 4],
+            "ASM loc_3F92A allocates DiamondPower_InitData_MiniSnake in table order, but Allocate_DiamondPowerObjectSlot prepends to Addr_FirstDPObjectSlot so native stores traversal order with the saved head last"
         );
         assert_eq!(
             runtime.diamond_power_snake_turn_rate, 6,
@@ -977,8 +977,8 @@ mod chunk_03 {
             .collect();
         assert_eq!(
             sizes,
-            vec![6, 6, 5, 4, 3, 2],
-            "ASM DiamondPower_InitData_DeathSnake drives slot sizes"
+            vec![2, 3, 4, 5, 6, 6],
+            "ASM loc_3F92A allocates DiamondPower_InitData_DeathSnake in table order, but Allocate_DiamondPowerObjectSlot prepends to Addr_FirstDPObjectSlot so native stores traversal order with the saved head last"
         );
     }
 
@@ -2875,30 +2875,19 @@ mod chunk_03 {
             assert_eq!(slot.y_pos, 0x80, "slot {i}: ASM loc_3F946 y_pos = kid_y");
         }
 
-        // ASM loc_3F946: move.w (a2)+,$24(a0) — diamond sizes from init table
+        // ASM loc_3F946 reads sizes in allocation order, but
+        // Allocate_DiamondPowerObjectSlot prepends each new object to the linked
+        // list. Native exposes traversal order, with the saved head last.
+        let traversal_sizes: Vec<u16> = result.slots.iter().map(|slot| slot.diamond_size).collect();
         assert_eq!(
-            result.slots[0].diamond_size, 4,
-            "ASM loc_3F946: MiniSnake size[0]=4"
+            traversal_sizes,
+            vec![1, 1, 1, 2, 3, 4],
+            "ASM Allocate_DiamondPowerObjectSlot prepends, so DiamondPower_Main_Snake reaches the saved head last",
         );
         assert_eq!(
-            result.slots[1].diamond_size, 3,
-            "ASM loc_3F946: MiniSnake size[1]=3"
-        );
-        assert_eq!(
-            result.slots[2].diamond_size, 2,
-            "ASM loc_3F946: MiniSnake size[2]=2"
-        );
-        assert_eq!(
-            result.slots[3].diamond_size, 1,
-            "ASM loc_3F946: MiniSnake size[3]=1"
-        );
-        assert_eq!(
-            result.slots[4].diamond_size, 1,
-            "ASM loc_3F946: MiniSnake size[4]=1"
-        );
-        assert_eq!(
-            result.slots[5].diamond_size, 1,
-            "ASM loc_3F946: MiniSnake size[5]=1"
+            result.slots.last().map(|slot| slot.diamond_size),
+            Some(4),
+            "ASM loc_3F92A saved head slot carries MiniSnake size[0]=4"
         );
     }
 
@@ -2972,8 +2961,8 @@ mod chunk_03 {
         let sizes: Vec<u16> = result.slots.iter().map(|s| s.diamond_size).collect();
         assert_eq!(
             sizes,
-            vec![6, 6, 5, 4, 3, 2],
-            "ASM loc_3F946: DeathSnake sizes from DiamondPower_InitData_DeathSnake"
+            vec![2, 3, 4, 5, 6, 6],
+            "ASM loc_3F946 reads DeathSnake sizes in allocation order, and the linked-list traversal reaches the saved head last",
         );
     }
 
@@ -3087,6 +3076,53 @@ mod chunk_03 {
             slots[0].trail[0],
             (70, 80),
             "ASM loc_3F978: single slot — trail unchanged"
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_trail_update_preserves_saved_head_loc_3f978_3fad4() {
+        // ASM loc_3F92A saves the first allocated Snake slot as the head, but
+        // Allocate_DiamondPowerObjectSlot prepends later slots to the traversal
+        // list. DiamondPower_Main_Snake loc_3F978 exits on that saved head and
+        // only then moves it at loc_3FAD4, so the trail update must not reset
+        // the moving head back to Kid's original position.
+        let mut init = helmets::diamond_power_init_snake(
+            6,
+            0x300,
+            &helmets::SNAKE_INIT_DATA_MINI,
+            0x1E0,
+            0x20,
+            0x10F,
+        );
+
+        let head_before = init
+            .slots
+            .last()
+            .map(|slot| (slot.x_pos, slot.y_pos))
+            .expect("Snake init should allocate a saved head slot");
+        helmets::diamond_power_snake_move_head_loc_3fad4(
+            init.slots.last_mut().expect("head slot should exist"),
+            0,
+            init.movement_speed,
+            0,
+            0,
+        );
+        let moved_head = init
+            .slots
+            .last()
+            .map(|slot| (slot.x_pos, slot.y_pos))
+            .expect("head slot should remain after movement");
+
+        helmets::diamond_power_snake_update_trails(&mut init.slots);
+
+        assert_ne!(
+            moved_head, head_before,
+            "ASM loc_3FAD4 should advance the saved head before the next trail pass"
+        );
+        assert_eq!(
+            init.slots.last().map(|slot| (slot.x_pos, slot.y_pos)),
+            Some(moved_head),
+            "ASM loc_3F978 exits before the saved head, so native must not overwrite its loc_3FAD4 movement with trail[0]"
         );
     }
 

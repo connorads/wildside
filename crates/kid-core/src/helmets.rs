@@ -1460,8 +1460,11 @@ pub(crate) fn diamond_power_init_snake(
     kid_x: i16,
     kid_y: i16,
 ) -> SnakeInitResult {
-    // ASM loc_3F91C: move.l (Addr_GfxObject_Kid).w,a3; moveq #5,d1
-    let mut slots = Vec::with_capacity(6);
+    // ASM loc_3F91C: move.l (Addr_GfxObject_Kid).w,a3; moveq #5,d1.
+    // Allocate_DiamondPowerObjectSlot prepends to Addr_FirstDPObjectSlot, while
+    // loc_3F92A saves the first allocated object as the Snake head at
+    // $FFFFF5B4. Native keeps traversal order here, so the saved head is last.
+    let mut allocated_slots = Vec::with_capacity(6);
 
     for i in 0..6u16 {
         // ASM loc_3F92A: bsr.w Allocate_DiamondPowerObjectSlot
@@ -1481,8 +1484,9 @@ pub(crate) fn diamond_power_init_snake(
             diamond_size: init_data[i as usize],
             trail: [(kid_x, kid_y); 3],
         };
-        slots.push(slot);
+        allocated_slots.push(slot);
     }
+    let slots = allocated_slots.into_iter().rev().collect();
 
     // ASM loc_3F92A: first slot (d1==5) stores head pointer at $FFFFF5B4,
     // timer $40 at $3E(a0), d4 at $2E(a0), d5 at $30(a0)
@@ -1497,10 +1501,11 @@ pub(crate) fn diamond_power_init_snake(
 
 /// ASM DiamondPower_Main_Snake trail update loop (kid.asm:44658, loc_3F978).
 ///
-/// Iterates the snake's slot list from head to tail. For each slot except
-/// the last, the visible position is shifted from trail[0], the trail buffer
-/// is shifted down by one entry, and the next slot's current position fills
-/// trail[2]. The last slot (4(a0)==0 → no successor) is left unchanged.
+/// Iterates the snake's linked-list traversal order. For each non-head slot,
+/// the visible position is shifted from trail[0], the trail buffer is shifted
+/// down by one entry, and the next slot's current position fills trail[2]. The
+/// saved head slot is last in traversal order, so it is left unchanged before
+/// loc_3FAD4 moves it.
 ///
 /// ASM loc_3F978:
 ///   move.l a1,a0; move.l 4(a0),d1; beq.s loc_3F9A2
@@ -4670,7 +4675,7 @@ impl NativeRuntime {
         // steering the head at loc_3F9A2.
         diamond_power_snake_update_trails(&mut self.diamond_power_snake_slots);
 
-        if let Some(head) = self.diamond_power_snake_slots.first_mut() {
+        if let Some(head) = self.diamond_power_snake_slots.last_mut() {
             let target = diamond_power_snake_find_target(
                 head.x_pos, head.y_pos, camera_x, camera_y, &enemies, kid_x, kid_y,
             );

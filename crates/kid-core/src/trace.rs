@@ -5892,7 +5892,10 @@ impl NativeRuntime {
             return None;
         }
 
-        let head = &self.diamond_power_snake_slots[0];
+        let head = self
+            .diamond_power_snake_slots
+            .last()
+            .expect("non-empty Snake slots checked above");
         let (camera_x, camera_y, kid_x, kid_y) =
             self.opening_slice.as_ref().map_or((0, 0, 0, 0), |slice| {
                 (
