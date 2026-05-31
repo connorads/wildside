@@ -4251,6 +4251,122 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8270 -> sub_81B4: when a crawl-release frame has overhead
+    /// blockage at standing width and both crawl side probes are solid, sub_81B4
+    /// returns NE and the ROM branches back to loc_82D8. Native should keep
+    /// this release frame on crawl/sub_8506 movement instead of standing up.
+    #[test]
+    fn loc_8270_sub_81b4_both_side_walls_keep_release_frame_crawling() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.previous_input = FrameInput {
+            down: true,
+            ..FrameInput::default()
+        };
+        runtime.block_grid = Some(grid_with_cells(
+            8,
+            8,
+            &[
+                (0, 6, 0x60, 0x00),
+                (1, 6, 0x60, 0x00),
+                (2, 6, 0x60, 0x00),
+                (3, 6, 0x60, 0x00),
+                (4, 6, 0x60, 0x00),
+                (5, 6, 0x60, 0x00),
+                (6, 6, 0x60, 0x00),
+                (7, 6, 0x60, 0x00),
+                (1, 5, 0x60, 0x00),
+                (2, 5, 0x60, 0x00),
+                (3, 5, 0x60, 0x00),
+            ],
+        ));
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.x_velocity = 0x3000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(FrameInput::default(), false);
+
+        let player = runtime
+            .opening_slice
+            .expect("refresh should keep the level slice active")
+            .player;
+        assert_eq!(
+            player.x_velocity, 0x1800,
+            "ASM loc_8270 -> sub_81B4 blocked should keep crawl/sub_8506 air decel $3000-$1800, not standing decel $3000-$2800",
+        );
+        assert_eq!(
+            player.x_pos,
+            (40 << 16) + 0x1800,
+            "ASM sub_81B4 blocked should avoid both escape snaps; x advances only by crawl velocity",
+        );
+    }
+
+    /// ASM loc_8270 -> sub_81B4 -> loc_81FA: if the overhead scan is blocked
+    /// but the right crawl side probe is clear, stand-up escapes by snapping
+    /// `(x+$E)` to the tile's left edge plus restored standing half-width.
+    #[test]
+    fn loc_8270_sub_81b4_right_escape_snaps_live_standup() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.previous_input = FrameInput {
+            down: true,
+            ..FrameInput::default()
+        };
+        runtime.block_grid = Some(grid_with_cells(
+            8,
+            8,
+            &[
+                (0, 6, 0x60, 0x00),
+                (1, 6, 0x60, 0x00),
+                (2, 6, 0x60, 0x00),
+                (3, 6, 0x60, 0x00),
+                (4, 6, 0x60, 0x00),
+                (5, 6, 0x60, 0x00),
+                (6, 6, 0x60, 0x00),
+                (7, 6, 0x60, 0x00),
+                (1, 5, 0x60, 0x00),
+                (2, 5, 0x60, 0x00),
+            ],
+        ));
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.x_velocity = 0;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(FrameInput::default(), false);
+
+        let player = runtime
+            .opening_slice
+            .expect("refresh should keep the level slice active")
+            .player;
+        assert_eq!(
+            player.x_pos,
+            53 << 16,
+            "ASM loc_81FA: ((40+$E)&$FFF0)+TheKid_half_width(5) should snap live stand-up to x=53",
+        );
+        assert_eq!(
+            player.x_velocity, 0,
+            "escaped stand-up should not keep the release frame on crawl air decel",
+        );
+    }
+
     /// ASM loc_8298 (kid.asm:9038): `bsr.w sub_B41C` — when sub_B43A finds
     /// floor during crawl stand-up, the ROM restores the standing half_width
     /// from unk_B408[Current_Helmet]. Verify that every form's standing

@@ -6691,6 +6691,32 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn crawl_standup_head_blocked_loc_8270(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    restored_half_width: i32,
+) -> bool {
+    // ASM loc_8270 (kid.asm:9025): `moveq #-$11,d7; bsr.w sub_B43A`.
+    // sub_B43A probes row `(y_pos + 1 + d7) >> 4`, so the stand-up gate
+    // checks the would-be head row at `y - 16` across the restored form width.
+    let x_int = (x_pos >> 16) as i16 as i32;
+    let y_int = (y_pos >> 16) as i16 as i32;
+    let left_col = ((x_int - restored_half_width) >> 4).max(0) as u16;
+    let right_col = ((x_int + restored_half_width) >> 4)
+        .max(0)
+        .min(grid.width_cells as i32 - 1) as u16;
+    let probe_row = (y_int - 16).max(0) as u16 >> 4;
+
+    (left_col..=right_col).any(|col| {
+        matches!(
+            grid.cell_at(col, probe_row).collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
+    })
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn crawl_slope_snap_sub_83E6(
     grid: &terrain::BlockGrid,

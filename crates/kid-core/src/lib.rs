@@ -2678,6 +2678,38 @@ impl NativeRuntime {
                 input
             };
 
+            if !input.down
+                && self.previous_input.down
+                && slice.player.on_ground
+                && !crawl_standup_platform_blocked
+                && let Some(grid) = self.block_grid.as_ref()
+                && movement::crawl_standup_head_blocked_loc_8270(
+                    grid,
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    self.progression.current_form.half_width(),
+                )
+            {
+                if self.progression.current_form == PlayerForm::Skycutter {
+                    // ASM loc_8270: a blocked Skycutter stand-up branches
+                    // straight back to loc_82D8 instead of calling sub_81B4.
+                    movement_input.down = true;
+                } else {
+                    let standup_escape = movement::crawl_wall_escape_sub_81B4(
+                        grid,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        self.progression.current_form.half_width(),
+                    );
+                    slice.player.x_pos = standup_escape.x_pos;
+                    if standup_escape.blocked {
+                        // ASM sub_81B4 returns NE only when both crawl side
+                        // probes are solid, so the release frame stays crawling.
+                        movement_input.down = true;
+                    }
+                }
+            }
+
             // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
             // pull-back adjustments run once per frame inside sub_71E4, before
             // the loc_728C offset application.  Applied here so the adjusted
