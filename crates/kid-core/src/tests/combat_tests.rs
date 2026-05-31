@@ -14847,6 +14847,57 @@ mod chunk_05 {
         );
     }
 
+    /// ASM loc_7452 (kid.asm:7572): the player object hibernates for one frame
+    /// before loc_7464 decodes `Ctrl_Held` into `Ctrl_A_Held`. Skycutter ground
+    /// acceleration at sub_9A20 therefore sees the older A/run latch than the
+    /// right/left held latch.
+    #[test]
+    fn loc_7452_skycutter_run_uses_older_ctrl_a_held_latch() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut rt);
+        rt.progression.current_form = PlayerForm::Skycutter;
+        rt.previous_input = FrameInput {
+            right: true,
+            a: true,
+            ..Default::default()
+        };
+        rt.prior_input = FrameInput {
+            right: true,
+            ..Default::default()
+        };
+
+        let slice = rt
+            .opening_slice
+            .as_mut()
+            .expect("level start should seed a gameplay slice");
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+
+        let first = rt.step_frame(FrameInput {
+            right: true,
+            a: true,
+            ..Default::default()
+        });
+        assert_eq!(
+            first.kid_x_velocity,
+            Some(0x0000_2000),
+            "ASM sub_9A20: stale Ctrl_A_Held=0 should use Skycutter walk accel before run accel"
+        );
+
+        let second = rt.step_frame(FrameInput {
+            right: true,
+            a: true,
+            ..Default::default()
+        });
+        assert_eq!(
+            second.kid_x_velocity,
+            Some(0x0000_6000),
+            "ASM loc_7464/sub_9A20: once Ctrl_A_Held catches up, Skycutter run accel adds $4000"
+        );
+    }
+
     /// ASM loc_B98 (kid.asm:1346): ReadJoypad level-skip cheat gate —
     /// `tst.w (word_7190); beq.s loc_BB6; cmpi.b #$C0,(Ctrl_1_Held);
     /// cmpi.b #$10,(Ctrl_2_Held); st (LevelSkip_Cheat)`. The cheat

@@ -2236,7 +2236,15 @@ impl NativeRuntime {
             down: self.previous_input.down,
             left: self.previous_input.left,
             right: self.previous_input.right,
-            a: self.previous_input.a,
+            // ASM loc_7452 hibernates before loc_7464 refreshes `Ctrl_A_Held`.
+            // The Skycutter ground path at sub_9A20 exposes that older A/run
+            // latch in the Invulnerability audit; non-Skycutter movement stays
+            // on the existing oracle-locked held latch.
+            a: if self.progression.current_form == PlayerForm::Skycutter {
+                self.prior_input.a
+            } else {
+                self.previous_input.a
+            },
             // Gameplay motion consumes the previous controller state, including jump hold.
             b: self.previous_input.b,
             c: input.c,
