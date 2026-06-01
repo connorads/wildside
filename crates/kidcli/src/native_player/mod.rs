@@ -1268,6 +1268,12 @@ fn native_bgm_state_after_trace(
     active_bgm_cue: Option<NativeBgmCue>,
 ) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
     let Some(cue) = native_bgm_cue_for_trace(trace) else {
+        if trace.game_mode == GameMode::SegaScreen && active_bgm_cue.is_some() {
+            // ASM Load_SegaScreen (kid.asm:25444-25445) runs StopMusic before
+            // loading the Sega logo, so the following Load_IntroSequence1
+            // must be able to queue bgm_Ice again.
+            return (None, Some(NativeBgmPlaybackCommand::StopMusic));
+        }
         if active_bgm_cue == Some(NativeBgmCue::TitleShell)
             && trace.game_mode == GameMode::LevelTransition
         {
@@ -10588,6 +10594,31 @@ mod tests {
             native_bgm_cue_for_trace(&options),
             Some(NativeBgmCue::TitleShell),
             "late IntroSequence6 title/menu states should recover the shell cue when native enters them directly"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_sega_screen_stop_music_lets_intro_restart_ice() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let sega = sample_trace(GameMode::SegaScreen);
+        let intro = sample_trace(GameMode::IntroSequence1);
+
+        let (after_sega, sega_command) =
+            native_bgm_state_after_trace(&fixture.manifest, &sega, Some(NativeBgmCue::TitleShell));
+        assert_eq!(
+            (after_sega, sega_command),
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            "ASM Load_SegaScreen (kid.asm:25444-25445) calls StopMusic before the intro shell reload"
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &intro, after_sega),
+            (
+                Some(NativeBgmCue::TitleShell),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::ICE)),
+            ),
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) stops music, then queues bgm_Ice"
         );
         Ok(())
     }

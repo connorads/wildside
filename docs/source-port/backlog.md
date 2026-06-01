@@ -43,6 +43,15 @@ For newly opened items, capture these facts in the investigation notes:
 | 009 | [x] | P2 | menu | No menu — spawns directly into game | Launch, confirm title screen appears |
 | 010 | [x] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
 | 011 | [x] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Resolved by palette fix (#004) |
+
+Note 2026-06-01 for #003: latest playtest still reported missing intro/title
+music on the attract-loop path while options music could start. ASM
+`Load_SegaScreen` (`kid.asm:25444-25445`) calls `StopMusic`, then
+`Load_IntroSequence1` (`kid.asm:29068-29070`) queues `bgm_Ice`. Native was only
+clearing the active title cue on the title-to-level transition, so a return
+through the Sega logo shell could leave playback state treating the title track
+as still active instead of allowing the intro shell to restart Ice. The native
+player now clears active BGM on `GameMode::SegaScreen` when a cue is active.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
