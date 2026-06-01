@@ -650,6 +650,16 @@ pub(crate) struct ShooterHeadbuttWorker {
 pub(crate) struct WeatherState {
     /// Weather type (0=none, 1=lava, 2=storm, 3=storm+hail).
     pub(crate) weather_type: u8,
+    /// ASM loc_14DAC `$FFFFFB3C`: frames until the next storm particle spawn.
+    pub(crate) storm_spawn_cooldown: u8,
+    /// ASM loc_14DAC `$FFFFFB3D`: number of inactive falling weather slots.
+    pub(crate) storm_free_falling_slots: u8,
+    /// ASM loc_14DAC/sub_6048 `$FFFFFAD6`: storm worker mode byte.
+    pub(crate) storm_weather_mode_byte: u8,
+    /// ASM loc_14DAC/sub_6048 `$FFFFFADA`: storm fade countdown.
+    pub(crate) storm_fade_countdown: u16,
+    /// ASM loc_14DAC/sub_6048 `$FFFFFADC`: Mountain thunder timer.
+    pub(crate) storm_thunder_timer: i16,
     /// Hail system: frames until next hail spawn (0=spawn this frame).
     pub(crate) hail_spawn_timer: u16,
     /// Hail system: whether hail is currently active (toggles on $258-frame period).

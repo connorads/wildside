@@ -14264,8 +14264,8 @@ mod chunk_05 {
     fn hail_spawns_projectiles_after_35_seconds() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 3; // Storm + Hail
-        // Simulate 35 seconds elapsed: timer at 145s remaining
-        runtime.level_timer.seconds = 145;
+        // ASM loc_6172: hail starts only after Frame_Counter > $873.
+        runtime.frame_index = 0x0874;
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 0;
         runtime.weather.hail_period_timer = 100; // mid-period, still active
@@ -14278,7 +14278,7 @@ mod chunk_05 {
         //    `50 * 7 + 13 = 363` vs `50 / 7 + 13 = 20`.
         let mut slice = airborne_slice();
         slice.camera.x_pos = 0x0040_0000;
-        runtime.frame_index = 50;
+        runtime.frame_index = 0x0896;
 
         let before = runtime.projectiles.len();
         let camera_x = slice.camera.x_pos >> 16;
@@ -19328,38 +19328,35 @@ mod chunk_05 {
     // --- Hail period toggle ---
 
     #[test]
-    fn hail_period_toggles_active_inactive_on_600_frame_cycle() {
-        // ASM: hail_period_timer counts down from 600; at 0 it toggles hail_active
+    fn hail_period_toggles_active_with_rom_inactive_reload() {
+        // ASM loc_619C: timer reaching zero toggles hail_active and reloads
+        // `$4B0` when entering the active period.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 3;
-        runtime.level_timer.seconds = 100; // well past 35s elapsed
+        runtime.frame_index = 0x0874;
         runtime.weather.hail_active = false;
         runtime.weather.hail_period_timer = 1; // about to toggle
         runtime.weather.hail_spawn_timer = 100;
 
         let slice = airborne_slice();
 
-        // Timer ticks to 0 → toggles active, resets to 600
-        runtime.step_weather(&slice);
-        assert_eq!(runtime.weather.hail_period_timer, 0);
-        // One more step triggers the toggle
         runtime.step_weather(&slice);
         assert!(
             runtime.weather.hail_active,
             "hail should toggle to active when timer reaches 0"
         );
         assert_eq!(
-            runtime.weather.hail_period_timer, 600,
-            "period timer should reset to 600"
+            runtime.weather.hail_period_timer, 0x04B0,
+            "ASM loc_619C should add `$258` to the pre-seeded `$258` when entering the active period"
         );
     }
 
     #[test]
-    fn hail_does_not_spawn_before_35_seconds_elapsed() {
-        // Timer at 146 means only 34s elapsed (180 - 146 = 34)
+    fn hail_does_not_spawn_at_frame_counter_threshold() {
+        // ASM loc_6172: frame_counter == $873 still takes the `bls` branch.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 3;
-        runtime.level_timer.seconds = 146;
+        runtime.frame_index = 0x0873;
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 0;
 
@@ -19368,7 +19365,7 @@ mod chunk_05 {
 
         assert!(
             runtime.projectiles.is_empty(),
-            "no hail should spawn before 35s elapsed"
+            "ASM loc_6172 should not call the hail worker while Frame_Counter <= $873"
         );
     }
 
@@ -19376,7 +19373,7 @@ mod chunk_05 {
     fn hail_spawn_timer_counts_down_between_spawns() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 3;
-        runtime.level_timer.seconds = 100;
+        runtime.frame_index = 0x0874;
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 2;
         runtime.weather.hail_period_timer = 100;
@@ -20805,6 +20802,11 @@ mod chunk_05 {
         let mut runtime = NativeRuntime::new(manifest);
         // Set up some leftover state
         runtime.weather.weather_type = 3;
+        runtime.weather.storm_spawn_cooldown = 7;
+        runtime.weather.storm_free_falling_slots = 4;
+        runtime.weather.storm_weather_mode_byte = 4;
+        runtime.weather.storm_fade_countdown = 0x0100;
+        runtime.weather.storm_thunder_timer = -3;
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 42;
         runtime.weather.hail_period_timer = 99;
@@ -20820,10 +20822,55 @@ mod chunk_05 {
         runtime.init_weather(LevelId(0));
 
         assert_eq!(runtime.weather.weather_type, 0);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, 0);
+        assert_eq!(runtime.weather.storm_free_falling_slots, 0);
+        assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
+        assert_eq!(runtime.weather.storm_fade_countdown, 0);
+        assert_eq!(runtime.weather.storm_thunder_timer, 0);
         assert!(!runtime.weather.hail_active);
         assert_eq!(runtime.weather.hail_spawn_timer, 0);
         assert_eq!(runtime.weather.hail_period_timer, 0);
         assert!(runtime.weather.lava_geysers.is_empty());
+    }
+
+    #[test]
+    fn init_weather_seeds_storm_machine_from_loc_14dac() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 3;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(runtime.weather.weather_type, 3);
+        assert_eq!(
+            runtime.weather.storm_spawn_cooldown, 1,
+            "ASM loc_14DAC seeds `$FFFFFB3C=1` for the storm worker"
+        );
+        assert_eq!(
+            runtime.weather.storm_free_falling_slots, 5,
+            "ASM loc_14DAC clears five falling-weather slots and records all five as free"
+        );
+        assert_eq!(
+            runtime.weather.storm_weather_mode_byte, 4,
+            "ASM loc_14DAC writes `4` to `$FFFFFAD6`"
+        );
+        assert_eq!(
+            runtime.weather.storm_fade_countdown, 0x0100,
+            "ASM loc_14DAC seeds `$FFFFFADA=$100` for the storm fade"
+        );
+        assert_eq!(
+            runtime.weather.storm_thunder_timer, 1,
+            "ASM loc_14DAC seeds `$FFFFFADC=1` for the first thunder event"
+        );
+        assert_eq!(
+            runtime.weather.hail_period_timer, 1,
+            "ASM loc_14DAC writes `$FFFFFB52=1`; sub_6048 turns that into the first hail active period"
+        );
+        assert!(!runtime.weather.hail_active);
     }
 
     #[test]

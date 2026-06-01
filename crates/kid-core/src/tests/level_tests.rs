@@ -168,6 +168,11 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     });
     runtime.weather = WeatherState {
         weather_type: 3,
+        storm_spawn_cooldown: 1,
+        storm_free_falling_slots: 5,
+        storm_weather_mode_byte: 4,
+        storm_fade_countdown: 0x0100,
+        storm_thunder_timer: 1,
         hail_spawn_timer: 11,
         hail_active: true,
         hail_period_timer: 22,

@@ -2339,21 +2339,28 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_weather(&mut self, slice: &OpeningSliceState) {
-        // Hail only for Storm+Hail (weather 3), active after 35s of level time
+        // Hail only for Storm+Hail (weather 3).
         if self.weather.weather_type != 3 {
             return;
         }
-        // Level timer counts down from 180s. 35s elapsed = 145s remaining.
-        if self.level_timer.seconds > 145 {
+        // ASM loc_6172 (kid.asm:6155): `cmpi.w #$873,(Frame_Counter).w;
+        // bls.s return_61C0` gates the live hail worker on the ROM frame
+        // counter, not the coarse countdown timer.
+        if self.frame_index <= 0x0873 {
             return;
         }
 
-        // Toggle hail active/inactive every 600 frames ($258)
-        if self.weather.hail_period_timer > 0 {
-            self.weather.hail_period_timer -= 1;
-        } else {
+        // ASM loc_6172/loc_619C: decrement `$FFFFFB52`; zero toggles
+        // `$FFFFFB54`, then reloads `$4B0` for inactive->active and `$258`
+        // for active->inactive.
+        self.weather.hail_period_timer = self.weather.hail_period_timer.wrapping_sub(1);
+        if self.weather.hail_period_timer == 0 {
+            self.weather.hail_period_timer = if self.weather.hail_active {
+                0x0258
+            } else {
+                0x04B0
+            };
             self.weather.hail_active = !self.weather.hail_active;
-            self.weather.hail_period_timer = 600;
         }
 
         if !self.weather.hail_active {
@@ -2393,6 +2400,11 @@ impl NativeRuntime {
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
         let header = self.level_header(level_id);
         self.weather.weather_type = header.map_or(0, |h| h.weather_flags);
+        self.weather.storm_spawn_cooldown = 0;
+        self.weather.storm_free_falling_slots = 0;
+        self.weather.storm_weather_mode_byte = 0;
+        self.weather.storm_fade_countdown = 0;
+        self.weather.storm_thunder_timer = 0;
         self.weather.hail_active = false;
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
@@ -2400,6 +2412,17 @@ impl NativeRuntime {
         self.weather.lava_fireballs.clear();
         if self.weather.weather_type == 1 {
             self.init_lava_geysers(level_id);
+        } else if matches!(self.weather.weather_type, 2 | 3) {
+            let setup = initialise_storm_setup_loc_14D8A();
+            let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
+            self.weather.storm_spawn_cooldown = seeded.spawn_cooldown;
+            self.weather.storm_free_falling_slots = seeded.free_falling_slots;
+            self.weather.storm_weather_mode_byte = seeded.weather_mode_byte;
+            self.weather.storm_fade_countdown = seeded.fade_countdown;
+            self.weather.storm_thunder_timer = seeded.thunder_timer;
+            self.weather.hail_spawn_timer = u16::from(seeded.spawn_cooldown);
+            self.weather.hail_period_timer = seeded.fb52_word;
+            self.weather.hail_active = seeded.fb54_word != 0;
         }
     }
 
