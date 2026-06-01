@@ -1432,7 +1432,8 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     }
 
     // Jump
-    if prev.kid_on_ground == Some(true)
+    if !queued_sound_ids.contains(&gems_sfx::JUMP)
+        && prev.kid_on_ground == Some(true)
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
     {
@@ -10981,6 +10982,22 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::MINI_HOPPING_SKULL_SCREAM, gems_sfx::THUNDERSTORM],
             "a restarted NativeRuntime resets the cumulative core sound list; the next trace frame must treat all current ASM-backed ids as new"
+        );
+    }
+
+    #[test]
+    fn play_native_does_not_duplicate_core_queued_jump_sfx_loc_a480() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.kid_on_ground = Some(true);
+        curr.kid_on_ground = Some(false);
+        curr.kid_y_velocity = Some(-0x40000);
+        curr.played_sound_effect_ids = vec![gems_sfx::JUMP];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::JUMP],
+            "ASM sub_A432 loc_A480 now queues jump SFX from the core trace, so the native-player fallback must not play a duplicate jump cue"
         );
     }
 
