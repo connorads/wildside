@@ -1312,6 +1312,30 @@ fn native_bgm_state_after_trace(
     (Some(cue), Some(command))
 }
 
+pub(crate) fn native_bgm_events_for_trace(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+) -> Vec<String> {
+    let mut active_bgm_cue = None;
+    let mut events = Vec::new();
+    for (frame_index, trace) in trace_frames.iter().enumerate() {
+        let active_before = active_bgm_cue;
+        let (next_bgm_cue, bgm_command) =
+            native_bgm_state_after_trace(manifest, trace, active_bgm_cue);
+        if let Some(command) = bgm_command {
+            events.push(format_native_bgm_event(
+                frame_index,
+                trace,
+                active_before,
+                next_bgm_cue,
+                command,
+            ));
+        }
+        active_bgm_cue = next_bgm_cue;
+    }
+    events
+}
+
 fn apply_native_bgm_command(
     gems: &mut GemsAudioEngine,
     command: NativeBgmPlaybackCommand,
@@ -10779,6 +10803,31 @@ mod tests {
                 && event.contains("command=StopMusicThenStart(3)"),
             "the recording artefact should show whether ASM Load_IntroSequence1 queued the title-shell music path"
         );
+    }
+
+    #[test]
+    fn scripted_recording_bgm_events_follow_trace_mode_transitions() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut intro = sample_trace(GameMode::IntroSequence1);
+        intro.frame_index = 173;
+        let mut options = sample_trace(GameMode::OptionsMenu);
+        options.frame_index = 2800;
+
+        let events = native_bgm_events_for_trace(&fixture.manifest, &[intro, options]);
+
+        assert_eq!(
+            events,
+            vec![
+                String::from(
+                    "frame=0 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+                ),
+                String::from(
+                    "frame=1 mode=OptionsMenu level=00 active_before=Some(TitleShell) active_after=Some(Options) command=StopMusicThenStart(101)"
+                ),
+            ],
+            "scripted recording bundles should expose the same ASM Load_IntroSequence1/Load_OptionMenu cue transcript as live play-native"
+        );
+        Ok(())
     }
 
     #[test]

@@ -889,7 +889,13 @@ fn main() -> Result<()> {
             recording::save_recording_with_artifacts(
                 &record_to,
                 &recording,
-                &recording::RecordingBundleArtifacts::default(),
+                &recording::RecordingBundleArtifacts {
+                    audio_events: native_player::native_bgm_events_for_trace(
+                        &manifest,
+                        &recording.trace,
+                    ),
+                    ..recording::RecordingBundleArtifacts::default()
+                },
             )?;
             println!(
                 "wrote recording bundle to {}",
@@ -926,7 +932,13 @@ fn main() -> Result<()> {
             recording::save_recording_with_artifacts(
                 &record_to,
                 &recording,
-                &recording::RecordingBundleArtifacts::default(),
+                &recording::RecordingBundleArtifacts {
+                    audio_events: native_player::native_bgm_events_for_trace(
+                        &manifest,
+                        &recording.trace,
+                    ),
+                    ..recording::RecordingBundleArtifacts::default()
+                },
             )?;
             println!(
                 "wrote recording bundle to {}",

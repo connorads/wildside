@@ -87,6 +87,18 @@ replaces BGM. Cold intro evidence
 `frame=173 mode=IntroSequence1 ... command=StopMusicThenStart(3)`, so future
 playtest captures can distinguish "cue never issued" from GEMS/waveform output
 failures without listening by hand.
+
+Follow-up 2026-06-01: scripted recording bundles now emit the same
+`audio-events.txt` transcript as live `play-native`, so title/menu/options audio
+routes can be checked without an interactive recording. Deterministic route
+`.cache/recordings/issue-003-title-options-audio-audit/` presses Start through
+the cold intro/title path, moves to Options, and verifies native-only replay.
+Its transcript records `IntroSequence1 -> StopMusicThenStart(3)` at frame 173
+and `OptionsMenu -> StopMusicThenStart(101)` at frame 2751. That narrows the
+current live "intro/menu silent, options starts" report: the scripted native
+state path queues the expected ASM `Load_IntroSequence1` and `Load_OptionMenu`
+music commands, so remaining work is either live-route drift outside this
+script or GEMS/audio output after the command is issued.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
