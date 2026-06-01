@@ -352,6 +352,7 @@ const KID_Y_VEL_ADDR: usize = 0xFF_250A;
 const KID_X_DIRECTION_ADDR: usize = 0xFF_24F6;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
+const ADDR_FIRST_OBJECT_SLOT_ADDR: usize = 0xFF_F842;
 const SCORE_ADDR: usize = 0xFF_FC4C;
 const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;
 const NUMBER_DIAMONDS_ADDR: usize = 0xFF_FC42;
@@ -367,6 +368,12 @@ const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
 const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
 const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
+const ADDR_FIRST_SHOOTER_OBJECT_SLOT_ADDR: usize = 0xFF_F8CA;
+const SHOOTER_OBJECT_RAM_ADDR: usize = 0xFFFF_E9FA;
+const SHOOTER_OBJECT_SLOT_SIZE: usize = 0x0C;
+const SHOOTER_OBJECT_SLOT_COUNT: usize = 0x27;
+const SHOOTER_OBJECT_RAM_END_ADDR: usize =
+    SHOOTER_OBJECT_RAM_ADDR + SHOOTER_OBJECT_SLOT_SIZE * SHOOTER_OBJECT_SLOT_COUNT;
 const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
 const GFX_OBJECT_SLOT_SIZE: usize = 0x4C;
 const GFX_OBJECT_SLOT_COUNT: usize = 0x4D;
@@ -1032,6 +1039,14 @@ fn capture_state(
             "kid_collision_source".into(),
             format!("{kid_collision_source:#06x}"),
         );
+        let shooter_debug = shooter_object_slots_debug_loc_ec22(&work_ram);
+        if !shooter_debug.is_empty() {
+            gameplay_debug_fields.insert("oracle_shooter_slots_loc_ec22".into(), shooter_debug);
+        }
+        let object_debug = object_slots_debug_loc_e1e(&work_ram);
+        if !object_debug.is_empty() {
+            gameplay_debug_fields.insert("oracle_object_slots_loc_e1e".into(), object_debug);
+        }
     }
     OracleState {
         label: label.to_string(),
@@ -1169,6 +1184,74 @@ fn capture_enemy_states(
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
     enemies
+}
+
+fn shooter_object_slots_debug_loc_ec22(work_ram: &[u8]) -> String {
+    // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
+    // (kid.asm:19080-19620) threads the `$C`-byte ShooterObject_RAM records
+    // through Addr_FirstShooterObjectSlot. Keep this oracle-side dump narrow:
+    // #214 only needs to distinguish shooter-slot scheduling from later
+    // block-destroy worker lifetime.
+    let mut slots = Vec::new();
+    let mut slot_addr = usize::from(read_wram_u16(
+        work_ram,
+        ADDR_FIRST_SHOOTER_OBJECT_SLOT_ADDR,
+    ));
+    let mut guard = 0usize;
+    while slot_addr != 0
+        && (SHOOTER_OBJECT_RAM_ADDR..SHOOTER_OBJECT_RAM_END_ADDR).contains(&slot_addr)
+        && guard < SHOOTER_OBJECT_SLOT_COUNT
+    {
+        let source = read_wram_u16(work_ram, slot_addr);
+        let x_px = read_wram_u16(work_ram, slot_addr + 2);
+        let y_px = read_wram_u16(work_ram, slot_addr + 4);
+        let direction = read_wram_u16(work_ram, slot_addr + 6);
+        let counter = read_wram_u16(work_ram, slot_addr + 8);
+        let next = read_wram_u16(work_ram, slot_addr + 0x0A);
+        slots.push(format!(
+            "{slot_addr:#06x}:src={source:#06x},x={x_px},y={y_px},dir={direction},ctr={counter:#06x},next={next:#06x}"
+        ));
+        slot_addr = usize::from(next);
+        guard += 1;
+    }
+    slots.join(";")
+}
+
+fn object_slots_debug_loc_e1e(work_ram: &[u8]) -> String {
+    // ASM Execute_Objects loc_E1E (kid.asm:1636): the active object list is
+    // threaded from Addr_FirstObjectSlot through the longword at offset 0.
+    // Dump code pointer + hibernate counter + owned gfx position so #214 can
+    // distinguish real sub_10EDA/sub_10F9C hibernating workers from native
+    // synthetic block_fx accounting.
+    let mut slots = Vec::new();
+    let mut object_addr = read_wram_u32(work_ram, ADDR_FIRST_OBJECT_SLOT_ADDR) as usize;
+    let mut guard = 0usize;
+    while object_addr != 0
+        && (OBJECT_RAM_ADDR..OBJECT_RAM_END_ADDR).contains(&object_addr)
+        && guard < 0x32
+    {
+        let code = read_wram_u32(work_ram, object_addr + 4);
+        let hibernate = read_wram_u16(work_ram, object_addr + 8);
+        let gfx_addr = read_wram_u32(work_ram, object_addr + 0x36) as usize;
+        let gfx = if (GFX_OBJECT_RAM_ADDR
+            ..GFX_OBJECT_RAM_ADDR + GFX_OBJECT_SLOT_SIZE * GFX_OBJECT_SLOT_COUNT)
+            .contains(&gfx_addr)
+        {
+            format!(
+                "@{},{}",
+                read_wram_u16(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
+                read_wram_u16(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET)
+            )
+        } else {
+            String::from("@-")
+        };
+        slots.push(format!(
+            "{object_addr:#08x}:code={code:#08x},hib={hibernate}{gfx}"
+        ));
+        object_addr = read_wram_u32(work_ram, object_addr) as usize;
+        guard += 1;
+    }
+    slots.join(";")
 }
 
 fn layout_index_from_ptr(
