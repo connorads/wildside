@@ -1486,6 +1486,7 @@ fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTex
     // scene maps. ASM loc_1C7A0/sub_1C7F6 writes each glyph over blank plane
     // cells at runtime, so clear the scripted cells before replaying the
     // visible prefix for this frame.
+    let clear_tile_word = intro_text_clear_tile_word_loc_1c7a0(script);
     let mut byte_index = 0usize;
     let mut x_pos = script.x_pos;
     let mut y_pos = script.y_pos;
@@ -1508,18 +1509,22 @@ fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTex
                     y_pos,
                     0,
                 );
-                // Native-only cleanup for extracted maps must not use tile
-                // word 0: Scroll A's nametable also lives at VRAM $0000, so
-                // tile index 0 samples nametable bytes as pattern data and
-                // produces the orange bars seen before ASM loc_1C7A0 writes
-                // real glyphs via sub_1C7F6.
-                vdp.write_vram_word(
-                    usize::from(write.vram_word_address),
-                    INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
-                );
+                // Native-only cleanup for extracted maps uses the clear word
+                // selected by the script's base tile. The `$67D3` Wild Side
+                // scripts need a zeroed high-VRAM pattern, while the `$C7D3`
+                // corridor scripts match oracle with literal zero plane cells.
+                vdp.write_vram_word(usize::from(write.vram_word_address), clear_tile_word);
                 x_pos = x_pos.wrapping_add(1);
             }
         }
+    }
+}
+
+fn intro_text_clear_tile_word_loc_1c7a0(script: &IntroTextScriptLoc1C7A0) -> u16 {
+    if script.base_tile_word == 0x67D3 {
+        INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0
+    } else {
+        0
     }
 }
 
@@ -3162,8 +3167,8 @@ mod tests {
         );
         assert_eq!(
             vram_word(&vdp, usize::from(i_write.vram_word_address)),
-            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
-            "ASM IntroText4 should not yet reveal the following `I` at the same checkpoint",
+            0,
+            "ASM IntroText4 should not yet reveal the following `I` at the same checkpoint; oracle frame 1380 keeps `$C7D3` corridor-script unrevealed cells as literal zero",
         );
     }
 
@@ -3186,8 +3191,8 @@ mod tests {
         );
         assert_eq!(
             vram_word(&vdp, usize::from(t_write.vram_word_address)),
-            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
-            "ASM IntroText5 should not yet reveal the `T` in `THE` at the same frame-1980 checkpoint",
+            0,
+            "ASM IntroText5 should not yet reveal the `T` in `THE` at the same frame-1980 checkpoint; `$C7D3` corridor-script unrevealed cells match oracle as literal zero",
         );
     }
 
