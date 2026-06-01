@@ -2349,8 +2349,14 @@ mod chunk_01 {
             EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
             EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
                 + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
+                + EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE
                 + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
-            "the score counter still starts after Score_Board `$14`, loc_D702 `$5A`, loc_D734 eight fade frames, and loc_D752 `$14`"
+            "the score counter still starts after Score_Board `$14`, the oracle-visible row fly-in delay, loc_D702 `$5A`, loc_D734 eight fade frames, and loc_D752 `$14`"
+        );
+        assert_eq!(
+            crate::level::EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE,
+            0x3D,
+            "issue-229 oracle WRAM probes show loc_D770 stays in mode $000C for 61 traced non-changing score frames beyond the score-changing transfer loop"
         );
     }
 

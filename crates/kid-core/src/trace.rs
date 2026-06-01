@@ -5014,6 +5014,54 @@ impl NativeRuntime {
         if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
+        let level_complete_elapsed_frames = match self.player_lifecycle {
+            PlayerLifecycle::LevelComplete {
+                remaining_frames,
+                total_frames,
+            } => total_frames.saturating_sub(remaining_frames),
+            _ => 0,
+        };
+        let level_complete_reveal_frames =
+            if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+                self.level_complete_scoreboard_reveal_frames_loc_C21E()
+            } else {
+                0
+            };
+        let level_complete_score_rows_visible_frame =
+            crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+                + level_complete_reveal_frames
+                + crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE;
+        let level_complete_score_rows_elapsed_frames =
+            if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+                level_complete_elapsed_frames
+                    .saturating_sub(level_complete_score_rows_visible_frame)
+            } else {
+                0
+            };
+        let level_complete_score_rows_started =
+            if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+                u8::from(
+                    level_complete_elapsed_frames.saturating_add(1)
+                        >= level_complete_score_rows_visible_frame,
+                )
+            } else {
+                0
+            };
+        let level_complete_score_counter_elapsed_frames =
+            if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+                level_complete_elapsed_frames.saturating_sub(
+                    crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770
+                        + level_complete_reveal_frames,
+                )
+            } else {
+                0
+            };
+        let trace_score = if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. })
+        {
+            self.level_complete_live_score_loc_D770(level_complete_score_counter_elapsed_frames)
+        } else {
+            self.progression.score
+        };
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -5123,54 +5171,10 @@ impl NativeRuntime {
             number_gfx_objects,
             rng_offset: Some(self.rom_random.offset_word()),
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
-            level_complete_elapsed_frames: match self.player_lifecycle {
-                PlayerLifecycle::LevelComplete {
-                    remaining_frames,
-                    total_frames,
-                } => total_frames.saturating_sub(remaining_frames),
-                _ => 0,
-            },
-            level_complete_score_rows_elapsed_frames: match self.player_lifecycle {
-                PlayerLifecycle::LevelComplete {
-                    remaining_frames,
-                    total_frames,
-                } => {
-                    let elapsed = total_frames.saturating_sub(remaining_frames);
-                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
-                    let visible_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
-                        + reveal_frames
-                        + crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE;
-                    elapsed.saturating_sub(visible_frame)
-                }
-                _ => 0,
-            },
-            level_complete_score_rows_started: match self.player_lifecycle {
-                PlayerLifecycle::LevelComplete {
-                    remaining_frames,
-                    total_frames,
-                } => {
-                    let elapsed = total_frames.saturating_sub(remaining_frames);
-                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
-                    let visible_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
-                        + reveal_frames
-                        + crate::level::EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE;
-                    u8::from(elapsed.saturating_add(1) >= visible_frame)
-                }
-                _ => 0,
-            },
-            level_complete_score_counter_elapsed_frames: match self.player_lifecycle {
-                PlayerLifecycle::LevelComplete {
-                    remaining_frames,
-                    total_frames,
-                } => {
-                    let elapsed = total_frames.saturating_sub(remaining_frames);
-                    let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
-                    elapsed.saturating_sub(
-                        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + reveal_frames,
-                    )
-                }
-                _ => 0,
-            },
+            level_complete_elapsed_frames,
+            level_complete_score_rows_elapsed_frames,
+            level_complete_score_rows_started,
+            level_complete_score_counter_elapsed_frames,
             level_complete_initial_score: match self.player_lifecycle {
                 PlayerLifecycle::LevelComplete { .. } => self.level_complete_initial_score,
                 _ => 0,
@@ -5238,16 +5242,12 @@ impl NativeRuntime {
             diamond_power_active: self.progression.diamond_power_frames > 0
                 || !self.diamond_power_invuln_haze_slots.is_empty(),
             diamond_count: self.progression.diamond_count,
-            // ASM loc_D17E (kid.asm:16428): the flagpole score-screen setup
-            // copies `(Score).w` into an EOL number object and clears the live
-            // score word. Native progression keeps the awarded total for the
-            // collapsed post-sequence handoff, but trace state reports the ROM
-            // live score while LevelComplete is active.
-            score: if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
-                0
-            } else {
-                self.progression.score
-            },
+            // ASM loc_D770 (kid.asm:16855): the flagpole EOL score counter
+            // drains visible bonus rows into live `(Score).w`. Native
+            // progression keeps the awarded total for the collapsed
+            // post-sequence handoff, but trace state reports the ROM live
+            // score while LevelComplete is active.
+            score: trace_score,
             level_timer_seconds: self.level_timer.seconds,
             level_damage_taken: self.level_damage_taken,
             level_prize_collected: self.level_prize_collected,

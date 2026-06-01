@@ -16972,9 +16972,17 @@ pub const EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE: usize = 0x
 /// objects before loc_D702 hibernates and fades; on hardware they are still
 /// off-screen/dim for the first `$3C` native trace ticks.
 pub const EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE: usize = 0x3C;
+/// Oracle-backed live-counter phase. ASM loc_D770 owns one score-changing
+/// transfer per coroutine wake, but WRAM traces expose scheduler stall frames
+/// where the EOL counter remains in `Game_Mode=$000C` without changing Score.
+/// The level-3 flag probe shows 232 score-changing frame-to-frame deltas over
+/// 294 traced frame deltas before loc_D7F4's final hibernate, so native keeps
+/// the collapsed lifecycle alive for those non-changing traced frames.
+pub const EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE: usize = 0x3D;
 pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
 pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
     + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
+    + EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE
     + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

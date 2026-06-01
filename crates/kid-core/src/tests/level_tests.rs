@@ -8463,7 +8463,7 @@ mod chunk_02 {
 
     #[test]
     #[allow(non_snake_case)]
-    fn loc_D17E_level_complete_score_handoff_clears_live_score() {
+    fn loc_D770_level_complete_trace_reports_live_score_counter() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
         start_level(&mut runtime);
@@ -8480,15 +8480,15 @@ mod chunk_02 {
 
         assert!(
             trace.level_complete,
-            "flag touch should enter the ASM level-complete path before loc_D17E"
+            "flag touch should enter the ASM level-complete path before loc_D770"
         );
         assert_eq!(
-            trace.score, 0,
-            "ASM loc_D17E clears live `(Score).w` after copying it to the EOL score object"
+            trace.score, 12_340,
+            "ASM loc_D770 drains visible EOL bonus rows into live `(Score).w`; before the counter starts it still reports the copied score"
         );
         assert_eq!(
             trace.level_complete_initial_score, 12_340,
-            "native trace should preserve the copied loc_D17E score value for EOL rendering"
+            "native trace should preserve the copied loc_D770 score value for EOL rendering"
         );
     }
 

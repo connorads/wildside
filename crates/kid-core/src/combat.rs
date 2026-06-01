@@ -7498,7 +7498,7 @@ pub(crate) fn heady_metal_cleanup_sub_378C8(
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-struct LevelCompletionBonusTallyLocD468 {
+pub(crate) struct LevelCompletionBonusTallyLocD468 {
     amounts: [u32; 5],
     count: usize,
     path_bonus_amount: u32,
@@ -7511,7 +7511,7 @@ impl LevelCompletionBonusTallyLocD468 {
         self.count += 1;
     }
 
-    fn amounts(&self) -> &[u32] {
+    pub(crate) fn amounts(&self) -> &[u32] {
         &self.amounts[..self.count]
     }
 }
@@ -7530,7 +7530,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn level_completion_bonus_tally_loc_D468(&self) -> LevelCompletionBonusTallyLocD468 {
+    pub(crate) fn level_completion_bonus_tally_loc_D468(&self) -> LevelCompletionBonusTallyLocD468 {
         let mut tally = LevelCompletionBonusTallyLocD468::default();
 
         tally.push(time_bonus_loc_d56e(self.level_timer.seconds));
@@ -7583,7 +7583,21 @@ impl NativeRuntime {
         );
         let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
 
-        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 + reveal_frames + counter.total_frames
+        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770
+            + reveal_frames
+            + crate::level::EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE
+            + counter.total_frames
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn level_complete_live_score_loc_D770(&self, elapsed_counter_frames: usize) -> u32 {
+        let tally = self.level_completion_bonus_tally_loc_D468();
+        crate::level::eol_score_counter_snapshot_loc_D770(
+            self.level_complete_initial_score,
+            tally.amounts(),
+            elapsed_counter_frames,
+        )
+        .score
     }
 
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
