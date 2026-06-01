@@ -29,6 +29,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) skip_frames_before: Option<usize>,
     pub(crate) memory_watches: Option<String>,
     pub(crate) wram_dump_frames: Option<String>,
+    pub(crate) vram_dump_frames: Option<String>,
     pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) capture_cpu_state: bool,
 }
@@ -383,6 +384,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if let Some(ref frames) = options.wram_dump_frames {
         cmd.arg("--wram-dump-frames").arg(frames);
+    }
+    if let Some(ref frames) = options.vram_dump_frames {
+        cmd.arg("--vram-dump-frames").arg(frames);
     }
     if let Some(ref samples) = options.vdp_pixel_samples {
         cmd.arg("--vdp-pixel-samples").arg(samples);

@@ -855,24 +855,24 @@ struct IntroSpriteFrameVram {
 }
 
 fn intro_sequence_3_sprite_frame_vram(addroffset_sprite: u16) -> Option<IntroSpriteFrameVram> {
-    // ASM Data_Index entries at kid.asm:48180 and `sprite_frame_vram` records
-    // at unk_E1066..unk_E10C6 provide the frame metadata consumed by
+    // ASM Data_Index entries at kid.asm:48231-48244 and `sprite_frame_vram`
+    // records at unk_E1106..unk_E116E provide the frame metadata consumed by
     // Make_SpriteFromGfxObject for Load_IntroSequence3's loc_1AEEC objects.
     let (sprite_index, width, height) = match addroffset_sprite {
-        0x1208 => (0x000, 0x30, 0x30),
-        0x120C => (0x024, 0x0C, 0x31),
-        0x1210 => (0x032, 0x30, 0x30),
-        0x1214 => (0x056, 0x0C, 0x39),
-        0x1218 => (0x066, 0x2A, 0x37),
-        0x121C => (0x090, 0x27, 0x2B),
-        0x1220 => (0x0AE, 0x3B, 0x1B),
-        0x1228 => (0x000, 0x3E, 0x2F),
-        0x122C => (0x030, 0x28, 0x30),
-        0x1230 => (0x04E, 0x28, 0x30),
-        0x1234 => (0x000, 0x34, 0x3D),
-        0x1238 => (0x000, 0x34, 0x4C),
-        0x123C => (0x000, 0x27, 0x37),
-        0x1224 => (0x0CC, 0x30, 0x30),
+        0x1208 => (0x000, 0x18, 0x24),
+        0x120C => (0x00F, 0x15, 0x23),
+        0x1210 => (0x01E, 0x12, 0x28),
+        0x1214 => (0x02D, 0x12, 0x25),
+        0x1218 => (0x03C, 0x12, 0x23),
+        0x121C => (0x04B, 0x13, 0x1F),
+        0x1220 => (0x057, 0x1D, 0x2C),
+        0x1224 => (0x06F, 0x20, 0x24),
+        0x1228 => (0x083, 0x13, 0x1D),
+        0x122C => (0x08F, 0x15, 0x2D),
+        0x1230 => (0x0A1, 0x0F, 0x23),
+        0x1234 => (0x0AB, 0x0F, 0x23),
+        0x1238 => (0x0B5, 0x1D, 0x32),
+        0x123C => (0x0D1, 0x18, 0x23),
         _ => return None,
     };
     Some(IntroSpriteFrameVram {
@@ -921,7 +921,7 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
         });
     }
     push_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_objects, visible_elapsed);
-    sprite_objects.sort_by_key(|object| object.order_key);
+    sprite_objects.sort_by_key(|object| std::cmp::Reverse(object.order_key));
     let mut sprite_entries = Vec::new();
     for object in sprite_objects {
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
@@ -942,9 +942,19 @@ fn push_intro_sequence_3_sliding_sprites_sub_1C572(
     // kid roster and then the paired sub_1C572/loc_1C58C sliding door sprites.
     // Both door workers set their visible gfx slot immediately, hibernate for
     // `$3C`, then move one pixel per frame for `#$41+1` iterations.
-    for sliding in crate::boot::title_menu_sliding_sprites_sub_1C572() {
+    // ASM sub_1C572 / loc_1C58C allocates both workers with `$02000004`.
+    // Oracle VRAM at frame 1080 links the later right-hand worker before the
+    // left-hand worker, so mirror the equal-slot chain order explicitly.
+    for sliding in crate::boot::title_menu_sliding_sprites_sub_1C572()
+        .into_iter()
+        .rev()
+    {
+        // ASM sub_1C572/loc_1C58C pushes `#$3C` before `Hibernate_Object`;
+        // oracle sprite tables show the first visible door-position delta two
+        // frames later than the raw hibernate count once the VDP table is
+        // sampled after Load_IntroSequence3's hidden rebuild shell.
         let moving_elapsed =
-            visible_elapsed.saturating_sub(usize::from(sliding.initial_hibernate_frames));
+            visible_elapsed.saturating_sub(usize::from(sliding.initial_hibernate_frames) + 2);
         let moved_frames = moving_elapsed.min(usize::from(sliding.moving_frames));
         let x_pos = i32::from(sliding.x_pos)
             + i32::from(sliding.x_velocity_per_frame) * moved_frames as i32;
@@ -2980,10 +2990,6 @@ mod tests {
         )
     }
 
-    fn sprite_table_contains(vdp: &VdpState, expected: (u16, u8, u8, u16, u16)) -> bool {
-        (0..80).any(|entry_index| sprite_entry_words(vdp, entry_index) == expected)
-    }
-
     fn sprite_table_index_without_link(
         vdp: &VdpState,
         expected: (u16, u8, u16, u16),
@@ -3023,12 +3029,12 @@ mod tests {
         );
 
         assert!(
-            sprite_table_index_without_link(&vdp, (0x0120, 0x0F, 0xA1D6, 0x0178)).is_some(),
-            "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first 32x32 hardware sprite",
+            sprite_table_index_without_link(&vdp, (0x012C, 0x0B, 0xA1D6, 0x0178)).is_some(),
+            "ASM Load_IntroSequence3 loc_1AEEC should expose roster 1 descriptor 0 through Make_SpriteFromGfxObject's first hardware sprite from Data_Index `$1208` / unk_E1106",
         );
         assert!(
-            sprite_table_index_without_link(&vdp, (0x0120, 0x07, 0xA1E6, 0x0198)).is_some(),
-            "ASM Make_SpriteFromGfxObject should split the 48px-wide Wild Side kid frame into a linked 16x32 tail chunk with the next tile run",
+            sprite_table_index_without_link(&vdp, (0x014C, 0x08, 0xA1E2, 0x0178)).is_some(),
+            "ASM Make_SpriteFromGfxObject should split the 36px-tall Wild Side kid frame into the linked bottom chunk with the next tile run",
         );
     }
 
@@ -3044,7 +3050,7 @@ mod tests {
         );
 
         assert!(
-            sprite_table_index_without_link(&vdp, (0x011D, 0x0F, 0xA1D6, 0x0163)).is_some(),
+            sprite_table_index_without_link(&vdp, (0x012F, 0x0B, 0xA259, 0x0163)).is_some(),
             "ASM loc_1AEBA should choose roster 2's first descriptor instead of reusing roster 1's first x/y pair, even though lower gfx slots render before the roster",
         );
     }
@@ -3197,7 +3203,7 @@ mod tests {
         );
 
         assert!(
-            sprite_table_contains(&vdp, (0x0119, 0x0F, 1, 0x0140, 0x0101)),
+            sprite_table_index_without_link(&vdp, (0x0119, 0x0F, 0x0140, 0x0101)).is_some(),
             "ASM Load_IntroSequence3 runs sub_1B93E -> sub_1C54A, but sub_1C54A only sets display byte `$13(a1)`, not priority `$10(a1)`",
         );
     }
@@ -3215,18 +3221,25 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x0119, 0x0F, 1, 0x0140, 0x0101),
-            "ASM Load_IntroSequence3 allocates sub_1C54A into gfx slot `$01000000`, before the `$01FF/$0200/$0201` roster and sliding-door slots, so its low-priority hardware sprite should lead the table",
+            (0x012C, 0x0B, 1, 0xA1D6, 0x0178),
+            "Oracle VRAM frame 1080 shows ASM loc_FD4 hardware output starts with the `$0201` high-priority roster chain, using Data_Index `$1208` / unk_E1106",
         );
-        let low_roster = sprite_table_index_without_link(&vdp, (0x0119, 0x0F, 0x2266, 0x0118))
-            .expect("ASM loc_FD4 should sort the `$01FF` roster object before `$0200` doors");
+        let high_roster = sprite_table_index_without_link(&vdp, (0x012C, 0x0B, 0xA1D6, 0x0178))
+            .expect("ASM loc_1AEEC should allocate `$0201` high-priority roster objects");
+        let right_door = sprite_table_index_without_link(&vdp, (0x0118, 0x0F, 0x018E, 0x015E))
+            .expect("ASM loc_1C58C should allocate the `$0200` right door object");
         let left_door = sprite_table_index_without_link(&vdp, (0x0118, 0x0F, 0x0170, 0x00BA))
             .expect("ASM sub_1C572 should allocate the `$0200` left door object");
-        let high_roster = sprite_table_index_without_link(&vdp, (0x0120, 0x0F, 0xA1D6, 0x0178))
-            .expect("ASM loc_1AEEC should allocate `$0201` high-priority roster objects after the doors");
+        let low_roster = sprite_table_index_without_link(&vdp, (0x0125, 0x0B, 0x2221, 0x0118))
+            .expect("ASM loc_1AEEC should allocate the `$01FF` low-priority roster object");
+        let fixed_door = sprite_table_index_without_link(&vdp, (0x0119, 0x0F, 0x0140, 0x0101))
+            .expect("ASM sub_1C54A should allocate the `$0100` fixed door/interior object");
         assert!(
-            low_roster < left_door && left_door < high_roster,
-            "ASM Allocate_GfxObjectSlot loc_FD4 sorts by allocation-spec high word: `$01FF` roster, `$0200` doors, then `$0201` roster"
+            high_roster < right_door
+                && right_door < left_door
+                && left_door < low_roster
+                && low_roster < fixed_door,
+            "Oracle VRAM frame 1080 shows the linked hardware table order as `$0201` roster, `$0200` right/left doors, `$01FF` roster, then `$0100` fixed door/interior"
         );
     }
 
@@ -3254,19 +3267,19 @@ mod tests {
             &empty_intro_data(),
             2,
             1,
-            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES + 0x3D,
+            INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES + 0x3F,
             1,
         );
 
         assert!(
             sprite_table_index_without_link(&after_first_move, (0x0118, 0x0F, 0x0170, 0x00BB))
                 .is_some(),
-            "ASM loc_1C5BE should move the left door half right by one pixel after its first post-hibernate frame",
+            "Oracle VRAM shows ASM loc_1C5BE's first visible left-door move two frames after the raw `$3C` hibernate expires",
         );
         assert!(
             sprite_table_index_without_link(&after_first_move, (0x0118, 0x0F, 0x018E, 0x015D))
                 .is_some(),
-            "ASM loc_1C5BE should move the right door half left by one pixel after its first post-hibernate frame",
+            "Oracle VRAM shows ASM loc_1C5BE's first visible right-door move two frames after the raw `$3C` hibernate expires",
         );
     }
 

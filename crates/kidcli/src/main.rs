@@ -42,7 +42,10 @@ use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
-use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
+use kid_core::{
+    FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm,
+    run_script,
+};
 use kid_data::{AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id};
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
@@ -740,6 +743,12 @@ enum Commands {
         /// Frames at which to dump full 64KB WRAM (e.g. 954,955,956)
         #[arg(long)]
         wram_dump_frames: Option<String>,
+        /// Frames at which to dump full 64KB VRAM (e.g. 1080)
+        #[arg(long)]
+        vram_dump_frames: Option<String>,
+        /// Frames at which to dump native synthetic VDP VRAM for comparison.
+        #[arg(long)]
+        native_vram_dump_frames: Option<String>,
         /// Oracle VDP pixel samples as X/Y pairs (e.g. 0/169,126/169)
         #[arg(long)]
         vdp_pixel_samples: Option<String>,
@@ -1767,6 +1776,8 @@ fn main() -> Result<()> {
             frame_end,
             watches,
             wram_dump_frames,
+            vram_dump_frames,
+            native_vram_dump_frames,
             vdp_pixel_samples,
             when,
             capture_cpu_state,
@@ -1774,7 +1785,7 @@ fn main() -> Result<()> {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
-            let _manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
 
             // Load and optionally slice the scenario
             let raw_json = fs::read_to_string(&scenario)
@@ -1811,6 +1822,7 @@ fn main() -> Result<()> {
                 skip_frames_before: frame_start,
                 memory_watches: watches.clone(),
                 wram_dump_frames: wram_dump_frames.clone(),
+                vram_dump_frames: vram_dump_frames.clone(),
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 capture_cpu_state,
             };
@@ -1890,6 +1902,22 @@ fn main() -> Result<()> {
             // Report WRAM dumps
             if wram_dump_frames.is_some() {
                 eprintln!("WRAM dumps written to {}", oracle_dir.display());
+            }
+            if vram_dump_frames.is_some() {
+                eprintln!("VRAM dumps written to {}", oracle_dir.display());
+            }
+            if let Some(frames) = native_vram_dump_frames.as_deref() {
+                let frames = parse_frame_list_cli(frames)?;
+                write_native_vram_dumps_for_dynamic_scenario(
+                    &run_dir.join("native"),
+                    &manifest,
+                    &dyn_scenario,
+                    &frames,
+                )?;
+                eprintln!(
+                    "Native VRAM dumps written to {}",
+                    run_dir.join("native").display()
+                );
             }
 
             for row in oracle_manifest
@@ -2029,6 +2057,81 @@ fn main() -> Result<()> {
             )?;
         }
     }
+    Ok(())
+}
+
+fn parse_frame_list_cli(spec: &str) -> Result<Vec<usize>> {
+    if spec.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    spec.split(',')
+        .map(|part| {
+            let trimmed = part.trim();
+            trimmed
+                .parse::<usize>()
+                .with_context(|| format!("invalid frame number: {trimmed}"))
+        })
+        .collect()
+}
+
+fn write_native_vram_dumps_for_dynamic_scenario(
+    out_dir: &Path,
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    frames: &[usize],
+) -> Result<()> {
+    if frames.is_empty() {
+        return Ok(());
+    }
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+
+    let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+    if let Some(level_id) = scenario.warp_to_level {
+        let level_id = LevelId(level_id);
+        runtime.boot_to_level(level_id);
+        if scenario.settle_oracle_warp {
+            runtime.settle_recording_oracle_warp_live_window(level_id);
+        }
+    }
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+    if let Some(position) = scenario.camera_position {
+        runtime.set_camera_probe_position(position.x, position.y);
+    }
+    if let Some(helmet_id) = scenario.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runtime.set_playtest_form(form);
+    }
+    if let Some(count) = scenario.initial_diamond_count {
+        runtime.set_probe_diamond_count(count);
+    }
+
+    let last_frame = frames
+        .iter()
+        .copied()
+        .max()
+        .expect("empty frames handled above");
+    for frame_index in 0..=last_frame {
+        let input = scenario
+            .script
+            .get(frame_index)
+            .copied()
+            .map(FrameInput::from_mask)
+            .unwrap_or_default();
+        runtime.step_frame(input);
+        if frames.contains(&frame_index) {
+            let vdp = runtime
+                .vdp_state()
+                .ok_or_else(|| anyhow!("native frame {frame_index} has no synthetic VDP state"))?;
+            let dump_path = out_dir.join(format!("vram_frame_{frame_index}.bin"));
+            fs::write(&dump_path, &vdp.vram)
+                .with_context(|| format!("failed to write {}", dump_path.display()))?;
+        }
+    }
+
     Ok(())
 }
 

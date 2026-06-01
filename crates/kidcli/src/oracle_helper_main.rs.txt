@@ -199,6 +199,12 @@ struct OracleManifest {
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum MemoryDumpArea {
+    Wram,
+    Vram,
+}
+
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize)]
@@ -506,6 +512,7 @@ fn main() -> Result<()> {
     let mut skip_frames_before: Option<usize> = None;
     let mut memory_watches_spec = String::new();
     let mut wram_dump_frames_spec = String::new();
+    let mut vram_dump_frames_spec = String::new();
     let mut vdp_pixel_samples_spec = String::new();
     let mut capture_cpu_state = false;
 
@@ -519,6 +526,7 @@ fn main() -> Result<()> {
             "--skip-frames-before" => skip_frames_before = args.next().and_then(|s| s.parse().ok()),
             "--memory-watches" => memory_watches_spec = args.next().unwrap_or_default(),
             "--wram-dump-frames" => wram_dump_frames_spec = args.next().unwrap_or_default(),
+            "--vram-dump-frames" => vram_dump_frames_spec = args.next().unwrap_or_default(),
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             other => return Err(anyhow!("unknown arg {other}")),
@@ -533,13 +541,14 @@ fn main() -> Result<()> {
     let resolved = resolve_scenario(scenario_slug.as_deref(), scenario_file.as_deref())?;
     let memory_watches = parse_memory_watches(&memory_watches_spec)?;
     let wram_dump_frames = parse_frame_list(&wram_dump_frames_spec)?;
+    let vram_dump_frames = parse_frame_list(&vram_dump_frames_spec)?;
     let vdp_pixel_samples = parse_vdp_pixel_samples(&vdp_pixel_samples_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vdp_pixel_samples, capture_cpu_state)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &vdp_pixel_samples, capture_cpu_state)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -605,7 +614,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -723,9 +732,22 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
 
                     // WRAM dump: write full 64KB to file at requested frames
                     if wram_dump_frames.contains(&frame_index) {
-                        let dump_path = out_dir.join(format!("wram_frame_{frame_index}.bin"));
-                        fs::write(&dump_path, &work_ram)
-                            .with_context(|| format!("failed to write {}", dump_path.display()))?;
+                        write_memory_dump(
+                            out_dir,
+                            "wram",
+                            frame_index,
+                            MemoryDumpArea::Wram,
+                            &mut emulator,
+                        )?;
+                    }
+                    if vram_dump_frames.contains(&frame_index) {
+                        write_memory_dump(
+                            out_dir,
+                            "vram",
+                            frame_index,
+                            MemoryDumpArea::Vram,
+                            &mut emulator,
+                        )?;
                     }
                     if !vdp_pixel_samples.is_empty() {
                         all_vdp_pixel_samples.push(OracleVdpPixelSampleRow {
@@ -756,6 +778,24 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         vdp_pixel_samples: all_vdp_pixel_samples,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
+    Ok(())
+}
+
+fn write_memory_dump(
+    out_dir: &Path,
+    prefix: &str,
+    frame_index: usize,
+    area: MemoryDumpArea,
+    emulator: &mut GenesisEmulator,
+) -> Result<()> {
+    let memory_area = match area {
+        MemoryDumpArea::Wram => GenesisMemoryArea::WorkingRam,
+        MemoryDumpArea::Vram => GenesisMemoryArea::Vram,
+    };
+    let bytes = capture_memory(emulator, memory_area, 0x1_0000);
+    let dump_path = out_dir.join(format!("{prefix}_frame_{frame_index}.bin"));
+    fs::write(&dump_path, &bytes)
+        .with_context(|| format!("failed to write {}", dump_path.display()))?;
     Ok(())
 }
 
