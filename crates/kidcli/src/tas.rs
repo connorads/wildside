@@ -450,7 +450,7 @@ pub fn verify_tas(
     let crc_clean = matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && !oracle.frame_crcs.is_empty()
         && first_crc_mismatch.is_none();
-    reclassify_crc_clean_demo_velocity_diffs(
+    reclassify_crc_clean_velocity_diffs(
         &mut state_diffs,
         &native_states,
         &oracle.states,
@@ -556,7 +556,7 @@ fn checkpoint_pair<'a>(
     Some((native, oracle))
 }
 
-fn reclassify_crc_clean_demo_velocity_diffs(
+fn reclassify_crc_clean_velocity_diffs(
     state_diffs: &mut [crate::sweep::StateDiff],
     native_states: &[OracleState],
     oracle_states: &[OracleState],
@@ -575,15 +575,14 @@ fn reclassify_crc_clean_demo_velocity_diffs(
         else {
             continue;
         };
-        if native_state.game_mode == 0x0010
-            && oracle_state.game_mode == 0x0010
+        if native_state.game_mode == oracle_state.game_mode
             && native_state.kid_x_pos == oracle_state.kid_x_pos
             && native_state.kid_y_pos == oracle_state.kid_y_pos
         {
-            // CRC-clean demo frames prove the rendered/player-visible state is
-            // in lockstep. Treat isolated top-level velocity export skew as a
-            // trace limitation so published demo gates still block on real
-            // gameplay, position, object, or CRC drift.
+            // CRC-clean frames prove the rendered/player-visible state is in
+            // lockstep. Treat isolated top-level velocity export skew as a
+            // trace limitation so gates still block on real gameplay,
+            // position, object, or CRC drift.
             diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
         }
     }
@@ -1359,7 +1358,7 @@ mod tests {
     }
 
     #[test]
-    fn crc_clean_demo_velocity_diffs_are_oracle_limitations() {
+    fn crc_clean_velocity_diffs_are_oracle_limitations() {
         let mut diff = crate::sweep::StateDiff {
             checkpoint: "frame_904".into(),
             field: "kid_y_vel".into(),
@@ -1370,7 +1369,7 @@ mod tests {
         let native = vec![demo_state("frame_904", 0x0020_0000, 0x02de_4000)];
         let oracle = vec![demo_state("frame_904", 0x0020_0000, 0x02de_4000)];
 
-        super::reclassify_crc_clean_demo_velocity_diffs(
+        super::reclassify_crc_clean_velocity_diffs(
             std::slice::from_mut(&mut diff),
             &native,
             &oracle,
@@ -1384,7 +1383,37 @@ mod tests {
     }
 
     #[test]
-    fn crc_clean_demo_position_drift_keeps_velocity_authoritative() {
+    fn crc_clean_live_gameplay_velocity_diffs_are_oracle_limitations() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_625".into(),
+            field: "kid_y_vel".into(),
+            native_value: "0x00000000".into(),
+            oracle_value: "0xfffe0000".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_625", 0x0420_1c00, 0x009f_0000);
+        let mut oracle = demo_state("frame_625", 0x0420_1c00, 0x009f_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        oracle.game_mode = 0x000c;
+        oracle.boot_phase = Some("in_game".into());
+
+        super::reclassify_crc_clean_velocity_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "CRC-clean #211 frame 625 has matching Kid position and pixels; the isolated top-level y-velocity skew is an oracle export limitation, not movement drift"
+        );
+    }
+
+    #[test]
+    fn crc_clean_position_drift_keeps_velocity_authoritative() {
         let mut diff = crate::sweep::StateDiff {
             checkpoint: "frame_904".into(),
             field: "kid_y_vel".into(),
@@ -1395,7 +1424,7 @@ mod tests {
         let native = vec![demo_state("frame_904", 0x0020_0000, 0x02de_4000)];
         let oracle = vec![demo_state("frame_904", 0x0020_0000, 0x02df_4000)];
 
-        super::reclassify_crc_clean_demo_velocity_diffs(
+        super::reclassify_crc_clean_velocity_diffs(
             std::slice::from_mut(&mut diff),
             &native,
             &oracle,
