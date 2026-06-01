@@ -65,6 +65,20 @@ reproduced in a deterministic recording. Oracle status: ASM says intro sequence
 1 must queue `bgm_Ice`; title/menu shell needs a live audio trace before another
 fix. Minimum gate: `1p-playable` plus recorded boot/title/options audio cue
 transcript.
+
+Follow-up 2026-06-01: native `play-native` cold boot did produce audio, but the
+cue path still differed from ASM `Load_IntroSequence1` (`kid.asm:29067-29070`):
+native treated a cold intro as plain `Start(bgm_Ice)`, whereas the ROM runs
+`StopMusic` first and then queues Ice. This matches the live symptom where
+Options, which already used the reset/start path from `Load_OptionMenu`, could
+start music while intro/title did not reliably recover. Native now uses
+`StopMusicThenStart(bgm_Ice)` for `IntroSequence1` even with no active cue.
+Evidence: `.cache/recordings/issue-003-intro-reset-audio-after/audio.wav` is
+20s stereo, RMS about -26.08 dB, with silence ending at the intro transition
+around 2.883s. The native recording verifier and
+`verify-audio-output --scenario boot-title-start-level1` pass. Follow-up still
+needed: scripted title/options live recording so the menu cue itself is covered
+by player-loop evidence rather than helper-only tests.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |

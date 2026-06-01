@@ -1287,7 +1287,9 @@ fn native_bgm_state_after_trace(
     let Some(bgm) = bgm_for_native_cue(manifest, cue) else {
         return (active_bgm_cue, None);
     };
-    let command = if active_bgm_cue.is_some() {
+    let command = if active_bgm_cue.is_some()
+        || (cue == NativeBgmCue::TitleShell && trace.game_mode == GameMode::IntroSequence1)
+    {
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
     } else {
         NativeBgmPlaybackCommand::Start(bgm)
@@ -10701,6 +10703,15 @@ mod tests {
         let sega = sample_trace(GameMode::SegaScreen);
         let intro = sample_trace(GameMode::IntroSequence1);
 
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &intro, None),
+            (
+                Some(NativeBgmCue::TitleShell),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::ICE)),
+            ),
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) runs StopMusic even on a cold intro load before queuing bgm_Ice"
+        );
+
         let (after_sega, sega_command) =
             native_bgm_state_after_trace(&fixture.manifest, &sega, Some(NativeBgmCue::TitleShell));
         assert_eq!(
@@ -10713,7 +10724,7 @@ mod tests {
             native_bgm_state_after_trace(&fixture.manifest, &intro, after_sega),
             (
                 Some(NativeBgmCue::TitleShell),
-                Some(NativeBgmPlaybackCommand::Start(gems_bgm::ICE)),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::ICE)),
             ),
             "ASM Load_IntroSequence1 (kid.asm:29068-29070) stops music, then queues bgm_Ice"
         );
