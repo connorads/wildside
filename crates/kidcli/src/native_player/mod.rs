@@ -386,6 +386,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
+    let mut recorded_audio_events = Vec::new();
     let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
 
     if options.record_to.is_some() {
@@ -606,6 +607,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let (next_bgm_cue, bgm_command) =
             native_bgm_state_after_trace(manifest, &trace, active_bgm_cue);
         if let Some(command) = bgm_command
+            && options.record_to.is_some()
+        {
+            recorded_audio_events.push(format_native_bgm_event(
+                recorded_trace.len().saturating_sub(1),
+                &trace,
+                active_bgm_cue,
+                next_bgm_cue,
+                command,
+            ));
+        }
+        if let Some(command) = bgm_command
             && let Some(ref mut gems) = gems_engine
         {
             pending_bgm_start = apply_native_bgm_command(gems, command);
@@ -725,6 +737,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         recorded_script,
         recorded_trace,
         recorded_audio,
+        recorded_audio_events,
         final_frame_rgb,
         trace,
         audio_channels,
@@ -838,6 +851,7 @@ fn save_native_recording_bundle(
     mut recorded_script: Vec<u8>,
     mut recorded_trace: Vec<NativeTraceFrame>,
     recorded_audio: Vec<f32>,
+    recorded_audio_events: Vec<String>,
     final_frame_rgb: Option<Vec<u8>>,
     current_trace: NativeTraceFrame,
     audio_channels: u8,
@@ -872,6 +886,7 @@ fn save_native_recording_bundle(
         final_frame_rgb,
         audio_samples: Some(recorded_audio),
         audio_channels: u16::from(audio_channels),
+        audio_events: recorded_audio_events,
     };
     save_recording_with_artifacts(record_to, &recording, &artifacts)?;
     println!(
@@ -1320,6 +1335,19 @@ fn apply_native_bgm_command(
             Some(bgm)
         }
     }
+}
+
+fn format_native_bgm_event(
+    frame_index: usize,
+    trace: &NativeTraceFrame,
+    active_before: Option<NativeBgmCue>,
+    active_after: Option<NativeBgmCue>,
+    command: NativeBgmPlaybackCommand,
+) -> String {
+    format!(
+        "frame={frame_index} mode={:?} level={:02X} active_before={active_before:?} active_after={active_after:?} command={command:?}",
+        trace.game_mode, trace.current_level.0
+    )
 }
 
 fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
@@ -7678,6 +7706,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
+            Vec::new(),
             Some(final_frame),
             trace.clone(),
             1,
@@ -10729,6 +10758,27 @@ mod tests {
             "ASM Load_IntroSequence1 (kid.asm:29068-29070) stops music, then queues bgm_Ice"
         );
         Ok(())
+    }
+
+    #[test]
+    fn native_bgm_event_log_records_mode_cue_and_command() {
+        let trace = sample_trace(GameMode::IntroSequence1);
+
+        let event = format_native_bgm_event(
+            173,
+            &trace,
+            None,
+            Some(NativeBgmCue::TitleShell),
+            NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::ICE),
+        );
+
+        assert!(
+            event.contains("frame=173")
+                && event.contains("mode=IntroSequence1")
+                && event.contains("active_after=Some(TitleShell)")
+                && event.contains("command=StopMusicThenStart(3)"),
+            "the recording artefact should show whether ASM Load_IntroSequence1 queued the title-shell music path"
+        );
     }
 
     #[test]

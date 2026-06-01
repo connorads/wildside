@@ -79,6 +79,14 @@ around 2.883s. The native recording verifier and
 `verify-audio-output --scenario boot-title-start-level1` pass. Follow-up still
 needed: scripted title/options live recording so the menu cue itself is covered
 by player-loop evidence rather than helper-only tests.
+
+Follow-up 2026-06-01: native recording bundles now write `audio-events.txt`
+with frame/mode/cue/command rows whenever `play-native` starts, stops, or
+replaces BGM. Cold intro evidence
+`.cache/recordings/issue-003-audio-events-cold-intro/audio-events.txt` records
+`frame=173 mode=IntroSequence1 ... command=StopMusicThenStart(3)`, so future
+playtest captures can distinguish "cue never issued" from GEMS/waveform output
+failures without listening by hand.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |

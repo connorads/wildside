@@ -25,6 +25,7 @@ const RECORDING_NOTES_FILENAME: &str = "notes.txt";
 const RECORDING_TRANSCRIPT_FILENAME: &str = "transcript.txt";
 const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
 const RECORDING_AUDIO_FILENAME: &str = "audio.wav";
+const RECORDING_AUDIO_EVENTS_FILENAME: &str = "audio-events.txt";
 const NATIVE_DIAGNOSTIC_LAYERS: [&str; 9] = [
     "background",
     "terrain",
@@ -49,6 +50,7 @@ pub(crate) struct RecordingBundleArtifacts {
     pub(crate) final_frame_rgb: Option<Vec<u8>>,
     pub(crate) audio_samples: Option<Vec<f32>>,
     pub(crate) audio_channels: u16,
+    pub(crate) audio_events: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1994,6 +1996,16 @@ fn write_recording_artifacts(
         });
     }
 
+    if !artifacts.audio_events.is_empty() {
+        let audio_events_path = record_to.join(RECORDING_AUDIO_EVENTS_FILENAME);
+        fs::write(&audio_events_path, artifacts.audio_events.join("\n") + "\n")
+            .with_context(|| format!("failed to write {}", audio_events_path.display()))?;
+        manifest_entries.push(RecordingArtifactManifest {
+            path: String::from(RECORDING_AUDIO_EVENTS_FILENAME),
+            kind: String::from("audio-events"),
+        });
+    }
+
     Ok(manifest_entries)
 }
 
@@ -3107,6 +3119,9 @@ mod tests {
                 ]),
                 audio_samples: Some(vec![0.25, -0.25, 0.5, -0.5]),
                 audio_channels: 2,
+                audio_events: vec![String::from(
+                    "frame=0 mode=IntroSequence1 active_after=TitleShell command=StopMusicThenStart(3)",
+                )],
             },
         )
         .expect("save recording with artifacts");
@@ -3115,6 +3130,7 @@ mod tests {
         assert!(temp.path().join(RECORDING_NOTES_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_FINAL_FRAME_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_AUDIO_FILENAME).is_file());
+        assert!(temp.path().join(RECORDING_AUDIO_EVENTS_FILENAME).is_file());
 
         let manifest: NativeRecordingManifest = serde_json::from_slice(
             &fs::read(temp.path().join("manifest.json")).expect("manifest json"),
@@ -3140,6 +3156,10 @@ mod tests {
                     path: String::from(RECORDING_AUDIO_FILENAME),
                     kind: String::from("audio"),
                 },
+                RecordingArtifactManifest {
+                    path: String::from(RECORDING_AUDIO_EVENTS_FILENAME),
+                    kind: String::from("audio-events"),
+                },
             ]
         );
 
@@ -3148,6 +3168,12 @@ mod tests {
         assert!(readme.contains("- notes.txt (user-notes)"));
         assert!(readme.contains("- final-frame.png (final-frame)"));
         assert!(readme.contains("- audio.wav (audio)"));
+        assert!(readme.contains("- audio-events.txt (audio-events)"));
+        assert!(
+            fs::read_to_string(temp.path().join(RECORDING_AUDIO_EVENTS_FILENAME))
+                .expect("audio events")
+                .contains("StopMusicThenStart(3)")
+        );
 
         let samples = read_wav_f32(&temp.path().join(RECORDING_AUDIO_FILENAME)).expect("wav");
         assert_eq!(samples, vec![0.25, -0.25, 0.5, -0.5]);
