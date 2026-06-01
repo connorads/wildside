@@ -10830,6 +10830,35 @@ mod tests {
     }
 
     #[test]
+    fn play_native_boot_idle_queues_intro_music_on_first_intro_frame() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        let mut trace = Vec::new();
+
+        for _ in 0..240 {
+            trace.push(runtime.step_frame(FrameInput::default()));
+        }
+
+        let first_intro_frame = trace
+            .iter()
+            .position(|frame| frame.game_mode == GameMode::IntroSequence1)
+            .expect("boot idle route should reach Load_IntroSequence1");
+        let events = native_audio_events_for_trace(&fixture.manifest, &trace);
+        assert_eq!(
+            events.first().map(String::as_str),
+            Some(
+                "frame=173 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+            ),
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) is the first native boot frame that should run StopMusic then queue bgm_Ice"
+        );
+        assert!(
+            events[0].starts_with(&format!("frame={first_intro_frame} ")),
+            "intro BGM should be queued on the first observed IntroSequence1 frame, not later"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn native_bgm_event_log_records_mode_cue_and_command() {
         let trace = sample_trace(GameMode::IntroSequence1);
 
