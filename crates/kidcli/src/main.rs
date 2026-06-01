@@ -1811,11 +1811,17 @@ fn main() -> Result<()> {
             // Parse --when predicates
             let predicates = parse_when_predicates(&when)?;
 
+            let watch_rows_in_range: Vec<_> = oracle_manifest
+                .memory_watches
+                .iter()
+                .filter(|watch_map| oracle_probe_watch_row_in_range(watch_map, start, end))
+                .collect();
+
             // Output memory watches as CSV
-            if !oracle_manifest.memory_watches.is_empty() {
+            if !watch_rows_in_range.is_empty() {
                 // Collect all column names (excluding "frame")
                 let mut columns: Vec<String> = Vec::new();
-                for watch_map in &oracle_manifest.memory_watches {
+                for watch_map in &watch_rows_in_range {
                     for key in watch_map.keys() {
                         if key != "frame" && !columns.contains(key) {
                             columns.push(key.clone());
@@ -1833,7 +1839,7 @@ fn main() -> Result<()> {
 
                 // Print rows (filtered by --when predicates)
                 let mut shown = 0usize;
-                for watch_map in &oracle_manifest.memory_watches {
+                for watch_map in &watch_rows_in_range {
                     if !predicates.is_empty()
                         && !predicates.iter().all(|pred| pred.evaluate(watch_map))
                     {
@@ -1851,7 +1857,7 @@ fn main() -> Result<()> {
                 if !predicates.is_empty() {
                     eprintln!(
                         "  --when filter: {shown}/{} rows shown",
-                        oracle_manifest.memory_watches.len()
+                        watch_rows_in_range.len()
                     );
                 }
             }
@@ -1866,7 +1872,7 @@ fn main() -> Result<()> {
             eprintln!(
                 "Oracle probe complete: {} state checkpoints, {} watch rows",
                 state_count,
-                oracle_manifest.memory_watches.len()
+                watch_rows_in_range.len()
             );
 
             // Display CPU registers if captured
@@ -2063,6 +2069,20 @@ fn parse_when_predicates(specs: &[String]) -> Result<Vec<WhenPredicate>> {
         });
     }
     Ok(predicates)
+}
+
+fn oracle_probe_watch_row_in_range(
+    watch_map: &std::collections::HashMap<String, i64>,
+    start: usize,
+    end: usize,
+) -> bool {
+    let Some(frame) = watch_map.get("frame").copied() else {
+        return false;
+    };
+    let Ok(frame) = usize::try_from(frame) else {
+        return false;
+    };
+    (start..=end).contains(&frame)
 }
 
 fn build_controller_script(
@@ -2529,9 +2549,9 @@ mod tests {
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
-        gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_scenario_manifest,
+        gameplay_checkpoint_window, native_trace_to_oracle_state, oracle_probe_watch_row_in_range,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
         recording_start_for_dynamic_scenario, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
@@ -2744,6 +2764,36 @@ AddrTbl_LevelNames:
         assert_eq!(script[120], 0x80);
         assert_eq!(script[122], 1 << 3);
         assert_eq!(script[123], 1 << 3);
+    }
+
+    #[test]
+    fn oracle_probe_watch_rows_respect_requested_frame_range() {
+        let mut before = std::collections::HashMap::new();
+        before.insert(String::from("frame"), 959);
+
+        let mut start = std::collections::HashMap::new();
+        start.insert(String::from("frame"), 960);
+
+        let mut end = std::collections::HashMap::new();
+        end.insert(String::from("frame"), 962);
+
+        let mut after = std::collections::HashMap::new();
+        after.insert(String::from("frame"), 963);
+
+        assert!(!oracle_probe_watch_row_in_range(&before, 960, 962));
+        assert!(oracle_probe_watch_row_in_range(&start, 960, 962));
+        assert!(oracle_probe_watch_row_in_range(&end, 960, 962));
+        assert!(!oracle_probe_watch_row_in_range(&after, 960, 962));
+    }
+
+    #[test]
+    fn oracle_probe_watch_rows_reject_missing_or_negative_frames() {
+        let missing = std::collections::HashMap::new();
+        let mut negative = std::collections::HashMap::new();
+        negative.insert(String::from("frame"), -1);
+
+        assert!(!oracle_probe_watch_row_in_range(&missing, 0, 10));
+        assert!(!oracle_probe_watch_row_in_range(&negative, 0, 10));
     }
 
     fn oracle_enemy(
