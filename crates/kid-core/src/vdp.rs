@@ -504,6 +504,12 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
     }
+    if segment == 4 && elapsed < INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28 {
+        // ASM loc_1BA28 allocates IntroText5/loc_1BC36, then enters the same
+        // sub_1C204 hidden shell before loc_1BA5C's visible loop. Oracle frame
+        // 1920 has blank VRAM+CRAM at intro-sequence-5 elapsed 44.
+        return blank_vdp_state();
+    }
 
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
@@ -1375,6 +1381,8 @@ const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
     58, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
 ];
+const INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28: usize =
+    INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[4];
 
 fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0> {
     // ASM IntroText1-5 (kid.asm:31380-31396): headers are
@@ -3213,6 +3221,46 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BA28_keeps_vdp_blank_before_visible_elapsed() {
+        let data = IntroSub1B850Data {
+            palette_segment_2: vec![0x0EEE; 0x40],
+            intro_sequence_5_tilemap: vec![0x0ABC; 40 * 28],
+            ..empty_intro_data()
+        };
+
+        let before = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 1, 44, 1);
+        assert_eq!(
+            cram_word(&before, 1),
+            0,
+            "ASM loc_1BA28 enters sub_1C204 before loc_1BA5C; oracle frame 1920 keeps intro-sequence-5 CRAM black at elapsed 44",
+        );
+        assert_eq!(
+            vram_word(&before, 0xE000),
+            0,
+            "ASM loc_1BA28/sub_1C204 should not expose the alley nametable before the visible loop; oracle frame 1920 has blank VRAM at elapsed 44",
+        );
+
+        let visible = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            1,
+            INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
+            1,
+        );
+        assert_eq!(
+            cram_word(&visible, 1),
+            0x0EEE,
+            "ASM loc_1BA5C should expose IntroSequence5's loaded palette once the hidden sub_1C204 shell has completed",
+        );
+        assert_eq!(
+            vram_word(&visible, 0xE000),
+            0x0ABC,
+            "ASM loc_1BA5C should expose Load_IntroSequence5's MapEni_2E154 alley plane after the hidden shell",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn intro_sequence_3_sub_1C54A_keeps_wild_side_door_sprite_visible() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -3357,8 +3405,13 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BCD0_writes_five_static_gfx_slots_to_sprite_table() {
-        let vdp =
-            build_intro_sequence_vdp_with_title_variant_at_elapsed(&empty_intro_data(), 4, 1, 0, 0);
+        let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &empty_intro_data(),
+            4,
+            1,
+            INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
+            0,
+        );
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
@@ -4195,7 +4248,13 @@ mod tests {
             ..empty_intro_data()
         };
 
-        let first = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0, 0);
+        let first = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
+            0,
+        );
         assert_eq!(
             vram_word(&first, 0x019A),
             0x1100,
