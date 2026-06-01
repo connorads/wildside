@@ -1383,6 +1383,90 @@ mod tests {
         assert_eq!(frame.number_gfx_objects, 3);
     }
 
+    fn drips_test_enemy(wait_timer: u16, drips_surface_table_index: u8) -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            enemy_level: 0,
+            family: EnemyFamily::Drips,
+            x_pos: 0x0248_0000,
+            y_pos: 0x0212_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            death_animation_active: false,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: true,
+            drips_surface_table_index,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
+
+    #[test]
+    fn drips_loc_33424_countdown_does_not_add_hidden_child_object() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
+
+        assert_eq!(
+            runtime.gameplay_transient_object_only_worker_count(),
+            0,
+            "ASM Drips.asm loc_33424 only decrements d0 and hibernates the controller here; it does not set the falling child's `$13/$14/$3C` status bytes until after `stru_33F90` finishes",
+        );
+    }
+
+    #[test]
+    fn drips_loc_33488_surface_pool_counts_as_object_only_child() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.active_enemies.push(drips_test_enemy(0x0038, 1));
+
+        assert_eq!(
+            runtime.gameplay_transient_object_only_worker_count(),
+            1,
+            "ASM Drips.asm loc_33488 leaves the `a2` surface-pool child visible while the parent returns to loc_3340E/loc_33424 for the next wait",
+        );
+    }
+
     #[test]
     fn title_menu_cursor_player_state_requires_early_start_carry_window() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -7414,12 +7498,14 @@ impl NativeRuntime {
                 } else {
                     Some(enemy.wait_timer & !0x8000)
                 };
-                // ASM Drips.asm loc_33424 owns a preallocated child object
-                // before the falling child is exported through native
-                // projectiles. Oracle WRAM counts that object slot but not a
-                // new gfx slot during the low timer / early forming window.
-                (enemy.wait_timer <= 0x0038)
-                    || forming_frames.is_some_and(|frames| frames >= 0x0020)
+                // ASM Drips.asm loc_33488 copies the falling child position
+                // into the surface child (`a2`), sets `$13(a2)`, writes the
+                // selected `off_33520` pool sprite, then returns to loc_3340E.
+                // The first loc_33424 wait has no visible surface child; only
+                // waits after at least one splash own this object-only worker.
+                enemy.drips_surface_table_index > 0
+                    && ((enemy.wait_timer <= 0x0038)
+                        || forming_frames.is_some_and(|frames| frames >= 0x0020))
             })
             .count() as u16
     }
