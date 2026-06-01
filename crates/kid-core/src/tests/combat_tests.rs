@@ -20804,6 +20804,10 @@ mod chunk_05 {
         assert_eq!(fireball.x_px, 0x346);
         assert_eq!(fireball.base_y_px, 0x312);
         assert_eq!(fireball.current_y_px, 0x312);
+        assert_eq!(
+            fireball.cooldown_timer, 0,
+            "ASM loc_1499C should decode the USM2 `$8000` fireball table entry through the same low-nibble startup delay as geysers"
+        );
     }
 
     #[test]

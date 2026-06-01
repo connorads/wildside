@@ -2149,8 +2149,11 @@ pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
     lava_geyser_store_top_sprite_y_loc_148D4(sprite_screen_y_with_bias, camera_y_px)
 }
 
-const LAVA_GEYSER_POSITIONS_USM2_LOC_14C5E: &[(u16, u16, u16)] =
-    &[(0x180, 0x312, 0x60), (0x240, 0x312, 0x63)];
+const LAVA_GEYSER_POSITIONS_USM2_LOC_14C5E: &[(u16, u16, u16)] = &[
+    (0x180, 0x312, 0x60),
+    (0x240, 0x312, 0x63),
+    (0x346, 0x312, 0x8000),
+];
 const LAVA_GEYSER_POSITIONS_BLACK_PIT_LOC_14C5E: &[(u16, u16, u16)] = &[
     (0x290, 0x170, 0x20),
     (0x3D0, 0x170, 0x20),
@@ -2475,6 +2478,18 @@ impl NativeRuntime {
         };
 
         for &(x, y, h) in positions {
+            if h & 0x8000 != 0 {
+                let fireball = initialise_lava_fireball_state_loc_1499C(x, y, h);
+                self.weather.lava_fireballs.push(LavaFireball {
+                    x_px: fireball.biased_x_px.wrapping_sub(0x80),
+                    base_y_px: fireball.biased_y_px.wrapping_sub(0x80),
+                    current_y_px: fireball.biased_y_px.wrapping_sub(0x80),
+                    segment_index: 0,
+                    segment_frame: 0,
+                    cooldown_timer: fireball.startup_delay_frames,
+                });
+                continue;
+            }
             let geyser = initialise_lava_geyser_loc_14C6A(x, y, h);
             self.weather.lava_geysers.push(LavaGeyser {
                 x_px: geyser.x_px,
@@ -2484,17 +2499,6 @@ impl NativeRuntime {
                 phase: 0,
                 timer: geyser.startup_delay_frames,
                 current_height: 0,
-            });
-        }
-
-        if matches!(selected_table, LavaGeyserPositionTableLoc14C5E::Usm2) {
-            self.weather.lava_fireballs.push(LavaFireball {
-                x_px: 0x346,
-                base_y_px: 0x312,
-                current_y_px: 0x312,
-                segment_index: 0,
-                segment_frame: 0,
-                cooldown_timer: 0,
             });
         }
     }
