@@ -2488,6 +2488,7 @@ impl NativeRuntime {
             u8::try_from(EVANESCENT_SKIN_OFFSET).expect("evanescent skin offset fits in u8");
         let directions = skin.wrapping_sub(skin_offset);
         let speed = Self::SHOOTER_PROJECTILE_SPEED;
+        let first_new_projectile = self.projectiles.len();
         for (mask, xv, yv) in [
             (0x08, -speed, 0),
             (0x04, 0, speed),
@@ -2502,6 +2503,10 @@ impl NativeRuntime {
                     .push(EnemyProjectile::shooter_block_loc_EC76(col, row, xv, yv));
             }
         }
+        // ASM LoadBulletsFromEvanescentBlock falls straight through to
+        // Process_ShooterObjects at loc_EC22, so a just-triggered shooter
+        // object advances and can draw in the same frame.
+        self.process_new_shooter_objects_loc_EC22(first_new_projectile);
     }
 
     /// Ghost blocks: tick timers, toggle solid/vanished, update block grid.

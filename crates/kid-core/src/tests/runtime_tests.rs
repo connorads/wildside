@@ -8888,6 +8888,34 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_pass_1_touch_shooter_draws_on_trigger_frame_loc_ec76_edfa() {
+        // ASM loc_EB72 -> loc_EC76 immediately falls through to
+        // Process_ShooterObjects at loc_EC22/loc_EDFA, so the shooter object
+        // takes its first 4px movement before the current frame is drawn.
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.projectiles.clear();
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.level_bounds = default_bounds();
+        slice.level_bounds.width_pixels = 60 * 16;
+        slice.level_bounds.height_pixels = 112 * 16;
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
+        rt.step_evanescent_blocks(&slice);
+
+        assert_eq!(
+            rt.projectiles[0].x_pos, 0x00bc_0000,
+            "ASM loc_EC76 -> loc_EDFA should move the rightward Highwater shooter spike from cell centre `$00b8` to `$00bc` on the trigger frame"
+        );
+        assert_eq!(rt.projectiles[0].y_pos, 0x0618_0000);
+        assert_eq!(rt.projectiles[0].shooter_state_word, 0xFFFF);
+    }
+
+    #[test]
     fn highwater_pass_1_trace_exposes_shooter_barrier_probe_loc_eae4_f02a() {
         // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A is the #214 live
         // playtest route. Trace needs the shooter slots, projectile, and

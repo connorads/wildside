@@ -1197,6 +1197,36 @@ pub(crate) fn kid_projectile_rightwall_writeback_loc_1E94() -> KidProjectileRigh
 }
 
 impl NativeRuntime {
+    #[allow(non_snake_case)]
+    pub(crate) fn process_new_shooter_objects_loc_EC22(&mut self, start_index: usize) {
+        let mut index = start_index;
+        let mut processed = 0usize;
+        while index < self.projectiles.len() && processed < 0x27 {
+            processed += 1;
+            let should_process = self.projectiles[index].kind == EnemyProjectileKind::ShooterBlock
+                && self.projectiles[index].shooter_tracks_layout;
+            if !should_process {
+                index += 1;
+                continue;
+            }
+
+            let outcome = {
+                let Some(grid) = self.block_grid.as_ref() else {
+                    return;
+                };
+                Self::step_tracked_shooter_object_loc_EDFA(grid, &mut self.projectiles[index])
+            };
+
+            match outcome {
+                Ok(()) => index += 1,
+                Err(interaction) => {
+                    self.projectiles.remove(index);
+                    self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
+                }
+            }
+        }
+    }
+
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly
             && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
