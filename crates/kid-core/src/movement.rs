@@ -3492,6 +3492,7 @@ impl OpeningSliceState {
                 let plain_airborne_floor_landing = !on_ground_before
                     && self.player.on_ground
                     && airborne_slope_recontact.is_none();
+                let slope_recontact_this_step = airborne_slope_recontact.is_some();
                 kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
@@ -3798,6 +3799,9 @@ impl OpeningSliceState {
                         }
                     }
                     if self.player.on_ground
+                        && (grounded_slope_for_loc_9d22.is_some()
+                            || slope_recontact_this_step
+                            || self.terrain.floor_terrain_type != TerrainType::Rubber)
                         && self.grounded_slope_collision(Some(grid)).is_none()
                         && !plain_airborne_floor_landing
                         && !suppress_post_horizontal_floor_release

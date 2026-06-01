@@ -17269,6 +17269,59 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E4E -> loc_8BF0 (kid.asm:10228, 10043): after a flat walking
+    /// horizontal step that finds no active slope, the ROM returns to the
+    /// walking coroutine and hibernates the object before the next `sub_B43A`
+    /// floor-support scan. Natural route frame 747 exercises this edge after
+    /// the frame-731 terrain-code fix: Kid has just walked off the carrying
+    /// rubber tile, but oracle keeps the frame in MoveID_Walking at y=$8F.
+    #[test]
+    fn level00_frame_747_flat_walk_edge_defers_lost_floor_until_next_wake_loc_8e4e() {
+        let w: u16 = 100;
+        let h: u16 = 12;
+        let mut grid = grid_with_cells(w, h, &[(80, 9, 0xE6, 0x01)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0513_b800;
+        slice.player.y_pos = 0x008f_0000;
+        slice.player.x_velocity = 0x0001_8000;
+        slice.terrain.floor_terrain_type = TerrainType::Rubber;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x0515_3800,
+            "ASM sub_8F26 should still apply the flat walking x step before loc_8E4E"
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x008f_0000,
+            "ASM loc_8E4E -> loc_8BF0 hibernates before the next lost-floor scan can add 1px"
+        );
+        assert!(
+            slice.player.on_ground,
+            "flat loc_8E4E return should defer the unsupported-floor hand-off to the next wake"
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6
