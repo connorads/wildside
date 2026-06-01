@@ -1724,6 +1724,16 @@ strict Highwater bundle worse: `level_settle` regressed from 41 changed pixels
 to 3,342 and `walk_half` from 891 to 3,462. Do not replace the existing
 left/right layered composition wholesale; the remaining hole pixels need more
 exact oracle VDP/nametable evidence.
+Fixed 2026-06-01 follow-up: oracle VDP samples
+(`oracle-probe --vdp-pixel-samples 0/169,126/169`) showed Highwater's large
+hole pixels come from Plane B tiles `$7E5`/`$7E6` on palette line 0. Native now
+models `Load_BackgroundMappings_Layered loc_12910` base words, appends
+`loc_11EC4` Mountain `cave_alt` art at relative background tile `$65`, and
+preserves foreground CRAM line 0 while copying Mountain background colours into
+line 1 via `loc_11E16`. This makes `level_settle` strict pixel-perfect (41 -> 0
+changed pixels) and improves `walk_half` 891 -> 413 / `walk_end` 909 -> 431.
+Remaining drift is the smaller mid-screen Mountain Plane B row/phase mismatch,
+not missing follow-up art.
 
 ### 021 — Sound Test (FIXED)
 Options menu cursor==1 now enters Sound Test screen. Left/Right ±1, Up/Down ±16,

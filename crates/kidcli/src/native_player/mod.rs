@@ -6037,6 +6037,61 @@ mod tests {
     }
 
     #[test]
+    fn mountain_background_palette_keeps_followup_line_zero_loc_12910_11e16() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 7;
+        visuals.palettes.foreground = Palette {
+            colours: (1..=15)
+                .map(|slot| colour(slot * 10, slot * 10 + 1, slot * 10 + 2))
+                .collect(),
+        };
+        visuals.palettes.background = Palette {
+            colours: (0..8)
+                .map(|slot| colour(100 + slot * 10, 101 + slot * 10, 102 + slot * 10))
+                .collect(),
+        };
+        visuals.background_tiles = TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 13), (1, 0, 12)])],
+        };
+        visuals.background = BackgroundVisuals::Layered(kid_render::LayeredBackgroundVisuals {
+            effect_start_row_selector: None,
+            rows: vec![kid_render::LayeredBackgroundRow {
+                selector: 0,
+                tiles: vec![TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                }],
+            }],
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let followup_line_zero =
+            super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 0, 0)
+                .expect("Mountain follow-up plane should read foreground CRAM line 0");
+        assert_eq!(
+            followup_line_zero.rgb,
+            [130, 131, 132],
+            "ASM loc_12910 clear-weather d0=$07E5 leaves palette-line 0 intact for CaveAlt follow-up art"
+        );
+
+        if let BackgroundVisuals::Layered(background) = &mut visuals.background {
+            background.rows[0].tiles[0].palette_line = 1;
+        }
+        let main_line_one = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 1, 0)
+            .expect("Mountain main planes should read copied background CRAM line 1");
+        assert_eq!(
+            main_line_one.rgb,
+            [140, 141, 142],
+            "ASM loc_11E16 copies background colours 1..7 into CRAM line-1 slots 9..15 for the $2780 Mountain planes"
+        );
+    }
+
+    #[test]
     fn build_game_scene_draws_murder_wall_from_sub_5e02_sprite_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 10;

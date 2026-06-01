@@ -35,6 +35,9 @@ const FLOATING_DIAMOND_ART_PATHS: [&str; 4] = [
 ];
 const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
 const BLOCK_TILE_VRAM_BASE: u16 = 0x0220;
+const BACKGROUND_TILE_VRAM_BASE: u16 = 0x0780;
+const MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4: u16 = 0x07E5;
+const HILL_ALT_TILE_VRAM_BASE_LOC_11EA2: u16 = 0x07C0;
 const FLAG_ART_PATH: &str = "artunc/End_of_level_Flag_(6_frames).bin";
 const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 const MURDER_WALL_ART_PATH: &str = "artcomp/Murder_wall.bin";
@@ -283,6 +286,12 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     {
         background_tiles.apply_pixel_permutation(&perm);
     }
+    append_background_followup_art_loc_11ea2_11ec4(
+        manifest,
+        &mut background_tiles,
+        header.background_theme,
+        header.weather_flags,
+    )?;
 
     let player = load_player_visuals(manifest)?;
     let enemies = load_enemy_visuals(
@@ -319,10 +328,16 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             .ok_or_else(|| anyhow!("missing block mapping asset theme/{BLOCK_MAPPING_PATH}"))?,
         "block mapping",
     )?)?;
-    let background = load_background_visuals(manifest, background_theme, &background_layout)
-        .context(format!(
-            "failed to load level 0x{level_id:02X} background visuals"
-        ))?;
+    let background = load_background_visuals(
+        manifest,
+        background_theme,
+        header.background_theme,
+        header.weather_flags,
+        &background_layout,
+    )
+    .context(format!(
+        "failed to load level 0x{level_id:02X} background visuals"
+    ))?;
 
     Ok(NativeLevelVisuals {
         foreground_tiles,
@@ -730,13 +745,92 @@ fn find_ingame_asset<'a>(
         .find(|asset| asset.relative_path == relative_path)
 }
 
+fn append_background_followup_art_loc_11ea2_11ec4(
+    manifest: &AssetManifest,
+    background_tiles: &mut TileSheet,
+    background_theme_id: u8,
+    weather_flags: u8,
+) -> Result<()> {
+    let Some((relative_path, vram_base, permutation_path)) =
+        background_followup_art_loc_11ea2_11ec4(background_theme_id, weather_flags)
+    else {
+        return Ok(());
+    };
+    let mut followup_tiles = load_tile_sheet(
+        manifest,
+        "theme",
+        find_theme_asset(manifest, relative_path).ok_or_else(|| {
+            anyhow!("missing background follow-up art asset theme/{relative_path}")
+        })?,
+        "background follow-up tile sheet",
+    )?;
+    if let Some(permutation_path) = permutation_path
+        && let Some(permutation) = load_palette_permutation(manifest, permutation_path)
+    {
+        followup_tiles.apply_pixel_permutation(&permutation);
+    }
+
+    let target_index = usize::from(vram_base - BACKGROUND_TILE_VRAM_BASE);
+    if background_tiles.tiles.len() < target_index {
+        background_tiles
+            .tiles
+            .resize(target_index, Tile { pixels: [0_u8; 64] });
+    }
+    for (index, tile) in followup_tiles.tiles.into_iter().enumerate() {
+        let target = target_index + index;
+        if target < background_tiles.tiles.len() {
+            background_tiles.tiles[target] = tile;
+        } else {
+            background_tiles.tiles.push(tile);
+        }
+    }
+    Ok(())
+}
+
+fn background_followup_art_loc_11ea2_11ec4(
+    background_theme_id: u8,
+    weather_flags: u8,
+) -> Option<(&'static str, u16, Option<&'static str>)> {
+    match background_theme_id {
+        // ASM loc_11EA2: Hills decompress ThemeArtBack_HillAlt at VRAM $F800
+        // using Palette_Permutation_BGHill_alt.
+        3 => Some((
+            "artcomp_bg/hill_alt.bin",
+            HILL_ALT_TILE_VRAM_BASE_LOC_11EA2,
+            Some("palette_permutations/hill_alt_bg.bin"),
+        )),
+        // ASM loc_11EC4/loc_11EF2: Mountain clear weather appends CaveAlt at
+        // VRAM $FCA0 with identity permutation; storm/hail swaps to
+        // MountainLightning and applies Palette_Permutation_BGMountain.
+        7 if matches!(weather_flags, 2 | 3) => Some((
+            "artcomp_bg/mountain_lightning.bin",
+            MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
+            Some("palette_permutations/mountain_bg.bin"),
+        )),
+        7 => Some((
+            "artcomp_bg/cave_alt.bin",
+            MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
+            None,
+        )),
+        _ => None,
+    }
+}
+
 fn load_background_visuals(
     manifest: &AssetManifest,
     theme_name: &str,
+    background_theme_id: u8,
+    weather_flags: u8,
     layout_bytes: &[u8],
 ) -> Result<BackgroundVisuals> {
     if uses_layered_backgrounds(theme_name) {
-        return load_layered_background_visuals(manifest, theme_name, layout_bytes);
+        return load_layered_background_visuals(
+            manifest,
+            theme_name,
+            background_theme_id,
+            weather_flags,
+            layout_bytes,
+        );
     }
 
     let placements = parse_chunked_background_layout(layout_bytes)
@@ -805,6 +899,8 @@ fn load_background_visuals(
 fn load_layered_background_visuals(
     manifest: &AssetManifest,
     theme_name: &str,
+    background_theme_id: u8,
+    weather_flags: u8,
     layout_bytes: &[u8],
 ) -> Result<BackgroundVisuals> {
     let layout = parse_layered_background_layout(layout_bytes, theme_name).with_context(|| {
@@ -830,7 +926,9 @@ fn load_layered_background_visuals(
                     asset.relative_path
                 )
             })?;
-        let decoded = decode_enigma(&encoded, 0).with_context(|| {
+        let base_word =
+            layered_background_enigma_base_word_loc_128ba(theme_name, plane_id, weather_flags);
+        let decoded = decode_enigma(&encoded, base_word).with_context(|| {
             format!(
                 "failed to decode layered background plane {} for theme {theme_name}",
                 asset.relative_path
@@ -841,6 +939,7 @@ fn load_layered_background_visuals(
                 "failed to parse layered background plane {plane_id:02X} for theme {theme_name}"
             )
         })?;
+        normalise_layered_background_tile_base_loc_128ba(background_theme_id, &mut plane);
         apply_layered_background_palette_fallback(theme_name, plane_id, &mut plane);
         planes.push(plane);
     }
@@ -854,6 +953,44 @@ fn load_layered_background_visuals(
 
 fn uses_layered_backgrounds(theme_name: &str) -> bool {
     matches!(theme_name, "hill" | "desert" | "mountain" | "forest")
+}
+
+fn layered_background_enigma_base_word_loc_128ba(
+    theme_name: &str,
+    plane_id: u16,
+    weather_flags: u8,
+) -> u16 {
+    match (theme_name, plane_id) {
+        // ASM Load_BackgroundMappings_Layered loc_12910 decodes Mountain's
+        // base planes with d0=$2780, then decodes the follow-up plane with
+        // d0=$07E5 for clear weather or d0=$27E5 for storm/hail.
+        ("mountain", 0..=2) => 0x2780,
+        ("mountain", 3) if matches!(weather_flags, 2 | 3) => 0x27E5,
+        ("mountain", 3) => MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
+        ("mountain", 4) => 0x27E5,
+        // ASM loc_1295E decodes Hill planes at $2780/$2780/$07C0.
+        ("hill", 0 | 1) => 0x2780,
+        ("hill", 2) => HILL_ALT_TILE_VRAM_BASE_LOC_11EA2,
+        // ASM loc_12988 decodes all Desert planes with d0=$2780.
+        ("desert", _) => 0x2780,
+        // ASM loc_128BA decodes Forest planes with d0=$0780.
+        ("forest", _) => BACKGROUND_TILE_VRAM_BASE,
+        _ => 0,
+    }
+}
+
+fn normalise_layered_background_tile_base_loc_128ba(
+    background_theme_id: u8,
+    plane: &mut LayeredBackgroundPlane,
+) {
+    if !uses_layered_backgrounds(resolve_theme_name(background_theme_id).unwrap_or_default()) {
+        return;
+    }
+    for row in &mut plane.rows {
+        for tile in row {
+            tile.tile_index = tile.tile_index.wrapping_sub(BACKGROUND_TILE_VRAM_BASE);
+        }
+    }
 }
 
 fn apply_layered_background_palette_fallback(
@@ -4217,10 +4354,12 @@ mod tests {
     use super::{
         FOREST_ENEMY_ART_PERMUTATION, FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION, FOREST_THEME_ID,
         append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
-        apply_layered_background_palette_fallback, bg_permutation_file, canvas_to_tiles,
-        combine_eol_hologram_tile_sheet, compose_player_frame,
-        enemy_palette_with_cleared_slot_eight, fg_permutation_file, forest_enemy_art_permutation,
-        forest_enemy_palette_with_borrowed_slots, frame_to_pixels, load_palette_permutation,
+        apply_layered_background_palette_fallback, background_followup_art_loc_11ea2_11ec4,
+        bg_permutation_file, canvas_to_tiles, combine_eol_hologram_tile_sheet,
+        compose_player_frame, enemy_palette_with_cleared_slot_eight, fg_permutation_file,
+        forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
+        layered_background_enigma_base_word_loc_128ba, load_palette_permutation,
+        normalise_layered_background_tile_base_loc_128ba,
     };
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
@@ -4569,6 +4708,84 @@ mod tests {
         assert_eq!(
             mountain_plane.rows[0][0].palette_line, 0,
             "ASM layered mountain planes already carry explicit palette lines"
+        );
+    }
+
+    #[test]
+    fn layered_background_enigma_base_words_match_asm_loc_128ba() {
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("forest", 0, 0),
+            0x0780,
+            "ASM Load_BackgroundMappings_Layered loc_128BA decodes Forest with d0=$0780"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("mountain", 0, 0),
+            0x2780,
+            "ASM loc_12910 decodes Mountain base planes with d0=$2780"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("mountain", 3, 0),
+            0x07E5,
+            "ASM loc_12910 clear-weather Mountain follow-up plane uses d0=$07E5"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("mountain", 3, 2),
+            0x27E5,
+            "ASM loc_1294A storm Mountain follow-up plane uses d0=$27E5"
+        );
+        assert_eq!(
+            layered_background_enigma_base_word_loc_128ba("hill", 2, 0),
+            0x07C0,
+            "ASM loc_1295E Hill alt plane uses d0=$07C0"
+        );
+    }
+
+    #[test]
+    fn layered_background_tile_words_are_normalised_to_background_art_base() {
+        let mut plane = LayeredBackgroundPlane {
+            rows: vec![vec![
+                TileRef::from_attr_word(0x07E5),
+                TileRef::from_attr_word(0x27E6),
+            ]],
+        };
+
+        normalise_layered_background_tile_base_loc_128ba(7, &mut plane);
+
+        assert_eq!(
+            plane.rows[0][0].tile_index, 0x0065,
+            "ASM loc_11EC4 loads Mountain follow-up art at VRAM $FCA0, tile $7E5, which is background-sheet offset $65 from $F000/$780"
+        );
+        assert_eq!(
+            (plane.rows[0][1].tile_index, plane.rows[0][1].palette_line),
+            (0x0066, 1),
+            "normalising the tile index must preserve explicit Enigma palette-line bits"
+        );
+    }
+
+    #[test]
+    fn background_followup_art_paths_match_load_level_tail() {
+        assert_eq!(
+            background_followup_art_loc_11ea2_11ec4(7, 0),
+            Some(("artcomp_bg/cave_alt.bin", 0x07E5, None)),
+            "ASM loc_11EC4 clear Mountain levels append ThemeArtBack_CaveAlt at VRAM $FCA0"
+        );
+        assert_eq!(
+            background_followup_art_loc_11ea2_11ec4(7, 2),
+            Some((
+                "artcomp_bg/mountain_lightning.bin",
+                0x07E5,
+                Some("palette_permutations/mountain_bg.bin")
+            )),
+            "ASM loc_11EEA storm Mountain levels append ThemeArtBack_MountainLightning with BGMountain permutation"
+        );
+        assert_eq!(
+            background_followup_art_loc_11ea2_11ec4(3, 0),
+            Some((
+                "artcomp_bg/hill_alt.bin",
+                0x07C0,
+                Some("palette_permutations/hill_alt_bg.bin")
+            )),
+            "ASM loc_11EA2 Hill levels append ThemeArtBack_HillAlt at VRAM $F800"
         );
     }
 

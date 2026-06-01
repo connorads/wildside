@@ -1929,12 +1929,12 @@ fn background_palette_for_scene(
         && level_visuals.palettes.foreground.colours.len() >= PALETTE_LINE_COLOUR_COUNT - 1
         && palette.colours.len() >= 8
     {
-        // ASM Load_BackgroundMappings_Layered loc_12910 decodes Mountain Plane B
-        // words with base `$2780`: the Mountain background permutation targets
-        // line-0 slots 8..15, while loc_11E16 also copies background colours
-        // 1..7 into line-1 slots 9..15. Compose that CRAM view so transparent
-        // foreground holes show the waterfall/mountain Plane B instead of
-        // disappearing.
+        // ASM Load_BackgroundMappings_Layered loc_12910 decodes Mountain's
+        // main planes with palette-line bits from base `$2780`, while the
+        // clear-weather follow-up plane uses `$07E5` and therefore reads
+        // foreground CRAM line 0. loc_11E16 copies background colours 1..7
+        // into line-1 slots 9..15 for the main planes without replacing the
+        // foreground line used by the follow-up art.
         let original = palette.colours.clone();
         let mut combined = foreground_palette_for_scene(trace, level_visuals).colours;
         combined.truncate(PALETTE_LINE_COLOUR_COUNT - 1);
@@ -1942,7 +1942,6 @@ fn background_palette_for_scene(
             PALETTE_LINE_COLOUR_COUNT * 2,
             kid_render::MdColour::from_word(0),
         );
-        combined[7..15].copy_from_slice(&original[0..8]);
         combined[PALETTE_LINE_COLOUR_COUNT + 8..PALETTE_LINE_COLOUR_COUNT + 15]
             .copy_from_slice(&original[1..8]);
         palette.colours = combined;
