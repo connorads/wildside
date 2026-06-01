@@ -65,9 +65,9 @@ use scenarios::{
     diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
     enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
-    highwater_shooter_barrier_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
-    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
+    idle_level_scenario, lava_weather_audit_scenario, level_00_slope_right_probe_scenario,
+    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -115,6 +115,8 @@ enum RecordScenarioKind {
     DiamondPowerSamuraiHazeAudit,
     /// drive Berzerker through Highwater Pass 1's first shooter/barrier stack.
     HighwaterShooterBarrierAudit,
+    /// walk the Level 02 spawn route to the first water/foreground overlap.
+    HighwaterWaterPriorityAudit,
     /// start at Highwater Pass 1's flag and audit the normal next-level hand-off.
     HighwaterFlagTransitionAudit,
     /// start at Highwater Pass 2's flag as Juggernaut and audit the normal level-4 hand-off.
@@ -2245,6 +2247,9 @@ fn build_record_scenario(
         RecordScenarioKind::HighwaterShooterBarrierAudit => {
             highwater_shooter_barrier_audit_scenario()
         }
+        RecordScenarioKind::HighwaterWaterPriorityAudit => {
+            highwater_water_priority_audit_scenario()
+        }
         RecordScenarioKind::HighwaterFlagTransitionAudit => {
             highwater_flag_transition_audit_scenario()
         }
@@ -2302,6 +2307,7 @@ fn record_scenario_command(
         }
         RecordScenarioKind::DiamondPowerSamuraiHazeAudit => "diamond-power-samurai-haze-audit",
         RecordScenarioKind::HighwaterShooterBarrierAudit => "highwater-shooter-barrier-audit",
+        RecordScenarioKind::HighwaterWaterPriorityAudit => "highwater-water-priority-audit",
         RecordScenarioKind::HighwaterFlagTransitionAudit => "highwater-flag-transition-audit",
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             "highwater-pass2-juggernaut-flag-transition-audit"
@@ -4228,6 +4234,37 @@ AddrTbl_LevelNames:
                     && checkpoint.frame_index == 104
             }),
             "the #214 route needs a checkpoint after loc_F04A cascades through the upper Highwater shooter cells"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_highwater_water_priority_audit_samples_overlap_route() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::HighwaterWaterPriorityAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "highwater_water_priority_audit_02");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x02),
+            "the #215 water/foreground probe must target Highwater Pass 1 regardless of the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.frame_count, 1_860,
+            "the route needs to reach the first visible Mountain water hole from the settled Level 02 spawn"
+        );
+        assert!(
+            scenario.checkpoints.iter().any(|checkpoint| {
+                checkpoint.label == "waterfall_overlap_loc_300ba" && checkpoint.frame_index == 960
+            }),
+            "recording evidence needs a durable checkpoint where Transfer_ScrollDataToVRAM loc_300BA has latched the waterfall overlap camera"
+        );
+        assert!(
+            scenario.checkpoints.iter().any(|checkpoint| {
+                checkpoint.label == "waterfall_palette_tail_loc_1223c"
+                    && checkpoint.frame_index == 1_859
+            }),
+            "the #215 route must keep a late palette-phase sample for RotatePalette_Lava_Water loc_1223C"
         );
     }
 
