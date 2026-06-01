@@ -2384,6 +2384,9 @@ impl NativeRuntime {
         self.weather.storm_spawn_cooldown = stepped.snow_spawn_cooldown;
         self.weather.hail_period_timer = stepped.hail_period_timer;
         self.weather.hail_active = stepped.hail_active;
+        if stepped.play_thunder_sound {
+            let _ = self.play_thunderstorm_sound_sub_1B36C(0);
+        }
 
         // Hail projectiles only exist for Storm+Hail (weather 3). Weather 2
         // still runs the shared storm palette/thunder state above.

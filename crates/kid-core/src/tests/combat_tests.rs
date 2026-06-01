@@ -20943,6 +20943,32 @@ mod chunk_05 {
     }
 
     #[test]
+    fn weather_two_mountain_thunder_queues_sub_1b36c_sound() {
+        let mut manifest = manifest_with_levels(2);
+        let header = manifest.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.background_theme = 7; // Mountain, matching ASM loc_60EE guard.
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+        runtime.frame_index = 0x05DD;
+        runtime.weather.storm_fade_countdown = 0;
+        runtime.weather.storm_thunder_timer = 1;
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::Thunderstorm],
+            "ASM sub_6048 loc_60EE should call sub_1B36C/sfx_Thunderstorm when the Mountain thunder timer reaches zero"
+        );
+        assert_eq!(
+            runtime.weather.storm_thunder_timer, 0,
+            "ASM loc_60EE decrements `$FFFFFADC` to zero on the thunder frame"
+        );
+    }
+
+    #[test]
     fn skycutter_c_press_starts_flipboard_deploy() {
         let mut rt = skycutter_runtime();
         let mut slice = airborne_slice();
