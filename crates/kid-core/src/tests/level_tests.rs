@@ -4094,7 +4094,7 @@ mod chunk_02 {
         let mut frame_2460 = None;
         let mut frame_2520 = None;
 
-        for frame_index in 0..=2_520 {
+        for frame_index in 0..=2_580 {
             let trace = runtime.step_frame(FrameInput::default());
             if frame_index == 2_460 {
                 assert_eq!(trace.game_mode, GameMode::IntroSequence6);
@@ -4120,6 +4120,14 @@ mod chunk_02 {
                     "ASM loc_1B446 keeps the first `unk_1B4D6` upload visible through the following object pass, so oracle-backed cold-boot frame 2520 presents sub_1BF24 frame 4",
                 );
                 frame_2520 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 2_580 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert_eq!(
+                    runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                    1,
+                    "ASM loc_1B3BC's final d1=0 loop flash should remain visible while loc_1B37C hibernates before the post-loop zero upload at oracle-backed frame 2580",
+                );
             }
         }
 

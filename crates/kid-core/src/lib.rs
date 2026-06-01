@@ -1599,8 +1599,29 @@ impl NativeRuntime {
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
         const LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES: usize = 3;
+        const LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES: usize = 49;
+        const LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
+            LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + 3;
+        const LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
+            LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + ((0x002C + 1) * 3) + 2;
 
         let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
+        if (LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES
+            ..=LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES)
+            .contains(&self.title_screen_elapsed_frames)
+        {
+            // ASM loc_1B3BC (kid.asm:29608): after the opening flashes, the
+            // DBF loop uploads `(d1 & 3) + 1` for d1=$2C..0. Oracle WRAM at
+            // cold-boot frames 2460/2520/2580 shows this loop starts on native
+            // title elapsed 49 and keeps d1=0's flash visible while hibernating
+            // before the first post-loop zero upload.
+            let loop_uploads =
+                (self.title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
+            let d1 = 0x002C_u16
+                .saturating_add(1)
+                .saturating_sub(loop_uploads.try_into().unwrap_or(u16::MAX));
+            return ((d1 & 3) + 1) as u8;
+        }
         // ASM loc_1BA90's intro-5 fade hold precedes Load_IntroSequence6, and
         // loc_1B37C then begins with `j_Hibernate_Object #3` before its first
         // `sub_1B41C` upload is visible. Native rebuilds the whole VDP image
