@@ -17076,6 +17076,69 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the next natural
+    /// Level 00 SlopeUp/Solid edge lands from above with a lower incoming
+    /// x_vel than frame 478. Oracle frame 601 proves this seam still needs the
+    /// solid-edge low-word handoff rather than the fully advanced airborne
+    /// subpixel.
+    #[test]
+    fn level00_frame_601_slope_up_recontact_uses_solid_edge_handoff_loc_a99e() {
+        let w: u16 = 70;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+        };
+        set(&mut data, 63, 10, 0x40);
+        set(&mut data, 64, 10, 0x60);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x03f4_3b00;
+        slice.player.y_pos = 0x00a3_cc00;
+        slice.player.x_velocity = 0x0002_9800;
+        slice.player.y_velocity = 0x0001_fc00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x03f8_5700,
+            "ASM loc_A99E/loc_8BF0 handoff should match oracle frame 601 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00a7_0000,
+            "ASM loc_9D22 recontact should match oracle frame 601 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_5700,
+            "ASM loc_9D22 should keep the oracle frame 601 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
     /// ASM loc_9F18 -> loc_9FBC (kid.asm:12223-12290): after SlopeUp motion,
     /// a non-slope/solid current tile takes the wall-exit tail, snaps the high
     /// Y word to the adjacent solid row, and clears y_vel before returning to

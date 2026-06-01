@@ -3218,6 +3218,37 @@ impl OpeningSliceState {
                         _ => self.player.y_velocity,
                     };
                 }
+                if self.player.on_ground
+                    && self.terrain.floor_terrain_type == TerrainType::Normal
+                    && let (Some(grid), Some(_slope)) =
+                        (block_grid.as_deref(), grounded_slope_for_loc_9d22)
+                    && let Some(floor_y_px) = slope_to_solid_exit_floor_y_loc_9fbc(
+                        grid,
+                        self.player.x_pos,
+                        self.player.y_pos,
+                        self.player.x_velocity,
+                        collision_hw,
+                    )
+                {
+                    // ASM loc_9F18 -> loc_9FBC/loc_A0B4: the slope walker
+                    // applies sub_8F26 horizontally before the solid-tile exit
+                    // tail. If the next X step leaves the active slope for a
+                    // solid support tile, the ROM snaps to that solid row and
+                    // clears y_vel instead of applying one more diagonal
+                    // loc_9D22 vertical step. Oracle #211 frame 606 exercises
+                    // the SlopeUp/solid case immediately after the frame-601
+                    // airborne recontact.
+                    self.player.y_pos = (floor_y_px.max(0) as u32) << 16;
+                    self.terrain.floor_y_pos = self.player.y_pos;
+                    self.terrain.floor_terrain_type = grounded_surface_type_sub_8600(
+                        grid,
+                        (self.player.x_pos >> 16) as i32,
+                        (self.player.y_pos >> 16) as i32,
+                        collision_hw,
+                    );
+                    self.player.y_velocity = 0;
+                    self.player.on_spikes = false;
+                }
                 // In AsmFaithful, gravity runs before position, so pre_gravity_y_vel
                 // is the velocity before gravity was applied (same as GravityFirst).
                 self.pre_gravity_y_vel = pre_gravity_y_vel;
@@ -5998,31 +6029,39 @@ impl OpeningSliceState {
             let x_px = (future_x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
             let row = ((y_px + 1).max(0) >> 4) as u16;
-            let right_col = ((x_px + collision_hw).max(0) >> 4)
-                .min(i32::from(grid.width_cells.saturating_sub(1)))
-                as u16;
-            let right_cell = grid.cell_at(right_col, row);
-            if !right_cell.has_block
+            let current_col =
+                (x_px.max(0) >> 4).min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
+            let current_cell = grid.cell_at(current_col, row);
+            let next_col = current_col
+                .saturating_add(1)
+                .min(grid.width_cells.saturating_sub(1));
+            let next_cell = grid.cell_at(next_col, row);
+            let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
+            if post_vertical_frac < 0x8000
+                && matches!(current_cell.collision, terrain::CollisionKind::SlopeUp)
+                && !next_cell.has_block
                 && matches!(
-                    right_cell.collision,
+                    next_cell.collision,
                     terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
                 )
             {
                 // ASM loc_A99E -> loc_8BF0 -> loc_9D22: on a fresh SlopeUp
-                // landing whose leading edge also overlaps the next solid
-                // tile, the ROM keeps the sub_902A vertical fractional
-                // crossing as the slope-entry subpixel instead of snapping to
-                // the fully advanced integer slope point. This is the reduced
-                // #211 frame-478 SlopeUp/Solid edge handoff.
-                let frac = post_vertical_y_pos & 0x0000_FFFF;
-                if frac != 0 {
-                    let rounded_frac = ((frac + 0x01FF) & !0x01FF).min(0xFFFF);
-                    let corrected_high = (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000);
-                    let corrected_future_x = corrected_high | rounded_frac;
-                    self.player.x_pos = (i64::from(corrected_future_x)
-                        - i64::from(self.player.x_velocity))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
-                }
+                // landing into the next solid tile, the ROM enters walking
+                // through loc_A99E, then loc_9D22/loc_9F18 own the slope
+                // advance before sub_A254 snaps Y. Oracle #211 frames 478 and
+                // 601 both cross the vertical half-word wrap and preserve the
+                // post-slope x_vel low word as the final X subpixel instead
+                // of carrying the airborne handoff's high-speed subpixel
+                // across the SlopeUp/Solid boundary. Earlier frame 428 has
+                // post-vertical fraction 0xAC00 and keeps the unborrowed high
+                // word.
+                let corrected_high = (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000);
+                let corrected_future_x =
+                    corrected_high | ((self.player.x_velocity as u32) & 0x0000_FFFF);
+                self.player.x_pos = (i64::from(corrected_future_x)
+                    - i64::from(self.player.x_velocity))
+                .clamp(0, i64::from(u32::MAX)) as u32;
+                self.terrain.floor_terrain_type = TerrainType::Normal;
             }
         }
 
@@ -6678,6 +6717,56 @@ fn flat_solid_after_adjacent_slope_exit_loc_8e16(
     }
 
     saw_plain_solid && saw_adjacent_slope
+}
+
+fn slope_to_solid_exit_floor_y_loc_9fbc(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    half_width_px: i32,
+) -> Option<i32> {
+    // High-speed rubber/death seams take the rebound path guarded by the
+    // death_respawn_level_1_* tests; do not reinterpret those as the walking
+    // loc_9FBC solid-exit tail.
+    if x_velocity == 0 || x_velocity.unsigned_abs() > 0x0001_8000 {
+        return None;
+    }
+
+    let x_px = (x_pos >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let row = ((y_px + 1).max(0) >> 4) as u16;
+    let left_col = ((x_px - half_width_px).max(0) >> 4) as u16;
+    let right_col = ((x_px + half_width_px).max(0) >> 4)
+        .min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
+    let currently_spans_slope = (left_col..=right_col).any(|col| {
+        matches!(
+            grid.cell_at(col, row).collision,
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+        )
+    });
+    if !currently_spans_slope {
+        return None;
+    }
+
+    let next_x = (i64::from(x_pos) + i64::from(x_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+    let next_probe = terrain::probe_floor_hitbox(grid, (next_x >> 16) as i32, y_px, half_width_px);
+    if next_probe.on_ground
+        && matches!(
+            next_probe.cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
+        && !next_probe.cell.has_block
+    {
+        if grounded_surface_type_sub_8600(grid, (next_x >> 16) as i32, y_px, half_width_px)
+            != TerrainType::Normal
+        {
+            return None;
+        }
+        return Some(next_probe.floor_y_px.saturating_sub(1));
+    }
+
+    None
 }
 
 #[allow(non_snake_case)]
