@@ -1218,7 +1218,15 @@ impl NativeRuntime {
             };
 
             match outcome {
-                Ok(()) => index += 1,
+                Ok(()) => {
+                    // ASM loc_EC76 falls straight into Process_ShooterObjects
+                    // (loc_EC22/loc_EDFA). In native's split frame shell,
+                    // `step_projectiles` runs later, so mark this slot to
+                    // avoid applying a second loc_EDFA step in the same frame.
+                    self.projectiles[index].shooter_skip_projectile_step_frame =
+                        Some(self.frame_index);
+                    index += 1;
+                }
                 Err(interaction) => {
                     self.projectiles.remove(index);
                     self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
@@ -1489,11 +1497,11 @@ impl NativeRuntime {
             }
             terrain::BlockType::Evanescent => {
                 // ASM loc_F04A dispatches shooter-object hits on type-$A
-                // blocks through EvanescentBlock_Trigger, the same routine
-                // used by Kid's body-contact path at loc_EB72. Register the
-                // timer entry too; otherwise projectile-triggered Highwater
-                // source cells stay stuck as `$E3xx`.
-                self.trigger_evanescent_block_loc_EB72(
+                // blocks through EvanescentBlock_Trigger (`loc_DF68`) but
+                // does not branch through LoadBulletsFromEvanescentBlock like
+                // Kid's body-contact loc_EB72 path. The slot's bullets load
+                // on the next loc_EC22 pass.
+                self.trigger_evanescent_block_from_shooter_loc_F04A(
                     interaction.col,
                     interaction.row,
                     interaction.skin,
@@ -1789,6 +1797,7 @@ impl NativeRuntime {
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let grid = self.block_grid.as_ref();
         let level_bounds = self.level_bounds(self.current_level);
+        let current_frame_index = self.frame_index;
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
             == crate::helmets::DiamondPowerType::TrackingRain
             && (self.frame_index & 7) == 1;
@@ -2078,6 +2087,10 @@ impl NativeRuntime {
                 && p.shooter_tracks_layout
                 && let Some(g) = grid
             {
+                if p.shooter_skip_projectile_step_frame == Some(current_frame_index) {
+                    p.shooter_skip_projectile_step_frame = None;
+                    return true;
+                }
                 match Self::step_tracked_shooter_object_loc_EDFA(g, p) {
                     Ok(()) => return true,
                     Err(interaction) => {

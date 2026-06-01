@@ -457,6 +457,22 @@ trigger frame already nudged to x=244, so the next fix should model the
 allocation frame separately from the direction-nudged hibernate frame instead
 of counting scratch `sub_2A4C` debris as objects.
 
+Note 2026-06-01 shooter-chain fix for #214: matched the Highwater dense
+shooter/barrier object-count window against oracle. Two native shortcuts were
+wrong: body-contact `loc_EB72 -> loc_EC76` shooter objects were stepping once
+through the immediate `loc_EC22/loc_EDFA` fallthrough and again later in
+`step_projectiles`, while projectile-triggered `loc_F04A` evanescent hits were
+incorrectly loading their child bullets immediately instead of waiting for the
+next `LoadBulletsFromEvanescentBlock` pass. Native now marks same-frame
+body-triggered shooter objects, defers projectile-triggered evanescent bullets
+until the next block pass, and models ice block effects with the `sub_10F9C`
+source-cell setup frame before the nudged three-frame `loc_10FEC` hibernate.
+Regression: `highwater_pass_1_touch_shooter_frame_loop_advances_once_loc_ec76_edfa`.
+Focused verification: `tas-diff` on
+`issue-214-highwater-dense-80-130/scenario.json` frames 104..116 is now 12/12
+match. #214 remains open for the reported shooter-block/player overlap launch
+and any strict pixel/projectile visual drift outside this object-count window.
+
 | 215 | [ ] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | Evidence source: human playtest after pushed commits. Symptom: water animation appears inactive or the player renders above foreground/water elements that should cover him. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: capture Level 02 water/foreground frames with layer diagnostics, compare VDP priority bits and native render layer ordering against oracle before touching renderer composition. |
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
 | 216 | [ ] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and diamond collection sounds are delayed; level-complete sound does not finish cleanly. #160 covers continuous BGM/SFX output but not these event-specific timing edges. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: audio event trace for prize/block/diamond and flag-touch/EOL path, compare queued GEMS commands and rendered audio windows against oracle where available. |

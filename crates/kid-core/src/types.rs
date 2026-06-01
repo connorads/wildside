@@ -1559,6 +1559,10 @@ pub(crate) struct BlockDestroyEffect {
     /// ASM `sub_292E` (kid.asm:4881) selects debris velocity tables from
     /// `d6`: 0=below, 1=left, 2=above, otherwise right/default.
     pub(crate) direction: u16,
+    /// ASM `sub_10F9C` first exposes the ice effect at the source cell, then
+    /// `loc_10FDC`/`loc_10FE2`/`loc_10FE8` nudges the gfx object before the
+    /// three-frame `loc_10FEC` hibernate.
+    pub(crate) pending_ice_origin_nudge: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2277,6 +2281,9 @@ pub(crate) struct EvanescentEntry {
     pub(crate) directions: u8,
     /// Timer value (starts negative from skin offset, incremented each frame).
     pub(crate) timer: i16,
+    /// True after this evanescent slot has been consumed by
+    /// LoadBulletsFromEvanescentBlock (`loc_EC22`).
+    pub(crate) bullets_loaded: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2427,6 +2434,10 @@ pub(crate) struct EnemyProjectile {
     pub(crate) shooter_layout_col: u16,
     pub(crate) shooter_layout_row: u16,
     pub(crate) shooter_state_word: u16,
+    /// Native frame index where `loc_EC76` already advanced this shooter via
+    /// the immediate `Process_ShooterObjects` fallthrough. The later native
+    /// projectile pass must not run `loc_EDFA` again in that same frame.
+    pub(crate) shooter_skip_projectile_step_frame: Option<usize>,
     /// Object animation elapsed frames for projectile workers whose ROM script
     /// is not represented by their lifetime counter.
     pub(crate) animation_elapsed_frames: u16,

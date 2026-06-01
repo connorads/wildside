@@ -648,6 +648,7 @@ mod tests {
             y_px: 196,
             remaining: 2,
             direction: 0,
+            pending_ice_origin_nudge: false,
         });
 
         // ASM Block_LoadSmashBits/sub_10EDA (kid.asm:22775,22806) reaches
@@ -2683,6 +2684,7 @@ mod tests {
                 y_px: 0,
                 remaining: 1,
                 direction: 0,
+                pending_ice_origin_nudge: false,
             }));
         runtime
             .prize_block_worker_tails

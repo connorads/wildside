@@ -1654,6 +1654,7 @@ impl NativeRuntime {
             y_px: ((y_pos >> 16) as u16).saturating_sub(8),
             remaining: 8,
             direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+            pending_ice_origin_nudge: false,
         })
     }
 
@@ -2021,6 +2022,7 @@ impl NativeRuntime {
             y_px,
             remaining: 2,
             direction,
+            pending_ice_origin_nudge: false,
         });
     }
 
@@ -2030,16 +2032,15 @@ impl NativeRuntime {
         y_px: u16,
         direction: u16,
     ) {
-        let (x_px, y_px) = Self::ice_block_destroy_effect_origin_sub_10F9C(direction, x_px, y_px);
         self.block_destroy_effects.push(BlockDestroyEffect {
-            // ASM sub_10F9C / loc_10FEC (kid.asm:22881,22910): after the
-            // direction-specific nudge, the worker marks the effect visible,
-            // swaps to the ice-block art, hibernates for 3 frames, then
-            // dispatches the shared debris helper and deletes itself.
+            // ASM sub_10F9C first marks the effect visible at the source
+            // cell, then loc_10FDC/loc_10FE2/loc_10FE8 apply the direction
+            // nudge before loc_10FEC hibernates for three frames.
             x_px,
             y_px,
-            remaining: 3,
+            remaining: 4,
             direction,
+            pending_ice_origin_nudge: true,
         });
     }
 
@@ -2216,6 +2217,26 @@ impl NativeRuntime {
         // ASM loc_EAE4 -> loc_EB72 scans Kid's expanded hitbox for the first
         // bit-15 type-$A block. The trigger is body contact, not just standing
         // on the cell; Highwater Pass' first evanescent shooters depend on this.
+        let pending_bullets = self
+            .block_state
+            .evanescent_blocks
+            .iter_mut()
+            .filter_map(|entry| {
+                if entry.bullets_loaded {
+                    return None;
+                }
+                entry.bullets_loaded = true;
+                let skin = u8::try_from(EVANESCENT_SKIN_OFFSET.wrapping_add(entry.timer)).ok()?;
+                Some((entry.col, entry.row, skin))
+            })
+            .collect::<Vec<_>>();
+        for (col, row, skin) in pending_bullets {
+            // ASM LoadBulletsFromEvanescentBlock loc_EC22 loads bullets for
+            // evanescent slots that were registered by a previous shooter hit
+            // at loc_F04A, then immediately falls through to loc_EDFA.
+            self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
+        }
+
         let collision_half_width = self.evanescent_hitbox_half_width_loc_EAE4();
         let trigger = self
             .block_grid
@@ -2300,6 +2321,27 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     pub(crate) fn trigger_evanescent_block_loc_EB72(&mut self, col: u16, row: u16, skin: u8) {
+        self.trigger_evanescent_block_loc_DF68(col, row, skin, true);
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn trigger_evanescent_block_from_shooter_loc_F04A(
+        &mut self,
+        col: u16,
+        row: u16,
+        skin: u8,
+    ) {
+        self.trigger_evanescent_block_loc_DF68(col, row, skin, false);
+    }
+
+    #[allow(non_snake_case)]
+    fn trigger_evanescent_block_loc_DF68(
+        &mut self,
+        col: u16,
+        row: u16,
+        skin: u8,
+        load_bullets_now: bool,
+    ) {
         if self
             .block_state
             .evanescent_blocks
@@ -2320,8 +2362,11 @@ impl NativeRuntime {
             row,
             directions: initial_timer as u8,
             timer: initial_timer,
+            bullets_loaded: load_bullets_now,
         });
-        self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
+        if load_bullets_now {
+            self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
+        }
     }
 
     #[allow(non_snake_case)]
@@ -3888,6 +3933,13 @@ impl NativeRuntime {
             .retain(|flash| flash.remaining > 0);
 
         for e in &mut self.block_destroy_effects {
+            if e.pending_ice_origin_nudge {
+                let (x_px, y_px) =
+                    Self::ice_block_destroy_effect_origin_sub_10F9C(e.direction, e.x_px, e.y_px);
+                e.x_px = x_px;
+                e.y_px = y_px;
+                e.pending_ice_origin_nudge = false;
+            }
             e.remaining = e.remaining.saturating_sub(1);
         }
         let mut new_debris_swarms = Vec::new();

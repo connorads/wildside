@@ -134,6 +134,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         y_px: 96,
         remaining: 6,
         direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+        pending_ice_origin_nudge: false,
     });
     runtime.floating_items.push(FloatingItem {
         x_pos: 0x0050_0000,
@@ -17850,6 +17851,7 @@ mod chunk_02 {
                 row: 2,
                 directions: 2,
                 timer: 3,
+                bullets_loaded: true,
             }]
         );
         assert_eq!(

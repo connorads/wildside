@@ -7511,8 +7511,16 @@ mod chunk_09 {
         assert_eq!(runtime.block_destroy_effects.len(), 1);
         assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
         assert_eq!(
+            runtime.block_destroy_effects[0].y_px, 224,
+            "ASM sub_10F9C first exposes the ice worker at the source cell before loc_10FDC applies the hibernate-frame nudge"
+        );
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 4);
+
+        runtime.step_visual_effects();
+
+        assert_eq!(
             runtime.block_destroy_effects[0].y_px, 220,
-            "ASM loc_10FDC subtracts 4 from `y_pos(a3)` when `d6 == 2`, so sub_10F9C nudges the ice effect 4px upward before the shared loc_10FEC 3-frame hibernate tail"
+            "ASM loc_10FDC subtracts 4 from `y_pos(a3)` before the shared loc_10FEC 3-frame hibernate tail"
         );
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
     }
@@ -7528,9 +7536,15 @@ mod chunk_09 {
         );
 
         assert_eq!(runtime.block_destroy_effects.len(), 1);
+        assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
+        assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 4);
+
+        runtime.step_visual_effects();
+
         assert_eq!(
             runtime.block_destroy_effects[0].x_px, 76,
-            "ASM loc_10FE2 subtracts 4 from `x_pos(a3)` when `d6 == 1`, so sub_10F9C nudges the ice effect 4px left before the shared loc_10FEC 3-frame hibernate tail"
+            "ASM loc_10FE2 subtracts 4 from `x_pos(a3)` when `d6 == 1`, after sub_10F9C's source-cell setup frame"
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
@@ -7551,9 +7565,15 @@ mod chunk_09 {
         );
 
         assert_eq!(runtime.block_destroy_effects.len(), 1);
+        assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
+        assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 4);
+
+        runtime.step_visual_effects();
+
         assert_eq!(
             runtime.block_destroy_effects[0].x_px, 84,
-            "ASM loc_10FE8 adds 4 to `x_pos(a3)` when `d6 == 3`, so sub_10F9C nudges the ice effect 4px right before the shared loc_10FEC 3-frame hibernate tail"
+            "ASM loc_10FE8 adds 4 to `x_pos(a3)` when `d6 == 3`, after sub_10F9C's source-cell setup frame"
         );
         assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
@@ -7576,11 +7596,16 @@ mod chunk_09 {
         assert_eq!(runtime.block_destroy_effects.len(), 1);
         assert_eq!(
             runtime.block_destroy_effects[0].x_px, 80,
-            "ASM sub_10F9C falls through to the default branch when `d6 == 0`, so the ice effect should keep its source X position before the shared `loc_10FEC` tail",
+            "ASM sub_10F9C exposes the source-cell setup frame before the default downward loc_10FEC tail",
         );
+        assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 4);
+
+        runtime.step_visual_effects();
+
         assert_eq!(
             runtime.block_destroy_effects[0].y_px, 52,
-            "ASM sub_10F9C takes the default `addq.w #4,y_pos(a3)` path when `d6` is neither 1, 2, nor 3, so the ice effect should nudge 4px downward before the 3-frame hibernate",
+            "ASM sub_10F9C takes the default `addq.w #4,y_pos(a3)` path when `d6` is neither 1, 2, nor 3",
         );
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
         assert_eq!(
@@ -8084,7 +8109,10 @@ mod chunk_09 {
             "ASM sub_10F9C should erase the drilled ice source cell after loc_3BEF2 queues the worker",
         );
         assert_eq!(rt.block_destroy_effects.len(), 1);
-        assert_eq!(rt.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            rt.block_destroy_effects[0].remaining, 4,
+            "ASM sub_10F9C should keep the drilled ice worker alive for its source-cell setup frame before loc_10FEC's three-frame hibernate"
+        );
         assert_eq!(
             rt.projectiles
                 .iter()
@@ -8773,6 +8801,47 @@ mod chunk_09 {
                 .any(|projectile| projectile.x_velocity == 4 << 16 && projectile.y_velocity == 0),
             "ASM loc_EC76 should fire a rightward shot from Highwater Pass 1's `$EA1E` column through the normal frame loop"
         );
+    }
+
+    #[test]
+    fn highwater_pass_1_touch_shooter_frame_loop_advances_once_loc_ec76_edfa() {
+        // ASM loc_EB72 -> loc_EC76 immediately falls through to
+        // Process_ShooterObjects at loc_EC22/loc_EDFA. The same just-fired
+        // shooter object should not then receive a second loc_EDFA step later
+        // in the native frame shell.
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
+        rt.enter_level_playtest(LevelId(0x02));
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.projectiles.clear();
+
+        let mut slice = rt
+            .opening_slice
+            .expect("level should have an opening slice");
+        slice.player.x_pos = ((11 * 16 - 24) as u32) << 16;
+        slice.player.y_pos = ((97 * 16 + 8) as u32) << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        rt.step_frame(FrameInput::default());
+
+        let projectile = rt
+            .projectiles
+            .iter()
+            .find(|projectile| {
+                projectile.kind == EnemyProjectileKind::ShooterBlock
+                    && projectile.x_velocity == 4 << 16
+                    && projectile.y_velocity == 0
+            })
+            .expect("rightward Highwater shooter should exist after trigger frame");
+        assert_eq!(
+            projectile.x_pos, 0x00bc_0000,
+            "ASM loc_EC76 -> loc_EDFA should advance the just-triggered shooter exactly once in its trigger frame"
+        );
+        assert_eq!(projectile.shooter_state_word, 0xFFFF);
     }
 
     #[test]
@@ -9977,6 +10046,7 @@ mod chunk_09 {
             y_px: 48,
             remaining: 1,
             direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+            pending_ice_origin_nudge: false,
         });
 
         rt.step_visual_effects();
@@ -9994,6 +10064,7 @@ mod chunk_09 {
             y_px: 48,
             remaining: 1,
             direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+            pending_ice_origin_nudge: false,
         });
 
         rt.step_visual_effects();
@@ -10029,6 +10100,7 @@ mod chunk_09 {
             y_px: 1552,
             remaining: 1,
             direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+            pending_ice_origin_nudge: false,
         });
 
         rt.step_visual_effects();
@@ -10096,6 +10168,7 @@ mod chunk_09 {
                 row: 10,
                 directions: 0,
                 timer: 0,
+                bullets_loaded: true,
             });
         }
         assert_eq!(
