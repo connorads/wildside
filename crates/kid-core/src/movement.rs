@@ -5945,12 +5945,28 @@ impl OpeningSliceState {
                         // The rebound branch keeps the frame's horizontal carry;
                         // unlike the normal landing path, loc_9082 does not
                         // rewind x_pos after the contact-row snap.
+                        // ASM sub_914A (kid.asm:10568-10627) scans the whole
+                        // `x_pos-half_width..x_pos+half_width` floor span and
+                        // calls loc_10DA4 once for each rubber block, so keep
+                        // the first scanned rubber cell as the effect anchor.
+                        let rubber_effect_cell = [left_edge_probe, probe, right_edge_probe]
+                            .into_iter()
+                            .filter(|candidate| {
+                                candidate.cell.has_block
+                                    && candidate.cell.block_type == terrain::BlockType::Rubber
+                                    && candidate.cell.collision == terrain::CollisionKind::Solid
+                                    && candidate.cell_y == probe.cell_y
+                            })
+                            .min_by_key(|candidate| candidate.cell_x)
+                            .map_or((probe.cell_x, probe.cell_y), |candidate| {
+                                (candidate.cell_x, candidate.cell_y)
+                            });
                         self.player.on_ground = false;
                         self.player.y_velocity = -incoming_y_velocity;
                         self.player.on_spikes = false;
                         self.terrain.floor_terrain_type =
                             grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
-                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+                        self.rubber_block_hit = Some(rubber_effect_cell);
                         self.player.wall_cling_direction = None;
                         return None;
                     }

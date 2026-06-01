@@ -16807,6 +16807,40 @@ mod chunk_12 {
         assert_eq!(slice.player.y_pos, 64 << 16);
     }
 
+    /// ASM `sub_914A` scans every floor cell from `x_pos-half_width` through
+    /// `x_pos+half_width` and calls `loc_10DA4` for each Rubber block it sees.
+    #[test]
+    fn sub_914a_floor_rubber_effect_anchors_leftmost_spanned_cell() {
+        let w: u16 = 100;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in [94usize, 95] {
+            let offset = (16usize * usize::from(w) + col) * 2;
+            data[offset] = 0xE6;
+            data[offset + 1] = 0x0C;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 1524 << 16;
+        slice.player.y_pos = 256 << 16;
+        slice.player.y_velocity = 0x0007_4000;
+
+        slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
+
+        assert_eq!(
+            slice.rubber_block_hit,
+            Some((94, 16)),
+            "ASM sub_914A should preserve the first rubber cell in the scanned span before loc_10DA4 allocates one worker per rubber cell",
+        );
+        assert_eq!(slice.player.y_velocity, -0x0007_4000);
+        assert!(!slice.player.on_ground);
+    }
+
     /// ASM sub_902A upward slope recontact is only for a gentle upward movement:
     /// zero vertical speed and over-tolerance upward speed must both stay airborne.
     #[test]
