@@ -3694,6 +3694,40 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn soak_level_10m_verifier_rejects_transition_only_level_coverage() {
+        let mut states = Vec::new();
+        for level in 0..8u16 {
+            let mut state =
+                gameplay_state(&format!("transition_{level}"), 720 + usize::from(level));
+            state.game_mode = GameMode::LevelTransition.as_disassembly_value();
+            state.current_level_id = level;
+            state.player_1_level_id = level;
+            states.push(state);
+        }
+
+        let mut soak_end = gameplay_state("soak_end", 800);
+        soak_end.current_level_id = 7;
+        soak_end.player_1_level_id = 7;
+
+        let capture = GameplayCapture {
+            scenario: String::from("native_soak_level_10m"),
+            frame_count: 800,
+            missed_vblank_frames: 0,
+            states,
+            checkpoints: vec![soak_end],
+        };
+
+        let error = verify_soak_level_10m(&capture)
+            .expect_err("transition-only level churn must not satisfy the soak gate");
+        assert!(
+            error
+                .to_string()
+                .contains("never reached stable in-level gameplay"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
     fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
         let capture = GameplayCapture {
             scenario: String::from("death_respawn_level1"),

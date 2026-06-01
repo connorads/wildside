@@ -458,8 +458,8 @@ pub(crate) fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
         );
     }
     let soak_end = gameplay_checkpoint(capture, "soak_end")?;
-    let reached_stable_gameplay = capture.states.iter().any(|state| state.game_mode == 0x000C);
-    if !reached_stable_gameplay {
+    let live_levels = distinct_live_level_sequence(&capture.states);
+    if live_levels.is_empty() {
         bail!("soak_level_10m never reached stable in-level gameplay");
     }
     if soak_end.game_mode == 0 || soak_end.number_objects == 0 || soak_end.number_gfx_objects == 0 {
@@ -468,10 +468,14 @@ pub(crate) fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
     if soak_end.number_lives == 0 {
         bail!("soak_level_10m exhausted all lives");
     }
-    let distinct_levels = distinct_level_sequence(&capture.states);
-    if distinct_levels.len() < 8 {
+    if live_levels.len() < 4 {
         bail!(
-            "soak_level_10m visited only {distinct_levels:?}; expected broad transition coverage"
+            "soak_level_10m reached live gameplay on only {live_levels:?}; expected broad transition coverage"
+        );
+    }
+    if !live_levels.contains(&0x0003) {
+        bail!(
+            "soak_level_10m never reached live gameplay on level 0x0003; visited {live_levels:?}"
         );
     }
 
@@ -492,6 +496,19 @@ pub(crate) fn gameplay_checkpoint<'a>(
 pub(crate) fn distinct_level_sequence(states: &[GameplayState]) -> Vec<u16> {
     let mut levels = Vec::new();
     for state in states {
+        if levels.last().copied() != Some(state.current_level_id) {
+            levels.push(state.current_level_id);
+        }
+    }
+    levels
+}
+
+fn distinct_live_level_sequence(states: &[GameplayState]) -> Vec<u16> {
+    let mut levels = Vec::new();
+    for state in states
+        .iter()
+        .filter(|state| state.game_mode == NativeGameMode::InGame.as_disassembly_value())
+    {
         if levels.last().copied() != Some(state.current_level_id) {
             levels.push(state.current_level_id);
         }
