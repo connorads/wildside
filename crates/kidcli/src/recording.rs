@@ -8,7 +8,7 @@ use crate::native_player::{
     render_scene_overlay, render_trace_with_loc_c070_latched_sprite_state,
     render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
-use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
+use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
@@ -112,7 +112,19 @@ pub(crate) struct RecordingVerificationReport {
     pub(crate) replay_trace_len: usize,
     pub(crate) recorded_trace_len: usize,
     pub(crate) first_trace_drift: Option<TraceDriftReport>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) checkpoint_state_deltas: Vec<CheckpointStateDelta>,
     pub(crate) frame_diffs: Vec<CheckpointFrameDiff>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct CheckpointStateDelta {
+    pub(crate) label: String,
+    pub(crate) frame_index: usize,
+    pub(crate) field: String,
+    pub(crate) native_value: String,
+    pub(crate) oracle_value: String,
+    pub(crate) delta: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -647,8 +659,14 @@ pub(crate) fn verify_recording(
         &native_dir.join("layers"),
     )?;
 
-    let (oracle_state_match, oracle_state_error, oracle_frame_match, frame_diffs) = if native_only {
-        (true, None, true, Vec::new())
+    let (
+        oracle_state_match,
+        oracle_state_error,
+        oracle_frame_match,
+        checkpoint_state_deltas,
+        frame_diffs,
+    ) = if native_only {
+        (true, None, true, Vec::new(), Vec::new())
     } else {
         let env = ensure_oracles(repo_root)?;
         let (oracle_scenario, oracle_frame_prefix) = oracle_scenario_for_recording(&recording);
@@ -678,6 +696,7 @@ pub(crate) fn verify_recording(
                 Ok(()) => (true, None),
                 Err(error) => (false, Some(error.to_string())),
             };
+        let checkpoint_state_deltas = checkpoint_state_deltas(&native_states, &oracle.states);
         let mut frame_diffs =
             compare_recording_frames(
                 &native_dir,
@@ -702,6 +721,7 @@ pub(crate) fn verify_recording(
             oracle_state_match,
             oracle_state_error,
             oracle_frame_match,
+            checkpoint_state_deltas,
             frame_diffs,
         )
     };
@@ -716,6 +736,7 @@ pub(crate) fn verify_recording(
         replay_trace_len: replay_trace.len(),
         recorded_trace_len: recording.trace.len(),
         first_trace_drift,
+        checkpoint_state_deltas,
         frame_diffs,
     };
     fs::write(
@@ -1432,6 +1453,94 @@ fn sample_native_layers_for_pixels(
 fn sample_rgb(rgb: &[u8], x: usize, y: usize) -> [u8; 3] {
     let index = (y * NATIVE_FRAME_WIDTH as usize + x) * 3;
     [rgb[index], rgb[index + 1], rgb[index + 2]]
+}
+
+fn checkpoint_state_deltas(
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+) -> Vec<CheckpointStateDelta> {
+    let mut deltas = Vec::new();
+    for (native, oracle) in native_states.iter().zip(oracle_states) {
+        if native.label != oracle.label || native.frame_index != oracle.frame_index {
+            continue;
+        }
+
+        push_u32_state_delta(
+            &mut deltas,
+            native,
+            "camera_x_pos",
+            native.camera_x_pos,
+            oracle.camera_x_pos,
+        );
+        push_u32_state_delta(
+            &mut deltas,
+            native,
+            "camera_y_pos",
+            native.camera_y_pos,
+            oracle.camera_y_pos,
+        );
+        push_u32_state_delta(
+            &mut deltas,
+            native,
+            "kid_x_pos",
+            native.kid_x_pos,
+            oracle.kid_x_pos,
+        );
+        push_u32_state_delta(
+            &mut deltas,
+            native,
+            "kid_y_pos",
+            native.kid_y_pos,
+            oracle.kid_y_pos,
+        );
+        if let (Some(native_value), Some(oracle_value)) = (native.kid_x_vel, oracle.kid_x_vel) {
+            push_i32_state_delta(&mut deltas, native, "kid_x_vel", native_value, oracle_value);
+        }
+        if let (Some(native_value), Some(oracle_value)) = (native.kid_y_vel, oracle.kid_y_vel) {
+            push_i32_state_delta(&mut deltas, native, "kid_y_vel", native_value, oracle_value);
+        }
+    }
+    deltas
+}
+
+fn push_u32_state_delta(
+    deltas: &mut Vec<CheckpointStateDelta>,
+    native: &OracleState,
+    field: &str,
+    native_value: u32,
+    oracle_value: u32,
+) {
+    if native_value == oracle_value {
+        return;
+    }
+    deltas.push(CheckpointStateDelta {
+        label: native.label.clone(),
+        frame_index: native.frame_index,
+        field: field.to_owned(),
+        native_value: format!("{native_value:08X}"),
+        oracle_value: format!("{oracle_value:08X}"),
+        delta: format!("{:#X}", native_value.abs_diff(oracle_value)),
+    });
+}
+
+fn push_i32_state_delta(
+    deltas: &mut Vec<CheckpointStateDelta>,
+    native: &OracleState,
+    field: &str,
+    native_value: i32,
+    oracle_value: i32,
+) {
+    if native_value == oracle_value {
+        return;
+    }
+    deltas.push(CheckpointStateDelta {
+        label: native.label.clone(),
+        frame_index: native.frame_index,
+        field: field.to_owned(),
+        native_value: format!("{native_value:08X}"),
+        oracle_value: format!("{oracle_value:08X}"),
+        delta: format!("{:#X}", native_value.abs_diff(oracle_value)),
+    });
 }
 
 impl From<BackgroundPixelSample> for NativeBackgroundPixelSample {
@@ -2230,6 +2339,49 @@ mod tests {
         }
     }
 
+    fn sample_oracle_state(frame_index: usize, label: &str) -> OracleState {
+        OracleState {
+            label: label.to_owned(),
+            frame_index,
+            game_mode: GameMode::InGame.as_disassembly_value(),
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0x0010_0000,
+            camera_y_pos: 0x0020_0000,
+            kid_x_pos: 0x0030_0000,
+            kid_y_pos: 0x0040_0000,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: Some(0x0001_0000),
+            kid_y_vel: Some(0),
+            character_movement: None,
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: Some(0),
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: None,
+            level_special_effects: Some(0),
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        }
+    }
+
     #[test]
     fn recording_checkpoints_include_start_interval_and_end() {
         let checkpoints = recording_checkpoints(125);
@@ -2618,6 +2770,7 @@ mod tests {
             replay_trace_len: 120,
             recorded_trace_len: 120,
             first_trace_drift: None,
+            checkpoint_state_deltas: Vec::new(),
             frame_diffs: Vec::new(),
         };
 
@@ -2744,6 +2897,29 @@ mod tests {
             ],
             "sample pixels should identify where to inspect tile/palette provenance without bloating reports"
         );
+    }
+
+    #[test]
+    fn checkpoint_state_deltas_report_pixel_sensitive_tolerated_motion_fields() {
+        let native = sample_oracle_state(90, "projectile_barrier_window");
+        let mut oracle = native.clone();
+        oracle.camera_x_pos = 0x000F_0000;
+        oracle.kid_x_pos = 0x002E_A000;
+        oracle.kid_x_vel = Some(0x0001_5000);
+
+        let deltas = checkpoint_state_deltas(&[native], &[oracle]);
+
+        assert_eq!(
+            deltas
+                .iter()
+                .map(|delta| delta.field.as_str())
+                .collect::<Vec<_>>(),
+            vec!["camera_x_pos", "kid_x_pos", "kid_x_vel"],
+            "pixel-strict recording reports should expose camera/player drift even when compare_native_states_against_oracle tolerates sub-six-pixel differences"
+        );
+        assert_eq!(deltas[0].delta, "0x10000");
+        assert_eq!(deltas[1].delta, "0x16000");
+        assert_eq!(deltas[2].delta, "0x5000");
     }
 
     #[test]
