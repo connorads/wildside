@@ -4100,13 +4100,13 @@ mod chunk_02 {
                 assert!(!trace.title_screen_ready);
                 assert_eq!(
                     runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
-                    Some(1),
-                    "ASM sub_1B43A loc_1B446 should have started the hidden shell frame script by cold-boot frame 2460",
+                    Some(0),
+                    "ASM loc_1BA90's fade hold precedes Load_IntroSequence6, so cold-boot frame 2460 still presents the first sub_1B43A/loc_1B446 hidden-shell frame",
                 );
-                assert_ne!(
+                assert_eq!(
                     runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
-                    0,
-                    "ASM loc_1B37C should have advanced past the initial sub_1B41C frame by cold-boot frame 2460",
+                    1,
+                    "ASM loc_1B37C/sub_1B41C should present lightning flash frame 1 at oracle-backed cold-boot frame 2460",
                 );
                 frame_2460 = runtime.vdp_state().cloned();
             }

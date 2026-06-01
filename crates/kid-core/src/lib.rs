@@ -1570,7 +1570,12 @@ impl NativeRuntime {
 
     fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
         let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
-        let elapsed = self.title_screen_elapsed_frames;
+        // ASM loc_1BA90 runs the intro-5 fade hold before j_loc_6E2 enters
+        // Load_IntroSequence6. Native's title_screen_elapsed_frames includes
+        // that handoff window, but sub_1B43A's `$2A` wait starts afterwards.
+        let elapsed = self
+            .title_screen_elapsed_frames
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
         let initial = usize::from(script.initial_hibernate_frames);
         if elapsed < initial {
             return None;
@@ -1589,10 +1594,17 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
+        const LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES: usize = 3;
+
         let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
+        // ASM loc_1BA90's intro-5 fade hold precedes Load_IntroSequence6, and
+        // loc_1B37C then begins with `j_Hibernate_Object #3` before its first
+        // `sub_1B41C` upload is visible. Native rebuilds the whole VDP image
+        // from counters, so model that local presentation delay explicitly.
         let worker_elapsed = self
             .title_screen_elapsed_frames
-            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
+            .saturating_sub(LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES);
         let mut elapsed_at_step = 0usize;
         let mut flash_frame = 0u8;
         for step in sequence.steps {
