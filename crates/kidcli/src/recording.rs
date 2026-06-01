@@ -462,16 +462,10 @@ pub(crate) fn run_recorded_trace(
     let frame_count = recording_trace_frame_count(scenario);
     let mut replay = Vec::with_capacity(frame_count);
     let mut level_card_frames_remaining = 0usize;
-    let mut script_index = 0usize;
 
     while replay.len() < frame_count {
         if level_card_frames_remaining == 0 {
-            let buttons = scenario
-                .script
-                .get(script_index)
-                .copied()
-                .unwrap_or_default();
-            script_index = script_index.saturating_add(1);
+            let buttons = recording_script_buttons_at_frame(&start, scenario, replay.len());
             let previous_trace = trace.clone();
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
             let mut recorded_frame = trace.clone();
@@ -513,6 +507,28 @@ pub(crate) fn run_recorded_trace(
 
 fn recording_trace_frame_count(scenario: &DynamicScenario) -> usize {
     scenario.frame_count.max(scenario.script.len())
+}
+
+fn recording_script_buttons_at_frame(
+    start: &RecordingStart,
+    scenario: &DynamicScenario,
+    frame_index: usize,
+) -> u8 {
+    // ASM Mode_Level (kid.asm:877-917) executes objects/player logic before
+    // ReadJoypad, and settled recording oracles start from the helper's live
+    // gameplay window. Keep the same one-step input feed used by
+    // ScriptRunner::RecordingOracle so script byte N affects gameplay on
+    // traced frame N+2 after NativeRuntime::gameplay_input consumes its held
+    // latch.
+    let input_index = if start.settled && start.warp_level.is_some() {
+        frame_index.checked_sub(1)
+    } else {
+        Some(frame_index)
+    };
+    input_index
+        .and_then(|index| scenario.script.get(index))
+        .copied()
+        .unwrap_or_default()
 }
 
 struct RecordingRuntimeInit {
@@ -965,7 +981,6 @@ fn render_dynamic_checkpoint_frames(
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
     let mut rendered_frames = Vec::with_capacity(scenario.checkpoints.len());
-    let mut script_index = 0usize;
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
 
@@ -977,12 +992,7 @@ fn render_dynamic_checkpoint_frames(
         }
 
         let previous_trace = runtime.trace_frame();
-        let buttons = scenario
-            .script
-            .get(script_index)
-            .copied()
-            .unwrap_or_default();
-        script_index = script_index.saturating_add(1);
+        let buttons = recording_script_buttons_at_frame(start, scenario, replay_frame_index);
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
             apply_settled_warp_oracle_visual_compatibility(&mut trace);
@@ -1111,7 +1121,6 @@ fn write_dynamic_checkpoint_layer_frames(
 
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
-    let mut script_index = 0usize;
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
 
@@ -1123,12 +1132,7 @@ fn write_dynamic_checkpoint_layer_frames(
         }
 
         let previous_trace = runtime.trace_frame();
-        let buttons = scenario
-            .script
-            .get(script_index)
-            .copied()
-            .unwrap_or_default();
-        script_index = script_index.saturating_add(1);
+        let buttons = recording_script_buttons_at_frame(start, scenario, replay_frame_index);
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
             apply_settled_warp_oracle_visual_compatibility(&mut trace);
@@ -1274,7 +1278,6 @@ fn attach_native_pixel_samples(
     } = initialise_recording_runtime(manifest, *start, scenario)?;
     let mut current_level_id = runtime.trace_frame().current_level.0;
     let mut checkpoints = scenario.checkpoints.iter().peekable();
-    let mut script_index = 0usize;
     let mut replay_frame_index = 0usize;
     let mut level_card_frames_remaining = 0usize;
     let mut background_samples_by_checkpoint: BTreeMap<
@@ -1294,15 +1297,15 @@ fn attach_native_pixel_samples(
         Vec<NativeEolScoreSpriteDiagnostic>,
     > = BTreeMap::new();
 
-    while script_index < scenario.script.len() {
+    let frame_count = recording_trace_frame_count(scenario);
+    while replay_frame_index < frame_count {
         if level_card_frames_remaining > 0 {
             level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
             continue;
         }
 
         let previous_trace = runtime.trace_frame();
-        let buttons = scenario.script[script_index];
-        script_index += 1;
+        let buttons = recording_script_buttons_at_frame(start, scenario, replay_frame_index);
         let mut trace = runtime.step_frame(FrameInput::from_mask(buttons));
         if start.settled && start.warp_level.is_some() {
             apply_settled_warp_oracle_visual_compatibility(&mut trace);
@@ -2648,6 +2651,50 @@ mod tests {
             recording_trace_frame_count(&scenario),
             9000,
             "file-backed recordings must cover their declared checkpoint window even when a compact idle script stores one zero input byte"
+        );
+    }
+
+    #[test]
+    fn settled_warp_recording_script_buttons_use_oracle_live_window_phase() {
+        let scenario = DynamicScenario {
+            slug: "highwater-shooter-audit".into(),
+            script: vec![0, 1 << 3, 1 << 3],
+            frame_count: 4,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: Some(7),
+            initial_diamond_count: None,
+            warp_to_level: Some(2),
+            settle_oracle_warp: true,
+        };
+        let settled_start = RecordingStart {
+            warp_level: Some(2),
+            settled: true,
+            record_frames: None,
+        };
+        let unsettled_start = RecordingStart {
+            warp_level: Some(2),
+            settled: false,
+            record_frames: None,
+        };
+
+        let settled_buttons = (0..4)
+            .map(|frame| recording_script_buttons_at_frame(&settled_start, &scenario, frame))
+            .collect::<Vec<_>>();
+        let unsettled_buttons = (0..4)
+            .map(|frame| recording_script_buttons_at_frame(&unsettled_start, &scenario, frame))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            settled_buttons,
+            vec![0, 0, 1 << 3, 1 << 3],
+            "ASM Mode_Level loc_892 runs gameplay before ReadJoypad; settled recording-oracle scripts must feed the input latch one frame later"
+        );
+        assert_eq!(
+            unsettled_buttons,
+            vec![0, 1 << 3, 1 << 3, 0],
+            "non-settled recordings keep the local script phase"
         );
     }
 

@@ -423,16 +423,18 @@ frame. Verification: focused Highwater shooter tests, `tas-diff` frames 88..94
 for `issue-214-highwater-shooter-barrier-audit`, and `mise run verify-slice-fast`.
 
 Note 2026-06-01 diagnostic follow-up for #214: refreshed
-`issue-214-highwater-shooter-barrier-audit` is still strict-pixel red while
-`trace_match=true` and `oracle_state_match=true`. The hidden cause is now
-reported directly in `verify/report.json` as `checkpoint_state_deltas`: the
-state comparator's 6px tolerance was masking pixel-significant route drift
-(`charge_building@30` Kid X +`$1E000`, velocity +`$1000`;
-`projectile_barrier_window@90` camera X +`$10000`, Kid X +`$16000`; and
-`route_tail@149` camera/Kid X -`$40000`). This rejects a broad pre-step render
-latch experiment, which improved early checkpoints but worsened later ones.
-Continue #214 from exact Berzerker route/camera timing or a narrower VDP latch,
-not from projectile visuals alone.
+`issue-214-highwater-shooter-barrier-audit` exposed that the recording native
+path was feeding settled-warp input one frame earlier than the oracle helper.
+`recording_script_buttons_at_frame` now mirrors the `ScriptRunner` recording
+oracle phase (ASM `Mode_Level`/`loc_892`: gameplay before `ReadJoypad`), and
+the dense `.cache/recordings/issue-214-highwater-dense-0-40` repro now reports
+`trace_match=true`, `oracle_state_match=true`, and no
+`checkpoint_state_deltas`. The longer route is still red for real #214 logic:
+`.cache/recordings/issue-214-highwater-dense-80-130` first fails object counts
+at `f_107` (native 8/8, oracle 6/6), then movement begins drifting at `f_109`
+(native Kid velocity `$0`, oracle `$1000`). Continue from the live shooter/
+barrier object lifecycle around frames 100-110, not from the old early input
+phase or a broad pre-step render latch.
 
 | 215 | [ ] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | Evidence source: human playtest after pushed commits. Symptom: water animation appears inactive or the player renders above foreground/water elements that should cover him. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: capture Level 02 water/foreground frames with layer diagnostics, compare VDP priority bits and native render layer ordering against oracle before touching renderer composition. |
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
