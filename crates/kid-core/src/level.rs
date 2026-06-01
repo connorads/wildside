@@ -17284,14 +17284,6 @@ impl NativeRuntime {
         }
 
         let next_level = self.next_level_id();
-        self.current_level = next_level;
-        self.reload_block_grid_for_level(next_level);
-        self.level_start_frame = Some(self.frame_index);
-        // Use floor-snap so the player spawns on solid ground.
-        // The header spawn Y is approximate; ASM relies on gravity + sub_902A
-        // to settle the player on the first frame. Without floor-snap, the
-        // player can float above terrain and then drop into the void.
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(next_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
@@ -17333,9 +17325,11 @@ impl NativeRuntime {
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
-        self.player_lifecycle = PlayerLifecycle::Respawning {
-            remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
-        };
+        // ASM loc_D7F4 (kid.asm:16905): after the EOL score counter drains,
+        // the ROM increments `Current_LevelID`, sets `$FFFFFC36`, and jumps to
+        // `Teleport`, whose single-player path writes `Game_Mode=$0008`.
+        // Mode $0008 loads `Load_TitleCard`; it is not a death/respawn settle.
+        self.begin_level_entry(next_level);
     }
 
     /// Previous logical level ID (for debug warping).

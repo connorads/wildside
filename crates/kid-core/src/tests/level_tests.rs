@@ -8317,40 +8317,43 @@ mod chunk_02 {
         // Still on level 0 during pause
         assert_eq!(runtime.current_level, LevelId(0));
 
-        // Advance through remaining LevelComplete frames.
+        // Advance through the remaining LevelComplete frames. Stop on the
+        // transition edge so the synthetic fixture cannot immediately touch
+        // the next level's placeholder flag during extra loop iterations.
         for _ in 0..frames_until_advance {
             runtime.step_frame(FrameInput::default());
+            if runtime.current_level == LevelId(1)
+                && !matches!(
+                    runtime.player_lifecycle,
+                    PlayerLifecycle::LevelComplete { .. }
+                )
+            {
+                break;
+            }
         }
 
-        // Should have advanced to next level
+        // Should have advanced to the next logical level and entered the
+        // normal title-card shell, not a death/respawn settle.
         assert_eq!(
             runtime.current_level,
             LevelId(1),
             "should advance to next level"
         );
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-            "expected Respawning after level advance, got {:?}",
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "expected Alive while Load_TitleCard owns the level-entry shell, got {:?}",
             runtime.player_lifecycle
         );
-        let slice = runtime
-            .opening_slice
-            .expect("advanced level should install a respawn slice");
-        assert_eq!(slice.player.x_pos, 0x0751_0000);
-        // Floor-snap settles the player onto the actual terrain. The raw header
-        // spawn Y (0xE0 - 1 = 0xDF) is approximate; floor-snap finds the real
-        // floor and places the player there. Accept any grounded position that
-        // is at or below the header spawn.
-        let raw_header_y = 0x00DF_0000u32;
         assert!(
-            slice.player.y_pos >= raw_header_y,
-            "player y_pos 0x{:08X} should be at or below header spawn 0x{:08X}",
-            slice.player.y_pos,
-            raw_header_y,
+            matches!(runtime.boot_state, BootState::StartingLevel { .. }),
+            "ASM loc_D7F4 -> Teleport writes Game_Mode=$0008, which loads Load_TitleCard before gameplay; got {:?}",
+            runtime.boot_state
         );
-        // Camera snaps to screen boundary: floor(pos / screen) * screen
-        // floor(0x751 / 320) * 320 = 1600 = 0x640
-        assert_eq!(slice.camera.x_pos, 0x0640_0000);
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM Load_TitleCard keeps the next-level entry in mode $0008 until loc_1AE2E consumes the later hand-off"
+        );
     }
 
     #[test]
