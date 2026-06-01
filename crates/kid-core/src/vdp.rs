@@ -552,14 +552,17 @@ pub(crate) fn build_intro_sequence_5_fade_hold_vdp_at_elapsed(
     fade_elapsed: usize,
     intro_sequence_3_roster_index: usize,
 ) -> VdpState {
+    let worker_elapsed = INTRO_FIFTH_SEGMENT_FRAMES + fade_elapsed;
     let mut vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
         data,
         4,
         title_variant,
-        INTRO_FIFTH_SEGMENT_FRAMES,
+        worker_elapsed,
         intro_sequence_3_roster_index,
     );
-    apply_intro_sequence_5_loc_1ba90_fade_to_aaa(&mut vdp, fade_elapsed);
+    // ASM loc_1BA90 displays the previously latched VDP state for a frame via
+    // Hibernate_Object_1Frame before sub_1C246/subi.w update the fade counter.
+    apply_intro_sequence_5_loc_1ba90_fade_to_aaa(&mut vdp, fade_elapsed.saturating_sub(1));
     vdp
 }
 
@@ -1040,7 +1043,20 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
         },
     ];
     let mut sprite_entries = Vec::new();
-    for object in objects {
+    let particle_elapsed = elapsed.checked_sub(
+        INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0,
+    );
+    if let Some(particle_elapsed) = particle_elapsed {
+        append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
+        append_intro_sequence_5_center_particle_loc_1BE88(
+            &mut sprite_entries,
+            title_variant,
+            particle_elapsed,
+        );
+    }
+    let static_start_index = if particle_elapsed.is_some() { 2 } else { 0 };
+    for object in objects.iter().skip(static_start_index) {
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             &mut sprite_entries,
             IntroGfxObjectForSpriteTable {
@@ -1052,17 +1068,6 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
                 x_direction: 0,
             },
             object.frame,
-        );
-    }
-    if let Some(particle_elapsed) = elapsed.checked_sub(
-        INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
-            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0,
-    ) {
-        append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
-        append_intro_sequence_5_center_particle_loc_1BE88(
-            &mut sprite_entries,
-            title_variant,
-            particle_elapsed,
         );
     }
     write_sprite_table_entries(
@@ -1916,6 +1921,8 @@ const INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY: usize = 0x3C;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize = 0xA0 + 0x90 + 0x0B + 0x0B;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
     INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED + 0x0B;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED: usize =
+    0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY;
 
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
@@ -1937,9 +1944,15 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
         apply_intro_sequence_5_sub_1C034_frame(vdp, data, frame_index);
     }
 
-    if elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED {
+    if (INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED
+        ..INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED)
+        .contains(&elapsed)
+    {
         apply_intro_sequence_5_blank_panel_sub_1C112(vdp, 3, 0x13);
-    } else if elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED {
+    } else if (INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED
+        ..INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED)
+        .contains(&elapsed)
+    {
         apply_intro_sequence_5_panel_sub_1C0EE(vdp, data, 3, 0x13);
     }
 }
@@ -3451,13 +3464,13 @@ mod tests {
             0,
         );
         assert_eq!(
-            sprite_entry_words(&after, 16),
-            (0x00F8, 0x00, 17, 0x44F8, 0x0092),
+            sprite_entry_words(&after, 0),
+            (0x00F8, 0x00, 1, 0x44F8, 0x0092),
             "ASM loc_1BE3C should spawn the first unk_1BE18 falling particle from LnkTo_unk_E0F56 at x=$12/y=$78",
         );
         assert_eq!(
-            sprite_entry_words(&after, 19),
-            (0x00B9, 0x0F, 20, 0xE5EB, 0x00B0),
+            sprite_entry_words(&after, 3),
+            (0x00B9, 0x0F, 4, 0xE5EB, 0x00B0),
             "ASM loc_1BE88 should spawn the FC82=1 centre particle on palette line 3 with priority and VRAM tile $5EB",
         );
     }
@@ -3476,8 +3489,8 @@ mod tests {
         );
 
         assert_eq!(
-            sprite_entry_words(&vdp, 16),
-            (0x016D, 0x00, 17, 0x44F8, 0x017C),
+            sprite_entry_words(&vdp, 0),
+            (0x016D, 0x00, 1, 0x44F8, 0x017C),
             "ASM loc_1BE74 should delete the two `$28` DBF particles after frame $28, leaving the longer unk_1BE24 particle as the first live particle",
         );
     }
@@ -4377,6 +4390,7 @@ mod tests {
             ..empty_intro_data()
         };
         let panel_byte_addr = 0x13 * NAMETABLE_ROW_STRIDE_BYTES + 3 * 2;
+        let frame_2400_clear_artefact_addr = 0x13 * NAMETABLE_ROW_STRIDE_BYTES + 12 * 2;
 
         let before_panel = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
@@ -4415,6 +4429,19 @@ mod tests {
             vram_word(&cleared, panel_byte_addr),
             0,
             "ASM loc_1BC36 calls sub_1C112 after the next `$B` hibernate, blanking the panel before frame 5"
+        );
+
+        let frame_5 = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED,
+            0,
+        );
+        assert_eq!(
+            vram_word(&frame_5, frame_2400_clear_artefact_addr),
+            0x1111,
+            "ASM loc_1BC36's later sub_1C034(d4=5) redraw should replace the temporary sub_1C112 clear instead of being overwritten by it",
         );
     }
 
