@@ -4215,6 +4215,20 @@ AddrTbl_LevelNames:
                 .any(|checkpoint| checkpoint.label == "barrier_clear_check"),
             "recording evidence needs a durable checkpoint after loc_F02A should clear the ice barrier"
         );
+        assert!(
+            scenario.checkpoints.iter().any(|checkpoint| {
+                checkpoint.label == "first_shooter_objects_visible_loc_ec76"
+                    && checkpoint.frame_index == 92
+            }),
+            "oracle RAM probe shows ShooterObject_RAM first populated at frame 92, so #214 evidence must sample the first visible loc_EC76 bullets"
+        );
+        assert!(
+            scenario.checkpoints.iter().any(|checkpoint| {
+                checkpoint.label == "shooter_cascade_window_loc_f04a"
+                    && checkpoint.frame_index == 104
+            }),
+            "the #214 route needs a checkpoint after loc_F04A cascades through the upper Highwater shooter cells"
+        );
     }
 
     #[test]

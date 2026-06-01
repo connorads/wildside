@@ -842,6 +842,14 @@ pub fn highwater_shooter_barrier_audit_scenario() -> DynamicScenario {
                 frame_index: 90,
             },
             DynamicCheckpoint {
+                label: "first_shooter_objects_visible_loc_ec76".into(),
+                frame_index: 92,
+            },
+            DynamicCheckpoint {
+                label: "shooter_cascade_window_loc_f04a".into(),
+                frame_index: 104,
+            },
+            DynamicCheckpoint {
                 label: "barrier_clear_check".into(),
                 frame_index: 120,
             },
