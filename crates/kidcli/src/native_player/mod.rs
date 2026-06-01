@@ -5805,6 +5805,7 @@ mod tests {
     fn build_scene_hides_floating_diamond_on_asm_blink_null_frames() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 510;
+        trace.camera_y_pos = 1500 << 16;
         // Oracle WRAM for issue-215 Highwater frame 510 has the same diamond
         // object alive at x=$78/y=$681, but `addroffset_sprite(a3)=0`.
         // ASM PrizeDiamond_Init loc_103B2 has already switched to `stru_10D80`;
@@ -5819,8 +5820,10 @@ mod tests {
             !scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
-                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                    DrawCommand::Sprite { x, y, tile_sheet, tiles, .. }
+                        if *x == 114
+                            && *y == 151
+                            && tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
                             && tiles.iter().any(|tile| tile.tile.tile_index == 8)
                 )
             }),
