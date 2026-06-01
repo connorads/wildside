@@ -7352,10 +7352,12 @@ impl NativeRuntime {
                     // `Game_Mode=$000C` and jumps to `loc_6E2`. Oracle-backed
                     // boot traces keep the real title-card lineage on the
                     // hidden bootstrap far longer than the synthetic no-card
-                    // path, so only release the queued Start edge once that
-                    // title shell has finished its hidden pre-roll.
+                    // path. The source port's recorded gameplay settle path
+                    // already treats active gameplay input as the visible
+                    // hand-off trigger; ASM loc_1AE2E additionally consumes a
+                    // Start edge, which matters for inter-level title cards.
                     enter_gameplay = if title_card_bootstrap_active {
-                        gameplay_input_active
+                        gameplay_input_active || start_pressed
                     } else {
                         *start_latched || start_pressed
                     };

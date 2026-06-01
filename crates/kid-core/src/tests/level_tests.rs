@@ -8372,6 +8372,64 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_complete_title_card_start_edge_enters_next_level() {
+        let mut assets = manifest_with_levels(3);
+        for level in &mut assets.levels {
+            level.title_card = Some(kid_data::LevelTitleCard {
+                script_bytes: vec![b'a', 0xFF],
+                line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+                level_number_destination: None,
+                level_number_glyph_count: 0,
+            });
+        }
+        if let Some(header) = assets.levels[1].header_metadata.as_mut() {
+            header.flag_x = header.player_start_x.saturating_add(0x0100);
+        }
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        while matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ) {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(runtime.current_level, LevelId(1));
+        assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+
+        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E should keep idling in Load_TitleCard until Start is pressed"
+        );
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::InGame,
+            "ASM loc_1AE2E `bclr #Button_Start,(Ctrl_Pressed)` should consume the Start edge and write Game_Mode=$000C",
+        );
+        assert_eq!(runtime.current_level, LevelId(1));
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+    }
+
+    #[test]
     fn level_complete_handoff_keeps_flag_wram_until_titlecard_clear_loc_d7f4() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
