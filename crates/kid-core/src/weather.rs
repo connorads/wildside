@@ -2398,19 +2398,25 @@ impl NativeRuntime {
             return;
         }
 
-        // Spawn hail every 30 frames during active period
-        if self.weather.hail_spawn_timer > 0 {
-            self.weather.hail_spawn_timer -= 1;
+        // ASM sub_61CA loc_623A/loc_626C: `$FFFFFB3C` is an 8-bit spawn
+        // cooldown. When it reaches zero, reload to `$25 - (random&$0F)` and
+        // use a second random byte for `Camera_X_pos + random + $28`.
+        let next_spawn_cooldown = self.weather.storm_spawn_cooldown.wrapping_sub(1);
+        if next_spawn_cooldown != 0 {
+            self.weather.storm_spawn_cooldown = next_spawn_cooldown;
+            self.weather.hail_spawn_timer = u16::from(next_spawn_cooldown);
             return;
         }
-        self.weather.hail_spawn_timer = 30;
+        let cooldown_random = self.rom_random.next_byte();
+        let spawn_random = self.rom_random.next_byte();
+        self.weather.storm_spawn_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
+        self.weather.hail_spawn_timer = u16::from(self.weather.storm_spawn_cooldown);
 
-        // Spawn a hail projectile above the camera, at a random-ish X
-        let camera_x = slice.camera.x_pos >> 16;
-        // Simple pseudo-random X offset based on frame index
-        let x_offset = ((self.frame_index * 7 + 13) % 320) as u32;
-        let spawn_x = camera_x.wrapping_add(x_offset);
-        let spawn_y = (slice.camera.y_pos >> 16).saturating_sub(16);
+        let camera_x = (slice.camera.x_pos >> 16) as u16;
+        let spawn_x = camera_x
+            .wrapping_add(u16::from(spawn_random))
+            .wrapping_add(0x0028);
+        let spawn_y = (slice.camera.y_pos >> 16) as u16;
 
         // ASM sub_61CA loc_61E2 (kid.asm:6199): hail particles fall at
         // `addi.w #4,(a0)` = 4 px/frame downward. The remaining EnemyProjectile
@@ -2419,8 +2425,8 @@ impl NativeRuntime {
         // covered by the spread; listing them explicitly only invites
         // equivalent-mutant noise from cargo-mutants.
         self.projectiles.push(EnemyProjectile {
-            x_pos: spawn_x << 16,
-            y_pos: spawn_y << 16,
+            x_pos: u32::from(spawn_x) << 16,
+            y_pos: u32::from(spawn_y) << 16,
             x_velocity: -0x0001_0000,
             y_velocity: 0x4_0000,
             kind: EnemyProjectileKind::Hail,

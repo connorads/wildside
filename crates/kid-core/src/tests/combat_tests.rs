@@ -14269,23 +14269,24 @@ mod chunk_05 {
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 0;
         runtime.weather.hail_period_timer = 100; // mid-period, still active
+        runtime.weather.storm_spawn_cooldown = 1;
 
-        // Pick non-zero camera_x and frame_index so the spawn formulas
+        // Pick non-zero camera_x and live ROM RNG bytes so the spawn formulas
         // distinguish operator-replacement mutants:
         //  * `slice.camera.x_pos >> 16` vs `<< 16` — `0x0040_0000 >> 16 = 0x40`
         //    while `0x0040_0000 << 16` truncates to 0 in u32.
-        //  * `frame_index * 7 + 13` vs `frame_index / 7 + 13` —
-        //    `50 * 7 + 13 = 363` vs `50 / 7 + 13 = 20`.
         let mut slice = airborne_slice();
         slice.camera.x_pos = 0x0040_0000;
+        slice.camera.y_pos = 0x0030_0000;
         runtime.frame_index = 0x0896;
 
         let before = runtime.projectiles.len();
-        let camera_x = slice.camera.x_pos >> 16;
-        let camera_y = slice.camera.y_pos >> 16;
-        let expected_x_offset = ((runtime.frame_index * 7 + 13) % 320) as u32;
-        let expected_x_pos = camera_x.wrapping_add(expected_x_offset) << 16;
-        let expected_y_pos = camera_y.saturating_sub(16) << 16;
+        let mut expected_rng = runtime.rom_random.clone();
+        let cooldown_random = expected_rng.next_byte();
+        let spawn_random = expected_rng.next_byte();
+        let expected_x_pos = (0x0040u32 + u32::from(spawn_random) + 0x0028u32) << 16;
+        let expected_y_pos = 0x0030_0000;
+        let expected_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
 
         runtime.step_weather(&slice);
 
@@ -14295,9 +14296,17 @@ mod chunk_05 {
             "hail should spawn a projectile"
         );
         let p = &runtime.projectiles[before];
-        // Spawn position above the camera, X jittered by frame_index.
+        // ASM loc_626C: X = Camera_X_pos + random + $28, Y = Camera_Y_pos.
         assert_eq!(p.x_pos, expected_x_pos, "ASM sub_61CA: hail spawn_x");
         assert_eq!(p.y_pos, expected_y_pos, "ASM sub_61CA: hail spawn_y");
+        assert_eq!(
+            runtime.weather.storm_spawn_cooldown, expected_cooldown,
+            "ASM loc_623A reloads `$FFFFFB3C` to `$25 - (random&$0F)`"
+        );
+        assert_eq!(
+            runtime.weather.hail_spawn_timer,
+            u16::from(expected_cooldown)
+        );
         // ASM loc_61E2 `addi.w #4,(a0)` — exact 4 px/frame downward.
         assert_eq!(
             p.y_velocity, 0x0004_0000,
@@ -19375,7 +19384,8 @@ mod chunk_05 {
         runtime.weather.weather_type = 3;
         runtime.frame_index = 0x0874;
         runtime.weather.hail_active = true;
-        runtime.weather.hail_spawn_timer = 2;
+        runtime.weather.storm_spawn_cooldown = 3;
+        runtime.weather.hail_spawn_timer = 3;
         runtime.weather.hail_period_timer = 100;
 
         let slice = airborne_slice();
@@ -19383,17 +19393,26 @@ mod chunk_05 {
         // Timer at 2: decrement, no spawn
         runtime.step_weather(&slice);
         assert!(runtime.projectiles.is_empty());
-        assert_eq!(runtime.weather.hail_spawn_timer, 1);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, 2);
+        assert_eq!(runtime.weather.hail_spawn_timer, 2);
 
-        // Timer at 1: decrement, no spawn
+        // Cooldown at 2: decrement, no spawn
         runtime.step_weather(&slice);
         assert!(runtime.projectiles.is_empty());
-        assert_eq!(runtime.weather.hail_spawn_timer, 0);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, 1);
+        assert_eq!(runtime.weather.hail_spawn_timer, 1);
 
-        // Timer at 0: spawn and reset to 30
+        // Cooldown at 1: spawn and reload through ASM loc_623A.
+        let mut expected_rng = runtime.rom_random.clone();
+        let cooldown_random = expected_rng.next_byte();
+        let expected_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
         runtime.step_weather(&slice);
         assert_eq!(runtime.projectiles.len(), 1);
-        assert_eq!(runtime.weather.hail_spawn_timer, 30);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, expected_cooldown);
+        assert_eq!(
+            runtime.weather.hail_spawn_timer,
+            u16::from(expected_cooldown)
+        );
     }
 
     // --- Lava geyser collision ---
