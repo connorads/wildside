@@ -1707,6 +1707,16 @@ Real ASM ripple table from `BackgroundScroll_ForestWaterRippleData` (kid.asm:343
 (mountain). ASM `loc_30598` gates ripple only to Forest and Desert before
 returning, so do not reuse this forest-water fix for the Highwater waterfall
 report without separate ASM/oracle evidence.
+2026-06-01 follow-up: refreshed
+`issue-playtest-highwater-water-current` proved the large late-frame drift was
+mostly VDP scroll timing, not palette rotation. Rendering gameplay checkpoints
+with the previous `Transfer_ScrollDataToVRAM loc_300BA` camera latch reduces
+`walk_half` from 26,534 changed pixels / MAE 18.75 to 891 / MAE 1.04, and
+`walk_end` from 27,006 / MAE 19.04 to 909 / MAE 1.07. The remaining failure is
+Plane B/waterfall composition in foreground holes: native still shows backdrop
+blue at samples such as `(0,169)` while oracle shows mountain Plane B purple.
+Continue from background tile/art selection or Plane B composition evidence, not
+another global scroll or lava/water palette offset.
 
 ### 021 — Sound Test (FIXED)
 Options menu cursor==1 now enters Sound Test screen. Left/Right ±1, Up/Down ±16,

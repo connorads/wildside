@@ -5,8 +5,8 @@ use crate::native_player::{
     BackgroundPixelSample, FinalScenePixelDiagnostic, LayerFilter, NATIVE_FRAME_HEIGHT,
     NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions, build_scene,
     build_scene_filtered, eol_score_sprite_diagnostics, load_session_assets, render_scene,
-    render_scene_overlay, render_trace_with_loc_c070_latched_sprite_state,
-    render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
+    render_scene_overlay, render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
+    sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -1025,8 +1025,7 @@ fn render_dynamic_checkpoint_frames(
                 pre_probe_render_trace.as_ref(),
                 &previous_trace,
             );
-            let mut render_trace =
-                render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
+            let mut render_trace = render_trace_with_vdp_latched_state(&trace, Some(render_latch));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1167,8 +1166,7 @@ fn write_dynamic_checkpoint_layer_frames(
                 pre_probe_render_trace.as_ref(),
                 &previous_trace,
             );
-            let mut render_trace =
-                render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
+            let mut render_trace = render_trace_with_vdp_latched_state(&trace, Some(render_latch));
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1343,7 +1341,7 @@ fn attach_native_pixel_samples(
                     &previous_trace,
                 );
                 let mut render_trace =
-                    render_trace_with_loc_c070_latched_sprite_state(&trace, Some(render_latch));
+                    render_trace_with_vdp_latched_state(&trace, Some(render_latch));
                 if level_card_frames_remaining > 0 {
                     render_trace.game_mode = GameMode::LevelTransition;
                     render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();

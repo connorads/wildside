@@ -600,7 +600,7 @@ pub(crate) fn build_scene(
     )
 }
 
-pub(crate) fn render_trace_with_loc_c070_latched_sprite_state(
+pub(crate) fn render_trace_with_vdp_latched_state(
     trace: &NativeTraceFrame,
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
@@ -636,6 +636,19 @@ pub(crate) fn render_trace_with_loc_c070_latched_sprite_state(
         render_trace.number_lives = previous_trace.number_lives;
         render_trace.diamond_count = previous_trace.diamond_count;
         render_trace.level_timer_seconds = previous_trace.level_timer_seconds;
+    }
+    if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+        && !trace.level_complete
+        && let Some(previous_trace) = previous_trace
+        && previous_trace.game_mode == trace.game_mode
+        && previous_trace.current_level == trace.current_level
+    {
+        // ASM Transfer_ScrollDataToVRAM loc_300BA writes Camera_X_pos and
+        // Camera_Y_pos to VDP scroll before the next gameplay update becomes
+        // visible. Trace state is post-update, so render with the previous
+        // scroll latch while keeping current gameplay objects.
+        render_trace.camera_x_pos = previous_trace.camera_x_pos;
+        render_trace.camera_y_pos = previous_trace.camera_y_pos;
     }
     render_trace
 }

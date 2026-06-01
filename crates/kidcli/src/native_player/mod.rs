@@ -226,7 +226,7 @@ pub(crate) use render::sample_scene_pixel_provenance;
 pub(crate) use render::{render_scene, render_scene_overlay};
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
-    eol_score_sprite_diagnostics, render_trace_with_loc_c070_latched_sprite_state,
+    eol_score_sprite_diagnostics, render_trace_with_vdp_latched_state,
     sample_background_pixel_loc_c070,
 };
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
@@ -647,7 +647,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             trace.clone()
         };
         let render_trace =
-            render_trace_with_loc_c070_latched_sprite_state(&base_render_trace, Some(&prev_trace));
+            render_trace_with_vdp_latched_state(&base_render_trace, Some(&prev_trace));
 
         if let Some(vdp) = runtime.vdp_state() {
             // Non-gameplay mode with VDP state: render directly using the
@@ -6250,7 +6250,7 @@ mod tests {
         trace.level_complete = true;
         trace.level_complete_elapsed_frames = 0;
 
-        let render_trace = render_trace_with_loc_c070_latched_sprite_state(&trace, Some(&previous));
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
 
         assert_eq!(
             (
@@ -6271,8 +6271,7 @@ mod tests {
         );
 
         trace.level_complete_elapsed_frames = 1;
-        let later_render_trace =
-            render_trace_with_loc_c070_latched_sprite_state(&trace, Some(&previous));
+        let later_render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
         assert_eq!(
             (
                 later_render_trace.camera_x_pos,
@@ -6280,6 +6279,35 @@ mod tests {
             ),
             (trace.camera_x_pos, trace.camera_y_pos),
             "only the first loc_C070 hand-off frame inherits the previous scroll latch"
+        );
+    }
+
+    #[test]
+    fn gameplay_render_uses_previous_scroll_latch_loc_300ba() {
+        let mut previous = sample_trace(GameMode::InGame);
+        previous.current_level = LevelId(0x02);
+        previous.camera_x_pos = 0x0010_0000;
+        previous.camera_y_pos = 0x05BC_0000;
+        previous.kid_x_pos = Some(0x0040_0000);
+        previous.kid_y_pos = Some(0x0660_0000);
+
+        let mut trace = previous.clone();
+        trace.camera_x_pos = 0x0011_0000;
+        trace.camera_y_pos = 0x05BD_0000;
+        trace.kid_x_pos = Some(0x0042_0000);
+        trace.kid_y_pos = Some(0x0664_0000);
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            (render_trace.camera_x_pos, render_trace.camera_y_pos),
+            (previous.camera_x_pos, previous.camera_y_pos),
+            "ASM Transfer_ScrollDataToVRAM loc_300BA writes VDP scroll before the post-update gameplay trace state is visible"
+        );
+        assert_eq!(
+            (render_trace.kid_x_pos, render_trace.kid_y_pos),
+            (trace.kid_x_pos, trace.kid_y_pos),
+            "only the VDP scroll latch is delayed; gameplay object state stays on the current trace outside loc_C070"
         );
     }
 
