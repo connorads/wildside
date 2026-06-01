@@ -6414,6 +6414,47 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(1));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(1));
+        runtime.set_player_probe_position(0x0158, 0x023F);
+        runtime.set_camera_probe_position(0x00C0, 0x0160);
+
+        let mut samples = Vec::new();
+        for frame_index in 0..=629 {
+            let frame = runtime.step_frame(FrameInput::default());
+            if matches!(frame_index, 536 | 537 | 597 | 598 | 629) {
+                samples.push((
+                    frame_index,
+                    frame.number_objects,
+                    frame.number_gfx_objects,
+                    frame
+                        .active_projectile_details
+                        .iter()
+                        .any(|projectile| projectile.kind == ActiveProjectileKind::DripsDrop),
+                ));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            vec![
+                (536, 5, 5, false),
+                (537, 6, 5, false),
+                (597, 6, 5, false),
+                (598, 5, 5, false),
+                (629, 5, 5, true),
+            ],
+            "ASM Drips.asm loc_33424 count-exposes the preallocated child object before the falling child becomes a visible DripsDrop; oracle frames 537-597 count that object without increasing Number_GfxObjects",
+        );
+    }
+
+    #[test]
     fn settled_recording_level_12_flag_touch_preserves_oracle_stale_enemy_gfx_loc_c056() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

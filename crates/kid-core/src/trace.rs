@@ -7301,6 +7301,11 @@ impl NativeRuntime {
         } else {
             0
         };
+        let transient_object_only_workers = if include_runtime_transients {
+            self.gameplay_transient_object_only_worker_count()
+        } else {
+            0
+        };
         let roster_count = (active_objects.len() as u16).saturating_add(transient_gfx_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
@@ -7321,7 +7326,35 @@ impl NativeRuntime {
                 0
             }
         });
-        (roster_count + 2 + extra, roster_count + 2 + extra)
+        (
+            roster_count + 2 + extra + transient_object_only_workers,
+            roster_count + 2 + extra,
+        )
+    }
+
+    fn gameplay_transient_object_only_worker_count(&self) -> u16 {
+        self.active_enemies
+            .iter()
+            .filter(|enemy| {
+                if enemy.family != EnemyFamily::Drips {
+                    return false;
+                }
+                if enemy.wait_timer == u16::MAX {
+                    return false;
+                }
+                let forming_frames = if enemy.wait_timer & 0x8000 == 0 {
+                    None
+                } else {
+                    Some(enemy.wait_timer & !0x8000)
+                };
+                // ASM Drips.asm loc_33424 owns a preallocated child object
+                // before the falling child is exported through native
+                // projectiles. Oracle WRAM counts that object slot but not a
+                // new gfx slot during the low timer / early forming window.
+                (enemy.wait_timer <= 0x0038)
+                    || forming_frames.is_some_and(|frames| frames >= 0x0020)
+            })
+            .count() as u16
     }
 
     fn gameplay_transient_gfx_worker_count(&self) -> u16 {
