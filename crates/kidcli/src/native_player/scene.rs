@@ -3984,6 +3984,9 @@ fn build_game_scene_filtered(
             }
             let graphics_spec = floating_item_graphics_spec(content_id);
             if let Some(prize_visuals) = floating_prize_visuals(level_visuals, content_id) {
+                if !floating_prize_sprite_visible_loc_103b2(content, remaining) {
+                    continue;
+                }
                 let frame_index = (trace.frame_index / prize_visuals.frame_duration.max(1))
                     % prize_visuals.frames.len().max(1);
                 if let Some(frame) = prize_visuals.frames.get(frame_index) {
@@ -4279,6 +4282,23 @@ fn build_game_scene_filtered(
     Scene {
         background,
         commands,
+    }
+}
+
+fn floating_prize_sprite_visible_loc_103b2(
+    content: kid_core::terrain::PrizeContent,
+    remaining_low_byte: u8,
+) -> bool {
+    match content {
+        kid_core::terrain::PrizeContent::Diamond if remaining_low_byte <= 0xC8 => {
+            // ASM PrizeDiamond_Init loc_103B2 swaps to `stru_10D80` exactly
+            // when d3 reaches $00C8. That script alternates `unk_E0E66` with
+            // null frame pointers every three frames, so Make_SpriteFromGfxObject
+            // returns without emitting a VDP sprite on the odd slots.
+            let blink_elapsed = 0xC8u8.saturating_sub(remaining_low_byte);
+            (blink_elapsed / 3).is_multiple_of(2)
+        }
+        _ => true,
     }
 }
 

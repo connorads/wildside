@@ -1255,7 +1255,7 @@ pub struct NativeTraceFrame {
     /// Prize-block spawn flash effects: (x_px, y_px, remaining_frames).
     #[serde(default)]
     pub prize_block_spawn_flashes: Vec<(u16, u16, u8)>,
-    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
+    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames_low_byte, content_id).
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u16)>,

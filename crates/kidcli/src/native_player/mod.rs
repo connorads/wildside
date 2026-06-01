@@ -5802,6 +5802,33 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_hides_floating_diamond_on_asm_blink_null_frames() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 510;
+        // Oracle WRAM for issue-215 Highwater frame 510 has the same diamond
+        // object alive at x=$78/y=$681, but `addroffset_sprite(a3)=0`.
+        // ASM PrizeDiamond_Init loc_103B2 has already switched to `stru_10D80`;
+        // at remaining d3=$0082 that script is on a null frame, so
+        // Make_SpriteFromGfxObject returns without emitting a sprite.
+        trace.floating_items = vec![(120, 1665, 0x82, 0x00)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                )
+            }),
+            "ASM stru_10D80 null frames should hide the late-life floating diamond sprite"
+        );
+    }
+
+    #[test]
     fn build_scene_draws_floating_helmets_with_rom_mask_art() {
         for (content_id, tile_pattern, asm_label) in [
             (0x02, 91, "PrizeHelmetSkycutter_Init/stru_106DC/unk_A96C4"),
