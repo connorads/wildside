@@ -828,6 +828,20 @@ Next pass should first re-derive the Level 1 slope-to-solid/rubber/death route
 around frames 1044, 1096, 1275, 1570, and 1700, then promote the 964 correction
 with the affected tests updated from oracle-backed evidence in the same change.
 
+Rejected 2026-06-01 for Level 1 death-respawn frame 1044/1414: treating the
+frame-1044 early native SlopeUp landing as a literal missing `sub_902A`
+downward tile-crossing gate is too broad. A red unit test modelled
+`sub_902A`'s `cmp.w d0,d4; ble loc_913A` guard and a native implementation
+restricted fresh downward slope landings until that guard opened, but the
+Level 1 route then diverged earlier at frame 964 (`character_movement` native
+Jump, oracle Slope) and failed the existing frame-1044 oracle guardrail. The
+frame-1414 SlopeDown miss is still downstream of this Level 1 horizontal/landing
+drift: by frame 1400 native is about 2.7px behind oracle, so `sub_9386` reaches
+the centre-cell SlopeDown one frame late. Do not add a right-edge SlopeDown
+special case for frame 1414 or a generic `sub_902A` crossing gate; re-derive the
+Level 1 slope-to-solid/rubber/death path from the frame-964 tie through frames
+1044, 1096, 1275, and 1570.
+
 Note 2026-05-29 for #152: scope correction. The closed finding (helmet bitmask `%1011000101` blocks the standing→walking transition for non-bitmask forms) is faithful and stays `[x]` — but it only covered the walk-UP half. Playtest shows the form jitters on slope contact instead of sliding DOWN. ROM `loc_8E06`->`loc_9D58`->`loc_9E6C` applies a clamped ±$1000/frame downhill slide while the form holds the standing pose; native's `should_hold_standing_still` early-return suppresses it, producing a two-frame limit cycle. The slide-down bug is now tracked as #204. The two `asm_faithful_loc_77c2/loc_77fc … holds_standing` tests assert x_velocity==0 and may pin the freeze bug — flagged for re-derivation under #204.
 
 Note 2026-05-29 for #176 (correction from the dead-helper census, #203): #176 states the live game "uses generic `step_pacer`/`step_hopper`/`step_flyer`". The census found this overstated at the file level — `enemies.rs` has a comprehensive live family dispatch (`step_frame -> refresh_active_roster -> step_active_enemies_with_rng -> per-family step_*`), and most of its 1,171 `cfg_not_test` helpers are stale-attribute leaves that DO feed live orchestrators. The per-family *behaviour* gaps in #177-202 remain valid, but they are missing sub-branches inside wired orchestrators (e.g. unrouted Berzerker/recoil/state-entry arms), not a wholesale generic fallback. The genuinely-uncalled enemy residue is tiny (~2 fns + skull/twins/goat state-entry sub-machines). See `docs/source-port/dead-helper-census.md`.
