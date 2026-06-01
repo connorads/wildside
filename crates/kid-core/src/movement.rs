@@ -3694,6 +3694,29 @@ impl OpeningSliceState {
                         self.finalise_trace();
                         return;
                     }
+                    if self.player.on_ground
+                        && on_ground_before
+                        && grounded_slope_for_loc_9d22.is_none()
+                        && !wall_hit
+                        && let Some((slope, _)) = self.grounded_slope_probe_result_loc_9386(grid)
+                    {
+                        // ASM loc_8E3E -> sub_8F26 -> sub_9386 -> loc_9D22
+                        // (kid.asm:10222-10256,11942): fresh walking-to-slope
+                        // entry happens after the horizontal step, then
+                        // `loc_9D22` stores the diagonal velocity and hibernates
+                        // before the `loc_9F18` slope-position tail can run.
+                        self.player.y_velocity = match slope {
+                            terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
+                            terrain::CollisionKind::SlopeDown => self.player.x_velocity,
+                            _ => self.player.y_velocity,
+                        };
+                        kid_flip_follow_on_stages.after_wall =
+                            self.kid_flip_follow_on_stage_state();
+                        self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                        self.finalise_trace();
+                        self.update_camera_follow(y_look_offset);
+                        return;
+                    }
                     // ASM sub_9386 + sub_A254: after horizontal movement, snap Y
                     // to the slope surface. The ROM stores a linear constant
                     // ($FFFFFA24) and computes y = constant ± x each frame.

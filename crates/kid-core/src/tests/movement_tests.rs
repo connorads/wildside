@@ -17295,6 +17295,56 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E3E -> sub_8F26 -> sub_9386 -> loc_9D22: when walking enters a
+    /// SlopeDown tile after the horizontal step, the ROM stores the diagonal
+    /// slope velocity and hibernates before loc_9F18 can move vertically.
+    #[test]
+    fn level00_frame_991_slope_down_entry_hibernates_before_slope_tail_loc_9d22() {
+        let w: u16 = 120;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(112, 12, 0x60, 0x24), (113, 12, 0x50, 0x00)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x070e_1d00;
+        slice.player.y_pos = 0x00bf_0000;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x0710_1d00,
+            "ASM sub_8F26 should apply the walking horizontal step before entering loc_9D22",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00bf_0000,
+            "ASM loc_9D22 hibernates before loc_9F18/sub_A254 can advance the slope Y position",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0002_0000,
+            "ASM loc_9D22 should store SlopeDown y_vel = x_vel on the entry frame",
+        );
+    }
+
     /// ASM loc_8E16 -> sub_8600 -> sub_9A0A (kid.asm:10212, 9445, 11673):
     /// flat walking refreshes `$FFFFFA0A` before choosing the speed table.
     /// Natural route frame 731 spans one plain solid tile and one block type

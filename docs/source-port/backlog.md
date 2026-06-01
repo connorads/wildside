@@ -633,6 +633,19 @@ next refreshed-route frontier is frame 991: native snaps onto the solid/SlopeDow
 edge at y `$00c00000` with `y_vel=0`, while oracle remains at `$00bf0000` with
 `y_vel=$00020000`.
 
+Note 2026-06-01 seventh follow-up for #211: fixed the frame-991 fresh
+walking-to-SlopeDown entry. ASM `loc_8E3E -> sub_8F26 -> sub_9386 -> loc_9D22`
+applies the horizontal walking step, discovers the new slope support, stores
+`y_vel=x_vel`, and hibernates before the later `loc_9F18/sub_A254` slope tail
+can advance Y. Native was falling through into that tail immediately and
+snapping to the solid/SlopeDown edge one frame early. The fix is restricted to
+frames that started grounded on the walking path, leaving `loc_A99E` airborne
+recontacts and the Level 1 rubber/death seams on their existing route. Focused
+evidence: `tas-diff --scenario .cache/recordings/issue-211-level00-walk-right-live-refresh/scenario.json --frame-start 988 --frame-end 994 --frontier-kind gameplay --include-advisory --include-physics-trace --only-divergent`
+is 6/6 clean, and `verify-tas --frame-start 620 --frame-end 1000
+--checkpoint-interval 1 --frontier-kind gameplay --bisect` is CRC-clean.
+Regression: `level00_frame_991_slope_down_entry_hibernates_before_slope_tail_loc_9d22`.
+
 Note 2026-05-29 for #152: scope correction. The closed finding (helmet bitmask `%1011000101` blocks the standing→walking transition for non-bitmask forms) is faithful and stays `[x]` — but it only covered the walk-UP half. Playtest shows the form jitters on slope contact instead of sliding DOWN. ROM `loc_8E06`->`loc_9D58`->`loc_9E6C` applies a clamped ±$1000/frame downhill slide while the form holds the standing pose; native's `should_hold_standing_still` early-return suppresses it, producing a two-frame limit cycle. The slide-down bug is now tracked as #204. The two `asm_faithful_loc_77c2/loc_77fc … holds_standing` tests assert x_velocity==0 and may pin the freeze bug — flagged for re-derivation under #204.
 
 Note 2026-05-29 for #176 (correction from the dead-helper census, #203): #176 states the live game "uses generic `step_pacer`/`step_hopper`/`step_flyer`". The census found this overstated at the file level — `enemies.rs` has a comprehensive live family dispatch (`step_frame -> refresh_active_roster -> step_active_enemies_with_rng -> per-family step_*`), and most of its 1,171 `cfg_not_test` helpers are stale-attribute leaves that DO feed live orchestrators. The per-family *behaviour* gaps in #177-202 remain valid, but they are missing sub-branches inside wired orchestrators (e.g. unrouted Berzerker/recoil/state-entry arms), not a wholesale generic fallback. The genuinely-uncalled enemy residue is tiny (~2 fns + skull/twins/goat state-entry sub-machines). See `docs/source-port/dead-helper-census.md`.
