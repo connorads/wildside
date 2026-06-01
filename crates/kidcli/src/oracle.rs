@@ -29,6 +29,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) skip_frames_before: Option<usize>,
     pub(crate) memory_watches: Option<String>,
     pub(crate) wram_dump_frames: Option<String>,
+    pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) capture_cpu_state: bool,
 }
 
@@ -97,6 +98,14 @@ pub struct OracleManifest {
     pub frame_crcs: Vec<u32>,
     #[serde(default)]
     pub memory_watches: Vec<HashMap<String, i64>>,
+    #[serde(default)]
+    pub vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+pub struct OracleVdpPixelSampleRow {
+    pub frame: usize,
+    pub samples: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -374,6 +383,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if let Some(ref frames) = options.wram_dump_frames {
         cmd.arg("--wram-dump-frames").arg(frames);
+    }
+    if let Some(ref samples) = options.vdp_pixel_samples {
+        cmd.arg("--vdp-pixel-samples").arg(samples);
     }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");

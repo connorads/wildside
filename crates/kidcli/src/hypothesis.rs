@@ -122,6 +122,7 @@ pub fn test_hypothesis(
             skip_frames_before: Some(frame_start),
             memory_watches: Some(watches_str),
             wram_dump_frames: None,
+            vdp_pixel_samples: None,
             capture_cpu_state: false,
         };
         let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(

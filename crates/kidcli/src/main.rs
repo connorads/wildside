@@ -732,6 +732,9 @@ enum Commands {
         /// Frames at which to dump full 64KB WRAM (e.g. 954,955,956)
         #[arg(long)]
         wram_dump_frames: Option<String>,
+        /// Oracle VDP pixel samples as X/Y pairs (e.g. 0/169,126/169)
+        #[arg(long)]
+        vdp_pixel_samples: Option<String>,
         /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
@@ -1744,6 +1747,7 @@ fn main() -> Result<()> {
             frame_end,
             watches,
             wram_dump_frames,
+            vdp_pixel_samples,
             when,
             capture_cpu_state,
         } => {
@@ -1787,6 +1791,7 @@ fn main() -> Result<()> {
                 skip_frames_before: frame_start,
                 memory_watches: watches.clone(),
                 wram_dump_frames: wram_dump_frames.clone(),
+                vdp_pixel_samples: vdp_pixel_samples.clone(),
                 capture_cpu_state,
             };
             let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
@@ -1867,12 +1872,25 @@ fn main() -> Result<()> {
                 eprintln!("WRAM dumps written to {}", oracle_dir.display());
             }
 
+            for row in oracle_manifest
+                .vdp_pixel_samples
+                .iter()
+                .filter(|row| (start..=end).contains(&row.frame))
+            {
+                println!("vdp_sample_frame={},{}", row.frame, row.samples);
+            }
+
             // Also output checkpoint states for the range
             let state_count = oracle_manifest.states.len();
             eprintln!(
-                "Oracle probe complete: {} state checkpoints, {} watch rows",
+                "Oracle probe complete: {} state checkpoints, {} watch rows, {} VDP sample rows",
                 state_count,
-                watch_rows_in_range.len()
+                watch_rows_in_range.len(),
+                oracle_manifest
+                    .vdp_pixel_samples
+                    .iter()
+                    .filter(|row| (start..=end).contains(&row.frame))
+                    .count()
             );
 
             // Display CPU registers if captured

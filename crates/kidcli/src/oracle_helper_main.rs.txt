@@ -115,6 +115,18 @@ struct MemoryWatch {
     label: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct VdpPixelSample {
+    x: usize,
+    y: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleVdpPixelSampleRow {
+    frame: usize,
+    samples: String,
+}
+
 fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
     if spec.is_empty() {
         return Ok(Vec::new());
@@ -137,6 +149,23 @@ fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
         watches.push(MemoryWatch { address, watch_type, label });
     }
     Ok(watches)
+}
+
+fn parse_vdp_pixel_samples(spec: &str) -> Result<Vec<VdpPixelSample>> {
+    if spec.is_empty() {
+        return Ok(Vec::new());
+    }
+    spec.split(',')
+        .map(|item| {
+            let (x, y) = item
+                .split_once('/')
+                .ok_or_else(|| anyhow!("VDP pixel sample must be X/Y, got {item}"))?;
+            Ok(VdpPixelSample {
+                x: x.trim().parse().with_context(|| format!("invalid sample x: {x}"))?,
+                y: y.trim().parse().with_context(|| format!("invalid sample y: {y}"))?,
+            })
+        })
+        .collect()
 }
 
 fn read_watch_value(work_ram: &[u8], watch: &MemoryWatch) -> i64 {
@@ -166,6 +195,8 @@ struct OracleManifest {
     frame_crcs: Vec<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     memory_watches: Vec<HashMap<String, i64>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
 }
 
 use std::collections::HashMap;
@@ -475,6 +506,7 @@ fn main() -> Result<()> {
     let mut skip_frames_before: Option<usize> = None;
     let mut memory_watches_spec = String::new();
     let mut wram_dump_frames_spec = String::new();
+    let mut vdp_pixel_samples_spec = String::new();
     let mut capture_cpu_state = false;
 
     while let Some(arg) = args.next() {
@@ -487,6 +519,7 @@ fn main() -> Result<()> {
             "--skip-frames-before" => skip_frames_before = args.next().and_then(|s| s.parse().ok()),
             "--memory-watches" => memory_watches_spec = args.next().unwrap_or_default(),
             "--wram-dump-frames" => wram_dump_frames_spec = args.next().unwrap_or_default(),
+            "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             other => return Err(anyhow!("unknown arg {other}")),
         }
@@ -500,12 +533,13 @@ fn main() -> Result<()> {
     let resolved = resolve_scenario(scenario_slug.as_deref(), scenario_file.as_deref())?;
     let memory_watches = parse_memory_watches(&memory_watches_spec)?;
     let wram_dump_frames = parse_frame_list(&wram_dump_frames_spec)?;
+    let vdp_pixel_samples = parse_vdp_pixel_samples(&vdp_pixel_samples_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, capture_cpu_state)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vdp_pixel_samples, capture_cpu_state)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -571,7 +605,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], capture_cpu_state: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -583,6 +617,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut captured_states = Vec::new();
     let mut frame_crcs: Vec<u32> = Vec::with_capacity(resolved.frame_count);
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
+    let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
     if let Some(target_level) = resolved.warp_to_level {
@@ -692,6 +727,16 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                         fs::write(&dump_path, &work_ram)
                             .with_context(|| format!("failed to write {}", dump_path.display()))?;
                     }
+                    if !vdp_pixel_samples.is_empty() {
+                        all_vdp_pixel_samples.push(OracleVdpPixelSampleRow {
+                            frame: frame_index,
+                            samples: vdp_pixel_samples_debug(
+                                &mut emulator,
+                                vdp_pixel_samples,
+                                Some((renderer.width, renderer.height, &renderer.rgb)),
+                            ),
+                        });
+                    }
                 }
                 frame_index += 1;
                 break;
@@ -708,6 +753,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         states: captured_states,
         frame_crcs,
         memory_watches: all_memory_watches,
+        vdp_pixel_samples: all_vdp_pixel_samples,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())
@@ -1632,6 +1678,85 @@ fn eol_vdp_pixel_samples_debug_loc_c070(
                     &vram,
                     &cram,
                     SPRITE_TABLE_BASE_LOC_C070,
+                    x,
+                    y,
+                ),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn vdp_pixel_samples_debug(
+    emulator: &mut GenesisEmulator,
+    samples: &[VdpPixelSample],
+    rendered_frame: Option<(u32, u32, &[u8])>,
+) -> String {
+    const PLANE_A_BOOT_BASE: usize = 0x0000;
+    const PLANE_A_GAME_BASE: usize = 0xC000;
+    const PLANE_B_BASE: usize = 0xE000;
+    const H_SCROLL_TABLE_BASE: usize = 0x1400;
+    const SPRITE_TABLE_BASE: usize = 0x1000;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const PLANE_HEIGHT_CELLS: usize = 32;
+
+    let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);
+    let cram = capture_memory(emulator, GenesisMemoryArea::Cram, 0x80);
+    let vsram = capture_memory(emulator, GenesisMemoryArea::Vsram, 0x50);
+    let vs_a = i32::from(read_wram_u16(&vsram, 0) as i16);
+    let vs_b = i32::from(read_wram_u16(&vsram, 2) as i16);
+
+    samples
+        .iter()
+        .map(|sample| {
+            let x = sample.x;
+            let y = sample.y;
+            let h_a = i32::from(read_wram_u16(&vram, H_SCROLL_TABLE_BASE + y * 4) as i16);
+            let h_b = i32::from(read_wram_u16(&vram, H_SCROLL_TABLE_BASE + y * 4 + 2) as i16);
+            let rendered_pixel = rendered_frame
+                .and_then(|(width, height, rgb)| rendered_frame_rgb(width, height, rgb, x, y));
+            format!(
+                "{x}/{y}:FB={},vsA={vs_a:04X},vsB={vs_b:04X},hA={h_a:04X},hB={h_b:04X},A0={};AC={};B={};S={}",
+                rendered_pixel
+                    .map(|rgb| format!("{:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2]))
+                    .unwrap_or_else(|| "none".to_string()),
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
+                    PLANE_A_BOOT_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    vs_a,
+                    x,
+                    y,
+                ),
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
+                    PLANE_A_GAME_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    vs_a,
+                    x,
+                    y,
+                ),
+                eol_vdp_plane_pixel_sample(
+                    &vram,
+                    &cram,
+                    PLANE_B_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_b,
+                    vs_b,
+                    x,
+                    y,
+                ),
+                eol_vdp_sprite_pixel_sample_loc_c070(
+                    &vram,
+                    &cram,
+                    SPRITE_TABLE_BASE,
                     x,
                     y,
                 ),
