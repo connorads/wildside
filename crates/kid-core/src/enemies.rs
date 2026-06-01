@@ -21614,6 +21614,7 @@ fn dragon_walking_floor_support(
 
 fn dragon_walking_probe_wall(
     grid: &terrain::BlockGrid,
+    current_center_x_px: i32,
     center_x_px: i32,
     foot_y_px: i32,
     moving_right: bool,
@@ -21635,13 +21636,47 @@ fn dragon_walking_probe_wall(
     // shoulder counting as a wall.
     let lower_body_y = foot_y_px - 8;
     let upper_body_y = foot_y_px - ENEMY_PROBE_HEIGHT + 8;
-    let probe_ys = [
+    let body_probe_ys = [
         lower_body_y,
         foot_y_px - ENEMY_PROBE_HEIGHT / 2,
         upper_body_y,
     ];
 
-    for &py in &probe_ys {
+    let leading_side_boundary_offset = ENEMY_PROBE_HALF_WIDTH + 1;
+    let leading_boundary_distance_px = if moving_right {
+        (-(current_center_x_px + leading_side_boundary_offset)).rem_euclid(16)
+    } else {
+        (current_center_x_px - leading_side_boundary_offset).rem_euclid(16)
+    };
+    let step_px = if moving_right {
+        center_x_px - current_center_x_px
+    } else {
+        current_center_x_px - center_x_px
+    };
+    if !moving_right && step_px > leading_boundary_distance_px {
+        // ASM sub_36A58: the left-facing `$48(a5)` side check only reaches
+        // the leading bottom-side tile when the proposed move crosses that
+        // tile boundary. Native keeps the body-row probes unconditional but
+        // gates this foot-row probe the same way to avoid treating ordinary
+        // floor support as a wall.
+        let probe = terrain::probe_at(grid, edge_x, foot_y_px);
+        if probe.cell.collision == terrain::CollisionKind::SlopeUp {
+            let wall_x = if moving_right {
+                i32::from(probe.cell_x) * 16
+            } else {
+                (i32::from(probe.cell_x) + 1) * 16
+            };
+            return terrain::WallProbe {
+                hit: true,
+                wall_x_px: wall_x,
+                cell: probe.cell,
+                cell_x: probe.cell_x,
+                cell_y: probe.cell_y,
+            };
+        }
+    }
+
+    for &py in &body_probe_ys {
         let probe = terrain::probe_at(grid, edge_x, py);
         if matches!(
             probe.cell.collision,
@@ -21689,9 +21724,10 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
     let x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     let moving_right = x_velocity >= 0;
     let next_x = (enemy.x_pos as i64 + i64::from(x_velocity)) as u32;
+    let current_cx = (enemy.x_pos >> 16) as i32;
     let cx = (next_x >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
+    let wall = dragon_walking_probe_wall(grid, current_cx, cx, cy, moving_right);
     if wall.hit {
         return true;
     }
@@ -21731,8 +21767,9 @@ fn step_dragon_walking_walk(
 
     if let Some(grid) = block_grid {
         let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+        let current_cx = (enemy.x_pos >> 16) as i32;
         let cx = (next_x >> 16) as i32;
-        let wall = dragon_walking_probe_wall(grid, cx, current_y_px, moving_right);
+        let wall = dragon_walking_probe_wall(grid, current_cx, cx, current_y_px, moving_right);
         let floor_support = dragon_walking_floor_support(grid, cx, current_y_px);
         enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
             next_x_px: Some(cx),
@@ -21829,7 +21866,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
-    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
+    let wall = dragon_walking_probe_wall(grid, cx, cx, cy, moving_right);
     let floor = terrain::probe_floor(grid, cx, cy);
     enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
         next_x_px: Some(cx),

@@ -2514,6 +2514,41 @@ mod chunk_09 {
     }
 
     #[test]
+    fn dragon_walking_left_foot_shoulder_turns_in_place_sub_36a58() {
+        let width_cells = 80u16;
+        let height_cells = 16u16;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_cell(&mut data, 66, 9, 0x40);
+        for col in 67..=68 {
+            set_cell(&mut data, col, 9, 0x60);
+        }
+
+        let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+        let mut enemy = test_enemy(EnemyFamily::DragonWalking, 0x0439_0000, 0x0090_0000, 0);
+        enemy.on_ground = true;
+        enemy.facing = Direction::Left;
+        enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
+        enemy.shared_walker_patrol_timer = 0x004E;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(0x0568_F500));
+
+        assert_eq!(
+            enemy.x_pos, 0x0439_0000,
+            "ASM sub_36A58/loc_3E5BA tests the leading bottom-side tile and turns before the left-facing walker moves",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "the shared walker should branch through loc_3E642 -> loc_3E392 on a leading-foot shoulder",
+        );
+    }
+
+    #[test]
     fn demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400() {
         let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
             return;
