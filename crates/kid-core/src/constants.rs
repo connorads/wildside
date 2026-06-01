@@ -573,7 +573,6 @@ pub(crate) const PATH_BONUS_TABLE: [u8; 76] = [
 // === Lava geysers ===
 
 pub(crate) const LAVA_GEYSER_HOLD_FRAMES: u16 = 30;
-pub(crate) const LAVA_GEYSER_DORMANT_FRAMES: u16 = 60;
 pub(crate) const LAVA_GEYSER_ERUPT_SPEED: u16 = 4; // pixels per frame
 
 // === Ending sequence ===

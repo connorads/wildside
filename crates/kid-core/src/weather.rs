@@ -2480,6 +2480,7 @@ impl NativeRuntime {
                 x_px: geyser.x_px,
                 y_px: geyser.y_px,
                 height_px: geyser.height_px,
+                startup_delay_frames: geyser.startup_delay_frames,
                 phase: 0,
                 timer: geyser.startup_delay_frames,
                 current_height: 0,
@@ -2543,7 +2544,7 @@ impl NativeRuntime {
                     } else {
                         geyser.current_height = 0;
                         geyser.phase = 0;
-                        geyser.timer = LAVA_GEYSER_DORMANT_FRAMES;
+                        geyser.timer = geyser.startup_delay_frames;
                     }
                 }
                 _ => {}

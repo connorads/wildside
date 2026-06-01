@@ -14359,6 +14359,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
+            startup_delay_frames: 0,
             phase: 0,
             timer: 0, // ready to erupt immediately
             current_height: 0,
@@ -19426,6 +19427,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
+            startup_delay_frames: 0,
             phase: 1,
             timer: 0,
             current_height: 40, // fully erupted
@@ -19453,6 +19455,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
+            startup_delay_frames: 0,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -19480,6 +19483,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
+            startup_delay_frames: 0,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -19506,6 +19510,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
+            startup_delay_frames: 0,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -19525,13 +19530,15 @@ mod chunk_05 {
 
     #[test]
     fn lava_geyser_dormant_timer_resets_after_collapse() {
-        // After collapse phase completes, dormant timer should reset to LAVA_GEYSER_DORMANT_FRAMES
+        // ASM loc_1498C loops back through loc_14788/loc_14772, reusing this
+        // geyser's encoded-height startup hibernate instead of a global delay.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
         runtime.weather.lava_geysers.push(LavaGeyser {
             x_px: 100,
             y_px: 200,
             height_px: 16,
+            startup_delay_frames: 30,
             phase: 3,
             timer: 0,
             current_height: LAVA_GEYSER_ERUPT_SPEED, // one step from collapse end
@@ -19543,8 +19550,8 @@ mod chunk_05 {
         let g = &runtime.weather.lava_geysers[0];
         assert_eq!(g.phase, 0, "should return to dormant");
         assert_eq!(
-            g.timer, LAVA_GEYSER_DORMANT_FRAMES,
-            "dormant timer should reset"
+            g.timer, 30,
+            "ASM loc_1498C should re-arm the per-geyser loc_14772 startup hibernate"
         );
         assert_eq!(g.current_height, 0);
     }
@@ -19558,6 +19565,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
+            startup_delay_frames: 0,
             phase: 0,
             timer: 5,
             current_height: 0, // dormant, no eruption
@@ -19809,6 +19817,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
+            startup_delay_frames: 0,
             phase: 0,
             timer: 5,
             current_height: 0,
@@ -19844,6 +19853,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
+            startup_delay_frames: 0,
             phase: 0,
             timer: 5,
             current_height: 0,
@@ -19882,6 +19892,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
+            startup_delay_frames: 0,
             phase: 3,
             timer: 0,
             current_height: 16, // > LAVA_GEYSER_ERUPT_SPEED (4)
@@ -20833,6 +20844,7 @@ mod chunk_05 {
             x_px: 0,
             y_px: 0,
             height_px: 0,
+            startup_delay_frames: 0,
             phase: 0,
             timer: 0,
             current_height: 0,

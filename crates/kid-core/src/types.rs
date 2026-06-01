@@ -1676,6 +1676,8 @@ pub(crate) struct LavaGeyser {
     pub(crate) y_px: u16,
     /// Eruption height in pixels.
     pub(crate) height_px: u16,
+    /// ASM loc_14772 startup hibernate, reused after each collapse.
+    pub(crate) startup_delay_frames: u16,
     /// Phase: 0=waiting, 1=erupting upward, 2=holding, 3=collapsing.
     pub(crate) phase: u8,
     /// Frames remaining in current phase.
