@@ -2339,28 +2339,59 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_weather(&mut self, slice: &OpeningSliceState) {
-        // Hail only for Storm+Hail (weather 3).
+        if dispatch_level_special_effects_sub_6034(u16::from(self.weather.weather_type)).is_none() {
+            return;
+        }
+
+        let (foreground_theme_is_mountain, background_theme_is_mountain) = self
+            .level_header(self.current_level)
+            .map_or((false, false), |header| {
+                (header.level_theme == 7, header.background_theme == 7)
+            });
+
+        let stepped = step_level_special_effects_sub_6048(
+            WeatherSpecialEffectsStepSub6048 {
+                frame_counter: self.frame_index as u16,
+                level_special_effects: u16::from(self.weather.weather_type),
+                foreground_theme_is_mountain,
+                background_theme_is_mountain,
+                fade_countdown: self.weather.storm_fade_countdown,
+                fade_progress_latch: 0,
+                palette_animation_speed: 0,
+                pending_palette_mask_0: 0,
+                weather_mode_byte: self.weather.storm_weather_mode_byte,
+                thunder_timer: self.weather.storm_thunder_timer,
+                hail_period_timer: self.weather.hail_period_timer,
+                hail_active: self.weather.hail_active,
+                snow_spawn_cooldown: self.weather.storm_spawn_cooldown,
+                snow_slot_count: 5u8.saturating_sub(self.weather.storm_free_falling_slots),
+                play_thunder_sound: false,
+                call_snow_worker: false,
+                palette_ops: Vec::new(),
+            },
+            [0; 8],
+            [0; 15],
+            [0; 7],
+            [0; 7],
+            (self.frame_index & 0xFF) as u8,
+        );
+        self.weather.storm_weather_mode_byte = stepped.weather_mode_byte;
+        self.weather.storm_fade_countdown = stepped.fade_countdown;
+        self.weather.storm_thunder_timer = stepped.thunder_timer;
+        self.weather.storm_spawn_cooldown = stepped.snow_spawn_cooldown;
+        self.weather.hail_period_timer = stepped.hail_period_timer;
+        self.weather.hail_active = stepped.hail_active;
+
+        // Hail projectiles only exist for Storm+Hail (weather 3). Weather 2
+        // still runs the shared storm palette/thunder state above.
         if self.weather.weather_type != 3 {
             return;
         }
         // ASM loc_6172 (kid.asm:6155): `cmpi.w #$873,(Frame_Counter).w;
         // bls.s return_61C0` gates the live hail worker on the ROM frame
         // counter, not the coarse countdown timer.
-        if self.frame_index <= 0x0873 {
+        if !stepped.call_snow_worker || self.frame_index <= 0x0873 {
             return;
-        }
-
-        // ASM loc_6172/loc_619C: decrement `$FFFFFB52`; zero toggles
-        // `$FFFFFB54`, then reloads `$4B0` for inactive->active and `$258`
-        // for active->inactive.
-        self.weather.hail_period_timer = self.weather.hail_period_timer.wrapping_sub(1);
-        if self.weather.hail_period_timer == 0 {
-            self.weather.hail_period_timer = if self.weather.hail_active {
-                0x0258
-            } else {
-                0x04B0
-            };
-            self.weather.hail_active = !self.weather.hail_active;
         }
 
         if !self.weather.hail_active {

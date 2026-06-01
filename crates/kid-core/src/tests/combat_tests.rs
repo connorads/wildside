@@ -20874,6 +20874,40 @@ mod chunk_05 {
     }
 
     #[test]
+    fn weather_two_steps_shared_sub_6048_state_without_hail_projectiles() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 2;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+        runtime.frame_index = 0x04B1;
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(runtime.weather.weather_type, 2);
+        assert_eq!(
+            runtime.weather.storm_fade_countdown, 0x00FC,
+            "ASM sub_6048 subtracts four from `$FFFFFADA` after the 20-second storm threshold"
+        );
+        assert_eq!(
+            runtime.weather.storm_weather_mode_byte, 4,
+            "ASM sub_6048 leaves `$FFFFFAD6=4` on the shared storm path"
+        );
+        assert_eq!(
+            runtime.weather.hail_period_timer, 1,
+            "ASM loc_6172 `bne.s return_61C0`: weather 2 must not touch the storm+hail period word"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "plain Storm weather 2 should run sub_6048 state without spawning hail projectiles"
+        );
+    }
+
+    #[test]
     fn skycutter_c_press_starts_flipboard_deploy() {
         let mut rt = skycutter_runtime();
         let mut slice = airborne_slice();
