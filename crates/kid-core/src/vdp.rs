@@ -1738,6 +1738,11 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
     // copy loop as build_intro_sequence_2_vdp — sub_1C4FE seeds 0x23 words
     // from Pal_1C2F0 into Palette_Buffer_2.
     vdp.write_cram_words(0, &data.palette_segment_1);
+    // ASM sub_1B988 (kid.asm:30273-30282): `move.w #4,(Camera_Y_pos).w`
+    // before loc_1B9B2 owns the visible corridor loop. Oracle VSRAM at frame
+    // 1380 exposes plane A scrolled by 4 and plane B by 1.
+    vdp.write_vsram_word(0, 4);
+    vdp.write_vsram_word(2, 1);
 
     vdp
 }
@@ -3157,6 +3162,16 @@ mod tests {
         };
 
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 3, 1, 98, 1);
+        assert_eq!(
+            ((u16::from(vdp.vsram[0]) << 8) | u16::from(vdp.vsram[1])),
+            4,
+            "ASM sub_1B988 writes Camera_Y_pos=4 before the visible corridor loop; oracle frame 1380 exposes that as plane-A VSRAM",
+        );
+        assert_eq!(
+            ((u16::from(vdp.vsram[2]) << 8) | u16::from(vdp.vsram[3])),
+            1,
+            "Oracle frame 1380 exposes the paired plane-B VSRAM offset while the corridor tilemap is visible",
+        );
         let l_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 19, 8, 0x0B);
         let i_write = kid_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 20, 8, 0x08);
 

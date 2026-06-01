@@ -123,6 +123,8 @@ pub fn test_hypothesis(
             memory_watches: Some(watches_str),
             wram_dump_frames: None,
             vram_dump_frames: None,
+            cram_dump_frames: None,
+            vsram_dump_frames: None,
             vdp_pixel_samples: None,
             capture_cpu_state: false,
         };

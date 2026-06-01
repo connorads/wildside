@@ -746,9 +746,21 @@ enum Commands {
         /// Frames at which to dump full 64KB VRAM (e.g. 1080)
         #[arg(long)]
         vram_dump_frames: Option<String>,
+        /// Frames at which to dump oracle CRAM/palette memory (e.g. 1380)
+        #[arg(long)]
+        cram_dump_frames: Option<String>,
+        /// Frames at which to dump oracle VSRAM/scroll memory (e.g. 1380)
+        #[arg(long)]
+        vsram_dump_frames: Option<String>,
         /// Frames at which to dump native synthetic VDP VRAM for comparison.
         #[arg(long)]
         native_vram_dump_frames: Option<String>,
+        /// Frames at which to dump native synthetic VDP CRAM for comparison.
+        #[arg(long)]
+        native_cram_dump_frames: Option<String>,
+        /// Frames at which to dump native synthetic VDP VSRAM for comparison.
+        #[arg(long)]
+        native_vsram_dump_frames: Option<String>,
         /// Oracle VDP pixel samples as X/Y pairs (e.g. 0/169,126/169)
         #[arg(long)]
         vdp_pixel_samples: Option<String>,
@@ -1777,7 +1789,11 @@ fn main() -> Result<()> {
             watches,
             wram_dump_frames,
             vram_dump_frames,
+            cram_dump_frames,
+            vsram_dump_frames,
             native_vram_dump_frames,
+            native_cram_dump_frames,
+            native_vsram_dump_frames,
             vdp_pixel_samples,
             when,
             capture_cpu_state,
@@ -1823,6 +1839,8 @@ fn main() -> Result<()> {
                 memory_watches: watches.clone(),
                 wram_dump_frames: wram_dump_frames.clone(),
                 vram_dump_frames: vram_dump_frames.clone(),
+                cram_dump_frames: cram_dump_frames.clone(),
+                vsram_dump_frames: vsram_dump_frames.clone(),
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 capture_cpu_state,
             };
@@ -1906,16 +1924,51 @@ fn main() -> Result<()> {
             if vram_dump_frames.is_some() {
                 eprintln!("VRAM dumps written to {}", oracle_dir.display());
             }
+            if cram_dump_frames.is_some() {
+                eprintln!("CRAM dumps written to {}", oracle_dir.display());
+            }
+            if vsram_dump_frames.is_some() {
+                eprintln!("VSRAM dumps written to {}", oracle_dir.display());
+            }
             if let Some(frames) = native_vram_dump_frames.as_deref() {
                 let frames = parse_frame_list_cli(frames)?;
-                write_native_vram_dumps_for_dynamic_scenario(
+                write_native_vdp_dumps_for_dynamic_scenario(
                     &run_dir.join("native"),
                     &manifest,
                     &dyn_scenario,
                     &frames,
+                    NativeVdpDumpArea::Vram,
                 )?;
                 eprintln!(
                     "Native VRAM dumps written to {}",
+                    run_dir.join("native").display()
+                );
+            }
+            if let Some(frames) = native_cram_dump_frames.as_deref() {
+                let frames = parse_frame_list_cli(frames)?;
+                write_native_vdp_dumps_for_dynamic_scenario(
+                    &run_dir.join("native"),
+                    &manifest,
+                    &dyn_scenario,
+                    &frames,
+                    NativeVdpDumpArea::Cram,
+                )?;
+                eprintln!(
+                    "Native CRAM dumps written to {}",
+                    run_dir.join("native").display()
+                );
+            }
+            if let Some(frames) = native_vsram_dump_frames.as_deref() {
+                let frames = parse_frame_list_cli(frames)?;
+                write_native_vdp_dumps_for_dynamic_scenario(
+                    &run_dir.join("native"),
+                    &manifest,
+                    &dyn_scenario,
+                    &frames,
+                    NativeVdpDumpArea::Vsram,
+                )?;
+                eprintln!(
+                    "Native VSRAM dumps written to {}",
                     run_dir.join("native").display()
                 );
             }
@@ -2074,11 +2127,19 @@ fn parse_frame_list_cli(spec: &str) -> Result<Vec<usize>> {
         .collect()
 }
 
-fn write_native_vram_dumps_for_dynamic_scenario(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeVdpDumpArea {
+    Vram,
+    Cram,
+    Vsram,
+}
+
+fn write_native_vdp_dumps_for_dynamic_scenario(
     out_dir: &Path,
     manifest: &AssetManifest,
     scenario: &DynamicScenario,
     frames: &[usize],
+    area: NativeVdpDumpArea,
 ) -> Result<()> {
     if frames.is_empty() {
         return Ok(());
@@ -2126,8 +2187,13 @@ fn write_native_vram_dumps_for_dynamic_scenario(
             let vdp = runtime
                 .vdp_state()
                 .ok_or_else(|| anyhow!("native frame {frame_index} has no synthetic VDP state"))?;
-            let dump_path = out_dir.join(format!("vram_frame_{frame_index}.bin"));
-            fs::write(&dump_path, &vdp.vram)
+            let (prefix, bytes) = match area {
+                NativeVdpDumpArea::Vram => ("vram", vdp.vram.as_slice()),
+                NativeVdpDumpArea::Cram => ("cram", vdp.cram.as_slice()),
+                NativeVdpDumpArea::Vsram => ("vsram", vdp.vsram.as_slice()),
+            };
+            let dump_path = out_dir.join(format!("{prefix}_frame_{frame_index}.bin"));
+            fs::write(&dump_path, bytes)
                 .with_context(|| format!("failed to write {}", dump_path.display()))?;
         }
     }
