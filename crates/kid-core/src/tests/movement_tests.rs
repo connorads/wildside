@@ -16350,6 +16350,47 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_B084 (kid.asm:13921) still runs airborne horizontal control
+    /// once Kid is already descending. Natural route frame 752 is near the old
+    /// rubber floor with jump held, but `y_vel=$C000`, so the ROM applies the
+    /// jump-air right acceleration `$2B00` instead of taking the neutral
+    /// near-floor suppression path.
+    #[test]
+    fn sub_b084_falling_near_floor_jump_edge_still_allows_air_control() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 100 * 16,
+            height_pixels: 12 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x051a_ba00;
+        slice.player.x_velocity = 0x0002_0100;
+        slice.player.y_pos = 0x0091_8000;
+        slice.player.y_velocity = 0x0000_c000;
+        slice.terrain.floor_y_pos = 0x008f_0000;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(
+            stepped,
+            "falling near-floor jump edge should still run sub_B084 air control",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_2c00,
+            "ASM sub_B084 should apply TheKid airborne right acceleration $2B00"
+        );
+    }
+
     /// ASM sub_902A owns floor contact after a jump edge. The full horizontal
     /// motion path must use the same near-floor tolerance as the velocity-only
     /// path so a descending/neutral jump edge near the floor waits for vertical

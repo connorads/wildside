@@ -578,6 +578,18 @@ is 10/10 CRC-clean. The wider 620..780 route now next diverges at frame 752:
 native has `kid_x_pos=$051CBB00`, `kid_x_vel=$20100`; oracle has
 `kid_x_pos=$051CE600`, `kid_x_vel=$22C00`.
 
+Note 2026-06-01 third follow-up for #211: fixed the frame-752 airborne
+near-floor jump edge. Native's `sub_902A` jump-edge suppression was blocking
+air control for all descending near-floor frames; oracle shows the suppression
+only applies to the neutral `y_vel=0` edge. On frame 752 Kid is already falling
+with `y_vel=$C000`, so ASM `sub_B084` still applies TheKid's airborne right
+acceleration `$2B00` (`x_vel=$20100 -> $22C00`). Focused evidence:
+`verify-tas --scenario .cache/recordings/issue-211-level00-walk-right-live-refresh/scenario.json --frame-start 750 --frame-end 758 --checkpoint-interval 1 --frontier-kind gameplay`
+is 8/8 CRC-clean. The wider 620..800 route is CRC-clean; remaining reported
+state differences are the known frame-625 live-velocity export limitation and a
+new object-count-only frontier from frame 778 (`number_objects` native 5,
+oracle 7) with Kid state still matching.
+
 Note 2026-05-29 for #152: scope correction. The closed finding (helmet bitmask `%1011000101` blocks the standing→walking transition for non-bitmask forms) is faithful and stays `[x]` — but it only covered the walk-UP half. Playtest shows the form jitters on slope contact instead of sliding DOWN. ROM `loc_8E06`->`loc_9D58`->`loc_9E6C` applies a clamped ±$1000/frame downhill slide while the form holds the standing pose; native's `should_hold_standing_still` early-return suppresses it, producing a two-frame limit cycle. The slide-down bug is now tracked as #204. The two `asm_faithful_loc_77c2/loc_77fc … holds_standing` tests assert x_velocity==0 and may pin the freeze bug — flagged for re-derivation under #204.
 
 Note 2026-05-29 for #176 (correction from the dead-helper census, #203): #176 states the live game "uses generic `step_pacer`/`step_hopper`/`step_flyer`". The census found this overstated at the file level — `enemies.rs` has a comprehensive live family dispatch (`step_frame -> refresh_active_roster -> step_active_enemies_with_rng -> per-family step_*`), and most of its 1,171 `cfg_not_test` helpers are stale-attribute leaves that DO feed live orchestrators. The per-family *behaviour* gaps in #177-202 remain valid, but they are missing sub-branches inside wired orchestrators (e.g. unrouted Berzerker/recoil/state-entry arms), not a wholesale generic fallback. The genuinely-uncalled enemy residue is tiny (~2 fns + skull/twins/goat state-entry sub-machines). See `docs/source-port/dead-helper-census.md`.
