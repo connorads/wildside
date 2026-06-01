@@ -41,7 +41,8 @@ pub use level::{
     EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    eol_score_counter_snapshot_loc_D770, flagpole_scoreboard_reveal_tiles_loc_C21E,
+    eol_score_counter_snapshot_loc_D770, eol_title_return_faded_palette_word_loc_D734,
+    flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 use std::collections::HashSet;
 use std::fs;

@@ -15414,6 +15414,16 @@ pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleR
     }
 }
 
+/// ASM loc_D734 (kid.asm:16836): once the title-return fade stops at
+/// `$FFFFF876 == $0080`, the selected score-room CRAM words are the result of
+/// `sub_14C0` blending from `Palette_Buffer_2` toward cleared
+/// `Palette_Buffer_3`.
+#[allow(non_snake_case)]
+pub fn eol_title_return_faded_palette_word_loc_D734(palette_word: u16) -> u16 {
+    let fade_curve = build_palette_fade_curve_sub_14C0(0x0080);
+    blend_palette_entry_loc_1538(palette_word, 0, &fade_curve)
+}
+
 /// ASM loc_D84E (kid.asm:16932): final-level end-credits palette backup loop.
 /// `moveq #$1F,d0` followed by `move.l (a0)+,(a1)+; dbf d0,loc_D84E`
 /// copies 32 longwords, i.e. the full 128-byte `Palette_Buffer`, into

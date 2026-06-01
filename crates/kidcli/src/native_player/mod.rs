@@ -2676,6 +2676,57 @@ mod tests {
     }
 
     #[test]
+    fn level_complete_hologram_uses_loc_d734_dimmed_palette_after_score_fade() {
+        let mut visuals = sample_level_visuals();
+        let mut tile_sheet = blank_tile_sheet(3);
+        tile_sheet.tiles[1].pixels = [1; 64];
+        tile_sheet.tiles[2].pixels = [2; 64];
+        visuals.eol_hologram = Some(kid_render::EolHologramVisuals {
+            palette: Palette {
+                colours: vec![
+                    kid_render::MdColour::from_word(0x0866),
+                    kid_render::MdColour::from_word(0x00E0),
+                ],
+            },
+            tile_sheet,
+            rows: vec![vec![
+                TileRef::from_attr_word(0x0001),
+                TileRef::from_attr_word(0x0002),
+            ]],
+        });
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = kid_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
+        trace.level_complete_score_rows_elapsed_frames =
+            super::scene::EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let dimmed_palette_word = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::IndexedTile { palette, tile, .. } if tile.tile_index == 1 => {
+                palette.colours.first().map(|colour| colour.raw_word)
+            }
+            _ => None,
+        });
+        let bright_grid_word = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::IndexedTile { palette, tile, .. } if tile.tile_index == 2 => {
+                palette.colours.get(1).map(|colour| colour.raw_word)
+            }
+            _ => None,
+        });
+
+        assert_eq!(
+            dimmed_palette_word,
+            Some(0x0433),
+            "ASM loc_D734/sub_14C0 should keep the EOL hologram on the oracle-visible dim palette during the score counter"
+        );
+        assert_eq!(
+            bright_grid_word,
+            Some(0x00E0),
+            "oracle frames show the Pal_D00C green grid entry remains bright while the loc_D734-dimmed score-room entries fade"
+        );
+    }
+
+    #[test]
     fn level_complete_hologram_suppresses_scroll_a_background_tiles() {
         let mut visuals = sample_level_visuals();
         let mut hologram_tiles = blank_tile_sheet(2);

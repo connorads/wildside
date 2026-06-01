@@ -22,7 +22,7 @@ const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // eight one-frame palette fade steps before the score rows are visible in the
 // reduced oracle bundle. The trace clock keeps loc_D468 object timing; the
 // renderer applies this final visual fade phase.
-const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
+pub(super) const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
 // ASM loc_D734 falls through after the fade, then loc_C5A2/loc_C48C workers
 // update before sub_13C0 latches the sprite table for the *next* displayed
 // frame. The reduced `issue-175-eol-flag-touch-level12` oracle bundle exposes
@@ -2193,9 +2193,10 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     );
 }
 
-fn push_eol_number_sprites(
+fn push_eol_number_sprites_with_palette(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
     x: i32,
     y: i32,
     value: u32,
@@ -2218,7 +2219,7 @@ fn push_eol_number_sprites(
             push_sprite_frame_with_priority(
                 commands,
                 frame,
-                &eol.palette,
+                palette,
                 x + slot as i32 * 12,
                 y,
                 Some(true),
@@ -2227,9 +2228,10 @@ fn push_eol_number_sprites(
     }
 }
 
-fn push_eol_level_skip_time_digits_loc_d47e(
+fn push_eol_level_skip_time_digits_with_palette_loc_d47e(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
     trace: &NativeTraceFrame,
 ) {
     if trace.level_skip_cheat_enabled == 0 || trace.level_complete_score_rows_started == 0 {
@@ -2247,7 +2249,7 @@ fn push_eol_level_skip_time_digits_loc_d47e(
         if let Some(frame) = eol.digits.get(usize::from(digit)) {
             // ASM loc_D47E allocates the level-skip time digits through the
             // same priority=$01 EOL digit gfx-object setup as loc_C466.
-            push_sprite_frame_with_priority(commands, frame, &eol.palette, x, 0xD4, Some(true));
+            push_sprite_frame_with_priority(commands, frame, palette, x, 0xD4, Some(true));
         }
     }
 }
@@ -2280,10 +2282,49 @@ fn push_eol_text_loc_c5a2(
     push_eol_text_with_velocity_loc_c5a2(commands, frame, eol, initial_x, 8, y, timer, elapsed);
 }
 
+fn push_eol_text_with_palette_loc_c5a2(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
+    initial_x: i32,
+    y: i32,
+    timer: usize,
+    elapsed: usize,
+) {
+    push_eol_text_with_velocity_and_palette_loc_c5a2(
+        commands, frame, eol, palette, initial_x, 8, y, timer, elapsed,
+    );
+}
+
 fn push_eol_text_with_velocity_loc_c5a2(
     commands: &mut Vec<DrawCommand>,
     frame: &kid_render::SpriteFrame,
     eol: &kid_render::EolScoreVisuals,
+    initial_x: i32,
+    velocity: i32,
+    y: i32,
+    timer: usize,
+    elapsed: usize,
+) {
+    push_eol_text_with_velocity_and_palette_loc_c5a2(
+        commands,
+        frame,
+        eol,
+        &eol.palette,
+        initial_x,
+        velocity,
+        y,
+        timer,
+        elapsed,
+    );
+}
+
+fn push_eol_text_with_velocity_and_palette_loc_c5a2(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    _eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
     initial_x: i32,
     velocity: i32,
     y: i32,
@@ -2295,7 +2336,7 @@ fn push_eol_text_with_velocity_loc_c5a2(
     // x_pos/y_pos fields after adding the camera, so render from sprite
     // coordinates rather than treating `$64/$68` as top-lefts. loc_C592 sets
     // `priority(a3)=1`, so these rows draw above high-priority foreground.
-    push_sprite_frame_with_priority(commands, frame, &eol.palette, x, y, Some(true));
+    push_sprite_frame_with_priority(commands, frame, palette, x, y, Some(true));
 }
 
 fn push_eol_number_loc_c5a2(
@@ -2308,15 +2349,40 @@ fn push_eol_number_loc_c5a2(
     elapsed: usize,
     value: u32,
 ) {
+    push_eol_number_with_palette_loc_c5a2(
+        commands,
+        eol,
+        &eol.palette,
+        initial_x,
+        velocity,
+        y,
+        timer,
+        elapsed,
+        value,
+    );
+}
+
+fn push_eol_number_with_palette_loc_c5a2(
+    commands: &mut Vec<DrawCommand>,
+    eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
+    initial_x: i32,
+    velocity: i32,
+    y: i32,
+    timer: usize,
+    elapsed: usize,
+    value: u32,
+) {
     let x = eol_number_position_loc_c48c(initial_x, velocity, timer, elapsed);
     // ASM Object_EOL_Number loc_C4E2 writes each digit worker's gfx-object
     // x_pos/y_pos directly from `$64/$68`.
-    push_eol_number_sprites(commands, eol, x, y, value);
+    push_eol_number_sprites_with_palette(commands, eol, palette, x, y, value);
 }
 
-fn push_eol_bonus_row_loc_d468(
+fn push_eol_bonus_row_with_palette_loc_d468(
     commands: &mut Vec<DrawCommand>,
     eol: &kid_render::EolScoreVisuals,
+    palette: &Palette,
     label: &kid_render::SpriteFrame,
     label_initial_x: i32,
     bonus_initial_x: i32,
@@ -2326,19 +2392,30 @@ fn push_eol_bonus_row_loc_d468(
     elapsed: usize,
     value: u32,
 ) {
-    push_eol_text_loc_c5a2(commands, label, eol, label_initial_x, y, timer, elapsed);
-    push_eol_text_loc_c5a2(
+    push_eol_text_with_palette_loc_c5a2(
+        commands,
+        label,
+        eol,
+        palette,
+        label_initial_x,
+        y,
+        timer,
+        elapsed,
+    );
+    push_eol_text_with_palette_loc_c5a2(
         commands,
         &eol.bonus,
         eol,
+        palette,
         bonus_initial_x,
         y,
         timer,
         elapsed,
     );
-    push_eol_number_loc_c5a2(
+    push_eol_number_with_palette_loc_c5a2(
         commands,
         eol,
+        palette,
         number_initial_x,
         -8,
         y,
@@ -2390,12 +2467,41 @@ fn eol_score_counter_snapshot_for_trace(
     )
 }
 
+fn eol_score_room_palette_loc_d734(trace: &NativeTraceFrame, palette: &Palette) -> Palette {
+    if trace.level_complete_score_rows_elapsed_frames
+        < EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
+    {
+        return palette.clone();
+    }
+
+    // ASM loc_D734: after the score-row setup, the ROM backs up
+    // `Palette_Buffer`, clears `Palette_Buffer_3`, then runs eight
+    // `sub_14C0` fade steps to `$0080`. The native asset stores the extracted
+    // score-room colours as one flattened Pal_D00C palette, but oracle frames
+    // show the grid greens/white stay on the bright CRAM line while the room
+    // wall/stone colours are the dimmed loc_D734 result.
+    Palette {
+        colours: palette
+            .colours
+            .iter()
+            .map(|colour| {
+                let raw_word = match colour.raw_word {
+                    0x0000 | 0x0040 | 0x00E0 | 0x0EEE => colour.raw_word,
+                    raw_word => kid_core::eol_title_return_faded_palette_word_loc_D734(raw_word),
+                };
+                kid_render::MdColour::from_word(raw_word)
+            })
+            .collect(),
+    }
+}
+
 fn push_eol_score_overlay(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     eol: &kid_render::EolScoreVisuals,
 ) {
-    push_eol_level_skip_time_digits_loc_d47e(commands, eol, trace);
+    let palette = eol_score_room_palette_loc_d734(trace, &eol.palette);
+    push_eol_level_skip_time_digits_with_palette_loc_d47e(commands, eol, &palette, trace);
 
     if trace.level_complete_score_rows_elapsed_frames
         < EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
@@ -2413,10 +2519,20 @@ fn push_eol_score_overlay(
     let elapsed = trace.level_complete_score_rows_elapsed_frames
         - EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE
         + EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE;
-    push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0xB8, 0xCC, 0x1C, elapsed);
-    push_eol_number_loc_c5a2(
+    push_eol_text_with_palette_loc_c5a2(
+        commands,
+        &eol.continues,
+        eol,
+        &palette,
+        -0xB8,
+        0xCC,
+        0x1C,
+        elapsed,
+    );
+    push_eol_number_with_palette_loc_c5a2(
         commands,
         eol,
+        &palette,
         -0x7C,
         8,
         0xCC,
@@ -2424,8 +2540,20 @@ fn push_eol_score_overlay(
         elapsed,
         u32::from(trace.number_continues),
     );
-    push_eol_text_loc_c5a2(commands, &eol.score, eol, -0x68, 0xB4, 0x1C, elapsed);
-    push_eol_number_loc_c5a2(commands, eol, 0x1B0, -8, 0xB4, 0x1C, elapsed, counter.score);
+    push_eol_text_with_palette_loc_c5a2(
+        commands, &eol.score, eol, &palette, -0x68, 0xB4, 0x1C, elapsed,
+    );
+    push_eol_number_with_palette_loc_c5a2(
+        commands,
+        eol,
+        &palette,
+        0x1B0,
+        -8,
+        0xB4,
+        0x1C,
+        elapsed,
+        counter.score,
+    );
 
     let mut amount_index = 0usize;
     let mut y = 0x9C;
@@ -2433,9 +2561,10 @@ fn push_eol_score_overlay(
     // ASM loc_D4CE subtracts `$18` from d7 and adds `$40` to d6 after the
     // SCORE row, before loading the first TIME/BONUS row.
     let mut d6 = 0x40;
-    push_eol_bonus_row_loc_d468(
+    push_eol_bonus_row_with_palette_loc_d468(
         commands,
         eol,
+        &palette,
         &eol.time,
         -0xA0 - d6,
         -0x68 - d6,
@@ -2450,9 +2579,10 @@ fn push_eol_score_overlay(
     timer += 8;
     d6 += 0x40;
     if !trace.level_damage_taken {
-        push_eol_bonus_row_loc_d468(
+        push_eol_bonus_row_with_palette_loc_d468(
             commands,
             eol,
+            &palette,
             &eol.no_hit,
             -0xC8 - d6,
             -0x68 - d6,
@@ -2468,9 +2598,10 @@ fn push_eol_score_overlay(
         d6 += 0x40;
     }
     if !trace.level_prize_collected {
-        push_eol_bonus_row_loc_d468(
+        push_eol_bonus_row_with_palette_loc_d468(
             commands,
             eol,
+            &palette,
             &eol.no_prize,
             -0xE0 - d6,
             -0x68 - d6,
@@ -2486,9 +2617,10 @@ fn push_eol_score_overlay(
         d6 += 0x40;
     }
     if trace.level_path_bonus_amount > 0 {
-        push_eol_bonus_row_loc_d468(
+        push_eol_bonus_row_with_palette_loc_d468(
             commands,
             eol,
+            &palette,
             &eol.path,
             -0xA8 - d6,
             -0x68 - d6,
@@ -2504,9 +2636,10 @@ fn push_eol_score_overlay(
         d6 += 0x40;
     }
     if trace.level_speed_bonus_awarded {
-        push_eol_bonus_row_loc_d468(
+        push_eol_bonus_row_with_palette_loc_d468(
             commands,
             eol,
+            &palette,
             &eol.speed,
             -0xB0 - d6,
             -0x68 - d6,
@@ -2519,14 +2652,24 @@ fn push_eol_score_overlay(
         y -= 0x18;
         timer += 8;
         d6 += 0x40;
-        push_eol_text_loc_c5a2(commands, &eol.under, eol, -0xB0 - d6, y, timer, elapsed);
+        push_eol_text_with_palette_loc_c5a2(
+            commands,
+            &eol.under,
+            eol,
+            &palette,
+            -0xB0 - d6,
+            y,
+            timer,
+            elapsed,
+        );
         // ASM loc_D660: the "UNDER ... SECONDS" number is the threshold byte
         // loaded from SpeedBonus_Values[Current_LevelID], not remaining time.
         let speed_threshold = kid_core::speed_bonus_threshold_loc_d660(trace.current_level)
             .map_or(u32::from(trace.level_timer_seconds), u32::from);
-        push_eol_number_loc_c5a2(
+        push_eol_number_with_palette_loc_c5a2(
             commands,
             eol,
+            &palette,
             -0xA4 - d6,
             8,
             y,
@@ -2534,7 +2677,16 @@ fn push_eol_score_overlay(
             elapsed,
             speed_threshold,
         );
-        push_eol_text_loc_c5a2(commands, &eol.seconds, eol, -0x4C - d6, y, timer, elapsed);
+        push_eol_text_with_palette_loc_c5a2(
+            commands,
+            &eol.seconds,
+            eol,
+            &palette,
+            -0x4C - d6,
+            y,
+            timer,
+            elapsed,
+        );
     }
 }
 
@@ -2963,13 +3115,17 @@ pub(super) fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
         .map_or(SKY_COLOUR, |colour| [colour.red, colour.green, colour.blue])
 }
 
-fn push_eol_hologram_room(commands: &mut Vec<DrawCommand>, level_visuals: &NativeLevelVisuals) {
+fn push_eol_hologram_room(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
     // ASM loc_C186 uploads MapEni_CC0E to Scroll B after the flag-touch
     // hibernate. Scroll A stays live until the loc_C21E/sub_C254 reveal
     // writes replace its foreground cells.
     if let Some(hologram) = &level_visuals.eol_hologram {
         let tile_sheet = Arc::new(hologram.tile_sheet.clone());
-        let palette = Arc::new(hologram.palette.clone());
+        let palette = Arc::new(eol_score_room_palette_loc_d734(trace, &hologram.palette));
         for (row_index, row) in hologram.rows.iter().enumerate() {
             for (col_index, tile) in row.iter().copied().enumerate() {
                 commands.push(DrawCommand::IndexedTile {
@@ -3167,7 +3323,7 @@ fn push_eol_foreground_reveal_tiles(
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
     let tile_sheet = Arc::new(hologram.tile_sheet.clone());
-    let palette = Arc::new(hologram.palette.clone());
+    let palette = Arc::new(eol_score_room_palette_loc_d734(trace, &hologram.palette));
     let writes = kid_core::flagpole_scoreboard_reveal_tiles_loc_C21E(
         grid,
         (trace.camera_x_pos >> 16) as u16,
@@ -3269,7 +3425,7 @@ fn build_game_scene_filtered(
     let mut commands = Vec::new();
 
     if eol_hologram_visible && filter.background {
-        push_eol_hologram_room(&mut commands, level_visuals);
+        push_eol_hologram_room(&mut commands, trace, level_visuals);
     } else if filter.background
         && (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
     {

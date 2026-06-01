@@ -8818,6 +8818,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D734 (kid.asm:16836): after the eight one-frame fade steps,
+    /// `sub_14C0` has blended selected score-room palette words halfway toward
+    /// the cleared `Palette_Buffer_3` target before the EOL score counter runs.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D734_eol_title_return_fades_score_room_palette_words() {
+        assert_eq!(
+            crate::level::eol_title_return_faded_palette_word_loc_D734(0x0866),
+            0x0433,
+            "ASM loc_D734/sub_14C0 should fade Pal_D00C word $0866 to the oracle-visible dim $0433"
+        );
+        assert_eq!(
+            crate::level::eol_title_return_faded_palette_word_loc_D734(0x00CE),
+            0x0067,
+            "ASM loc_D734/sub_14C0 should fade Pal_D00C word $00CE to the oracle-visible dim $0067"
+        );
+    }
+
     /// ASM loc_D84E (kid.asm:16932): copy `Palette_Buffer` into
     /// `Palette_Buffer_2` as 32 longwords before clearing the end-credits fade
     /// target.
