@@ -4250,6 +4250,17 @@ AddrTbl_LevelNames:
         );
         assert!(scenario.settle_oracle_warp);
         assert_eq!(
+            scenario.playtest_form,
+            Some(7),
+            "ASM loc_9564 Berzerker charge hitbox is required to break Highwater Pass 1's early smash-column stopper before sampling #215 water/foreground frames"
+        );
+        assert!(
+            scenario.script[..scenario.frame_count]
+                .iter()
+                .all(|mask| mask & (1 << 3) != 0),
+            "the #215 route holds Right from the settled Level 02 spawn"
+        );
+        assert_eq!(
             scenario.frame_count, 1_860,
             "the route needs to reach the first visible Mountain water hole from the settled Level 02 spawn"
         );

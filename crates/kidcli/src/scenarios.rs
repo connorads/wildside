@@ -872,22 +872,15 @@ pub fn highwater_shooter_barrier_audit_scenario() -> DynamicScenario {
 /// ASM `Load_BackgroundMappings_Layered loc_12910` builds Mountain Plane B
 /// with the `$7E5` follow-up art, then `Transfer_ScrollDataToVRAM loc_300BA`
 /// latches the camera scroll used by the visible waterfall/foreground holes.
-/// This reproduces the live route from the Level 02 spawn far enough to sample
-/// the early water hole and waterfall column without relying on ignored cache
-/// recordings.
+/// This reproduces the live Berzerker route from the Level 02 spawn far enough
+/// to break the early smash-column stopper and sample the early water hole and
+/// waterfall column without relying on ignored cache recordings.
 pub fn highwater_water_priority_audit_scenario() -> DynamicScenario {
     const FRAME_COUNT: usize = 1_860;
     const RIGHT: u8 = 1 << 3;
-    const JUMP: u8 = 1 << 4;
 
     let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
-    apply_range(&mut script, 60, 89, RIGHT);
-    apply_range(&mut script, 90, 93, RIGHT | JUMP);
-    apply_range(&mut script, 94, 149, RIGHT);
-    apply_range(&mut script, 150, 153, RIGHT | JUMP);
-    apply_range(&mut script, 154, 209, RIGHT);
-    apply_range(&mut script, 210, 213, RIGHT | JUMP);
-    apply_range(&mut script, 214, FRAME_COUNT.saturating_sub(1), RIGHT);
+    apply_range(&mut script, 0, FRAME_COUNT.saturating_sub(1), RIGHT);
 
     DynamicScenario {
         slug: "highwater_water_priority_audit_02".into(),
@@ -913,7 +906,7 @@ pub fn highwater_water_priority_audit_scenario() -> DynamicScenario {
         ],
         start_position: None,
         camera_position: None,
-        playtest_form: None,
+        playtest_form: Some(7),
         initial_diamond_count: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
