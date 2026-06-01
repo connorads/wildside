@@ -1717,6 +1717,13 @@ Plane B/waterfall composition in foreground holes: native still shows backdrop
 blue at samples such as `(0,169)` while oracle shows mountain Plane B purple.
 Continue from background tile/art selection or Plane B composition evidence, not
 another global scroll or lava/water palette offset.
+Rejected 2026-06-01: reinterpreting layered background selectors as direct
+`Background_width=$40` linear row-buffer offsets looked plausible from
+`loc_11B7A`, but applying it to native `compose_layered_background` made the
+strict Highwater bundle worse: `level_settle` regressed from 41 changed pixels
+to 3,342 and `walk_half` from 891 to 3,462. Do not replace the existing
+left/right layered composition wholesale; the remaining hole pixels need more
+exact oracle VDP/nametable evidence.
 
 ### 021 — Sound Test (FIXED)
 Options menu cursor==1 now enters Sound Test screen. Left/Right ±1, Up/Down ±16,
