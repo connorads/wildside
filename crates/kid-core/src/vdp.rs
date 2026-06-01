@@ -1090,6 +1090,7 @@ struct IntroSequence5ParticleLoc1BE3C {
     x_vel: i32,
     y_vel: i32,
     loop_count: usize,
+    frame: IntroSpriteFrameVram,
 }
 
 #[allow(non_snake_case)]
@@ -1108,6 +1109,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
             x_vel: -0x0004_0000,
             y_vel: -0x0002_0000,
             loop_count: 0x28,
+            frame: intro_sprite_frame_vram(0x066, 0x2A, 0x37),
         },
         IntroSequence5ParticleLoc1BE3C {
             x_pos: 0x0058_0000,
@@ -1115,6 +1117,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
             x_vel: 0x0004_0000,
             y_vel: -0x0002_0000,
             loop_count: 0x3C,
+            frame: intro_sprite_frame_vram(0x090, 0x27, 0x2B),
         },
         IntroSequence5ParticleLoc1BE3C {
             x_pos: 0x0030_0000,
@@ -1122,6 +1125,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
             x_vel: 0,
             y_vel: 0x0004_0000,
             loop_count: 0x28,
+            frame: intro_sprite_frame_vram(0x0AE, 0x3B, 0x1B),
         },
     ];
     for particle in particles {
@@ -1142,13 +1146,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
                 priority: 0,
                 x_direction: 0,
             },
-            IntroSpriteFrameVram {
-                sprite_index: 0x028C,
-                x_center: 0,
-                y_center: 8,
-                width: 8,
-                height: 8,
-            },
+            particle.frame,
         );
     }
 }
@@ -1179,8 +1177,10 @@ fn append_intro_sequence_5_center_particle_loc_1BE88(
             intro_sprite_frame_vram(0, 0x34, 0x4C),
         ),
     };
-    let moving_frames = particle_elapsed.min(0x1C) as i32;
-    let y_gravity = 0x0000_9000 * moving_frames.saturating_mul(moving_frames + 1) / 2;
+    // ASM loc_1BF0A: DBF `#$1C` displays 29 moved frames, then adds `$9000`
+    // to y_vel after each hibernate, so the visible gravity sum lags by one.
+    let moving_frames = particle_elapsed.min(0x1D) as i32;
+    let y_gravity = 0x0000_9000 * moving_frames.saturating_mul(moving_frames.saturating_sub(1)) / 2;
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
         entries,
         IntroGfxObjectForSpriteTable {
@@ -3465,12 +3465,12 @@ mod tests {
         );
         assert_eq!(
             sprite_entry_words(&after, 0),
-            (0x00F8, 0x00, 1, 0x44F8, 0x0092),
-            "ASM loc_1BE3C should spawn the first unk_1BE18 falling particle from LnkTo_unk_E0F56 at x=$12/y=$78",
+            (0x00C1, 0x0F, 1, 0x42D2, 0x0092),
+            "ASM loc_1BE3C should spawn the first unk_1BE18 falling particle from Data_Index+$11C8/unk_E1086 at x=$12/y=$78",
         );
         assert_eq!(
-            sprite_entry_words(&after, 3),
-            (0x00B9, 0x0F, 4, 0xE5EB, 0x00B0),
+            sprite_entry_words(&after, 10),
+            (0x00B9, 0x0F, 11, 0xE5EB, 0x00B0),
             "ASM loc_1BE88 should spawn the FC82=1 centre particle on palette line 3 with priority and VRAM tile $5EB",
         );
     }
@@ -3490,8 +3490,26 @@ mod tests {
 
         assert_eq!(
             sprite_entry_words(&vdp, 0),
-            (0x016D, 0x00, 1, 0x44F8, 0x017C),
-            "ASM loc_1BE74 should delete the two `$28` DBF particles after frame $28, leaving the longer unk_1BE24 particle as the first live particle",
+            (0x0142, 0x0F, 1, 0x42FC, 0x017C),
+            "ASM loc_1BE74 should delete the two `$28` DBF particles after frame $28, leaving the longer Data_Index+$11CC/unk_E108E particle as the first live particle",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE88_centre_particle_uses_post_hibernate_gravity_order() {
+        let mut entries = Vec::new();
+        append_intro_sequence_5_center_particle_loc_1BE88(&mut entries, 0, 0x40);
+
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x0098,
+                size_byte: 0x0F,
+                pattern: 0xE5EB,
+                x_pos: 0x00FF,
+            },
+            "ASM loc_1BE88/loc_1BF0A should keep moving for DBF #$1C's 29 hibernates, while y_vel's `$9000` gravity increment applies after the displayed frame",
         );
     }
 
