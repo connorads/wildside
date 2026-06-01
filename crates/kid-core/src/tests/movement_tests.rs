@@ -17220,6 +17220,55 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E16 -> sub_8600 -> sub_9A0A (kid.asm:10212, 9445, 11673):
+    /// flat walking refreshes `$FFFFFA0A` before choosing the speed table.
+    /// Natural route frame 731 spans one plain solid tile and one block type
+    /// `$6` tile, so sub_8600 writes terrain code 2 and sub_9A0A selects
+    /// `unk_9C7A`, decelerating `$1F200` by `$5000`.
+    #[test]
+    fn level00_frame_731_flat_rubber_span_uses_refreshed_code_two_table_loc_8e16() {
+        let w: u16 = 100;
+        let h: u16 = 12;
+        let mut grid = grid_with_cells(w, h, &[(79, 9, 0x60, 0x00), (80, 9, 0xE6, 0x01)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x04fb_d200;
+        slice.player.y_pos = 0x008f_0000;
+        slice.player.x_velocity = 0x0001_f200;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.terrain.floor_terrain_type,
+            TerrainType::Rubber,
+            "post-motion floor collision should keep the semantic block surface for later systems"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0001_a200,
+            "ASM sub_9A0A should select unk_9C7A for terrain code 2 and decelerate by $5000"
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6
