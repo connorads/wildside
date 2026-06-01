@@ -2011,12 +2011,12 @@ mod tests {
         assert_eq!(
             &palette0.colours[6..10],
             &[
-                MdColour::from_word(0x0E40),
                 MdColour::from_word(0x0E62),
                 MdColour::from_word(0x0EC4),
                 MdColour::from_word(0x0E20),
+                MdColour::from_word(0x0E40),
             ],
-            "ASM RotatePalette_Lava_Water loc_1223C starts from Palette_Buffer+$E/$10/$12/$14"
+            "ASM RotatePalette_Lava_Water loc_1223C starts from Palette_Buffer+$E/$10/$12/$14; direct Highwater level-skip recordings reach the first visible native frame two ROM rotations later"
         );
 
         trace.frame_index = 5;
@@ -2024,10 +2024,10 @@ mod tests {
         assert_eq!(
             &palette5.colours[6..10],
             &[
-                MdColour::from_word(0x0E20),
                 MdColour::from_word(0x0E40),
                 MdColour::from_word(0x0E62),
                 MdColour::from_word(0x0EC4),
+                MdColour::from_word(0x0E20),
             ],
             "ASM loc_1223A hibernates 5 Mountain frames before the first loc_1223C rotation"
         );

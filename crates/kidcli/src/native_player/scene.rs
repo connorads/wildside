@@ -1900,9 +1900,10 @@ pub(super) fn foreground_palette_for_scene(
     // hibernate 5 frames (Cave 8), then rotate CRAM words
     // Palette_Buffer+$E/$10/$12/$14. Native foreground palettes omit CRAM
     // word 0, so those ROM words map to visible colour indices 6..=9. The
-    // extracted level palette is already one ROM rotation ahead of oracle
-    // settled-playtest frame 0, so start three rotations later to realign it.
-    for _ in 0..((trace.frame_index / delay + 3) % 4) {
+    // extracted level palette is two ROM rotations behind the oracle
+    // settled-playtest frame 0 for Highwater's direct level-skip lineage, so
+    // pre-advance by two rotations before applying the live frame cadence.
+    for _ in 0..((trace.frame_index / delay + 2) % 4) {
         let saved = palette.colours[9];
         palette.colours[9] = palette.colours[8];
         palette.colours[8] = palette.colours[7];
