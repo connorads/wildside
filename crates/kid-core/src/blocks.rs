@@ -2274,6 +2274,31 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    pub(crate) fn apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0(&mut self) {
+        let overlay_writes = self
+            .block_state
+            .evanescent_blocks
+            .iter()
+            .filter_map(|entry| {
+                let age = u16::try_from(entry.timer).ok()?;
+                let action =
+                    *crate::level::EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC.get(usize::from(age))?;
+                if !Self::evanescent_sprite_only_overlay_enabled_loc_EDB0(entry.timer, action) {
+                    return None;
+                }
+                self.evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
+                    .map(|cell| (entry.col, entry.row, cell))
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(grid) = &mut self.block_grid {
+            for (col, row, cell) in overlay_writes {
+                grid.set_cell_at(col, row, cell);
+            }
+        }
+    }
+
+    #[allow(non_snake_case)]
     pub(crate) fn trigger_evanescent_block_loc_EB72(&mut self, col: u16, row: u16, skin: u8) {
         if self
             .block_state
@@ -2317,22 +2342,15 @@ impl NativeRuntime {
                     // saved by EvanescentBlock_Trigger.
                     terrain::Cell::from_be_bytes(0xE3, 0x1C_u8.wrapping_add(entry.directions))
                 } else if action & 0x01 == 0 {
-                    if action == 0x80 && entry.timer >= 18 {
+                    if Self::evanescent_sprite_only_overlay_enabled_loc_EDB0(entry.timer, action) {
                         return self
                             .evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
                             .map(|cell| (entry.col, entry.row, cell));
                     }
                     return None;
                 } else {
-                    // TODO(fidelity): ASM loc_ED04 has the `$83`
-                    // collision-overlay action at table index 13, but the
-                    // Highwater oracle keeps the source shooter cell solid
-                    // through that visible phase and exposes the non-solid
-                    // terrain on the later `$80` sprite-only cadence. Native
-                    // currently folds the evanescent object's hibernate cadence
-                    // into this timer, so preserve the solid terrain restore
-                    // until the observed final overlay window.
-                    let use_collision_overlay = action & 0x02 != 0 && entry.timer >= 18;
+                    let use_collision_overlay =
+                        Self::evanescent_collision_overlay_enabled_loc_ED52(entry.timer, action);
                     self.evanescent_restored_cell_loc_ED52(
                         entry.col,
                         entry.row,
@@ -2342,6 +2360,23 @@ impl NativeRuntime {
                 Some((entry.col, entry.row, cell))
             })
             .collect()
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn evanescent_collision_overlay_enabled_loc_ED52(timer: i16, action: u8) -> bool {
+        // ASM loc_ED52 takes the collision-overlay path when bit 1 remains set
+        // after consuming the layout-update bit.
+        action & 0x02 != 0 && timer >= EVANESCENT_COLLISION_OVERLAY_TIMER
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn evanescent_sprite_only_overlay_enabled_loc_EDB0(timer: i16, action: u8) -> bool {
+        // ASM loc_EDB0 skips layout writes for `$80` sprite-only actions. Native
+        // folds the evanescent hibernate cadence into this timer; the #214
+        // Highwater oracle route shows the non-solid terrain must be visible to
+        // the frame-109 side scan. Native applies this write before Kid motion
+        // in `apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0`.
+        action == 0x80 && timer >= EVANESCENT_COLLISION_OVERLAY_TIMER
     }
 
     #[allow(non_snake_case)]

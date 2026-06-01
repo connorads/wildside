@@ -1886,6 +1886,7 @@ impl NativeRuntime {
                             self.seed_demo_1_late_jump_reentry();
                             self.restore_demo_1_late_fall_velocity();
                             self.refresh_demo_grounded_run_surface_type();
+                            self.apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0();
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                             self.repair_timeout_restart_demo_1_late_jump_reentry();
                         }

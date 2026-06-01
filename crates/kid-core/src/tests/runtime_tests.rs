@@ -8986,6 +8986,26 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_ed52_collision_overlay_opens_highwater_source_before_frame_109() {
+        // ASM loc_EDB0 skips layout writes for `$80` actions. Native's folded
+        // timer still has to expose the non-solid terrain before the #214
+        // Highwater oracle route's f_109 side scan; waiting until post-f_109
+        // leaves Kid one acceleration tick behind.
+        assert!(
+            !NativeRuntime::evanescent_sprite_only_overlay_enabled_loc_EDB0(15, 0x80),
+            "timer 15 is still before the Highwater unblock window"
+        );
+        assert!(
+            NativeRuntime::evanescent_sprite_only_overlay_enabled_loc_EDB0(16, 0x80),
+            "timer 16 should expose the source cell before the f_109 side scan"
+        );
+        assert!(
+            !NativeRuntime::evanescent_sprite_only_overlay_enabled_loc_EDB0(16, 0x81),
+            "only `$80` sprite-only actions use this native folded-cadence bridge"
+        );
+    }
+
+    #[test]
     fn highwater_pass_1_berzerker_charge_pose_reaches_ea1e_touch_shooter_loc_eae4() {
         // ASM loc_9564 selects Berzerker's head-forward `off_9688` mappings,
         // but loc_EAE4 still scans the live sub_B41C hitbox words. The first
