@@ -1258,7 +1258,8 @@ pub(crate) fn compare_native_states_against_oracle(
             );
         }
         let level_complete_visual_checkpoint =
-            is_level_complete_visual_worker_checkpoint(native.label.as_str());
+            is_level_complete_visual_worker_checkpoint(native.label.as_str())
+                || is_level_complete_visual_worker_state(oracle);
         if !level_complete_visual_checkpoint
             && gameplay_object_roster_is_authoritative(oracle)
             && (native.number_objects.abs_diff(oracle.number_objects) > 1
@@ -1378,6 +1379,17 @@ fn is_level_complete_visual_worker_checkpoint(label: &str) -> bool {
         label,
         "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail"
     )
+}
+
+fn is_level_complete_visual_worker_state(oracle: &OracleState) -> bool {
+    // ASM loc_C21E/loc_D468/loc_D770 run under Game_Mode=$000C while the EOL
+    // score screen owns many transient gfx workers. Dense dynamic probes often
+    // use generic labels (`f_620` etc.), so recognise the same non-authoritative
+    // roster by state shape: ordinary gameplay does not expose a 60+ gfx-worker
+    // list, but the flagpole score room does.
+    oracle.game_mode == kid_core::GameMode::InGame.as_disassembly_value()
+        && oracle.number_objects >= 15
+        && oracle.number_gfx_objects >= 40
 }
 
 fn gameplay_object_roster_is_authoritative(state: &OracleState) -> bool {
@@ -1713,6 +1725,39 @@ mod tests {
 
         compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
             "ASM loc_C21E/sub_C254 and loc_D4CE/loc_D770 EOL visual workers are rendered from native overlay state, not core object slots",
+        );
+    }
+
+    #[test]
+    fn compare_native_states_ignores_dense_eol_visual_worker_roster_counts_loc_c21e_d770() {
+        let run_dir = Path::new("/tmp/eol-visual-worker-roster-dense-label");
+        let mut native = oracle_state("f_620", 620, 0x000C);
+        native.number_objects = 3;
+        native.number_gfx_objects = 1;
+        native.active_enemies.clear();
+        let mut oracle = native.clone();
+        oracle.number_objects = 20;
+        oracle.number_gfx_objects = 65;
+        oracle.active_enemies = vec![OracleEnemyState {
+            object_type: 0,
+            x_pos: 0x0610_0000,
+            y_pos: 0x0200_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0),
+            layout_index: None,
+            layout_ptr: Some(0xFFFF_0000),
+            parent_object_ptr: None,
+            gfx_slot_index: Some(30),
+            on_ground: None,
+            current_hp: Some(0),
+            debug_fields: BTreeMap::new(),
+        }];
+
+        compare_native_states_against_oracle(run_dir, &[native], &[oracle]).expect(
+            "dense EOL probes should not require native to model every score-room visual worker slot",
         );
     }
 

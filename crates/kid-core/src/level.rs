@@ -17278,6 +17278,8 @@ impl NativeRuntime {
     }
 
     pub(crate) fn advance_level(&mut self) {
+        let handoff_camera = self.current_camera_state();
+        let handoff_player = self.current_player_state();
         self.paused = false;
         self.pause_toggle_pending = false;
         self.pending_level_skip = None;
@@ -17338,6 +17340,13 @@ impl NativeRuntime {
         // `Teleport`, whose single-player path writes `Game_Mode=$0008`.
         // Mode $0008 loads `Load_TitleCard`; it is not a death/respawn settle.
         self.begin_level_entry(next_level);
+        // ASM loc_D7F4 -> Teleport flips to Game_Mode=$0008 after the score
+        // counter, but oracle WRAM still exposes the flag-screen camera and
+        // Kid slot through the early Load_TitleCard hand-off window.
+        self.level_entry_camera_handoff = Some((self.frame_index, handoff_camera));
+        if let Some(player) = handoff_player {
+            self.level_entry_player_handoff = Some((self.frame_index, player));
+        }
     }
 
     /// Previous logical level ID (for debug warping).
@@ -17431,6 +17440,8 @@ impl NativeRuntime {
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
+        self.level_entry_camera_handoff = None;
+        self.level_entry_player_handoff = None;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;

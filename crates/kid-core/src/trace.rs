@@ -6137,6 +6137,62 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) const LEVEL_COMPLETE_TITLE_CARD_CAMERA_HANDOFF_FRAMES_LOC_D7F4: usize = 31;
+    pub(crate) const LEVEL_COMPLETE_TITLE_CARD_PLAYER_HANDOFF_FRAMES_LOC_D7F4: usize = 27;
+
+    fn level_entry_camera_handoff_state(&self) -> Option<CameraState> {
+        let (start_frame, camera) = self.level_entry_camera_handoff?;
+        let elapsed = self.frame_index.checked_sub(start_frame)?;
+        // ASM loc_D7F4 -> Teleport enters Game_Mode=$0008, but Load_TitleCard's
+        // object-slot clear does not become visible to oracle WRAM until local
+        // frame 31 on the EOL route. Keep the stale flag-screen camera until
+        // that clear lands.
+        (matches!(self.boot_state, BootState::StartingLevel { .. })
+            && elapsed < Self::LEVEL_COMPLETE_TITLE_CARD_CAMERA_HANDOFF_FRAMES_LOC_D7F4)
+            .then_some(camera)
+    }
+
+    fn level_entry_player_handoff_state(&self) -> Option<PlayerState> {
+        let (start_frame, player) = self.level_entry_player_handoff?;
+        let elapsed = self.frame_index.checked_sub(start_frame)?;
+        // ASM loc_D7F4 -> Teleport keeps the previous Kid object readable for
+        // a shorter stale-WRAM window than the camera. At local frame 27 the
+        // old player slot has cleared to zero while the camera has not.
+        (matches!(self.boot_state, BootState::StartingLevel { .. })
+            && elapsed < Self::LEVEL_COMPLETE_TITLE_CARD_PLAYER_HANDOFF_FRAMES_LOC_D7F4)
+            .then_some(player)
+    }
+
+    fn level_entry_cleared_player_handoff_state(&self) -> Option<PlayerState> {
+        let (start_frame, _) = self.level_entry_player_handoff?;
+        let elapsed = self.frame_index.checked_sub(start_frame)?;
+        let cleared_player_window = Self::LEVEL_COMPLETE_TITLE_CARD_PLAYER_HANDOFF_FRAMES_LOC_D7F4
+            ..Self::LEVEL_COMPLETE_TITLE_CARD_CAMERA_HANDOFF_FRAMES_LOC_D7F4;
+        if !matches!(self.boot_state, BootState::StartingLevel { .. })
+            || !cleared_player_window.contains(&elapsed)
+        {
+            return None;
+        }
+        // ASM loc_D7F4 -> Teleport / Load_TitleCard has cleared the old player
+        // position mirrors to zero here, but oracle WRAM keeps
+        // Character_Movement=$0003 until the later camera/object-slot clear.
+        Some(PlayerState {
+            x_pos: 0,
+            y_pos: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: true,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        })
+    }
+
     pub fn game_mode(&self) -> GameMode {
         if matches!(
             self.player_lifecycle,
@@ -6185,6 +6241,12 @@ impl NativeRuntime {
     pub(crate) fn current_player_state(&self) -> Option<PlayerState> {
         if self.level_skip_resume_hold {
             return self.level_skip_resume_player_state();
+        }
+        if let Some(player) = self.level_entry_player_handoff_state() {
+            return Some(player);
+        }
+        if let Some(player) = self.level_entry_cleared_player_handoff_state() {
+            return Some(player);
         }
         let demo_use_demo_2 = self.demo_uses_second_recording();
         match self.boot_state {
@@ -6506,6 +6568,9 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
+        }
+        if let Some(camera) = self.level_entry_camera_handoff_state() {
+            return camera;
         }
         if let Some(camera_state) = self.early_start_load_ingame_camera_state() {
             return camera_state;

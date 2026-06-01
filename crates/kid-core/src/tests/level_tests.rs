@@ -8357,6 +8357,137 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_complete_handoff_keeps_flag_wram_until_titlecard_clear_loc_d7f4() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        let flag_camera = CameraState {
+            x_pos: 0x0500_0000,
+            y_pos: 0x037E_0000,
+        };
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+            slice.camera = flag_camera;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        if !matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ) {
+            panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
+        }
+
+        let mut last_level_complete_player = None;
+        let handoff = loop {
+            let trace = runtime.step_frame(FrameInput::default());
+            if matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ) {
+                last_level_complete_player = trace.kid_x_pos.zip(trace.kid_y_pos);
+            } else {
+                break trace;
+            }
+        };
+
+        assert_eq!(
+            handoff.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_D7F4 -> Teleport should enter the title-card shell"
+        );
+        let carried_camera_state = runtime
+            .level_entry_camera_handoff
+            .map(|(_, camera)| camera)
+            .expect("advance_level should retain the loc_D7F4 stale camera row");
+        let carried_camera = (carried_camera_state.x_pos, carried_camera_state.y_pos);
+        let carried_player_state = runtime
+            .level_entry_player_handoff
+            .map(|(_, player)| player)
+            .expect("advance_level should retain the loc_D7F4 stale Kid slot");
+        let carried_player = (carried_player_state.x_pos, carried_player_state.y_pos);
+        assert_eq!(
+            handoff.kid_x_pos.zip(handoff.kid_y_pos),
+            last_level_complete_player,
+            "ASM loc_D7F4 mode-$0008 hand-off frame still traces the visible flag-screen player slot"
+        );
+
+        runtime.frame_index = 100;
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: true,
+            elapsed_frames: 0,
+            uses_load_ingame_bootstrap: false,
+            load_ingame_bootstrap_started: false,
+        };
+        runtime.level_entry_camera_handoff = Some((runtime.frame_index, carried_camera_state));
+        runtime.level_entry_player_handoff = Some((runtime.frame_index, carried_player_state));
+
+        let assert_flag_screen_handoff = |runtime: &NativeRuntime| {
+            let camera = runtime.current_camera_state();
+            assert_eq!(
+                (camera.x_pos, camera.y_pos),
+                carried_camera,
+                "ASM loc_D7F4 hand-off keeps the flag-screen camera visible until Load_TitleCard's clear reaches WRAM"
+            );
+            let player = runtime
+                .current_player_state()
+                .expect("stale Kid slot should remain visible in the player hand-off window");
+            assert_eq!(
+                (player.x_pos, player.y_pos),
+                carried_player,
+                "ASM loc_D7F4 hand-off keeps the flag-screen player slot visible before the earlier Kid-slot clear"
+            );
+        };
+
+        assert_flag_screen_handoff(&runtime);
+        for _ in 1..NativeRuntime::LEVEL_COMPLETE_TITLE_CARD_PLAYER_HANDOFF_FRAMES_LOC_D7F4 {
+            runtime.frame_index += 1;
+            assert_flag_screen_handoff(&runtime);
+        }
+
+        runtime.frame_index += 1;
+        let player_after_clear = runtime.current_player_state();
+        let camera_after_player_clear = runtime.current_camera_state();
+        assert_eq!(
+            player_after_clear.map(|player| (player.x_pos, player.y_pos)),
+            Some((0, 0)),
+            "Load_TitleCard clears the stale Kid coordinates before the camera carry clears"
+        );
+        assert_eq!(
+            runtime.trace_frame().character_movement,
+            Some(3),
+            "Character_Movement remains the stale jump value until the later camera/object clear"
+        );
+        assert_eq!(
+            (
+                camera_after_player_clear.x_pos,
+                camera_after_player_clear.y_pos
+            ),
+            carried_camera,
+            "camera should still carry after Kid's stale slot has cleared"
+        );
+
+        for _ in NativeRuntime::LEVEL_COMPLETE_TITLE_CARD_PLAYER_HANDOFF_FRAMES_LOC_D7F4 + 1
+            ..NativeRuntime::LEVEL_COMPLETE_TITLE_CARD_CAMERA_HANDOFF_FRAMES_LOC_D7F4
+        {
+            runtime.frame_index += 1;
+            let camera = runtime.current_camera_state();
+            assert_eq!((camera.x_pos, camera.y_pos), carried_camera);
+        }
+
+        runtime.frame_index += 1;
+        let cleared = runtime.current_camera_state();
+        assert_eq!(
+            (cleared.x_pos, cleared.y_pos),
+            (0, 0),
+            "Load_TitleCard's cleared camera should take over after the EOL hand-off window"
+        );
+    }
+
+    #[test]
     fn probe_position_can_start_recording_on_flag() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
