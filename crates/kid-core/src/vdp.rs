@@ -1853,30 +1853,25 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
 
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
     (0, 0),
-    (0xA0, 1),
+    (0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY, 1),
     (
-        0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
         2,
     ),
     (
-        0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
         3,
     ),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
         4,
     ),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
         5,
     ),
     (
-        0xA0 + 0x90
-            + 0x0B
-            + 0x0B
-            + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
-            + 0x37,
+        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37,
         6,
     ),
     (
@@ -1884,7 +1879,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
             + 0x37
             + 0x08,
         7,
@@ -1894,7 +1889,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
             + 0x37
             + 0x08
             + 0x08,
@@ -1905,7 +1900,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
             + 0x37
             + 0x08
             + 0x08
@@ -1913,11 +1908,11 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
         5,
     ),
 ];
-// ASM loc_1BC36 calls sub_1C034 on the hibernate boundaries above. The
-// cold-boot oracle presents frame 2160 and 2220 with the earlier lean, then
-// reaches the standing pose at 2280, so the later VDP frame changes have this
-// visible presentation delay relative to the object routine's calls.
-const INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY: usize = 0x3C;
+// ASM loc_1BC36 calls sub_1C034 on the hibernate boundaries above, but the
+// VDP frame changes present one display window later. Oracle frame 2040 still
+// shows frame 0 after the first `$A0` hibernate; frame 2100 has caught up to
+// frame 1. Later checkpoints keep the same delay through the panel sequence.
+const INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY: usize = 0x3C;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize = 0xA0 + 0x90 + 0x0B + 0x0B;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
     INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED + 0x0B;
@@ -4261,19 +4256,30 @@ mod tests {
             "ASM loc_1BC36 calls sub_1C034(d4=0) before the first `$A0` hibernate; left padding is three words"
         );
 
-        let before_second =
-            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0 - 1, 0);
+        let before_second = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY - 1,
+            0,
+        );
         assert_eq!(
             vram_word(&before_second, 0x019A),
             0x1100,
-            "ASM loc_1BC36 should keep frame 0 visible through the `$A0` hibernate"
+            "ASM loc_1BC36 should keep frame 0 visible through the oracle-backed presentation delay after the first `$A0` hibernate",
         );
 
-        let second = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 0, 0xA0, 0);
+        let second = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+            0,
+        );
         assert_eq!(
             vram_word(&second, 0x019A),
             0x1101,
-            "ASM loc_1BC36 resumes with sub_1C034(d4=1) exactly after the `$A0` hibernate"
+            "ASM loc_1BC36/sub_1C034(d4=1) becomes visible after the same delayed VDP presentation boundary seen at frame 2100",
         );
 
         let before_hands_centred =
@@ -4301,7 +4307,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x16 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+            0xA0 + 0x90 + 0x16 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
             0,
         );
         assert_eq!(
@@ -4314,7 +4320,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY - 1,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY - 1,
             0,
         );
         assert_eq!(
@@ -4327,7 +4333,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
             0,
         );
         assert_eq!(
@@ -4340,7 +4346,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY + 0x37 - 1,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37 - 1,
             0,
         );
         assert_eq!(
@@ -4353,7 +4359,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_VISIBLE_DELAY + 0x37,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37,
             0,
         );
         assert_eq!(
