@@ -1927,6 +1927,34 @@ impl NativeRuntime {
         self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
     }
 
+    fn rubber_block_contact_cells_sub_10da4(
+        &self,
+        slice: &OpeningSliceState,
+        col: u16,
+        row: u16,
+    ) -> Vec<(u16, u16)> {
+        let mut contacts = vec![(col, row)];
+        let Some(grid) = self.block_grid.as_ref() else {
+            return contacts;
+        };
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let left_col = ((x_px - crate::constants::PLAYER_HALF_WIDTH).max(0) / 16) as u16;
+        let right_col = ((x_px + crate::constants::PLAYER_HALF_WIDTH).max(0) / 16) as u16;
+        for candidate_col in left_col..=right_col {
+            if candidate_col == col {
+                continue;
+            }
+            let cell = grid.cell_at(candidate_col, row);
+            if cell.block_type == terrain::BlockType::Rubber
+                && cell.collision == terrain::CollisionKind::Solid
+            {
+                contacts.push((candidate_col, row));
+            }
+        }
+        contacts
+    }
+
     fn step_rubber_block_animations_sub_10de4(&mut self) {
         let mut pending_writes = Vec::new();
         self.block_state
@@ -3463,8 +3491,13 @@ impl NativeRuntime {
         // touches `y_pos(a3)` for rubber, so native must NOT also push a
         // BlockBounceAnim — that was an invented vertical wobble.
         if let Some((cx, cy)) = slice.rubber_block_hit {
-            self.blocks_hit_this_frame += 1;
-            self.start_rubber_block_animation_sub_10de4(cx, cy);
+            let contacts = self.rubber_block_contact_cells_sub_10da4(slice, cx, cy);
+            self.blocks_hit_this_frame = self
+                .blocks_hit_this_frame
+                .saturating_add(u8::try_from(contacts.len()).unwrap_or(u8::MAX));
+            for (contact_x, contact_y) in contacts {
+                self.start_rubber_block_animation_sub_10de4(contact_x, contact_y);
+            }
         }
 
         // Smash block destruction effect

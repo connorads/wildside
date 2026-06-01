@@ -7311,6 +7311,39 @@ mod chunk_09 {
     }
 
     #[test]
+    fn rubber_block_contact_spanning_two_cells_allocates_two_sub_10de4_workers() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut grid = grid_with_floor_at_row(18);
+        grid.set_cell_at(85, 16, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(86, 16, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        rt.set_block_grid(grid);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 0x055c_0000;
+        slice.rubber_block_hit = Some((85, 16));
+
+        rt.process_block_effects(&mut slice);
+
+        assert_eq!(
+            rt.block_state.rubber_block_animations.len(),
+            2,
+            "ASM loc_10DA4/sub_10DE4 allocates one object-only rubber skin worker for each contacted rubber cell; natural Level 00 frame 778 spans cells 85 and 86"
+        );
+        assert!(
+            rt.block_state
+                .rubber_block_animations
+                .iter()
+                .any(|entry| entry.col == 85 && entry.row == 16)
+        );
+        assert!(
+            rt.block_state
+                .rubber_block_animations
+                .iter()
+                .any(|entry| entry.col == 86 && entry.row == 16)
+        );
+    }
+
+    #[test]
     fn rubber_block_base_skin_for_sub_10de4_loc_10e06_keeps_the_low_animation_pair_for_0c_and_0d() {
         assert_eq!(
             NativeRuntime::rubber_block_base_skin_for_sub_10de4(terrain::Cell::from_be_bytes(

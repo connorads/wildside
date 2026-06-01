@@ -692,6 +692,39 @@ mod tests {
     }
 
     #[test]
+    fn in_game_object_counts_include_rubber_block_skin_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime
+            .block_state
+            .rubber_block_animations
+            .push(RubberBlockAnimation {
+                col: 0x55,
+                row: 0x10,
+                base_skin: 0x0C,
+                phase: 0,
+                frames_until_next_write: 2,
+            });
+        runtime
+            .block_state
+            .rubber_block_animations
+            .push(RubberBlockAnimation {
+                col: 0x56,
+                row: 0x10,
+                base_skin: 0x0C,
+                phase: 0,
+                frames_until_next_write: 2,
+            });
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
+            (4, 2),
+            "ASM loc_10DA4/sub_10DE4 allocates one Object_RAM worker per rubber cell through Allocate_ObjectSlot, but no GfxObject slot"
+        );
+    }
+
+    #[test]
     fn camera_handoff_spans_late_intro_4_and_timeout_restart_intro_5() {
         fn uses_camera(
             segment: usize,
@@ -7484,7 +7517,8 @@ impl NativeRuntime {
     }
 
     fn gameplay_transient_object_only_worker_count(&self) -> u16 {
-        self.active_enemies
+        let drips_child_workers = self
+            .active_enemies
             .iter()
             .filter(|enemy| {
                 if enemy.family != EnemyFamily::Drips {
@@ -7507,7 +7541,12 @@ impl NativeRuntime {
                     && ((enemy.wait_timer <= 0x0038)
                         || forming_frames.is_some_and(|frames| frames >= 0x0020))
             })
-            .count() as u16
+            .count() as u16;
+        // ASM loc_10DA4/sub_10DE4 (kid.asm:22692,22717) allocates a standard
+        // Object_RAM coroutine for each rubber-block skin swap, but unlike
+        // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
+        let rubber_skin_workers = self.block_state.rubber_block_animations.len() as u16;
+        drips_child_workers.saturating_add(rubber_skin_workers)
     }
 
     fn gameplay_transient_gfx_worker_count(&self) -> u16 {
