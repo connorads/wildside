@@ -7224,6 +7224,35 @@ mod tests {
     }
 
     #[test]
+    fn options_menu_fallback_keeps_rom_rows_inside_frame_loc_1ce3a() {
+        let mut trace = sample_trace(GameMode::OptionsMenu);
+        trace.options_cursor = Some(1);
+        trace.options_two_player_two_controllers = true;
+        trace.options_controls_scheme = 5;
+        trace.options_speed_button_fast = true;
+
+        let scene = build_scene(&trace, true, None, None);
+
+        for command in scene.commands {
+            let DrawCommand::Text {
+                x, y, text, scale, ..
+            } = command
+            else {
+                continue;
+            };
+            let width = i32::try_from(text.len()).expect("text length fits") * 8 * scale;
+            let height = 8 * scale;
+            assert!(
+                x >= 0
+                    && y >= 0
+                    && x + width <= FRAME_WIDTH as i32
+                    && y + height <= FRAME_HEIGHT as i32,
+                "ASM DrawOptText1..4 loc_1CE3A/loc_1CEB2/loc_1CF78/loc_1CFFE option row `{text}` should fit inside the native fallback frame"
+            );
+        }
+    }
+
+    #[test]
     fn try_load_block_grid_prefers_generated_level_layout_dump() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
 

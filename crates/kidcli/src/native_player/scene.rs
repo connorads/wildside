@@ -1021,16 +1021,6 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
         colour: [8, 12, 20],
     });
 
-    let title = "OPTIONS";
-    let title_w = title.len() as i32 * 8 * 2;
-    commands.push(text(
-        (FRAME_WIDTH as i32 - title_w) / 2,
-        40,
-        title,
-        [255, 220, 80],
-        2,
-    ));
-
     let cursor = usize::from(trace.options_cursor.unwrap_or(0).min(3));
     let controller_label = if trace.options_two_player_two_controllers {
         "TWO CONTROLLERS"
@@ -1050,37 +1040,40 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     } else {
         ["NORMAL ACTION", "PUSH FOR FAST"]
     };
-    // ASM DrawOptText1..4 loc_1CE3A/loc_1CEB2/loc_1CF78/loc_1CFFE
-    // (kid.asm:32034-32373): these are the ROM option rows. The real screen
-    // is still tile art, but the fallback must not invent control hints or
-    // colon-separated labels that never appear in the menu copy.
-    let items = [
-        vec!["2 PLAYERS", controller_label],
-        vec![
-            "CONTROLS",
-            "MODE",
-            controls[0],
-            controls[1],
-            controls[2],
-            "A",
-            "B",
-            "C",
-        ],
-        vec!["SPEED BUTTON", speed_lines[0], speed_lines[1]],
-        vec!["EXIT"],
-    ];
-    for (i, item) in items.iter().enumerate() {
-        let y = 70 + i as i32 * 30;
-        let colour = if i == cursor {
+
+    let row_colour = |row: usize| {
+        if row == cursor {
             [255, 255, 255]
         } else {
             [120, 120, 120]
-        };
-        commands.push(text(44, y, &item.join("  "), colour, 1));
-        if i == cursor {
-            commands.push(text(28, y, ">", [255, 220, 80], 1));
         }
-    }
+    };
+    let option_text = |x_cell: i32, y_cell: i32, value: &str, colour: [u8; 3]| {
+        text(x_cell * 8, y_cell * 8, value, colour, 1)
+    };
+
+    // ASM DrawOptText1..4 loc_1CE3A/loc_1CEB2/loc_1CF78/loc_1CFFE
+    // (kid.asm:32034-32373): DrawTextLine_Offset adds the ROM base cells
+    // `(7, 10)` to each packed text offset. The fallback still uses typed
+    // glyphs, but it must preserve those cell positions so the Options screen
+    // is readable instead of joining whole groups into over-wide rows.
+    commands.push(option_text(7, 10, "2 PLAYERS", row_colour(0)));
+    commands.push(option_text(19, 10, controller_label, row_colour(0)));
+
+    commands.push(option_text(7, 13, "CONTROLS", row_colour(1)));
+    commands.push(option_text(18, 13, "MODE", row_colour(1)));
+    commands.push(option_text(12, 15, "A", row_colour(1)));
+    commands.push(option_text(16, 15, controls[0], row_colour(1)));
+    commands.push(option_text(12, 17, "B", row_colour(1)));
+    commands.push(option_text(16, 17, controls[1], row_colour(1)));
+    commands.push(option_text(12, 19, "C", row_colour(1)));
+    commands.push(option_text(16, 19, controls[2], row_colour(1)));
+
+    commands.push(option_text(7, 22, "SPEED BUTTON", row_colour(2)));
+    commands.push(option_text(21, 22, speed_lines[0], row_colour(2)));
+    commands.push(option_text(21, 24, speed_lines[1], row_colour(2)));
+
+    commands.push(option_text(7, 27, "EXIT", row_colour(3)));
 
     Scene {
         background: [8, 12, 20],
