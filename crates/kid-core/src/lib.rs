@@ -175,6 +175,9 @@ pub struct NativeRuntime {
     /// `kidabove` collisions resolve on the next frame, not immediately on the
     /// overlap frame.
     pending_stomp_bounce: Option<PendingStompBounce>,
+    /// ASM Mode_Level writes Kid/object collision words near the end of the
+    /// frame; Character_CheckCollision consumes them on the next object pass.
+    pending_player_contact_damage: Option<PendingPlayerContactDamage>,
     pending_enemy_collisions: Vec<PendingEnemyCollision>,
     /// ASM Init_RNG / Get_RandomNumber_byte global gameplay RNG state.
     rom_random: RomRandomState,
@@ -1158,6 +1161,12 @@ struct PendingStompBounce {
 }
 
 #[derive(Debug, Clone, Copy)]
+struct PendingPlayerContactDamage {
+    enemy_x: u32,
+    enemy_family: EnemyFamily,
+}
+
+#[derive(Debug, Clone, Copy)]
 struct PendingEnemyCollision {
     segment_index: usize,
     layout_index: usize,
@@ -1253,6 +1262,7 @@ impl NativeRuntime {
             pending_dragon_death_animations: Vec::new(),
             stomped_this_frame: false,
             pending_stomp_bounce: None,
+            pending_player_contact_damage: None,
             pending_enemy_collisions: Vec::new(),
             rom_random: RomRandomState::default(),
             blocks_hit_this_frame: 0,
@@ -1656,7 +1666,6 @@ impl NativeRuntime {
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let raw_input = input;
         self.trace_input = input;
-        self.just_received_damage = false;
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;

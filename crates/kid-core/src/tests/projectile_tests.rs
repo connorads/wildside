@@ -1190,27 +1190,32 @@ mod chunk_06 {
     }
 
     #[test]
-    fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
+    fn death_respawn_level_1_landing_dragon_contact_damages_after_overlap_frame() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
         let script = death_respawn_level_1_script();
 
         let mut frame_1684 = None;
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_685) {
+        let mut frame_1685 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_686) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 1_684 {
                 frame_1684 = Some(trace);
+            } else if frame_index == 1_685 {
+                frame_1685 = Some(trace);
             }
         }
 
         let frame_1684 = frame_1684.expect("frame 1684 trace");
-        // ASM Character_CheckCollision (kid.asm loc_B700/loc_B72C) consumes the
-        // walking dragon edge contact on the landing frame, so this late Level 1
-        // death path must already drop to 0 HP with Just_received_damage set on
-        // frame 1684 rather than surviving into a buffered jump on 1685.
-        assert_eq!(frame_1684.number_hitpoints, 0);
-        assert!(frame_1684.just_received_damage);
+        let frame_1685 = frame_1685.expect("frame 1685 trace");
+        // ASM Mode_Level writes the walking-dragon overlap late in the frame
+        // with GfxObjects_CollisionKid; Character_CheckCollision consumes that
+        // collision word on the following object pass at loc_B700/loc_B72C.
+        assert_eq!(frame_1684.number_hitpoints, 1);
+        assert!(!frame_1684.just_received_damage);
+        assert_eq!(frame_1685.number_hitpoints, 0);
+        assert!(frame_1685.just_received_damage);
     }
 
     #[test]
@@ -1237,8 +1242,8 @@ mod chunk_06 {
         assert_eq!(frame_1700.game_mode, GameMode::InGame);
         assert_eq!(frame_1700.number_lives, 3);
         assert_eq!(frame_1700.number_hitpoints, 0);
-        assert_eq!(frame_1700.kid_x_pos, Some(0x08E2_0000));
-        assert_eq!(frame_1700.kid_y_pos, Some(0x0138_8000));
+        assert_eq!(frame_1700.kid_x_pos, Some(0x08E1_8000));
+        assert_eq!(frame_1700.kid_y_pos, Some(0x0135_6000));
         assert_eq!(frame_1700.number_objects, 7);
         assert_eq!(frame_1700.number_gfx_objects, 8);
         assert!(frame_1700.just_received_damage);
@@ -1266,8 +1271,8 @@ mod chunk_06 {
         // Matching that frozen pose keeps the later shell hand-off narrowed to the
         // following frame instead of drifting on the visible death arc itself.
         assert_eq!(frame_1758.game_mode, GameMode::InGame);
-        assert_eq!(frame_1758.kid_x_pos, Some(0x08FF_0000));
-        assert_eq!(frame_1758.kid_y_pos, Some(0x023F_5000));
+        assert_eq!(frame_1758.kid_x_pos, Some(0x08FE_8000));
+        assert_eq!(frame_1758.kid_y_pos, Some(0x0231_5000));
         assert_eq!(frame_1758.number_objects, 7);
         assert_eq!(frame_1758.number_gfx_objects, 8);
         assert!(frame_1758.just_received_damage);
@@ -1292,14 +1297,13 @@ mod chunk_06 {
         let frame_1759 = frame_1759.expect("frame 1759 trace");
         // ASM Death loc_B80C checks the current death pose with j_sub_8E0 before
         // applying another tumble step. Once frame 1758 has already reached the
-        // frozen shell pose, the next outer frame falls straight into lose_life,
-        // restoring 2 HP, decrementing lives, and exposing Game_Mode=$0008.
-        assert_eq!(frame_1759.game_mode, GameMode::LevelTransition);
-        assert_eq!(frame_1759.number_lives, 2);
-        assert_eq!(
-            frame_1759.number_hitpoints,
-            PlayerForm::TheKid.max_hitpoints()
-        );
+        // frozen shell pose, the next outer frame is the last visible tumble
+        // frame before lose_life restores 2 HP and exposes Game_Mode=$0008.
+        assert_eq!(frame_1759.game_mode, GameMode::InGame);
+        assert_eq!(frame_1759.number_lives, 3);
+        assert_eq!(frame_1759.number_hitpoints, 0);
+        assert_eq!(frame_1759.kid_x_pos, Some(0x08FF_0000));
+        assert_eq!(frame_1759.kid_y_pos, Some(0x023B_3000));
         assert!(frame_1759.just_received_damage);
     }
 
@@ -1326,10 +1330,9 @@ mod chunk_06 {
 
         let frame_1779 = frame_1779.expect("frame 1779 trace");
         let frame_1780 = frame_1780.expect("frame 1780 trace");
-        // ASM Death loc_B80C has already fallen through lose_life by frame 1759,
-        // but the oracle-backed hidden shell only keeps Kid's frozen pose visible
-        // through frame 1779. The next outer frame still stays in Game_Mode=$0008
-        // with the same lives/HP/camera, but Kid's WRAM pose has already cleared.
+        // ASM Death loc_B80C falls through lose_life by frame 1779 after the
+        // one-frame-later contact damage. The oracle-backed hidden shell keeps
+        // Kid's frozen pose visible through the next outer frame.
         assert_eq!(frame_1779.game_mode, GameMode::LevelTransition);
         assert_eq!(frame_1779.kid_x_pos, Some(0x08FF_0000));
         assert_eq!(frame_1779.kid_y_pos, Some(0x023F_5000));
@@ -1339,17 +1342,17 @@ mod chunk_06 {
             frame_1780.number_hitpoints,
             PlayerForm::TheKid.max_hitpoints()
         );
-        assert_eq!(frame_1780.camera_x_pos, 0x0835_0000);
+        assert_eq!(frame_1780.camera_x_pos, 0x0836_0000);
         assert_eq!(frame_1780.camera_y_pos, 0x00BC_0000);
-        assert_eq!(frame_1780.kid_x_pos, None);
-        assert_eq!(frame_1780.kid_y_pos, None);
+        assert_eq!(frame_1780.kid_x_pos, Some(0x08FF_0000));
+        assert_eq!(frame_1780.kid_y_pos, Some(0x023F_5000));
         assert_eq!(frame_1780.number_objects, 7);
         assert_eq!(frame_1780.number_gfx_objects, 8);
         assert!(frame_1780.just_received_damage);
     }
 
     #[test]
-    fn death_respawn_level_1_clears_hidden_shell_camera_by_frame_1785() {
+    fn death_respawn_level_1_keeps_hidden_shell_camera_on_frame_1785() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
@@ -1365,12 +1368,13 @@ mod chunk_06 {
         }
 
         let frame_1785 = frame_1785.expect("frame 1785 trace");
-        // ASM `lose_life -> Teleport -> loc_6E2`: once the frozen shell stops
-        // rendering, the hidden transition shell has already cleared Camera_X/Y
-        // even though Kid's WRAM pose is still blank and the enemy roster remains.
+        // ASM `lose_life -> Teleport -> loc_6E2`: with contact damage queued
+        // from the previous object pass, the hidden transition shell still
+        // carries the death camera on frame 1785 even though Kid's WRAM pose has
+        // already cleared.
         assert_eq!(frame_1785.game_mode, GameMode::LevelTransition);
-        assert_eq!(frame_1785.camera_x_pos, 0);
-        assert_eq!(frame_1785.camera_y_pos, 0);
+        assert_eq!(frame_1785.camera_x_pos, 0x0836_0000);
+        assert_eq!(frame_1785.camera_y_pos, 0x00BC_0000);
         assert_eq!(frame_1785.kid_x_pos, None);
         assert_eq!(frame_1785.kid_y_pos, None);
         assert_eq!(frame_1785.number_objects, 7);
@@ -1395,16 +1399,16 @@ mod chunk_06 {
 
         let frame_1791 = frame_1791.expect("frame 1791 trace");
         // ASM `lose_life -> Teleport -> loc_6E2`: after the hidden death shell
-        // clears, the shared mode-8 respawn shell keeps Camera_X/Y cleared before
-        // the later `Load_InGame` camera snap returns.
+        // clears, the shared mode-8 respawn shell clears Camera_X/Y before the
+        // later bootstrap pose becomes visible.
         assert_eq!(frame_1791.game_mode, GameMode::LevelTransition);
         assert_eq!(frame_1791.camera_x_pos, 0);
         assert_eq!(frame_1791.camera_y_pos, 0);
-        assert_eq!(frame_1791.kid_x_pos, Some(0x0160_0000));
-        assert_eq!(frame_1791.kid_y_pos, Some(0x0044_0000));
-        assert_eq!(frame_1791.character_movement, Some(0));
-        assert_eq!(frame_1791.number_objects, 15);
-        assert_eq!(frame_1791.number_gfx_objects, 13);
+        assert_eq!(frame_1791.kid_x_pos, None);
+        assert_eq!(frame_1791.kid_y_pos, None);
+        assert_eq!(frame_1791.character_movement, None);
+        assert_eq!(frame_1791.number_objects, 7);
+        assert_eq!(frame_1791.number_gfx_objects, 8);
     }
 
     #[test]
@@ -1434,10 +1438,10 @@ mod chunk_06 {
         // reuses the mode-8 bootstrap slide before `Load_InGame` later restores
         // the grounded respawn pose. Oracle shows the 65-frame sweep from
         // `(x=$160,y=$44)` to the usual hold pose `(x=$40,y=$68)`.
-        assert_eq!(frame_1809.kid_x_pos, Some(0x010F_0000));
-        assert_eq!(frame_1809.kid_y_pos, Some(0x004E_2000));
-        assert_eq!(frame_1855.kid_x_pos, Some(0x0040_0000));
-        assert_eq!(frame_1855.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(frame_1809.kid_x_pos, Some(0x0113_8000));
+        assert_eq!(frame_1809.kid_y_pos, Some(0x004D_9000));
+        assert_eq!(frame_1855.kid_x_pos, Some(0x0044_8000));
+        assert_eq!(frame_1855.kid_y_pos, Some(0x0067_7000));
         assert_eq!(frame_1855.character_movement, Some(0));
         assert_eq!(frame_1855.number_objects, 15);
         assert_eq!(frame_1855.number_gfx_objects, 14);

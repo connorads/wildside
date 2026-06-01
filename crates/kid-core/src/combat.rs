@@ -10442,7 +10442,27 @@ impl NativeRuntime {
             }
         }
 
-        // Contact damage with knockback
+        // ASM Mode_Level (kid.asm:935-946) runs Character_CheckCollision
+        // before the late GfxObjects_CollisionKid passes write the current
+        // overlap into Kid's collision slot. The side/below contact is
+        // therefore consumed by Check_for_recent_damge on the next frame.
+        if let Some(pending) = self.pending_player_contact_damage.take()
+            && self.progression.invulnerable_frames == 0
+            && !self.kid_is_invulnerable
+            && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+        {
+            if matches!(pending.enemy_family, EnemyFamily::MiniHoppingSkull) {
+                // ASM Mini_Hopping_Skull.asm loc_3EB40 allocates sub_3F3F0:
+                // side/below contact hibernates for 15 frames, then plays the
+                // scream SFX unless `$19(a3)` suppresses it.
+                self.queue_mini_hopping_skull_scream(false);
+            }
+            self.apply_damage_with_knockback(slice, pending.enemy_x, pending.enemy_family);
+            self.opening_slice = Some(*slice);
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
+            return true;
+        }
+
         if !self.stomped_this_frame
             && let Some((enemy_x, enemy_family)) = self.find_contact_damage_source(slice)
         {
@@ -10452,16 +10472,10 @@ impl NativeRuntime {
             {
                 return false;
             }
-            if matches!(enemy_family, EnemyFamily::MiniHoppingSkull) {
-                // ASM Mini_Hopping_Skull.asm loc_3EB40 allocates sub_3F3F0:
-                // side/below contact hibernates for 15 frames, then plays the
-                // scream SFX unless `$19(a3)` suppresses it.
-                self.queue_mini_hopping_skull_scream(false);
-            }
-            self.apply_damage_with_knockback(slice, enemy_x, enemy_family);
-            self.opening_slice = Some(*slice);
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
-            return true;
+            self.pending_player_contact_damage = Some(PendingPlayerContactDamage {
+                enemy_x,
+                enemy_family,
+            });
         }
 
         false

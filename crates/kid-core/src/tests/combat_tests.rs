@@ -313,6 +313,17 @@ mod chunk_03 {
             "ASM Scorpion.asm loc_3DDEE routes damage through the linked tail object during `stru_3DB8E`",
         );
         assert!(
+            !runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Mode_Level writes the tail contact late; the overlap frame only queues the next-frame damage",
+        );
+        assert!(
             runtime.resolve_frame_hazards(
                 &mut slice,
                 FrameInput::default(),
@@ -321,7 +332,7 @@ mod chunk_03 {
                 frame_start_x_pos,
                 frame_start_y_pos,
             ),
-            "the armed tail contact should consume the frame via contact damage",
+            "the queued tail contact should consume the following frame via contact damage",
         );
         assert_eq!(runtime.progression.number_hitpoints, 1);
         assert_eq!(
@@ -348,6 +359,17 @@ mod chunk_03 {
         let frame_start_y_pos = slice.player.y_pos;
 
         assert!(
+            !runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            ),
+            "ASM Mode_Level writes Dragon contact after Character_CheckCollision; the overlap frame only queues damage",
+        );
+        assert!(
             runtime.resolve_frame_hazards(
                 &mut slice,
                 FrameInput::default(),
@@ -356,7 +378,7 @@ mod chunk_03 {
                 frame_start_x_pos,
                 frame_start_y_pos,
             ),
-            "ASM Dragon contact should fall through to Check_for_recent_damge",
+            "queued Dragon contact should fall through to Check_for_recent_damge on the next frame",
         );
 
         assert_eq!(

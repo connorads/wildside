@@ -5953,6 +5953,7 @@ impl NativeRuntime {
         self.progression.form_change_flash_frames = 0;
         self.progression.form_width_delta = 0;
         self.progression.invulnerable_frames = 0;
+        self.just_received_damage = false;
         self.progression.diamond_power_frames = 0;
         self.progression.diamond_count = 0;
         self.paused = false;
@@ -7557,6 +7558,7 @@ impl NativeRuntime {
             self.progression.number_continues = 3;
             self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
             self.progression.invulnerable_frames = 0;
+            self.just_received_damage = false;
             self.kid_is_invulnerable = false;
             self.paused = false;
             self.pause_toggle_pending = false;
@@ -7574,6 +7576,9 @@ impl NativeRuntime {
                 // Native models this as a simple countdown.
                 if self.progression.invulnerable_frames > 0 {
                     self.progression.invulnerable_frames -= 1;
+                    if self.progression.invulnerable_frames == 0 {
+                        self.just_received_damage = false;
+                    }
                 }
                 if self.progression.form_change_flash_frames > 0 {
                     self.progression.form_change_flash_frames -= 1;
@@ -7659,6 +7664,7 @@ impl NativeRuntime {
                 } else {
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                    self.just_received_damage = false;
                     self.kid_is_invulnerable = false;
                 }
                 return false;

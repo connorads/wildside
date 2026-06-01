@@ -2228,6 +2228,7 @@ mod chunk_04 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         let slice = runtime.opening_slice.unwrap();
         assert_eq!(
@@ -2258,6 +2259,7 @@ mod chunk_04 {
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
+        runtime.step_frame(FrameInput::default());
         runtime.step_frame(FrameInput::default());
 
         assert!(

@@ -5969,7 +5969,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn trace_frame_reports_damage_latch_for_exact_hit_frame() {
+    fn trace_frame_reports_damage_latch_until_flash_thread_clears() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         advance_past_level_entry_damage_grace(&mut runtime);
@@ -5984,8 +5984,16 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
         let next_frame = runtime.trace_frame();
         assert!(
-            !next_frame.just_received_damage,
-            "damage latch should clear again on the next frame"
+            next_frame.just_received_damage,
+            "ASM loc_BC54..loc_BC6E keeps Just_received_damage set while the 66-frame damage-flash thread runs"
+        );
+
+        for _ in 1..PLAYER_DAMAGE_INVULNERABLE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            !runtime.trace_frame().just_received_damage,
+            "ASM loc_BC6E clears Just_received_damage when the flash thread exhausts"
         );
     }
 
@@ -15904,6 +15912,7 @@ mod chunk_02 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         // Enemy contact deals exactly 1 HP (combat.rs:596 — `number_hitpoints -= 1`)
         assert_eq!(
@@ -15941,6 +15950,7 @@ mod chunk_02 {
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
+        runtime.step_frame(FrameInput::default());
         runtime.step_frame(FrameInput::default());
 
         assert!(
@@ -16015,6 +16025,7 @@ mod chunk_02 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         assert_eq!(
             runtime.progression.number_hitpoints, 2,
@@ -16087,6 +16098,7 @@ mod chunk_02 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         assert!(
             matches!(
@@ -16128,6 +16140,7 @@ mod chunk_02 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         let skull_present = runtime
             .active_enemies
@@ -16166,6 +16179,7 @@ mod chunk_02 {
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
+        runtime.step_frame(FrameInput::default());
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(runtime.pending_sound_effects.len(), 1);

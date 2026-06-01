@@ -17252,6 +17252,7 @@ impl NativeRuntime {
         self.progression.diamond_power_frames = 0;
         self.progression.diamond_power_type = helmets::DiamondPowerType::None;
         self.progression.invulnerable_frames = 0;
+        self.just_received_damage = false;
         self.helmet.reset();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -17342,6 +17343,7 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
+        self.just_received_damage = false;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
@@ -17410,6 +17412,7 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
+        self.just_received_damage = false;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
