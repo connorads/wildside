@@ -99,6 +99,15 @@ current live "intro/menu silent, options starts" report: the scripted native
 state path queues the expected ASM `Load_IntroSequence1` and `Load_OptionMenu`
 music commands, so remaining work is either live-route drift outside this
 script or GEMS/audio output after the command is issued.
+
+Follow-up 2026-06-01: the same scripted `audio-events.txt` transcript now logs
+SFX `PlaySound(id)` rows derived from `played_sound_effect_ids` and the existing
+live GEMS event inference. Refreshed
+`.cache/recordings/issue-003-title-options-audio-audit/audio-events.txt` records
+the two title-menu navigation jingles at frames 2730 and 2740 (`PlaySound(45)`)
+between the intro Ice cue and Options City cue. This gives #216 a deterministic
+recording artefact for checking SFX timing on scripted block/diamond/flag routes
+without requiring a live SDL capture first.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |

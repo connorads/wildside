@@ -1312,12 +1312,13 @@ fn native_bgm_state_after_trace(
     (Some(cue), Some(command))
 }
 
-pub(crate) fn native_bgm_events_for_trace(
+pub(crate) fn native_audio_events_for_trace(
     manifest: &AssetManifest,
     trace_frames: &[NativeTraceFrame],
 ) -> Vec<String> {
     let mut active_bgm_cue = None;
     let mut events = Vec::new();
+    let mut prev_trace: Option<&NativeTraceFrame> = None;
     for (frame_index, trace) in trace_frames.iter().enumerate() {
         let active_before = active_bgm_cue;
         let (next_bgm_cue, bgm_command) =
@@ -1332,6 +1333,12 @@ pub(crate) fn native_bgm_events_for_trace(
             ));
         }
         active_bgm_cue = next_bgm_cue;
+        if let Some(prev) = prev_trace {
+            for sound_id in gems_event_sound_ids(prev, trace) {
+                events.push(format_native_sound_event(frame_index, trace, sound_id));
+            }
+        }
+        prev_trace = Some(trace);
     }
     events
 }
@@ -1370,6 +1377,13 @@ fn format_native_bgm_event(
 ) -> String {
     format!(
         "frame={frame_index} mode={:?} level={:02X} active_before={active_before:?} active_after={active_after:?} command={command:?}",
+        trace.game_mode, trace.current_level.0
+    )
+}
+
+fn format_native_sound_event(frame_index: usize, trace: &NativeTraceFrame, sound_id: u8) -> String {
+    format!(
+        "frame={frame_index} mode={:?} level={:02X} command=PlaySound({sound_id})",
         trace.game_mode, trace.current_level.0
     )
 }
@@ -10806,14 +10820,19 @@ mod tests {
     }
 
     #[test]
-    fn scripted_recording_bgm_events_follow_trace_mode_transitions() -> anyhow::Result<()> {
+    fn scripted_recording_audio_events_follow_trace_mode_and_sfx_transitions() -> anyhow::Result<()>
+    {
         let fixture = ManifestFixture::new()?;
         let mut intro = sample_trace(GameMode::IntroSequence1);
         intro.frame_index = 173;
         let mut options = sample_trace(GameMode::OptionsMenu);
         options.frame_index = 2800;
+        options.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE];
+        let mut gameplay = sample_trace(GameMode::InGame);
+        gameplay.frame_index = 2900;
+        gameplay.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::DESTROY_BLOCK];
 
-        let events = native_bgm_events_for_trace(&fixture.manifest, &[intro, options]);
+        let events = native_audio_events_for_trace(&fixture.manifest, &[intro, options, gameplay]);
 
         assert_eq!(
             events,
@@ -10824,8 +10843,19 @@ mod tests {
                 String::from(
                     "frame=1 mode=OptionsMenu level=00 active_before=Some(TitleShell) active_after=Some(Options) command=StopMusicThenStart(101)"
                 ),
+                format!(
+                    "frame=1 mode=OptionsMenu level=00 command=PlaySound({})",
+                    gems_sfx::NAVIGATE_JINGLE
+                ),
+                String::from(
+                    "frame=2 mode=InGame level=00 active_before=Some(Options) active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)"
+                ),
+                format!(
+                    "frame=2 mode=InGame level=00 command=PlaySound({})",
+                    gems_sfx::DESTROY_BLOCK
+                ),
             ],
-            "scripted recording bundles should expose the same ASM Load_IntroSequence1/Load_OptionMenu cue transcript as live play-native"
+            "scripted recording bundles should expose both BGM transitions and ASM/core queued SFX as live play-native audio events"
         );
         Ok(())
     }

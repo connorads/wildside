@@ -890,7 +890,7 @@ fn main() -> Result<()> {
                 &record_to,
                 &recording,
                 &recording::RecordingBundleArtifacts {
-                    audio_events: native_player::native_bgm_events_for_trace(
+                    audio_events: native_player::native_audio_events_for_trace(
                         &manifest,
                         &recording.trace,
                     ),
@@ -933,7 +933,7 @@ fn main() -> Result<()> {
                 &record_to,
                 &recording,
                 &recording::RecordingBundleArtifacts {
-                    audio_events: native_player::native_bgm_events_for_trace(
+                    audio_events: native_player::native_audio_events_for_trace(
                         &manifest,
                         &recording.trace,
                     ),
