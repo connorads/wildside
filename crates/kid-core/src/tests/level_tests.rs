@@ -4092,8 +4092,9 @@ mod chunk_02 {
             return;
         };
         let mut frame_2460 = None;
+        let mut frame_2520 = None;
 
-        for frame_index in 0..=2_460 {
+        for frame_index in 0..=2_520 {
             let trace = runtime.step_frame(FrameInput::default());
             if frame_index == 2_460 {
                 assert_eq!(trace.game_mode, GameMode::IntroSequence6);
@@ -4110,9 +4111,23 @@ mod chunk_02 {
                 );
                 frame_2460 = runtime.vdp_state().cloned();
             }
+            if frame_index == 2_520 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert!(!trace.title_screen_ready);
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    Some(4),
+                    "ASM loc_1B446 keeps the first `unk_1B4D6` upload visible through the following object pass, so oracle-backed cold-boot frame 2520 presents sub_1BF24 frame 4",
+                );
+                frame_2520 = runtime.vdp_state().cloned();
+            }
         }
 
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
+        assert!(
+            frame_2520.is_some(),
+            "IntroSequence6 should still expose hidden title VDP at frame 2520"
+        );
         let word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
         let vsram_word_at =

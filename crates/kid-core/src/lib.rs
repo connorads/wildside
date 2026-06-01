@@ -1581,8 +1581,12 @@ impl NativeRuntime {
             return None;
         }
         let local = elapsed - initial;
+        // ASM loc_1B446 hibernates before each `unk_1B4D6` byte. Oracle frame
+        // 2460 still lands in the early `0,1,0` flicker, so native's VDP
+        // reconstruction keeps that first repeated-zero window before applying
+        // the ROM's 3-frame byte cadence.
         let step = usize::from(script.loop_hibernate_frames).max(1);
-        let frame_index = local / step;
+        let frame_index = local.saturating_sub((step * 2) + 1) / step;
         script.title_frames.get(frame_index).copied().or_else(|| {
             // ASM sub_1B43A/loc_1B446 stops dispatching sub_1BF24 after the
             // `$FF` sentinel, but it does not clear the VRAM rectangle; the
