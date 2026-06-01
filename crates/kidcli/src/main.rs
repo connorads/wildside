@@ -64,6 +64,7 @@ use scenarios::{
     diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
     diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
     enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
+    highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, idle_level_scenario, lava_weather_audit_scenario,
     level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
     walk_right_scenario,
@@ -116,6 +117,8 @@ enum RecordScenarioKind {
     HighwaterShooterBarrierAudit,
     /// start at Highwater Pass 1's flag and audit the normal next-level hand-off.
     HighwaterFlagTransitionAudit,
+    /// start at Highwater Pass 2's flag as Juggernaut and audit the normal level-4 hand-off.
+    HighwaterPass2JuggernautFlagTransitionAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2233,6 +2236,9 @@ fn build_record_scenario(
         RecordScenarioKind::HighwaterFlagTransitionAudit => {
             highwater_flag_transition_audit_scenario()
         }
+        RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
+            highwater_pass2_juggernaut_flag_transition_audit_scenario()
+        }
     }
 }
 
@@ -2285,6 +2291,9 @@ fn record_scenario_command(
         RecordScenarioKind::DiamondPowerSamuraiHazeAudit => "diamond-power-samurai-haze-audit",
         RecordScenarioKind::HighwaterShooterBarrierAudit => "highwater-shooter-barrier-audit",
         RecordScenarioKind::HighwaterFlagTransitionAudit => "highwater-flag-transition-audit",
+        RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
+            "highwater-pass2-juggernaut-flag-transition-audit"
+        }
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -4221,6 +4230,53 @@ AddrTbl_LevelNames:
                 .iter()
                 .any(|checkpoint| checkpoint.label == "next_level_survival_tail"),
             "issue #238 needs evidence after the normal level-complete hand-off, not just flag touch"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_highwater_pass2_juggernaut_flag_transition_audit_starts_at_real_flag()
+    {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(
+            scenario.slug,
+            "highwater_pass2_juggernaut_flag_transition_audit_03"
+        );
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x03),
+            "the latest level-4 instant-death audit must target Highwater Pass 2 regardless of the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((1_552, 1_040)),
+            "inspect-level --level 03 reports Highwater Pass 2's flag at (1552, 1040)"
+        );
+        assert_eq!(
+            scenario
+                .camera_position
+                .map(|position| (position.x, position.y)),
+            Some((1_280, 896)),
+            "the camera is clamped to native Level 0x03 max X before the transition"
+        );
+        assert_eq!(
+            scenario.playtest_form,
+            Some(5),
+            "latest playtest reported the level 03 -> 04 death after carrying Rhino/Juggernaut"
+        );
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "next_level_survival_tail"),
+            "the audit needs evidence after Level 0x04 becomes playable, not just flag touch"
         );
     }
 

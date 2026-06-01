@@ -907,6 +907,53 @@ pub fn highwater_flag_transition_audit_scenario() -> DynamicScenario {
     }
 }
 
+/// Focused Highwater Pass 2 Juggernaut level-complete transition audit.
+///
+/// Latest live playtest reported an instant death after finishing Level 0x03
+/// as the Rhino/Juggernaut form. This starts at Highwater Pass 2's real flag,
+/// carries Juggernaut through ASM `loc_D7F4`'s flagpole-to-title-card path, then
+/// presses Start in ASM `loc_1AE2E`'s title-card shell to enter Level 0x04.
+pub fn highwater_pass2_juggernaut_flag_transition_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 2_400;
+    const TITLE_CARD_START_FRAME: usize = 1_100;
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    script[TITLE_CARD_START_FRAME] = 1 << 7;
+
+    DynamicScenario {
+        slug: "highwater_pass2_juggernaut_flag_transition_audit_03".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "flag_touch".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "scoreboard_window".into(),
+                frame_index: 600,
+            },
+            DynamicCheckpoint {
+                label: "transition_window".into(),
+                frame_index: 1_200,
+            },
+            DynamicCheckpoint {
+                label: "next_level_entry".into(),
+                frame_index: 1_800,
+            },
+            DynamicCheckpoint {
+                label: "next_level_survival_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 1_552, y: 1_040 }),
+        camera_position: Some(DynamicStartPosition { x: 1_280, y: 896 }),
+        playtest_form: Some(5),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x03),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
