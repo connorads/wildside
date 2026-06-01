@@ -923,7 +923,14 @@ fn initialise_runtime(
     runtime.set_block_grid(session_assets.block_grid.clone());
     if let Some(level_id) = options.warp_level {
         if options.settled {
-            runtime.enter_level_playtest(LevelId(level_id));
+            // ASM loc_1AE2E/loc_74E0 reaches settled recording warps through
+            // the same level-skip shell that `verify-recording` replays. Keep
+            // live `play-native --settled --record` bundles on that path so
+            // fresh repros are replayable at frame 0 instead of starting from
+            // the synthetic `enter_level_playtest` shortcut.
+            let level_id = LevelId(level_id);
+            runtime.boot_to_level(level_id);
+            runtime.settle_recording_oracle_warp_live_window(level_id);
         } else {
             runtime.warp_to_level(LevelId(level_id));
         }
@@ -7432,7 +7439,7 @@ mod tests {
     }
 
     #[test]
-    fn initialise_runtime_can_enter_settled_shortcut_level() {
+    fn initialise_runtime_settled_warp_uses_recording_oracle_path() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         let session_assets = load_native_session_assets_with(&fixture.manifest, 0x00, |_, _| {
             Ok(sample_level_visuals())
@@ -7455,8 +7462,20 @@ mod tests {
 
         let trace = runtime.trace_frame();
         assert_eq!(trace.current_level.0, 0x00);
-        assert_eq!(trace.game_mode, GameMode::InGame);
         assert!(trace.kid_y_pos.is_some());
+        assert!(
+            trace.start_press_count > 0,
+            "settled recording startup should replay the ASM loc_1AE2E title/start shell, matching verify-recording instead of a synthetic level entry"
+        );
+        assert!(
+            trace.frame_index > 720,
+            "settled recording startup should include the live ROM boot/settle window used by verify-recording"
+        );
+        assert_ne!(
+            trace.game_mode,
+            GameMode::SegaScreen,
+            "settled recording startup must advance beyond cold boot even when the tiny unit-test manifest lacks full title-card assets"
+        );
     }
 
     #[test]
