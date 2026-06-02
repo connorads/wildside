@@ -6499,6 +6499,24 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level01_layout0_rock_tank_scan_enters_loc_3c266_fall() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(1));
+        let grid = runtime.block_grid().expect("Level 01 block grid");
+        let scan = terrain::grounded_walker_scan_left_sub_36A58(grid, 0x0288, 0x008F, 0x0B, 0x20);
+
+        assert_eq!(
+            (scan.flags_d7, scan.floor_class_d6, scan.column_span_d3),
+            (0, -1, 2),
+            "ASM sub_36A58 -> loc_36AF0 classifies Level 01 layout `$0288,$008F` as a clear following row; loc_3C0FA must branch to loc_3C266 rather than pinning the Tank to ground"
+        );
+    }
+
+    #[test]
     fn settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

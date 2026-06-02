@@ -6128,6 +6128,7 @@ mod chunk_06 {
         });
         let mut tank = test_enemy(EnemyFamily::TankShooting, 100 << 16, 96 << 16, 3);
         tank.x_velocity = 0x0001_0000;
+        tank.on_ground = true;
         rt.active_enemies.push(tank);
 
         rt.process_friendly_projectile_hits();
@@ -6138,7 +6139,7 @@ mod chunk_06 {
             "ASM Tank_Shooting.asm loc_3B700 clears parent motion `$50(a5)` after a nonfatal turret hit"
         );
 
-        let floor = grid_with_floor_at_row(7);
+        let floor = grid_with_floor_at_row(6);
         let start_x = rt.active_enemies[0].x_pos;
         let mut drilled_blocks = Vec::new();
         for _ in 0..5 {

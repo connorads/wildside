@@ -16240,11 +16240,48 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     } else {
         pacer_walk_speed(enemy.family, enemy.hit_points)
     };
+    let probe_half_width = pacer_probe_half_width(enemy.family);
+    let probe_height = pacer_probe_height(enemy.family);
+
+    if !enemy.on_ground {
+        step_shared_walker_falling_loc_3c288(enemy, grid);
+        return;
+    }
+
     enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     enemy.y_velocity = 0;
 
-    let probe_half_width = pacer_probe_half_width(enemy.family);
-    let probe_height = pacer_probe_height(enemy.family);
+    let current_x_px = (enemy.x_pos >> 16) as i32;
+    let current_y_px = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let scan = if moving_right {
+        terrain::grounded_walker_scan_right_sub_36972(
+            grid,
+            current_x_px,
+            current_y_px,
+            probe_half_width,
+            probe_height,
+        )
+    } else {
+        terrain::grounded_walker_scan_left_sub_36A58(
+            grid,
+            current_x_px,
+            current_y_px,
+            probe_half_width,
+            probe_height,
+        )
+    };
+
+    if scan.floor_class_d6 < 0 {
+        // ASM loc_3C17A / loc_3C266: a clear following row enters the falling
+        // shared-walker loop, first adding one pixel to the parent Y word, then
+        // running the loc_3C19C/loc_3C288 movement pass and loc_3C246/loc_3C332
+        // gravity update.
+        enemy.y_pos = enemy.y_pos.wrapping_add(1 << 16);
+        enemy.on_ground = false;
+        step_shared_walker_falling_loc_3c288(enemy, grid);
+        return;
+    }
 
     if shared_walker_grounded_scan_requests_turn(
         enemy,
@@ -16405,6 +16442,33 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         register_shared_walker_turnaround(enemy);
     }
+}
+
+fn step_shared_walker_falling_loc_3c288(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) {
+    // ASM loc_3C19C / loc_3C288: falling shared walkers keep the horizontal
+    // velocity seeded by loc_3C17A/loc_3C266, apply the current Y velocity, then
+    // loc_3C246/loc_3C332 adds `$2000` gravity capped at `$80000`.
+    let previous_y_px = enemy.y_pos >> 16;
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let crossed_y_pixel = (enemy.y_pos >> 16) != previous_y_px;
+    if crossed_y_pixel && enemy.y_velocity >= 0 {
+        let floor = terrain::probe_floor(grid, cx, cy);
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if floor.on_ground && enemy.y_pos >= floor_y_fp {
+            enemy.y_pos = floor_y_fp;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+            register_shared_walker_turnaround(enemy);
+            return;
+        }
+    }
+
+    enemy.y_velocity = (enemy.y_velocity + 0x2000).min(0x0008_0000);
 }
 
 pub(crate) fn step_diamond_high_hp(
@@ -27599,6 +27663,52 @@ mod tests {
             "ASM Driller.asm loc_3BF1C should play the parent death animation instead of disappearing on the loc_3C464 route"
         );
         assert_eq!(enemy.shared_walker_turnaround_counter, 0);
+    }
+
+    #[test]
+    fn left_shared_walker_clear_floor_enters_loc_3c266_falling_loop() {
+        let grid = terrain::BlockGrid::from_level_layout(&vec![0u8; 16 * 16 * 2], 16, 16);
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Tank;
+        enemy.facing = Direction::Left;
+        enemy.hit_points = 2;
+        enemy.x_pos = 0x0288_0000;
+        enemy.y_pos = 0x008F_0000;
+        enemy.on_ground = true;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos, 0x0287_8000,
+            "ASM loc_3C266 -> loc_3C288 should keep the leftward Tank moving while entering the falling loop"
+        );
+        assert_eq!(
+            enemy.y_pos, 0x0090_0000,
+            "ASM loc_3C266 addq.w #1,y_pos(a3) exposes the one-pixel drop on the first unsupported frame"
+        );
+        assert_eq!(
+            enemy.y_velocity, 0x0000_2000,
+            "ASM loc_3C332 adds $2000 gravity after storing the unsupported Y position"
+        );
+        assert!(
+            !enemy.on_ground,
+            "ASM loc_3C266 should enter the falling walker loop rather than pinning the Tank as grounded"
+        );
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos, 0x0287_0000,
+            "ASM loc_3C288 subtracts the stored leftward x_vel on the next falling frame"
+        );
+        assert_eq!(
+            enemy.y_pos, 0x0090_2000,
+            "ASM loc_3C2D0 -> loc_3C32E should apply the previous $2000 y_vel before increasing gravity"
+        );
+        assert_eq!(
+            enemy.y_velocity, 0x0000_4000,
+            "ASM loc_3C332 should accumulate another $2000 of falling velocity"
+        );
     }
 
     #[test]
