@@ -869,6 +869,18 @@ verify-recording --slug tmp-issue-213-drips-current --native-only` drifts at
 frame 135 with a native trace mismatch. Continue by re-recording a stable
 settled Level 01 route past frame 135 before patching Drips or metal-block
 collision behaviour from this report.
+
+Note 2026-06-02 follow-up for #213: promoted the settled Level 01 Drips
+floor probe out of `.cache` to
+`tests/data/dynamic-scenarios/issue-213-drips-floor-probe-2000.json` so the
+oracle evidence is durable. On current `main`, `verify-tas --frontier-kind
+enemy --bisect` passes frames 0..900 and 900..2000, proving the hidden
+controller, `loc_33424` child countdown, `loc_3345C` floor splash, and long
+idle/crawler-visible window are not currently diverging in this focused setup.
+This does not close #213: the human report is specifically about jumping up
+near the lower-floor slime/metal-block area and hitting/breaking unexpected
+collision, so the next gate is a longer checked-in DynamicScenario that drives
+that upward-jump contact against oracle.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
