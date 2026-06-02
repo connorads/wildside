@@ -108,6 +108,18 @@ the two title-menu navigation jingles at frames 2730 and 2740 (`PlaySound(45)`)
 between the intro Ice cue and Options City cue. This gives #216 a deterministic
 recording artefact for checking SFX timing on scripted block/diamond/flag routes
 without requiring a live SDL capture first.
+
+Follow-up 2026-06-02: refreshed cold-boot live evidence on current `main`.
+`issue-003-cold-boot-audio-current-refresh` verifies against oracle and records
+the ASM intro cue in `audio-events.txt`: frame 173 enters `IntroSequence1` and
+queues `StopMusicThenStart(3)` (`bgm_Ice`). Its 20s stereo `audio.wav` is quiet
+before intro (`ffmpeg volumedetect` over 0..2.85s: mean `-58.8 dB`, peak
+`-36.3 dB`) and active after intro (`2.90..7.90s`: mean `-25.1 dB`, peak
+`-11.2 dB`). The older `issue-003-cold-boot-audio-current` full verifier also
+passes; reduced cases `0..120` and `120..240` pass, so this route does not expose
+a gameplay/state mismatch. Remaining "no intro music" reports should target a
+different live route/output path or later title/menu recovery, not the basic
+`Load_IntroSequence1` BGM command.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
