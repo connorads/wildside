@@ -1037,6 +1037,20 @@ DynamicScenario `tests/data/dynamic-scenarios/issue-213-drips-floor-probe-2000.j
 for oracle TAS verification; do not patch Drips from the recording-derived case
 until settled-recording bootstrap is fixed or a new non-death live route is
 recorded.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
+`codex-issue-213-index8-jump-now-trace` exposed verifier debt before gameplay
+evidence. The scenario has two labels at frame 0 (`start` and `jump`), and
+`verify-recording` previously consumed only one checkpoint per frame, reporting
+`missing native frame jump@0`; native/oracle capture already support multiple
+same-frame checkpoints. After fixing the recording verifier to consume all
+same-frame labels, regenerating as
+`codex-issue-213-index8-jump-now-trace-refresh` reaches real comparison:
+trace/state match, recording PNG checkpoints are pixel-red from frame 0, and
+the requested 0..120 case is blocked by the settled Level 01 oracle bootstrap
+(`player fields=x_velocity|y_velocity`, native 2 entities vs oracle 1). Do not
+patch Drips/slime logic from this route; fix settled-recording bootstrap or
+record a new authoritative non-death upward-contact route first.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`

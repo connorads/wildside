@@ -1114,7 +1114,7 @@ fn render_dynamic_checkpoint_frames(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        if checkpoints
+        while checkpoints
             .peek()
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
@@ -1256,7 +1256,7 @@ fn write_dynamic_checkpoint_layer_frames(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        if checkpoints
+        while checkpoints
             .peek()
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
@@ -1428,7 +1428,7 @@ fn attach_native_pixel_samples(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        if checkpoints
+        while checkpoints
             .peek()
             .is_some_and(|checkpoint| checkpoint.frame_index == replay_frame_index)
         {
