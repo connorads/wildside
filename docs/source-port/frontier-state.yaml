@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Existing RockTank/death recordings expose a current #167 Tank death regression",
+        "reason": "Rejected 2026-06-02. ASM recheck confirms `Tank.asm loc_3B41C -> loc_3B480` and `Tank_Shooting.asm loc_3B6E6` hide the linked mouth/turret child, initialise `stru_3B29A`/`stru_3B518`, and hibernate the parent until the death animation finishes before shared deletion. Current focused checks pass: `cargo test -p kid-core tank_death_waits_for_stru_3b29a_animation_before_delete -- --nocapture`, `cargo test -p kid-core tank_shooting_death_waits_for_stru_3b518_animation_before_delete -- --nocapture`, and `cargo test -p kidcli tank_and_robot_death_snapshots_select_waited_body_frames -- --nocapture`. Candidate bundles are not current evidence: `debug-rocktank-level2` and `tmp-death-animation-level0-stomp-current` both drift at frame 0 under native-only verification, and the Level 01 tank-walk transcripts only show Kid HP damage, not a Tank kill. Capture a fresh deterministic live Level 01 Tank/RockTank final-hit route before changing #167 death rendering."
+      },
+      {
         "name": "Recording `issue-161-current-intro-long` still exposes the latest reported intro corruption",
         "reason": "Rejected 2026-06-02. Fresh verification on current main shows the cold-idle intro bundle is oracle-clean: `cargo run -p kidcli -- verify-recording --slug issue-161-current-intro-long` passes, with `trace_match=true`, `first_trace_drift=null`, `oracle_state_match=true`, and `oracle_frame_match=true`. The 48 `frame_diffs` entries in `report.json` are zero-diff checkpoints, not pixel failures. ASM labels rechecked for this covered route include `Load_IntroSequence2`, `Load_IntroSequence4`, `Load_IntroSequence5`, `Load_IntroSequence6`, `loc_1BA28`, `loc_1BCD0`, `loc_1B37C`, and `sub_1B43A`. Do not patch the cold-idle `issue-161-current-intro-long` path again for the latest playtest; capture a deterministic live Start/options/menu or interruption route that reproduces the human-visible kids/door/green-screen/menu corruption."
       },
