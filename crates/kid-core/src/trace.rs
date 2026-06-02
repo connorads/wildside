@@ -3761,6 +3761,160 @@ mod tests {
     }
 
     #[test]
+    fn lose_life_hidden_shell_and_camera_windows_match_oracle_probe_loc_b8de() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.death_shell_snapshot = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player: PlayerState {
+                x_pos: 0x038b_2100,
+                y_pos: 0x032f_5000,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            },
+            frozen_camera: CameraState {
+                x_pos: 0x02b6_0000,
+                y_pos: 0x01ac_0000,
+            },
+            frozen_active_objects: Vec::new(),
+            frozen_number_objects: 13,
+            frozen_number_gfx_objects: 8,
+        });
+
+        // ASM lose_life -> Teleport loc_B8DE enters the hidden mode-8 hand-off;
+        // oracle route issue-213-drips-upjump-right-probe-cache keeps the
+        // shell pose through frame 370, clears Kid on 371, and keeps camera
+        // through frame 374 before the blank pre-bootstrap window.
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 14,
+        };
+        let last_shell = runtime.trace_frame();
+        assert_eq!(last_shell.kid_x_pos, Some(0x038b_2100));
+        assert_eq!(last_shell.kid_y_pos, Some(0x032f_5000));
+        assert_eq!(last_shell.camera_x_pos, 0x02b6_0000);
+        assert_eq!(last_shell.camera_y_pos, 0x01ac_0000);
+        assert!(last_shell.just_received_damage);
+        assert_eq!(last_shell.number_objects, 9);
+        assert_eq!(last_shell.number_gfx_objects, 8);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 13,
+        };
+        let after_shell = runtime.trace_frame();
+        assert_eq!(after_shell.kid_x_pos, None);
+        assert_eq!(after_shell.kid_y_pos, None);
+        assert_eq!(after_shell.camera_x_pos, 0x02b6_0000);
+        assert_eq!(after_shell.camera_y_pos, 0x01ac_0000);
+        assert!(after_shell.just_received_damage);
+        assert_eq!(after_shell.number_objects, 9);
+        assert_eq!(after_shell.number_gfx_objects, 8);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 10,
+        };
+        let last_camera = runtime.trace_frame();
+        assert_eq!(last_camera.kid_x_pos, None);
+        assert_eq!(last_camera.camera_x_pos, 0x02b6_0000);
+        assert_eq!(last_camera.camera_y_pos, 0x01ac_0000);
+        assert!(last_camera.just_received_damage);
+        assert_eq!(last_camera.number_objects, 9);
+        assert_eq!(last_camera.number_gfx_objects, 8);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 9,
+        };
+        let after_camera = runtime.trace_frame();
+        assert_eq!(after_camera.kid_x_pos, None);
+        assert_eq!(after_camera.camera_x_pos, 0);
+        assert_eq!(after_camera.camera_y_pos, 0);
+        assert!(!after_camera.just_received_damage);
+        assert_eq!(after_camera.number_objects, 0);
+        assert_eq!(after_camera.number_gfx_objects, 8);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 5,
+        };
+        assert_eq!(runtime.trace_frame().number_objects, 2);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 2,
+        };
+        assert_eq!(runtime.trace_frame().number_objects, 13);
+
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 1,
+        };
+        assert_eq!(runtime.trace_frame().number_objects, 15);
+    }
+
+    #[test]
+    fn level_two_death_respawn_bootstrap_matches_oracle_probe_loc_b8de() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(1);
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+
+        // ASM lose_life -> Teleport loc_B8DE re-enters loc_6E2 mode 8;
+        // oracle route issue-213-drips-upjump-right-probe-cache frames 384,
+        // 448, and 449 pin the internal level-2 hidden bootstrap slide and
+        // hold counts.
+        let first = runtime.trace_frame();
+        assert_eq!(
+            first.kid_x_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP)
+        );
+        assert_eq!(
+            first.kid_y_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP)
+        );
+        assert_eq!(first.number_objects, 16);
+        assert_eq!(first.number_gfx_objects, 14);
+
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+                - (PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES - 1),
+        };
+        let last_slide = runtime.trace_frame();
+        assert_eq!(
+            last_slide.kid_x_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP)
+        );
+        assert_eq!(
+            last_slide.kid_y_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP)
+        );
+        assert_eq!(last_slide.number_objects, 16);
+        assert_eq!(last_slide.number_gfx_objects, 14);
+
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+                - PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+        };
+        let held = runtime.trace_frame();
+        assert_eq!(
+            held.kid_x_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP)
+        );
+        assert_eq!(
+            held.kid_y_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP)
+        );
+        assert_eq!(held.number_objects, 16);
+        assert_eq!(held.number_gfx_objects, 14);
+    }
+
+    #[test]
     fn trace_frame_exports_diamond_power_snake_probe_loc_3fad4() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -4673,6 +4827,27 @@ impl NativeRuntime {
         )
     }
 
+    fn dying_hidden_number_objects_loc_b8de(&self, snapshot: &LevelSkipTransitionState) -> u16 {
+        let PlayerLifecycle::Dying { remaining_frames } = self.player_lifecycle else {
+            return snapshot.frozen_number_objects;
+        };
+        // ASM lose_life -> Teleport loc_B8DE enters the hidden mode-8
+        // transition shell. Oracle route issue-213-drips-upjump-right-probe-cache
+        // shows the object count decoupling from the old gameplay roster while
+        // GFX count remains latched to the frozen shell.
+        if self.dying_hidden_camera_still_visible() {
+            9
+        } else {
+            match remaining_frames {
+                6..=9 => 0,
+                3..=5 => 2,
+                2 => snapshot.frozen_number_objects,
+                1 => 15,
+                _ => snapshot.frozen_number_objects,
+            }
+        }
+    }
+
     fn current_character_movement(&self, player: PlayerState) -> u16 {
         const MOVE_STANDINGSTILL: u16 = 0;
         const MOVE_CRAWLING: u16 = 1;
@@ -5519,12 +5694,15 @@ impl NativeRuntime {
             options_speed_button_fast: self.options_speed_button_fast,
             invulnerable_frames: self.progression.invulnerable_frames,
             kid_is_invulnerable: self.kid_is_invulnerable,
-            just_received_damage: self.just_received_damage
-                || (self.death_shell_snapshot.is_some()
-                    && matches!(
-                        self.player_lifecycle,
-                        PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
-                    )),
+            just_received_damage: if self.death_shell_snapshot.is_some()
+                && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
+            {
+                self.dying_hidden_camera_still_visible()
+            } else {
+                self.just_received_damage
+                    || (self.death_shell_snapshot.is_some()
+                        && matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }))
+            },
             diamond_power_active: self.progression.diamond_power_frames > 0
                 || !self.diamond_power_invuln_haze_slots.is_empty(),
             diamond_count: self.progression.diamond_count,
@@ -7617,11 +7795,18 @@ impl NativeRuntime {
             };
         }
         if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-            && (matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
-                || matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }))
+            && matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
         {
             return (
                 snapshot.frozen_number_objects,
+                snapshot.frozen_number_gfx_objects,
+            );
+        }
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
+            && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
+        {
+            return (
+                self.dying_hidden_number_objects_loc_b8de(snapshot),
                 snapshot.frozen_number_gfx_objects,
             );
         }
@@ -7779,15 +7964,13 @@ impl NativeRuntime {
 
     fn death_respawn_bootstrap_player_state(&self) -> Option<PlayerState> {
         let elapsed = self.death_respawn_bootstrap_elapsed_frames()?;
-        if self.current_level != LevelId(0) {
-            return None;
-        }
-        if elapsed < PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES {
+        let profile = self.death_respawn_bootstrap_profile()?;
+        if elapsed < profile.animation_frames {
             let elapsed_i64 = i64::try_from(elapsed).unwrap_or(i64::MAX);
-            let x_pos = i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
-                + i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP) * elapsed_i64;
-            let y_pos = i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
-                + i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP) * elapsed_i64;
+            let x_pos =
+                i64::from(profile.initial_x_fp) + i64::from(profile.x_step_fp) * elapsed_i64;
+            let y_pos =
+                i64::from(profile.initial_y_fp) + i64::from(profile.y_step_fp) * elapsed_i64;
             return Some(PlayerState {
                 x_pos: x_pos as u32,
                 y_pos: y_pos as u32,
@@ -7806,8 +7989,8 @@ impl NativeRuntime {
         }
 
         Some(PlayerState {
-            x_pos: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
-            y_pos: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
+            x_pos: profile.hold_x_fp,
+            y_pos: profile.hold_y_fp,
             x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Right,
@@ -7824,14 +8007,66 @@ impl NativeRuntime {
 
     fn death_respawn_bootstrap_object_counts(&self) -> Option<(u16, u16)> {
         let elapsed = self.death_respawn_bootstrap_elapsed_frames()?;
-        if self.current_level != LevelId(0) {
-            return None;
+        let profile = self.death_respawn_bootstrap_profile()?;
+        if self.current_level == LevelId(0) && elapsed == 0 {
+            return Some((
+                profile.initial_number_objects,
+                profile.initial_number_gfx_objects,
+            ));
         }
-        if elapsed == 0 {
-            return Some((15, 13));
-        }
-        Some((15, 14))
+        Some((profile.hold_number_objects, profile.hold_number_gfx_objects))
     }
+
+    fn death_respawn_bootstrap_profile(&self) -> Option<DeathRespawnBootstrapProfile> {
+        match self.current_level {
+            LevelId(0) => Some(DeathRespawnBootstrapProfile {
+                animation_frames: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+                initial_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP,
+                initial_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP,
+                hold_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
+                hold_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
+                x_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP,
+                y_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP,
+                initial_number_objects: 15,
+                initial_number_gfx_objects: 13,
+                hold_number_objects: 15,
+                hold_number_gfx_objects: 14,
+            }),
+            LevelId(1) => Some(DeathRespawnBootstrapProfile {
+                // ASM lose_life -> Teleport loc_B8DE enters loc_6E2 mode 8.
+                // Oracle route issue-213-drips-upjump-right-probe-cache frames
+                // 384..448 show the same 65-frame slide to the shared hold pose
+                // from the internal level-2 wrapped-row start.
+                animation_frames: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+                initial_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP,
+                initial_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP,
+                hold_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
+                hold_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
+                x_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_X_STEP_FP,
+                y_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_Y_STEP_FP,
+                initial_number_objects: 16,
+                initial_number_gfx_objects: 14,
+                hold_number_objects: 16,
+                hold_number_gfx_objects: 14,
+            }),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct DeathRespawnBootstrapProfile {
+    animation_frames: usize,
+    initial_x_fp: u32,
+    initial_y_fp: u32,
+    hold_x_fp: u32,
+    hold_y_fp: u32,
+    x_step_fp: i32,
+    y_step_fp: i32,
+    initial_number_objects: u16,
+    initial_number_gfx_objects: u16,
+    hold_number_objects: u16,
+    hold_number_gfx_objects: u16,
 }
 
 fn kid_pre_physics_state_debug(player: PlayerState) -> String {

@@ -368,16 +368,17 @@ pub(crate) const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 // fixed hold. Keep a generous cap here and let the runtime end the arc early.
 pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 // Oracle death traces switch from the hidden death shell into the respawn
-// bootstrap after roughly half a second, not the older 120-frame placeholder.
-pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
+// bootstrap after the mode-8 Teleport hand-off stays blank for eight more
+// frames than the older lower-floor death probe exposed.
+pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 40;
 // Oracle-backed `lose_life` / `Teleport` traces keep the frozen post-Death
-// shell pose visible only for the first 21 hidden frames before Kid's WRAM
-// coordinates clear while the respawn shell still holds camera/object state.
-pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 21;
+// shell pose visible through the 27th hidden frame before Kid's WRAM
+// coordinates clear while the transition camera remains latched.
+pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 27;
 // Oracle-backed `lose_life -> Teleport -> loc_6E2` traces keep the frozen
 // shell camera for five extra hidden frames after Kid's WRAM pose clears, then
 // zero Camera_X/Y before the later respawn bootstrap takes over.
-pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 26;
+pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 31;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold
@@ -397,6 +398,14 @@ pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP: u32 = 0x004
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP: u32 = 0x0068_0000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP: i32 = -0x0004_8000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = 0x0000_9000;
+// ASM `lose_life -> Teleport -> loc_6E2` follows the same hidden mode-8
+// bootstrap on internal LevelId(1), but the upjump/Drips oracle route starts
+// from the wrapped `$FFE0` row and slides to the shared hold pose with smaller
+// per-frame deltas.
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP: u32 = 0x0088_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP: u32 = 0xffe0_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_X_STEP_FP: i32 = -0x0001_2000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_Y_STEP_FP: i32 = 0x0002_2000;
 // ASM loc_1AE2E -> loc_6E2 -> Load_InGame on the early title-start lineage
 // keeps Level 1 hidden for 51 local frames, briefly preloads Camera_Y on the
 // `$00E0_0000` and wrapped `$FF00_0000` rows, then exposes the respawn slice
