@@ -211,6 +211,9 @@ enum Commands {
         record_frames: Option<usize>,
         #[arg(long)]
         record_notes: Option<PathBuf>,
+        /// Replay a DynamicScenario JSON through the live SDL player loop.
+        #[arg(long)]
+        scenario: Option<PathBuf>,
     },
     ProbeCpu {
         #[arg(long)]
@@ -970,6 +973,7 @@ fn main() -> Result<()> {
             record,
             record_frames,
             record_notes,
+            scenario,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1005,6 +1009,14 @@ fn main() -> Result<()> {
                 (Some(_), Some(0)) => bail!("--record-frames must be greater than zero"),
                 _ => {}
             }
+            let scripted_scenario = scenario
+                .as_deref()
+                .map(load_record_scenario_file)
+                .transpose()?;
+            let record_frames = match (&record_to, record_frames, &scripted_scenario) {
+                (Some(_), None, Some(dynamic)) => Some(dynamic.frame_count),
+                _ => record_frames,
+            };
             run_native_player(
                 &manifest,
                 &NativePlayOptions {
@@ -1016,6 +1028,7 @@ fn main() -> Result<()> {
                     record_to,
                     record_frames,
                     record_notes,
+                    scripted_input: scripted_scenario.map(|dynamic| dynamic.script),
                 },
             )?;
         }

@@ -71,6 +71,7 @@ pub struct NativePlayOptions {
     pub record_to: Option<PathBuf>,
     pub record_frames: Option<usize>,
     pub record_notes: Option<String>,
+    pub scripted_input: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -537,7 +538,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         } else {
             prev_trace = trace.clone();
             if level_card_frames_remaining == 0 {
-                let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+                let live_buttons =
+                    keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+                let buttons = native_frame_buttons(
+                    options.scripted_input.as_deref(),
+                    recorded_trace.len(),
+                    live_buttons,
+                );
                 trace = runtime.step_frame(FrameInput::from_mask(buttons));
                 if options.record_to.is_some() {
                     recorded_script.push(buttons);
@@ -832,6 +839,12 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
     options
         .record_frames
         .is_some_and(|limit| recorded_frames >= limit)
+}
+
+fn native_frame_buttons(scripted_input: Option<&[u8]>, frame_index: usize, live_buttons: u8) -> u8 {
+    scripted_input.map_or(live_buttons, |script| {
+        script.get(frame_index).copied().unwrap_or(0)
+    })
 }
 
 fn should_start_native_level_card_overlay(
@@ -7904,6 +7917,7 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
+                scripted_input: None,
             },
         );
 
@@ -7940,6 +7954,7 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
+                scripted_input: None,
             },
         );
 
@@ -7979,6 +7994,7 @@ mod tests {
                 record_to: Some(record_dir.clone()),
                 record_frames: Some(900),
                 record_notes: Some(String::from("stuck on level card")),
+                scripted_input: None,
             },
             Vec::new(),
             Vec::new(),
@@ -8018,6 +8034,7 @@ mod tests {
             record_to: Some(PathBuf::from("recordings/level2-death")),
             record_frames: Some(3),
             record_notes: None,
+            scripted_input: None,
         };
 
         assert!(!recording_frame_limit_reached(&options, 2));
@@ -8029,6 +8046,20 @@ mod tests {
             ..options
         };
         assert!(!recording_frame_limit_reached(&unbounded, usize::MAX));
+    }
+
+    #[test]
+    fn play_native_scripted_input_replaces_live_buttons_for_deterministic_audio_routes() {
+        let script = [0, 0x80, 1 << 3];
+
+        assert_eq!(native_frame_buttons(None, 1, 1 << 4), 1 << 4);
+        assert_eq!(native_frame_buttons(Some(&script), 1, 1 << 4), 0x80);
+        assert_eq!(native_frame_buttons(Some(&script), 2, 1 << 4), 1 << 3);
+        assert_eq!(
+            native_frame_buttons(Some(&script), 3, 1 << 4),
+            0,
+            "scripted live-player routes should become idle after the supplied DynamicScenario ends instead of leaking keyboard/controller input"
+        );
     }
 
     #[test]
