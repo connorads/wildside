@@ -5270,6 +5270,11 @@ impl NativeRuntime {
             } else {
                 self.helmet.berzerker_charge_pose
             },
+            berzerker_walk_pose: if hidden_boot_progression {
+                false
+            } else {
+                self.helmet.berzerker_walk_pose
+            },
             ledge_snap_cooldown: player_state.map_or(0, |state| state.ledge_snap_cooldown),
             kid_on_slope: player_state
                 .filter(|state| state.on_ground)

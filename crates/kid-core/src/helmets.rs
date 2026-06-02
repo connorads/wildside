@@ -6401,8 +6401,10 @@ impl NativeRuntime {
             self.helmet.berzerker_charge_accum = 0;
             self.helmet.berzerker_charge_pose = false;
             self.helmet.berzerker_charge_pose_frames = 0;
+            self.helmet.berzerker_walk_pose = false;
             return;
         }
+        self.helmet.berzerker_walk_pose = false;
         if self.helmet.berzerker_charge_pose_frames > 0 {
             self.helmet.berzerker_charge_pose_frames -= 1;
         }
@@ -6434,6 +6436,12 @@ impl NativeRuntime {
             // `(Berzerker_charging).w`; native stores that flag directly.
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
+            if moving_forward && slice.player.x_velocity != 0 {
+                // ASM loc_957C -> loc_9580 -> loc_95DA -> loc_9600: rejected
+                // Berzerker charge frames still write the ordinary off_967C
+                // walk sprite before later collision may zero x_vel.
+                self.helmet.berzerker_walk_pose = true;
+            }
             return;
         }
 
@@ -6471,6 +6479,9 @@ impl NativeRuntime {
             // ASM `addi.b #$10,($FFFFFA13); bcc.s loc_9580` clears
             // `(Berzerker_charging).w` until the byte accumulator carries.
             self.helmet.berzerker_charging = false;
+            // ASM loc_9580 -> loc_95DA -> loc_9600 writes the regular
+            // Berzerker walk sprite on non-overflow accumulator frames.
+            self.helmet.berzerker_walk_pose = true;
         }
     }
 

@@ -7859,6 +7859,34 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_9580 -> loc_95DA -> loc_9600 writes the ordinary off_967C
+    /// Berzerker walk sprite on non-overflow accumulator frames. A later
+    /// loc_9326 wall stop can zero velocity in the sampled state, but the
+    /// renderer still needs the sprite write from earlier in the frame.
+    #[test]
+    fn berzerker_regular_walk_pose_survives_same_frame_wall_clear_loc_9580_9600() {
+        let mut rt = berzerker_charge_runtime(0x00, FrameInput::default());
+        rt.boot_state = BootState::InGame;
+        let mut slice =
+            berzerker_charge_slice(0x1_6000, Direction::Right, true, TerrainType::Normal);
+        slice.walk_visual_accumulator = 0x0000;
+
+        rt.step_berzerker_charge(&mut slice);
+        slice.player.x_velocity = 0;
+        rt.opening_slice = Some(slice);
+
+        let trace = rt.trace_frame();
+
+        assert!(
+            !trace.berzerker_charging,
+            "ASM loc_9580 clears Berzerker_charging on non-overflow frames"
+        );
+        assert!(
+            trace.berzerker_walk_pose,
+            "ASM loc_9600's off_967C sprite write must survive the same-frame wall stop"
+        );
+    }
+
     /// ASM loc_950A (kid.asm:10973): negative x_vel while facing right branches
     /// to loc_957C and clears the Berzerker charge accumulator.
     #[test]

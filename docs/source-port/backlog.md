@@ -636,6 +636,23 @@ adds `first_shooter_objects_visible_loc_ec76@92` and
 the first real bullets and the upward cascade separately from the stale frame-90
 visual mismatch.
 
+Note 2026-06-01 Berzerker render-latch follow-up for #214: the live Highwater
+route remained gameplay-green (`tas-diff` frames 80..130 still `50 match, 0
+diverge`) but strict pixels showed Berzerker falling back to idle on the
+same-frame shooter-column stop. ASM `sub_942A loc_9580 -> loc_95DA -> loc_9600`
+still writes the ordinary Berzerker `off_967C` walk sprite before later wall
+collision leaves the sampled post-frame velocity at zero. Native now exposes a
+same-frame `berzerker_walk_pose` render latch and the native-player renderer
+uses `$FFFFF8F0 >> 8` for that latched walk frame instead of deriving idle from
+post-collision velocity. Refreshed cache-local
+`issue-214-highwater-shooter-barrier-audit` improved strict frame deltas
+(`projectile_barrier_window@90`
+998->957 changed pixels, `first_shooter_objects_visible_loc_ec76@92`
+1512->1406, `barrier_clear_check@120` 2255->2201) while leaving remaining
+Highwater palette/projectile/water visual debt open. Regressions:
+`berzerker_regular_walk_pose_survives_same_frame_wall_clear_loc_9580_9600` and
+`berzerker_regular_walk_pose_latch_overrides_idle_after_wall_stop_loc_9580_9600`.
+
 | 215 | [ ] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | Evidence source: human playtest after pushed commits. Symptom: water animation appears inactive or the player renders above foreground/water elements that should cover him. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: capture Level 02 water/foreground frames with layer diagnostics, compare VDP priority bits and native render layer ordering against oracle before touching renderer composition. |
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
 Note 2026-06-01 for #215: added named `highwater-water-priority-audit` scenario (cache slug `issue-215-highwater-water-priority-audit`) so the Level 02 water/foreground route is no longer only an ignored `.cache` artefact. Fresh verify result: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; `level_settle@60` and `waterfall_overlap_loc_300BA@960` are pixel-perfect, while `water_hole_entry_loc_12910@510` differs by 205 pixels and `waterfall_palette_tail_loc_1223C@1859` by 18 pixels. Current evidence points at residual Mountain Plane B/waterfall tile row or palette phase drift, not a broad gameplay replay mismatch.

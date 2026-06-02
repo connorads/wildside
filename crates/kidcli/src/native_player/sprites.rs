@@ -529,6 +529,16 @@ pub(super) fn select_player_frame<'a>(
             let frame_index =
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
             &player_visuals.charge[frame_index]
+        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+            && trace.berzerker_walk_pose
+            && !player_visuals.walk.is_empty()
+        {
+            // ASM loc_9580 -> loc_95DA -> loc_9600 writes Berzerker's
+            // ordinary off_967C walk sprite before later wall collision can
+            // leave the sampled post-frame velocity at zero.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
+            &player_visuals.walk[frame_index]
         } else if x_velocity == 0 {
             &player_visuals.idle
         } else if trace.kid_on_slope != 0 {
@@ -555,10 +565,14 @@ pub(super) fn select_player_frame<'a>(
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
         } else {
-            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id() {
+            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id()
+                || trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+            {
                 // ASM loc_94B4/loc_97E8: Juggernaut indexes the
                 // walking/head-forward companion tables with
                 // `$FFFFF8F0 >> 8`.
+                // ASM loc_95DA/loc_9600 does the same for Berzerker's
+                // ordinary off_967C walk table.
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len()
             } else {
                 (trace.frame_index / 4) % player_visuals.walk.len()

@@ -703,6 +703,7 @@ pub(crate) struct HelmetState {
     pub(crate) berzerker_charging: bool,
     pub(crate) berzerker_charge_pose: bool,
     pub(crate) berzerker_charge_pose_frames: u8,
+    pub(crate) berzerker_walk_pose: bool,
     pub(crate) micromax_stuck: bool,
 }
 
@@ -1141,6 +1142,11 @@ pub struct NativeTraceFrame {
     /// collision code can clear `Berzerker_charging` at loc_9326.
     #[serde(default)]
     pub berzerker_charge_pose: bool,
+    /// Render latch for the ordinary Berzerker walk sprite written by ASM
+    /// loc_9580 -> loc_95DA -> loc_9600 before later wall collision can leave
+    /// post-frame velocity at zero.
+    #[serde(default)]
+    pub berzerker_walk_pose: bool,
     /// Remaining frames in ASM `stru_8BB4` wall-grab pull-up animation.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub ledge_snap_cooldown: u8,
@@ -1377,6 +1383,7 @@ impl Default for NativeTraceFrame {
             walk_visual_accumulator: 0,
             berzerker_charging: false,
             berzerker_charge_pose: false,
+            berzerker_walk_pose: false,
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
