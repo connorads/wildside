@@ -1582,6 +1582,7 @@ fn normalised_enemy_roster_for_frontier(state: &OracleState) -> Vec<&OracleEnemy
         .active_enemies
         .iter()
         .filter(|enemy| !enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
+        .filter(|enemy| !oracle_enemy_parent_object_is_orphaned_loc_e1e(state, enemy))
         .collect::<Vec<_>>();
     enemies.sort_by_key(|enemy| {
         (
@@ -1593,6 +1594,29 @@ fn normalised_enemy_roster_for_frontier(state: &OracleState) -> Vec<&OracleEnemy
         )
     });
     enemies
+}
+
+fn oracle_enemy_parent_object_is_orphaned_loc_e1e(
+    state: &OracleState,
+    enemy: &OracleEnemyState,
+) -> bool {
+    let Some(parent_object_ptr) = enemy.parent_object_ptr else {
+        return false;
+    };
+    let Some(object_slots) = state
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+    else {
+        return false;
+    };
+
+    // ASM Execute_Objects loc_E1E walks the active object list from
+    // Addr_FirstObjectSlot. Oracle GfxObject slots can retain display and
+    // parent/layout pointers for a frame after loc_10C6 has unlinked the
+    // owning Object, so enemy-frontier parity should only count GfxObjects
+    // whose parent is still present in that active list.
+    let parent_marker = format!("{parent_object_ptr:#08x}:");
+    !object_slots.contains(&parent_marker)
 }
 
 fn enemy_is_uninitialised_tank_gfx_proxy(state: &OracleState, enemy: &OracleEnemyState) -> bool {
@@ -2687,6 +2711,99 @@ mod tests {
         assert!(
             enemy_diffs.is_empty(),
             "ASM Mode_Level loc_80C can expose a stale zero-HP Tank gfx proxy outside loc_368A8's loader window before the real body/turret pair is comparable"
+        );
+    }
+
+    #[test]
+    fn enemy_frontier_ignores_oracle_gfx_object_after_parent_unlinked_loc_10c6() {
+        let live_body = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x009C_0000,
+            y_pos: 0x00E0_0000,
+            x_velocity: 0x0000_8000,
+            y_velocity: 0,
+            facing: EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(1),
+            layout_ptr: Some(0x0007_9864),
+            parent_object_ptr: Some(0x00FF_0F70),
+            gfx_slot_index: Some(4),
+            on_ground: Some(true),
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let live_child = OracleEnemyState {
+            y_pos: 0x00D8_0000,
+            x_velocity: 0,
+            current_hp: Some(0),
+            gfx_slot_index: Some(5),
+            ..live_body.clone()
+        };
+        let stale_gfx = OracleEnemyState {
+            x_pos: 0x0249_8000,
+            y_pos: 0x0250_0000,
+            x_velocity: 0,
+            facing: EnemyFacing::Left,
+            layout_index: Some(9),
+            layout_ptr: Some(0x0007_98A4),
+            parent_object_ptr: Some(0x00FF_0EFC),
+            gfx_slot_index: Some(6),
+            current_hp: Some(0),
+            ..live_body.clone()
+        };
+        let native = vec![OracleState {
+            label: "frame_454".into(),
+            frame_index: 454,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x014D_0000,
+            camera_y_pos: 0x01C0_0000,
+            kid_x_pos: 0x0238_0000,
+            kid_y_pos: 0x024F_0000,
+            number_objects: 5,
+            number_gfx_objects: 3,
+            game_paused: false,
+            active_enemies: vec![live_child.clone(), live_body.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::from([(
+                "oracle_object_slots_loc_e1e".into(),
+                "0xffff0f70:code=0x03c048,hib=1@157,224;0xffff0e14:code=0x007456,hib=1@-".into(),
+            )]),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            active_enemies: vec![live_child, live_body, stale_gfx],
+            ..native[0].clone()
+        }];
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert!(
+            enemy_diffs.is_empty(),
+            "ASM Deallocate_GfxObject loc_10C6 can leave a displayed GfxObject slot with stale parent/layout pointers after Execute_Objects loc_E1E has unlinked the parent object"
         );
     }
 

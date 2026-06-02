@@ -980,14 +980,16 @@ Drips/slime area. Native reused generic `damage_flash_frames` for
 normal y-offset before oracle's hibernated/recoil window. Native now keeps a
 separate plain Tank `wait_timer` for the loc_3B49A hibernate/recoil trace
 window while TankShooting keeps its existing `damage_flash_frames` path.
-Focused Tank tests pass, and the route now matches through frame 452 before
-first diverging at frame 453 on a separate enemy-roster lifecycle issue:
-oracle still has an extra live layout `#09` RockTank object while native only
-has the later layout `#01` body/turret pair. Rejected follow-up: extending
-`Tank.asm loc_3B480` / `stru_3B29A` death animation duration does not explain
-this, because `tas-diff` shows the oracle layout `#09` object persists well
-past frame 519; keep `TANK_DEATH_ANIMATION_FRAMES = $10+$08+$3C` until a fresh
-death-specific oracle route proves otherwise.
+Focused Tank tests pass, but the route then exposed a terminal parent/gfx
+handoff at frame 453: native reached the delete tail one scheduler frame
+before oracle's `Hibernate_UntilAnimFinished loc_1062`, and oracle then kept a
+stale displayed GfxObject whose parent object was no longer in the active
+`Execute_Objects loc_E1E` list. Native now keeps the Tank `stru_3B29A` death
+parent alive for that terminal scheduler return, and enemy/case oracle
+normalisation ignores displayed GfxObjects whose parent object has already
+been unlinked by `Deallocate_GfxObject loc_10C6`. Verification:
+`issue213-x568-y575-w340-jump_b_hold-1200.json` is enemy-frontier clean through
+frames `0..560`, `560..700`, and `700..1200`.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`

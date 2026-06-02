@@ -6628,9 +6628,10 @@ pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
 /// ASM Ninja.asm loc_3DB4E plays `stru_3D50A`: $14, $0A, then $2D ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const NINJA_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x2D;
-/// ASM Tank.asm loc_3B480 plays `stru_3B29A`: $10, $08, then $3C ticks
-/// before the shared delete tail at loc_3C46E.
-pub(crate) const TANK_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;
+/// ASM Tank.asm loc_3B480 plays `stru_3B29A`: $10, $08, then $3C ticks,
+/// and `Hibernate_UntilAnimFinished loc_1062` returns one terminal scheduler
+/// frame before the shared delete tail at loc_3C46E.
+pub(crate) const TANK_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C + 1;
 /// ASM Tank_Shooting.asm loc_3B6E6 plays `stru_3B518`: $10, $08, then $3C
 /// ticks before the shared delete tail at loc_3C46E.
 pub(crate) const TANK_SHOOTING_DEATH_ANIMATION_FRAMES: u16 = 0x10 + 0x08 + 0x3C;

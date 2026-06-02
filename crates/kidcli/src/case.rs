@@ -1314,6 +1314,7 @@ fn semantic_from_oracle(
             .active_enemies
             .iter()
             .filter(|enemy| !oracle_enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
+            .filter(|enemy| !oracle_enemy_parent_object_is_orphaned_loc_e1e(state, enemy))
             .map(semantic_entity_from_oracle)
             .collect::<Vec<_>>()
     } else {
@@ -1454,6 +1455,27 @@ fn oracle_enemy_is_uninitialised_tank_gfx_proxy(
     // loc_368A8 activation box, it is a helper artefact rather than a
     // comparable gameplay entity.
     !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
+}
+
+fn oracle_enemy_parent_object_is_orphaned_loc_e1e(
+    state: &OracleState,
+    enemy: &OracleEnemyState,
+) -> bool {
+    let Some(parent_object_ptr) = enemy.parent_object_ptr else {
+        return false;
+    };
+    let Some(object_slots) = state
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+    else {
+        return false;
+    };
+
+    // ASM Execute_Objects loc_E1E is the authoritative active object list.
+    // GfxObject slots can retain display and parent/layout pointers after
+    // Deallocate_GfxObject loc_10C6 has unlinked the owning parent object.
+    let parent_marker = format!("{parent_object_ptr:#08x}:");
+    !object_slots.contains(&parent_marker)
 }
 
 fn semantic_events(
