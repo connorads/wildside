@@ -11473,6 +11473,41 @@ mod tests {
     }
 
     #[test]
+    fn scripted_recording_audio_events_emit_eol_score_counter_at_loc_d770() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut eol_start = sample_trace(GameMode::InGame);
+        eol_start.level_complete = true;
+
+        let mut scoreboard_setup = eol_start.clone();
+        scoreboard_setup.level_complete_score_rows_started = 1;
+        scoreboard_setup.level_complete_score_rows_elapsed_frames = 1;
+
+        let mut counter_started = scoreboard_setup.clone();
+        counter_started.level_complete_score_counter_elapsed_frames = 1;
+
+        let events = native_audio_events_for_trace(
+            &fixture.manifest,
+            &[eol_start, scoreboard_setup, counter_started],
+        );
+
+        assert_eq!(
+            events,
+            vec![
+                format!(
+                    "frame=0 mode=InGame level=00 active_before=None active_after=Some(ScoreBoard) command=Start({})",
+                    gems_bgm::SCORE_BOARD
+                ),
+                format!(
+                    "frame=2 mode=InGame level=00 command=PlaySound({})",
+                    gems_sfx::SCORE_COUNTER
+                ),
+            ],
+            "recording audio events should expose ASM Score_Board BGM and the delayed loc_D752/loc_D770 `sfx_Score_counter` cue without playing it during row setup"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn play_native_bgm_transition_does_not_restart_same_context() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let trace = sample_trace(GameMode::InGame);
