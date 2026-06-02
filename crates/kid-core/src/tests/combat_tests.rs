@@ -66,6 +66,47 @@ fn rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e() {
     );
 }
 
+#[test]
+fn pending_contact_damage_spends_before_motion_loc_b700() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.number_hitpoints = 1;
+    runtime.pending_player_contact_damage = Some(PendingPlayerContactDamage {
+        enemy_x: 0x0376_0000,
+        enemy_family: EnemyFamily::Tank,
+    });
+
+    let before = runtime
+        .opening_slice
+        .as_mut()
+        .expect("level start should seed a slice");
+    before.player.x_pos = 0x0366_2100;
+    before.player.y_pos = 0x024F_0000;
+    before.player.x_velocity = 0x0002_0000;
+    before.player.y_velocity = 0;
+    before.player.on_ground = true;
+
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+
+    let after = runtime
+        .opening_slice
+        .expect("death frame should preserve the gameplay slice");
+    assert_eq!(
+        after.player.x_pos, 0x0366_2100,
+        "ASM Mode_Level loc_3A6/Check_for_recent_damge loc_B700 consumes the previous GfxObjects_CollisionKid side contact before Character_Movement can spend the rightward velocity",
+    );
+    assert_eq!(after.player.y_pos, 0x024F_0000);
+    assert_eq!(runtime.progression.number_hitpoints, 0);
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ));
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

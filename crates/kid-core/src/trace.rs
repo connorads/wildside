@@ -3734,13 +3734,14 @@ mod tests {
     }
 
     #[test]
-    fn death_tumble_trace_exports_object_velocity_not_loc_b80c_locals() {
+    fn death_tumble_trace_exports_preserved_object_velocity_not_loc_b80c_locals() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES - 1,
         };
         runtime.death_windup_path = DeathWindupPath::Tumble;
+        runtime.death_preserved_object_velocity = Some((0x0002_0000, 0));
         let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
@@ -3755,7 +3756,7 @@ mod tests {
         // ASM Death loc_B7FA/loc_B80C moves the dying Kid with local d0/d1;
         // it does not write those tumble deltas into the Kid object velocity
         // fields sampled by the oracle helper.
-        assert_eq!(trace.kid_x_velocity, Some(0));
+        assert_eq!(trace.kid_x_velocity, Some(0x0002_0000));
         assert_eq!(trace.kid_y_velocity, Some(0));
     }
 
@@ -4686,6 +4687,19 @@ impl NativeRuntime {
                 PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
             )
         {
+            if matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            ) && self.death_windup_path == DeathWindupPath::Tumble
+                && self
+                    .death_preserved_object_velocity
+                    .is_some_and(|(x_velocity, _)| x_velocity != 0)
+            {
+                // ASM Death loc_B80C moves the visual shell with local d0/d1,
+                // but the oracle helper still sees the pre-death object
+                // x_vel, so the movement classifier remains walking.
+                return MOVE_WALKING;
+            }
             return MOVE_STANDINGSTILL;
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
@@ -5305,24 +5319,30 @@ impl NativeRuntime {
             self.progression.score
         };
         let kid_x_velocity = player_state.map(|state| {
-            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
-                && self.death_windup_path == DeathWindupPath::Tumble
+            if matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            ) && self.death_windup_path == DeathWindupPath::Tumble
             {
                 // ASM Death loc_B7FA/loc_B80C keeps tumble deltas in local
                 // `d0`/`d1` registers and moves `x_pos/y_pos` directly; Kid's
-                // object velocity fields are not updated during the death arc.
-                0
+                // object velocity fields keep their pre-death WRAM values.
+                self.death_preserved_object_velocity
+                    .map_or(0, |(x_velocity, _)| x_velocity)
             } else {
                 state.x_velocity
             }
         });
         let kid_y_velocity = player_state.map(|state| {
-            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
-                && self.death_windup_path == DeathWindupPath::Tumble
+            if matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            ) && self.death_windup_path == DeathWindupPath::Tumble
             {
                 // ASM Death loc_B7FA/loc_B80C uses local `d1` for tumble
                 // gravity; oracle WRAM velocity remains at the object field.
-                0
+                self.death_preserved_object_velocity
+                    .map_or(0, |(_, y_velocity)| y_velocity)
             } else if self.intro_sequence_6_start_velocity_sample_active() {
                 // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
                 // 23585) reaches the later IntroSequence6 shell with the

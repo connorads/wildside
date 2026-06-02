@@ -8916,6 +8916,9 @@ impl NativeRuntime {
         self.progression.invulnerable_frames = 0;
         self.death_windup_path = path;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
+        self.death_preserved_object_velocity = self
+            .opening_slice
+            .map(|slice| (slice.player.x_velocity, slice.player.y_velocity));
         self.death_shell_snapshot = self
             .opening_slice
             .map(|slice| self.build_death_shell_snapshot(&slice));
@@ -10504,6 +10507,14 @@ impl NativeRuntime {
                 self.queue_mini_hopping_skull_scream(false);
             }
             self.apply_damage_with_knockback(slice, pending.enemy_x, pending.enemy_family);
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+                // ASM Check_for_recent_damge loc_B700 can branch into Death
+                // before Character_Movement spends this frame's velocity. Native
+                // detects the previous collision after physics, so restore the
+                // frame-entry pose only for fatal contact damage.
+                slice.player.x_pos = frame_start_x_pos;
+                slice.player.y_pos = frame_start_y_pos;
+            }
             self.opening_slice = Some(*slice);
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
             return true;
@@ -10523,7 +10534,6 @@ impl NativeRuntime {
                 enemy_family,
             });
         }
-
         false
     }
 }

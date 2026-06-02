@@ -7566,6 +7566,7 @@ impl NativeRuntime {
             self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
+            self.death_preserved_object_velocity = None;
             self.death_shell_snapshot = None;
             self.level_complete_gfx_snapshot = None;
             return false;
