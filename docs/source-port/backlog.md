@@ -971,6 +971,23 @@ type-5 block until the exact route proves the mutated cell. Next #213 work
 needs a non-death route from the correct floor height that reaches live
 upward-jump contact, or should move to another repeated blocker rather than
 patching Drips from these reducers.
+
+Note 2026-06-02 follow-up for #213: the B-button upward jump route
+`.cache/scenarios/codex-issue-213-jump-b/issue213-x568-y575-w340-jump_b_hold-1200.json`
+showed a real plain RockTank nonfatal-hit timing mismatch before the later
+Drips/slime area. Native reused generic `damage_flash_frames` for
+`Tank.asm loc_3B49A`, so the parent resumed and the mouth child reported its
+normal y-offset before oracle's hibernated/recoil window. Native now keeps a
+separate plain Tank `wait_timer` for the loc_3B49A hibernate/recoil trace
+window while TankShooting keeps its existing `damage_flash_frames` path.
+Focused Tank tests pass, and the route now matches through frame 452 before
+first diverging at frame 453 on a separate enemy-roster lifecycle issue:
+oracle still has an extra live layout `#09` RockTank object while native only
+has the later layout `#01` body/turret pair. Rejected follow-up: extending
+`Tank.asm loc_3B480` / `stru_3B29A` death animation duration does not explain
+this, because `tas-diff` shows the oracle layout `#09` object persists well
+past frame 519; keep `TANK_DEATH_ANIMATION_FRAMES = $10+$08+$3C` until a fresh
+death-specific oracle route proves otherwise.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`

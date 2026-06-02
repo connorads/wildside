@@ -5376,10 +5376,13 @@ pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// ASM Tank.asm loc_3B49A: nonfatal mouth-child hits use the same five-frame
 /// hibernate window before loc_3B4BA resumes the shared walker.
 pub(crate) const TANK_HURT_HIBERNATE_FRAMES: u8 = 5;
-/// ASM Tank.asm loc_3B49A seeds the mouth-child recoil before hibernating, but
-/// native `damage_flash_frames` includes the pre-visible collision frames; the
-/// oracle roster first exposes the `stru_3B294` y-offset in the final 3 frames.
-const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES.saturating_sub(2);
+/// ASM Tank.asm loc_3B49A seeds the mouth-child recoil before hibernating.
+/// Native trace snapshots include the surrounding collision/sample frames, so
+/// the parent must stay parked longer than the raw `j_Hibernate_Object(5)`.
+pub(crate) const TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES * 2;
+/// ASM Tank.asm loc_3B49A writes child `$46=6` for the visible `stru_3B294`
+/// recoil tail after the pre-visible collision frames.
+const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES;
 /// ASM Tank_Shooting.asm loc_3B700 mirrors the same linked-child recoil timing
 /// through `stru_3B294`.
 const TANK_SHOOTING_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B700: u8 =
@@ -8735,6 +8738,9 @@ impl ActiveEnemy {
             );
             self.hit_points = route.next_current_hp as u8;
             self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            if matches!(route.route, TankUpdateRouteLoc3B41C::Hurt { .. }) {
+                self.wait_timer = u16::from(TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A);
+            }
             if route.clears_parent_motion_speed {
                 self.x_velocity = 0;
                 self.y_velocity = 0;
@@ -8960,6 +8966,7 @@ impl ActiveEnemy {
                         child_y_offset: tank_child_y_offset_loc_3b372_3b49a(
                             self.family,
                             self.damage_flash_frames,
+                            self.wait_timer,
                         ),
                         robot_parent_state: 0,
                         robot_child_mapping: 0,
@@ -9018,10 +9025,15 @@ impl ActiveEnemy {
     }
 }
 
-fn tank_child_y_offset_loc_3b372_3b49a(family: EnemyFamily, damage_flash_frames: u8) -> i16 {
+fn tank_child_y_offset_loc_3b372_3b49a(
+    family: EnemyFamily,
+    damage_flash_frames: u8,
+    wait_timer: u16,
+) -> i16 {
     match family {
         EnemyFamily::Tank
-            if (1..=TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A).contains(&damage_flash_frames) =>
+            if (1..=u16::from(TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A))
+                .contains(&wait_timer) =>
         {
             6
         }
@@ -9656,16 +9668,22 @@ pub(crate) fn step_active_enemies_with_rng(
                     let cells = step_driller(enemy, block_grid);
                     drilled_blocks.extend(cells);
                 } else {
-                    if (matches!(enemy.family, EnemyFamily::TankShooting)
+                    if matches!(enemy.family, EnemyFamily::Tank) && enemy.wait_timer > 0 {
+                        // ASM Tank.asm loc_3B49A hibernates the parent after
+                        // a nonfatal child hit before resuming the shared
+                        // walker; native `wait_timer` spans the ROM hibernate
+                        // plus trace-sampling collision frames.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::TankShooting)
                         && tank_shooting_hurt_hibernate_frames_remaining(enemy.damage_flash_frames)
-                            > 0)
-                        || (matches!(enemy.family, EnemyFamily::Tank)
-                            && tank_hurt_hibernate_frames_remaining(enemy.damage_flash_frames) > 0)
+                            > 0
                     {
-                        // ASM Tank.asm loc_3B49A and Tank_Shooting.asm
-                        // loc_3B700 hibernate the parent for five frames
-                        // after a nonfatal child hit before resuming the
-                        // shared walker.
+                        // ASM Tank_Shooting.asm loc_3B700 hibernates the parent
+                        // for five frames after nonfatal child/projectile hits.
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         continue;
@@ -26100,13 +26118,6 @@ fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 
     )
 }
 
-fn tank_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 {
-    // Native uses the shared damage-flash countdown as the visible part of
-    // ASM Tank.asm loc_3B49A's `j_Hibernate_Object(5)` window; the countdown
-    // is seeded before the sampled roster exposes the recoil pose.
-    damage_flash_frames
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
@@ -35877,13 +35888,13 @@ mod tests {
 
         assert_eq!(child.y_pos, 0x0248_0000);
 
-        tank.damage_flash_frames = TANK_HURT_HIBERNATE_FRAMES;
+        tank.wait_timer = TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A.into();
         let hibernate_child = tank
             .child_attachment_snapshot()
             .expect("ASM Tank.asm loc_3B49A hibernates before the recoil pose is visible");
         assert_eq!(hibernate_child.y_pos, 0x0248_0000);
 
-        tank.damage_flash_frames = TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A;
+        tank.wait_timer = TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A.into();
         let recoiled_child = tank
             .child_attachment_snapshot()
             .expect("ASM Tank.asm loc_3B49A keeps the linked turret child visible");
@@ -35895,7 +35906,7 @@ mod tests {
             "ASM Tank.asm loc_3B49A keeps the child object alive with zero HP while `stru_3B294` hibernates",
         );
 
-        tank.damage_flash_frames = 0;
+        tank.wait_timer = 0;
         let recovered_child = tank
             .child_attachment_snapshot()
             .expect("ASM Tank.asm loc_3B4BA resumes the normal child sync path");

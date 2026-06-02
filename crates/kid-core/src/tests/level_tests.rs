@@ -21680,6 +21680,11 @@ mod chunk_10 {
             runtime.active_enemies[0].x_velocity, 0,
             "ASM loc_3B49A should clear parent motion after nonfatal Tank damage",
         );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            u16::from(TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A),
+            "plain RockTank should keep its loc_3B49A hibernate/recoil countdown separate from generic damage flash",
+        );
         assert!(runtime.active_enemies[0].damage_flash_frames > 0);
     }
 

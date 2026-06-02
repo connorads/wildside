@@ -7731,6 +7731,10 @@ impl NativeRuntime {
                         // and clears parent motion on a nonfatal hit.
                         enemy.hit_points = remaining_hp as u8;
                         enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
+                        if matches!(enemy.family, EnemyFamily::Tank) {
+                            enemy.wait_timer =
+                                u16::from(TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A);
+                        }
                         if route.clears_parent_motion_speed {
                             enemy.x_velocity = 0;
                             enemy.y_velocity = 0;
