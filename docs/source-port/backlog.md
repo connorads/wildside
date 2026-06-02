@@ -770,7 +770,7 @@ its derived 0..120 case is also blocked and `case reduce` refuses. Re-record
 the IronKnight/DragonWalking contact or walk route before using either for
 damage-latch, slope, or form traversal work; do not reopen the one-hit helmet
 loss claim from these stale bundles.
-| 213 | [ ] | P1 | enemy/block | 2026-05-30 playtest: Level 01 Drips/slime and metal-block interaction still wrong | Evidence source: human playtest after pushed commits. Symptoms: Drips appears in the middle/air and does not form/sit on the floor correctly; jumping into the area can break a metal block or hit an invisible collision body. #169 is closed for the specific pool/drop regressions it covered, so this is a fresh live geometry/collision repro, not proof that those tests are wrong. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: settled Level 01 Drips DynamicScenario/recording with terrain contact and upward jump, compare Drips parent/child positions, surface crawler state, collision cell, and metal block mutation against oracle. |
+| 213 | [?] | P1 | enemy/block | 2026-05-30 playtest: Level 01 Drips/slime and metal-block interaction still wrong | Evidence source: human playtest after pushed commits. Symptoms: Drips appears in the middle/air and does not form/sit on the floor correctly; jumping into the area can break a metal block or hit an invisible collision body. #169 is closed for the specific pool/drop regressions it covered, so this is a fresh live geometry/collision repro, not proof that those tests are wrong. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: settled Level 01 Drips DynamicScenario/recording with terrain contact and upward jump, compare Drips parent/child positions, surface crawler state, collision cell, and metal block mutation against oracle. |
 
 Note 2026-05-31 for #213: natural settled Level 01 idle comparison initially hit an earlier enemy-roster divergence before any Drips were active. Native recording settle handed frame 0 to the trace one live frame too early: the first RockTank body at layout index 1 stayed at `$00A40000` while oracle had already run `Tank.asm loc_3B40A` into the shared walker and reached `$00A48000`, with the turret child still at `$00A40000` until the next hibernate sync (`loc_3C03A/loc_3C044`). Fixed `settle_recording_oracle_warp_live_window(LevelId(1))` to wait `ORACLE_SETTLED_WARP_LIVE_FRAMES + 1`, added `settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase`, and verified `.cache/recordings/issue-213-level01-idle-native/scenario.json` with `tas-diff --frame-start 0 --frame-end 180 --frontier-kind enemy --only-divergent`: 180/180 match. The Drips/slime collision repro remains open; this removes the earlier Level 01 timing blocker and should make the next Drips probe trustworthy.
 
@@ -819,6 +819,18 @@ mode, camera, player position, entities, and events. `case reduce` reports the
 case is already passing. This confirms the latest lower-floor prefix remains
 clean, but it still does not cover the later drop/pool/metal-block interaction;
 re-record a stable route past frame 135 before closing #213.
+
+Note 2026-06-02 latest for #213: rechecked current `main` after the playtest
+complaint and kept the item blocked, not closed. Focused Drips coverage remains
+green (`cargo test -q -p kid-core drips_ -- --nocapture`: 109 passed), and the
+only cache-backed current case still green is the 64-frame camera prefix
+(`cargo run -q -p kidcli -- case verify --case issue-213-drips-camera-only`:
+PASS). The longest candidate bundle still cannot reach the reported
+terrain/jump/metal-block interaction because `cargo run -q -p kidcli --
+verify-recording --slug tmp-issue-213-drips-current --native-only` drifts at
+frame 135 with a native trace mismatch. Continue by re-recording a stable
+settled Level 01 route past frame 135 before patching Drips or metal-block
+collision behaviour from this report.
 | 214 | [ ] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
