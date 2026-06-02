@@ -5397,10 +5397,7 @@ impl OpeningSliceState {
             self.player.x_pos = (clamped_center.max(0) as u32) << 16;
             let incoming_x_velocity = self.player.x_velocity;
             self.player.x_velocity = 0;
-            if probe.cell.has_block
-                && probe.cell.block_type == terrain::BlockType::Rubber
-                && !self.player.on_ground
-            {
+            if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Rubber {
                 self.player.wall_cling_direction = None;
                 self.player.right_wall_sticky = false;
                 self.player.left_wall_sticky = false;
@@ -5807,6 +5804,10 @@ impl OpeningSliceState {
             let left_edge_probe = terrain::probe_floor(grid, x_px - collision_hw, y_px);
             let right_edge_probe = terrain::probe_floor(grid, x_px + collision_hw, y_px);
             let mut probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+            let hitbox_slope_support_before_edge = matches!(
+                probe.cell.collision,
+                terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+            ) && probe.on_ground;
             if was_on_ground
                 && matches!(
                     probe.cell.collision,
@@ -5966,12 +5967,21 @@ impl OpeningSliceState {
                     // already on the ground (y_vel=0, no tile crossing), sub_902A
                     // exits early via loc_913A without touching y_pos. So we
                     // only clear sub-pixel on actual landings (airborne→grounded).
-                    if was_on_ground {
+                    if was_on_ground
+                        && !(!hitbox_slope_support_before_edge
+                            && self.player.y_velocity != 0
+                            && matches!(
+                                probe.cell.collision,
+                                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                            ))
+                    {
                         // Already grounded: preserve sub-pixel (sub_902A exits early)
                         self.player.y_pos =
                             (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
                     } else {
-                        // New landing: clear sub-pixel (sub_902A clr.w $20(a3))
+                        // New landing, or ASM loc_9FBC/loc_A0B4 slope-to-solid
+                        // exit: clear sub-pixel (`clr.w $20(a3)` / integer
+                        // `move.w d0,y_pos(a3)`).
                         self.player.y_pos = floor_y_fp & 0xFFFF_0000;
                     }
                     let incoming_y_velocity = self.player.y_velocity;
@@ -6009,7 +6019,23 @@ impl OpeningSliceState {
                         return None;
                     }
                     self.player.on_ground = true;
-                    self.player.y_velocity = 0;
+                    self.player.y_velocity = if was_on_ground
+                        && (hitbox_slope_support_before_edge
+                            || matches!(
+                                probe.cell.collision,
+                                terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                            )) {
+                        // ASM loc_9D22 -> sub_902A/sub_A254: steady
+                        // slope-walk frames keep the diagonal y_vel that
+                        // loc_9D22 derived from x_vel.  If the grounded edge
+                        // override snaps Y against the adjacent solid at a
+                        // slope-to-solid seam, preserve y_vel while the
+                        // original hitbox probe is still on the slope; clear
+                        // it once the hitbox probe itself becomes flat/solid.
+                        incoming_y_velocity
+                    } else {
+                        0
+                    };
                     self.player.wall_cling_direction = None;
                     if !was_on_ground {
                         // ASM loc_9F18 consumes only the single-frame

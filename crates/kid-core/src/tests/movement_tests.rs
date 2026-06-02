@@ -15690,6 +15690,42 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_8F26 -> loc_8F98 (kid.asm:10325,10368): Rubber wall contact
+    /// rebounds any saved rightward `x_vel >= $8000` by negating it.  The
+    /// bounce is not gated on airborne state; Highwater frame 732 hits this
+    /// while grounded.
+    #[test]
+    fn asm_faithful_loc_8f98_grounded_rubber_wall_rebounds_x_velocity() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (2usize * usize::from(w) + 3) * 2;
+        data[offset] = 0xE6;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+
+        slice.apply_wall_collision(Some(&grid), PlayerForm::TheKid.half_width());
+
+        assert_eq!(
+            slice.player.x_pos,
+            42 << 16,
+            "sub_8F26 should snap the right edge flush against the rubber wall",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "loc_8F98 should negate grounded rubber-wall speed above the $8000 threshold",
+        );
+        assert_eq!(slice.rubber_block_hit, Some((3, 2)));
+    }
+
     /// ASM loc_779C (kid.asm:7842): Maniaxe's live thrown axe is checked before
     /// either held direction.  When `Maniaxe_throwing_axe` is nonzero, the ROM
     /// branches straight to loc_7828 and keeps standing without changing facing.
@@ -17808,6 +17844,123 @@ mod chunk_12 {
             slope_down.pre_gravity_y_vel, slope_down.post_horizontal.1,
             "loc_9D22: SlopeDown stores y_vel = +x_vel before sub_B168",
         );
+    }
+
+    /// ASM loc_9D22 -> sub_A254 (kid.asm:11942,12495): steady slope-walk
+    /// frames carry the diagonal `y_vel` through the floor snap.  Clearing it
+    /// like a flat landing makes the next SlopeDown/Solid boundary snap half a
+    /// pixel too low, which is the Highwater frame-703 frontier behind #215.
+    #[test]
+    fn asm_faithful_loc_9d22_preserves_slope_y_velocity_after_floor_snap() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x24 << 16;
+        slice.player.y_pos = (64 + (0x24 & 0x0F)) << 16;
+        slice.player.x_velocity = 0x0001_8000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, slice.player.x_velocity,
+            "loc_9D22 SlopeDown walk should keep y_vel mirrored after sub_A254/floor handling",
+        );
+    }
+
+    /// ASM loc_9D22 -> sub_902A/sub_A254 (kid.asm:11942,10429,12495): a
+    /// grounded slope-walk contact is not a fresh flat landing, so the floor
+    /// collision pass must not clear the diagonal y velocity that loc_9D22
+    /// just stored.
+    #[test]
+    fn asm_faithful_floor_collision_preserves_grounded_slope_y_velocity() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x24 << 16;
+        slice.player.y_pos = (64 + (0x24 & 0x0F)) << 16;
+        slice.player.x_velocity = 0x0001_8000;
+        slice.player.y_velocity = 0x0001_8000;
+
+        slice.apply_floor_collision(
+            Some(&grid),
+            true,
+            true,
+            PlayerForm::TheKid.half_width(),
+            true,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0x0001_8000,
+            "sub_902A/sub_A254 should preserve loc_9D22's SlopeDown y_vel on an already-grounded slope",
+        );
+    }
+
+    /// ASM loc_9FBC/loc_A0B4 (kid.asm:12277,12367): when the slope walker
+    /// exits onto a solid support tile, the ROM snaps to the integer solid row
+    /// and clears `y_vel`, instead of preserving the previous grounded
+    /// sub-pixel like a flat walking frame.
+    #[test]
+    fn asm_faithful_slope_to_solid_exit_clears_floor_subpixel() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let solid_offset = (5usize * usize::from(w) + 2) * 2;
+        data[solid_offset] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x24 << 16;
+        slice.player.y_pos = (80 << 16) | 0x8000;
+        slice.player.y_velocity = 0x0001_8000;
+
+        slice.apply_floor_collision(
+            Some(&grid),
+            true,
+            true,
+            PlayerForm::TheKid.half_width(),
+            true,
+        );
+
+        assert_eq!(
+            slice.player.y_pos,
+            79 << 16,
+            "loc_9FBC solid-exit snap should clear the half-pixel carried by the slope step",
+        );
+        assert_eq!(slice.player.y_velocity, 0);
     }
 
     /// ASM sub_B168 runs before position in the AsmFaithful order. Even when

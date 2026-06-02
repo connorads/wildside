@@ -1950,6 +1950,28 @@ impl NativeRuntime {
         let x_px = (slice.player.x_pos >> 16) as i32;
         let left_col = ((x_px - crate::constants::PLAYER_HALF_WIDTH).max(0) / 16) as u16;
         let right_col = ((x_px + crate::constants::PLAYER_HALF_WIDTH).max(0) / 16) as u16;
+        if col < left_col || col > right_col {
+            // ASM sub_922C -> loc_930E (kid.asm:10699,10747): side-wall
+            // rubber contacts keep scanning the same column upward after each
+            // loc_10DA4 dispatch.  Native stores only the first hit cell in
+            // `rubber_block_hit`, so expand the side-wall column here.  Floor
+            // contacts keep the existing horizontal-span expansion below.
+            let foot_y_px = (slice.player.y_pos >> 16) as i32;
+            let top_row = ((foot_y_px - crate::constants::PLAYER_HEIGHT).max(0) / 16) as u16;
+            let foot_row = (foot_y_px.max(0) / 16) as u16;
+            for candidate_row in (top_row..=foot_row).rev() {
+                if candidate_row == row {
+                    continue;
+                }
+                let cell = grid.cell_at(col, candidate_row);
+                if cell.block_type == terrain::BlockType::Rubber
+                    && cell.collision == terrain::CollisionKind::Solid
+                {
+                    contacts.push((col, candidate_row));
+                }
+            }
+            return contacts;
+        }
         for candidate_col in left_col..=right_col {
             if candidate_col == col {
                 continue;
@@ -5659,6 +5681,49 @@ mod tests {
         assert_eq!(
             number_gfx_objects, base_number_gfx_objects,
             "sub_10DE4 workers should consume object slots without gfx slots",
+        );
+    }
+
+    #[test]
+    fn rubber_block_side_wall_contact_scans_column_upward_loc_922c() {
+        // ASM sub_922C -> loc_930E (kid.asm:10699,10747): wall scans keep
+        // walking upward through the same collision column after each rubber
+        // block handler dispatch. Highwater frame 732 touches two stacked
+        // rubber cells while rebounding from the side wall.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 72], 6, 6);
+        grid.set_cell_at(3, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 96,
+            height_pixels: 96,
+        });
+        slice.player.x_pos = 42 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.rubber_block_hit = Some((3, 2));
+
+        runtime.process_block_effects(&mut slice);
+
+        assert_eq!(
+            runtime.block_state.rubber_block_animations.len(),
+            2,
+            "loc_10DA4 should allocate one sub_10DE4 worker for each stacked side-wall rubber cell",
+        );
+        assert!(
+            runtime
+                .block_state
+                .rubber_block_animations
+                .iter()
+                .any(|entry| entry.col == 3 && entry.row == 1)
+        );
+        assert!(
+            runtime
+                .block_state
+                .rubber_block_animations
+                .iter()
+                .any(|entry| entry.col == 3 && entry.row == 2)
         );
     }
 
