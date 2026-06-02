@@ -8819,6 +8819,100 @@ mod chunk_02 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_D754_level_complete_trace_starts_score_counter_on_oracle_handoff() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            runtime.trace_frame().level_complete,
+            "flag touch should enter the ASM level-complete path"
+        );
+
+        let counter_start_frame = crate::level::EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE
+            + runtime.level_complete_scoreboard_reveal_frames_loc_C21E();
+
+        for _ in 0..counter_start_frame {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let before_counter = runtime.trace_frame();
+        assert_eq!(
+            before_counter.level_complete_score_counter_elapsed_frames, 0,
+            "ASM loc_D754/loc_D774 oracle handoff should not expose a loc_D770 transfer before the adjusted start frame"
+        );
+        assert_eq!(
+            before_counter.score, before_counter.level_complete_initial_score,
+            "before loc_D770, the live trace score should still be the copied EOL score"
+        );
+
+        runtime.step_frame(FrameInput::default());
+        let first_counter_frame = runtime.trace_frame();
+        assert_eq!(
+            first_counter_frame.level_complete_score_counter_elapsed_frames, 1,
+            "oracle frame probes show the first loc_D770 score transfer one frame after the loc_D774 return address is visible"
+        );
+        assert_eq!(
+            first_counter_frame.score,
+            first_counter_frame.level_complete_initial_score + 0x28,
+            "ASM loc_D770/loc_D77E should transfer the first `$28` chunk into `(Score).w` on the first counter frame"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D774_initial_oracle_stalls_hold_visible_score_counter() {
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(4),
+            4,
+            "oracle frame probes show the first four loc_D774-visible counter frames all change score"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(5),
+            4,
+            "oracle frame 312 holds the score while the collapsed native lifecycle is still in loc_D774"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(7),
+            5,
+            "oracle frame 314 is the second initial loc_D774 scheduler stall"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(8),
+            6,
+            "after the two observed initial stalls, trace frames resume one transfer per visible counter frame"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(13),
+            10,
+            "oracle frame 320 is another loc_D774-visible scheduler stall in the verified level-3 flag window"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(15),
+            11,
+            "oracle frame 322 repeats the even-frame stall cadence before the counter returns to score-changing frames"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(47),
+            35,
+            "the verified frame-359 window includes twelve total initial scheduler stalls before pure loc_D770 replay catches up"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(48),
+            36,
+            "after the currently verified initial stalls, trace-to-transfer mapping advances normally again"
+        );
+    }
+
+    #[test]
     fn no_hit_bonus_absent_when_damage_taken() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));

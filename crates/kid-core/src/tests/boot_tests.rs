@@ -2354,6 +2354,16 @@ mod chunk_01 {
             "the score counter still starts after Score_Board `$14`, the oracle-visible row fly-in delay, loc_D702 `$5A`, loc_D734 eight fade frames, and loc_D752 `$14`"
         );
         assert_eq!(
+            EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE, 6,
+            "oracle frame probes show the loc_D754 hibernate handoff reaches loc_D774 six trace frames before native's collapsed fixed counter clock"
+        );
+        assert_eq!(
+            EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE,
+            EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770
+                - EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE,
+            "native should start the visible loc_D770 counter from the oracle-observed loc_D754/loc_D774 handoff, not the unadjusted collapsed fixed wait"
+        );
+        assert_eq!(
             crate::level::EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE,
             0x3D,
             "issue-229 oracle WRAM probes show loc_D770 stays in mode $000C for 61 traced non-changing score frames beyond the score-changing transfer loop"

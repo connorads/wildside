@@ -7583,7 +7583,7 @@ impl NativeRuntime {
         );
         let reveal_frames = self.level_complete_scoreboard_reveal_frames_loc_C21E();
 
-        crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770
+        crate::level::EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE
             + reveal_frames
             + crate::level::EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE
             + counter.total_frames
@@ -7592,10 +7592,13 @@ impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn level_complete_live_score_loc_D770(&self, elapsed_counter_frames: usize) -> u32 {
         let tally = self.level_completion_bonus_tally_loc_D468();
+        let transfer_frames = crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(
+            elapsed_counter_frames,
+        );
         crate::level::eol_score_counter_snapshot_loc_D770(
             self.level_complete_initial_score,
             tally.amounts(),
-            elapsed_counter_frames,
+            transfer_frames,
         )
         .score
     }

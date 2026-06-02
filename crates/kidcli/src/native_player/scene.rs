@@ -2466,11 +2466,10 @@ fn eol_score_counter_snapshot_for_trace(
     } else {
         trace.score.saturating_sub(total_bonus)
     };
-    kid_core::eol_score_counter_snapshot_loc_D770(
-        initial_score,
-        &amounts[..count],
+    let transfer_frames = kid_core::eol_score_counter_transfer_frames_from_trace_loc_D770(
         trace.level_complete_score_counter_elapsed_frames,
-    )
+    );
+    kid_core::eol_score_counter_snapshot_loc_D770(initial_score, &amounts[..count], transfer_frames)
 }
 
 fn eol_score_room_palette_loc_d734(trace: &NativeTraceFrame, palette: &Palette) -> Palette {

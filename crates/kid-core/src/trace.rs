@@ -5171,7 +5171,7 @@ impl NativeRuntime {
         let level_complete_score_counter_elapsed_frames =
             if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
                 level_complete_elapsed_frames.saturating_sub(
-                    crate::level::EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770
+                    crate::level::EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE
                         + level_complete_reveal_frames,
                 )
             } else {

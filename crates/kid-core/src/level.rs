@@ -16989,11 +16989,23 @@ pub const EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE: usize = 0x3C;
 /// 294 traced frame deltas before loc_D7F4's final hibernate, so native keeps
 /// the collapsed lifecycle alive for those non-changing traced frames.
 pub const EOL_SCORE_COUNTER_STALL_FRAMES_LOC_D770_ORACLE: usize = 0x3D;
+/// Oracle-backed counter handoff. ASM loc_D752 pushes `$14` into
+/// `j_Hibernate_Object`, then plays `sfx_Score_counter` immediately before
+/// `loc_D770`; the level-3 flag probe exposes the hibernating object at
+/// `loc_D754` with five frames left on trace frame 300, the post-hibernate
+/// return address `loc_D774` on frame 307, and the first score delta on frame
+/// 308. Native trace clocks therefore need this six-frame lead when converting
+/// the collapsed level-complete lifecycle into the visible counter state.
+pub const EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE: usize = 6;
 pub const EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770: usize = 0x5A + 8 + 0x14;
 pub const EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770: usize = EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
     + EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E
     + EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE
     + EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770;
+pub const EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE: usize =
+    EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770 - EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE;
+const EOL_SCORE_COUNTER_INITIAL_STALL_TRANSFER_FRAMES_LOC_D774_ORACLE: [usize; 12] =
+    [5, 7, 13, 15, 21, 23, 29, 31, 37, 39, 45, 47];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EolScoreCounterSnapshotLocD770 {
@@ -17158,6 +17170,24 @@ pub fn eol_score_counter_snapshot_loc_D770(
         remaining_amounts,
         amount_count,
     }
+}
+
+/// Oracle-backed trace-frame mapping for the first visible `loc_D770` ticks.
+/// The hibernating flag object has already returned through `loc_D774`, but
+/// the level-3 flag probe shows no score delta on the listed visible counter
+/// frames through the currently verified frame-359 window. Native collapses
+/// the ROM's many EOL worker objects into one lifecycle, so trace/render code
+/// subtracts those observed scheduler stalls before replaying the pure ASM
+/// transfer loop.
+#[allow(non_snake_case)]
+pub fn eol_score_counter_transfer_frames_from_trace_loc_D770(
+    elapsed_counter_frames: usize,
+) -> usize {
+    let stalls = EOL_SCORE_COUNTER_INITIAL_STALL_TRANSFER_FRAMES_LOC_D774_ORACLE
+        .iter()
+        .filter(|&&stall_frame| elapsed_counter_frames >= stall_frame)
+        .count();
+    elapsed_counter_frames.saturating_sub(stalls)
 }
 
 #[allow(non_snake_case)]

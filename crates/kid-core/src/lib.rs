@@ -35,14 +35,15 @@ pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_STAR
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
 pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 pub use level::{
-    EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
+    EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
     EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE,
     EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
-    EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
+    EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE,
+    EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    eol_score_counter_snapshot_loc_D770, eol_title_return_faded_palette_word_loc_D734,
-    flagpole_scoreboard_reveal_tiles_loc_C21E,
+    eol_score_counter_snapshot_loc_D770, eol_score_counter_transfer_frames_from_trace_loc_D770,
+    eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 use std::collections::HashSet;
 use std::fs;
