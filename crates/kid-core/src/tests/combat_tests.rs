@@ -14334,6 +14334,10 @@ mod chunk_05 {
             runtime.weather.hail_spawn_timer,
             u16::from(expected_cooldown)
         );
+        assert_eq!(
+            runtime.weather.storm_free_falling_slots, 4,
+            "ASM loc_62C2 decrements `$FFFFFB3D` when a falling-weather slot spawns"
+        );
         // ASM loc_61E2 `addi.w #4,(a0)` — exact 4 px/frame downward.
         assert_eq!(
             p.y_velocity, 0x0004_0000,
@@ -14359,6 +14363,40 @@ mod chunk_05 {
         assert_eq!(p.homing_accel, 0, "hail: not homing");
         assert_eq!(p.speed_cap, 0, "hail: no homing speed cap");
         assert!(!p.wall_bounce, "hail: no wall bounce");
+    }
+
+    #[test]
+    fn hail_spawn_respects_five_falling_slot_cap_loc_625e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.hail_spawn_timer = 1;
+        runtime.weather.storm_free_falling_slots = 5;
+        for i in 0..5 {
+            runtime.projectiles.push(EnemyProjectile {
+                x_pos: (0x0040 + i * 0x10) << 16,
+                y_pos: 0x0030_0000,
+                x_velocity: -0x0001_0000,
+                y_velocity: 0x0004_0000,
+                kind: EnemyProjectileKind::Hail,
+                ..Default::default()
+            });
+        }
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            5,
+            "ASM sub_61CA loc_625E scans five falling-weather slots and skips spawn when none are inactive"
+        );
+        assert_eq!(
+            runtime.weather.storm_free_falling_slots, 0,
+            "native free-slot count should reflect the five live falling-weather slots before loc_625E"
+        );
     }
 
     #[test]

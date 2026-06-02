@@ -2345,6 +2345,16 @@ impl NativeRuntime {
         if dispatch_level_special_effects_sub_6034(u16::from(self.weather.weather_type)).is_none() {
             return;
         }
+        if self.weather.weather_type == 3 {
+            let active_hail_slots = self
+                .projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::Hail)
+                .take(FALLING_WEATHER_SLOT_COUNT_SUB_61CA)
+                .count() as u8;
+            self.weather.storm_free_falling_slots =
+                FALLING_WEATHER_SLOT_COUNT_SUB_61CA as u8 - active_hail_slots;
+        }
 
         let (foreground_theme_is_mountain, background_theme_is_mountain) = self
             .level_header(self.current_level)
@@ -2414,9 +2424,15 @@ impl NativeRuntime {
             return;
         }
         let cooldown_random = self.rom_random.next_byte();
-        let spawn_random = self.rom_random.next_byte();
         self.weather.storm_spawn_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
         self.weather.hail_spawn_timer = u16::from(self.weather.storm_spawn_cooldown);
+        // ASM sub_61CA loc_625E scans exactly five falling-weather slots. The
+        // cooldown RNG has already been consumed at loc_623A, but the second
+        // spawn-position RNG is only read after a free slot is found.
+        if self.weather.storm_free_falling_slots == 0 {
+            return;
+        }
+        let spawn_random = self.rom_random.next_byte();
 
         let camera_x = (slice.camera.x_pos >> 16) as u16;
         let spawn_x = camera_x
@@ -2438,6 +2454,8 @@ impl NativeRuntime {
             kind: EnemyProjectileKind::Hail,
             ..Default::default()
         });
+        self.weather.storm_free_falling_slots =
+            self.weather.storm_free_falling_slots.saturating_sub(1);
     }
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
