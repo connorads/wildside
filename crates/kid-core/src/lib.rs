@@ -241,6 +241,7 @@ pub struct NativeRuntime {
     /// `($FFFFFB5E).w`.
     options_menu_panel_delta: i16,
     level_timer: LevelTimer,
+    hud_animation_state: boot::HudAnimationStateSub44DC,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
     y_look_offset: i16,
@@ -1288,6 +1289,7 @@ impl NativeRuntime {
             options_menu_right_panel_x: 0x0110,
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
+            hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             y_look_offset: 0,
             camera_last_kid_y: 0,
             level_damage_taken: false,
@@ -1989,6 +1991,14 @@ impl NativeRuntime {
         }
         if replay_demo_1_timeout_handoff_frame {
             self.finish_demo_auto_timeout_return();
+        }
+
+        if gameplay_slice_active {
+            // ASM Mode_Level loc_80C (kid.asm:923): `bsr.w sub_44DC` advances
+            // animated HUD VRAM pages once per level frame before the rendered
+            // frame is sampled.
+            let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
+            self.hud_animation_state = step.next_state;
         }
 
         let trace = self.trace_frame();

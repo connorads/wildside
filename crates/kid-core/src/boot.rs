@@ -334,6 +334,27 @@ pub(crate) struct HudAnimationStateSub44DC {
     pub(crate) flag_frame_offset_fb61: u8,
 }
 
+impl HudAnimationStateSub44DC {
+    pub(crate) fn initialised_from_sub_44_b0() -> Self {
+        // ASM sub_44B0 (kid.asm:5520): seeds the five countdown bytes; the
+        // paired table offsets live in adjacent RAM and start at zero on level
+        // entry.
+        let frames = init_hud_animation_frames_sub_44B0();
+        Self {
+            coin_countdown_fb5b: frames.coin_3_frame,
+            coin_frame_offset_fb60: 0,
+            life_countdown_fb59: frames.heart_1_frame,
+            life_frame_offset_fb5e: 0,
+            clock_countdown_fb5a: frames.heart_2_frame,
+            clock_frame_offset_fb5f: 0,
+            diamond_countdown_fb58: frames.coin_1_frame,
+            diamond_frame_offset_fb5d: 0,
+            flag_countdown_fb5c: frames.coin_2_frame,
+            flag_frame_offset_fb61: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HudFrameUploadSub44DC {
     pub(crate) asset_label: &'static str,

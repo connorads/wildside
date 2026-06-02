@@ -661,6 +661,27 @@ mod tests {
     }
 
     #[test]
+    fn trace_exposes_live_hud_diamond_offset_from_sub_44dc() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+
+        assert_eq!(
+            runtime.trace_frame().hud_diamond_frame_offset,
+            Some(0),
+            "ASM sub_44B0 leaves `$FFFFFA5D` at zero before Mode_Level runs sub_44DC"
+        );
+
+        let trace = runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            trace.hud_diamond_frame_offset,
+            Some(2),
+            "ASM Mode_Level loc_80C calls sub_44DC; loc_45EE advances `$FFFFFA5D` by two on the first level frame"
+        );
+    }
+
+    #[test]
     fn in_game_object_counts_include_prize_block_transient_workers() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -5659,6 +5680,7 @@ impl NativeRuntime {
             walk_visual_accumulator: self
                 .opening_slice
                 .map_or(0, |slice| slice.walk_visual_accumulator),
+            hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {

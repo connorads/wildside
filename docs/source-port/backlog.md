@@ -1223,6 +1223,18 @@ water/player priority from this route without a fresh frame that visibly puts
 Kid in front of a priority foreground tile; the next actionable renderer work is
 to surface/model ASM `sub_44DC` HUD animation RAM rather than tuning the
 existing `trace.frame_index` shortcut.
+Note 2026-06-02 for #215: native now carries ASM `sub_44B0`/`sub_44DC`
+HUD animation state through `NativeRuntime` and exports `$FFFFFA5D` as
+`hud_diamond_frame_offset`. The renderer uses that traced `unk_461C` byte offset
+for the top-right HUD diamond when present, leaving the old frame-index phase
+only as a legacy trace fallback. Regressions:
+`trace_exposes_live_hud_diamond_offset_from_sub_44dc`,
+`game_hud_diamond_icon_animates_via_sub_44dc_dma_pages`, and
+`game_hud_diamond_icon_prefers_traced_sub_44dc_offset`. Focused verification is
+green, but the cache wrapper `verify-recording --slug
+issue-215-highwater-water-priority-audit` is now stale again and drifts at frame
+0 because recorded traces lack the new HUD field; refresh the recording before
+using strict pixels to judge the remaining #215 visual debt.
 | 216 | [ ] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and diamond collection sounds are delayed; level-complete sound does not finish cleanly. #160 covers continuous BGM/SFX output but not these event-specific timing edges. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: audio event trace for prize/block/diamond and flag-touch/EOL path, compare queued GEMS commands and rendered audio windows against oracle where available. |
 Note 2026-06-01 for #216: scripted recording SFX events exposed a live
 native-player duplication after #226 moved jump SFX into the core trace. The

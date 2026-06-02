@@ -2045,6 +2045,7 @@ mod tests {
             kid_facing: Some(Direction::Right),
             kid_on_ground: Some(true),
             walk_visual_accumulator: 0,
+            hud_diamond_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,
@@ -10848,7 +10849,7 @@ mod tests {
         trace.frame_index = 6;
         let frame_6 = build_ingame_scene(&trace, false, None);
 
-        let diamond_sheet_len = |scene: &Scene| {
+        let diamond_page_sample = |scene: &Scene| {
             scene.commands.iter().find_map(|command| match command {
                 DrawCommand::Sprite {
                     x,
@@ -10860,21 +10861,61 @@ mod tests {
                     && *y == 0xA2 - 128
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
                 {
-                    Some(tile_sheet.tiles.len())
+                    tile_sheet.tiles.first().map(|tile| tile.pixels[0])
                 }
                 _ => None,
             })
         };
 
         assert_eq!(
-            diamond_sheet_len(&frame_0),
+            diamond_page_sample(&frame_0),
             Some(18),
             "ASM sub_44B0 seeds the diamond countdown to 1, and the rendered HUD page includes the current sub_44DC loc_45EE upload, so replay-local frame 0 displays the third `unk_461C` page"
         );
         assert_eq!(
-            diamond_sheet_len(&frame_6),
+            diamond_page_sample(&frame_6),
             Some(19),
             "ASM sub_44DC advances `unk_461C` after 6 VBlanks, so native must not keep the HUD diamond static"
+        );
+    }
+
+    #[test]
+    fn game_hud_diamond_icon_prefers_traced_sub_44dc_offset() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 0;
+        trace.hud_diamond_frame_offset = Some(6);
+        let frame_offset_6 = build_ingame_scene(&trace, false, None);
+
+        trace.frame_index = 60;
+        let frame_index_60_same_offset = build_ingame_scene(&trace, false, None);
+
+        let diamond_page_sample = |scene: &Scene| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if *x == 0x1A0 - 128
+                    && *y == 0xA2 - 128
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
+                {
+                    tile_sheet.tiles.first().map(|tile| tile.pixels[0])
+                }
+                _ => None,
+            })
+        };
+
+        assert_eq!(
+            diamond_page_sample(&frame_offset_6),
+            Some(19),
+            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`, selecting the fourth `unk_461C` diamond DMA page"
+        );
+        assert_eq!(
+            diamond_page_sample(&frame_index_60_same_offset),
+            Some(19),
+            "HUD diamond rendering should use traced sub_44DC RAM, not replay-local frame_index phase"
         );
     }
 

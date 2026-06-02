@@ -840,6 +840,7 @@ mod tests {
             kid_facing: None,
             kid_on_ground: Some(false),
             walk_visual_accumulator: 0,
+            hud_diamond_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

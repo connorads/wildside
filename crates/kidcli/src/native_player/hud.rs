@@ -196,6 +196,7 @@ pub(super) fn push_hud_icon(
             // diamond_1..4 into the same $6EA VRAM page, so the HUD icon uses
             // the currently uploaded diamond page.
             let animation_frame = hud_diamond_animation_frame_index(
+                trace.hud_diamond_frame_offset,
                 trace.frame_index,
                 level_visuals.floating_prizes.diamond.frames.len(),
             );
@@ -232,9 +233,19 @@ pub(super) fn push_hud_icon(
     }
 }
 
-fn hud_diamond_animation_frame_index(frame_index: usize, frame_count: usize) -> usize {
+fn hud_diamond_animation_frame_index(
+    hud_diamond_frame_offset: Option<u8>,
+    frame_index: usize,
+    frame_count: usize,
+) -> usize {
     if frame_count == 0 {
         return 0;
+    }
+    if let Some(offset) = hud_diamond_frame_offset {
+        // ASM sub_44DC loc_45EE/loc_460A (kid.asm:5670): `$FFFFFA5D`
+        // stores the byte offset into `unk_461C`, whose speed/frame pairs are
+        // laid out at offsets 0,2,4,6 for diamond pages 0..3.
+        return usize::from(offset / 2) % frame_count;
     }
     // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1. The native
     // trace frame is sampled after the previous visible VBlank plus the
