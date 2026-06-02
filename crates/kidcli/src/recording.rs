@@ -1935,6 +1935,10 @@ fn trace_frames_match(
         normalised_expected.number_gfx_objects = actual.number_gfx_objects;
     }
 
+    if expected.hud_diamond_frame_offset.is_none() {
+        normalised_expected.hud_diamond_frame_offset = actual.hud_diamond_frame_offset;
+    }
+
     &normalised_expected == actual
 }
 
@@ -2662,6 +2666,26 @@ mod tests {
         assert_eq!(
             legacy_drift, None,
             "older visual-validation recordings predate played_sound_effect_ids, so replay verification should only normalise frames whose raw trace omitted that field"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_hud_diamond_frame_offset() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.hud_diamond_frame_offset = Some(4);
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "older recording bundles predate the HUD diamond animation diagnostic, so replay verification should not treat the added trace field as gameplay drift"
         );
     }
 
