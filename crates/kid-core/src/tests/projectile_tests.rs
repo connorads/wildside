@@ -1179,12 +1179,12 @@ mod chunk_06 {
         // special `d7=-1` wall-hit path for rubber. The death-respawn route must
         // bounce back into MoveID_Jump instead of zeroing x_vel and entering the
         // native wall-cling state on frame 1292/1293.
-        assert_eq!(frame_1291.kid_x_velocity, Some(0x0002_5FF8));
+        assert_eq!(frame_1291.kid_x_velocity, Some(0x0002_6DC0));
         assert_eq!(frame_1291.character_movement, Some(3));
-        assert_eq!(frame_1292.kid_x_velocity, Some(-0x0002_5EF8));
+        assert_eq!(frame_1292.kid_x_velocity, Some(-0x0002_6CC0));
         assert_eq!(frame_1292.character_movement, Some(3));
         assert_eq!(frame_1292.kid_on_ground, Some(false));
-        assert_eq!(frame_1293.kid_x_velocity, Some(-0x0002_1E78));
+        assert_eq!(frame_1293.kid_x_velocity, Some(-0x0002_2C40));
         assert_eq!(frame_1293.character_movement, Some(3));
         assert_eq!(frame_1293.kid_on_ground, Some(false));
     }

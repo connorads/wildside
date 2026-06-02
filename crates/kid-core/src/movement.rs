@@ -3039,18 +3039,20 @@ impl OpeningSliceState {
                     // sub_8600 on every flat walking frame before sub_9A0A
                     // chooses the ground speed table.
                     //
-                    // Native keeps this constrained while the high-speed
-                    // rubber/death seam is still modelled by older collision
-                    // paths: the natural frame-731 hand-off is a stale Normal
-                    // latch at or below the normal walking cap.
+                    // Native keeps rubber entry constrained while the
+                    // high-speed rubber/death seam is still modelled by older
+                    // collision paths: the natural frame-731 hand-off is a
+                    // stale Normal latch at or below the normal walking cap.
+                    // Leaving rubber is different: ASM sub_8600 refreshes code
+                    // 0 unconditionally before sub_9A0A, and stale rubber
+                    // latches must not survive onto normal support.
                     let x_px = (self.player.x_pos >> 16) as i32;
                     let y_px = (self.player.y_pos >> 16) as i32;
                     let refreshed = grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
                     let speed = self.player.x_velocity.unsigned_abs();
                     if (refreshed == TerrainType::Rubber && speed <= 0x0002_0000)
                         || (self.terrain.floor_terrain_type != TerrainType::Normal
-                            && refreshed == TerrainType::Normal
-                            && speed <= 0x0000_6000)
+                            && refreshed == TerrainType::Normal)
                     {
                         // ASM loc_9AE0 maps terrain code 2 to `unk_9C7A`.
                         // Native's semantic TerrainType names predate that

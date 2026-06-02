@@ -17633,6 +17633,55 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E16 -> sub_8600 -> sub_9A0A (kid.asm:10212, 9445, 11673):
+    /// the surface-code refresh is unconditional on flat walking frames. A
+    /// cache-local Level 0x02 probe (`issue-218-rubber-level02-probe`) exposed
+    /// the stale latch: after leaving the narrow rubber strip, native kept the
+    /// previous rubber table and accelerated by `$200`, while oracle refreshed
+    /// to normal terrain and accelerated by `$1000`.
+    #[test]
+    fn loc_8e16_refreshes_stale_rubber_latch_to_normal_at_speed() {
+        let w: u16 = 40;
+        let h: u16 = 40;
+        let mut grid = grid_with_cells(w, h, &[(30, 36, 0x60, 0x17), (31, 36, 0x60, 0x17)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x01e5_4000;
+        slice.player.y_pos = 0x023f_0000;
+        slice.player.x_velocity = 0x0001_8000;
+        slice.terrain.floor_terrain_type = TerrainType::Rubber;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_velocity, 0x0001_9000,
+            "ASM sub_8600 should refresh stale rubber to code 0 before sub_9A0A applies normal $1000 acceleration"
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x01e6_d000,
+            "ASM sub_8F26 should advance by the refreshed normal-table velocity"
+        );
+    }
+
     /// ASM loc_8E06 -> sub_B43A -> loc_8E16 -> sub_8F26 -> loc_8E4E:
     /// the flat-floor support scan runs before horizontal motion. If the
     /// rightward step walks past that support and finds no slope, loc_8E4E

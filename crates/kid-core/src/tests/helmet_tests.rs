@@ -8966,7 +8966,7 @@ mod chunk_08 {
         // synthetic death camera.
         assert_eq!(frame_1161.number_hitpoints, 1);
         assert_eq!(frame_1161.camera_x_pos, 0x0415_0000);
-        assert_eq!(frame_1161.kid_y_pos, Some(0x0077_B8C0));
+        assert_eq!(frame_1161.kid_y_pos, Some(0x0077_8F80));
         assert_eq!(frame_1163.number_hitpoints, 1);
         assert_eq!(frame_1163.camera_x_pos, 0x041A_0000);
         assert!(
