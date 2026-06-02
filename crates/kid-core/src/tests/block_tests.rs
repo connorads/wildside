@@ -12497,6 +12497,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_uses_horizontal_escape_when_side_overlap_is_smaller_loc_2686() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(40, 110);
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert_eq!(
+            slice.player.x_pos,
+            34u32 << 16,
+            "ASM Platforms_CheckCollision loc_2672 should choose the smaller 6px horizontal escape and loc_2686 should push Kid left instead of landing",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            110u32 << 16,
+            "ASM loc_2686 horizontal escape should not snap Kid to platform_y - 1",
+        );
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_2686 side escape should not record platform support via loc_26D4",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),
@@ -14417,15 +14440,15 @@ mod chunk_04 {
     #[test]
     fn platform_collision_horizontal_overlap_boundary() {
         // Mutants: lines 95, 128 — replace < with <=, > with >=
-        // Test exact boundary: player_right == plat_x_px (should miss with <, hit with <=)
+        // Test exact boundary: player_right == plat_x_px overlaps, but ASM
+        // loc_2672 resolves the equal corner escape horizontally instead of
+        // entering loc_26D4 landing.
         let platform = make_test_platform(40, 100, 2, 0); // plat_x_px=40, plat_right=87
         // player at x=35 → player_left=30, player_right=40. player_right(40) < plat_x_px(40) is false → overlap
         let mut slice = make_airborne_slice(35, 100);
         apply_platform_collision(&mut slice, &[platform]);
-        assert!(
-            slice.player.on_ground,
-            "player_right == plat_x_px should count as overlap"
-        );
+        assert_eq!(slice.player.x_pos, 34u32 << 16);
+        assert!(!slice.player.on_ground);
 
         // player at x=93 → player_left=88, player_right=98. player_left(88) > plat_right(87) → miss
         let mut slice = make_airborne_slice(93, 100);
@@ -14438,10 +14461,8 @@ mod chunk_04 {
         // player at x=92 → player_left=87, player_right=97. player_left(87) > plat_right(87) is false → overlap
         let mut slice = make_airborne_slice(92, 100);
         apply_platform_collision(&mut slice, &[platform]);
-        assert!(
-            slice.player.on_ground,
-            "player_left == plat_right should count as overlap"
-        );
+        assert_eq!(slice.player.x_pos, 93u32 << 16);
+        assert!(!slice.player.on_ground);
     }
 
     #[test]
@@ -14599,13 +14620,12 @@ mod chunk_04 {
             "player below platform bottom should NOT land"
         );
 
-        // Player at y=131 — feet at platform bottom → should land (> not >=)
+        // Player at y=131 — feet at platform bottom still resolves sideways
+        // because ASM loc_2672 compares full AABB escape magnitudes first.
         let mut slice = make_airborne_slice(50, 131);
         apply_platform_collision(&mut slice, &[platform]);
-        assert!(
-            slice.player.on_ground,
-            "player at platform bottom edge should land"
-        );
+        assert_eq!(slice.player.x_pos, 34u32 << 16);
+        assert!(!slice.player.on_ground);
     }
 
     #[test]

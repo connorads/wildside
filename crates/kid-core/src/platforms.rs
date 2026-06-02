@@ -829,6 +829,68 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             continue;
         }
 
+        let plat_bottom = plat_y_px + i32::from(platform.height_px);
+        let player_top = player_foot_y_px - PLAYER_HEIGHT;
+        if plat_y_px <= player_foot_y_px && plat_bottom >= player_top {
+            // ASM Platforms_CheckCollision loc_25A0..loc_2686: after the
+            // AABB overlap test, compare the absolute horizontal and vertical
+            // escape distances. Only a strictly smaller vertical escape enters
+            // loc_26D4 landing; ties and smaller horizontal escapes go through
+            // loc_2686 and push Kid sideways.
+            let platform_left_px = plat_x_px as i16;
+            let platform_right_px = plat_right as i16;
+            let platform_top_px = plat_y_px as i16;
+            let platform_bottom_px = plat_bottom as i16;
+            let kid_left_px = player_left as i16;
+            let kid_right_px = player_right as i16;
+            let kid_top_px = player_top as i16;
+            let kid_bottom_px = player_foot_y_px as i16;
+
+            let push_x_px = if kid_left_px > platform_left_px {
+                if kid_right_px > platform_right_px {
+                    horizontal_overlap_right_exit_loc_2616(platform_right_px, kid_left_px).push_x_px
+                } else {
+                    horizontal_overlap_resolution_loc_25EE(
+                        platform_left_px,
+                        platform_right_px,
+                        kid_left_px,
+                        kid_right_px,
+                    )
+                    .push_x_px
+                }
+            } else {
+                platform_left_px.wrapping_sub(kid_right_px).wrapping_sub(1)
+            };
+            let push_y_px = if kid_top_px > platform_top_px {
+                if kid_bottom_px > platform_bottom_px {
+                    vertical_overlap_bottom_exit_loc_265A(platform_bottom_px, kid_top_px).push_y_px
+                } else {
+                    vertical_overlap_resolution_loc_2632(
+                        platform_top_px,
+                        platform_bottom_px,
+                        kid_top_px,
+                        kid_bottom_px,
+                    )
+                    .push_y_px
+                }
+            } else {
+                vertical_overlap_top_exit_loc_261E(platform_top_px, kid_bottom_px).push_y_px
+            };
+            let horizontal_magnitude = push_x_px.unsigned_abs();
+            let vertical_magnitude = vertical_push_magnitude_loc_266A(push_y_px).magnitude_word;
+            if vertical_magnitude >= horizontal_magnitude {
+                let pushed = apply_horizontal_platform_push_loc_2686(
+                    kid_left_px,
+                    kid_right_px,
+                    player_x_px as i16,
+                    push_x_px,
+                );
+                slice.player.x_pos = (i32::from(pushed.kid_gfx_x_px).max(0) as u32) << 16;
+                slice.player.on_ground = false;
+                return PlatformCollisionOutcome::None;
+            }
+        }
+
         // Vertical check: player feet should be at or just below the platform top.
         // Use the same snap tolerance as terrain floor collision.
         let plat_top_fp = platform.y_pos;
@@ -837,7 +899,6 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
 
         if feet_at_or_below || within_snap {
             // Don't land if player feet are well past the platform (inside it)
-            let plat_bottom = plat_y_px + i32::from(platform.height_px);
             if player_foot_y_px > plat_bottom {
                 continue;
             }

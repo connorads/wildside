@@ -12679,13 +12679,12 @@ mod chunk_05 {
         // Mutant: line 140 — + with * in plat_bottom
         // If + became *, plat_bottom would be plat_y * height instead of plat_y + height
         let platform = make_test_platform(40, 100, 2, 1); // height=31, bottom=131
-        // Player at y=130 — just inside platform → should land
+        // Player at y=130 — just inside platform, but ASM loc_2672 compares
+        // escape magnitudes first and resolves this as a smaller side push.
         let mut slice = make_airborne_slice(50, 130);
         apply_platform_collision(&mut slice, &[platform]);
-        assert!(
-            slice.player.on_ground,
-            "player inside platform depth should land"
-        );
+        assert_eq!(slice.player.x_pos, 34u32 << 16);
+        assert!(!slice.player.on_ground);
     }
 
     #[test]
