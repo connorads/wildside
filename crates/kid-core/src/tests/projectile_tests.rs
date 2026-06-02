@@ -7814,6 +7814,49 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_95DA (kid.asm:11059): ordinary Berzerker walk frames take
+    /// `abs(x_vel)`, then `swap; rol.l #5`; velocity `$20000` therefore adds
+    /// `$40` to `$FFFFF8F0`, unlike loc_9564's charge-overflow `$28` delta.
+    #[test]
+    #[allow(non_snake_case)]
+    fn berzerker_regular_walk_visual_accumulator_advances_loc_95DA() {
+        assert_eq!(
+            NativeRuntime::berzerker_regular_walk_visual_accumulator_loc_95DA(0x0100, 0x2_0000),
+            0x0140,
+            "ASM loc_95DA: `$20000` -> swap `$0002`, rol #5 -> `$40`"
+        );
+        assert_eq!(
+            NativeRuntime::berzerker_regular_walk_visual_accumulator_loc_95DA(0x0100, -0x2_0000),
+            0x0140,
+            "ASM loc_95DA: negative velocity is normalised before phase increment"
+        );
+        assert_eq!(
+            NativeRuntime::berzerker_regular_walk_visual_accumulator_loc_95DA(0x05F0, 0x2_0000),
+            0x0030,
+            "ASM loc_95F2: accumulator wraps once at `$600`"
+        );
+    }
+
+    /// ASM loc_9580 -> loc_95DA -> loc_9600 (kid.asm:11026-11072):
+    /// non-overflow Berzerker charge frames clear the charge flag but still
+    /// advance `$FFFFF8F0` and write the ordinary off_967C walk sprite.
+    #[test]
+    fn berzerker_non_overflow_walk_advances_visual_accumulator_loc_95da_9600() {
+        let mut rt = berzerker_charge_runtime(0x00, FrameInput::default());
+        let mut slice =
+            berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
+        slice.walk_visual_accumulator = 0x0100;
+
+        rt.step_berzerker_charge(&mut slice);
+
+        assert!(!rt.helmet.berzerker_charging);
+        assert!(rt.helmet.berzerker_walk_pose);
+        assert_eq!(
+            slice.walk_visual_accumulator, 0x0140,
+            "ASM loc_95DA must advance `$FFFFF8F0` even when loc_9526 does not carry"
+        );
+    }
+
     /// ASM sub_942A loc_9534/loc_9564 (kid.asm:10993-11013): Berzerker
     /// accumulator carry advances `$FFFFF8F0`, then off_9688 uses
     /// `$FFFFF8F0 >> 8` for the head-forward charge pose.

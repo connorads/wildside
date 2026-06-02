@@ -6394,6 +6394,25 @@ impl NativeRuntime {
     // subsequent evanescent-shooter scans in the stacked Highwater columns.
     const BERZERKER_CHARGE_POSE_FRAMES_LOC_9564: u8 = 6;
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn berzerker_regular_walk_visual_accumulator_loc_95DA(
+        current_accumulator: u16,
+        x_velocity: i32,
+    ) -> u16 {
+        // ASM loc_95DA (kid.asm:11059): ordinary Berzerker walking reloads
+        // `$FFFFF8F0`, takes `abs(d0)`, then `swap; rol.l #5` to derive the
+        // off_967C phase increment, wrapping once at `$600`.
+        let speed = x_velocity.unsigned_abs();
+        let delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+        let next = current_accumulator.wrapping_add(delta);
+        if next >= 0x0600 {
+            next.wrapping_sub(0x0600)
+        } else {
+            next
+        }
+    }
+
     /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
     pub(crate) fn step_berzerker_charge(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.current_form != PlayerForm::Berzerker {
@@ -6436,10 +6455,15 @@ impl NativeRuntime {
             // `(Berzerker_charging).w`; native stores that flag directly.
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
-            if moving_forward && slice.player.x_velocity != 0 {
+            if slice.player.x_velocity != 0 {
                 // ASM loc_957C -> loc_9580 -> loc_95DA -> loc_9600: rejected
                 // Berzerker charge frames still write the ordinary off_967C
                 // walk sprite before later collision may zero x_vel.
+                slice.walk_visual_accumulator =
+                    Self::berzerker_regular_walk_visual_accumulator_loc_95DA(
+                        slice.walk_visual_accumulator,
+                        slice.player.x_velocity,
+                    );
                 self.helmet.berzerker_walk_pose = true;
             }
             return;
@@ -6481,6 +6505,11 @@ impl NativeRuntime {
             self.helmet.berzerker_charging = false;
             // ASM loc_9580 -> loc_95DA -> loc_9600 writes the regular
             // Berzerker walk sprite on non-overflow accumulator frames.
+            slice.walk_visual_accumulator =
+                Self::berzerker_regular_walk_visual_accumulator_loc_95DA(
+                    slice.walk_visual_accumulator,
+                    slice.player.x_velocity,
+                );
             self.helmet.berzerker_walk_pose = true;
         }
     }
