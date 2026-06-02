@@ -1308,7 +1308,11 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_objects".into(),
                 native_value: format!("{}", native.number_objects),
                 oracle_value: format!("{}", oracle.number_objects),
-                category: DivergenceCategory::Authoritative,
+                category: if rubber_worker_counter_sampling_matches(native, oracle) {
+                    DivergenceCategory::OracleLimitation
+                } else {
+                    DivergenceCategory::Authoritative
+                },
             });
         }
         if native.number_hitpoints != oracle.number_hitpoints {
@@ -1526,6 +1530,29 @@ fn oracle_demo_kid_gfx_velocity_matches(native: &OracleState, oracle: &OracleSta
             && Some(enemy.x_velocity) == native.kid_x_vel
             && Some(enemy.y_velocity) == native.kid_y_vel
     })
+}
+
+fn rubber_worker_counter_sampling_matches(native: &OracleState, oracle: &OracleState) -> bool {
+    if native.game_mode != oracle.game_mode
+        || native.current_level_id != oracle.current_level_id
+        || native.camera_x_pos != oracle.camera_x_pos
+        || native.camera_y_pos != oracle.camera_y_pos
+        || native.kid_x_pos != oracle.kid_x_pos
+        || native.kid_y_pos != oracle.kid_y_pos
+    {
+        return false;
+    }
+
+    let native_rubber_probe = native
+        .gameplay_debug_fields
+        .get("kid_flip_branch_probe")
+        .is_some_and(|probe| probe.contains("collision=solid block=Rubber"));
+    let oracle_rubber_workers = oracle
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+        .is_some_and(|slots| slots.contains("code=0x010e"));
+
+    native_rubber_probe && oracle_rubber_workers
 }
 
 fn enemy_roster_frontier_matches(native: &OracleState, oracle: &OracleState) -> bool {
@@ -3664,6 +3691,51 @@ mod tests {
                 .iter()
                 .all(|diff| diff.category == DivergenceCategory::OracleLimitation)
         );
+    }
+
+    #[test]
+    fn rubber_worker_number_object_counter_sampling_is_oracle_limitation() {
+        let mut native = demo_velocity_state(0, 0);
+        native.game_mode = 0x000C;
+        native.current_level_id = 0x02;
+        native.number_objects = 10;
+        native.number_gfx_objects = 4;
+        native.gameplay_debug_fields.insert(
+            "kid_flip_branch_probe".into(),
+            "wall=hit=1/x=800/cell=50,104 collision=solid block=Rubber has_block=1".into(),
+        );
+
+        let mut oracle = native.clone();
+        oracle.number_objects = 8;
+        oracle.number_gfx_objects = 6;
+        oracle.gameplay_debug_fields.clear();
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff0f70:code=0x010e36,hib=1@-;0xffff0fe4:code=0x010e36,hib=1@-".into(),
+        );
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn ordinary_number_object_mismatch_stays_authoritative() {
+        let mut native = demo_velocity_state(0, 0);
+        native.game_mode = 0x000C;
+        native.current_level_id = 0x02;
+        native.number_objects = 10;
+
+        let mut oracle = native.clone();
+        oracle.number_objects = 8;
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
     }
 
     #[test]

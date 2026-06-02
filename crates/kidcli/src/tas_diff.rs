@@ -6,7 +6,8 @@ use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, run_native_dynamic_scenario,
 };
 use crate::sweep::{
-    ADVISORY_FIELDS, FrontierKind, compare_sweep_states_for_frontier, extract_checkpoint_states,
+    DivergenceCategory, FrontierKind, StateDiff, compare_sweep_states_for_frontier,
+    extract_checkpoint_states,
 };
 
 /// Run native and oracle side-by-side, print per-frame divergences.
@@ -134,26 +135,27 @@ pub fn run_tas_diff(
 
         diverge_count += 1;
         let diffs = frame_diffs.unwrap();
-        let auth_count = diffs
+        let authoritative_count = diffs
             .iter()
-            .filter(|d| !ADVISORY_FIELDS.contains(&d.field.as_str()))
+            .filter(|diff| diff.category == DivergenceCategory::Authoritative)
             .count();
-        let adv_count = diffs.len() - auth_count;
+        let non_authoritative_count = diffs.len() - authoritative_count;
 
-        if auth_count > 0 {
+        if authoritative_count > 0 {
             println!(
-                "frame {frame_idx}: \x1b[31mDIVERGE\x1b[0m ({auth_count} authoritative, {adv_count} advisory)"
+                "frame {frame_idx}: \x1b[31mDIVERGE\x1b[0m ({authoritative_count} authoritative, {non_authoritative_count} non-authoritative)"
             );
         } else {
-            println!("frame {frame_idx}: \x1b[33mADVISORY\x1b[0m ({adv_count} advisory)");
+            println!(
+                "frame {frame_idx}: \x1b[33mNON-AUTH\x1b[0m ({non_authoritative_count} non-authoritative)"
+            );
         }
 
         for diff in diffs {
-            let is_advisory = ADVISORY_FIELDS.contains(&diff.field.as_str());
-            if is_advisory && !include_advisory {
+            if diff.category != DivergenceCategory::Authoritative && !include_advisory {
                 continue;
             }
-            let tag = if is_advisory { " (advisory)" } else { "" };
+            let tag = diff_category_tag(diff);
             println!(
                 "  {:<20} native={:<14} oracle={:<14}{tag}",
                 diff.field, diff.native_value, diff.oracle_value
@@ -211,7 +213,7 @@ pub fn run_tas_diff(
 
         let oracle_state = checkpoint_state(&oracle.states, &label);
         if should_print_object_roster(
-            auth_count > 0,
+            authoritative_count > 0,
             show_object_roster_on_match,
             native_trace.get(frame_idx),
             oracle_state,
@@ -308,6 +310,16 @@ pub fn run_tas_diff(
     }
 
     Ok(())
+}
+
+fn diff_category_tag(diff: &StateDiff) -> &'static str {
+    match diff.category {
+        DivergenceCategory::Authoritative => "",
+        DivergenceCategory::Advisory => " (advisory)",
+        DivergenceCategory::Accumulation => " (accumulation)",
+        DivergenceCategory::Rng => " (rng)",
+        DivergenceCategory::OracleLimitation => " (oracle limitation)",
+    }
 }
 
 fn checkpoint_state<'a>(states: &'a [OracleState], label: &str) -> Option<&'a OracleState> {
@@ -612,9 +624,11 @@ fn summarize_entries(entries: Vec<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        collision_source_label, format_collision_source_value, format_native_enemy_debug,
-        format_oracle_enemy_debug, oracle_gameplay_debug, should_print_object_roster,
+        collision_source_label, diff_category_tag, format_collision_source_value,
+        format_native_enemy_debug, format_oracle_enemy_debug, oracle_gameplay_debug,
+        should_print_object_roster,
     };
+    use crate::sweep::{DivergenceCategory, StateDiff};
     use kid_core::{
         GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
         physics::Direction,
@@ -676,6 +690,19 @@ mod tests {
             debug,
             "0x0D@0x03670000,0x01c00000 vel=0x00000000,0x00000000 face=Right",
         );
+    }
+
+    #[test]
+    fn oracle_limitation_diffs_get_explicit_display_tag() {
+        let diff = StateDiff {
+            checkpoint: "frame_956".into(),
+            field: "number_objects".into(),
+            native_value: "10".into(),
+            oracle_value: "8".into(),
+            category: DivergenceCategory::OracleLimitation,
+        };
+
+        assert_eq!(diff_category_tag(&diff), " (oracle limitation)");
     }
 
     #[test]
