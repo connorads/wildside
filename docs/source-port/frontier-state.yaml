@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Recording `issue-161-current-intro-long` still exposes the latest reported intro corruption",
+        "reason": "Rejected 2026-06-02. Fresh verification on current main shows the cold-idle intro bundle is oracle-clean: `cargo run -p kidcli -- verify-recording --slug issue-161-current-intro-long` passes, with `trace_match=true`, `first_trace_drift=null`, `oracle_state_match=true`, and `oracle_frame_match=true`. The 48 `frame_diffs` entries in `report.json` are zero-diff checkpoints, not pixel failures. ASM labels rechecked for this covered route include `Load_IntroSequence2`, `Load_IntroSequence4`, `Load_IntroSequence5`, `Load_IntroSequence6`, `loc_1BA28`, `loc_1BCD0`, `loc_1B37C`, and `sub_1B43A`. Do not patch the cold-idle `issue-161-current-intro-long` path again for the latest playtest; capture a deterministic live Start/options/menu or interruption route that reproduces the human-visible kids/door/green-screen/menu corruption."
+      },
+      {
         "name": "Current main is silent immediately after the first intro music cue",
         "reason": "Rejected 2026-06-02. A fresh live `play-native` waveform bundle, `issue-160-intro-audio-wave-current`, reaches `IntroSequence1` at frame 173 and records the expected ASM `Load_IntroSequence1` audio event (`StopMusicThenStart(3)` / `bgm_Ice`). `cargo run -q -p kidcli -- verify-recording --slug issue-160-intro-audio-wave-current --native-only` passes. Decoding `audio.wav` shows boot-pre-intro RMS `0.001159`, then intro-onset RMS `0.058593` and intro-tail RMS `0.054369`, so the current frame-173 command path and rendered output are not silent. The remaining #160 playtest report should target a later title/menu/options waveform route; `issue-003-title-options-audio-audit` has command events but no top-level `audio.wav`."
       },
