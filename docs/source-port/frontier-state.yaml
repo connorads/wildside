@@ -307,6 +307,10 @@
         "reason": "Rejected 2026-06-02. The old bundle drifts at native replay frame 0. Regenerating as `issue-213-nondeath-x536-refresh` matches trace and oracle state, but recording checkpoint PNGs remain pixel-red at `start@0`, `pre_jump@369`, `post_jump@520`, and `tail@899`. The requested 0..120 case derives but is blocked by settled Level 01 oracle bootstrap state (`player fields=x_velocity|y_velocity`, native 2 entities vs oracle 1). Treat this as a candidate after settled-recording bootstrap is fixed, not current gameplay-authoritative Drips/slime evidence."
       },
       {
+        "name": "Recording `issue-213-nondeath-x552` can drive a current Drips/slime gameplay patch",
+        "reason": "Rejected 2026-06-02. The old bundle drifts at native replay frame 0. Regenerating as `issue-213-nondeath-x552-refresh` matches trace and oracle state, but recording checkpoint PNGs are pixel-red and the requested 0..120 case is blocked by settled Level 01 oracle bootstrap state (`player fields=x_velocity|y_velocity`, native 2 entities vs oracle 1). Treat this as a candidate after settled-recording bootstrap is fixed, not current gameplay-authoritative Drips/slime evidence."
+      },
+      {
         "name": "Recording `issue-playtest-cold-boot-audio-current` exposes an actionable early cold-boot intro mismatch",
         "reason": "Rejected 2026-06-02. Fresh verification shows this power-on 600-frame bundle is current and oracle-clean. `cargo run -p kidcli -- verify-recording --slug issue-playtest-cold-boot-audio-current` passes with trace, oracle state, and oracle frame matches; `cargo run -p kidcli -- verify-recording --slug issue-playtest-cold-boot-audio-current --native-only` also passes. Reduced windows `0..120`, `120..240`, and `480..600` all pass (`case issue-playtest-cold-boot-audio-current_case_00000_00120`, `_00120_00240`, and `_00480_00600`). Transcript reaches IntroSequence1 at frame 173 and IntroSequence2 at frame 534, so this route covers early boot/intro transitions but does not expose a reduced gameplay mismatch."
       },

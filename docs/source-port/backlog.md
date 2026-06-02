@@ -1317,6 +1317,15 @@ case derives but is blocked by the settled Level 01 bootstrap mismatch
 (`x_velocity`, `y_velocity`, native 2 entities vs oracle 1). This route is a
 candidate after settled-recording bootstrap is fixed, not current Drips/slime
 gameplay evidence.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
+`issue-213-nondeath-x552` has the same non-death probe shape as x536. The old
+bundle drifts at native replay frame 0. Regenerating as
+`issue-213-nondeath-x552-refresh` matches trace and oracle state, but recording
+checkpoint PNGs are pixel-red and the requested 0..120 case is blocked by the
+settled Level 01 bootstrap mismatch (`x_velocity`, `y_velocity`, native 2
+entities vs oracle 1). This is a candidate after bootstrap is fixed, not current
+gameplay-authoritative Drips/slime evidence.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
