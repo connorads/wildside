@@ -937,6 +937,27 @@ enemy-frontier `verify-tas` through frames 0..1000. The route still does not
 close #213 because it is a death/hidden-respawn reducer, not the reported live
 slime/metal-block contact; next route should avoid the death tail and drive the
 upward Drips/metal-block interaction directly.
+
+Note 2026-06-02 follow-up for #213: route reduction after the latest playtest
+confirmed the stale-cache jump scripts are the wrong shape for the live
+slime/metal-block report. The old `x=$0248,y=$024F` / `x=584,y=591` probes
+(`index8_wait620_jump_right`, `index8_wait760_jump_right`,
+`index8_wait620_jump`) all collapse into the death/hidden-respawn lineage and
+first diverge around frame 508 on `kid_x_pos`; discard them as live Drips
+repros. The clean durable baseline at `x=344,y=575` passes wait-620 and
+wait-760 C-jump variants through frame 1100, but trace rows show Kid remains
+far left while Drips drops/crawlers appear near `x=584,y=543`, so it does not
+exercise contact. The closer floor height is `x=584,y=575`: idle, immediate
+C-jump, and frame-100 C-jump pass, but a frame-370 C-jump re-enters the same
+death-tail. An X sweep at `y=575`, wait-370, C-jump passed for
+`x=536/552/568/576` through frame 520 and entered death/respawn for
+`x=584/592/600/616` before any usable live slime/metal-block mismatch. A
+layout dump around the lower-floor probe did not show decoded block-type
+`Metal` cells in that area, so do not assume the playtest "metal block" is a
+type-5 block until the exact route proves the mutated cell. Next #213 work
+needs a non-death route from the correct floor height that reaches live
+upward-jump contact, or should move to another repeated blocker rather than
+patching Drips from these reducers.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`

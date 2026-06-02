@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Backlog #213 `x=584,y=591` / delayed Drips jump routes are live slime-metal repros",
+        "reason": "Rejected 2026-06-02. The cache routes `index8_wait620_jump_right`, `index8_wait760_jump_right`, and `index8_wait620_jump` all use the old `x=$0248,y=$024F` start and collapse into the `lose_life -> Teleport loc_B8DE -> loc_6E2` hidden respawn lineage, first diverging around frame 508 on `kid_x_pos`. They are useful only for death-tail trace profiles, not the human-visible slime/metal-block contact. The clean `x=344,y=575` baseline passes wait-620 and wait-760 C-jump probes through frame 1100, but Kid never reaches the Drips at `x~=584,y~=543`. The closer `x=584,y=575` floor height passes idle/immediate/frame-100 C-jump probes, while frame-370 C-jump and an X sweep at `x=584/592/600/616` enter death/respawn before an actionable live terrain mismatch; `x=536/552/568/576` pass through frame 520. Do not patch Drips or block mutation from these reducers; record a non-death upward-contact route from the correct floor height."
+      },
+      {
         "name": "Backlog #155 can use direct start/camera Drips warps as oracle ground truth",
         "reason": "Rejected 2026-06-02. The focused `issue-213-level01-drips-idle` style direct-start probe immediately bootstraps native and oracle to different camera rows (`native y=$01C0_0000`, oracle y=$01DC_0000`) and later leaves the oracle object state hibernated/garbled. Do not patch Drips attach/drop behaviour from that warp shape; use a naturally reached or otherwise oracle-equivalent route."
       },
