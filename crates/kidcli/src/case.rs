@@ -1488,8 +1488,10 @@ fn semantic_events(
         let movement_started_jump = previous.player.movement_state.as_deref()
             != Some("movement_0003")
             && player.movement_state.as_deref() == Some("movement_0003");
-        let ground_started_jump =
-            previous.player.on_ground == Some(true) && player.on_ground == Some(false);
+        let player_is_alive = player.hitpoints.is_none_or(|hitpoints| hitpoints > 0);
+        let ground_started_jump = player_is_alive
+            && previous.player.on_ground == Some(true)
+            && player.on_ground == Some(false);
         if movement_started_jump || ground_started_jump {
             events.push(String::from("jump_started"));
         }
@@ -2586,6 +2588,50 @@ mod tests {
         assert!(
             events.is_empty(),
             "the reduced issue-003 title demo case reaches matching positions while oracle still reports movement_0003 and leaves ground metadata unknown; a native-only ground flag must not invent a landed event"
+        );
+    }
+
+    #[test]
+    fn semantic_events_do_not_report_jump_when_dead_damage_arc_leaves_ground() {
+        let previous = SemanticGameState {
+            frame_index: 68,
+            player: SemanticPlayerState {
+                x_pos: Some(0x0075_0000),
+                y_pos: Some(0x010f_0000),
+                x_velocity: Some(-0x0002_0000),
+                y_velocity: Some(0),
+                facing: Some(String::from("right")),
+                on_ground: Some(true),
+                movement_state: Some(String::from("movement_0002")),
+                current_form: Some(0),
+                hitpoints: Some(0),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 0, y_pos: 0 },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: 0,
+                player_1_level_id: 0,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: None,
+            },
+            entities: vec![],
+            events: vec![],
+        };
+        let mut player = previous.player.clone();
+        player.y_pos = Some(0x010b_3000);
+        player.on_ground = Some(false);
+
+        let events = semantic_events(Some(&previous), &player, &[]);
+
+        assert!(
+            events.is_empty(),
+            "the x190-L prize-audio case has matching native/oracle positions after lethal damage, but native-only ground metadata drops on the death arc; that is not a jump event"
         );
     }
 
