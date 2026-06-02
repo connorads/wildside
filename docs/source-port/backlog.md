@@ -1093,6 +1093,16 @@ native trace but diverges from oracle state at `pre_jump@339` on object counts
 (native `7/7`, oracle `5/8`), and the 0..120 case is blocked by the settled
 Level 01 oracle-bootstrap mismatch. Treat this as duplicate bootstrap/tooling
 evidence, not gameplay-authoritative Tank/Drips evidence.
+
+Note 2026-06-02 follow-up for #213/#167: selector-picked recording
+`codex-issue-213-tank-hit-current` also uses the same saved
+`issue213-x568-y575-w340-jump_b_hold-1200` scenario. Direct verification of the
+old bundle drifts at native replay frame 0. The scenario-equivalent refreshed
+evidence is already covered by
+`codex-issue-213-tank-hit-after-7d4e2500-refresh` and
+`codex-issue-213-tank-death-current-refresh`: native trace refreshes, oracle
+object counts diverge at `pre_jump@339`, and the reduced 0..120 case is blocked
+by settled Level 01 bootstrap. Do not re-run or patch from this duplicate slug.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
