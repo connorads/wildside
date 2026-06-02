@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Existing #206 Diamond Power cache audit bundles are current gate evidence",
+        "reason": "Rejected 2026-06-02. Current `main` no longer replays any of the ignored `.cache/recordings/issue-206-diamond-power-*` audit bundles cleanly before oracle comparison: `cargo run -q -p kidcli -- verify-recording --slug issue-206-diamond-power-circle-audit`, `...wall-audit`, `...snake-audit`, `...invulnerability-audit`, and `...samurai-haze-audit` all fail at frame 0 with `recording replay drifted ... native trace frame mismatch`. The regenerated reports still have `oracle_state_match=true` and zero state diffs, but `trace_match=false` means they are stale native snapshots, not current authoritative proof. Re-record or verify the committed Diamond Power scenario builders through a cache-independent route before using #206 audit parity as a gate."
+      },
+      {
         "name": "Backlog #169 old Level 2 Drips bundles expose a current actionable slime/drop mismatch",
         "reason": "Rejected 2026-06-02. Current focused Drips coverage is green (`cargo test -p kid-core drips_ -- --nocapture`, 109 tests), and the clean current route is only the 64-frame `issue-213-drips-camera-only` prefix (`cargo run -p kidcli -- case verify --case issue-213-drips-camera-only` passes). The old #169 bundles are stale before oracle comparison: `cargo run -p kidcli -- verify-recording --slug issue-169-drips-level2-walk --native-only` and `cargo run -p kidcli -- verify-recording --slug issue-169-drips-level2-stomp-long --native-only` both drift at frame 0. Continue the live Drips/slime/metal-block report under #213 with a fresh longer settled Level 01 route that reaches drop/pool/terrain and upward jump contact."
       },
