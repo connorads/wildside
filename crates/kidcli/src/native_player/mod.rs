@@ -4205,6 +4205,56 @@ mod tests {
     }
 
     #[test]
+    fn berzerker_slope_phase_uses_off_a1e8_six_frame_bank() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![sample_player_frame(10), sample_player_frame(11)],
+            charge: Vec::new(),
+            slope_walk: vec![
+                sample_player_frame(70),
+                sample_player_frame(71),
+                sample_player_frame(72),
+                sample_player_frame(73),
+                sample_player_frame(74),
+                sample_player_frame(75),
+            ],
+            slope_walk_left: vec![
+                sample_player_frame(80),
+                sample_player_frame(81),
+                sample_player_frame(82),
+                sample_player_frame(83),
+                sample_player_frame(84),
+                sample_player_frame(85),
+            ],
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Berzerker.helmet_id();
+        trace.kid_x_velocity = Some(0x0000_8000);
+        trace.kid_on_ground = Some(true);
+        trace.kid_facing = Some(Direction::Right);
+        trace.kid_on_slope = 1;
+        trace.walk_visual_accumulator = 0x0200;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 82,
+            "ASM loc_A13A/off_A190 selects off_A1E8 for Berzerker helmet id 7; phase 2 is LnkTo_unk_B14F2, not Red Stealth's off_A230 two-art repeat"
+        );
+    }
+
+    #[test]
     fn juggernaut_walk_frame_uses_walk_visual_accumulator_loc_94b4() {
         let visuals = PlayerFormVisuals {
             palette: Palette {
