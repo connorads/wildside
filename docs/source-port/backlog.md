@@ -990,6 +990,25 @@ normalisation ignores displayed GfxObjects whose parent object has already
 been unlinked by `Deallocate_GfxObject loc_10C6`. Verification:
 `issue213-x568-y575-w340-jump_b_hold-1200.json` is enemy-frontier clean through
 frames `0..560`, `560..700`, and `700..1200`.
+
+Note 2026-06-02 follow-up for #213: retired the delegated case-queue
+`walk_right_01_case_00000_00600` entries as stale recording blockers, not
+current RockTank/Drips bugs. Fresh verifies for
+`codex-rocktank-contact-level01-walk-right-0000-0600` and
+`codex-rocktank-contact-level01-walk-right-edge-0000-0600` both block before
+oracle comparison because their source recordings drift at native replay frame
+0; `codex-level01-walk-right-shared-walker-fall-0000-0600` has the same stale
+source-recording blocker. Re-recording the same DynamicScenarios as
+`codex-rocktank-contact-level01-walk-right-current-1800` and
+`codex-rocktank-contact-level01-walk-right-current-1800-edge`, plus
+`codex-level01-walk-right-shared-walker-fall-current-1800`, deriving
+`codex-rocktank-contact-level01-walk-right-current-0000-0600` and
+`codex-rocktank-contact-level01-walk-right-current-edge-0000-0600`, and
+`codex-level01-walk-right-shared-walker-fall-current-0000-0600`, then running
+`case verify` passes all three full 0..600 windows. Do not patch RockTank
+HP/contact, Level 01 slope state, or shared-walker falling from the stale
+cases; continue #213 with a new non-death upward-contact route that actually
+reaches the live Drips/slime/block interaction.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
