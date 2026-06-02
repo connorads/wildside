@@ -8504,6 +8504,13 @@ impl NativeRuntime {
             if matches!(enemy.family, EnemyFamily::Diamond) {
                 return None;
             }
+            if matches!(enemy.family, EnemyFamily::Drips) && enemy.drips_attached {
+                // ASM Drips.asm loc_33424/loc_33488 keeps the attached
+                // parent/controller internal after the ceiling attach phase;
+                // Kid-facing damage is carried by the falling child and the
+                // loc_335D8 surface crawler, both modelled as typed projectiles.
+                return None;
+            }
             // ASM loc_B69E: Tornado contact returns without damage while
             // Cyclone_flying is set; grounded Cyclone falls through.
             if matches!(enemy.family, EnemyFamily::Tornado) && self.helmet.cyclone_flying {

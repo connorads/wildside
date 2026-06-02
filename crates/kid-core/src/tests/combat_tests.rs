@@ -312,6 +312,28 @@ mod chunk_03 {
     }
 
     #[test]
+    fn attached_drips_parent_does_not_contact_damage_kid_loc_33424() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.invulnerable_frames = 0;
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0100_0000, 0x00C0_0000, 8);
+        drips.drips_attached = true;
+        runtime.active_enemies = vec![drips];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+
+        assert_eq!(
+            runtime.find_contact_damage_source(&slice),
+            None,
+            "ASM Drips.asm loc_33424/loc_33488 keeps the attached parent/controller internal; Kid damage comes from the falling child or loc_335D8 surface crawler, not the hidden controller",
+        );
+    }
+
+    #[test]
     fn scorpion_sting_tail_contact_damages_player_loc_3ddee() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

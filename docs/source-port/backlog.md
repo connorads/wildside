@@ -896,6 +896,20 @@ at the old frame-312 HP latch or frame-314 velocity mismatch and first fails at
 frame 409 `kid_x_pos`, a later death-tail lifetime issue. `mise run
 verify-slice-fast` passed. #213 remains open for a durable upward-jump /
 metal-block Drips route.
+
+Note 2026-06-02 follow-up for #213: a fresh rightward jump probe from the
+checked-in lower-floor Drips scenario found the first human-visible invisible
+collision bug. Native damaged Kid at frame 129 from internal `enemy_16#08`,
+while oracle kept HP unchanged and listed the Drips object as a hidden
+`loc_33424`/`loc_33488` controller slot (`code=0x001066`). Native contact now
+skips attached Drips parents/controllers; the falling child and `loc_335D8`
+surface crawler remain hostile through typed projectiles. Verification:
+`cargo test -q -p kid-core attached_drips_parent_does_not_contact_damage_kid_loc_33424 -- --nocapture`,
+`cargo test -q -p kid-core drips_ -- --nocapture`, and cache-local
+`verify-tas` for `issue-213-drips-upjump-right-probe-cache` frames 0..180 all
+pass. The same probe now first diverges at frame 269 on RockTank contact
+(`enemy_0A#10`), so #213 is still open for the later metal-block/slime route
+and that tank-contact blocker should be handled separately.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
