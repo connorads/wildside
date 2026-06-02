@@ -1093,6 +1093,21 @@ adds `first_shooter_objects_visible_loc_ec76@92` and
 the first real bullets and the upward cascade separately from the stale frame-90
 visual mismatch.
 
+Note 2026-06-02 follow-up for #214: the cache-local
+`issue-214-highwater-jump-overlap-current` route no longer reproduces the
+reported player launch as gameplay state: native replay is current and
+`tas-diff --scenario ... --frame-start 120 --frame-end 421 --frontier-kind
+gameplay --include-advisory --only-divergent` reports `300 match, 0 diverge`.
+It did expose a visual trace/export bug: `NativeTraceFrame.floating_items`
+stored only the low byte of `PrizeDiamond_Init`'s d3 countdown, so the renderer
+treated a live `$0182` diamond as the late `$0082` `stru_10D80` blink phase and
+hid it. Native trace now exports the full remaining word and the renderer only
+applies the blink/null-frame gate once ASM `PrizeDiamond_Init loc_10396/loc_103B2`
+has counted down to `$00C8`. Regenerated verification still has pixel deltas
+(`stomp_quarter` terrain/palette, and small floating-diamond palette/frame
+phase differences at `stomp_half`/`stomp_end`), so #214 remains open for
+visual parity and a fresh live route if the launch is still observable.
+
 Note 2026-06-01 Berzerker render-latch follow-up for #214: the live Highwater
 route remained gameplay-green (`tas-diff` frames 80..130 still `50 match, 0
 diverge`) but strict pixels showed Berzerker falling back to idle on the

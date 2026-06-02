@@ -5880,7 +5880,7 @@ mod tests {
     #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u8::MAX, 0x01)];
+        trace.floating_items = vec![(48, 64, u16::from(u8::MAX), 0x01)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -5995,7 +5995,7 @@ mod tests {
     #[test]
     fn build_scene_draws_floating_diamond_with_rom_sprite_art() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u8::MAX, 0x00)];
+        trace.floating_items = vec![(48, 64, u16::from(u8::MAX), 0x00)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -6019,6 +6019,31 @@ mod tests {
                 )
             }),
             "floating diamond should not fall back to the old placeholder rects"
+        );
+    }
+
+    #[test]
+    fn build_scene_keeps_floating_diamond_visible_before_loc_103b2_blink_threshold() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_y_pos = 1500 << 16;
+        // ASM PrizeDiamond_Init loc_10396 decrements the full d3 word from
+        // $01F4. A low byte of $82 is still visible when the real countdown is
+        // $0182; native must not treat it as the late $0082 blink phase.
+        trace.floating_items = vec![(120, 1665, 0x0182, 0x00)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                )
+            }),
+            "ASM loc_103B2 should not switch to the blinking `stru_10D80` until the full d3 word reaches $00C8"
         );
     }
 
@@ -6066,7 +6091,7 @@ mod tests {
             (0x0A, 99, "PrizeHelmetMicromax_Init/stru_10700/unk_ABA68"),
         ] {
             let mut trace = sample_trace(GameMode::InGame);
-            trace.floating_items = vec![(48, 64, u8::MAX, content_id)];
+            trace.floating_items = vec![(48, 64, u16::from(u8::MAX), content_id)];
             let visuals = sample_level_visuals();
 
             let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -6116,7 +6141,7 @@ mod tests {
             ),
         ] {
             let mut trace = sample_trace(GameMode::InGame);
-            trace.floating_items = vec![(48, 64, u8::MAX, content_id)];
+            trace.floating_items = vec![(48, 64, u16::from(u8::MAX), content_id)];
             let visuals = sample_level_visuals();
 
             let scene = build_scene(&trace, false, Some(&visuals), None);

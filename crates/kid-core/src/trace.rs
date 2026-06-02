@@ -4055,7 +4055,7 @@ mod tests {
         // FP16.16 WRAM, while the trace renderer consumes whole pixels.
         let trace = runtime.trace_frame();
         assert_eq!(trace.active_geysers, vec![(144, 184, 24)]);
-        assert_eq!(trace.floating_items, vec![(0x0123, 0x0045, 0xAB, 0)]);
+        assert_eq!(trace.floating_items, vec![(0x0123, 0x0045, 0x01AB, 0)]);
         assert_eq!(trace.death_windup_elapsed, 7);
 
         runtime.player_lifecycle = PlayerLifecycle::Alive;
@@ -5884,7 +5884,7 @@ impl NativeRuntime {
                 .map(|f| {
                     let x_px = (f.x_pos >> 16) as u16;
                     let y_px = (f.y_pos >> 16) as u16;
-                    (x_px, y_px, f.remaining as u8, f.content.to_id())
+                    (x_px, y_px, f.remaining, f.content.to_id())
                 })
                 .collect(),
             enemy_death_effects: self

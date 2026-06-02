@@ -4286,15 +4286,15 @@ fn build_game_scene_filtered(
 
 fn floating_prize_sprite_visible_loc_103b2(
     content: kid_core::terrain::PrizeContent,
-    remaining_low_byte: u8,
+    remaining_frames: u16,
 ) -> bool {
     match content {
-        kid_core::terrain::PrizeContent::Diamond if remaining_low_byte <= 0xC8 => {
+        kid_core::terrain::PrizeContent::Diamond if remaining_frames <= 0x00C8 => {
             // ASM PrizeDiamond_Init loc_103B2 swaps to `stru_10D80` exactly
             // when d3 reaches $00C8. That script alternates `unk_E0E66` with
             // null frame pointers every three frames, so Make_SpriteFromGfxObject
             // returns without emitting a VDP sprite on the odd slots.
-            let blink_elapsed = 0xC8u8.saturating_sub(remaining_low_byte);
+            let blink_elapsed = 0x00C8u16.saturating_sub(remaining_frames);
             (blink_elapsed / 3).is_multiple_of(2)
         }
         _ => true,
@@ -4307,8 +4307,9 @@ fn render_floating_prize_worker_effect(
     content: kid_core::terrain::PrizeContent,
     screen_x: i32,
     screen_y: i32,
-    remaining_low_byte: u8,
+    remaining_frames: u16,
 ) -> bool {
+    let remaining_low_byte = remaining_frames as u8;
     if remaining_low_byte > PRIZE_GENERIC_LIFETIME_LOW_BYTE {
         return false;
     }
