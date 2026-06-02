@@ -1516,6 +1516,18 @@ impl NativeRuntime {
                     )
                 })
             }
+            BootState::IntroSequence6 { .. }
+                if self.intro_sequence_6_natural_title_vdp_rebuilt() =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    vdp::build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
+                        data,
+                        self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                        self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
+                    )
+                })
+            }
             BootState::IntroSequence6 { .. } if !self.title_screen_vdp_ready() => {
                 self.title_screen_data.as_ref().map(|data| {
                     vdp::build_intro_sequence_6_vdp_with_character_frame(
@@ -1547,6 +1559,11 @@ impl NativeRuntime {
                     } else {
                         self.title_screen_character_frame_index_sub_1bf24()
                     };
+                    let natural_intro_sequence_6_pre_ready_shell =
+                        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+                            && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                            && title_vdp_ready
+                            && !self.title_screen_ready();
                     vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
                         data,
                         frame_index,
@@ -1554,7 +1571,11 @@ impl NativeRuntime {
                         menu_cursor,
                         title_vdp_ready,
                         self.title_screen_elapsed_frames,
-                        self.title_screen_uses_intro_return_hidden_shell,
+                        vdp::TitleScreenVdpLineage {
+                            intro_return_hidden_shell: self
+                                .title_screen_uses_intro_return_hidden_shell,
+                            natural_intro_sequence_6_pre_ready_shell,
+                        },
                     )
                 })
             }
@@ -1647,6 +1668,18 @@ impl NativeRuntime {
             || (self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames
                     >= INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES)
+            || (matches!(self.boot_state, BootState::IntroSequence6 { .. })
+                && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_elapsed_frames
+                    >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES)
+    }
+
+    fn intro_sequence_6_natural_title_vdp_rebuilt(&self) -> bool {
+        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+            && !self.intro_sequence_6_start_skip_cursor_trace_priority
+            && !self.title_screen_ready()
+            && self.title_screen_elapsed_frames >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES
+            && self.title_screen_elapsed_frames < INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES
     }
 
     fn title_screen_vdp_blackout(&self) -> bool {

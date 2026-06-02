@@ -46,6 +46,15 @@ pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES: usize = 86;
 /// Oracle frame 2700 is visually complete while state still reports
 /// `title_screen_ready=false`; frame 2720 is the later trace-ready point.
 pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES: usize = 66;
+/// On the no-input cold IntroSequence6 path, oracle frame 2640 has already
+/// passed `sub_1B43A`'s loc_1B45A palette-restore tail and restored
+/// `Load_TitleArt`/`sub_1B532`, even though trace-facing title readiness
+/// remains false until the later `loc_1B5CE` title-pose point.
+pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES: usize = 244;
+/// The natural no-input IntroSequence6 path has moved from the intermediate
+/// `loc_1B45A` hidden-shell restore to the normal title VDP shell by oracle
+/// frame 2700, while trace-facing title readiness remains false.
+pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES: usize = 304;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.

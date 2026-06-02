@@ -4093,8 +4093,10 @@ mod chunk_02 {
         };
         let mut frame_2460 = None;
         let mut frame_2520 = None;
+        let mut frame_2640 = None;
+        let mut frame_2700 = None;
 
-        for frame_index in 0..=2_580 {
+        for frame_index in 0..=2_700 {
             let trace = runtime.step_frame(FrameInput::default());
             if frame_index == 2_460 {
                 assert_eq!(trace.game_mode, GameMode::IntroSequence6);
@@ -4129,6 +4131,26 @@ mod chunk_02 {
                     "ASM loc_1B3BC's final d1=0 loop flash should remain visible while loc_1B37C hibernates before the post-loop zero upload at oracle-backed frame 2580",
                 );
             }
+            if frame_index == 2_640 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert!(
+                    !trace.title_screen_ready,
+                    "ASM loc_1B5CE has not exposed the trace-facing title pose at cold-boot frame 2640",
+                );
+                frame_2640 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 2_700 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert!(
+                    !trace.title_screen_ready,
+                    "ASM loc_1B5CE has not exposed the trace-facing title pose at cold-boot frame 2700",
+                );
+                assert!(
+                    runtime.title_screen_vdp_ready(),
+                    "ASM loc_1B45A has advanced from the intermediate hidden-shell restore to the normal title VDP shell by cold-boot frame 2700",
+                );
+                frame_2700 = runtime.vdp_state().cloned();
+            }
         }
 
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
@@ -4136,10 +4158,22 @@ mod chunk_02 {
             frame_2520.is_some(),
             "IntroSequence6 should still expose hidden title VDP at frame 2520"
         );
+        let vdp_2640 =
+            frame_2640.expect("IntroSequence6 should expose rebuilt title VDP at frame 2640");
+        assert!(
+            vdp_2640.vram[0x9A60..0xA360].iter().any(|&byte| byte != 0),
+            "ASM sub_1B43A loc_1B45A should restore Load_TitleArt's KID title art before the trace-facing title pose is ready",
+        );
         let word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
+        let word_at_2640 = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_2640.vram[byte_addr], vdp_2640.vram[byte_addr + 1]])
+        };
         let vsram_word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vsram[byte_addr], vdp.vsram[byte_addr + 1]]);
+        let vsram_word_at_2640 = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_2640.vsram[byte_addr], vdp_2640.vsram[byte_addr + 1]])
+        };
         let tile_pixel_nibble = |entry: u16, tile_x: usize, tile_y: usize| {
             let tile_index = usize::from(entry & 0x07FF);
             let tile_byte_addr = tile_index * 32 + tile_y * 4 + tile_x / 2;
@@ -4208,6 +4242,49 @@ mod chunk_02 {
         assert!(
             vdp.vram[0x9A60..0xA360].iter().all(|&byte| byte == 0),
             "ASM Load_IntroSequence6 should not run Load_TitleArt's KID text upload before sub_1B43A reaches loc_1B45A",
+        );
+        assert_ne!(
+            word_at_2640(0xE000),
+            0x00BD,
+            "ASM sub_1B43A loc_1B45A should run sub_1B532's title-text plane rebuild by cold-boot frame 2640",
+        );
+        assert_eq!(
+            word_at_2640(0x1400),
+            0xFFB8,
+            "ASM loc_1B37C keeps the hidden-shell Scroll A hscroll seed after loc_1B45A restores title art",
+        );
+        assert_eq!(
+            word_at_2640(0x1402),
+            0,
+            "ASM loc_1B37C keeps Scroll B hscroll cleared after loc_1B45A restores title art",
+        );
+        assert_eq!(
+            vsram_word_at_2640(0),
+            0xFFD0,
+            "ASM loc_1B37C keeps the hidden-shell VSRAM camera seed after loc_1B45A restores title art",
+        );
+        assert_eq!(
+            vsram_word_at_2640(2),
+            0,
+            "ASM loc_1B37C keeps Scroll B vertical scroll cleared after loc_1B45A restores title art",
+        );
+        assert!(
+            vdp_2640.vram[0x17A0..0x1820].iter().any(|&byte| byte != 0),
+            "ASM loc_1B37C should keep uploading lightning pixels after loc_1B45A restores title art",
+        );
+        let vdp_2700 =
+            frame_2700.expect("IntroSequence6 should expose normal title VDP at frame 2700");
+        let word_at_2700 = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_2700.vram[byte_addr], vdp_2700.vram[byte_addr + 1]])
+        };
+        assert_eq!(
+            word_at_2700(0x1400),
+            0,
+            "ASM loc_1B5CE/title VDP handoff should clear the hidden-shell Scroll A hscroll seed by cold-boot frame 2700",
+        );
+        assert!(
+            (0..40).any(|col| word_at_2700(20 * 128 + col * 2) != 0x20BC),
+            "ASM loc_1B5CE should have rebuilt the normal title plane by cold-boot frame 2700 even though trace title_screen_ready is still false",
         );
     }
 

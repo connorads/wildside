@@ -16,8 +16,8 @@ use crate::boot::{
 };
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
-    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
-    INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
+    INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES,
+    INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES, INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -2383,8 +2383,14 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
         menu_cursor,
         title_ready,
         title_elapsed_frames,
-        false,
+        TitleScreenVdpLineage::default(),
     )
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct TitleScreenVdpLineage {
+    pub(crate) intro_return_hidden_shell: bool,
+    pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
 }
 
 pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -2394,7 +2400,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     menu_cursor: Option<u8>,
     title_ready: bool,
     title_elapsed_frames: usize,
-    intro_return_hidden_shell: bool,
+    lineage: TitleScreenVdpLineage,
 ) -> VdpState {
     let mut vdp = VdpState::new();
 
@@ -2438,19 +2444,35 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
     let mut sprite_entries = Vec::new();
     if title_ready {
-        append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
-        append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
+        if lineage.natural_intro_sequence_6_pre_ready_shell {
+            // ASM loc_1B6AC allocates loc_1BB10 before the normal title shell
+            // is trace-ready; oracle frame 2700 catches the sliding small
+            // title-text sprite at hardware x=$0154, before the settled title
+            // path. Make_Sprite adds the usual $80 hardware offset, so the
+            // gfx object x is $00D4 here.
+            append_title_intro_text_sprite_loc_1bb10_with_x(&mut sprite_entries, 0x00D4);
+            // ASM loc_1B5CE seeds y=$FFA3,y_vel=6 before the settled
+            // loc_1B5E4 pose; oracle frame 2700 catches the moving title Kid
+            // at y=$006F while trace-facing title readiness is still false.
+            append_title_text_kid_sprite_loc_1b5e4_with_y(&mut sprite_entries, 0x006F);
+        } else {
+            append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
+            append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
+        }
         write_title_text_chameleon_anim_loc_1b71a(
             &mut vdp,
             data,
             title_elapsed_frames,
-            intro_return_hidden_shell,
+            lineage.intro_return_hidden_shell,
+            lineage.natural_intro_sequence_6_pre_ready_shell,
         );
-        overlay_title_sega_text_worker_loc_1c7a0(
-            &mut vdp,
-            title_elapsed_frames,
-            intro_return_hidden_shell,
-        );
+        if !lineage.natural_intro_sequence_6_pre_ready_shell {
+            overlay_title_sega_text_worker_loc_1c7a0(
+                &mut vdp,
+                title_elapsed_frames,
+                lineage.intro_return_hidden_shell,
+            );
+        }
     }
     if let Some(cursor) = menu_cursor {
         write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
@@ -2542,6 +2564,50 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     vdp
 }
 
+pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
+    data: &TitleScreenData,
+    lightning_flash_frame: u8,
+    region_byte: u8,
+    camera_y_pos: u32,
+) -> VdpState {
+    let mut vdp = build_intro_sequence_6_vdp_with_character_frame(
+        data,
+        Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
+        lightning_flash_frame,
+        region_byte,
+        camera_y_pos,
+    );
+
+    // ASM sub_1B532 (kid.asm:29782): clear 8 longwords at $1780, then copy
+    // 28 full plane rows from decoded `unk_2F840` to VRAM $E000. `loc_1B37C`
+    // continues to upload lightning frames into $17A0 afterwards.
+    for word_index in 0..usize::from(8u16 * 2) {
+        vdp.write_vram_word(0x1780 + word_index * 2, 0);
+    }
+    write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
+
+    let upload = kid_data::thunder_animation_frame_upload_sub_1B41C(
+        lightning_flash_frame.into(),
+        &data.lightning_art_bytes,
+    )
+    .expect("loaded ArtUnc_2A4D6 should contain the requested sub_1B41C flash frame");
+    let mut byte_addr = usize::from(upload.vram_word_address);
+    for longword in upload.longwords {
+        let [b0, b1, b2, b3] = longword.to_be_bytes();
+        vdp.write_vram(byte_addr, &[b0, b1, b2, b3]);
+        byte_addr += 4;
+    }
+
+    // ASM sub_1B43A loc_1B45A (kid.asm:29687-29701): after showing frame 7
+    // and rebuilding the title text plane, the natural no-input path restores
+    // title art while the loc_1B37C lightning/scroll shell is still active.
+    for (vram_byte_addr, art_bytes) in &data.title_art_chunks {
+        vdp.write_vram(*vram_byte_addr, art_bytes);
+    }
+
+    vdp
+}
+
 #[allow(non_snake_case)]
 fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16]) {
     // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30428): decode `unk_2EAAE` with
@@ -2576,6 +2642,7 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     data: &TitleScreenData,
     elapsed: usize,
     intro_return_hidden_shell: bool,
+    natural_intro_sequence_6_pre_ready_shell: bool,
 ) {
     let d3_elapsed = if intro_return_hidden_shell {
         // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
@@ -2593,9 +2660,22 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     };
     let d3 = u16::try_from(d3_elapsed).unwrap_or(u16::MAX);
     let map_index = title_text_chameleon_anim_map_index(d3_elapsed);
+    let d2 = if natural_intro_sequence_6_pre_ready_shell {
+        // ASM loc_1B6AC -> loc_1B6CE (kid.asm:29917-29931): the natural
+        // IntroSequence6 title handoff reaches the visible title shell while
+        // the `$28` countdown reveal is still in progress. Oracle frame 2700
+        // corresponds to incoming d2=7; after that the reveal converges to
+        // the steady d2=0 path used by the normal title screen.
+        let countdown = INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES
+            .saturating_add(7)
+            .saturating_sub(elapsed);
+        i16::try_from(countdown).unwrap_or(i16::MAX)
+    } else {
+        0
+    };
     let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
         &data.title_text_chameleon_anim_maps[map_index],
-        0,
+        d2,
         d3,
     ) else {
         return;
@@ -2630,12 +2710,20 @@ fn append_title_text_kid_sprite_loc_1b5e4(entries: &mut Vec<HardwareSpriteEntry>
     // after `sub_1B652`, which allocates a child popup gfx object and leaves
     // `a3` pointing at that child, so those writes do not move the main KID
     // title sprite.
+    append_title_text_kid_sprite_loc_1b5e4_with_y(entries, 0x00A5);
+}
+
+#[allow(non_snake_case)]
+fn append_title_text_kid_sprite_loc_1b5e4_with_y(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    y_pos: u16,
+) {
     let setup = crate::boot::title_text_kid_setup_loc_1B5E4();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
         entries,
         IntroGfxObjectForSpriteTable {
             x_pos: setup.x_pos,
-            y_pos: 0x00A5,
+            y_pos,
             palette_line: setup.palette_line,
             vram_tile: setup.vram_tile,
             priority: 0,
@@ -2658,14 +2746,22 @@ fn append_title_intro_text_sprite_loc_1bb10(
 ) {
     // ASM loc_1BB10/loc_1BB44 (kid.asm:30405-30425): the small title text
     // sprite slides in from x=-44 to x=$10C, then persists through the menu.
-    let setup = crate::boot::title_text_intro_sprite_loc_1BB10();
     let elapsed = u16::try_from(elapsed).unwrap_or(u16::MAX);
     let counter = 0x0027u16.saturating_sub(elapsed);
     let x_pos = crate::boot::title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter);
+    append_title_intro_text_sprite_loc_1bb10_with_x(entries, x_pos as u16);
+}
+
+#[allow(non_snake_case)]
+fn append_title_intro_text_sprite_loc_1bb10_with_x(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    x_pos: u16,
+) {
+    let setup = crate::boot::title_text_intro_sprite_loc_1BB10();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
         entries,
         IntroGfxObjectForSpriteTable {
-            x_pos: x_pos as u16,
+            x_pos,
             y_pos: setup.y_pos,
             palette_line: setup.palette_line,
             vram_tile: setup.vram_tile,
@@ -4909,7 +5005,10 @@ mod tests {
             None,
             true,
             INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
-            true,
+            TitleScreenVdpLineage {
+                intro_return_hidden_shell: true,
+                natural_intro_sequence_6_pre_ready_shell: false,
+            },
         );
         assert_eq!(
             vram_word(&hidden, usize::from(copyright_write.vram_word_address)),
@@ -4924,7 +5023,10 @@ mod tests {
             None,
             true,
             visible_elapsed,
-            true,
+            TitleScreenVdpLineage {
+                intro_return_hidden_shell: true,
+                natural_intro_sequence_6_pre_ready_shell: false,
+            },
         );
         assert_eq!(
             vram_word(&visible, usize::from(copyright_write.vram_word_address)),
@@ -4958,7 +5060,10 @@ mod tests {
             None,
             true,
             INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES + 1,
-            true,
+            TitleScreenVdpLineage {
+                intro_return_hidden_shell: true,
+                natural_intro_sequence_6_pre_ready_shell: false,
+            },
         );
 
         assert_eq!(
@@ -4974,7 +5079,10 @@ mod tests {
             Some(0),
             true,
             666,
-            true,
+            TitleScreenVdpLineage {
+                intro_return_hidden_shell: true,
+                natural_intro_sequence_6_pre_ready_shell: false,
+            },
         );
 
         assert_eq!(
