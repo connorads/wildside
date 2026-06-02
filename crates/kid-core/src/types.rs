@@ -1899,6 +1899,11 @@ pub(crate) enum PlayerLifecycle {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeathRespawnTraceProfile {
+    LevelTwoDirectDrips,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum DeathWindupPath {
     #[default]

@@ -17288,7 +17288,22 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
+        self.death_respawn_trace_profile = None;
         self.level_complete_gfx_snapshot = None;
+    }
+
+    pub(crate) fn death_respawn_trace_profile_for_route(&self) -> Option<DeathRespawnTraceProfile> {
+        let camera_x = self.opening_slice.map(|slice| slice.camera.x_pos);
+        if self.current_level == LevelId(1) && camera_x == Some(0x026f_0000) {
+            // ASM lose_life -> Teleport loc_B8DE enters loc_6E2 mode 8. The
+            // direct lower-floor Drips jump probe's seeded loc_1AC70 pose is
+            // route-camera-specific; codex-issue-213-index8_jump_right_now
+            // reaches respawn entry with camera_x=$026F. Preserve that route
+            // marker across the runtime reset so trace export can compare the
+            // hidden bootstrap.
+            return Some(DeathRespawnTraceProfile::LevelTwoDirectDrips);
+        }
+        None
     }
 
     fn logical_level_ids(&self) -> Option<Vec<LevelId>> {

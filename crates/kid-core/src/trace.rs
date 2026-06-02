@@ -3945,6 +3945,40 @@ mod tests {
     }
 
     #[test]
+    fn direct_drips_death_respawn_bootstrap_matches_oracle_probe_loc_b8de() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(1);
+        runtime.death_respawn_trace_profile = Some(DeathRespawnTraceProfile::LevelTwoDirectDrips);
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+
+        // ASM lose_life -> Teleport loc_B8DE re-enters loc_6E2 mode 8. Direct
+        // oracle probe codex-issue-213-index8_jump_right_now frames 427..428
+        // shows the camera-$026F respawn-entry route seeds a different
+        // loc_1AC70 hidden bootstrap pose from the wrapped-row upjump route.
+        let first = runtime.trace_frame();
+        assert_eq!(
+            first.kid_x_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_X_FP)
+        );
+        assert_eq!(
+            first.kid_y_pos,
+            Some(PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_Y_FP)
+        );
+
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES - 1,
+        };
+        let second = runtime.trace_frame();
+        assert_eq!(second.kid_x_pos, Some(0x012c_4000));
+        assert_eq!(second.kid_y_pos, Some(0x00fd_a000));
+        assert_eq!(second.number_objects, 16);
+        assert_eq!(second.number_gfx_objects, 14);
+    }
+
+    #[test]
     fn trace_frame_exports_diamond_power_snake_probe_loc_3fad4() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -8072,16 +8106,48 @@ impl NativeRuntime {
             }),
             LevelId(1) => Some(DeathRespawnBootstrapProfile {
                 // ASM lose_life -> Teleport loc_B8DE enters loc_6E2 mode 8.
-                // Oracle route issue-213-drips-upjump-right-probe-cache frames
-                // 384..448 show the same 65-frame slide to the shared hold pose
-                // from the internal level-2 wrapped-row start.
+                // The direct lower-floor Drips jump probe reaches loc_6E2 with
+                // camera_x=$026F at respawn entry, and oracle frame 427 seeds
+                // the hidden loc_1AC70 pose at ($0130,$0100), not the
+                // wrapped-row pose seen by issue-213-drips-upjump-right-probe-cache.
+                //
+                // TODO(fidelity): replace this trace profile split with the
+                // real LoadGameModeData/loc_1AC70 object-worker lineage.
+                initial_x_fp: if matches!(
+                    self.death_respawn_trace_profile,
+                    Some(DeathRespawnTraceProfile::LevelTwoDirectDrips)
+                ) {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_X_FP
+                } else {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP
+                },
+                initial_y_fp: if matches!(
+                    self.death_respawn_trace_profile,
+                    Some(DeathRespawnTraceProfile::LevelTwoDirectDrips)
+                ) {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_Y_FP
+                } else {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP
+                },
                 animation_frames: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
-                initial_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP,
-                initial_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP,
                 hold_x_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
                 hold_y_fp: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
-                x_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_X_STEP_FP,
-                y_step_fp: PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_Y_STEP_FP,
+                x_step_fp: if matches!(
+                    self.death_respawn_trace_profile,
+                    Some(DeathRespawnTraceProfile::LevelTwoDirectDrips)
+                ) {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_X_STEP_FP
+                } else {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_X_STEP_FP
+                },
+                y_step_fp: if matches!(
+                    self.death_respawn_trace_profile,
+                    Some(DeathRespawnTraceProfile::LevelTwoDirectDrips)
+                ) {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_Y_STEP_FP
+                } else {
+                    PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_Y_STEP_FP
+                },
                 initial_number_objects: 16,
                 initial_number_gfx_objects: 14,
                 hold_number_objects: 16,

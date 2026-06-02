@@ -7652,7 +7652,9 @@ impl NativeRuntime {
                     // 2P: both have lives, switch turns
                     self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
+                    let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
+                    self.death_respawn_trace_profile = death_respawn_trace_profile;
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -7734,7 +7736,9 @@ impl NativeRuntime {
                     self.progression.current_form = PlayerForm::TheKid;
                     self.progression.pending_form = None;
                     self.progression.diamond_count = 0;
+                    let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
+                    self.death_respawn_trace_profile = death_respawn_trace_profile;
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };

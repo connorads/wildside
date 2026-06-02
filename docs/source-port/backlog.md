@@ -923,6 +923,20 @@ surface crawler remain hostile through typed projectiles. Verification:
 pass. The same probe now first diverges at frame 269 on RockTank contact
 (`enemy_0A#10`), so #213 is still open for the later metal-block/slime route
 and that tank-contact blocker should be handled separately.
+
+Note 2026-06-02 follow-up for #213: fixed the compact direct jump probe's
+death-tail trace blocker. ASM `lose_life -> Teleport loc_B8DE -> loc_6E2`
+seeds different hidden `loc_1AC70` co-ordinates on the camera-$026F direct
+Drips jump route than on the older wrapped-row route: oracle frames 427..428
+show `$0130,$0100` then `$012C4000,$00FDA000`, while
+`issue-213-drips-upjump-right-probe-cache` still needs the `$88,$FFE0`
+bootstrap. Native now preserves a route-specific trace profile across the
+respawn reset; cache-local
+`.cache/scenarios/codex-issue-213/index8_jump_right_now.json` passes
+enemy-frontier `verify-tas` through frames 0..1000. The route still does not
+close #213 because it is a death/hidden-respawn reducer, not the reported live
+slime/metal-block contact; next route should avoid the death tail and drive the
+upward Drips/metal-block interaction directly.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`

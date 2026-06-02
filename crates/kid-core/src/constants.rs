@@ -406,6 +406,14 @@ pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_X_FP: u32 = 0x
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_INITIAL_Y_FP: u32 = 0xffe0_0000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_X_STEP_FP: i32 = -0x0001_2000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_BOOTSTRAP_Y_STEP_FP: i32 = 0x0002_2000;
+// The direct lower-floor Drips jump probe reaches the same ASM
+// `lose_life -> Teleport -> loc_B8DE -> loc_6E2` hidden mode-8 hand-off with
+// a different seeded loc_1AC70 pose. Keep this as a route-specific trace
+// profile until the full LoadGameModeData/loc_1AC70 worker lineage is native.
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_X_FP: u32 = 0x0130_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_INITIAL_Y_FP: u32 = 0x0100_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_X_STEP_FP: i32 = -0x0003_C000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_TWO_DIRECT_DRIPS_Y_STEP_FP: i32 = -0x0002_6000;
 // ASM loc_1AE2E -> loc_6E2 -> Load_InGame on the early title-start lineage
 // keeps Level 1 hidden for 51 local frames, briefly preloads Camera_Y on the
 // `$00E0_0000` and wrapped `$FF00_0000` rows, then exposes the respawn slice
