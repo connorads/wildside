@@ -387,6 +387,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
     let mut recorded_audio_events = Vec::new();
+    let mut audio_diagnostics =
+        NativeAudioDiagnostics::new(has_gems, audio_queue.is_some(), audio_channels);
     let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
 
     if options.record_to.is_some() {
@@ -639,13 +641,24 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 Some(sfx_engine.generate(AUDIO_SAMPLES_PER_FRAME))
             };
             if let Some(samples) = maybe_samples {
+                audio_diagnostics.record_generated_frame(samples.len());
                 if should_capture_audio {
                     recorded_audio.extend_from_slice(&samples);
                 }
-                if let Some(ref aq) = audio_queue
-                    && should_queue_audio_frame(aq.size(), samples.len())
-                {
-                    let _ = aq.queue_audio(&samples);
+                if let Some(ref aq) = audio_queue {
+                    let queued_bytes = aq.size();
+                    if should_queue_audio_frame(queued_bytes, samples.len()) {
+                        match aq.queue_audio(&samples) {
+                            Ok(()) => {
+                                audio_diagnostics.record_queued_frame(samples.len(), queued_bytes);
+                            }
+                            Err(_) => {
+                                audio_diagnostics.record_queue_error(queued_bytes);
+                            }
+                        }
+                    } else {
+                        audio_diagnostics.record_skipped_full_frame(queued_bytes);
+                    }
                 }
             }
         }
@@ -738,6 +751,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         recorded_trace,
         recorded_audio,
         recorded_audio_events,
+        audio_diagnostics.into_lines(),
         final_frame_rgb,
         trace,
         audio_channels,
@@ -852,6 +866,7 @@ fn save_native_recording_bundle(
     mut recorded_trace: Vec<NativeTraceFrame>,
     recorded_audio: Vec<f32>,
     recorded_audio_events: Vec<String>,
+    audio_diagnostics: Vec<String>,
     final_frame_rgb: Option<Vec<u8>>,
     current_trace: NativeTraceFrame,
     audio_channels: u8,
@@ -887,6 +902,7 @@ fn save_native_recording_bundle(
         audio_samples: Some(recorded_audio),
         audio_channels: u16::from(audio_channels),
         audio_events: recorded_audio_events,
+        audio_diagnostics,
     };
     save_recording_with_artifacts(record_to, &recording, &artifacts)?;
     println!(
@@ -1164,6 +1180,99 @@ fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) ->
         .saturating_mul(std::mem::size_of::<f32>())
         .saturating_mul(AUDIO_QUEUE_TARGET_FRAMES);
     queued_bytes < target_bytes
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NativeAudioDiagnostics {
+    gems_loaded: bool,
+    sdl_queue_present: bool,
+    audio_channels: u8,
+    generated_frames: usize,
+    generated_samples: usize,
+    queued_frames: usize,
+    queued_samples: usize,
+    skipped_full_frames: usize,
+    queue_errors: usize,
+    queue_observations: usize,
+    min_queue_bytes_before_queue: Option<u32>,
+    max_queue_bytes_before_queue: Option<u32>,
+}
+
+impl NativeAudioDiagnostics {
+    fn new(gems_loaded: bool, sdl_queue_present: bool, audio_channels: u8) -> Self {
+        Self {
+            gems_loaded,
+            sdl_queue_present,
+            audio_channels,
+            generated_frames: 0,
+            generated_samples: 0,
+            queued_frames: 0,
+            queued_samples: 0,
+            skipped_full_frames: 0,
+            queue_errors: 0,
+            queue_observations: 0,
+            min_queue_bytes_before_queue: None,
+            max_queue_bytes_before_queue: None,
+        }
+    }
+
+    fn record_generated_frame(&mut self, sample_count: usize) {
+        self.generated_frames += 1;
+        self.generated_samples += sample_count;
+    }
+
+    fn record_queue_observation(&mut self, queued_bytes: u32) {
+        self.queue_observations += 1;
+        self.min_queue_bytes_before_queue = Some(
+            self.min_queue_bytes_before_queue
+                .map_or(queued_bytes, |current| current.min(queued_bytes)),
+        );
+        self.max_queue_bytes_before_queue = Some(
+            self.max_queue_bytes_before_queue
+                .map_or(queued_bytes, |current| current.max(queued_bytes)),
+        );
+    }
+
+    fn record_queued_frame(&mut self, sample_count: usize, queued_bytes: u32) {
+        self.record_queue_observation(queued_bytes);
+        self.queued_frames += 1;
+        self.queued_samples += sample_count;
+    }
+
+    fn record_skipped_full_frame(&mut self, queued_bytes: u32) {
+        self.record_queue_observation(queued_bytes);
+        self.skipped_full_frames += 1;
+    }
+
+    fn record_queue_error(&mut self, queued_bytes: u32) {
+        self.record_queue_observation(queued_bytes);
+        self.queue_errors += 1;
+    }
+
+    fn into_lines(self) -> Vec<String> {
+        vec![
+            format!("gems_loaded={}", self.gems_loaded),
+            format!("sdl_queue_present={}", self.sdl_queue_present),
+            format!("audio_channels={}", self.audio_channels),
+            format!("generated_frames={}", self.generated_frames),
+            format!("generated_samples={}", self.generated_samples),
+            format!("queued_frames={}", self.queued_frames),
+            format!("queued_samples={}", self.queued_samples),
+            format!("skipped_full_frames={}", self.skipped_full_frames),
+            format!("queue_errors={}", self.queue_errors),
+            format!("queue_observations={}", self.queue_observations),
+            format!(
+                "min_queue_bytes_before_queue={}",
+                self.min_queue_bytes_before_queue
+                    .map_or_else(|| String::from("none"), |value| value.to_string())
+            ),
+            format!(
+                "max_queue_bytes_before_queue={}",
+                self.max_queue_bytes_before_queue
+                    .map_or_else(|| String::from("none"), |value| value.to_string())
+            ),
+        ]
+    }
 }
 
 /// GEMS sound IDs for Kid Chameleon (from constants.asm).
@@ -7875,6 +7984,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
+            Vec::new(),
             Some(final_frame),
             trace.clone(),
             1,
@@ -10854,6 +10964,29 @@ mod tests {
                 generated_stereo_samples,
             ),
             "play-native should not keep multiple generated frames queued ahead, because pickup and block SFX then lag behind the visual frame"
+        );
+    }
+
+    #[test]
+    fn play_native_audio_diagnostics_record_generated_and_queued_frames() {
+        let mut diagnostics = NativeAudioDiagnostics::new(true, true, 2);
+
+        diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
+        diagnostics.record_queued_frame(AUDIO_SAMPLES_PER_FRAME * 2, 0);
+        diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
+        diagnostics.record_skipped_full_frame(8192);
+
+        let lines = diagnostics.into_lines();
+        assert!(
+            lines.contains(&String::from("gems_loaded=true"))
+                && lines.contains(&String::from("sdl_queue_present=true"))
+                && lines.contains(&String::from("generated_frames=2"))
+                && lines.contains(&String::from("queued_frames=1"))
+                && lines.contains(&String::from("skipped_full_frames=1"))
+                && lines.contains(&String::from("queue_errors=0"))
+                && lines.contains(&String::from("min_queue_bytes_before_queue=0"))
+                && lines.contains(&String::from("max_queue_bytes_before_queue=8192")),
+            "live play-native recordings need queue evidence to distinguish rendered audio from SDL playback starvation"
         );
     }
 
