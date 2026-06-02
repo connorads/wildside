@@ -5376,6 +5376,14 @@ pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// ASM Tank.asm loc_3B49A: nonfatal mouth-child hits use the same five-frame
 /// hibernate window before loc_3B4BA resumes the shared walker.
 pub(crate) const TANK_HURT_HIBERNATE_FRAMES: u8 = 5;
+/// ASM Tank.asm loc_3B49A seeds the mouth-child recoil before hibernating, but
+/// native `damage_flash_frames` includes the pre-visible collision frames; the
+/// oracle roster first exposes the `stru_3B294` y-offset in the final 3 frames.
+const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES.saturating_sub(2);
+/// ASM Tank_Shooting.asm loc_3B700 mirrors the same linked-child recoil timing
+/// through `stru_3B294`.
+const TANK_SHOOTING_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B700: u8 =
+    TANK_SHOOTING_HURT_HIBERNATE_FRAMES.saturating_sub(2);
 /// ASM Tank_Shooting.asm loc_3B75A/loc_3B77E: spawn at ±15px from tank centre.
 pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 /// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
@@ -8938,7 +8946,7 @@ impl ActiveEnemy {
             EnemyFamily::Tank | EnemyFamily::TankShooting => {
                 // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate a
                 // linked turret gfx object at `$3A(a5)`, then the shared walker
-                // `sub_3BF72` keeps it synced at parent_y - 8px.
+                // `sub_3BF72` keeps it synced using the child `$46` y-offset.
                 let parent_x_direction = match self.facing {
                     Direction::Left => 0x00,
                     Direction::Right => 0xFF,
@@ -8949,7 +8957,10 @@ impl ActiveEnemy {
                         parent_x_pos: (self.x_pos >> 16) as i16,
                         parent_y_pos: (self.y_pos >> 16) as i16,
                         parent_x_direction,
-                        child_y_offset: 8,
+                        child_y_offset: tank_child_y_offset_loc_3b372_3b49a(
+                            self.family,
+                            self.damage_flash_frames,
+                        ),
                         robot_parent_state: 0,
                         robot_child_mapping: 0,
                         child_x_direction: parent_x_direction,
@@ -8993,7 +9004,7 @@ impl ActiveEnemy {
             y_velocity: Some(0),
             facing,
             on_ground: None,
-            hit_points: None,
+            hit_points: Some(0),
             damage_flash: false,
             palette_variant: self.palette_variant,
             stationary: false,
@@ -9004,6 +9015,24 @@ impl ActiveEnemy {
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         })
+    }
+}
+
+fn tank_child_y_offset_loc_3b372_3b49a(family: EnemyFamily, damage_flash_frames: u8) -> i16 {
+    match family {
+        EnemyFamily::Tank
+            if (1..=TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A).contains(&damage_flash_frames) =>
+        {
+            6
+        }
+        EnemyFamily::TankShooting
+            if (1..=TANK_SHOOTING_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B700)
+                .contains(&damage_flash_frames) =>
+        {
+            6
+        }
+        EnemyFamily::Tank | EnemyFamily::TankShooting => 8,
+        _ => 0,
     }
 }
 
@@ -26073,12 +26102,9 @@ fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 
 
 fn tank_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 {
     // Native uses the shared damage-flash countdown as the visible part of
-    // ASM Tank.asm loc_3B49A's `j_Hibernate_Object(5)` window.
-    damage_flash_frames.saturating_sub(
-        ENEMY_DAMAGE_FLASH_FRAMES
-            .saturating_sub(TANK_HURT_HIBERNATE_FRAMES)
-            .saturating_sub(1),
-    )
+    // ASM Tank.asm loc_3B49A's `j_Hibernate_Object(5)` window; the countdown
+    // is seeded before the sampled roster exposes the recoil pose.
+    damage_flash_frames
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35779,9 +35805,101 @@ mod tests {
         assert_eq!(child.x_velocity, Some(0));
         assert_eq!(child.facing, Some(Direction::Right));
         assert_eq!(
-            child.hit_points, None,
-            "ASM loc_3B372 creates a gfx child, not a second damageable enemy object",
+            child.hit_points,
+            Some(0),
+            "ASM loc_3B372 creates a linked gfx child whose zeroed HP byte is still visible in oracle rosters",
         );
+    }
+
+    #[test]
+    fn tank_hurt_snapshot_uses_recoiled_child_offset_from_loc_3b49a() {
+        let mut tank = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 9,
+            enemy_level: 0,
+            family: EnemyFamily::Tank,
+            x_pos: 0x0249_8000,
+            y_pos: 0x0250_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: 1,
+            death_animation_active: false,
+            grounded_frames: 0,
+            damage_flash_frames: ENEMY_DAMAGE_FLASH_FRAMES,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: false,
+            drips_surface_table_index: 0,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        };
+
+        let child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B372 allocates a linked turret child");
+
+        assert_eq!(child.y_pos, 0x0248_0000);
+
+        tank.damage_flash_frames = TANK_HURT_HIBERNATE_FRAMES;
+        let hibernate_child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B49A hibernates before the recoil pose is visible");
+        assert_eq!(hibernate_child.y_pos, 0x0248_0000);
+
+        tank.damage_flash_frames = TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A;
+        let recoiled_child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B49A keeps the linked turret child visible");
+
+        assert_eq!(recoiled_child.y_pos, 0x024A_0000);
+        assert_eq!(
+            recoiled_child.hit_points,
+            Some(0),
+            "ASM Tank.asm loc_3B49A keeps the child object alive with zero HP while `stru_3B294` hibernates",
+        );
+
+        tank.damage_flash_frames = 0;
+        let recovered_child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B4BA resumes the normal child sync path");
+        assert_eq!(recovered_child.y_pos, 0x0248_0000);
     }
 
     #[test]
