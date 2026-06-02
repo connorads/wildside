@@ -12531,6 +12531,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_carry_uses_current_form_half_width_loc_8ed0() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.x_velocity = 0x0001_0000;
+        let mut slice = make_airborne_slice(34, 100);
+        slice.player.on_ground = true;
+
+        apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::RedStealth,
+        );
+
+        assert_eq!(
+            slice.player.x_pos,
+            35u32 << 16,
+            "ASM sub_8ED0 uses the current helmet half-width; Red Stealth's 7px support still overlaps where The Kid's 5px support would detach",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_uses_crawl_width_overrides() {
         let platform = make_test_platform(40, 100, 2, 0);
 

@@ -726,8 +726,8 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             if platform_support_check_sub_8ED0(
                 Some(platform),
                 slice.player.x_pos,
-                PLAYER_HALF_WIDTH,
-                PlayerForm::TheKid,
+                current_form.half_width(),
+                current_form,
                 false,
             ) {
                 continue;

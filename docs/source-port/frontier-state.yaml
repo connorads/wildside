@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Backlog #208 platform collision has zero live wiring on current main",
+        "reason": "Rejected 2026-06-02. The thin #208 row was stale: `NativeRuntime::step` reaches `apply_platform_collision_with_ceiling_probe` from `crates/kid-core/src/lib.rs`, so native does have a live platform collision pass. The current gap is narrower and still serious: live platform collision is the approximate snap-tolerance/top-landing path, while the exact ROM `Platforms_CheckCollision` escape/carry helpers (`loc_2686`, `loc_26A2`, `loc_26B6`, `loc_26C0`, `loc_26D4`, `loc_26FE`) remain unused outside tests. This pass fixed the independent support-width bug by passing `current_form.half_width()`/`current_form` into the live `platform_support_check_sub_8ED0` carry path; `platform_carry_uses_current_form_half_width_loc_8ed0` failed before the patch and passes after it."
+      },
+      {
         "name": "Backlog #207 can be fixed by directly swapping live terrain probes for the modelled combat helpers",
         "reason": "Rejected 2026-06-02. ASM `Mode_Level` runs `sub_21F8`, then the object/projectile collision passes, then `sub_1F52` and `sub_1FA2` as a global post-object collision phase. Native currently resolves wall/ceiling/floor during the player movement step through bespoke `movement.rs` probes, and source search finds no non-test callers for the modelled `combat.rs` helpers `kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, or `first_solid_overlap_resolution_sub_1FA2`. Focused helper tests pass (`cargo test -q -p kid-core sub_1f52 -- --nocapture`, `sub_21f8`, `sub_1fa2`), so the models are usable, but a blind substitution risks destabilising TAS-sensitive movement. First build a #205 block-collision/object-active oracle scenario for the ROM global pass, then wire the helper through a new post-movement correction seam."
       },
