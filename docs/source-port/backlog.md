@@ -121,6 +121,15 @@ a gameplay/state mismatch. Remaining "no intro music" reports should target a
 different live route/output path or later title/menu recovery, not the basic
 `Load_IntroSequence1` BGM command.
 
+Follow-up 2026-06-02 case-queue triage for #003:
+`issue-playtest-cold-boot-audio-current` is also clean rather than actionable.
+Full `verify-recording` passes (`trace_match`, `oracle_state_match`, and
+`oracle_frame_match` all true), native-only replay passes, and reduced gameplay
+windows `0..120`, `120..240`, and `480..600` all pass. The transcript reaches
+IntroSequence1 at frame 173 and IntroSequence2 at frame 534, so this bundle
+covers the early boot/intro transitions but does not expose a reduced gameplay
+mismatch.
+
 Follow-up 2026-06-02 title-route case triage for #003: the older
 `issue-003-title-audio-current` bundle is native-replayable and its early
 audio windows pass (`0..120`, `120..240`), but full recording verification is
