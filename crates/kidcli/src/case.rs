@@ -1312,6 +1312,7 @@ fn semantic_from_oracle(
         state
             .active_enemies
             .iter()
+            .filter(|enemy| !oracle_enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
             .map(semantic_entity_from_oracle)
             .collect::<Vec<_>>()
     } else {
@@ -1414,6 +1415,26 @@ fn oracle_enemy_semantic_type(enemy: &OracleEnemyState) -> u8 {
     } else {
         enemy.object_type
     }
+}
+
+fn oracle_enemy_is_uninitialised_tank_gfx_proxy(
+    state: &OracleState,
+    enemy: &OracleEnemyState,
+) -> bool {
+    let object_type = oracle_enemy_semantic_type(enemy);
+    if !matches!(object_type, 0x0A | 0x0B) || enemy.current_hp != Some(0) {
+        return false;
+    }
+
+    let dx = (enemy.x_pos >> 16) as i32 - (state.camera_x_pos >> 16) as i32;
+    let dy = (enemy.y_pos >> 16) as i32 - (state.camera_y_pos >> 16) as i32;
+    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after Execute_Objects.
+    // Oracle VBlank can briefly expose a just-linked Tank gfx child before
+    // Tank.asm loc_3B31E / Tank_Shooting.asm loc_3B5A6 writes its display
+    // coordinates. If that zero-HP child is outside Manage_EnemyLoading's
+    // loc_368A8 activation box, it is a helper artefact rather than a
+    // comparable gameplay entity.
+    !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
 }
 
 fn semantic_events(
@@ -3297,6 +3318,83 @@ mod tests {
             "oracle helper VBlank velocity is advisory; oracle_helper_main excludes it from CRC"
         );
         assert_eq!(semantic.player.y_velocity, None);
+    }
+
+    #[test]
+    fn semantic_from_oracle_ignores_uninitialised_tank_gfx_proxy_outside_loader_window() {
+        let stale_proxy = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x0048_0000,
+            y_pos: 0x0068_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0),
+            layout_index: Some(0),
+            layout_ptr: Some(0x0007_985c),
+            parent_object_ptr: Some(0xffff_0da0),
+            gfx_slot_index: Some(3),
+            on_ground: None,
+            current_hp: Some(0),
+            debug_fields: BTreeMap::new(),
+        };
+        let real_tank_child = OracleEnemyState {
+            x_pos: 0x0288_0000,
+            y_pos: 0x0087_0000,
+            current_hp: Some(0),
+            ..stale_proxy.clone()
+        };
+        let state = OracleState {
+            label: String::from("frame_00255"),
+            frame_index: 255,
+            game_mode: 0x000c,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 1,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x00c9_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0x0178_c000,
+            kid_y_pos: 0x009f_0000,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: vec![stale_proxy, real_tank_child],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: Some(2),
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: None,
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0),
+            level_special_effects: Some(0),
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        };
+
+        let semantic = semantic_from_oracle(&state, None);
+
+        assert_eq!(
+            semantic.entities.len(),
+            1,
+            "ASM Mode_Level loc_80C can expose a just-linked zero-HP Tank gfx slot before Tank.asm loc_3B31E writes display coordinates; case semantics should ignore only the outside-window proxy"
+        );
+        assert_eq!(semantic.entities[0].x_pos, 0x0288_0000);
+        assert_eq!(semantic.entities[0].y_pos, 0x0087_0000);
     }
 
     #[test]
