@@ -2302,6 +2302,25 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_keeps_held_left_boundary_clamp_walking_loc_8ff8() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = (PlayerForm::TheKid.half_width() as u32) << 16;
+        player.y_pos = 0x010f_0000;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.trace_input.left = true;
+
+        assert_eq!(
+            runtime.current_character_movement(player),
+            2,
+            "ASM loc_8E16 -> sub_8F26 loc_8FF8: held-left motion enters sub_8F26 with non-zero x_vel, then the left level-edge clamp preserves the negative return into loc_8E74 even though the exported x_vel is now zero"
+        );
+    }
+
+    #[test]
     fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
         fn runtime_at(frame_counter: u16, probe: KidJumpGravityProbe) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -5029,9 +5048,18 @@ impl NativeRuntime {
         // `sub_8F26 -> loc_8F98` returns negative, so `loc_8E5A` branches to
         // `loc_8E74` and keeps the walking coroutine even after x_vel was
         // cleared by the wall snap.
+        // ASM loc_8E16 -> sub_8F26 loc_8FF8 is the level-left-edge counterpart:
+        // held-left motion enters sub_8F26 with non-zero x_vel, the boundary
+        // clamp clears x_vel, and the negative/NE return keeps the walking
+        // continuation at loc_8E74.
+        let held_left_boundary_clamp_kept_walking_loc_8ff8 = self.trace_input.left
+            && !self.trace_input.right
+            && player.on_ground
+            && (player.x_pos >> 16) as i32 <= self.progression.current_form.half_width();
         if player.x_velocity == 0
             && self.progression.current_form != PlayerForm::Skycutter
             && !self.current_frame_kept_walking_after_rubber_wall_snap_loc_8e74()
+            && !held_left_boundary_clamp_kept_walking_loc_8ff8
         {
             return MOVE_STANDINGSTILL;
         }
