@@ -69,8 +69,9 @@ use scenarios::{
     enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
-    idle_level_scenario, lava_weather_audit_scenario, level_00_slope_right_probe_scenario,
-    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+    idle_level_scenario, issue_216_prize_audio_audit_scenario, lava_weather_audit_scenario,
+    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+    walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -97,6 +98,8 @@ enum RecordScenarioKind {
     WalkRight,
     /// walk right and jump under prize blocks.
     PrizeBlock,
+    /// start under the Level 0 prize cluster to audit block/diamond SFX without damage.
+    Issue216PrizeAudioAudit,
     /// start on Blue Lake Woods 1's first `$4000` slope and hold Right.
     Level00SlopeRightProbe,
     /// run + aggressive jumps to maximise enemy stomps.
@@ -2401,6 +2404,7 @@ fn build_record_scenario(
         RecordScenarioKind::Idle => idle_level_scenario(level, walk_frames),
         RecordScenarioKind::WalkRight => walk_right_scenario(level, walk_frames.unwrap_or(300)),
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
+        RecordScenarioKind::Issue216PrizeAudioAudit => issue_216_prize_audio_audit_scenario(),
         RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
@@ -2465,6 +2469,7 @@ fn record_scenario_command(
         RecordScenarioKind::Idle => "idle",
         RecordScenarioKind::WalkRight => "walk-right",
         RecordScenarioKind::PrizeBlock => "prize-block",
+        RecordScenarioKind::Issue216PrizeAudioAudit => "issue216-prize-audio-audit",
         RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
         RecordScenarioKind::StompEnemy => "stomp-enemy",
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
@@ -4537,6 +4542,21 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-136-prize-emergence --scenario prize-block --level 00 --walk-frames 420"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_issue_216_prize_audio_audit() {
+        let command = record_scenario_command(
+            "issue-216-prize-audio-audit",
+            RecordScenarioKind::Issue216PrizeAudioAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-216-prize-audio-audit --scenario issue216-prize-audio-audit --level 00"
         );
     }
 

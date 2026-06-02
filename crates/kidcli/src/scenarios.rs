@@ -586,6 +586,55 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
     }
 }
 
+/// Focused #216 prize/block audio audit for Blue Lake Woods 1.
+///
+/// The generic `prize_block_scenario(0x00)` walks through an enemy contact
+/// before the block-hit cue, polluting `audio-events.txt` with damage SFX.
+/// This route starts just under the first usable prize cluster, performs a
+/// vertical jump, then idles so the recording captures `sfx_Block_hit` and the
+/// later `sfx_Diamond_prize` without a damage event.
+pub fn issue_216_prize_audio_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 180;
+    const JUMP: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 20, 24, JUMP);
+
+    DynamicScenario {
+        slug: "issue_216_prize_audio_audit_00".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "route_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "jump_input".into(),
+                frame_index: 20,
+            },
+            DynamicCheckpoint {
+                label: "block_hit_window".into(),
+                frame_index: 31,
+            },
+            DynamicCheckpoint {
+                label: "diamond_pickup_window".into(),
+                frame_index: 132,
+            },
+            DynamicCheckpoint {
+                label: "route_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+        camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x00),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Idle on a level so a known enemy id has time to enter its initialised state,
 /// then sample the enemy roster so native-vs-oracle parity can detect missing
 /// or misclassified spawns.
@@ -1360,9 +1409,9 @@ mod tests {
         diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
         diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
         diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
-        idle_level_full_frame_scenario, idle_level_scenario, lava_weather_audit_scenario,
-        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-        walk_right_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario, issue_216_prize_audio_audit_scenario,
+        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+        stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -1984,6 +2033,50 @@ mod tests {
             .expect("checkpoints");
         assert!(scenario.frame_count > max_cp);
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn issue_216_prize_audio_audit_starts_under_clean_prize_cluster() {
+        let scenario = issue_216_prize_audio_audit_scenario();
+        assert_eq!(scenario.slug, "issue_216_prize_audio_audit_00");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert_eq!(scenario.frame_count, 180);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((230, 271)),
+            "the #216 route avoids the old frame-109 damage contact before the block-hit cue"
+        );
+        assert_eq!(
+            scenario
+                .camera_position
+                .map(|position| (position.x, position.y)),
+            Some((16, 136))
+        );
+        assert_eq!(scenario.script[19], 0);
+        assert_eq!(scenario.script[20], 1 << 4);
+        assert_eq!(scenario.script[24], 1 << 4);
+        assert_eq!(scenario.script[25], 0);
+        assert!(
+            scenario.script[25..].iter().all(|&buttons| buttons == 0),
+            "the audit idles after the vertical jump so diamond pickup timing is not hidden by later movement"
+        );
+        assert_eq!(
+            scenario
+                .checkpoints
+                .iter()
+                .map(|checkpoint| checkpoint.label.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "route_start",
+                "jump_input",
+                "block_hit_window",
+                "diamond_pickup_window",
+                "route_tail",
+            ]
+        );
+        assert!(scenario.settle_oracle_warp);
     }
 
     #[test]
