@@ -422,6 +422,7 @@ pub(super) fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         terrain: TerrainState {
             floor_y_pos: 0,
             floor_terrain_type: TerrainType::Normal,
+            slope_walk_kind: None,
         },
         level_bounds: LevelBounds {
             width_pixels: 320,
@@ -519,6 +520,7 @@ pub(super) fn shooter_test_slice(camera_x_px: u32, camera_y_px: u32) -> OpeningS
         terrain: TerrainState {
             floor_y_pos: 0,
             floor_terrain_type: TerrainType::Normal,
+            slope_walk_kind: None,
         },
         level_bounds: LevelBounds {
             width_pixels: 640,

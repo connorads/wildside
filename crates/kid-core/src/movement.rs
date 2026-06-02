@@ -2572,6 +2572,7 @@ impl OpeningSliceState {
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
                 floor_terrain_type: TerrainType::Normal,
+                slope_walk_kind: None,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -2633,6 +2634,7 @@ impl OpeningSliceState {
             terrain: TerrainState {
                 floor_y_pos: pose.kid_y_pos,
                 floor_terrain_type: TerrainType::Normal,
+                slope_walk_kind: None,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -4594,6 +4596,12 @@ impl OpeningSliceState {
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
             .filter(|_| self.player.on_ground);
+        let cached_slope_continuation = (self.player.on_ground && grounded_slope.is_none())
+            .then_some(self.terrain.slope_walk_kind)
+            .flatten()
+            .filter(|&slope| {
+                cached_slope_walk_exit_gate_loc_a13a(self.player.x_velocity, input, slope)
+            });
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
@@ -4626,7 +4634,10 @@ impl OpeningSliceState {
             run: input.a,
         };
         let (new_vel, new_facing) = if self.player.on_ground {
-            if let Some(collision) = grounded_slope {
+            let slope_velocity_kind = grounded_slope.or(cached_slope_continuation);
+            if let Some(cached_slope) = cached_slope_continuation {
+                cached_slope_walk_exit_velocity_loc_a13a(self.player.x_velocity, cached_slope)
+            } else if let Some(collision) = slope_velocity_kind {
                 let slope_input = slope_horizontal_input_loc_9DAA(input, collision);
                 self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
                     self.walk_visual_accumulator,
@@ -4710,6 +4721,12 @@ impl OpeningSliceState {
         };
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
+        if let Some(live_slope) = grounded_slope {
+            // ASM loc_9D22/loc_A13A: `$FFFFFA26` stays stale after sub_A254
+            // reaches solid; the terminal gate decides when it affects flat
+            // walking again.
+            self.terrain.slope_walk_kind = Some(live_slope);
+        }
         self.advance_juggernaut_walk_visual_accumulator_loc_9484(form);
         true
     }
@@ -6283,6 +6300,57 @@ fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {
     // ASM loc_9F32 (kid.asm:12232): negate the cap and clamp negative values
     // below `$FFFC0000` before storing `x_vel` again at loc_9F3A.
     x_vel.clamp(-KID_SLOPE_MAX_SPEED_FP, KID_SLOPE_MAX_SPEED_FP)
+}
+
+fn cached_slope_walk_exit_velocity_loc_a13a(
+    x_vel: i32,
+    collision: terrain::CollisionKind,
+) -> (i32, Direction) {
+    // ASM loc_A13A -> loc_9D22 terminal slope-walk continuation. Highwater
+    // oracle frame 748 shows the cached `$FA26=$FF` exit advancing
+    // x_vel=-$2000 to +$1000 before the next frame returns to flat loc_8BF0.
+    let next_x_vel = match collision {
+        terrain::CollisionKind::SlopeDown => {
+            let advanced = x_vel + SPECIAL_FORM_SLOPE_STEP_FP;
+            if advanced >= 0 {
+                advanced
+            } else {
+                SPECIAL_FORM_SLOPE_STEP_FP
+            }
+        }
+        terrain::CollisionKind::SlopeUp => {
+            let advanced = x_vel - SPECIAL_FORM_SLOPE_STEP_FP;
+            if advanced < 0 {
+                advanced
+            } else {
+                -SPECIAL_FORM_SLOPE_STEP_FP
+            }
+        }
+        _ => x_vel,
+    };
+    let next_x_vel = cap_slope_exit_x_vel_loc_9f32(next_x_vel);
+    let next_facing = if next_x_vel >= 0 {
+        Direction::Right
+    } else {
+        Direction::Left
+    };
+    (next_x_vel, next_facing)
+}
+
+fn cached_slope_walk_exit_gate_loc_a13a(
+    x_vel: i32,
+    input: FrameInput,
+    collision: terrain::CollisionKind,
+) -> bool {
+    // ASM loc_A13A -> loc_9D22 terminal hand-off is not the whole flat braking
+    // run. Highwater oracle frames 736-747 keep normal flat sub_9A0A braking;
+    // only frame 748 consumes cached SlopeDown when right-held x_vel reaches
+    // -$2000 and would otherwise zero.
+    match collision {
+        terrain::CollisionKind::SlopeDown => input.right && x_vel == -0x2000,
+        terrain::CollisionKind::SlopeUp => input.left && x_vel == 0x2000,
+        _ => false,
+    }
 }
 
 #[allow(non_snake_case)]

@@ -2039,6 +2039,9 @@ impl TerrainType {
 pub(crate) struct TerrainState {
     pub(crate) floor_y_pos: u32,
     pub(crate) floor_terrain_type: TerrainType,
+    /// ASM `$FFFFFA26`: cached slope-walk kind kept after the live floor probe
+    /// stops seeing the slope tile.
+    pub(crate) slope_walk_kind: Option<terrain::CollisionKind>,
 }
 
 /// Movement script execution state for a platform.

@@ -2231,6 +2231,7 @@ mod chunk_08 {
             terrain: TerrainState {
                 floor_y_pos: 0x02DD_0000,
                 floor_terrain_type: TerrainType::Normal,
+                slope_walk_kind: None,
             },
             ..OpeningSliceState::new(runtime.level_bounds(LevelId(demo::DEMO_2_LEVEL)))
         });
@@ -2303,6 +2304,7 @@ mod chunk_08 {
             terrain: TerrainState {
                 floor_y_pos: 0x02DF_0000,
                 floor_terrain_type: TerrainType::Normal,
+                slope_walk_kind: None,
             },
             ..OpeningSliceState::new(runtime.level_bounds(LevelId(demo::DEMO_2_LEVEL)))
         });

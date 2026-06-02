@@ -4767,6 +4767,7 @@ mod chunk_11 {
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
                 floor_terrain_type: TerrainType::Normal,
+                slope_walk_kind: None,
             },
             level_bounds: physics::LevelBounds {
                 width_pixels: 64,
@@ -13218,6 +13219,59 @@ mod chunk_12 {
             slice.player.facing,
             Direction::Right,
             "ASM loc_9DF2 stores x_direction=0 for SlopeDown downhill movement",
+        );
+    }
+
+    /// ASM loc_A13A -> loc_9D22 (kid.asm:12422,11942): the slope-walk
+    /// coroutine loops back through loc_9D22 using cached `$FFFFFA26`, even on
+    /// the first frame where the immediate floor probe no longer sees a slope.
+    /// Highwater oracle frame 748 has Berzerker on flat support with
+    /// `$FA26=$FF`, right held, `x_vel=-$2000`, and exits with `x_vel=+$1000`.
+    #[test]
+    fn loc_a13a_cached_slope_down_continuation_survives_flat_probe() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let solid_offset = (3usize * usize::from(w) + 4) * 2;
+        data[solid_offset] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+        slice.player.x_velocity = -0x2000;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Berzerker,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            stepped,
+            "ASM loc_A13A -> loc_9D22 should continue slope-walk movement from cached $FA26"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x1000,
+            "Highwater oracle frame 748: cached SlopeDown + right held turns -$2000 into +$1000"
+        );
+        assert_eq!(
+            slice.terrain.slope_walk_kind,
+            Some(terrain::CollisionKind::SlopeDown),
+            "ROM $FA26 remains stale after the terminal loc_A13A zero-crossing"
         );
     }
 
