@@ -1101,12 +1101,14 @@ gameplay --include-advisory --only-divergent` reports `300 match, 0 diverge`.
 It did expose a visual trace/export bug: `NativeTraceFrame.floating_items`
 stored only the low byte of `PrizeDiamond_Init`'s d3 countdown, so the renderer
 treated a live `$0182` diamond as the late `$0082` `stru_10D80` blink phase and
-hid it. Native trace now exports the full remaining word and the renderer only
-applies the blink/null-frame gate once ASM `PrizeDiamond_Init loc_10396/loc_103B2`
-has counted down to `$00C8`. Regenerated verification still has pixel deltas
-(`stomp_quarter` terrain/palette, and small floating-diamond palette/frame
-phase differences at `stomp_half`/`stomp_end`), so #214 remains open for
-visual parity and a fresh live route if the launch is still observable.
+hid it. Native trace now exports the full remaining word, the renderer drives
+`stru_10D6E` from the object-local `loc_10396` countdown instead of global
+`Time_Frames`, and it only applies the `stru_10D80` blink/null-frame gate once
+ASM `PrizeDiamond_Init loc_103B2` has counted down to `$00C8`. Regenerated
+verification still has pixel deltas (`stomp_quarter` terrain/palette, and
+small floating-diamond palette/frame phase differences at `stomp_half` /
+`stomp_end`), so #214 remains open for visual parity and a fresh live route if
+the launch is still observable.
 
 Note 2026-06-01 Berzerker render-latch follow-up for #214: the live Highwater
 route remained gameplay-green (`tas-diff` frames 80..130 still `50 match, 0

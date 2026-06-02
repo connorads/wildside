@@ -4870,7 +4870,14 @@ mod tests {
                         width_px: 0x10,
                         height_px: 0x0C,
                         tile_base_index: 8,
-                        tile_sheet: blank_tile_sheet(16 + frame),
+                        tile_sheet: TileSheet {
+                            tiles: vec![
+                                Tile {
+                                    pixels: [16 + frame as u8; 64],
+                                };
+                                16
+                            ],
+                        },
                     })
                     .collect(),
                 frame_duration: 3,
@@ -5983,9 +5990,9 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
-                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                            && tile_sheet.tiles.iter().any(|tile| tile.pixels == [17; 64])
                 )
             }),
             "ASM loc_3F880/word_4020E should render Circle of Doom from HUD diamond VRAM art"
@@ -5995,7 +6002,7 @@ mod tests {
     #[test]
     fn build_scene_draws_floating_diamond_with_rom_sprite_art() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u16::from(u8::MAX), 0x00)];
+        trace.floating_items = vec![(48, 64, 0x01F4, 0x00)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -6004,9 +6011,9 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
-                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                            && tile_sheet.tiles.iter().any(|tile| tile.pixels == [16; 64])
                 )
             }),
             "ASM stru_10D6E/unk_E0E66 should render the floating prize from HUD diamond VRAM art"
@@ -6038,12 +6045,38 @@ mod tests {
             scene.commands.iter().any(|command| {
                 matches!(
                     command,
-                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                    DrawCommand::Sprite { tile_sheet, .. }
                         if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
-                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                            && tile_sheet.tiles.iter().any(|tile| tile.pixels == [18; 64])
                 )
             }),
             "ASM loc_103B2 should not switch to the blinking `stru_10D80` until the full d3 word reaches $00C8"
+        );
+    }
+
+    #[test]
+    fn build_scene_animates_floating_diamond_from_local_loc_10396_countdown() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 150;
+        // ASM PrizeDiamond_Init calls j_Init_Animation on `stru_10D6E` when
+        // the object is created; global Time_Frames does not choose the
+        // diamond frame. At remaining d3=$01F4 the local animation is still on
+        // the first `unk_E0E66` frame even though frame_index/3 would select
+        // fixture frame 2.
+        trace.floating_items = vec![(48, 64, 0x01F4, 0x00)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles.iter().any(|tile| tile.pixels == [16; 64])
+                )
+            }),
+            "ASM loc_10396 should drive `stru_10D6E` from the prize object's local countdown"
         );
     }
 

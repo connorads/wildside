@@ -3986,8 +3986,13 @@ fn build_game_scene_filtered(
                 if !floating_prize_sprite_visible_loc_103b2(content, remaining) {
                     continue;
                 }
-                let frame_index = (trace.frame_index / prize_visuals.frame_duration.max(1))
-                    % prize_visuals.frames.len().max(1);
+                let frame_index = floating_prize_frame_index_loc_10396(
+                    content,
+                    remaining,
+                    trace.frame_index,
+                    prize_visuals.frame_duration.max(1),
+                    prize_visuals.frames.len().max(1),
+                );
                 if let Some(frame) = prize_visuals.frames.get(frame_index) {
                     let facing = Direction::Right;
                     let (draw_x, draw_y) = sprite_draw_position(frame, fx, fy, facing);
@@ -4298,6 +4303,35 @@ fn floating_prize_sprite_visible_loc_103b2(
             (blink_elapsed / 3).is_multiple_of(2)
         }
         _ => true,
+    }
+}
+
+fn floating_prize_frame_index_loc_10396(
+    content: kid_core::terrain::PrizeContent,
+    remaining_frames: u16,
+    trace_frame_index: usize,
+    frame_duration: usize,
+    frame_count: usize,
+) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
+
+    match content {
+        kid_core::terrain::PrizeContent::Diamond if remaining_frames > 0x00C8 => {
+            // ASM PrizeDiamond_Init loc_10396 decrements d3 from $01F4 after
+            // j_Init_Animation starts `stru_10D6E`; global Time_Frames does
+            // not choose the local diamond frame.
+            let elapsed = 0x01F4u16.saturating_sub(remaining_frames);
+            usize::from(elapsed) / frame_duration % frame_count
+        }
+        kid_core::terrain::PrizeContent::Diamond => {
+            // ASM loc_103B2 switches to `stru_10D80` at d3=$00C8:
+            // visible frame, null frame, next visible frame, null frame...
+            let blink_elapsed = 0x00C8u16.saturating_sub(remaining_frames);
+            usize::from(blink_elapsed) / (frame_duration * 2) % frame_count
+        }
+        _ => trace_frame_index / frame_duration % frame_count,
     }
 }
 
