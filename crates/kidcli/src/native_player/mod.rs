@@ -4152,6 +4152,59 @@ mod tests {
     }
 
     #[test]
+    fn berzerker_regular_walk_pose_yields_to_slope_walk_loc_a13a() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(10),
+                sample_player_frame(11),
+                sample_player_frame(12),
+                sample_player_frame(13),
+                sample_player_frame(14),
+                sample_player_frame(15),
+            ],
+            charge: vec![
+                sample_player_frame(40),
+                sample_player_frame(41),
+                sample_player_frame(42),
+                sample_player_frame(43),
+                sample_player_frame(44),
+                sample_player_frame(45),
+            ],
+            slope_walk: vec![sample_player_frame(70), sample_player_frame(71)],
+            slope_walk_left: vec![sample_player_frame(80), sample_player_frame(81)],
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Berzerker.helmet_id();
+        trace.kid_x_velocity = Some(0x0000_8000);
+        trace.kid_on_ground = Some(true);
+        trace.kid_facing = Some(Direction::Right);
+        trace.kid_on_slope = 1;
+        trace.berzerker_charging = false;
+        trace.berzerker_charge_pose = false;
+        trace.berzerker_walk_pose = true;
+        trace.walk_visual_accumulator = 0x0100;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 81,
+            "ASM loc_A13A writes the slope off_A190 sprite after loc_9600's ordinary Berzerker walk sprite"
+        );
+    }
+
+    #[test]
     fn juggernaut_walk_frame_uses_walk_visual_accumulator_loc_94b4() {
         let visuals = PlayerFormVisuals {
             palette: Palette {

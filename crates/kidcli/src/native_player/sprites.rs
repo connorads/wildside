@@ -530,18 +530,8 @@ pub(super) fn select_player_frame<'a>(
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.charge.len();
             &player_visuals.charge[frame_index]
         } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-            && trace.berzerker_walk_pose
-            && !player_visuals.walk.is_empty()
+            && trace.kid_on_slope != 0
         {
-            // ASM loc_9580 -> loc_95DA -> loc_9600 writes Berzerker's
-            // ordinary off_967C walk sprite before later wall collision can
-            // leave the sampled post-frame velocity at zero.
-            let frame_index =
-                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
-            &player_visuals.walk[frame_index]
-        } else if x_velocity == 0 {
-            &player_visuals.idle
-        } else if trace.kid_on_slope != 0 {
             // ASM loc_A13A / off_A190: slope animation table selection first
             // canonicalises x_direction through $FFFFFA26. SlopeUp keeps the
             // live facing byte; SlopeDown XORs it with $FF before loc_A16C
@@ -562,6 +552,36 @@ pub(super) fn select_player_frame<'a>(
             // every form. Native used to approximate non-Juggernaut slopes
             // from frame time, which made downhill/reverse motion animate out
             // of phase with the ROM accumulator.
+            let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
+            &slope_frames[frame_index]
+        } else if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
+            && trace.berzerker_walk_pose
+            && !player_visuals.walk.is_empty()
+        {
+            // ASM loc_9580 -> loc_95DA -> loc_9600 writes Berzerker's
+            // ordinary off_967C walk sprite before later wall collision can
+            // leave the sampled post-frame velocity at zero, but loc_A13A's
+            // slope sprite write happens later and therefore wins above.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
+            &player_visuals.walk[frame_index]
+        } else if x_velocity == 0 {
+            &player_visuals.idle
+        } else if trace.kid_on_slope != 0 {
+            // ASM loc_A13A / off_A190: non-Berzerker slope animation table
+            // selection follows the same `$FFFFF8F0 >> 8` phase.
+            let facing = trace.kid_facing.unwrap_or(Direction::Right);
+            let canonical_reverse = match (trace.kid_on_slope < 0, facing) {
+                (false, Direction::Right) | (true, Direction::Left) => false,
+                (false, Direction::Left) | (true, Direction::Right) => true,
+            };
+            let slope_frames = match canonical_reverse {
+                false if !player_visuals.slope_walk_left.is_empty() => {
+                    &player_visuals.slope_walk_left
+                }
+                true if !player_visuals.slope_walk.is_empty() => &player_visuals.slope_walk,
+                _ => &player_visuals.walk,
+            };
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
         } else {
