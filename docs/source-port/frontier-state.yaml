@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Backlog #207 can be fixed by directly swapping live terrain probes for the modelled combat helpers",
+        "reason": "Rejected 2026-06-02. ASM `Mode_Level` runs `sub_21F8`, then the object/projectile collision passes, then `sub_1F52` and `sub_1FA2` as a global post-object collision phase. Native currently resolves wall/ceiling/floor during the player movement step through bespoke `movement.rs` probes, and source search finds no non-test callers for the modelled `combat.rs` helpers `kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, or `first_solid_overlap_resolution_sub_1FA2`. Focused helper tests pass (`cargo test -q -p kid-core sub_1f52 -- --nocapture`, `sub_21f8`, `sub_1fa2`), so the models are usable, but a blind substitution risks destabilising TAS-sensitive movement. First build a #205 block-collision/object-active oracle scenario for the ROM global pass, then wire the helper through a new post-movement correction seam."
+      },
+      {
         "name": "Existing #206 Diamond Power cache audit bundles are current gate evidence",
         "reason": "Rejected 2026-06-02. Current `main` no longer replays any of the ignored `.cache/recordings/issue-206-diamond-power-*` audit bundles cleanly before oracle comparison: `cargo run -q -p kidcli -- verify-recording --slug issue-206-diamond-power-circle-audit`, `...wall-audit`, `...snake-audit`, `...invulnerability-audit`, and `...samurai-haze-audit` all fail at frame 0 with `recording replay drifted ... native trace frame mismatch`. The regenerated reports still have `oracle_state_match=true` and zero state diffs, but `trace_match=false` means they are stale native snapshots, not current authoritative proof. Re-record or verify the committed Diamond Power scenario builders through a cache-independent route before using #206 audit parity as a gate."
       },
