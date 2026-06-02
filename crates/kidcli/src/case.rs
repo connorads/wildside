@@ -1164,6 +1164,7 @@ fn semantic_from_native(
         snapshot
             .active_objects
             .iter()
+            .filter(|object| !native_object_is_uninitialised_tank_gfx_proxy(snapshot, object))
             .filter_map(semantic_entity_from_native)
             .collect::<Vec<_>>()
     } else {
@@ -1378,6 +1379,24 @@ fn semantic_entity_from_native(snapshot: &NativeObjectSnapshot) -> Option<Semant
             hit_points: snapshot.hit_points.map(u16::from),
         }),
     }
+}
+
+fn native_object_is_uninitialised_tank_gfx_proxy(
+    frame: &NativeTraceFrame,
+    object: &NativeObjectSnapshot,
+) -> bool {
+    let NativeObjectKind::Enemy { object_type } = object.kind else {
+        return false;
+    };
+    if !matches!(object_type, 0x0A | 0x0B) || object.hit_points.is_some() {
+        return false;
+    }
+
+    let dx = (object.x_pos >> 16) as i32 - (frame.camera_x_pos >> 16) as i32;
+    let dy = (object.y_pos >> 16) as i32 - (frame.camera_y_pos >> 16) as i32;
+    // ASM loc_368A8 activation uses this camera-relative box. Tank gfx children
+    // outside it are loader/trace proxies, not authoritative enemy bodies.
+    !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
 }
 
 fn semantic_entity_from_oracle(enemy: &OracleEnemyState) -> SemanticEntity {
@@ -3395,6 +3414,54 @@ mod tests {
         );
         assert_eq!(semantic.entities[0].x_pos, 0x0288_0000);
         assert_eq!(semantic.entities[0].y_pos, 0x0087_0000);
+    }
+
+    #[test]
+    fn semantic_from_native_ignores_tank_gfx_proxy_outside_loader_window() {
+        let body = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x0298_0000,
+            y_pos: 0x0090_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0x8000),
+            y_velocity: Some(0),
+            facing: Some(kid_core::physics::Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        };
+        let gfx_proxy = NativeObjectSnapshot {
+            y_pos: 0x0088_0000,
+            hit_points: None,
+            ..body.clone()
+        };
+        let trace = NativeTraceFrame {
+            frame_index: 1237,
+            game_mode_value: 0x000c,
+            current_level: kid_core::LevelId(1),
+            camera_x_pos: 0x00d7_0000,
+            active_objects: vec![body, gfx_proxy],
+            ..NativeTraceFrame::default()
+        };
+
+        let semantic = semantic_from_native(&trace, None);
+
+        assert_eq!(
+            semantic.entities.len(),
+            1,
+            "ASM loc_368A8 unloads Tank gfx proxies outside dx=$1C0; native case semantics should keep the body but ignore the off-window child"
+        );
+        assert_eq!(semantic.entities[0].x_pos, 0x0298_0000);
+        assert_eq!(semantic.entities[0].y_pos, 0x0090_0000);
+        assert_eq!(semantic.entities[0].hit_points, Some(2));
     }
 
     #[test]
