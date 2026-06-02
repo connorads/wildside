@@ -1433,8 +1433,12 @@ fn semantic_events(
                 .movement_state
                 .as_deref()
                 .is_some_and(|movement| movement != "movement_0003");
-        let ground_landed =
-            previous.player.on_ground == Some(false) && player.on_ground == Some(true);
+        let ground_landed = previous.player.on_ground == Some(false)
+            && player.on_ground == Some(true)
+            && player
+                .movement_state
+                .as_deref()
+                .is_none_or(|movement| movement != "movement_0003");
         if movement_landed || ground_landed {
             events.push(String::from("landed"));
         }
@@ -2439,6 +2443,50 @@ mod tests {
             events,
             vec![String::from("jump_started")],
             "oracle helper-backed demo frames leave on-ground unknown, so jump events must derive from the shared movement-state transition"
+        );
+    }
+
+    #[test]
+    fn semantic_events_do_not_report_landing_while_shared_movement_state_is_still_jump() {
+        let previous = SemanticGameState {
+            frame_index: 3389,
+            player: SemanticPlayerState {
+                x_pos: Some(0x003a_0000),
+                y_pos: Some(0x029a_0000),
+                x_velocity: Some(0),
+                y_velocity: Some(-0x0000_c600),
+                facing: Some(String::from("right")),
+                on_ground: Some(false),
+                movement_state: Some(String::from("movement_0003")),
+                current_form: Some(0),
+                hitpoints: Some(2),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 0, y_pos: 0 },
+            world: SemanticWorldState {
+                game_mode: 0x0010,
+                current_level_id: 0x1b,
+                player_1_level_id: 0x1b,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: Some(String::from("demo_play")),
+            },
+            entities: vec![],
+            events: vec![],
+        };
+        let mut player = previous.player.clone();
+        player.on_ground = Some(true);
+        player.y_velocity = Some(0);
+
+        let events = semantic_events(Some(&previous), &player, &[]);
+
+        assert!(
+            events.is_empty(),
+            "the reduced issue-003 title demo case reaches matching positions while oracle still reports movement_0003 and leaves ground metadata unknown; a native-only ground flag must not invent a landed event"
         );
     }
 

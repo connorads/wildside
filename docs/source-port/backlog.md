@@ -120,6 +120,19 @@ passes; reduced cases `0..120` and `120..240` pass, so this route does not expos
 a gameplay/state mismatch. Remaining "no intro music" reports should target a
 different live route/output path or later title/menu recovery, not the basic
 `Load_IntroSequence1` BGM command.
+
+Follow-up 2026-06-02 title-route case triage for #003: the older
+`issue-003-title-audio-current` bundle is native-replayable and its early
+audio windows pass (`0..120`, `120..240`), but full recording verification is
+not clean because the demo tail diverges at `frame_003360@3360` on
+`player_1_level_id` (`native 0x1B`, oracle 0). A focused `3240..3420` case first
+failed only because native emitted a semantic `landed` event at frame 3390 while
+oracle exposes no ground flag in helper-backed DemoPlay frames; positions,
+mode, camera, and entities matched. Case semantics now ignore ground-flag-only
+landing while the shared movement state remains `movement_0003`; reduced case
+`issue-003-title-audio-current_case_03240_03420` now passes through `3240..3391`.
+Remaining title/menu audio work needs a fresh interactive/menu route or output
+path repro, not this stale long idle bundle.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
