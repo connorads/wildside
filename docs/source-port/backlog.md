@@ -325,6 +325,19 @@ oracle comparison diverges before a slope-vibration window at frame 125
 authoritative checkpoint), then takes repeated damage and loses helmet state.
 Next #126 work should fix or avoid that earlier Level 01 route divergence before
 patching slope animation/movement.
+
+Follow-up 2026-06-02: derived the selector-requested base Level 01 reduction
+from native recording `issue-126-level01-walk-right-base`. The source recording
+passes native replay. Case `.cache/cases/issue-126-level01-walk-right-base`
+reduces `walk_right_01_case_00000_00180` to 125 continuation frames and remains
+oracle-divergent: first bad frame 124, field `player.y_pos`, native `12582912`
+versus oracle `12517376`; `world.game_mode`, `camera`, and `entities` still
+match, so the likely subsystem is player physics/collision. Semantic evidence
+shows native starting `jump_started`/`movement_0003` at the same X position while
+oracle remains grounded at `movement_0002`. This is before the Red Stealth slope
+window, so the next implementation pass should inspect the grounded
+release/jump/floor-support ASM around `sub_902A`, `sub_B43A`, and `sub_B55C`
+for this route before any sweep-only hardening or visual slope patching.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
