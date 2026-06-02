@@ -510,13 +510,9 @@ fn scenario_settled_warp_starts_later_levels_in_live_gameplay() {
 
 #[test]
 fn scenario_settled_warp_level09_cached_assets_starts_in_live_gameplay() {
-    let manifest_path = repo_root()
-        .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-    if !manifest_path.is_file() {
-        eprintln!("skipping cached level09 settled-warp test: generated asset manifest missing");
+    let Some(manifest) = cached_generated_manifest() else {
         return;
-    }
-    let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+    };
     let settled = run_script_with_settled_warp(manifest, &[0x00], 1, Some(9));
 
     assert_eq!(settled[0].current_level, LevelId(9));
