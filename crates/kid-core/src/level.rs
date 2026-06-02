@@ -18478,9 +18478,20 @@ impl NativeRuntime {
                 width_pixels: 320,
                 height_pixels: 224,
             },
-            |header| LevelBounds {
-                width_pixels: u16::from(header.width_screens) * 320,
-                height_pixels: u16::from(header.height_screens) * 224,
+            |header| {
+                let blank_top_rows = terrain::blank_top_rows_from_height_flag_bits_sub_140F6(
+                    header.height_flag_bits,
+                );
+                let height_blocks = u16::from(header.height_screens)
+                    .saturating_mul(14)
+                    .saturating_add(blank_top_rows);
+                LevelBounds {
+                    width_pixels: u16::from(header.width_screens).saturating_mul(320),
+                    // ASM loc_15A0 adds Number_blank_top_rows after the base
+                    // screen-height calculation, so camera/death bounds must
+                    // include the inserted top rows too.
+                    height_pixels: height_blocks.saturating_mul(16),
+                }
             },
         )
     }

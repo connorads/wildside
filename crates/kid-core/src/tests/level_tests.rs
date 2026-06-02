@@ -6655,6 +6655,27 @@ mod chunk_02 {
     }
 
     #[test]
+    fn load_leveldata_height_flags_extend_level_bounds_loc_15a0() {
+        let mut manifest = manifest();
+        let header = manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("synthetic manifest should expose level header metadata");
+        header.width_screens = 2;
+        header.height_screens = 2;
+        header.height_flag_bits = 3;
+
+        let runtime = NativeRuntime::new(manifest);
+        let bounds = runtime.level_bounds(LevelId(0));
+
+        assert_eq!(bounds.width_pixels, 640);
+        assert_eq!(
+            bounds.height_pixels, 544,
+            "ASM loc_15A0 adds Number_blank_top_rows to Level_height_pixels after the base screen height",
+        );
+    }
+
+    #[test]
     fn moves_camera_when_holding_right_in_game() {
         let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
         start_level(&mut runtime);
