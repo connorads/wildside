@@ -78,6 +78,10 @@
     },
     "rejected_hypotheses": [
       {
+        "name": "Recording `tmp-issue-213-drips-current` is ready to reduce into an authoritative long Drips drop/pool case",
+        "reason": "Rejected 2026-06-02. Fresh verification shows the current-looking 2000-frame settled Level 01 Drips bundle is native-replayable only through its early prefix: `cargo run -p kidcli -- verify-recording --slug tmp-issue-213-drips-current` and `cargo run -p kidcli -- verify-recording --slug tmp-issue-213-drips-current --native-only` both fail with `recording replay drifted at frame 135 (native trace frame mismatch)`. The selector-requested 0..120 case derives as `issue-213-drips-floor-probe-2000_case_00000_00120` and passes with matching mode, camera, player position, entities, and events; `cargo run -p kidcli -- case reduce --case tmp-issue-213-drips-current` reports it is already passing. This confirms the latest lower-floor prefix remains clean but does not cover the later drop/pool/metal-block interaction; re-record a stable route past frame 135 before closing #213."
+      },
+      {
         "name": "Recording `issue-playtest-cold-boot-audio-current` exposes an actionable early cold-boot intro mismatch",
         "reason": "Rejected 2026-06-02. Fresh verification shows this power-on 600-frame bundle is current and oracle-clean. `cargo run -p kidcli -- verify-recording --slug issue-playtest-cold-boot-audio-current` passes with trace, oracle state, and oracle frame matches; `cargo run -p kidcli -- verify-recording --slug issue-playtest-cold-boot-audio-current --native-only` also passes. Reduced windows `0..120`, `120..240`, and `480..600` all pass (`case issue-playtest-cold-boot-audio-current_case_00000_00120`, `_00120_00240`, and `_00480_00600`). Transcript reaches IntroSequence1 at frame 173 and IntroSequence2 at frame 534, so this route covers early boot/intro transitions but does not expose a reduced gameplay mismatch."
       },
