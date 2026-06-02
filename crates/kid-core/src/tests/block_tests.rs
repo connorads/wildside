@@ -2143,6 +2143,57 @@ mod chunk_04 {
     }
 
     #[test]
+    fn walking_dragon_idle_edge_contact_keeps_exact_asm_box() {
+        let player = PlayerState {
+            x_pos: 0x008C_0000,
+            y_pos: 0x010F_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        };
+        let enemy = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x00A2_8000,
+            y_pos: 0x0110_0000,
+            layout_index: Some(2),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(185),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(0),
+            wait_timer: Some(185),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        assert_eq!(
+            classify_enemy_contact_with_half_width(
+                player,
+                &enemy,
+                player.y_velocity,
+                player.y_pos,
+                PlayerForm::TheKid.half_width() as i64,
+            ),
+            EnemyContactResult::None,
+            "ASM GfxObjects_CollisionKid keeps the issue-216 x140 idle Dragon edge outside Kid's exact hitbox; the native Dragon landing-graze allowance must not widen zero-velocity contact"
+        );
+    }
+
+    #[test]
     fn stomp_works_during_invulnerability() {
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
