@@ -1343,6 +1343,53 @@ pub(crate) fn native_audio_events_for_trace(
     events
 }
 
+pub(crate) fn native_audio_artifacts_for_trace(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+) -> RecordingBundleArtifacts {
+    let audio_events = native_audio_events_for_trace(manifest, trace_frames);
+    let Some(mut gems) = try_load_gems_engine(manifest) else {
+        return RecordingBundleArtifacts {
+            audio_events,
+            ..RecordingBundleArtifacts::default()
+        };
+    };
+
+    let mut active_bgm_cue = None;
+    let mut pending_bgm_start: Option<u8> = None;
+    let mut prev_trace: Option<&NativeTraceFrame> = None;
+    let mut audio_samples = Vec::with_capacity(trace_frames.len() * AUDIO_SAMPLES_PER_FRAME * 2);
+    for trace in trace_frames {
+        let (next_bgm_cue, bgm_command) =
+            native_bgm_state_after_trace(manifest, trace, active_bgm_cue);
+        let mut queued_bgm_start_this_frame = false;
+        if let Some(command) = bgm_command {
+            pending_bgm_start = apply_native_bgm_command(&mut gems, command);
+            queued_bgm_start_this_frame = pending_bgm_start.is_some();
+        }
+        active_bgm_cue = next_bgm_cue;
+
+        if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
+            gems.play_sound(bgm);
+        }
+        if let Some(prev) = prev_trace {
+            for sound_id in gems_event_sound_ids(prev, trace) {
+                gems.play_sound(sound_id);
+            }
+        }
+        gems.step_frame();
+        audio_samples.extend(gems.generate_samples(AUDIO_SAMPLES_PER_FRAME));
+        prev_trace = Some(trace);
+    }
+
+    RecordingBundleArtifacts {
+        audio_samples: Some(audio_samples),
+        audio_channels: 2,
+        audio_events,
+        ..RecordingBundleArtifacts::default()
+    }
+}
+
 fn apply_native_bgm_command(
     gems: &mut GemsAudioEngine,
     command: NativeBgmPlaybackCommand,
@@ -10968,6 +11015,29 @@ mod tests {
                 ),
             ],
             "scripted recording bundles should expose both BGM transitions and ASM/core queued SFX as live play-native audio events"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn scripted_recording_audio_artifacts_keep_events_when_gems_assets_missing()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let trace = [sample_trace(GameMode::IntroSequence1)];
+
+        let artifacts = native_audio_artifacts_for_trace(&fixture.manifest, &trace);
+
+        assert_eq!(
+            artifacts.audio_samples, None,
+            "the tiny unit manifest has no GEMS binaries, so rendered audio is verified with real extracted assets instead"
+        );
+        assert_eq!(artifacts.audio_channels, 0);
+        assert_eq!(
+            artifacts.audio_events,
+            vec![String::from(
+                "frame=0 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+            )],
+            "record-scenario-file should still persist ASM-derived cue evidence even when waveform rendering is unavailable"
         );
         Ok(())
     }
