@@ -10182,10 +10182,10 @@ pub(crate) fn classify_enemy_contact_with_half_width(
         // late Level 1 landing graze against the left-facing walking dragon on
         // the frame-1684 death path. The native form box needs one extra pixel
         // of horizontal reach there once Kid has already landed and is still
-        // moving; keep the airborne stomp path and idle zero-velocity edge
+        // moving right; keep leftward ground passes and idle zero-velocity
         // contacts on the exact ASM GfxObjects_CollisionKid box.
         NativeObjectKind::Enemy { object_type: 0x0D }
-            if player.on_ground && pre_physics_y_velocity <= 0 && player.x_velocity != 0 =>
+            if player.on_ground && pre_physics_y_velocity == 0 && player.x_velocity > 0 =>
         {
             player_contact_half_width + 1
         }
