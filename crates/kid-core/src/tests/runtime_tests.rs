@@ -6449,6 +6449,56 @@ mod chunk_09 {
     }
 
     #[test]
+    fn mode_level_loads_rock_tank_after_object_step_loc_80c_368a8() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(1));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(1));
+        runtime
+            .active_enemies
+            .retain(|enemy| enemy.layout_index != 0);
+        runtime.rebuild_active_enemy_roster();
+        runtime.set_player_probe_position(0x00EB, 0x009F);
+        runtime.set_camera_probe_position(0x00C8, 0x0000);
+        assert!(runtime.enemy_loading_initial_pass_complete);
+
+        let frame = runtime.step_frame(FrameInput::default());
+        let spawned_tank_pair = frame
+            .active_objects
+            .iter()
+            .filter(|object| {
+                object.kind == (NativeObjectKind::Enemy { object_type: 0x0A })
+                    && object.layout_index == Some(0)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            spawned_tank_pair.len(),
+            2,
+            "ASM Mode_Level loc_80C calls Manage_EnemyLoading after Execute_Objects, so the Level 01 `$0288,$008F` Tank pair should be trace-visible before its first object step"
+        );
+        assert!(
+            spawned_tank_pair
+                .iter()
+                .any(|object| object.x_pos == 0x0288_0000
+                    && object.y_pos == 0x008F_0000
+                    && object.hit_points == Some(2)),
+            "ASM Tank.asm loc_3B31E body should still be at the layout spawn position on the loader frame"
+        );
+        assert!(
+            spawned_tank_pair.iter().any(|object| {
+                object.x_pos == 0x0288_0000
+                    && object.y_pos == 0x0087_0000
+                    && object.hit_points.is_none()
+            }),
+            "ASM Tank.asm loc_3B31E child gfx slot should be exposed at the unstepped turret offset on the loader frame"
+        );
+    }
+
+    #[test]
     fn settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

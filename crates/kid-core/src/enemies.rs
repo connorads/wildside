@@ -9236,6 +9236,39 @@ pub(crate) fn activate_enemies_with_rng(
     killed: &std::collections::HashSet<(usize, usize)>,
     rng: &mut RomRandomState,
 ) {
+    activate_enemies_with_rng_inner(
+        active,
+        layout,
+        window,
+        camera_x_px,
+        camera_y_px,
+        level_bounds,
+        player_x,
+        player_y,
+        blank_top_rows,
+        enemy_loading_initial_pass_complete,
+        killed,
+        rng,
+        false,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn activate_enemies_with_rng_inner(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    player_x: u32,
+    player_y: u32,
+    blank_top_rows: u16,
+    enemy_loading_initial_pass_complete: bool,
+    killed: &std::collections::HashSet<(usize, usize)>,
+    rng: &mut RomRandomState,
+    defer_rock_tank_spawn: bool,
+) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
     // around longer; the Level 1 Dragon continues drifting after its layout
@@ -9290,6 +9323,10 @@ pub(crate) fn activate_enemies_with_rng(
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
         if matches!(family, EnemyFamily::MiniHoppingSkull)
             && !mini_hopping_skull_spawn_gate_loc_3e9d0(object_x, object_y, player_x, player_y)
+        {
+            continue;
+        }
+        if defer_rock_tank_spawn && matches!(family, EnemyFamily::Tank | EnemyFamily::TankShooting)
         {
             continue;
         }
@@ -40562,20 +40599,44 @@ impl NativeRuntime {
         });
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             if self.enemy_loading_enabled() {
-                activate_enemies_with_rng(
-                    &mut self.active_enemies,
-                    enemy_layout,
-                    window,
-                    camera_x_px,
-                    camera_y_px,
-                    level_bounds,
-                    slice.player.x_pos,
-                    slice.player.y_pos,
-                    blank_top_rows,
-                    self.enemy_loading_initial_pass_complete,
-                    &self.killed_enemies,
-                    &mut self.rom_random,
-                );
+                if self.enemy_loading_initial_pass_complete {
+                    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
+                    // Execute_Objects for live post-initial-pass entrants.
+                    // The Level 01 RockTank pair at `$0288,$008F` exposes that
+                    // order in oracle traces; other families retain native's
+                    // established pre-step timing until their own oracle cases
+                    // prove a different first-frame phase.
+                    activate_enemies_with_rng_inner(
+                        &mut self.active_enemies,
+                        enemy_layout,
+                        window,
+                        camera_x_px,
+                        camera_y_px,
+                        level_bounds,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        blank_top_rows,
+                        self.enemy_loading_initial_pass_complete,
+                        &self.killed_enemies,
+                        &mut self.rom_random,
+                        true,
+                    );
+                } else {
+                    activate_enemies_with_rng(
+                        &mut self.active_enemies,
+                        enemy_layout,
+                        window,
+                        camera_x_px,
+                        camera_y_px,
+                        level_bounds,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        blank_top_rows,
+                        self.enemy_loading_initial_pass_complete,
+                        &self.killed_enemies,
+                        &mut self.rom_random,
+                    );
+                }
                 self.apply_pending_enemy_collisions();
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
@@ -40623,6 +40684,24 @@ impl NativeRuntime {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
                 self.drilled_blocks.clear();
+                // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
+                // Execute_Objects. Newly allocated RockTank enemies are
+                // visible in WRAM this frame, but their init/move routine does
+                // not run until the next object pass.
+                activate_enemies_with_rng(
+                    &mut self.active_enemies,
+                    enemy_layout,
+                    window,
+                    camera_x_px,
+                    camera_y_px,
+                    level_bounds,
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    blank_top_rows,
+                    self.enemy_loading_initial_pass_complete,
+                    &self.killed_enemies,
+                    &mut self.rom_random,
+                );
                 self.rebuild_active_enemy_roster();
             } else {
                 // ORIGINAL_QUIRK: during title-screen demo playback, the game
