@@ -1820,6 +1820,17 @@ at frame 0, jump `PlaySound(23)` at frame 22, and block hit/debris cues
 `probe_case_00000_00120` passes and `case reduce` reports it is already
 passing. Do not reselect this recording as a gameplay case; remaining #216 work
 is rendered pixel/waveform alignment and the level-complete cut-off report.
+
+Note 2026-06-02 for #216: delegated x240-R prize-audio probe
+`issue-216-prize-audio-probe-x240-R` is trace/state green
+(`trace_match=true`, `oracle_state_match=true`) and strict-pixel red from broad
+renderer drift at tail frame 179 (MAE 1.8945638, changed pixels 3837, bounds
+x=0..319 y=16..163). Audible windows include Level BGM `Start(6)` at frame 0,
+jump `PlaySound(23)` at frame 22, and block hit/debris cues `PlaySound(13)`
+plus `PlaySound(17)` at frame 31. Derived 0..120 case
+`probe_case_00000_00120` passes and `case reduce` reports it is already
+passing. Do not reselect this recording as a gameplay case; remaining #216 work
+is rendered pixel/waveform alignment and the level-complete cut-off report.
 Note 2026-06-02 for #216: delegated x210-R prize-audio probe
 `issue-216-prize-audio-probe-x210-R` is trace/state green
 (`trace_match=true`, `oracle_state_match=true`) and strict-pixel red from broad
