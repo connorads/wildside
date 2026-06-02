@@ -2113,6 +2113,171 @@ pub fn helmet_motion_sprite_mapping_sub_942A(helmet_id: u16, phase: u16) -> Opti
 }
 
 #[allow(non_snake_case)]
+pub fn slope_walk_sprite_mapping_loc_A13A(
+    helmet_id: u16,
+    reverse_bank: bool,
+    phase: u16,
+) -> Option<&'static str> {
+    // ASM loc_A13A (kid.asm:12422): `Current_Helmet << 2` selects an
+    // `off_A190` pointer, then loc_A16C advances by `$C` bytes for the
+    // reverse bank before writing `addroffset_sprite(a3)`.
+    const SLOPE_TABLES: [[&str; 12]; 10] = [
+        [
+            "LnkTo_unk_A41FE-Data_Index",
+            "LnkTo_unk_A43E4-Data_Index",
+            "LnkTo_unk_A44EA-Data_Index",
+            "LnkTo_unk_A4630-Data_Index",
+            "LnkTo_unk_A4816-Data_Index",
+            "LnkTo_unk_A491C-Data_Index",
+            "LnkTo_unk_A23CC-Data_Index",
+            "LnkTo_unk_A2552-Data_Index",
+            "LnkTo_unk_A26D8-Data_Index",
+            "LnkTo_unk_A285E-Data_Index",
+            "LnkTo_unk_A29E4-Data_Index",
+            "LnkTo_unk_A2B6A-Data_Index",
+        ],
+        [
+            "LnkTo_unk_A41FE-Data_Index",
+            "LnkTo_unk_A43E4-Data_Index",
+            "LnkTo_unk_A44EA-Data_Index",
+            "LnkTo_unk_A4630-Data_Index",
+            "LnkTo_unk_A4816-Data_Index",
+            "LnkTo_unk_A491C-Data_Index",
+            "LnkTo_unk_A23CC-Data_Index",
+            "LnkTo_unk_A2552-Data_Index",
+            "LnkTo_unk_A26D8-Data_Index",
+            "LnkTo_unk_A285E-Data_Index",
+            "LnkTo_unk_A29E4-Data_Index",
+            "LnkTo_unk_A2B6A-Data_Index",
+        ],
+        [
+            "LnkTo_unk_BD1F0-Data_Index",
+            "LnkTo_unk_BD3F6-Data_Index",
+            "LnkTo_unk_BD5FC-Data_Index",
+            "LnkTo_unk_BD882-Data_Index",
+            "LnkTo_unk_BDA88-Data_Index",
+            "LnkTo_unk_BDC8E-Data_Index",
+            "LnkTo_unk_BC68C-Data_Index",
+            "LnkTo_unk_BC872-Data_Index",
+            "LnkTo_unk_BCA58-Data_Index",
+            "LnkTo_unk_BCC3E-Data_Index",
+            "LnkTo_unk_BCE24-Data_Index",
+            "LnkTo_unk_BD00A-Data_Index",
+        ],
+        [
+            "LnkTo_unk_BA0CE-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA0CE-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_B6ECA-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B6ECA-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+        ],
+        [
+            "LnkTo_unk_BC68C-Data_Index",
+            "LnkTo_unk_BC872-Data_Index",
+            "LnkTo_unk_BCA58-Data_Index",
+            "LnkTo_unk_BCC3E-Data_Index",
+            "LnkTo_unk_BCE24-Data_Index",
+            "LnkTo_unk_BD00A-Data_Index",
+            "LnkTo_unk_BA0CE-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA0CE-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+            "LnkTo_unk_BA354-Data_Index",
+        ],
+        [
+            "LnkTo_unk_A41FE-Data_Index",
+            "LnkTo_unk_A43E4-Data_Index",
+            "LnkTo_unk_A44EA-Data_Index",
+            "LnkTo_unk_A4630-Data_Index",
+            "LnkTo_unk_A4816-Data_Index",
+            "LnkTo_unk_A491C-Data_Index",
+            "LnkTo_unk_A23CC-Data_Index",
+            "LnkTo_unk_A2552-Data_Index",
+            "LnkTo_unk_A26D8-Data_Index",
+            "LnkTo_unk_A285E-Data_Index",
+            "LnkTo_unk_A29E4-Data_Index",
+            "LnkTo_unk_A2B6A-Data_Index",
+        ],
+        [
+            "LnkTo_unk_C663A-Data_Index",
+            "LnkTo_unk_C68C0-Data_Index",
+            "LnkTo_unk_C6B46-Data_Index",
+            "LnkTo_unk_C6DCC-Data_Index",
+            "LnkTo_unk_C7052-Data_Index",
+            "LnkTo_unk_C72D8-Data_Index",
+            "LnkTo_unk_C5716-Data_Index",
+            "LnkTo_unk_C599C-Data_Index",
+            "LnkTo_unk_C5C22-Data_Index",
+            "LnkTo_unk_C5EA8-Data_Index",
+            "LnkTo_unk_C612E-Data_Index",
+            "LnkTo_unk_C63B4-Data_Index",
+        ],
+        [
+            "LnkTo_unk_B1126-Data_Index",
+            "LnkTo_unk_B130C-Data_Index",
+            "LnkTo_unk_B14F2-Data_Index",
+            "LnkTo_unk_B1778-Data_Index",
+            "LnkTo_unk_B19FE-Data_Index",
+            "LnkTo_unk_B1C84-Data_Index",
+            "LnkTo_unk_AF172-Data_Index",
+            "LnkTo_unk_AF3F8-Data_Index",
+            "LnkTo_unk_AF67E-Data_Index",
+            "LnkTo_unk_AF904-Data_Index",
+            "LnkTo_unk_AFAEA-Data_Index",
+            "LnkTo_unk_AFCD0-Data_Index",
+        ],
+        [
+            "LnkTo_unk_B6ECA-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B6ECA-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_B7150-Data_Index",
+            "LnkTo_unk_A8AFA-Data_Index",
+            "LnkTo_unk_A8F80-Data_Index",
+            "LnkTo_unk_A8F80-Data_Index",
+            "LnkTo_unk_A8AFA-Data_Index",
+            "LnkTo_unk_A8F80-Data_Index",
+            "LnkTo_unk_A8F80-Data_Index",
+        ],
+        [
+            "LnkTo_unk_AC9E2-Data_Index",
+            "LnkTo_unk_ACAA8-Data_Index",
+            "LnkTo_unk_ACB6E-Data_Index",
+            "LnkTo_unk_ACC34-Data_Index",
+            "LnkTo_unk_ACCFA-Data_Index",
+            "LnkTo_unk_ACDC0-Data_Index",
+            "LnkTo_unk_AB5C4-Data_Index",
+            "LnkTo_unk_AB68A-Data_Index",
+            "LnkTo_unk_AB750-Data_Index",
+            "LnkTo_unk_AB816-Data_Index",
+            "LnkTo_unk_AB8DC-Data_Index",
+            "LnkTo_unk_AB9A2-Data_Index",
+        ],
+    ];
+
+    if phase >= 6 {
+        return None;
+    }
+
+    let bank_offset = if reverse_bank { 6 } else { 0 };
+    let table_index = bank_offset + usize::from(phase);
+
+    SLOPE_TABLES
+        .get(usize::from(helmet_id))
+        .and_then(|phases| phases.get(table_index))
+        .copied()
+}
+
+#[allow(non_snake_case)]
 pub fn skycutter_flipboard_sprite_mapping_sub_98F2(counter: u8) -> Option<&'static str> {
     // ASM sub_98F2 (kid.asm:11454): while `$FFFFFA69` is non-zero, add 2 to
     // the flipboard counter, bucket it by `counter >> 3`, and pick one of the
@@ -6684,6 +6849,48 @@ AddrTbl_LevelNames:   ;1A842
                 );
             }
         }
+    }
+
+    #[test]
+    fn slope_walk_sprite_mapping_loc_a13a_selects_berzerker_off_a1e8() {
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(7, false, 2),
+            Some("LnkTo_unk_B14F2-Data_Index"),
+            "ASM loc_A13A/off_A190 selects off_A1E8 for Berzerker helmet id 7; phase 2 is not Red Stealth's off_A230 two-art repeat",
+        );
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(7, true, 0),
+            Some("LnkTo_unk_AF172-Data_Index"),
+            "ASM loc_A16C advances Berzerker off_A1E8 by `$C` bytes before selecting the reverse-bank phase",
+        );
+    }
+
+    #[test]
+    fn slope_walk_sprite_mapping_loc_a13a_keeps_red_stealth_off_a230_separate() {
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(3, false, 2),
+            Some("LnkTo_unk_BA354-Data_Index"),
+            "ASM loc_A13A/off_A190 gives off_A230 to Red Stealth helmet id 3, not Berzerker",
+        );
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(3, true, 0),
+            Some("LnkTo_unk_B6ECA-Data_Index"),
+            "ASM loc_A16C reverse-bank selection is pointer arithmetic, so off_A230 + `$C` lands on the following ROM words",
+        );
+    }
+
+    #[test]
+    fn slope_walk_sprite_mapping_loc_a13a_rejects_out_of_range_inputs() {
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(10, false, 0),
+            None,
+            "native should reject helmet ids past ASM off_A190 instead of inventing a slope mapping",
+        );
+        assert_eq!(
+            slope_walk_sprite_mapping_loc_A13A(7, false, 6),
+            None,
+            "native should reject phase indices past the six-word bank selected by ASM loc_A17E",
+        );
     }
 
     #[test]
