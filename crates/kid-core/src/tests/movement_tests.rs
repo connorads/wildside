@@ -15641,6 +15641,55 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E5A -> loc_8E74 (kid.asm:10234): rubber wall contact returns
+    /// negative from sub_8F26, so a walking frame keeps the walking coroutine
+    /// alive even though the collision path zeroed x_vel.
+    #[test]
+    fn asm_faithful_loc_8e74_rubber_wall_carry_skips_standing_gate() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (2usize * usize::from(w) + 3) * 2;
+        data[offset] = 0xE6;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+        slice.walk_visual_accumulator = 0x0100;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Berzerker,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            stepped,
+            "loc_8E74 should continue the walking velocity path instead of falling back into loc_779C standing hold",
+        );
+        assert_eq!(
+            slice.rubber_block_hit,
+            Some((3, 2)),
+            "the carried walking path should still run loc_10DA4 for the rubber side contact",
+        );
+        assert_ne!(
+            slice.player.x_velocity, 0,
+            "held-right walking carry should allow sub_B084/sub_9A0A acceleration from zero",
+        );
+    }
+
     /// ASM loc_779C (kid.asm:7842): Maniaxe's live thrown axe is checked before
     /// either held direction.  When `Maniaxe_throwing_axe` is nonzero, the ROM
     /// branches straight to loc_7828 and keeps standing without changing facing.

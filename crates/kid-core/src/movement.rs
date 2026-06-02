@@ -4090,6 +4090,14 @@ impl OpeningSliceState {
                 // of the walking path, but Rubber still runs the block handler
                 // before returning to loc_7828.
                 self.rubber_block_hit = Some((wall_probe.cell_x, wall_probe.cell_y));
+                if self.walk_visual_accumulator != 0 {
+                    // ASM loc_8E5A -> loc_8E74: a rubber wall hit from the
+                    // walking coroutine returns negative and keeps walking
+                    // state live even after x_vel is zeroed. `$FFFFF8F0`
+                    // remains non-zero on that path, so do not fall back into
+                    // the standing-still loc_779C hold gate on the next frame.
+                    return false;
+                }
             }
             return true;
         }
