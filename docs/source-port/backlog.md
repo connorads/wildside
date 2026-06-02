@@ -1235,6 +1235,18 @@ green, but the cache wrapper `verify-recording --slug
 issue-215-highwater-water-priority-audit` is now stale again and drifts at frame
 0 because recorded traces lack the new HUD field; refresh the recording before
 using strict pixels to judge the remaining #215 visual debt.
+Note 2026-06-02 follow-up for #215: refreshed current wrapper verification now
+has `trace_match=true`, `oracle_state_match=true`, and strict pixel failures
+only. Visual inspection plus oracle watches at Kid GfxObject
+`addroffset_sprite=$FF2502` show the red frames are Berzerker sprite selection,
+not water priority: frame 60 expects `$021C` with `$FFFFF8F0=$0228`, frame 510
+expects slope sprite `$0280` with `$FFFFF8F0=$01E0`, frame 960 expects `$0234`,
+and frame 1859 expects `$0230`. Native now lets ASM `loc_A13A` slope art win
+over the ordinary `loc_9600` Berzerker walk latch while keeping charge
+`loc_9564` dominant; this improves `water_hole_entry_loc_12910@510` from 658 to
+519 changed pixels, with trace/state still green. Remaining #215 visual work
+should model/export the exact player `addroffset_sprite`/ASM mapping selection
+for rendered player frames rather than changing foreground priority.
 | 216 | [ ] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and diamond collection sounds are delayed; level-complete sound does not finish cleanly. #160 covers continuous BGM/SFX output but not these event-specific timing edges. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: audio event trace for prize/block/diamond and flag-touch/EOL path, compare queued GEMS commands and rendered audio windows against oracle where available. |
 Note 2026-06-01 for #216: scripted recording SFX events exposed a live
 native-player duplication after #226 moved jump SFX into the core trace. The
