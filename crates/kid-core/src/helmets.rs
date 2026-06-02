@@ -6768,6 +6768,7 @@ impl NativeRuntime {
                     // clears them when the signed timer drops below -$1B.
                 } else {
                     self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.diamond_power_rain_slots.clear();
                     self.diamond_power_circle_slots.clear();
                     self.diamond_power_wall_slots.clear();
                     self.diamond_power_five_way_slots.clear();
@@ -6822,6 +6823,7 @@ impl NativeRuntime {
 
         let power = diamond_power_for_form(self.progression.current_form, tier2);
         self.progression.diamond_power_type = power;
+        self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
         self.diamond_power_wall_slots.clear();
         self.diamond_power_five_way_slots.clear();

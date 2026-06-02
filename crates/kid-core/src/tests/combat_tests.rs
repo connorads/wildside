@@ -632,6 +632,29 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn diamond_power_expiry_clears_rain_slots_loc_3f63c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
+        runtime.progression.diamond_power_frames = 1;
+        runtime.frame_index = 0x11;
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
+            x_pos: 0x0040_0000,
+            y_pos: 0x0040_0000,
+            x_velocity: 0,
+            y_velocity: 0x0002_0000,
+            tracking_word_3e: 0,
+            size_word_24: 4,
+        });
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert!(
+            runtime.diamond_power_rain_slots.is_empty(),
+            "ASM sub_3F63C clears the shared Diamond Power object list; native rain slots must not survive generic Diamond Power expiry",
+        );
+    }
+
     /// ASM loc_3FF90/loc_3FFC0: rain slots are culled by camera-relative
     /// screen bounds, not by a fixed DBF lifetime. A visible rain object should
     /// survive well past the old native 60-frame approximation.
