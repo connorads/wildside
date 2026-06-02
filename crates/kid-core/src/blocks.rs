@@ -1889,7 +1889,12 @@ impl NativeRuntime {
         );
     }
 
-    fn start_rubber_block_animation_sub_10de4(&mut self, col: u16, row: u16) {
+    fn start_rubber_block_animation_sub_10de4_with_budget(
+        &mut self,
+        col: u16,
+        row: u16,
+        remaining_object_slots: &mut usize,
+    ) {
         let Some(grid) = self.block_grid.as_ref() else {
             return;
         };
@@ -1898,18 +1903,11 @@ impl NativeRuntime {
             return;
         };
 
-        if let Some(existing) = self
-            .block_state
-            .rubber_block_animations
-            .iter_mut()
-            .find(|entry| {
-                Self::rubber_block_animation_slot_matches_sub_10de4(entry.col, entry.row, col, row)
-            })
-        {
-            existing.base_skin = base_skin;
-            existing.phase = 0;
-            existing.frames_until_next_write = Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE[0].1;
-        } else {
+        if *remaining_object_slots > 0 {
+            // ASM loc_10DA4 (kid.asm:22698): `$FFFFFB5A` is only a live-worker
+            // count. The ROM allocates another sub_10DE4 worker for repeated
+            // contact with the same layout cell until that count reaches ten.
+            *remaining_object_slots -= 1;
             self.block_state
                 .rubber_block_animations
                 .push(RubberBlockAnimation {
@@ -1925,6 +1923,17 @@ impl NativeRuntime {
         // writes the `base+1` rubber frame immediately before the first
         // hibernate, so the contact frame already shows the jiggled rubber.
         self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn start_rubber_block_animation_sub_10de4(&mut self, col: u16, row: u16) {
+        let mut remaining_object_slots =
+            10usize.saturating_sub(self.block_state.rubber_block_animations.len());
+        self.start_rubber_block_animation_sub_10de4_with_budget(
+            col,
+            row,
+            &mut remaining_object_slots,
+        );
     }
 
     fn rubber_block_contact_cells_sub_10da4(
@@ -3495,8 +3504,22 @@ impl NativeRuntime {
             self.blocks_hit_this_frame = self
                 .blocks_hit_this_frame
                 .saturating_add(u8::try_from(contacts.len()).unwrap_or(u8::MAX));
+            let active_objects = self.active_objects();
+            let camera_state = self.current_camera_state();
+            let (number_objects, _) = self.object_counts_from_roster(
+                &active_objects,
+                camera_state.x_pos,
+                camera_state.y_pos,
+            );
+            // ASM loc_10DA4 compares the live Number_Objects-style counter at
+            // `$FFFFFB5A` with ten before allocating each sub_10DE4 worker.
+            let mut remaining_object_slots = 10usize.saturating_sub(usize::from(number_objects));
             for (contact_x, contact_y) in contacts {
-                self.start_rubber_block_animation_sub_10de4(contact_x, contact_y);
+                self.start_rubber_block_animation_sub_10de4_with_budget(
+                    contact_x,
+                    contact_y,
+                    &mut remaining_object_slots,
+                );
             }
         }
 
@@ -5560,6 +5583,82 @@ mod tests {
         assert_eq!(
             runtime.block_state.rubber_block_animations[0].frames_until_next_write,
             1
+        );
+    }
+
+    #[test]
+    fn rubber_block_loc_10da4_allocates_repeated_same_cell_workers_until_rom_cap() {
+        // ASM loc_10DA4 (kid.asm:22698): `$FFFFFB5A` is a count-only cap.
+        // The ROM does not search Object_RAM for an existing sub_10DE4 worker
+        // at the same `$44/$46` layout cell before Allocate_ObjectSlot.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 18], 3, 3);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        for _ in 0..12 {
+            runtime.start_rubber_block_animation_sub_10de4(1, 1);
+        }
+
+        assert_eq!(
+            runtime.block_state.rubber_block_animations.len(),
+            10,
+            "ASM loc_10DA4 should allocate repeated same-cell workers until the `$FFFFFB5A < 10` cap blocks new ones",
+        );
+        assert!(
+            runtime
+                .block_state
+                .rubber_block_animations
+                .iter()
+                .all(|entry| entry.col == 1 && entry.row == 1),
+            "all allocated workers should retain the contacted layout cell in `$44/$46`",
+        );
+    }
+
+    #[test]
+    fn rubber_block_process_effects_caps_against_live_object_count_loc_10da4() {
+        // ASM loc_10DA4 (kid.asm:22697): the allocation gate compares the
+        // current `$FFFFFB5A` object count against ten, so existing gameplay
+        // objects reduce the number of rubber workers that can be added.
+        let mut runtime = runtime_for_block_tests();
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(2);
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 18], 3, 3);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let active_objects = runtime.active_objects();
+        let camera_state = runtime.current_camera_state();
+        let (base_number_objects, base_number_gfx_objects) = runtime.object_counts_from_roster(
+            &active_objects,
+            camera_state.x_pos,
+            camera_state.y_pos,
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 48,
+            height_pixels: 48,
+        });
+        slice.rubber_block_hit = Some((1, 1));
+        for _ in 0..12 {
+            runtime.process_block_effects(&mut slice);
+        }
+
+        let expected_workers = 10usize.saturating_sub(usize::from(base_number_objects));
+        assert_eq!(
+            runtime.block_state.rubber_block_animations.len(),
+            expected_workers,
+            "loc_10DA4 should stop once base gameplay objects plus rubber workers reach ten",
+        );
+        let (number_objects, number_gfx_objects) = runtime.object_counts_from_roster(
+            &runtime.active_objects(),
+            camera_state.x_pos,
+            camera_state.y_pos,
+        );
+        assert_eq!(number_objects, 10);
+        assert_eq!(
+            number_gfx_objects, base_number_gfx_objects,
+            "sub_10DE4 workers should consume object slots without gfx slots",
         );
     }
 

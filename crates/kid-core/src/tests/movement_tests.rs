@@ -15594,6 +15594,53 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C -> sub_922C -> loc_10DA4 (kid.asm:7846, 10699, 78025):
+    /// standing-still side-wall probing still dispatches Rubber blocks through
+    /// the block handler table before returning to loc_7828.
+    #[test]
+    fn asm_faithful_loc_779c_rubber_wall_column_queues_rubber_effect() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_rubber = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0xE6;
+        };
+        set_rubber(&mut data, 2, 2);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            !stepped,
+            "loc_779C/sub_922C should still block the standing-still horizontal step on a rubber wall column",
+        );
+        assert_eq!(
+            slice.rubber_block_hit,
+            Some((2, 2)),
+            "loc_10DA4 should queue the rubber block worker even when loc_779C keeps Kid standing",
+        );
+    }
+
     /// ASM loc_779C (kid.asm:7842): Maniaxe's live thrown axe is checked before
     /// either held direction.  When `Maniaxe_throwing_axe` is nonzero, the ROM
     /// branches straight to loc_7828 and keeps standing without changing facing.

@@ -4074,16 +4074,23 @@ impl OpeningSliceState {
         }
         // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
         // player's leading edge.
-        if terrain::probe_wall_column(
+        let wall_probe = terrain::probe_wall_column(
             grid,
             x_px,
             y_px,
             form.half_width(),
             PLAYER_HEIGHT,
             direction == Direction::Right,
-        )
-        .hit
-        {
+        );
+        if wall_probe.hit {
+            if wall_probe.cell.has_block && wall_probe.cell.block_type == terrain::BlockType::Rubber
+            {
+                // ASM loc_779C/loc_77E6 -> sub_922C -> off_933E[6] ->
+                // loc_10DA4: the standing-still side-wall gate keeps Kid out
+                // of the walking path, but Rubber still runs the block handler
+                // before returning to loc_7828.
+                self.rubber_block_hit = Some((wall_probe.cell_x, wall_probe.cell_y));
+            }
             return true;
         }
 
