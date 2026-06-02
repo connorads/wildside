@@ -17284,12 +17284,13 @@ mod chunk_12 {
         let w: u16 = 60;
         let h: u16 = 20;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
             let offset = (row * usize::from(w) + col) * 2;
             data[offset] = hi;
+            data[offset + 1] = lo;
         };
-        set(&mut data, 49, 12, 0x40);
-        set(&mut data, 50, 12, 0x60);
+        set(&mut data, 49, 12, 0x40, 0x5C);
+        set(&mut data, 50, 12, 0x60, 0x5D);
         let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
         let mut slice = OpeningSliceState::new(LevelBounds {
@@ -17302,6 +17303,7 @@ mod chunk_12 {
         slice.player.y_pos = 0x00c3_9f00;
         slice.player.x_velocity = 0x0002_8f00;
         slice.player.y_velocity = 0x0001_6d80;
+        slice.physics_trace = Some(PhysicsTrace::default());
 
         slice.step_with_order(
             FrameInput {
@@ -17317,6 +17319,15 @@ mod chunk_12 {
             PhysicsOrder::AsmFaithful,
             true,
             &[],
+        );
+        assert_eq!(
+            slice
+                .physics_trace
+                .expect("frame 478 trace")
+                .post_vertical
+                .0,
+            0x00c5_4c80,
+            "ASM sub_902A post-vertical fraction 0x4C80 takes the SlopeUp/Solid borrow",
         );
 
         assert_eq!(
@@ -17347,12 +17358,13 @@ mod chunk_12 {
         let w: u16 = 70;
         let h: u16 = 20;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
             let offset = (row * usize::from(w) + col) * 2;
             data[offset] = hi;
+            data[offset + 1] = lo;
         };
-        set(&mut data, 63, 10, 0x40);
-        set(&mut data, 64, 10, 0x60);
+        set(&mut data, 63, 10, 0x40, 0x82);
+        set(&mut data, 64, 10, 0x60, 0x24);
         let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
         let mut slice = OpeningSliceState::new(LevelBounds {
@@ -17365,6 +17377,82 @@ mod chunk_12 {
         slice.player.y_pos = 0x00a3_cc00;
         slice.player.x_velocity = 0x0002_9800;
         slice.player.y_velocity = 0x0001_fc00;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        assert_eq!(
+            slice
+                .physics_trace
+                .expect("frame 601 trace")
+                .post_vertical
+                .0,
+            0x00a6_0800,
+            "ASM sub_902A post-vertical fraction 0x0800 takes the SlopeUp/Solid borrow",
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x03f8_5700,
+            "ASM loc_A99E/loc_8BF0 handoff should match oracle frame 601 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00a7_0000,
+            "ASM loc_9D22 recontact should match oracle frame 601 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_5700,
+            "ASM loc_9D22 should keep the oracle frame 601 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: Blue Lake Woods 2
+    /// frame 181 lands on the first SlopeUp/Solid seam with a small
+    /// post-sub_902A Y fraction. The ROM keeps the airborne handoff's high word
+    /// here; native must not apply the subpixel solid-edge borrow used by the
+    /// earlier Level 00 seam cases.
+    #[test]
+    fn level01_frame_181_slope_up_recontact_keeps_boundary_handoff_loc_a99e() {
+        let w: u16 = 24;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 16, 11, 0x40, 0x5C);
+        set(&mut data, 17, 11, 0x60, 0x5D);
+        set(&mut data, 18, 11, 0x60, 0x5E);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0105_3200;
+        slice.player.y_pos = 0x00B3_CC00;
+        slice.player.x_velocity = 0x0002_9800;
+        slice.player.y_velocity = 0x0001_FC00;
+        slice.physics_trace = Some(PhysicsTrace::default());
 
         slice.step_with_order(
             FrameInput {
@@ -17382,17 +17470,25 @@ mod chunk_12 {
             &[],
         );
 
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
         assert_eq!(
-            slice.player.x_pos, 0x03f8_5700,
-            "ASM loc_A99E/loc_8BF0 handoff should match oracle frame 601 x_pos",
+            trace.post_vertical.0, 0x00B6_0800,
+            "ASM sub_902A post-vertical fraction 0x0800 on 405C/605D takes only the Level 01 SlopeUp/Solid low-word handoff",
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x0109_5700,
+            "ASM loc_A99E/loc_8BF0 should keep the Level 01 frame-181 boundary landing x_pos",
         );
         assert_eq!(
-            slice.player.y_pos, 0x00a7_0000,
-            "ASM loc_9D22 recontact should match oracle frame 601 y_pos",
+            slice.player.y_pos, 0x00B6_0000,
+            "ASM loc_9D22 recontact should match the Level 01 frame-181 SlopeUp surface",
         );
         assert_eq!(
             slice.player.x_velocity, 0x0002_5700,
-            "ASM loc_9D22 should keep the oracle frame 601 post-slope x_vel",
+            "ASM loc_9D22 should keep the Level 01 frame-181 post-slope x_vel",
         );
         assert_eq!(
             slice.player.y_velocity, -slice.player.x_velocity,

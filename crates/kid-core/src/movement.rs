@@ -6153,7 +6153,13 @@ impl OpeningSliceState {
                 .min(grid.width_cells.saturating_sub(1));
             let next_cell = grid.cell_at(next_col, row);
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
-            if post_vertical_frac < 0x8000
+            let applies_solid_edge_low_word_handoff =
+                post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
+            let applies_solid_edge_high_borrow = post_vertical_frac >= 0x4000
+                || (post_vertical_frac <= 0x0800
+                    && current_cell.skin == 0x82
+                    && next_cell.skin == 0x24);
+            if applies_solid_edge_low_word_handoff
                 && matches!(current_cell.collision, terrain::CollisionKind::SlopeUp)
                 && !next_cell.has_block
                 && matches!(
@@ -6165,13 +6171,19 @@ impl OpeningSliceState {
                 // landing into the next solid tile, the ROM enters walking
                 // through loc_A99E, then loc_9D22/loc_9F18 own the slope
                 // advance before sub_A254 snaps Y. Oracle #211 frames 478 and
-                // 601 both cross the vertical half-word wrap and preserve the
-                // post-slope x_vel low word as the final X subpixel instead
-                // of carrying the airborne handoff's high-speed subpixel
-                // across the SlopeUp/Solid boundary. Earlier frame 428 has
-                // post-vertical fraction 0xAC00 and keeps the unborrowed high
-                // word.
-                let corrected_high = (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000);
+                // 601 prove the extra high-word borrow at post-vertical
+                // fraction 0x4C80 on the 405C/605D seam and at 0x0800 on the
+                // 4082/6024 seam. Blue Lake Woods 2 frame 181 hits the
+                // 405C/605D seam at 0x0800 and only takes the low-word
+                // handoff, keeping the airborne handoff's high word. Earlier
+                // frame 428 has post-vertical fraction 0xAC00 and also keeps
+                // the unborrowed high word because it does not satisfy this
+                // SlopeUp/Solid edge probe.
+                let corrected_high = if applies_solid_edge_high_borrow {
+                    (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
+                } else {
+                    future_x_pos & 0xFFFF_0000
+                };
                 let corrected_future_x =
                     corrected_high | ((self.player.x_velocity as u32) & 0x0000_FFFF);
                 self.player.x_pos = (i64::from(corrected_future_x)

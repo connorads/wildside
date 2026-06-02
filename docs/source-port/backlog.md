@@ -522,6 +522,21 @@ case `.cache/cases/codex-rocktank-contact-level01-walk-right-edge-0000-0600`
 now clears the frame-144 HP drift and first fails later at frame 181
 `player.x_pos`; reduce that movement/collision drift before treating the later
 Drips/metal-block playtest observations as oracle-authoritative.
+
+Follow-up 2026-06-02 for #155/#211: reduced the frame-181 Level 01 movement
+blocker to the same ASM path as the Level 00 slope-edge fixes:
+`sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22 -> loc_9F18`. The real route
+hits the `405C/605D` SlopeUp/Solid seam at post-vertical fraction `$0800`;
+unlike the Level 00 `4082/6024` seam, the ROM applies only the low-word handoff
+and does not borrow the extra high pixel. Native now keys that high-borrow
+piece on the actual seam shape. Regressions:
+`level01_frame_181_slope_up_recontact_keeps_boundary_handoff_loc_a99e`,
+`level00_frame_478_slope_up_recontact_preserves_oracle_landing_x_loc_a99e`,
+and `level00_frame_601_slope_up_recontact_uses_solid_edge_handoff_loc_a99e`.
+Fresh case `.cache/cases/codex-level01-slope181-walk-right-0000-0600` now
+matches `player.position` through frame 181 and first fails at frame 255 on
+`events` (`native=[]`, oracle=`["spawned_entity"]`), so continue Drips/Level 01
+triage from that later gameplay handoff/state-machine blocker.
 | 156 | [x] | P3 | render | Block destruction still uses a small placeholder rect instead of ROM fragment sprites | Fixed on 2026-05-19: native traces now carry ASM `sub_292E` direction in `block_destroy_effects`, with legacy three-field recordings loading as the upward floor-smash branch. The native player resolves ROM tile `$8228` through block art and emits the five `unk_29E8`/`unk_29F2` debris rows with direction-selected `unk_29FC`..`unk_2A42` velocities; the centre rect remains only as an asset-missing fallback. Regression tests: `native_trace_frame_reads_legacy_three_field_block_destroy_entries`, `native_trace_frame_reads_current_four_field_block_destroy_entries`, `block_effect_sub_10*`, and `block_destroy_effect_uses_sub_292e_rom_debris_tiles`. Verification: focused tests plus `cargo fmt --check`, `git diff --check`, and `mise run verify-slice-fast`. |
 | 157 | [~] | P3 | render | Level-complete bonus overlay uses typed text instead of EOL sprite workers | Fixed 2026-05-19: `kid-render` now loads `scenes/artcomp/End_level_stats_text.bin` plus `scenes/palette/Score_screen.bin` into `EolScoreVisuals`, using ASM `Spr_EOL_*` descriptors (`kid.asm:49214-49237`). Native level-complete rendering now uses settled `Load_Object_EOL_Text` / `Load_Object_EOL_Number` style sprite rows for Time/Bonus, No-Hit Bonus, No-Prize Bonus, Path Bonus, Speed Bonus, Under/Seconds, Score, and seven-slot digit workers instead of the typed text overlay when assets are available. The original off-screen fly-in timing is not yet modelled in trace state, but the invented text presentation is gone from the normal asset-backed path. Verification: `cargo test -p kid-render load_eol_score_visuals_returns_rom_label_and_digit_frames -- --nocapture`; `cargo test -p kidcli level_complete_overlay_uses_eol_sprite_workers_loc_d55e -- --nocapture`; `mise run verify-slice-fast`. |
 | 158 | [x] | P1 | player | Berzerker/rhino head charge does not hit enemies in front while jumping | FIXED 2026-05-24 in commit `907dbc33`: native had an extra grounded-or-held-input gate in `step_berzerker_charge` that ASM `loc_9512 -> loc_9564` does not have on non-Ice surfaces. Removing that native-only gate lets forward-speed airborne Berzerker set `Berzerker_charging`, then `loc_B678` side contact damages the front-edge enemy. Regression: `berzerker_airborne_charge_hits_front_enemy_without_held_input`; verification: `cargo test -p kid-core berzerker_charge -- --nocapture` and `mise run verify-slice-fast`. |
