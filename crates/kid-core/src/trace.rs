@@ -1924,7 +1924,9 @@ mod tests {
             frozen_number_objects: 2,
             frozen_number_gfx_objects: 2,
         });
-        assert_eq!(runtime.active_objects(), vec![enemy_object()]);
+        // ASM lose_life -> Teleport -> loc_6E2 clears object RAM once the
+        // death shell is gone; transition counts are not live roster entries.
+        assert!(runtime.active_objects().is_empty());
     }
 
     #[test]
@@ -3861,6 +3863,26 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(1);
+        runtime.active_enemy_roster.push(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x00c7_8000,
+            y_pos: 0x00e0_0000,
+            layout_index: Some(1),
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        });
         runtime.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
         };
@@ -3880,6 +3902,14 @@ mod tests {
         );
         assert_eq!(first.number_objects, 16);
         assert_eq!(first.number_gfx_objects, 14);
+        assert_eq!(first.active_objects.len(), 1);
+        assert!(
+            first
+                .active_objects
+                .iter()
+                .all(|object| matches!(object.kind, NativeObjectKind::Player)),
+            "hidden mode-8 bootstrap must not export stale enemies"
+        );
 
         runtime.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
@@ -7261,12 +7291,12 @@ impl NativeRuntime {
                 if self.dying_hidden_shell_still_visible() {
                     return snapshot.frozen_active_objects.clone();
                 }
-                return snapshot
-                    .frozen_active_objects
-                    .iter()
-                    .filter(|object| !matches!(object.kind, NativeObjectKind::Player))
-                    .cloned()
-                    .collect();
+                // ASM lose_life -> Teleport -> loc_6E2 clears object RAM via
+                // Initialize_ObjectSlots before the hidden mode-8 bootstrap
+                // rebuilds gameplay workers. The transition object counts are
+                // exported separately; the old gameplay roster is no longer
+                // trace-visible once the death shell pose clears.
+                return Vec::new();
             }
             if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
                 let mut objects = snapshot.frozen_active_objects.clone();
@@ -7311,6 +7341,14 @@ impl NativeRuntime {
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             });
+        }
+        if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. })
+            && self.death_respawn_bootstrap_profile().is_some()
+        {
+            // ASM loc_6E2 clears object RAM before the hidden respawn bootstrap
+            // has rebuilt level enemies/platforms. Keep the hidden Kid pose
+            // trace-visible, but do not expose stale gameplay rosters here.
+            return objects;
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
         objects.extend(self.active_platform_roster.iter().cloned());
