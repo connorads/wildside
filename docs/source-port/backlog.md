@@ -653,6 +653,22 @@ Highwater palette/projectile/water visual debt open. Regressions:
 `berzerker_regular_walk_pose_survives_same_frame_wall_clear_loc_9580_9600` and
 `berzerker_regular_walk_pose_latch_overrides_idle_after_wall_stop_loc_9580_9600`.
 
+Note 2026-06-02 case-queue triage for #214: queued recording
+`debug-highwater-shooter` is stale against current native and should not drive
+Highwater shooter patches. It was recorded at old commit
+`608e528a699de0f70e0d162907f96922f5089620`; both
+`cargo run -p kidcli -- verify-recording --slug debug-highwater-shooter` and
+`cargo run -p kidcli -- verify-recording --slug debug-highwater-shooter
+--native-only` fail with `recording replay drifted at frame 3 (native trace
+frame mismatch)`. The derived case
+`highwater_shooter_barrier_audit_02_case_00000_00120` writes
+`.cache/cases/debug-highwater-shooter/verify.json`, but `case verify` marks it
+blocked with `likely_subsystems=["recording verification"]`; `case reduce`
+refuses for the same source-recording drift, and `case summarise` only refreshes
+the blocked summary. Re-record this route after the current Highwater movement
+fixes, or use a fresh live route, before changing shooter activation, projectile
+rendering, or player overlap response from this evidence.
+
 | 215 | [ ] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | Evidence source: human playtest after pushed commits. Symptom: water animation appears inactive or the player renders above foreground/water elements that should cover him. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: capture Level 02 water/foreground frames with layer diagnostics, compare VDP priority bits and native render layer ordering against oracle before touching renderer composition. |
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
 Note 2026-06-01 for #215: added named `highwater-water-priority-audit` scenario (cache slug `issue-215-highwater-water-priority-audit`) so the Level 02 water/foreground route is no longer only an ignored `.cache` artefact. Fresh verify result: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; `level_settle@60` and `waterfall_overlap_loc_300BA@960` are pixel-perfect, while `water_hole_entry_loc_12910@510` differs by 205 pixels and `waterfall_palette_tail_loc_1223C@1859` by 18 pixels. Current evidence points at residual Mountain Plane B/waterfall tile row or palette phase drift, not a broad gameplay replay mismatch.
