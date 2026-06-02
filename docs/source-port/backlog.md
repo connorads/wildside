@@ -558,6 +558,19 @@ movement. Cache-local scenario
 `.cache/scenarios/issue-213-drips-upjump-right-probe-cache.json` now matches
 oracle for frames 0..360. Extend that route past frame 360 to reach the reported
 upward-jump/metal-block Drips interaction.
+
+Follow-up 2026-06-02 for #155/#213: a cleaner lower-floor jump probe
+`.cache/debug/issue213-jump-sweep/issue213-js-x544-s350-rb.json` reaches the
+reported upward block-hit window without early HP loss. It exposed another
+RockTank blocker before Drips: native originally damaged layout #09 on Kid's
+stomp frame, but ASM `Tank.asm loc_3B464` / `Tank_Shooting.asm loc_3B6C0`
+consume `$2C` from the linked mouth/turret child on the Tank object's pass.
+Native now queues Tank/TankShooting stomp hits through the child attachment path
+and keeps the nonfatal hurt hibernate armed for the next enemy step. The route
+now matches frames 366..373; first remaining authoritative divergence is frame
+374 on RockTank child/recoil roster (`native child y=$0248`, oracle child
+y=$024A`). Continue from that Tank recoil/turret pose before promoting the
+route as durable Drips evidence.
 | 156 | [x] | P3 | render | Block destruction still uses a small placeholder rect instead of ROM fragment sprites | Fixed on 2026-05-19: native traces now carry ASM `sub_292E` direction in `block_destroy_effects`, with legacy three-field recordings loading as the upward floor-smash branch. The native player resolves ROM tile `$8228` through block art and emits the five `unk_29E8`/`unk_29F2` debris rows with direction-selected `unk_29FC`..`unk_2A42` velocities; the centre rect remains only as an asset-missing fallback. Regression tests: `native_trace_frame_reads_legacy_three_field_block_destroy_entries`, `native_trace_frame_reads_current_four_field_block_destroy_entries`, `block_effect_sub_10*`, and `block_destroy_effect_uses_sub_292e_rom_debris_tiles`. Verification: focused tests plus `cargo fmt --check`, `git diff --check`, and `mise run verify-slice-fast`. |
 | 157 | [~] | P3 | render | Level-complete bonus overlay uses typed text instead of EOL sprite workers | Fixed 2026-05-19: `kid-render` now loads `scenes/artcomp/End_level_stats_text.bin` plus `scenes/palette/Score_screen.bin` into `EolScoreVisuals`, using ASM `Spr_EOL_*` descriptors (`kid.asm:49214-49237`). Native level-complete rendering now uses settled `Load_Object_EOL_Text` / `Load_Object_EOL_Number` style sprite rows for Time/Bonus, No-Hit Bonus, No-Prize Bonus, Path Bonus, Speed Bonus, Under/Seconds, Score, and seven-slot digit workers instead of the typed text overlay when assets are available. The original off-screen fly-in timing is not yet modelled in trace state, but the invented text presentation is gone from the normal asset-backed path. Verification: `cargo test -p kid-render load_eol_score_visuals_returns_rom_label_and_digit_frames -- --nocapture`; `cargo test -p kidcli level_complete_overlay_uses_eol_sprite_workers_loc_d55e -- --nocapture`; `mise run verify-slice-fast`. |
 | 158 | [x] | P1 | player | Berzerker/rhino head charge does not hit enemies in front while jumping | FIXED 2026-05-24 in commit `907dbc33`: native had an extra grounded-or-held-input gate in `step_berzerker_charge` that ASM `loc_9512 -> loc_9564` does not have on non-Ice surfaces. Removing that native-only gate lets forward-speed airborne Berzerker set `Berzerker_charging`, then `loc_B678` side contact damages the front-edge enemy. Regression: `berzerker_airborne_charge_hits_front_enemy_without_held_input`; verification: `cargo test -p kid-core berzerker_charge -- --nocapture` and `mise run verify-slice-fast`. |

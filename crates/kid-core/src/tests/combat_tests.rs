@@ -1775,7 +1775,7 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemies[0].damage_flash_frames,
-            ENEMY_DAMAGE_FLASH_FRAMES
+            ENEMY_DAMAGE_FLASH_FRAMES + 1
         );
         assert_eq!(
             runtime.active_enemies[0].x_velocity, 0,

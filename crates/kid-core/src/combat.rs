@@ -7730,7 +7730,7 @@ impl NativeRuntime {
                         // from the linked mouth child, decrements `$44(a3)`,
                         // and clears parent motion on a nonfatal hit.
                         enemy.hit_points = remaining_hp as u8;
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
                         if route.clears_parent_motion_speed {
                             enemy.x_velocity = 0;
                             enemy.y_velocity = 0;
@@ -8197,12 +8197,19 @@ impl NativeRuntime {
 
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
+        let mut pending_child_attachment_collisions = Vec::new();
         let mut pending_dragon_collisions = Vec::new();
         for &active_idx in &stomped_indices {
             if active_idx < self.active_enemies.len() {
                 let enemy = &mut self.active_enemies[active_idx];
                 if matches!(enemy.family, EnemyFamily::DragonWalking) {
                     pending_dragon_collisions.push(active_idx);
+                } else if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                    // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B6C0:
+                    // Kid-above hits are written to the linked mouth/turret
+                    // collision word and consumed by the parent object on its
+                    // next pass. Do not mutate parent HP on Kid's frame.
+                    pending_child_attachment_collisions.push(active_idx);
                 } else if enemy.take_damage_or_queue_death() {
                     kill_indices.push(active_idx);
                 } else {
@@ -8245,6 +8252,16 @@ impl NativeRuntime {
                         });
                     }
                 }
+            }
+        }
+        for active_idx in pending_child_attachment_collisions {
+            if active_idx < self.active_enemies.len() {
+                let enemy = self.active_enemies[active_idx];
+                self.queue_pending_enemy_collision_target(
+                    &enemy,
+                    DRAGON_COLID_KIDABOVE,
+                    PendingEnemyCollisionTarget::ChildAttachment,
+                );
             }
         }
         for active_idx in pending_dragon_collisions {

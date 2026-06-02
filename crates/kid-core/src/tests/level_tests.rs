@@ -21622,6 +21622,11 @@ mod chunk_10 {
         );
 
         assert!(stomped);
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Tank_Shooting.asm loc_3B6C0 consumes child `$38` on the Tank object's next pass, not immediately during Kid's stomp frame",
+        );
+        runtime.apply_pending_enemy_collisions();
         assert_eq!(runtime.active_enemies[0].hit_points, 1);
         assert!(runtime.active_enemies[0].damage_flash_frames > 0);
     }
@@ -21661,6 +21666,15 @@ mod chunk_10 {
         );
 
         assert!(stomped);
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Tank.asm loc_3B464 reads the mouth child collision on the Tank object's next pass, so the stomp frame only queues `$38(a2)`",
+        );
+        assert_eq!(
+            runtime.active_enemies[0].x_velocity, 0x0000_8000,
+            "Tank motion should not clear before loc_3B49A consumes the queued child hit",
+        );
+        runtime.apply_pending_enemy_collisions();
         assert_eq!(runtime.active_enemies[0].hit_points, 1);
         assert_eq!(
             runtime.active_enemies[0].x_velocity, 0,
@@ -21701,6 +21715,11 @@ mod chunk_10 {
         );
 
         assert!(stomped, "mouth child contact should resolve as a stomp");
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Tank.asm loc_3B464 consumes the linked child collision when the parent object runs, not from Kid's stomp handler",
+        );
+        runtime.apply_pending_enemy_collisions();
         assert_eq!(runtime.active_enemies[0].hit_points, 1);
         assert_eq!(
             runtime.active_enemies[0].x_velocity, 0,
