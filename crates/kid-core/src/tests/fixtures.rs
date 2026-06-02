@@ -695,7 +695,30 @@ pub(super) fn repo_root() -> PathBuf {
         .expect("repo root")
 }
 
+fn cache_backed_tests_enabled_from_var(value: Option<&str>) -> bool {
+    matches!(value, Some("1" | "true" | "TRUE" | "yes" | "YES"))
+}
+
+#[test]
+fn cache_backed_source_port_tests_are_opt_in() {
+    assert!(!cache_backed_tests_enabled_from_var(None));
+    assert!(!cache_backed_tests_enabled_from_var(Some("0")));
+    assert!(cache_backed_tests_enabled_from_var(Some("1")));
+    assert!(cache_backed_tests_enabled_from_var(Some("true")));
+    assert!(cache_backed_tests_enabled_from_var(Some("yes")));
+}
+
+pub(super) fn cache_backed_tests_enabled() -> bool {
+    cache_backed_tests_enabled_from_var(env::var("KID_ENABLE_CACHE_BACKED_TESTS").ok().as_deref())
+}
+
 pub(super) fn cached_generated_manifest() -> Option<kid_data::AssetManifest> {
+    if !cache_backed_tests_enabled() {
+        eprintln!(
+            "skipping cache-backed source-port test: set KID_ENABLE_CACHE_BACKED_TESTS=1 to use generated .cache assets"
+        );
+        return None;
+    }
     let manifest_path = repo_root()
         .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
     if !manifest_path.is_file() {
