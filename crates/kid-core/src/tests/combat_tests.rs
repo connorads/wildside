@@ -42,6 +42,30 @@ fn test_dragon(variant: u8, x: u32, y: u32) -> ActiveEnemy {
     e
 }
 
+#[test]
+fn rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x00AF_4000;
+    slice.player.y_pos = 0x00DF_0000;
+    slice.player.x_velocity = 0x0002_5000;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let tank = test_enemy(EnemyFamily::Tank, 0x00BF_8000, 0x00E0_0000, 2);
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &tank.snapshot(),
+            0,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "ASM Tank.asm loc_3B31E seeds `$48=$0B`/`$4A=$20`; GfxObjects_CollisionKid accepts the Level 01 oracle RockTank edge contact at frame 143 so Character_CheckCollision can spend HP on frame 144"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

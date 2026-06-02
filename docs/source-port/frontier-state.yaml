@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-28T00:00:00Z",
+  "updated_at": "2026-06-02T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-clean-through-frame-37759",
@@ -73,10 +73,18 @@
       "The older `kc_any_percent_2024` demo-1 walking-dragon probes still carry advisory enemy-roster drift around frames 3388..3399 even though `verify-tas --scenario tests/data/tas/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean. Re-check on 2026-05-29 showed the old layout #02 12px-behind note is stale: native now matches oracle at frames 3388..3401, so `demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392` was promoted back into the normal suite. The remaining ignored `runtime_tests.rs` probe is the frame-3399 warm-state check, where layout #01 is still half a pixel right of oracle (`0x035F0000` vs `0x035E8000`)."
     ],
     "current_hypothesis": {
-      "name": "Backlog #230 live hail now observes the ROM five-slot cap, but the rest of sub_61CA remains approximate",
-      "reason": "Advanced 2026-06-02 on current `main`: ASM `sub_61CA loc_625E` scans exactly five falling-weather slots and skips loc_626C when all are active. Native `step_weather` previously used an unbounded generic `EnemyProjectile::Hail` list, did not refresh `$FFFFFB3D`, spawned a sixth projectile when five hail particles were already live, and left the free-slot count stale after spawn. Native now refreshes the free-slot count from up to five live hail projectiles, consumes the cooldown RNG before the free-slot scan, skips the second spawn-position RNG when no slot is free, and decrements the free count on spawn. Regressions `hail_spawns_projectiles_after_35_seconds` and `hail_spawn_respects_five_falling_slot_cap_loc_625e` failed before the patch and now pass. Keep #230 `[?]`: generic projectile storage still stands in for the ROM falling/impact slot arrays, and collision-map splash/impact slots, `$28` Kid push timer, palette ops, visible weather 2 effects, and lava/geyser row-script fidelity remain open."
+      "name": "Backlog #155 Drips repro is blocked by earlier Level 01 RockTank contact timing until current Tank collision bounds stay ROM-sized",
+      "reason": "Advanced 2026-06-02 on current `main`: while refreshing a Level 01 route for the live Drips/slime report, the first authoritative semantic failure was earlier player HP drift at frame 144. Oracle spends HP on frame 144 after the frame-143 RockTank edge contact, but native's generic 4px enemy box plus invented 1px overlap gate delayed the contact. ASM `Tank.asm loc_3B31E` and `Tank_Shooting.asm loc_3B5A6` seed `$48=$0B` and `$4A=$20`; native now uses those extents and allows edge contact for object types `$0A/$0B`, with regression `rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e`. A refreshed semantic case `.cache/cases/codex-rocktank-contact-level01-walk-right-edge-0000-0600` now clears the frame-144 HP mismatch and first fails later at frame 181 on `player.x_pos`, so continue #155/#213 from the later movement/collision drift rather than from the stale HP blocker."
     },
     "rejected_hypotheses": [
+      {
+        "name": "Backlog #155 can use direct start/camera Drips warps as oracle ground truth",
+        "reason": "Rejected 2026-06-02. The focused `issue-213-level01-drips-idle` style direct-start probe immediately bootstraps native and oracle to different camera rows (`native y=$01C0_0000`, oracle y=$01DC_0000`) and later leaves the oracle object state hibernated/garbled. Do not patch Drips attach/drop behaviour from that warp shape; use a naturally reached or otherwise oracle-equivalent route."
+      },
+      {
+        "name": "Backlog #155 can drive Drips from the fresh raw Level 01 recording before earlier object/contact drift is cleared",
+        "reason": "Rejected 2026-06-02. Fresh Level 01 idle/walk recordings still hit earlier comparison blockers before any Drips floor interaction: raw verification sees object-count/gfx-object drift at frame 60, and the semantic route exposed the RockTank HP timing bug at frame 144. After matching Tank `$48/$4A` contact extents, the same refreshed semantic route moves the first failure to frame 181 `player.x_pos`; continue by reducing that movement/collision drift before treating later Drips/metal-block observations as authoritative."
+      },
       {
         "name": "Backlog #230 can treat generic hail projectiles as equivalent to the ROM falling-weather slot list",
         "reason": "Rejected 2026-06-02. ASM `sub_61CA` owns five falling slots and ten impact slots; `loc_625E` refuses to spawn when the five falling slots are occupied, and `loc_62C2` decrements `$FFFFFB3D` when a slot is allocated. Native's prior unbounded projectile list could create a sixth hail particle and left the free-slot word stale. The current fix only enforces the five-slot allocation/free-count semantics; the full worker still needs native falling/impact storage, collision-map splash handling, and Kid `$38=#$28` push-timer wiring."

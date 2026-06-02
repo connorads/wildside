@@ -10042,6 +10042,19 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
+        NativeObjectKind::Enemy {
+            object_type: 0x0A | 0x0B,
+        } => {
+            // ASM Tank.asm loc_3B31E and Tank_Shooting.asm loc_3B5A6 seed
+            // `$48(a5)=$0B` and `$4A(a5)=$20`; GfxObjects_CollisionKid scans
+            // those collision extents for both the body and linked turret.
+            EnemyContactBounds {
+                left_px: -11,
+                right_px: 11,
+                top_px: -32,
+                bottom_px: 0,
+            }
+        }
         NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
             left_px: -MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
             right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
@@ -10087,10 +10100,13 @@ fn dragon_walking_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBo
 
 fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
     match enemy.kind {
-        // GfxObjects_CollisionKid accepts edge contacts on DragonWalking's
-        // real collision boxes; the previous 8px gate was an invented guard
-        // that suppressed the frame-3399 stomp in the live TAS frontier.
-        NativeObjectKind::Enemy { object_type: 0x0D } => 0,
+        // GfxObjects_CollisionKid accepts edge contacts on real collision
+        // boxes; the previous 1px gate was an invented guard that suppressed
+        // DragonWalking's frame-3399 stomp and the Level 01 RockTank frame-143
+        // contact that spends Kid HP on frame 144.
+        NativeObjectKind::Enemy {
+            object_type: 0x0A | 0x0B | 0x0D,
+        } => 0,
         _ => ENEMY_CONTACT_MIN_OVERLAP_FP,
     }
 }
