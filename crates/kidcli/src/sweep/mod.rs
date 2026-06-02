@@ -1300,7 +1300,9 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 category: DivergenceCategory::Authoritative,
             });
         }
-        if native.number_objects != oracle.number_objects {
+        if matches!(frontier_kind, FrontierKind::Gameplay)
+            && native.number_objects != oracle.number_objects
+        {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "number_objects".into(),
@@ -1494,7 +1496,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
             });
         }
         if matches!(frontier_kind, FrontierKind::Enemy)
-            && !enemy_roster_frontier_matches(&native.active_enemies, &oracle.active_enemies)
+            && !enemy_roster_frontier_matches(native, oracle)
         {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
@@ -1526,16 +1528,16 @@ fn oracle_demo_kid_gfx_velocity_matches(native: &OracleState, oracle: &OracleSta
     })
 }
 
-fn enemy_roster_frontier_matches(
-    native_enemies: &[OracleEnemyState],
-    oracle_enemies: &[OracleEnemyState],
-) -> bool {
+fn enemy_roster_frontier_matches(native: &OracleState, oracle: &OracleState) -> bool {
     const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
+
+    let native_enemies = normalised_enemy_roster_for_frontier(native);
+    let oracle_enemies = normalised_enemy_roster_for_frontier(oracle);
 
     native_enemies.len() == oracle_enemies.len()
         && native_enemies
             .iter()
-            .zip(oracle_enemies)
+            .zip(&oracle_enemies)
             .all(|(native, oracle)| {
                 native.object_type == oracle.object_type
                     && native.x_pos == oracle.x_pos
@@ -1546,6 +1548,37 @@ fn enemy_roster_frontier_matches(
                     && native.layout_index == oracle.layout_index
                     && native.current_hp.unwrap_or(0) == oracle.current_hp.unwrap_or(0)
             })
+}
+
+fn normalised_enemy_roster_for_frontier(state: &OracleState) -> Vec<&OracleEnemyState> {
+    let mut enemies = state
+        .active_enemies
+        .iter()
+        .filter(|enemy| !enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
+        .collect::<Vec<_>>();
+    enemies.sort_by_key(|enemy| {
+        (
+            enemy.object_type,
+            enemy.layout_index.unwrap_or(usize::MAX),
+            enemy.x_pos,
+            enemy.y_pos,
+            enemy.current_hp.unwrap_or(0),
+        )
+    });
+    enemies
+}
+
+fn enemy_is_uninitialised_tank_gfx_proxy(state: &OracleState, enemy: &OracleEnemyState) -> bool {
+    if !matches!(enemy.object_type, 0x0A | 0x0B) || enemy.current_hp.unwrap_or(0) != 0 {
+        return false;
+    }
+
+    let dx = (enemy.x_pos >> 16) as i32 - (state.camera_x_pos >> 16) as i32;
+    let dy = (enemy.y_pos >> 16) as i32 - (state.camera_y_pos >> 16) as i32;
+    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after Execute_Objects.
+    // Oracle VBlank can expose a just-linked Tank gfx child before Tank.asm
+    // loc_3B31E / Tank_Shooting.asm loc_3B5A6 writes its display coordinates.
+    !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
 }
 
 fn summarise_enemy_states(enemies: &[OracleEnemyState]) -> String {
@@ -2385,6 +2418,249 @@ mod tests {
         let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
         assert_eq!(enemy_diffs.len(), 1);
         assert_eq!(enemy_diffs[0].field, "enemy_roster");
+    }
+
+    #[test]
+    fn enemy_frontier_ignores_raw_object_count_when_roster_matches() {
+        let tank = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x00C2_0000,
+            y_pos: 0x00E0_0000,
+            x_velocity: -0x0000_8000,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(1),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let native = vec![OracleState {
+            label: "frame_138".into(),
+            frame_index: 138,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0x00A3_1E00,
+            kid_y_pos: 0x00D3_8000,
+            number_objects: 7,
+            number_gfx_objects: 7,
+            game_paused: false,
+            active_enemies: vec![tank.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            number_objects: 6,
+            number_gfx_objects: 6,
+            ..native[0].clone()
+        }];
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert!(
+            enemy_diffs.is_empty(),
+            "enemy frontier should use structural enemy_roster for spawn parity; raw Number_Objects includes non-enemy transient/fixed workers"
+        );
+
+        let gameplay_diffs =
+            compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
+        assert_eq!(gameplay_diffs.len(), 1);
+        assert_eq!(gameplay_diffs[0].field, "number_objects");
+    }
+
+    #[test]
+    fn enemy_frontier_compares_roster_after_slot_order_normalisation() {
+        let body = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x0287_8000,
+            y_pos: 0x0090_2000,
+            x_velocity: -0x0000_8000,
+            y_velocity: 0x0000_4000,
+            facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(0),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(false),
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let child = OracleEnemyState {
+            x_pos: 0x0287_0000,
+            y_pos: 0x0088_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            current_hp: None,
+            ..body.clone()
+        };
+        let native = vec![OracleState {
+            label: "frame_258".into(),
+            frame_index: 258,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0x017A_0000,
+            kid_y_pos: 0x009F_0000,
+            number_objects: 8,
+            number_gfx_objects: 8,
+            game_paused: false,
+            active_enemies: vec![body.clone(), child.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            active_enemies: vec![child, body],
+            ..native[0].clone()
+        }];
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert!(
+            enemy_diffs.is_empty(),
+            "ASM object slots can expose Tank body/turret pairs in different order across native/oracle traces"
+        );
+    }
+
+    #[test]
+    fn enemy_frontier_ignores_uninitialised_tank_gfx_proxy_outside_loader_window() {
+        let live_body = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x00AE_0000,
+            y_pos: 0x00E0_0000,
+            x_velocity: 0x0000_8000,
+            y_velocity: 0,
+            facing: EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(1),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let live_child = OracleEnemyState {
+            y_pos: 0x00D8_0000,
+            x_velocity: 0,
+            on_ground: None,
+            current_hp: None,
+            ..live_body.clone()
+        };
+        let stale_proxy = OracleEnemyState {
+            x_pos: 0x0048_0000,
+            y_pos: 0x0068_0000,
+            x_velocity: 0,
+            facing: EnemyFacing::Left,
+            layout_index: Some(0),
+            current_hp: Some(0),
+            ..live_body.clone()
+        };
+        let native = vec![OracleState {
+            label: "frame_255".into(),
+            frame_index: 255,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x0176_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0x0176_B000,
+            kid_y_pos: 0x009F_0000,
+            number_objects: 8,
+            number_gfx_objects: 8,
+            game_paused: false,
+            active_enemies: vec![live_body.clone(), live_child.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            active_enemies: vec![stale_proxy, live_child, live_body],
+            ..native[0].clone()
+        }];
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert!(
+            enemy_diffs.is_empty(),
+            "ASM Mode_Level loc_80C can expose a stale zero-HP Tank gfx proxy outside loc_368A8's loader window before the real body/turret pair is comparable"
+        );
     }
 
     #[test]
