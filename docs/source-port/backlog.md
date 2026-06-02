@@ -1162,6 +1162,18 @@ Drips/slime/Tank behaviour from this stale x536/s340 timing; re-record on
 current native if it is still needed.
 
 Note 2026-06-02 follow-up for #213: selector-picked recording
+`issue213-js-x536-s340-rb` is the same stale x536/s340 family with right-held
+input. Fresh `verify-recording --slug issue213-js-x536-s340-rb` and
+`--native-only` both drift at native replay frame 0 (`trace_match=false`,
+`oracle_state_match=false`, `oracle_frame_match=false`, recorded/replay trace len
+651). The requested 0..120 case derives as
+`issue213-js-x536-s340-rb_case_00000_00120`, but `case verify` marks it blocked
+with `source recording replay drifted at frame 0`; no fields match and likely
+subsystem is recording verification. Do not patch #213 Drips/slime/Tank
+behaviour from this stale sibling; re-record on current native if this timing is
+still needed.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
 `codex-issue-213-x552-w370-jump-right-native-scan` is the same scan family as
 the x536 route, with scenario `issue213-x552-y575-w370-jump_right_c-1200`.
 The old bundle drifts at native replay frame 0. Regenerating as
