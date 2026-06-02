@@ -338,6 +338,22 @@ oracle remains grounded at `movement_0002`. This is before the Red Stealth slope
 window, so the next implementation pass should inspect the grounded
 release/jump/floor-support ASM around `sub_902A`, `sub_B43A`, and `sub_B55C`
 for this route before any sweep-only hardening or visual slope patching.
+
+Fixed 2026-06-02: the reduced frame-124 movement miss was native doing an extra
+post-horizontal flat-floor support release. ASM `loc_8E06 -> sub_B43A` scans
+support before `sub_8F26`, and the no-wall/no-slope branch `loc_8E4E ->
+loc_8BF0` hibernates before any second support scan. Native now defers that
+release for the low-row exact-cap flat edge from the reduced case while
+preserving the existing slope/recontact and Level 1 death-respawn edge
+guardrails. Regression:
+`level01_frame_124_flat_walk_edge_defers_lost_floor_until_next_wake_loc_8e4e`;
+guardrail:
+`death_respawn_level_1_releases_ground_once_post_step_support_is_gone`.
+Focused oracle evidence:
+`verify-tas --scenario .cache/recordings/issue-126-level01-walk-right-base/scenario.json --frame-start 0 --frame-end 180 --checkpoint-interval 1 --frontier-kind gameplay`
+is CRC-clean through all 180 frames; the next strict state miss is frame 138
+object/contact state (`number_objects` first, then Kid damage at frame 144),
+not the earlier player Y/camera movement drop.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |

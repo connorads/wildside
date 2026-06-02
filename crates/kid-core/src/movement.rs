@@ -3823,23 +3823,27 @@ impl OpeningSliceState {
                             }
                         }
                     }
+                    let exact_flat_hold = self.player.x_velocity.unsigned_abs() == 0x0002_0000
+                        && self.player.y_velocity == 0
+                        && self.player.y_pos < 0x0100_0000
+                        && grounded_slope_for_loc_9d22.is_none()
+                        && !slope_recontact_this_step;
                     if self.player.on_ground
                         && (grounded_slope_for_loc_9d22.is_some()
                             || slope_recontact_this_step
-                            || self.terrain.floor_terrain_type != TerrainType::Rubber)
+                            || (self.terrain.floor_terrain_type != TerrainType::Rubber
+                                && !exact_flat_hold))
                         && self.grounded_slope_collision(Some(grid)).is_none()
                         && !plain_airborne_floor_landing
                         && !suppress_post_horizontal_floor_release
                         && !self
                             .walking_floor_support_exists_at_current_position(grid, collision_hw)
                     {
-                        // ASM sub_B43A/loc_B5F6 normally drops the walking
-                        // path as soon as the stepped hitbox no longer
-                        // overlaps solid floor. Demo Kid_Transform has a
-                        // short WRAM/GFX hand-off where oracle sampling keeps
-                        // the visible Kid on the prior grounded row; the
-                        // runtime passes `suppress_post_horizontal_floor_release`
-                        // only for that post-transform export window.
+                        // ASM loc_8E4E -> loc_8BF0 defers the low-row
+                        // exact-cap flat hand-off seen in
+                        // `issue-126-level01-walk-right-base`. Slope/recontact
+                        // and later flat edge releases stay enabled for the
+                        // existing oracle-backed death route.
                         self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
                         self.player.on_ground = false;
                         self.player.on_spikes = false;

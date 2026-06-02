@@ -17633,6 +17633,71 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E06 -> sub_B43A -> loc_8E16 -> sub_8F26 -> loc_8E4E:
+    /// the flat-floor support scan runs before horizontal motion. If the
+    /// rightward step walks past that support and finds no slope, loc_8E4E
+    /// returns to loc_8BF0 and hibernates; the lost-floor hand-off is deferred
+    /// until the next wake's sub_B43A scan. Reduced case
+    /// `issue-126-level01-walk-right-base` frame 124 exercises this edge.
+    #[test]
+    fn level01_frame_124_flat_walk_edge_defers_lost_floor_until_next_wake_loc_8e4e() {
+        let w: u16 = 16;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let support_offset = (12usize * usize::from(w) + 7) * 2;
+        data[support_offset] = 0x60;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0083_c000;
+        slice.player.y_pos = 0x00bf_0000;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x0085_c000,
+            "ASM sub_8F26 should apply the flat walking x step before loc_8E4E"
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00bf_0000,
+            "ASM loc_8E4E -> loc_8BF0 hibernates before the next lost-floor scan can add 1px"
+        );
+        assert!(
+            slice.player.on_ground,
+            "flat loc_8E4E return should defer the unsupported-floor hand-off to the next wake"
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after flat walking step");
+        assert!(
+            trace.horizontal_step_applied,
+            "support at the old X should allow loc_8E16/sub_8F26 to run"
+        );
+    }
+
     /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
     /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
     /// tiles outside that range must not count as support; otherwise loc_B5F6
