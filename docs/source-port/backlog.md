@@ -300,7 +300,7 @@ details and block cells captured before/after the charge.
 | 123 | [x] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now follows ASM skin-byte indexing, so post-prize `$E001` cells resolve through the same Block_Mappings table as the ROM |
-| 126 | [~] | P1 | player | Walking up slopes is still observably wrong in native play | Native 1P gate now covers uphill/downhill tracking plus slope enter/exit seams; `mise run verify-1p-playable` is green |
+| 126 | [?] | P1 | player | Walking up slopes is still observably wrong in native play | Kid Level 00 natural route is CRC-clean; Red Stealth Level 01 route is blocked by earlier frame-125 movement/camera divergence before a trustworthy slope window |
 
 Note 2026-06-01 for #126: latest live playtest reports a Kid uphill-facing
 regression on up-right movement and persistent Red Stealth/Samurai slope
@@ -309,6 +309,22 @@ slope from standstill" quirk documented in #152. Existing `loc_8E98`/`loc_77C2`
 tests are not enough. Minimum gate: a deterministic Level 0x01 Red Stealth
 slope route compared against oracle/player-state checkpoints, plus a Level
 0x00 Kid uphill-facing render check.
+
+Follow-up 2026-06-02: refreshed slope evidence on current `main`. The stale
+`issue-211-level00-slope-right-probe` and
+`issue-211-level00-walk-right-live-refresh` bundles drift before replay and are
+not usable. New `issue-126-level00-walk-right-current` verifies native-only and
+`verify-tas --scenario .cache/recordings/issue-126-level00-walk-right-current/scenario.json --frame-start 0 --frame-end 900 --checkpoint-interval 1 --frontier-kind gameplay`
+is CRC-clean for all 900 frames; the reported Kid uphill-facing issue is not
+reproduced on the natural Level 00 route. The direct mid-slope probe
+`issue-126-level00-slope-right-current` remains non-authoritative from frame 0,
+matching the known artificial-start limitation. Derived Red Stealth Level 01
+route `issue-126-level01-redstealth-walk-right` verifies native-only, but
+oracle comparison diverges before a slope-vibration window at frame 125
+(`camera_y_pos`, `kid_y_pos`, and `character_movement` differ by the first
+authoritative checkpoint), then takes repeated damage and loses helmet state.
+Next #126 work should fix or avoid that earlier Level 01 route divergence before
+patching slope animation/movement.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
