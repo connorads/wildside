@@ -318,6 +318,15 @@ not usable. New `issue-126-level00-walk-right-current` verifies native-only and
 is CRC-clean for all 900 frames; the reported Kid uphill-facing issue is not
 reproduced on the natural Level 00 route. The direct mid-slope probe
 `issue-126-level00-slope-right-current` remains non-authoritative from frame 0,
+and a 2026-06-02 re-check of the natural route now shows why CRC-only wording is
+not enough: the same 0..900 window is still CRC-clean, but `verify-tas` reports
+55 authoritative object-count diffs, first at frame 560. Kid position,
+velocity, facing, movement, and HP match there; oracle keeps a hibernating dead
+DragonWalking slot (`code=0x03cd46`, `gfx_slot_index=4`, HP 0) while native has
+already removed it and reports `Number_Objects/Number_GfxObjects=4/4` instead
+of `5/5`. Treat the Kid uphill-facing report as unproven on Level 00 state, but
+do not call the route green until the DragonWalking death-slot lifetime is
+re-derived from ASM `Dragon.asm loc_3CEFC -> loc_3E956` and oracle.
 matching the known artificial-start limitation. Derived Red Stealth Level 01
 route `issue-126-level01-redstealth-walk-right` verifies native-only, but
 oracle comparison diverges before a slope-vibration window at frame 125
@@ -729,6 +738,22 @@ Note 2026-05-30 for #211: fixed the comparison foundation for the natural `walk_
 
 Note 2026-05-30 follow-up for #211: narrowed the `walk_right_00` frame-124 drift to the descending right-wall cling release tail. Native now preserves the post-gravity `y_vel` through the immediate stomp window while still applying the 1px `loc_AB0A` shimmy and clearing wall-cling/x velocity. This matches frames 124-125; the next natural-route frontier is frame 126/127 `number_objects` only, where native reports the block FX object but oracle has an additional slot `0x00@0x00700000,0x00bc0000`. Verification: `cargo test -q -p kid-core wall_cling_release -- --nocapture`; `cargo test -q -p kid-core descending_wall -- --nocapture`; `cargo run -q -p kidcli -- tas-diff --scenario .cache/recordings/issue-211-level00-walk-right-live/scenario.json --frame-start 120 --frame-end 130 --include-advisory --frontier-kind gameplay --only-divergent`; `mise run verify-slice-fast`.
 | 211 | [~] | P1 | player/render | 2026-05-30 playtest: live slope traversal still shows wrong-facing/diagonal animation despite green slope helper tests | Evidence source: human playtest after pushed commits. Symptoms: The Kid appears to face the wrong way while moving up-right on the first Level 00 slope; Helmet/IronKnight and Samurai slope traversal still show bad diagonal animation or vibration. Existing regressions `slope_facing_does_not_invert_on_uphill_traversal_loc_9DC0` and `full_motion_slope_up_right_keeps_kid_and_iron_knight_facing_right` pass on this checkout, so the helper coverage missed the live scene path. Follow-up 2026-05-30 adds the focused `level00-slope-right-probe` DynamicScenario for Blue Lake Woods 1 column 47 / row 14. Native replay passes for `.cache/recordings/issue-211-level00-slope-right-probe`, but oracle comparison diverges immediately: `verify-tas --scenario .cache/recordings/issue-211-level00-slope-right-probe/scenario.json --frame-start 0 --frame-end 120 --checkpoint-interval 1 --frontier-kind gameplay` reports frame 0 native `kid_x_pos=0x02f7e000`, `kid_x_vel=0xffffe000`, `kid_x_direction=0xff`, `character_movement=0x0006` versus oracle `kid_x_pos=0x02f80000`, `kid_x_vel=0`, `kid_x_direction=0`, `character_movement=0x0003`. ASM check: `sub_B43A` broad floor support ignores `$4000/$5000` slope cells by design, so the `kid_grounded_release_probe ... support=none` field is context, not proof of a bad floor scan. Follow-up tooling note: direct mid-slope WRAM patching may be too artificial for movement-frame parity, so also use the natural route `.cache/recordings/issue-211-level00-walk-right-live`; after fixing `record-scenario` to export `settle_oracle_warp=true`, standalone `verify-tas --scenario .cache/recordings/issue-211-level00-walk-right-live/scenario.json --frame-start 0 --frame-end 120 --checkpoint-interval 10 --frontier-kind gameplay` now reaches live gameplay on both sides and shows the remaining real drift after gameplay input begins rather than failing on the title-card bootstrap. Current native trace reaches the first slope around frame 500 with `kid_facing=Right`, `kid_on_slope=1`, `character_movement=6`, so the playtest-facing bug is likely renderer/form-specific slope frame selection unless the natural oracle route proves state drift before that point. Minimum gate: compare the natural route through the first slope, then assert `kid_x_direction`, `walk_visual_accumulator`, selected sprite frame, and pixels against oracle. |
+
+Note 2026-06-02 for #211: current `main` invalidates the old #211 cache
+evidence. `verify-recording --slug issue-211-level00-walk-right-live-refresh
+--native-only` drifts at frame 61, and
+`verify-recording --slug issue-211-level00-slope-right-probe --native-only`
+drifts at frame 0. The replacement Level 00 natural route under #126 keeps Kid
+state CRC-clean through frame 900 but now exposes an earlier non-visual blocker:
+frame 560 `Number_Objects/Number_GfxObjects` are `4/4` native versus `5/5`
+oracle because the ROM still has the dead DragonWalking gfx/object slot
+hibernating after `Dragon.asm loc_3CEFC`. Do not use either stale #211 bundle
+as a slope-render proof, and do not treat the green
+`slope_facing_does_not_invert_on_uphill_traversal_loc_9DC0` /
+`full_motion_slope_up_right_keeps_kid_and_iron_knight_facing_right` unit tests
+as live visual coverage: native still leaves normal walk/slope sprite-table
+writes (`$FFFFF8F0` -> `addroffset_sprite(a3)`) modelled only as trace
+accumulator state, not as selected player sprite/pixels.
 | 212 | [x] | P1 | player/combat | 2026-05-30 playtest: Helmet/IronKnight seems to lose all HP and revert to Kid on a single dragon hit | Closed 2026-05-31 as already covered by the live damage route: `loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp` sets Iron Knight to `HelmetHitpoint_Table[IronKnight]=5`, resolves Dragon contact through `Check_for_recent_damge -> loc_B700`, and proves the first hit leaves `current_form=IronKnight`, `number_hitpoints=4`, no pending Kid transform, and the 66-frame damage latch armed. `loc_b722_hp_cap_to_max_for_current_helmet` separately pins the ASM HP cap table plus extra-slot calculation. Gate: both focused tests pass. |
 
 Note 2026-05-31 for #212: found and fixed a transform-HP table conflation while tracing the report. ASM `sub_7EB2` seeds `Number_Hitpoints` from `unk_7EC2` (TheKid=2, Skycutter/Cyclone/RedStealth/Eyeclops/Juggernaut=3, IronKnight=$0C, Berzerker=4, Maniaxe=8, Micromax=$10), whereas `Check_for_recent_damge -> loc_B700` and `Make_SpriteAttr_HUD/sub_BDC0` use `HelmetHitpoint_Table` (IronKnight damage/HUD cap 5, most helmets 3). Native had reused `PlayerForm::max_hitpoints()` for transform HP, so IronKnight/Berzerker/Maniaxe/Micromax started too low compared with ROM. `transform_hitpoints_sub_7eb2` now mirrors `unk_7EC2`, with regression `sub_7eb2_uses_transform_hp_table_not_damage_cap_table`; existing `loc_B700` damage tests prove the first damage frame caps oversized IronKnight HP to 5 before subtracting to 4. Follow-up triage closed the live DragonWalking part with `loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp`; the human-visible "first pip does not change" is consistent with the ROM's separate transform HP seed and damage/HUD cap rather than a one-hit form-loss bug.
