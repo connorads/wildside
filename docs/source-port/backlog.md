@@ -1369,6 +1369,15 @@ diverges at `pre_jump@369` on object counts (native `7/7`, oracle `5/8`), and
 the requested 0..120 case is blocked by the initial velocity/entity mismatch.
 Do not patch Drips/slime from this stationary route until settled-recording
 bootstrap is fixed.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
+`issue-213-stationary-x576` has the same stationary jump shape as x536/x552/x568.
+The old bundle drifts at native replay frame 0. Regenerating as
+`issue-213-stationary-x576-refresh` matches native trace but full oracle state
+diverges at `pre_jump@369` on object counts (native `7/7`, oracle `5/8`), and
+the requested 0..120 case is blocked by the initial velocity/entity mismatch.
+Do not patch Drips/slime from this stationary route until settled-recording
+bootstrap is fixed.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
