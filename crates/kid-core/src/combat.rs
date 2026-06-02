@@ -8513,6 +8513,25 @@ impl NativeRuntime {
             if !enemy.is_vulnerable() {
                 return None;
             }
+            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                // ASM GfxObjects_CollisionKid uses the active sprite mapping's
+                // CollisionSize_Index row, not `$48/$4A`. Tank body frames
+                // `C7ED0/C7ED8/C7EE0` have zero collision, while the linked
+                // mouth/turret frames (`C7EC8`/`C7F20`/`C7F28`) carry Kid
+                // contact; Tank.asm loc_3B464 then routes child collision
+                // back to the parent.
+                return enemy.child_attachment_snapshot().and_then(|child| {
+                    if player_touches_enemy_with_half_width(
+                        slice.player,
+                        &child,
+                        self.progression.current_form.half_width() as i64,
+                    ) {
+                        Some((child.x_pos, enemy.family))
+                    } else {
+                        None
+                    }
+                });
+            }
             if matches!(enemy.family, EnemyFamily::Scorpion)
                 && enemy.scorpion_sting_frames > 0
                 && let Some(tail) = enemy.child_attachment_snapshot()
@@ -10048,13 +10067,14 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
         } => {
-            // ASM Tank.asm loc_3B31E and Tank_Shooting.asm loc_3B5A6 seed
-            // `$48(a5)=$0B` and `$4A(a5)=$20`; GfxObjects_CollisionKid scans
-            // those collision extents for both the body and linked turret.
+            // ASM GfxObjects_CollisionKid indexes CollisionSize_Index from the
+            // linked mouth/turret sprite mapping. Tank.asm `C7EC8`/`C7F20`
+            // rows resolve to `unk_31A26`/`unk_31A54`:
+            // `dc.w -$D,$19,-$10,$10`.
             EnemyContactBounds {
-                left_px: -11,
-                right_px: 11,
-                top_px: -32,
+                left_px: -13,
+                right_px: 12,
+                top_px: -16,
                 bottom_px: 0,
             }
         }

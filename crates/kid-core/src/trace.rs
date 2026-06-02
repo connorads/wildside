@@ -3658,6 +3658,32 @@ mod tests {
     }
 
     #[test]
+    fn death_tumble_trace_exports_object_velocity_not_loc_b80c_locals() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
+            remaining_frames: PLAYER_DEATH_WINDUP_FRAMES - 1,
+        };
+        runtime.death_windup_path = DeathWindupPath::Tumble;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player = player_at_x(0x0123);
+        slice.player.x_velocity = 0x0000_8000;
+        slice.player.y_velocity = -0x0004_0000;
+        runtime.opening_slice = Some(slice);
+
+        let trace = runtime.trace_frame();
+
+        // ASM Death loc_B7FA/loc_B80C moves the dying Kid with local d0/d1;
+        // it does not write those tumble deltas into the Kid object velocity
+        // fields sampled by the oracle helper.
+        assert_eq!(trace.kid_x_velocity, Some(0));
+        assert_eq!(trace.kid_y_velocity, Some(0));
+    }
+
+    #[test]
     fn trace_frame_exports_diamond_power_snake_probe_loc_3fad4() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -5183,6 +5209,37 @@ impl NativeRuntime {
         } else {
             self.progression.score
         };
+        let kid_x_velocity = player_state.map(|state| {
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
+                && self.death_windup_path == DeathWindupPath::Tumble
+            {
+                // ASM Death loc_B7FA/loc_B80C keeps tumble deltas in local
+                // `d0`/`d1` registers and moves `x_pos/y_pos` directly; Kid's
+                // object velocity fields are not updated during the death arc.
+                0
+            } else {
+                state.x_velocity
+            }
+        });
+        let kid_y_velocity = player_state.map(|state| {
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
+                && self.death_windup_path == DeathWindupPath::Tumble
+            {
+                // ASM Death loc_B7FA/loc_B80C uses local `d1` for tumble
+                // gravity; oracle WRAM velocity remains at the object field.
+                0
+            } else if self.intro_sequence_6_start_velocity_sample_active() {
+                // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
+                // 23585) reaches the later IntroSequence6 shell with the
+                // previous controller-side sample still exposed through
+                // the hidden Load_InGame bootstrap.
+                // Raw Kid WRAM is still the title-pose object here; only
+                // the top-level oracle velocity sample carries `$60000`.
+                0x0006_0000
+            } else {
+                state.y_velocity
+            }
+        });
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -5240,20 +5297,8 @@ impl NativeRuntime {
             paused: self.paused || self.demo_1_late_controller_pause_active(),
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
-            kid_x_velocity: player_state.map(|state| state.x_velocity),
-            kid_y_velocity: player_state.map(|state| {
-                if self.intro_sequence_6_start_velocity_sample_active() {
-                    // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
-                    // 23585) reaches the later IntroSequence6 shell with the
-                    // previous controller-side sample still exposed through
-                    // the hidden Load_InGame bootstrap.
-                    // Raw Kid WRAM is still the title-pose object here; only
-                    // the top-level oracle velocity sample carries `$60000`.
-                    0x0006_0000
-                } else {
-                    state.y_velocity
-                }
-            }),
+            kid_x_velocity,
+            kid_y_velocity,
             character_movement: player_state.map(|state| self.current_character_movement(state)),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),

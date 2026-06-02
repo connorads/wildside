@@ -881,6 +881,21 @@ This does not close #213: the human report is specifically about jumping up
 near the lower-floor slime/metal-block area and hitting/breaking unexpected
 collision, so the next gate is a longer checked-in DynamicScenario that drives
 that upward-jump contact against oracle.
+
+Note 2026-06-02 follow-up for #213: the first failing upward-jump direct probes
+were blocked by RockTank child-contact fidelity, not Drips. ASM
+`GfxObjects_CollisionKid` indexes collision boxes from `$22` /
+`CollisionSize_Index`: Tank body frames `C7ED0/C7ED8/C7EE0` map to zero
+collision, while linked mouth/turret frames `C7EC8`/`C7F20` map to
+`unk_31A26`/`unk_31A54` (`dc.w -$D,$19,-$10,$10`). Native contact damage now
+tests the linked mouth/turret child for `$0A/$0B`, and death-tumble trace export
+now reports object-field velocities (`0`) instead of local `Death loc_B80C`
+`d0/d1` deltas. Verification: `index8_jump_now` passes enemy-frontier
+`verify-tas` through frames 0..420; `index8_jump_right_now` no longer diverges
+at the old frame-312 HP latch or frame-314 velocity mismatch and first fails at
+frame 409 `kid_x_pos`, a later death-tail lifetime issue. `mise run
+verify-slice-fast` passed. #213 remains open for a durable upward-jump /
+metal-block Drips route.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
