@@ -2203,6 +2203,82 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_keeps_rubber_wall_snap_walking_loc_8e74() {
+        fn rubber_wall_runtime(has_rubber_worker: bool) -> NativeRuntime {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::InGame;
+            runtime.progression.current_form = PlayerForm::Berzerker;
+            runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+                branch: KidFlipBranchSelection::NoButtonBranch,
+                motion_branch: KidFrameMotionBranch::NormalPhysics,
+                post_motion_mutator: KidFramePostMotionMutator::None,
+                stages: KidFlipFollowOnStages {
+                    entry: KidFlipFollowOnStageState {
+                        x_velocity: 0x0005_0000,
+                        y_velocity: 0,
+                        on_ground: true,
+                        wall_cling_direction: None,
+                    },
+                    after_press_away: KidFlipFollowOnStageState {
+                        x_velocity: 0x0005_0000,
+                        y_velocity: 0,
+                        on_ground: true,
+                        wall_cling_direction: None,
+                    },
+                    after_jump_gravity: KidFlipFollowOnStageState {
+                        x_velocity: 0x0006_0000,
+                        y_velocity: 0,
+                        on_ground: true,
+                        wall_cling_direction: None,
+                    },
+                    after_floor: KidFlipFollowOnStageState {
+                        x_velocity: 0x0006_0000,
+                        y_velocity: 0,
+                        on_ground: true,
+                        wall_cling_direction: None,
+                    },
+                    after_wall: KidFlipFollowOnStageState {
+                        x_velocity: 0,
+                        y_velocity: 0,
+                        on_ground: true,
+                        wall_cling_direction: None,
+                    },
+                },
+            });
+            if has_rubber_worker {
+                runtime
+                    .block_state
+                    .rubber_block_animations
+                    .push(RubberBlockAnimation {
+                        col: 50,
+                        row: 104,
+                        base_skin: 0x0C,
+                        phase: 0,
+                        frames_until_next_write: 2,
+                    });
+            }
+            runtime
+        }
+
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 0x0318_0000;
+        player.y_pos = 0x068f_0000;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        assert_eq!(
+            rubber_wall_runtime(true).current_character_movement(player),
+            2,
+            "ASM sub_8F26 -> loc_8F98 -> loc_8E5A -> loc_8E74 keeps Berzerker's walking coroutine through a rubber-wall snap even after x_vel is cleared"
+        );
+        assert_eq!(
+            rubber_wall_runtime(false).current_character_movement(player),
+            0,
+            "ordinary zero-velocity non-Skycutter wall stops still report MoveID_Standingstill"
+        );
+    }
+
+    #[test]
     fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
         fn runtime_at(frame_counter: u16, probe: KidJumpGravityProbe) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -4675,9 +4751,14 @@ impl NativeRuntime {
         // ASM loc_8DFC / loc_8E16: grounded non-Skycutter motion that settles
         // with zero horizontal velocity writes `MoveID_Standingstill` before
         // the ROM reaches the walking/slope continuation. Skycutter is the
-        // explicit exception: loc_8E16/loc_8E5A routes zero-velocity Skycutter
-        // wall-hit frames back to the walking continuation.
-        if player.x_velocity == 0 && self.progression.current_form != PlayerForm::Skycutter {
+        // explicit exception, and rubber-wall contacts can be another one:
+        // `sub_8F26 -> loc_8F98` returns negative, so `loc_8E5A` branches to
+        // `loc_8E74` and keeps the walking coroutine even after x_vel was
+        // cleared by the wall snap.
+        if player.x_velocity == 0
+            && self.progression.current_form != PlayerForm::Skycutter
+            && !self.current_frame_kept_walking_after_rubber_wall_snap_loc_8e74()
+        {
             return MOVE_STANDINGSTILL;
         }
         let half_width = self.progression.current_form.half_width();
@@ -4713,6 +4794,20 @@ impl NativeRuntime {
             return MOVE_UPHILL_DOWNHILL;
         }
         MOVE_WALKING
+    }
+
+    fn current_frame_kept_walking_after_rubber_wall_snap_loc_8e74(&self) -> bool {
+        let Some(probe) = self.last_kid_frame_kid_flip_follow_on_probe else {
+            return false;
+        };
+
+        probe.motion_branch == KidFrameMotionBranch::NormalPhysics
+            && probe.post_motion_mutator == KidFramePostMotionMutator::None
+            && probe.stages.after_floor.on_ground
+            && probe.stages.after_floor.x_velocity != 0
+            && probe.stages.after_wall.on_ground
+            && probe.stages.after_wall.x_velocity == 0
+            && !self.block_state.rubber_block_animations.is_empty()
     }
 
     fn demo_trace_wall_jump_movement_hold_active(&self, player: PlayerState) -> bool {
