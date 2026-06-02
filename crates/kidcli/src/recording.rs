@@ -1062,12 +1062,13 @@ fn render_dynamic_checkpoint_frames(
 
 fn apply_settled_warp_oracle_visual_compatibility(trace: &mut NativeTraceFrame) {
     // Settled oracle recordings enter through the ROM level-skip path. That
-    // leaves `LevelSkip_Cheat` armed, seeds `Level_completion_time` to one
-    // second before ASM loc_D468 draws the end-level digit sprites, and leaves
-    // the live HUD timer one tick ahead of the synthetic native warp.
+    // leaves `LevelSkip_Cheat` armed and seeds `Level_completion_time` to one
+    // second before ASM loc_D468 draws the end-level digit sprites. The live
+    // HUD timer still comes from the authoritative trace; adding a synthetic
+    // second here makes settled in-game checkpoint PNGs one tick ahead of
+    // oracle while state parity remains green.
     trace.level_skip_cheat_enabled = 1;
     trace.level_completion_time = 1;
-    trace.level_timer_seconds = trace.level_timer_seconds.saturating_add(1);
 }
 
 fn render_runtime_checkpoint_frame(
@@ -2613,7 +2614,7 @@ mod tests {
     }
 
     #[test]
-    fn settled_warp_oracle_visual_compatibility_seeds_loc_d468_completion_time() {
+    fn settled_warp_oracle_visual_compatibility_keeps_live_hud_timer() {
         let mut trace = sample_trace_frame(0);
         trace.level_skip_cheat_enabled = 0;
         trace.level_completion_time = 2;
@@ -2630,8 +2631,8 @@ mod tests {
             "ASM loc_D468 sees the reduced oracle level-skip path's one-second time seed, not the native probe's recomputed timer"
         );
         assert_eq!(
-            trace.level_timer_seconds, 178,
-            "settled oracle level-skip frames render the live HUD timer one tick ahead of the synthetic native warp"
+            trace.level_timer_seconds, 177,
+            "settled oracle level-skip frames should render the live HUD timer from the authoritative trace; stale +1 compensation made Highwater checkpoint PNGs one second ahead of oracle"
         );
     }
 
