@@ -40,7 +40,7 @@ but do not by themselves prove `human-play-stable`.
 |-----|--------|-----|--------|---------|--------|
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
-| 003 | [~] | P1 | audio | No music or sound effects playing | Load level, confirm BGM and SFX |
+| 003 | [?] | P1 | audio | No music or sound effects playing | Blocked on exact human/real-device repro; current deterministic cold-intro and title/options live-SDL routes produce BGM |
 | 004 | [x] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
 | 005 | [-] | P1 | render | No parallax background | NOT A BUG — parallax working correctly |
 | 006 | [x] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
@@ -142,6 +142,14 @@ landing while the shared movement state remains `movement_0003`; reduced case
 `issue-003-title-audio-current_case_03240_03420` now passes through `3240..3391`.
 Remaining title/menu audio work needs a fresh interactive/menu route or output
 path repro, not this stale long idle bundle.
+
+Follow-up 2026-06-02: #160 now carries the current duplicate audio frontier
+evidence. `play-native --scenario` can replay deterministic scripts through the
+live SDL/audio queue, and `issue-160-live-title-options-audio-diagnostics`
+verifies native-only with audible intro/title/options waveform windows and no
+queue skips/errors. Treat #003 as blocked on the same missing exact
+human/real-device repro rather than re-running the same cold-intro and
+title/options probes under this older issue number.
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | FIXED/CLARIFIED 2026-05-24: prize blocks still delete their layout cell while ASM `sub_1007A` runs the visible wobble sprite, so the block no longer appears to vanish before the broken/wobbling art. See #149 and commit `6fefd268`. |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
