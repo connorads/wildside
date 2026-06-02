@@ -562,6 +562,18 @@ After that, `cargo run -p kidcli -- case verify --case
 issue-213-drips-camera-only` passes and `case reduce` reports the case is
 already passing. Continue #213 with a longer settled Drips recording that
 actually reaches the drop/pool/metal-block interaction.
+
+Note 2026-06-02 follow-up for #213: the next Level 01 bundles cannot be used as
+longer Drips routes on current native. `issue-213-level01-drips-idle` and
+`issue-213-level01-idle-native` both fail full and native-only
+`verify-recording` at frame 0 with `native trace frame mismatch`; their derived
+0..120 cases (`issue-213-level01-drips-idle_case_00000_00120` and
+`idle_level_01_case_00000_00120`) are blocked with `source recording replay
+drifted at frame 0`. `issue-213-level01-walk-right` drifts at frame 61 in both
+full and native-only verification, and its derived `walk_right_01_case_00000_00120`
+case is blocked with the same source-recording drift. Re-record the Level 01
+Drips idle/drop or walk route against current native before treating any of
+these bundles as gameplay-authoritative.
 | 214 | [ ] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
