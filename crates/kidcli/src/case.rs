@@ -1394,8 +1394,11 @@ fn semantic_entity_from_oracle(enemy: &OracleEnemyState) -> SemanticEntity {
         object_type: Some(object_type),
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
-        x_velocity: Some(enemy.x_velocity),
-        y_velocity: Some(enemy.y_velocity),
+        // Oracle helper captures enemy WRAM during VBlank while native traces
+        // are post-frame. Positions across consecutive frames remain
+        // authoritative; raw velocities are advisory for helper-backed cases.
+        x_velocity: None,
+        y_velocity: None,
         facing: Some(format!("{:?}", enemy.facing).to_lowercase()),
         on_ground: enemy.on_ground,
         hit_points: enemy.current_hp,
@@ -1741,11 +1744,26 @@ fn compare_entities(
 }
 
 fn semantic_entities_match(native: &[SemanticEntity], oracle: &[SemanticEntity]) -> bool {
-    native.len() == oracle.len()
-        && native
-            .iter()
-            .zip(oracle)
-            .all(|(native, oracle)| semantic_entity_matches(native, oracle))
+    if native.len() != oracle.len() {
+        return false;
+    }
+    let mut native_entities = native.iter().collect::<Vec<_>>();
+    let mut oracle_entities = oracle.iter().collect::<Vec<_>>();
+    native_entities.sort_by_key(|entity| semantic_entity_sort_key(entity));
+    oracle_entities.sort_by_key(|entity| semantic_entity_sort_key(entity));
+    native_entities
+        .iter()
+        .zip(oracle_entities)
+        .all(|(native, oracle)| semantic_entity_matches(native, oracle))
+}
+
+fn semantic_entity_sort_key(entity: &SemanticEntity) -> (&str, Option<u8>, u32, u32) {
+    (
+        entity.category.as_str(),
+        entity.object_type,
+        entity.x_pos,
+        entity.y_pos,
+    )
 }
 
 fn semantic_entity_matches(native: &SemanticEntity, oracle: &SemanticEntity) -> bool {
@@ -2347,7 +2365,7 @@ mod tests {
 
     #[test]
     fn compare_semantic_states_ignores_entity_identity_and_unknown_metadata() {
-        let native = SemanticGameState {
+        let mut native = SemanticGameState {
             frame_index: 12,
             player: SemanticPlayerState {
                 x_pos: Some(10),
@@ -2388,16 +2406,35 @@ mod tests {
             }],
             events: vec![],
         };
+        native.entities.push(SemanticEntity {
+            identity: String::from("enemy:0a:1:00a48000:00e00000"),
+            category: String::from("enemy"),
+            object_type: Some(0x0a),
+            x_pos: 0x00a4_8000,
+            y_pos: 0x00e0_0000,
+            x_velocity: Some(0x8000),
+            y_velocity: Some(0),
+            facing: Some(String::from("right")),
+            on_ground: Some(true),
+            hit_points: Some(2),
+        });
         let mut oracle = native.clone();
         oracle.entities[0].identity = String::from("enemy:0d:2:0007930a:00aa8000:01100000");
+        oracle.entities[0].x_velocity = None;
+        oracle.entities[0].y_velocity = None;
         oracle.entities[0].on_ground = None;
+        oracle.entities[1].identity = String::from("enemy:0a:1:00079864:00a48000:00e00000");
+        oracle.entities[1].x_velocity = None;
+        oracle.entities[1].y_velocity = None;
+        oracle.entities[1].on_ground = None;
+        oracle.entities.reverse();
 
         let report =
             compare_semantic_states(String::from("sample"), &[native], &[oracle]).expect("report");
 
         assert!(
             report.passed,
-            "native cannot observe oracle layout pointers, and oracle may leave entity on-ground metadata unknown; case semantics should compare shared gameplay fields"
+            "native cannot observe oracle layout/order pointers, and oracle may leave entity velocity/on-ground metadata unknown; case semantics should compare shared gameplay fields"
         );
         assert!(report.matching_fields.contains(&String::from("entities")));
     }

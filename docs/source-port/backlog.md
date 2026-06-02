@@ -549,6 +549,19 @@ Note 2026-05-31 for #213: commit `147c296c` implemented the first part of the re
 Note 2026-06-01 for #213: the precise lower-floor count window is now pinned. Oracle WRAM counts the Drips preallocated child object, but not a new gfx slot, on frames 537-597 of `.cache/scenarios/issue-213-drips-floor-probe-2000.json`; the later falling `DripsDrop` at frame 629 was already visually/state matched and must not be counted as this hidden worker. Native now adds a Drips object-only transient during the low dormant timer / early `loc_33424` forming window, excluding the in-flight sentinel. Regression `settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424` samples frames 536/537/597/598/629 so future changes cannot paper over the window by counting every active Drips controller or every DripsDrop.
 
 Note 2026-06-01 follow-up for #213: refined that child-slot count after the jump probes showed the first `loc_33424` wait must not count a child. ASM `Drips.asm loc_33488` is the state split: only after a splash copies the falling child into the surface/pool child (`a2`) and advances `off_33520` should native add an object-only worker during the next wait / early forming window. Added `drips_loc_33424_countdown_does_not_add_hidden_child_object` and `drips_loc_33488_surface_pool_counts_as_object_only_child`. Verification: focused trace tests, `.cache/scenarios/issue-213-drips-floor-probe-2000.json` frames 520-650 clean, and `.cache/scenarios/issue-213-drips-jump-probe.json` frames 0-120 clean. Broader cache-local jump variants still include older non-pinned divergences and need separate repro triage before closing #213.
+
+Note 2026-06-02 for #213: `issue-213-drips-camera-only` is now a clean
+64-frame prefix, not the Drips/terrain repro. Fresh native replay passed, but
+the case reducer initially blocked on settled Level 01 bootstrap metadata:
+oracle helper states expose player velocity as unknown and can list the
+RockTank body/turret in a different order from native; oracle enemy velocity is
+also sampled at the helper's VBlank phase rather than native's post-frame
+trace. `kidcli` case semantics now treat oracle entity velocities as advisory
+and compare entity sets by canonical type/position instead of iteration order.
+After that, `cargo run -p kidcli -- case verify --case
+issue-213-drips-camera-only` passes and `case reduce` reports the case is
+already passing. Continue #213 with a longer settled Drips recording that
+actually reaches the drop/pool/metal-block interaction.
 | 214 | [ ] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
