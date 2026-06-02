@@ -1,5 +1,5 @@
 use super::*;
-use crate::capture::write_wav_with_channels;
+use crate::capture::{AUDIO_FRAME_SAMPLES, read_wav_f32, write_wav_with_channels};
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     BackgroundPixelSample, FinalScenePixelDiagnostic, LayerFilter, NATIVE_FRAME_HEIGHT,
@@ -118,7 +118,19 @@ pub(crate) struct RecordingVerificationReport {
     pub(crate) first_trace_drift: Option<TraceDriftReport>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) checkpoint_state_deltas: Vec<CheckpointStateDelta>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) audio_event_windows: Vec<AudioEventWindowReport>,
     pub(crate) frame_diffs: Vec<CheckpointFrameDiff>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct AudioEventWindowReport {
+    pub(crate) frame_index: usize,
+    pub(crate) command: String,
+    pub(crate) window_start_frame: usize,
+    pub(crate) window_end_frame: usize,
+    pub(crate) rms: f32,
+    pub(crate) peak: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -746,6 +758,7 @@ pub(crate) fn verify_recording(
         )
     };
 
+    let audio_event_windows = recording_audio_event_windows(&record_dir)?;
     let report = RecordingVerificationReport {
         slug: recording.manifest.slug.clone(),
         native_replay_only: native_only,
@@ -757,6 +770,7 @@ pub(crate) fn verify_recording(
         recorded_trace_len: recording.trace.len(),
         first_trace_drift,
         checkpoint_state_deltas,
+        audio_event_windows,
         frame_diffs,
     };
     fs::write(
@@ -814,6 +828,88 @@ pub(crate) fn verify_recording(
         );
     }
     Ok(())
+}
+
+fn recording_audio_event_windows(record_dir: &Path) -> Result<Vec<AudioEventWindowReport>> {
+    let audio_path = record_dir.join(RECORDING_AUDIO_FILENAME);
+    let events_path = record_dir.join(RECORDING_AUDIO_EVENTS_FILENAME);
+    if !audio_path.is_file() || !events_path.is_file() {
+        return Ok(Vec::new());
+    }
+
+    let samples = read_wav_f32(&audio_path)?;
+    let events = fs::read_to_string(&events_path)
+        .with_context(|| format!("failed to read {}", events_path.display()))?;
+    Ok(events
+        .lines()
+        .filter_map(parse_audio_event_line)
+        .map(|(frame_index, command)| audio_event_window_report(&samples, frame_index, command))
+        .collect())
+}
+
+fn parse_audio_event_line(line: &str) -> Option<(usize, String)> {
+    let frame_index = line
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("frame="))?
+        .parse()
+        .ok()?;
+    let command = line
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("command="))?
+        .to_owned();
+    Some((frame_index, command))
+}
+
+fn audio_event_window_report(
+    samples: &[f32],
+    frame_index: usize,
+    command: String,
+) -> AudioEventWindowReport {
+    const WINDOW_FRAMES: usize = 8;
+
+    let window_start_frame = frame_index;
+    let window_end_frame = frame_index.saturating_add(WINDOW_FRAMES);
+    let sample_start = window_start_frame
+        .saturating_mul(AUDIO_FRAME_SAMPLES)
+        .saturating_mul(2)
+        .min(samples.len());
+    let sample_end = window_end_frame
+        .saturating_mul(AUDIO_FRAME_SAMPLES)
+        .saturating_mul(2)
+        .min(samples.len());
+    let window = &samples[sample_start..sample_end];
+    let (rms, peak) = stereo_window_rms_peak(window);
+
+    AudioEventWindowReport {
+        frame_index,
+        command,
+        window_start_frame,
+        window_end_frame,
+        rms,
+        peak,
+    }
+}
+
+fn stereo_window_rms_peak(samples: &[f32]) -> (f32, f32) {
+    if samples.is_empty() {
+        return (0.0, 0.0);
+    }
+
+    let mut sum_squares = 0.0f64;
+    let mut sample_pairs = 0usize;
+    let mut peak = 0.0f32;
+    for frame in samples.chunks_exact(2) {
+        let left = frame[0];
+        let right = frame[1];
+        sum_squares += f64::from((left * left + right * right) * 0.5);
+        peak = peak.max(left.abs()).max(right.abs());
+        sample_pairs += 1;
+    }
+    if sample_pairs == 0 {
+        return (0.0, peak);
+    }
+
+    ((sum_squares / sample_pairs as f64).sqrt() as f32, peak)
 }
 
 fn resolve_recording_dir(record_to: &Path) -> Result<PathBuf> {
@@ -2852,6 +2948,7 @@ mod tests {
             recorded_trace_len: 120,
             first_trace_drift: None,
             checkpoint_state_deltas: Vec::new(),
+            audio_event_windows: Vec::new(),
             frame_diffs: Vec::new(),
         };
 
@@ -3210,6 +3307,36 @@ mod tests {
 
         let samples = read_wav_f32(&temp.path().join(RECORDING_AUDIO_FILENAME)).expect("wav");
         assert_eq!(samples, vec![0.25, -0.25, 0.5, -0.5]);
+    }
+
+    #[test]
+    fn audio_event_line_parser_extracts_frame_and_command() {
+        assert_eq!(
+            parse_audio_event_line("frame=31 mode=InGame level=00 command=PlaySound(13)"),
+            Some((31, String::from("PlaySound(13)"))),
+            "#216 audio-event reports should preserve the ASM sound command and its frame"
+        );
+    }
+
+    #[test]
+    fn audio_event_window_report_measures_immediate_stereo_energy() {
+        let mut samples = vec![0.0; AUDIO_FRAME_SAMPLES * 2 * 40];
+        let event_sample_start = 31 * AUDIO_FRAME_SAMPLES * 2;
+        for sample in &mut samples[event_sample_start..event_sample_start + AUDIO_FRAME_SAMPLES * 2]
+        {
+            *sample = 0.25;
+        }
+
+        let report = audio_event_window_report(&samples, 31, String::from("PlaySound(13)"));
+
+        assert_eq!(report.frame_index, 31);
+        assert_eq!(report.window_start_frame, 31);
+        assert_eq!(report.window_end_frame, 39);
+        assert!(
+            report.rms > 0.08,
+            "event-window RMS should catch audible native output near the queued block-hit frame"
+        );
+        assert_eq!(report.peak, 0.25);
     }
 
     #[test]
