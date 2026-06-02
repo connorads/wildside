@@ -305,6 +305,18 @@ misaligned firing animation. Keep the 0x0A vs 0x0B distinction, but reopen until
 the live route records which tank family is on screen and whether generated
 assets are present. Do not make plain `0x0A` tanks shoot unless ASM/oracle prove
 that family fires.
+
+Follow-up 2026-06-02 case-queue triage for #144/#145:
+`debug-level01-tank-walk` and `debug-level01-tank-walk-1200` are
+native-replayable but not oracle-authoritative. Native-only verification passes
+for both, while full verification fails at `level_settle@60` with object counts
+`native 4 / 4, oracle 4 / 6`. Both derived 0..120 cases have the same
+`walk_right_01_case_00000_00120` blocker before tank behaviour:
+settled-recording oracle bootstrap starts Level 01 with different player
+velocities and the first Tank at `0A@00A48000,00E00000` versus oracle
+`0A@00A40000,00D80000`; `case reduce` refuses for that bootstrap mismatch.
+Do not patch RockTank firing/rendering from either recording. Use a refreshed
+authoritative Level 01 route or fix settled-recording oracle bootstrap first.
 | 146 | [x] | P1 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | Validated 2026-05-18 from deterministic native replay evidence. Short route `.cache/recordings/issue-146-level2-death/` starts settled Blue Lake Woods 2 (`mode=InGame level=01`, Kid at `(32,191)`), takes damage at frames 814 and 1272, enters `LevelTransition` at frame 1347, decrements lives from 3 to 2, and restores HP from 0 to 2. Long route `.cache/recordings/issue-146-level2-stomp-long-probe/` verifies native-only and mechanically rules out the reported permanent loading hang for this route: frame 0 is `InGame`, frame 1347 is `LevelTransition`, frame 8589 returns to `InGame`, and frame 9060 is still live Level 01 gameplay with lives=2, HP=2, not paused, not game-over. Visual confirmation: `verify/native/009059_stomp_end.png` shows live Level 2 play after the death transition. Verification: `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-death --native-only`; `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-stomp-long-probe --native-only`. Default oracle verification remains non-authoritative for this settled recording shape because oracle checkpoints stay paused on Level 0, matching the known settled-recording oracle-bootstrap limitation documented for #136. Reopen only with a deterministic route that still remains in `LevelTransition` or otherwise fails to resume gameplay. |
 | 147 | [~] | P1 | player | Level 2 wall-grab "zoom to top" cheat — jumping at a tall block stack lets Kid skip up to the top of the stack | FIXED: ASM `loc_ABA4` (kid.asm:13422-13427) probes the tile at (probe_x, kid_y-20) before allowing the wall-grab pull-up and rejects via `bge.w loc_AD2C` if solid. Probe 2 at (probe_x, kid_y-36) follows. Native `try_snap_wall_sticky_ledge` (`crates/kid-core/src/movement.rs:4219`) now probes `(probe_x, y-20)` and `(probe_x, y-36)` first with `probe_at` (exact cell) and rejects if either is solid, preventing the old mid-stack snap-to-foot-row chain. Regression: `loc_aba4_rejects_pullup_when_head_clearance_is_solid_mid_tall_stack`; companion coverage: `loc_abf0_buffered_pullup_scans_from_masked_y_minus_14_row`. Refreshed verification 2026-05-19: `cargo test -p kid-core loc_a` passes (68 tests), including the `loc_ABA4` and `loc_ABF0` pull-up cases. |
 
