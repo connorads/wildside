@@ -5019,6 +5019,17 @@ because the source recording replay drifted at frame 0. Keep #146 closed from
 the validated long-probe evidence above; re-record Level 2 death before using
 this shorter bundle for new respawn/loading work.
 
+Follow-up 2026-06-03 selector replay for the #146 long probe:
+`issue-146-level2-stomp-long-probe` is also stale on current native. Fresh full
+and native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 9061-frame recorded/replay traces. The requested `0..120` case derives
+as `stomp_enemy_01_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Keep #146 closed from
+the validated long-probe behaviour above; re-record the long Level 2 death route
+before using this saved bundle for new respawn/loading work.
+
 ### 132 — Verify 2-player alternating mode against oracle-backed or strong native scenarios (FIXED)
 Evidence source: backlog triage after the 1P gates stabilised. Native repro: existing behaviour, but only partially covered by tests.
 Oracle repro: not required — this closure uses strong native scenarios. Minimum gate: `fast-slice`.
