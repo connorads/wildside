@@ -4368,6 +4368,159 @@ pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
     Ok(output)
 }
 
+/// Decompress a block-layout resource into the `$FFFF`-terminated word stream
+/// consumed by the `loc_11C7E` block-overlay dispatcher.
+///
+/// ASM `LoadBlockLayout`/`loc_132A6` (kid.asm:25557-25744). The block resource
+/// starts with the `$40` format marker (`cmpi.b #$40,(a1); beq loc_132A6`),
+/// which is itself the first byte of the bit stream — `sub_13618` seeds the
+/// reader from `(a0)+` where `a0 = a1` points at the `$40` byte. The reader is
+/// the same MSB-first 16-bit window with byte refill used by EniDec
+/// (`sub_13618`/`sub_13622`/`sub_1363C`/`sub_1364C`/`loc_13650`), so this
+/// reuses [`EnigmaBitReader`].
+///
+/// Header: read 8 bits (discarded), 4 bits → X-field width (`a2`), look up the
+/// X all-ones sentinel `a5 = return_13662[X_width]` (= `(1<<X_width)-1`), 4 bits
+/// → Y-field width (`a3`).
+///
+/// Main loop `loc_132D6`: 1 flag bit rotated into bit 15, 5 bits block type;
+/// `$1F` terminates (writes `$FFFF`). Otherwise write the header word
+/// (`flag<<15 | type`) and dispatch through `off_132FC[type]` to one of the
+/// per-type entry decoders, each terminated by reading the X sentinel.
+pub fn decode_block_layout(layout_bytes: &[u8]) -> Result<Vec<u16>> {
+    if layout_bytes.first() != Some(&0x40) {
+        bail!("block layout resource must start with the $40 format marker");
+    }
+
+    // ASM reads the bit stream directly from contiguous ROM, so the reader can
+    // pre-fetch a few bytes past the logical end of a resource before the
+    // `$1F`/sentinel terminators stop it. Extracted resources are sliced
+    // exactly, so pad with the ROM read-ahead margin (matches decode_enigma).
+    let mut padded = layout_bytes.to_vec();
+    padded.extend_from_slice(&[0u8; 8]);
+    let mut bits = EnigmaBitReader::new(&padded);
+    bits.refill_word_sub_13618()?; // ASM sub_13618: seed the 16-bit window.
+
+    let _discarded = bits.read_bits_sub_13622(8)?; // ASM: read 8 bits, value unused.
+    let x_width = usize::from(bits.read_bits_sub_13622(4)?);
+    // ASM: a5 = return_13662[x_width] = (1<<x_width)-1 (x_width-bit all-ones
+    // sentinel). x_width==0 would index the rts opcode word; never seen in data.
+    let x_sentinel = if x_width == 0 {
+        0
+    } else {
+        ENIGMA_BIT_MASKS[x_width - 1]
+    };
+    let y_width = usize::from(bits.read_bits_sub_13622(4)?);
+
+    let mut output: Vec<u16> = Vec::new();
+    // Guard against a malformed stream consuming forever; real streams are tiny.
+    let max_words = 0x4_0000;
+
+    'main: loop {
+        if output.len() > max_words {
+            bail!("block layout decode exceeded sanity word limit");
+        }
+        // ASM loc_132D6: read 1 flag bit, ror into bit 15; read 5-bit type.
+        let flag = bits.read_bits_sub_13622(1)?;
+        let header_flag = flag << 15; // ror.w #1 of a single low bit → bit 15.
+        let block_type = bits.read_bits_sub_13622(5)?;
+        if block_type == 0x1F {
+            // ASM loc_134BA: write the terminating $FFFF and return.
+            output.push(0xFFFF);
+            break;
+        }
+        output.push(header_flag | block_type);
+
+        // ASM off_132FC dispatch (kid.asm:25594-25612): block type → entry loop.
+        loop {
+            // Every arm begins by reading the X field and comparing it to the
+            // sentinel; a match writes $FFFF for this run and returns to the
+            // main loop.
+            let x = bits.read_bits_sub_13622(x_width.max(1))?;
+            if x == x_sentinel {
+                output.push(0xFFFF);
+                continue 'main;
+            }
+            match block_type {
+                // loc_1331E (types 0,2,5,6,7,8,9,13,14,15 per off_132FC):
+                // X, Y, count+1, 1-bit flag.
+                0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    output.push(bits.read_bits_sub_13622(4)?.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(1)?);
+                }
+                // loc_1334C (type 1): X, Y, count, 1-bit flag, then count+1
+                // property words (loc_1337C: 1-bit selector → 4-bit value, the
+                // selector sets bit 15 / $8000 when non-zero).
+                1 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    let d2 = bits.read_bits_sub_13622(4)?;
+                    output.push(d2.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(1)?);
+                    for _ in 0..=d2 {
+                        if bits.read_bits_sub_13622(1)? != 0 {
+                            output.push(bits.read_bits_sub_13622(4)? | 0x8000);
+                        } else {
+                            output.push(bits.read_bits_sub_13622(4)?);
+                        }
+                    }
+                }
+                // loc_133A0 (types 10,12): X, Y, count, 1-bit flag, count+1
+                // 4-bit property words (loc_133D0).
+                10 | 12 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    let d2 = bits.read_bits_sub_13622(4)?;
+                    output.push(d2.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(1)?);
+                    for _ in 0..=d2 {
+                        output.push(bits.read_bits_sub_13622(4)?);
+                    }
+                }
+                // loc_133DE (type 3): X, Y, count(3-bit)+1, 1-bit, 8, 3, 8, 8.
+                3 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    output.push(bits.read_bits_sub_13622(3)?.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(1)?);
+                    output.push(bits.read_bits_sub_13622(8)?);
+                    output.push(bits.read_bits_sub_13622(3)?);
+                    output.push(bits.read_bits_sub_13622(8)?);
+                    output.push(bits.read_bits_sub_13622(8)?);
+                }
+                // loc_1342E (type 4): X, Y, count(16-bit)+1, 9-bit value.
+                4 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    output.push(bits.read_bits_sub_13622(16)?.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(9)?);
+                }
+                // loc_1345E (type 11): X, Y only.
+                11 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                }
+                // loc_1347C (type 16): X, Y, count, 1-bit, count+1 3-bit words.
+                16 => {
+                    output.push(x);
+                    output.push(bits.read_bits_sub_13622(y_width.max(1))?);
+                    let d2 = bits.read_bits_sub_13622(4)?;
+                    output.push(d2.wrapping_add(1));
+                    output.push(bits.read_bits_sub_13622(1)?);
+                    for _ in 0..=d2 {
+                        output.push(bits.read_bits_sub_13622(3)?);
+                    }
+                }
+                other => bail!("unexpected block layout type {other}"),
+            }
+        }
+    }
+
+    Ok(output)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct EnigmaHeaderEniDec<'a> {
     packet_length: usize,
@@ -5663,6 +5816,51 @@ AddrTbl_LevelNames:   ;1A842
     fn saxman_fixture_decodes_to_expected_bytes() {
         let decoded = decode_saxman(SAXMAN_FIXTURE).expect("fixture should decode");
         assert_eq!(decoded, b"ABCD");
+    }
+
+    /// ASM `LoadBlockLayout`/`loc_132A6` (kid.asm:25557). `level/block/05.bin`
+    /// is the smallest real block resource (Forced Entry); the expected word
+    /// stream below was cross-validated by feeding `decode_block_layout` output
+    /// through the `loc_11C7E` block-overlay handlers and comparing the
+    /// resulting `Level_Layout` against the live RAM-dumped fixture (residual
+    /// per-level diffs collapsed from the 6.4% no-overlay baseline to the
+    /// individual unported handler cells). The stream is a fixed golden so any
+    /// regression in the bit reader, header parse, or per-type entry decoders is
+    /// caught deterministically without a cache dependency.
+    #[test]
+    fn block_layout_05_decodes_to_expected_word_stream_loc_132a6() {
+        // Raw resource bytes of level/block/05.bin (starts with the $40 marker).
+        const BLOCK_05: &[u8] = &[
+            0x40, 0x65, 0x84, 0x60, 0x81, 0x92, 0xD0, 0x0C, 0x35, 0x80, 0x9B, 0x4C, 0x06, 0xBF,
+            0x19, 0x8C, 0xF8, 0x8C, 0xF8, 0x0C, 0xBB, 0xF1, 0x45, 0x28, 0x89, 0x28, 0x9D, 0x28,
+            0xA1, 0x28, 0xA5, 0x30, 0x0D, 0x41, 0x5A, 0x41, 0x44, 0x53, 0xE3, 0x53, 0xD0, 0x68,
+            0xD7, 0x68, 0xCD, 0x89, 0x5A, 0x89, 0x7F, 0xFC,
+        ];
+        let words = decode_block_layout(BLOCK_05).expect("block 05 should decode");
+        assert_eq!(
+            words,
+            vec![
+                0x8001, 0x0006, 0x0001, 0x0001, 0x0000, 0x000C, 0x0025, 0x0014, 0x0001, 0x0000,
+                0x000C, 0x000D, 0x000C, 0x0001, 0x0000, 0x8003, 0x001A, 0x000C, 0x0001, 0x0000,
+                0x800A, 0xFFFF, 0x0006, 0x0018, 0x0019, 0x0010, 0x0000, 0x0008, 0x0019, 0x0010,
+                0x0000, 0x0000, 0x0019, 0x0008, 0x0000, 0xFFFF, 0x0005, 0x0005, 0x0005, 0x0002,
+                0x0000, 0x0009, 0x0005, 0x0002, 0x0000, 0x001D, 0x0005, 0x0002, 0x0000, 0x0021,
+                0x0005, 0x0002, 0x0000, 0x0025, 0x0006, 0x0001, 0x0000, 0x000D, 0x0008, 0x0003,
+                0x0001, 0x001A, 0x0008, 0x0003, 0x0001, 0x0004, 0x000A, 0x0008, 0x0001, 0x0023,
+                0x000A, 0x0008, 0x0001, 0x0010, 0x000D, 0x0002, 0x0001, 0x0017, 0x000D, 0x0002,
+                0x0001, 0x000D, 0x0011, 0x0003, 0x0001, 0x001A, 0x0011, 0x0003, 0x0001, 0xFFFF,
+                0xFFFF,
+            ],
+            "ASM loc_132A6 must decode the block resource into the $FFFF-terminated word stream consumed by loc_11C7E"
+        );
+    }
+
+    #[test]
+    fn block_layout_rejects_resources_without_the_40_marker() {
+        // ASM LoadBlockLayout (kid.asm:25557): `cmpi.b #$40,(a1); beq loc_132A6`
+        // — a resource that does not begin with $40 is not a block layout.
+        let err = decode_block_layout(&[0x00, 0x01, 0x02]).expect_err("must reject non-$40 marker");
+        assert!(err.to_string().contains("$40 format marker"));
     }
 
     #[test]

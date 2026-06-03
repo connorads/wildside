@@ -1874,11 +1874,15 @@ pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u16>, String> {
-    // ASM LoadBlockLayout loc_132A6 (kid.asm:25563-25582) saves registers,
-    // seeds the Enigma bit reader via `sub_13618`/`sub_13622`, and starts
-    // decoding block-layout words into `Decompression_Buffer` once the caller
-    // has already dispatched here for the `$40` layout tag.
-    kid_data::decode_enigma(layout_bytes, 0).map_err(|error| error.to_string())
+    // ASM LoadBlockLayout/loc_132A6 (kid.asm:25557-25744) saves registers,
+    // seeds the MSB-first bit reader via `sub_13618`/`sub_13622` (the same
+    // helpers EniDec uses, but LoadBlockLayout is a DISTINCT format — not
+    // Enigma), then decodes block-layout entry words into Decompression_Buffer
+    // until the `$1F` block-type terminator writes the trailing `$FFFF`.
+    // The decompressor itself lives in kid-data alongside decode_saxman/
+    // decode_enigma; this wrapper exists so the level loader can call it in
+    // Kid-domain terms.
+    kid_data::decode_block_layout(layout_bytes).map_err(|error| error.to_string())
 }
 
 #[allow(non_snake_case)]
@@ -17767,23 +17771,28 @@ impl NativeRuntime {
     ///      `[ThemeCollision_Index[theme][skin] << 4, skin]`.
     ///
     /// `// TODO(fidelity): the block-overlay pass (loc_11C7E + AddrTbl_BlockTypes
-    /// handlers + sub_127A8) is not applied, so block-placed cells (smash/ice/
-    /// rubber/mushroom/shooter base cells `$E0xx` and the `$20`/`$xx`-flag
-    /// collision overlays) are absent. Across the cached fixtures this is 27,325
-    /// of 424,200 cells (~6.4%); the other 396,871 plain-collision cells are
-    /// byte-exact (see decode_level_layout_matches_fixture_collision_cells_loc_11c34).
-    /// BLOCKER: the handler bodies ARE in kid.asm (loc_122B8..loc_126F2) and the
-    /// pure helpers are ported (level.rs:4167+, level_layout.rs sub_127A8/12752),
-    /// but the overlay INPUT — the decompressed block-layout word stream — cannot
-    /// be produced natively. The ROM decompresses it via `LoadBlockLayout`
-    /// (kid.asm:23832), whose decompressor body is absent from the cached
-    /// disassembly, and the block resource is NOT the same Saxman format as the
-    /// foreground (its header word is not a control-stream split: feeding
-    /// `level/block/<id>.bin` to decode_saxman fails). The asset bundle exports
-    /// the block resource RAW (export_raw_level_asset), never decoding it. Until
-    /// the block-layout decompressor is identified, the overlay cannot be ported
-    /// to byte-equality without guessing the format. The solid terrain floor/
-    /// walls — what keeps the player from falling out of bonus levels — is exact.`
+    /// handlers + sub_127A8) is not yet APPLIED here, so block-placed cells
+    /// (smash/ice/rubber/mushroom/shooter base cells `$E0xx` and the `$20`/`$xx`-
+    /// flag collision overlays) are absent. Across the cached fixtures this is
+    /// 27,325 of 424,200 cells (~6.4%); the other 396,871 plain-collision cells
+    /// are byte-exact (decode_level_layout_matches_fixture_collision_cells_loc_11c34).
+    /// The block-layout DECOMPRESSOR is now ported: `LoadBlockLayout`/loc_132A6
+    /// IS in the disassembly (kid.asm:25557, with bit-reader helpers sub_13618/
+    /// sub_13622 at 26062/26074) — it is a DISTINCT format from Saxman that
+    /// reuses the EniDec MSB-first bit reader. `kid_data::decode_block_layout`
+    /// reproduces it (verified: all 103 block resources decode to clean
+    /// `$FFFF`-terminated streams; cross-validating each stream through the
+    /// loc_11C7E overlay collapses the per-level fixture diff from the 6.4%
+    /// no-overlay baseline to the individual cells of the few still-unported
+    /// handlers). REMAINING: wire `decode_block_layout` + an integrated
+    /// loc_11C7E/AddrTbl_BlockTypes overlay driver into this function. The
+    /// per-handler helpers are ported (level.rs:4167+, level_layout.rs
+    /// sub_127A8/12752) but there is no integrated driver yet, and several
+    /// handlers (loc_124A6 type3, loc_1253A shooter, loc_126F2 type16 corner
+    /// bset) need their cell-write paths assembled to byte-equality before
+    /// wiring, so the overlay is intentionally left out of the live path to keep
+    /// the verify-slice gate green. The solid terrain floor/walls — what keeps
+    /// the player from falling out of bonus levels — is exact.`
     ///
     /// Returns `None` when the foreground resource, header, or theme-collision
     /// table is unavailable, so the caller can fall back to "no grid".

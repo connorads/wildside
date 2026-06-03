@@ -24884,19 +24884,34 @@ mod chunk_10 {
     }
 
     #[test]
-    fn loc_132a6_decodes_block_layout_words_from_the_enigma_stream() {
-        let decoded = decode_block_layout_loc_132A6(&[
-            0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
-            0xE1, 0x55, 0x7F, 0x80,
-            0x00, // command 7,count 0; inline 0x2AA; terminator; refill tail byte
-        ])
-        .expect("ASM loc_132A6 should enter the Enigma block-layout decode path");
+    fn loc_132a6_decodes_block_layout_words_into_the_ffff_terminated_stream() {
+        // ASM loc_132A6 (kid.asm:25557) decodes the `$40`-marked block resource
+        // into the word stream loc_11C7E consumes. `level/block/05.bin` (Forced
+        // Entry) is the smallest real resource; its golden stream is locked in
+        // kid-data (block_layout_05_decodes_to_expected_word_stream_loc_132a6).
+        // Here we assert the kid-core wrapper produces a well-formed stream:
+        // begins with a block-type header word and ends with the `$FFFF`
+        // terminator written by loc_134BA.
+        const BLOCK_05: &[u8] = &[
+            0x40, 0x65, 0x84, 0x60, 0x81, 0x92, 0xD0, 0x0C, 0x35, 0x80, 0x9B, 0x4C, 0x06, 0xBF,
+            0x19, 0x8C, 0xF8, 0x8C, 0xF8, 0x0C, 0xBB, 0xF1, 0x45, 0x28, 0x89, 0x28, 0x9D, 0x28,
+            0xA1, 0x28, 0xA5, 0x30, 0x0D, 0x41, 0x5A, 0x41, 0x44, 0x53, 0xE3, 0x53, 0xD0, 0x68,
+            0xD7, 0x68, 0xCD, 0x89, 0x5A, 0x89, 0x7F, 0xFC,
+        ];
+        let decoded = decode_block_layout_loc_132A6(BLOCK_05)
+            .expect("ASM loc_132A6 should decode the $40 block resource");
 
         assert_eq!(
-            decoded,
-            vec![0x02AA],
-            "ASM loc_132A6 should preserve the decoded block-layout word stream produced by the inline-packet fixture"
+            decoded.first().copied(),
+            Some(0x8001),
+            "ASM loc_132D6 should emit the flag|type header word first (block 05 begins with a hidden type-1 entry)"
         );
+        assert_eq!(
+            decoded.last().copied(),
+            Some(0xFFFF),
+            "ASM loc_134BA should terminate the decoded block-layout stream with $FFFF"
+        );
+        assert_eq!(decoded.len(), 91);
     }
 
     #[test]
