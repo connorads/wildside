@@ -1042,6 +1042,17 @@ Drips idle/drop or walk route against current native before treating any of
 these bundles as gameplay-authoritative.
 
 Note 2026-06-03 follow-up for #213: selector-picked recording
+`full-frame-level01-idle-grounded-scan` is stale before any current Level 01
+idle/grounded scan evidence. Fresh full and native-only verification both drift
+at native replay frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 561-frame
+recorded/replay traces. The requested 0..120 case derives as
+`idle_level_01_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record this Level 01
+idle/grounded scan route on current native before using it as gameplay evidence.
+
+Note 2026-06-03 follow-up for #213: selector-picked recording
 `codex-level01-walk-right-frontier-3600` is also stale before any current
 Level 01 walk/Drips gameplay evidence. Fresh full and native-only verification
 both drift at native replay frame 0, with `trace_match=false`,
