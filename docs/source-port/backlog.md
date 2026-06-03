@@ -867,6 +867,13 @@ both 523 frames. Its requested `0..120` case is
 `codex-intro-smoke_case_00000_00120`, which passes with world mode, camera,
 player position/motion, entities, and events matching; `case reduce` reports it
 is already passing. This smoke route is non-actionable for #210/#161.
+Follow-up 2026-06-02: selector-picked `codex-intro-text-frame-probe` also has
+the same clean shape. Fresh `verify-recording` passes with trace/state/frame
+green and no first trace drift; recorded/replay traces are both 523 frames. Its
+requested `0..120` case is `codex-intro-smoke_case_00000_00120`, which passes
+with world mode, camera, player position/motion, entities, and events matching;
+`case reduce` reports it is already passing. This text-frame route is
+non-actionable for #210/#161.
 Note 2026-05-30 for #211: fixed the comparison foundation for the natural `walk_right_00` route. Oracle helper now samples Kid velocity from the live Kid gfx slot (`$FFFF24E0 + x_vel/y_vel`, i.e. `$FFFF2506/$FFFF250A`) instead of the stale first gfx slot, native trace exports the same live demo velocity, and settled level-00 opening counts now match oracle RAM (`Number_Objects=4`, `Number_GfxObjects=5`). CRC-clean published-demo velocity-only skews are classified as oracle limitations in `verify-tas`, so the gate still blocks on real state/CRC drift. `tas-diff --scenario .cache/recordings/issue-211-level00-walk-right-live/scenario.json --frame-start 0 --frame-end 80 --include-advisory --frontier-kind gameplay --only-divergent` is 80/80 match. The first real natural-route divergence is now frame 124: native clears Kid `y_vel` in the right wall-cling path while oracle keeps `$00030440`, then the dragon/stomp/object-count path diverges from frame 125 onward. Gate: `mise run verify-slice-fast`.
 
 Note 2026-05-30 follow-up for #211: narrowed the `walk_right_00` frame-124 drift to the descending right-wall cling release tail. Native now preserves the post-gravity `y_vel` through the immediate stomp window while still applying the 1px `loc_AB0A` shimmy and clearing wall-cling/x velocity. This matches frames 124-125; the next natural-route frontier is frame 126/127 `number_objects` only, where native reports the block FX object but oracle has an additional slot `0x00@0x00700000,0x00bc0000`. Verification: `cargo test -q -p kid-core wall_cling_release -- --nocapture`; `cargo test -q -p kid-core descending_wall -- --nocapture`; `cargo run -q -p kidcli -- tas-diff --scenario .cache/recordings/issue-211-level00-walk-right-live/scenario.json --frame-start 120 --frame-end 130 --include-advisory --frontier-kind gameplay --only-divergent`; `mise run verify-slice-fast`.
