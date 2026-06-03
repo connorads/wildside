@@ -10,9 +10,7 @@ use kid_core::{
     GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
     PlayerForm, physics::Direction, terrain::BlockGrid,
 };
-use kid_data::{
-    AssetManifest, DecodedLevelAssets, LevelHeader, resource_level_id, resource_level_record,
-};
+use kid_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
 use kid_md::GemsAudioEngine;
 use kid_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::audio::AudioQueue;
@@ -490,12 +488,21 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                             "play-native recording does not support reset/warp debug controls (R/N/P)"
                         );
                     }
-                    let next = runtime.next_level_id();
-                    trace = runtime.enter_level_playtest(next);
-                    level_card_frames_remaining = 0;
-                    fade_alpha = 0;
-                    fading_in = false;
-                    suppress_level_card_for_debug_warp = true;
+                    if let Some((next, next_assets)) = load_debug_warp_session_assets(
+                        manifest,
+                        trace.current_level,
+                        DebugWarpDirection::Next,
+                    ) {
+                        session_assets = next_assets;
+                        trace = runtime.enter_level_playtest(next);
+                        current_level_id = next.0;
+                        level_card_frames_remaining = 0;
+                        fade_alpha = 0;
+                        fading_in = false;
+                        suppress_level_card_for_debug_warp = true;
+                    } else {
+                        eprintln!("no playable next level with generated visuals and block layout");
+                    }
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::P),
@@ -507,12 +514,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                             "play-native recording does not support reset/warp debug controls (R/N/P)"
                         );
                     }
-                    let prev = runtime.prev_level_id();
-                    trace = runtime.enter_level_playtest(prev);
-                    level_card_frames_remaining = 0;
-                    fade_alpha = 0;
-                    fading_in = false;
-                    suppress_level_card_for_debug_warp = true;
+                    if let Some((prev, prev_assets)) = load_debug_warp_session_assets(
+                        manifest,
+                        trace.current_level,
+                        DebugWarpDirection::Previous,
+                    ) {
+                        session_assets = prev_assets;
+                        trace = runtime.enter_level_playtest(prev);
+                        current_level_id = prev.0;
+                        level_card_frames_remaining = 0;
+                        fade_alpha = 0;
+                        fading_in = false;
+                        suppress_level_card_for_debug_warp = true;
+                    } else {
+                        eprintln!(
+                            "no playable previous level with generated visuals and block layout"
+                        );
+                    }
                 }
                 _ => {}
             }
@@ -982,6 +1000,104 @@ fn initialise_runtime(
         runtime.enter_level_playtest(LevelId(0));
     }
     runtime
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DebugWarpDirection {
+    Next,
+    Previous,
+}
+
+fn load_debug_warp_session_assets(
+    manifest: &AssetManifest,
+    current_level: LevelId,
+    direction: DebugWarpDirection,
+) -> Option<(LevelId, NativeSessionAssets)> {
+    load_debug_warp_session_assets_with(
+        manifest,
+        current_level,
+        direction,
+        load_native_session_assets,
+    )
+}
+
+fn load_debug_warp_session_assets_with<F>(
+    manifest: &AssetManifest,
+    current_level: LevelId,
+    direction: DebugWarpDirection,
+    mut load_session_assets: F,
+) -> Option<(LevelId, NativeSessionAssets)>
+where
+    F: FnMut(&AssetManifest, u8) -> Result<NativeSessionAssets>,
+{
+    for candidate in debug_warp_candidate_ids(manifest, current_level, direction) {
+        match load_session_assets(manifest, candidate.0) {
+            Ok(assets) => return Some((candidate, assets)),
+            Err(error) => {
+                eprintln!(
+                    "skipping debug warp target 0x{:02X}: {error:#}",
+                    candidate.0
+                );
+            }
+        }
+    }
+    None
+}
+
+fn debug_warp_candidate_ids(
+    manifest: &AssetManifest,
+    current_level: LevelId,
+    direction: DebugWarpDirection,
+) -> Vec<LevelId> {
+    let mut level_ids = if manifest.map_order.is_empty() {
+        manifest
+            .levels
+            .iter()
+            .map(|level| LevelId(level.level_id))
+            .collect::<Vec<_>>()
+    } else {
+        manifest
+            .map_order
+            .iter()
+            .enumerate()
+            .filter_map(|(logical_level_id, &resource_level_id)| {
+                if resource_level_id == u8::MAX {
+                    None
+                } else {
+                    u8::try_from(logical_level_id).ok().map(LevelId)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    level_ids.sort_unstable_by_key(|level| level.0);
+    level_ids.dedup();
+    if level_ids.is_empty() {
+        return Vec::new();
+    }
+
+    let start = match level_ids.iter().position(|&level| level == current_level) {
+        Some(pos) => pos,
+        None => match direction {
+            DebugWarpDirection::Next => level_ids
+                .iter()
+                .position(|&level| level.0 > current_level.0)
+                .unwrap_or(0),
+            DebugWarpDirection::Previous => level_ids
+                .iter()
+                .rposition(|&level| level.0 < current_level.0)
+                .unwrap_or(level_ids.len() - 1),
+        },
+    };
+
+    (1..=level_ids.len())
+        .map(|offset| match direction {
+            DebugWarpDirection::Next => level_ids[(start + offset) % level_ids.len()],
+            DebugWarpDirection::Previous => {
+                level_ids[(start + level_ids.len() - (offset % level_ids.len())) % level_ids.len()]
+            }
+        })
+        .collect()
 }
 
 fn display_scale(requested: Option<u32>, usable_bounds: Rect) -> Result<u32> {
@@ -1884,32 +2000,9 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
     }
 
     let resource_level = resource_level_id(manifest, level_id);
-    let header = resolved_level_header(manifest, level_id).ok_or_else(|| {
-        anyhow!(
-            "generated bundle is missing header metadata for logical level 0x{level_id:02X} (resource level 0x{resource_level:02X})"
-        )
-    })?;
-    let decoded = resolved_decoded_level(manifest, level_id);
-    let Some(decoded) = decoded else {
-        // Layout not yet extracted for this level — return an empty grid so the
-        // level still loads (no block collision). The user can extract it with:
-        //   mise run dump-level-layout 2E
-        eprintln!(
-            "warning: no block layout for level 0x{level_id:02X} (run `mise run dump-level-layout {level_id:02X}` to extract)"
-        );
-        let (width, height) = level_layout_dimensions(header);
-        return Ok(BlockGrid::from_level_layout(&[], width, height));
-    };
-
-    let layout_path = manifest.output_root.join(&decoded.block.relative_path);
-    let data = std::fs::read(&layout_path).map_err(|error| {
-        anyhow!(
-            "failed to read block layout from {}: {error}",
-            layout_path.display()
-        )
-    })?;
-    let (width, height) = level_layout_dimensions(header);
-    Ok(BlockGrid::from_level_layout(&data, width, height))
+    bail!(
+        "missing generated level layout for logical level 0x{level_id:02X} (resource level 0x{resource_level:02X}); run `mise run extract-assets` before using play-native debug warp"
+    )
 }
 
 fn resolved_level_header(manifest: &AssetManifest, level_id: u8) -> Option<&LevelHeader> {
@@ -1921,20 +2014,6 @@ fn resolved_level_header(manifest: &AssetManifest, level_id: u8) -> Option<&Leve
                 .iter()
                 .find(|level| level.level_id == level_id)
                 .and_then(|level| level.header_metadata.as_ref())
-        })
-}
-
-fn resolved_decoded_level(manifest: &AssetManifest, level_id: u8) -> Option<&DecodedLevelAssets> {
-    let resource_level = resource_level_id(manifest, level_id);
-    manifest
-        .decoded_levels
-        .iter()
-        .find(|decoded| decoded.level_id == resource_level)
-        .or_else(|| {
-            manifest
-                .decoded_levels
-                .iter()
-                .find(|decoded| decoded.level_id == level_id)
         })
 }
 
@@ -1975,14 +2054,6 @@ fn try_load_generated_level_layout(
         metadata.width_blocks,
         metadata.height_blocks,
     )))
-}
-
-fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
-    // Kid's 16x16 collision grid spans 20x14 cells per 320x224 screen.
-    (
-        u16::from(header.width_screens) * 20,
-        u16::from(header.height_screens) * 14,
-    )
 }
 
 #[cfg(test)]
@@ -7845,25 +7916,23 @@ mod tests {
     }
 
     #[test]
-    fn try_load_block_grid_falls_back_to_decoded_block_layout_without_level_layout_dump() {
+    fn try_load_block_grid_rejects_missing_generated_level_layout() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
         fs::remove_file(fixture._root.path().join("level-layout/00.json"))
             .expect("remove layout metadata");
 
-        let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("fallback block grid");
+        let error = try_load_block_grid(&fixture.manifest, 0x00)
+            .expect_err("missing generated Level_Layout must fail closed");
 
-        assert_eq!(grid.width_cells, 20);
-        assert_eq!(grid.height_cells, 14);
-        assert_eq!(grid.cell_at(0, 0).block_type, BlockType::Prize);
-        assert_eq!(grid.cell_at(0, 0).skin, 0x05);
-        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
-        assert_eq!(grid.cell_at(1, 0).skin, 0x07);
-        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Solid);
+        assert!(
+            error.to_string().contains("missing generated level layout"),
+            "play-native must not reinterpret raw BLOCK resources as collision cells: {error:#}"
+        );
     }
 
     #[test]
-    fn try_load_block_grid_resolves_decoded_layout_through_map_order() {
+    fn try_load_block_grid_rejects_mapped_decoded_layout_without_generated_dump() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
         fs::remove_file(fixture._root.path().join("level-layout/00.json"))
@@ -7921,14 +7990,15 @@ mod tests {
             background: decoded_asset("decoded/level/27/background.bin"),
         });
 
-        let grid = try_load_block_grid(&fixture.manifest, 0x1B).expect("mapped block grid");
+        let error = try_load_block_grid(&fixture.manifest, 0x1B)
+            .expect_err("mapped raw BLOCK resource is not a generated Level_Layout dump");
 
-        assert_eq!(grid.width_cells, 20);
-        assert_eq!(grid.height_cells, 14);
-        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Spikes);
-        assert_eq!(grid.cell_at(0, 0).skin, 0x11);
-        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
-        assert_eq!(grid.cell_at(1, 0).skin, 0x22);
+        assert!(
+            error
+                .to_string()
+                .contains("logical level 0x1B (resource level 0x27)"),
+            "map-order levels without generated dumps should fail closed with logical/resource context: {error:#}"
+        );
     }
 
     #[test]
@@ -8135,6 +8205,52 @@ mod tests {
             trace.game_mode,
             GameMode::SegaScreen,
             "settled recording startup must advance beyond cold boot even when the tiny unit-test manifest lacks full title-card assets"
+        );
+    }
+
+    #[test]
+    fn debug_warp_candidates_follow_logical_map_order_and_skip_invalid_entries() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = vec![0x4A, u8::MAX, 0x2D, 0x2E];
+
+        assert_eq!(
+            debug_warp_candidate_ids(&fixture.manifest, LevelId(0), DebugWarpDirection::Next),
+            vec![LevelId(2), LevelId(3), LevelId(0)],
+            "debug next-level should follow logical map order and ignore u8::MAX holes"
+        );
+        assert_eq!(
+            debug_warp_candidate_ids(&fixture.manifest, LevelId(0), DebugWarpDirection::Previous),
+            vec![LevelId(3), LevelId(2), LevelId(0)],
+            "debug previous-level should wrap through playable logical levels only"
+        );
+    }
+
+    #[test]
+    fn debug_warp_skips_targets_without_loadable_session_assets() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = vec![0x4A, 0x4B, 0x2D];
+        let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("fixture grid");
+
+        let (level_id, _) = load_debug_warp_session_assets_with(
+            &fixture.manifest,
+            LevelId(0),
+            DebugWarpDirection::Next,
+            |_, level_id| {
+                if level_id == 1 {
+                    bail!("missing generated level layout for fixture target")
+                }
+                Ok(NativeSessionAssets {
+                    level_visuals: sample_level_visuals(),
+                    block_grid: grid.clone(),
+                })
+            },
+        )
+        .expect("next loadable debug target");
+
+        assert_eq!(
+            level_id,
+            LevelId(2),
+            "N/P debug warp should not enter a level that cannot load visuals and collision"
         );
     }
 
