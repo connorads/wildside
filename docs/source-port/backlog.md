@@ -2277,6 +2277,17 @@ requested 0..120 case derives as
 reports `likely_subsystems=["recording verification"]`, and `case reduce`
 refuses because the source recording replay drifted at frame 0. Do not patch
 Drips/slime or Tank-child behaviour from this original stale bundle.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
+`codex-issue-213-index8-jump-right-after-tank-child-refresh` still blocks on
+settled-recording bootstrap, not Drips/Tank-child gameplay. Fresh verification
+has `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
+and matching 1000-frame recorded/replay traces. The requested 0..120 case
+derives as `codex-issue-213-index8_jump_right_now_case_00000_00120`, but
+`case verify` and `case reduce` block before gameplay because Level 01 starts
+with different player velocity fields and entity count (`native=2`,
+`oracle=1`). Fix settled-recording oracle bootstrap before using this refreshed
+route as #213 Drips or Tank-child evidence.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
