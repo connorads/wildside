@@ -1156,6 +1156,18 @@ because the source recording replay drifted at frame 0. Re-record this
 pixel-cross shared-walker route on current native before using it as Level 01
 gameplay evidence.
 
+Note 2026-06-03 follow-up for #213: selector-picked recording
+`codex-level2-drips-crawler-window` is stale before any current Drips/crawler
+gameplay evidence. Fresh full and native-only verification both drift at native
+replay frame 0, with `trace_match=false`, `oracle_state_match=true`,
+`oracle_frame_match=true`, and matching 231-frame recorded/replay traces. The
+requested 0..120 case derives as
+`codex-level2-drips-crawler-window_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Re-record this
+Level 2 Drips/crawler window on current native before using it as gameplay
+evidence.
+
 Note 2026-06-02 follow-up for #213: selector-picked recording
 `codex-issue-213-drips-floor-probe-2000-promoted` is not a gameplay-authoritative
 case source on current `main`. The old recording drifts at native replay frame
