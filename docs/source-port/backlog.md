@@ -911,6 +911,15 @@ reports `likely_subsystems=["recording verification"]`, and `case reduce`
 refuses because the source recording replay drifted at frame 0. Re-record the
 `loc_12004` BGM route on current main before using it for #160 BGM sequencing
 work.
+Follow-up 2026-06-03: selector-picked `issue-160-audio-bgm-table` is also
+stale before it can answer any BGM table-ordering question. Fresh full and
+native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 180-frame recorded/replay traces. The requested `0..120` case derives
+as `issue-160-audio-bgm-table_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record the BGM-table
+route on current main before using it for #160 BGM sequencing work.
 Follow-up 2026-06-03: selector-picked
 `issue-160-audio-after-damage-cmdfifo` is stale before it can answer any
 command-FIFO or post-damage audio question. Fresh full and native-only
