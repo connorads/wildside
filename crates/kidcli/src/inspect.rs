@@ -1016,6 +1016,11 @@ pub(crate) fn trace_audio(repo_root: &Path, rom_bytes: &[u8], scenario: Scenario
 /// RAM addresses for level layout extraction (from variables.asm).
 pub(crate) const LEVEL_LAYOUT_ADDR: u32 = 0x00FF_A652;
 pub(crate) const LEVEL_LAYOUT_SIZE: usize = 0x41A0;
+/// Level_terrain_layout: 1 byte/cell, "30 screens of $118 entries each"
+/// (variables.asm:10). The decoded FG stream lands here before the collision
+/// map fills Level_Layout; dumped for the #229 native-decoder mapping spike.
+pub(crate) const LEVEL_TERRAIN_LAYOUT_ADDR: u32 = 0x00FF_52C2;
+pub(crate) const LEVEL_TERRAIN_LAYOUT_SIZE: usize = 0x20D0;
 /// Block List RAM: prize/ghost/teleporter/hidden entries (ram_layout.txt).
 pub(crate) const BLOCK_LIST_ADDR: u32 = 0x00FF_3B24;
 pub(crate) const BLOCK_LIST_SIZE: usize = 0x0898; // FF3B24..FF43BC
@@ -1157,6 +1162,15 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
     let block_list_path = out_dir.join(format!("{level_id:02X}.blocklist.bin"));
     fs::write(&block_list_path, &block_list_data)
         .with_context(|| format!("failed to write {}", block_list_path.display()))?;
+
+    // #229 spike: also dump Level_terrain_layout (1 byte/cell, $118 stride) so
+    // the native decoder's FG-stream -> terrain -> Level_Layout mapping can be
+    // reverse-engineered against the bundle's decoded foreground.bin.
+    let terrain_layout_data =
+        runtime.read_work_ram_range(LEVEL_TERRAIN_LAYOUT_ADDR, LEVEL_TERRAIN_LAYOUT_SIZE);
+    let terrain_path = out_dir.join(format!("{level_id:02X}.terrain.bin"));
+    fs::write(&terrain_path, &terrain_layout_data)
+        .with_context(|| format!("failed to write {}", terrain_path.display()))?;
 
     // Write metadata alongside
     let meta = serde_json::json!({
