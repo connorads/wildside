@@ -2233,6 +2233,17 @@ but `case verify` reports `likely_subsystems=["recording verification"]`, and
 `case reduce` refuses because the source recording replay drifted at frame 0.
 Do not use this promoted recording bundle as new Drips gameplay evidence;
 re-record if the floor-probe route needs recording-derived reduction again.
+
+Note 2026-06-02 follow-up for #213: selector-picked recording
+`codex-issue-213-drips-floor-probe-2000-promoted-refresh` is replay-matched but
+still not gameplay-authoritative. Fresh verification has `trace_match=true`
+with matching 2000-frame recorded/replay traces, but oracle comparison fails at
+`mid@1000` on object counts (native `5/5`, oracle `5/9`) and frame output. The
+requested 0..120 case derives as `issue-213-drips-floor-probe-2000_case_00000_00120`,
+but `case verify` blocks before gameplay on settled-recording oracle bootstrap:
+Level 01 starts with different player velocity fields and entity count
+(`native=2`, `oracle=1`). Fix settled-recording oracle bootstrap before treating
+this refreshed recording-derived floor probe as #213 Drips evidence.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
