@@ -2454,6 +2454,16 @@ over the ordinary `loc_9600` Berzerker walk latch while keeping charge
 519 changed pixels, with trace/state still green. Remaining #215 visual work
 should model/export the exact player `addroffset_sprite`/ASM mapping selection
 for rendered player frames rather than changing foreground priority.
+Note 2026-06-02 selector follow-up for #215: queued
+`codex-highwater-water-priority-frontier` is stale before any current
+water-priority evidence. Fresh `verify-recording` and native-only replay both
+fail at frame 3 with native trace mismatch; recorded/replay traces are both
+1861 frames. The requested `0..120` case derives as
+`highwater_water_priority_audit_02_case_00000_00120`, but `case verify` marks
+it blocked with `likely_subsystems=["recording verification"]` and `case reduce`
+refuses with `source recording replay drifted at frame 3`. Use the refreshed
+current `issue-215-highwater-water-priority-audit` route or re-record this
+wrapper before treating it as #215 gameplay or render evidence.
 | 216 | [ ] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and diamond collection sounds are delayed; level-complete sound does not finish cleanly. #160 covers continuous BGM/SFX output but not these event-specific timing edges. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: audio event trace for prize/block/diamond and flag-touch/EOL path, compare queued GEMS commands and rendered audio windows against oracle where available. |
 Note 2026-06-01 for #216: scripted recording SFX events exposed a live
 native-player duplication after #226 moved jump SFX into the core trace. The
