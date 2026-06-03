@@ -2371,6 +2371,17 @@ but `case verify` marks it blocked with
 same source replay drift. Re-record the window route on current native before
 treating it as #214 gameplay evidence.
 
+Follow-up 2026-06-02: selector-picked
+`codex-highwater-shooter-barrier-frontier` is stale before its barrier evidence
+too. Fresh `verify-recording` and native-only replay both fail at frame 3 with
+native trace mismatch; recorded/replay traces are both 151 frames. The requested
+`0..120` case derives as `highwater_shooter_barrier_audit_02_case_00000_00120`,
+but `case verify` marks it blocked with
+`likely_subsystems=["recording verification"]` and `case reduce` refuses with
+`source recording replay drifted at frame 3`. Re-record this shooter/barrier
+route on current native before using it as #214 activation, projectile, barrier,
+or player-overlap evidence.
+
 Note 2026-06-02 latest for #214: current committed shooter/barrier audit route
 is gameplay-replayable but still not closed. Native replay passes for
 `issue-214-highwater-shooter-barrier-audit`, focused shooter logic coverage is
