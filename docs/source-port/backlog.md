@@ -458,6 +458,17 @@ passes with matching `world.game_mode`, `camera`, `player.position`,
 Do not patch #126 slope behaviour from this clean prefix, and do not call the
 long natural route green until it is re-recorded or the frame-192 replay drift is
 explained.
+
+Follow-up 2026-06-03 selector replay for #126 Red Stealth route:
+`issue-126-level01-redstealth-walk-right` is stale on current native. Fresh full
+and native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 1461-frame recorded/replay traces. The requested `0..120` case derives
+as `issue_126_level01_redstealth_walk_right_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Re-record the
+Level 01 Red Stealth route on current native before using it for slope
+vibration or movement evidence.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
