@@ -3523,9 +3523,8 @@ impl NativeRuntime {
         // BlockBounceAnim — that was an invented vertical wobble.
         if let Some((cx, cy)) = slice.rubber_block_hit {
             let contacts = self.rubber_block_contact_cells_sub_10da4(slice, cx, cy);
-            self.blocks_hit_this_frame = self
-                .blocks_hit_this_frame
-                .saturating_add(u8::try_from(contacts.len()).unwrap_or(u8::MAX));
+            self.played_sound_effects
+                .extend(contacts.iter().map(|_| QueuedSoundEffect::RubberBlock));
             let active_objects = self.active_objects();
             let camera_state = self.current_camera_state();
             let (number_objects, _) = self.object_counts_from_roster(

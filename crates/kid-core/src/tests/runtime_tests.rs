@@ -7177,7 +7177,15 @@ mod chunk_09 {
         );
         assert_eq!(rt.block_bounces[0].cell_x, 5);
         assert_eq!(rt.block_bounces[0].cell_y, 3);
-        assert_eq!(rt.blocks_hit_this_frame, 2);
+        assert_eq!(
+            rt.blocks_hit_this_frame, 1,
+            "ASM loc_10DA4 plays sfx_Rubber_block directly; rubber contact must not also feed the generic sfx_Block_hit counter"
+        );
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::RubberBlock],
+            "ASM loc_10DA4 (kid.asm:22692) calls j_PlaySound with sfx_Rubber_block before allocating sub_10DE4"
+        );
     }
 
     #[test]
