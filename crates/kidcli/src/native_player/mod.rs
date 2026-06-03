@@ -2810,6 +2810,88 @@ mod tests {
     }
 
     #[test]
+    fn dragon_walking_breath_copies_parent_x_direction_loc_3d02a() {
+        fn trace_with_dragon_and_breath(dragon_x_px: u32) -> NativeTraceFrame {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.active_objects = vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0D },
+                x_pos: dragon_x_px << 16,
+                y_pos: 0x0020_0000,
+                layout_index: Some(0),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(Direction::Left),
+                on_ground: Some(true),
+                hit_points: Some(1),
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
+            }];
+            trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+                x_pos: 0x0030_0000,
+                y_pos: 0x0020_0000,
+                x_velocity: 0,
+                y_velocity: 0,
+                friendly: false,
+                remaining_frames: 68,
+                animation_elapsed_frames: 0,
+                kind: ActiveProjectileKind::DragonWalkingBreath,
+            }];
+            trace
+        }
+
+        let visuals = sample_level_visuals();
+        let left_breath = build_scene(
+            &trace_with_dragon_and_breath(0x0030 + 0x001C),
+            false,
+            Some(&visuals),
+            None,
+        );
+        let right_breath = build_scene(
+            &trace_with_dragon_and_breath(0x0030 - 0x001C),
+            false,
+            Some(&visuals),
+            None,
+        );
+
+        let left_sprite = left_breath
+            .commands
+            .iter()
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
+                )
+            })
+            .expect("ASM Dragon.asm loc_3D02A left breath child should draw the ROM frame");
+        let right_sprite = right_breath
+            .commands
+            .iter()
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x028
+                )
+            })
+            .expect("ASM Dragon.asm loc_3D02A right breath child should draw the ROM frame");
+
+        assert!(
+            !sprite_tiles(left_sprite)[0].tile.flip_x,
+            "ASM loc_3D02A copies clear x_direction for the -$1C child; left-facing dragon art remains unflipped",
+        );
+        assert!(
+            sprite_tiles(right_sprite)[0].tile.flip_x,
+            "ASM loc_3D02A copies flipped x_direction for the +$1C child; native must mirror the breath sprite",
+        );
+    }
+
+    #[test]
     fn drips_drop_uses_rom_child_sprite_frame_loc_33424() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);

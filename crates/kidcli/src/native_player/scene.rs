@@ -201,6 +201,45 @@ fn dragon_walking_breath_child_frame(
     })
 }
 
+fn dragon_walking_breath_child_facing_loc_3d02a(
+    trace: &NativeTraceFrame,
+    projectile: &ActiveProjectileSnapshot,
+) -> Direction {
+    trace
+        .active_objects
+        .iter()
+        .find_map(|object| {
+            if !matches!(
+                object.kind,
+                NativeObjectKind::Enemy {
+                    object_type: WALKING_DRAGON_OBJECT_TYPE,
+                }
+            ) || object.hit_points == Some(0)
+            {
+                return None;
+            }
+
+            let dragon_y_px = object.y_pos >> 16;
+            let breath_y_px = projectile.y_pos >> 16;
+            if dragon_y_px.abs_diff(breath_y_px) > 1 {
+                return None;
+            }
+
+            let dragon_x_px = object.x_pos >> 16;
+            let breath_x_px = projectile.x_pos >> 16;
+            match breath_x_px as i32 - dragon_x_px as i32 {
+                // ASM Dragon.asm loc_3D02A copies parent x_direction into the
+                // breath child, then loc_3D070 adds -$1C or +$1C to x_pos.
+                // Dragon art is stored facing left, so native renders the
+                // default left child unflipped and the right child flipped.
+                -28 => Some(Direction::Right),
+                28 => Some(Direction::Left),
+                _ => None,
+            }
+        })
+        .unwrap_or(Direction::Right)
+}
+
 fn fireball_trail_child_frame(
     visuals: &kid_render::AnimatedSpriteVisual,
     remaining_frames: u16,
@@ -3820,13 +3859,16 @@ fn build_game_scene_filtered(
                                 dragon_visuals,
                                 projectile.remaining_frames,
                             )?;
-                            push_sprite_frame(
-                                &mut commands,
-                                &frame,
-                                &dragon_visuals.palette,
-                                sx,
-                                sy,
-                            );
+                            let facing =
+                                dragon_walking_breath_child_facing_loc_3d02a(trace, &projectile);
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(dragon_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
                             Some(())
                         })
                         .is_some();
