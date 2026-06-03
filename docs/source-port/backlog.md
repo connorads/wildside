@@ -2352,6 +2352,16 @@ and `case reduce` refuses on the same source replay drift. Re-record the long
 Berzerker shooter route on current native before treating it as #214 gameplay
 evidence.
 
+Follow-up 2026-06-02: selector-picked sibling
+`codex-highwater-berzerker-shooter-window` is stale too. Fresh
+`verify-recording` and native-only replay fail at frame 0 with native trace
+mismatch; recorded/replay traces are both 121 frames. The requested `0..120`
+case derives as `codex-highwater-berzerker-shooter-window_case_00000_00120`,
+but `case verify` marks it blocked with
+`likely_subsystems=["recording verification"]` and `case reduce` refuses on the
+same source replay drift. Re-record the window route on current native before
+treating it as #214 gameplay evidence.
+
 Note 2026-06-02 latest for #214: current committed shooter/barrier audit route
 is gameplay-replayable but still not closed. Native replay passes for
 `issue-214-highwater-shooter-barrier-audit`, focused shooter logic coverage is
