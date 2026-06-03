@@ -3468,6 +3468,7 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
 
+                let wall_cling_before_floor = self.player.wall_cling_direction;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3493,6 +3494,22 @@ impl OpeningSliceState {
                         allow_asm_faithful_solid_touch_snap,
                     )
                 };
+                if let Some(direction) = wall_cling_before_floor
+                    && form.helmet_id() > 2
+                    && !on_ground_before
+                    && self.player.on_ground
+                {
+                    // ASM loc_AD98 -> loc_ADAC: Red Stealth through Micromax
+                    // convert floor contact during wall-cling into
+                    // collision_type=4 and branch back to loc_AA22, rather
+                    // than landing through the normal walking path.
+                    self.player.on_ground = false;
+                    self.player.wall_cling_direction = Some(direction);
+                    match direction {
+                        Direction::Right => self.player.right_wall_sticky = true,
+                        Direction::Left => self.player.left_wall_sticky = true,
+                    }
+                }
                 let plain_airborne_floor_landing = !on_ground_before
                     && self.player.on_ground
                     && airborne_slope_recontact.is_none();

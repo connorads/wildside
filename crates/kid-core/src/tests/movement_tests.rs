@@ -20645,9 +20645,6 @@ mod chunk_12 {
     /// ASM loc_ADAC (kid.asm:13598): wall-cling floor contact for helmets 3+
     /// (Red Stealth through Micromax). `move.w #4,collision_type(a3); bra loc_AA22`
     /// — sets collision_type=4 and continues the wall-cling loop (doesn't land).
-    /// Native: apply_floor_collision handles landing uniformly, so helmets 3+ land
-    /// during wall-cling just like TheKid/Skycutter. The collision_type=4 gate is
-    /// advisory (not modelled). Verify floor contact lands Red Stealth.
     #[test]
     fn loc_adac_floor_contact_during_wall_cling_red_stealth() {
         let grid = grid_with_floor_at_row(4);
@@ -20679,11 +20676,18 @@ mod chunk_12 {
             &[],
         );
 
-        // Native: lands uniformly. ASM would set collision_type=4 and continue
-        // wall-cling loop, but native doesn't model this per-helmet gate.
         assert!(
-            slice.player.on_ground,
-            "loc_ADAC: Red Stealth floor contact during wall-cling should land (native treats uniformly)",
+            !slice.player.on_ground,
+            "loc_ADAC: Red Stealth floor contact during wall-cling should stay in the wall-cling loop",
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction,
+            Some(Direction::Right),
+            "loc_ADAC branches back to loc_AA22 instead of clearing the active wall side",
+        );
+        assert!(
+            slice.player.right_wall_sticky,
+            "loc_ADAC should preserve the right-wall sticky latch for the next wall-cling iteration",
         );
     }
 
