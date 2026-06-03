@@ -1054,6 +1054,13 @@ used to confirm `play-native --record-frames` saves; full verification passes,
 the derived 0..60 case passes, and reduction reports the case is already
 passing. It never reaches the frame-173 intro music cue, title, menu, or
 options, so it should not be selected as an audio regression target.
+Rechecked 2026-06-03: the bundle still passes full verification with
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+`first_trace_drift=null`, and matching 60-frame recorded/replay traces. The
+selector-requested `0..120` range cannot be derived because the scenario has
+only 60 frames; the bounded `0..60` case
+`issue-160-record-frame-cap-smoke_case_00000_00060` passes with
+`likely_subsystems=["none"]` and reduction reports it is already passing.
 Follow-up 2026-06-02: `record-scenario` / `record-scenario-file` now persist
 rendered `audio.wav` by replaying native trace BGM/SFX events through the GEMS
 engine, not just `audio-events.txt`. Regenerated
