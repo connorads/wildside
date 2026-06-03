@@ -688,7 +688,7 @@
       },
       {
         "name": "Recording `codex-boot-title-idle-audio-current` exposes an actionable boot/title audio mismatch",
-        "reason": "Rejected 2026-06-02. Fresh verification shows this 600-frame idle boot/title bundle is current and oracle-clean. `cargo run -q -p kidcli -- verify-recording --slug codex-boot-title-idle-audio-current` passes with `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`, recorded/replay trace len 600, and zero-pixel title/title-tail diffs. The requested 0..120 case derives as `boot_title_idle_10s_case_00000_00120`, and `cargo run -q -p kidcli -- case verify --case codex-boot-title-idle-audio-current` passes with matching world mode, camera, player, entities, and events. This route exposes no audio or gameplay mismatch to reduce."
+        "reason": "Rejected 2026-06-02. Fresh verification shows this 600-frame idle boot/title bundle is current and oracle-clean. `cargo run -q -p kidcli -- verify-recording --slug codex-boot-title-idle-audio-current` passes with `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`, recorded/replay trace len 600, and zero-pixel title/title-tail diffs. The requested 0..120 case derives as `boot_title_idle_10s_case_00000_00120`, and `cargo run -q -p kidcli -- case verify --case codex-boot-title-idle-audio-current` passes with matching world mode, camera, player, entities, and events. The selector-picked `codex-boot-title-idle-audio-current-refresh` sibling has the same trace/state/frame-clean result and the same passing 0..120 case. This route exposes no audio or gameplay mismatch to reduce."
       },
       {
         "name": "Recording `issue-213-level01-walk-right` is ready to reduce into an authoritative Level 01 walk/Drips route",
