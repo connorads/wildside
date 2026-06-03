@@ -1072,6 +1072,13 @@ waveform is still audible after the cue (`boot_pre_intro_rms=0.001187`,
 This rejects dummy-SDL queue starvation for the cold intro route; remaining
 human "I hear no intro/menu music" reports need a real-device capture with the
 new diagnostics or a longer live title/menu/options capture.
+Rechecked 2026-06-03: `issue-160-live-audio-diagnostics-current` still passes
+full verification with `trace_match=true`, `oracle_state_match=true`,
+`oracle_frame_match=true`, `first_trace_drift=null`, and matching 260-frame
+recorded/replay traces. Its `0..120` case also passes with
+`likely_subsystems=["none"]`, and reduction still reports that it is already
+passing, so it remains cold-intro diagnostics evidence rather than a new patch
+target.
 Follow-up 2026-06-02: added `play-native --scenario <DynamicScenario>` so a
 script can drive the live SDL player/audio queue rather than only the
 non-interactive recorder. With no explicit `--record-frames`, recorded scripted
