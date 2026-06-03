@@ -2048,11 +2048,17 @@ the old bundle drifts at native replay frame 0. Use the refreshed w370 scan
 evidence instead; this is duplicate bootstrap evidence, not gameplay-authoritative
 contact evidence.
 
-Note 2026-06-02 follow-up for #213: selector-picked recording
-`codex-issue213-x576-y575-w300-jump_b_hold-1200-native-scan` has the same
-checkpoint shape as the w300 scan family (`pre_jump@299`, `contact_window@420`).
-Direct verification of the old bundle drifts at native replay frame 0. Use the
-refreshed w300 evidence instead; this is duplicate bootstrap evidence.
+Note 2026-06-03 follow-up for #213: selector-picked recording
+`codex-issue213-x576-y575-w300-jump_b_hold-1200-native-scan` is stale before
+any current Drips/Tank contact evidence. Fresh full and native-only verification
+both drift at native replay frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 1200-frame
+recorded/replay traces. The requested 0..120 case derives as
+`issue213-x576-y575-w300-jump_b_hold-1200_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Re-record this
+w300 jump route on current native before using it as Drips/Tank gameplay
+evidence.
 
 Note 2026-06-02 follow-up for #213: selector-picked recording
 `codex-issue213-x576-y575-w300-jump_right_b-1200-native-scan` has the same
