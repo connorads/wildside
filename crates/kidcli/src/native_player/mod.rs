@@ -222,7 +222,7 @@ use scene::*;
 use sprites::*;
 
 pub(crate) use render::sample_scene_pixel_provenance;
-pub(crate) use render::{render_scene, render_scene_overlay};
+pub(crate) use render::{render_frame_on_blank_canvas, render_scene, render_scene_overlay};
 pub(crate) use scene::{
     BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
     eol_score_sprite_diagnostics, render_trace_with_vdp_latched_state,
@@ -8735,6 +8735,21 @@ mod tests {
                 assert!(
                     turret_y < body_y,
                     "ASM Tank.asm loc_3B39C copies the parent X/Y into the child and then `subi.w #8,$1E(a1)`, so the turret must render above the body"
+                );
+                // #145: the turret art (base 0x020) is the FULL upper tank and
+                // must sit on the same ground line as the treads. Both sprites
+                // bottom-anchor at the parent's feet in `sprite_draw_position`
+                // (draw_y = screen_y - height_px), so their bottoms coincide and
+                // the top delta equals turret_height - body_height. With this
+                // synthetic visual that delta is 20. Before the fix native
+                // double-counted the ROM's top-anchor `subi #8`
+                // (`tank_child_y_offset_loc_3b372_3b49a`), drawing the turret a
+                // frame higher (delta 28) and leaving grass showing through the
+                // gap, which read as "two people stacked".
+                assert_eq!(
+                    *body_y - *turret_y,
+                    20,
+                    "#145: turret must bottom-anchor on the same ground line as the body (not 8px higher)"
                 );
             }
             other => panic!("expected body + turret sprite commands, got {other:?}"),

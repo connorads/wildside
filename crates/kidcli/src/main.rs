@@ -531,6 +531,11 @@ enum Commands {
         /// Output PNG path
         #[arg(long)]
         output: PathBuf,
+        /// Optional: render one assembled sub-sprite frame instead of the tile
+        /// grid. Format: BASE,WIDTH,HEIGHT in hex (e.g. 20,1e,14 for the
+        /// RockTank turret). Shows transparency as magenta.
+        #[arg(long)]
+        frame: Option<String>,
     },
     /// Sweep levels for native vs oracle parity, producing a JSON report.
     Sweep {
@@ -1632,6 +1637,7 @@ fn main() -> Result<()> {
             level,
             enemy,
             output,
+            frame,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1641,7 +1647,21 @@ fn main() -> Result<()> {
                 u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 01)")?;
             let enemy_type =
                 u8::from_str_radix(&enemy, 16).context("enemy must be a hex byte (e.g. 0A)")?;
-            sweep::dump_enemy_sheet(&manifest, level_id, enemy_type, &output)?;
+            let assembled_frame = frame
+                .as_deref()
+                .map(|spec| -> Result<(u16, u16, u16)> {
+                    let parts: Vec<&str> = spec.split(',').map(str::trim).collect();
+                    if parts.len() != 3 {
+                        bail!("--frame must be BASE,WIDTH,HEIGHT in hex (e.g. 20,1e,14)");
+                    }
+                    Ok((
+                        u16::from_str_radix(parts[0], 16).context("frame base")?,
+                        u16::from_str_radix(parts[1], 16).context("frame width")?,
+                        u16::from_str_radix(parts[2], 16).context("frame height")?,
+                    ))
+                })
+                .transpose()?;
+            sweep::dump_enemy_sheet(&manifest, level_id, enemy_type, &output, assembled_frame)?;
         }
         Commands::VerifyTas {
             rom,

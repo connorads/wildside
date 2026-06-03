@@ -11,6 +11,13 @@ struct TankTurretFrameSpec {
     height_px: u16,
 }
 
+/// #145: native bottom-anchors sprites in `sprite_draw_position`, but the ROM
+/// keeps the RockTank turret object this many pixels above the body because
+/// hardware sprites are top-anchored (`tank_child_y_offset_loc_3b372_3b49a`
+/// baseline). Adding it back when rendering the (already-offset) turret child
+/// lands the full-tank turret on the ground overlapping the treads.
+const ROCK_TANK_TURRET_BASELINE_Y_OFFSET: i32 = 8;
+
 const ROCK_TANK_TURRET_STRU_3B27E: [TankTurretFrameSpec; 5] = [
     TankTurretFrameSpec {
         duration_frames: 0x37,
@@ -1305,8 +1312,20 @@ pub(super) fn push_enemy_sprite(
         if let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
         {
-            let (turret_x, turret_y) =
-                sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
+            // #145: the turret art (e.g. base 0x020) is the FULL upper tank and
+            // must sit on the ground overlapping the animated treads, not float
+            // a frame above them. The ROM keeps the turret object `$8` above the
+            // body (`tank_child_y_offset_loc_3b372_3b49a`) because hardware
+            // sprites are top-anchored; native bottom-anchors in
+            // `sprite_draw_position`, which double-counts that `$8`. Add the
+            // baseline offset back so the turret bottom lands at the parent's
+            // feet, while the 8-vs-6 recoil delta still nudges it during recoil.
+            let (turret_x, turret_y) = sprite_draw_position(
+                &turret_frame,
+                screen_x,
+                screen_y + ROCK_TANK_TURRET_BASELINE_Y_OFFSET,
+                render_facing,
+            );
             let palette = enemy_palette_for_damage_flash(
                 select_enemy_palette(enemy_visuals, object.palette_variant),
                 rock_tank_damage_flash(object, trace, object_type),
@@ -1340,9 +1359,10 @@ pub(super) fn push_enemy_sprite(
         && let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
     {
-        let fallback_screen_y = screen_y - 8;
+        // #145: draw the full-tank turret at the parent's feet (same ground
+        // line as the body), not a frame above. See the child-snapshot branch.
         let (turret_x, turret_y) =
-            sprite_draw_position(&turret_frame, screen_x, fallback_screen_y, render_facing);
+            sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
         let palette = enemy_palette_for_damage_flash(
             select_enemy_palette(enemy_visuals, object.palette_variant),
             object.damage_flash,

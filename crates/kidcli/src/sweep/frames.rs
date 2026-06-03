@@ -78,8 +78,9 @@ pub(crate) fn dump_enemy_sheet(
     level_id: u8,
     enemy_type: u8,
     output: &Path,
+    assembled_frame: Option<(u16, u16, u16)>,
 ) -> Result<()> {
-    use native_player::load_session_assets;
+    use native_player::{load_session_assets, render_frame_on_blank_canvas};
 
     let (level_visuals, _block_grid) = load_session_assets(manifest, level_id)?;
     let family = level_visuals
@@ -89,12 +90,53 @@ pub(crate) fn dump_enemy_sheet(
         .ok_or_else(|| {
             anyhow!("enemy 0x{enemy_type:02X} not present in level 0x{level_id:02X} visuals")
         })?;
-    let sheet = &family
+    let first_frame = family
         .frames
         .first()
-        .ok_or_else(|| anyhow!("enemy 0x{enemy_type:02X} has no frames"))?
-        .tile_sheet;
+        .ok_or_else(|| anyhow!("enemy 0x{enemy_type:02X} has no frames"))?;
+    let sheet = &first_frame.tile_sheet;
     let palette = &family.palette;
+
+    // Assembled-frame mode: render one sub-sprite frame the way the live
+    // renderer assembles it (column-major MD tile order), on a magenta canvas
+    // so transparent pixels are obvious. Used to inspect e.g. the RockTank
+    // turret geometry (#145).
+    if let Some((tile_base, width_px, height_px)) = assembled_frame {
+        let frame = kid_render::SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px,
+            height_px,
+            tile_base_index: tile_base,
+            tile_sheet: sheet.clone(),
+        };
+        // Render at (16,16) on the blank 320x224 canvas, then crop a generous
+        // box around it (rounded up to whole tiles + margin) and upscale.
+        let crop_w = u32::from(width_px.div_ceil(8) * 8 + 16);
+        let crop_h = u32::from(height_px.div_ceil(8) * 8 + 16);
+        let rgb = render_frame_on_blank_canvas(&frame, palette, 16, 16);
+        let full = image::RgbImage::from_raw(320, 224, rgb)
+            .ok_or_else(|| anyhow!("failed to build canvas image"))?;
+        let cropped =
+            image::imageops::crop_imm(&full, 8, 8, crop_w.min(312), crop_h.min(216)).to_image();
+        let scaled = image::imageops::resize(
+            &cropped,
+            cropped.width() * 8,
+            cropped.height() * 8,
+            image::imageops::FilterType::Nearest,
+        );
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+        scaled
+            .save(output)
+            .with_context(|| format!("failed to write {}", output.display()))?;
+        println!(
+            "rendered assembled frame base=0x{tile_base:02X} {width_px}x{height_px} to {}",
+            output.display()
+        );
+        return Ok(());
+    }
 
     let cols = 16usize;
     let scale = 6usize;

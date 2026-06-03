@@ -1,5 +1,36 @@
 use super::*;
 
+/// Render a single sprite frame onto a blank 320x224 canvas at (`at_x`,`at_y`)
+/// using the real `build_sprite_tiles` assembly and `draw_sprite` blit, with a
+/// magenta backdrop so transparent pixels (where foreground would show through)
+/// are obvious. Returns the full-frame RGB buffer; callers crop as needed.
+/// Debug helper for inspecting sub-sprite geometry (e.g. RockTank turret #145).
+pub(crate) fn render_frame_on_blank_canvas(
+    frame: &kid_render::SpriteFrame,
+    palette: &Palette,
+    at_x: i32,
+    at_y: i32,
+) -> Vec<u8> {
+    let pixels = (FRAME_WIDTH * FRAME_HEIGHT) as usize;
+    let mut rgb = vec![0u8; pixels * 3];
+    for pixel in 0..pixels {
+        rgb[pixel * 3] = 255; // magenta backdrop marks transparency
+        rgb[pixel * 3 + 2] = 255;
+    }
+    let mut high_priority_pixels = vec![false; pixels];
+    let tiles = sprites::build_sprite_tiles(frame, Direction::Right, 0);
+    draw_sprite(
+        &mut rgb,
+        &mut high_priority_pixels,
+        at_x,
+        at_y,
+        &frame.tile_sheet,
+        palette,
+        &tiles,
+    );
+    rgb
+}
+
 pub(crate) fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     clear_frame(rgb, scene.background);
     render_scene_overlay(scene, rgb);
