@@ -130,6 +130,16 @@ no enemy snapshots. The requested `0..120` case derives as
 `likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
 Use later title/menu/options audio routes or waveform captures for #003, not
 this clean cold-boot gameplay prefix.
+Follow-up 2026-06-03: selector-picked `issue-003-intro-audio-current` is
+current and oracle-clean, but not an actionable gameplay reducer. Fresh
+`verify-recording` passes with `trace_match=true`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no first trace drift, and matching 420-frame
+recorded/replay traces; enemy comparison is skipped because the oracle captured
+no enemy snapshots. The requested `0..120` case derives as
+`issue-003-intro-audio-current_case_00000_00120`, passes with
+`likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
+Use later title/menu/options audio routes or waveform captures for #003, not
+this clean intro gameplay prefix.
 Follow-up 2026-06-03: selector-picked
 `issue-003-cold-boot-audio-current-refresh` confirms the same clean cold-boot
 shape. Fresh `verify-recording` passes with `trace_match=true`,
