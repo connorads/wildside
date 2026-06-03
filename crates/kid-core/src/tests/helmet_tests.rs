@@ -9080,4 +9080,38 @@ mod chunk_08 {
         assert_eq!(settled.kid_y_pos, 0x00BF_0000);
         assert_eq!(settled.camera_y_pos, 0x001C_0000);
     }
+
+    #[test]
+    fn warp_to_level_floor_snaps_spawn_so_debug_skip_does_not_fall_through() {
+        // #238: the interactive debug level-skip / throw-level path
+        // (`native_player` mod.rs -> `warp_to_level`) seeded `opening_slice`
+        // from the raw header pose with no floor settle, so on every level whose
+        // header is intentionally midair (e.g. 0x01 at (32,160)) Kid dropped
+        // through the floor and died — "skip level / throw all the levels ->
+        // falls and dies everywhere, recovers only when the index wraps to
+        // start". The ROM level-skip cheat re-enters through Teleport ->
+        // Load_TitleCard -> Load_InGame, which settles Kid onto the floor, so
+        // `warp_to_level` must mirror `begin_level_entry` and floor-snap when a
+        // block grid is present.
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0x01);
+        runtime.warp_to_level(level);
+        let opening = runtime
+            .opening_slice
+            .expect("warp must seed an opening slice");
+
+        // Guard: 0x01's raw header pose is the airborne (32,160) seed; the
+        // settle drops Kid to the Blue Lake Woods 2 floor. If these ever match,
+        // the test can no longer detect the regression.
+        let raw = runtime.level_respawn_slice(level);
+        assert_eq!(raw.player.y_pos, 0x009F_0000, "raw header pose is midair");
+        assert_ne!(
+            opening.player.y_pos, raw.player.y_pos,
+            "warp must not leave Kid at the midair header pose"
+        );
+        // Floor-snapped spawn matches the settled Blue Lake Woods 2 floor.
+        assert_eq!(opening.player.y_pos, 0x00BF_0000);
+    }
 }

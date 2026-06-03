@@ -17426,7 +17426,18 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.reload_block_grid_for_level(level_id);
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        // The ROM level-skip cheat re-enters through the normal Teleport ->
+        // Load_TitleCard -> Load_InGame load, which settles Kid onto the real
+        // floor before gameplay. `warp_to_level` skips that entry animation, so
+        // the raw header spawn Y is left in the air. Mirror `begin_level_entry`
+        // and floor-snap when a block grid is present; otherwise Kid drops
+        // through every level whose header pose sits above the floor (#238:
+        // debug skip / throw-level "falls and dies on every level").
+        self.opening_slice = Some(if self.block_grid.is_some() {
+            self.level_respawn_slice_with_floor_snap(level_id)
+        } else {
+            self.level_respawn_slice(level_id)
+        });
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
