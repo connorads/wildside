@@ -911,6 +911,15 @@ requested `0..120` case derives as
 `likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
 Do not patch #160 from this clean early intro prefix; keep using it only as
 guard evidence for the frame-173 intro cue.
+Follow-up 2026-06-03: selector-picked `issue-160-live-boot-current` is current
+and clean, but its requested prefix is only early boot. Fresh
+`verify-recording --slug issue-160-live-boot-current` passes with
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+`first_trace_drift=null`, and matching 900-frame recorded/replay traces. The
+requested `0..120` case derives as `issue-160-live-boot-current_case_00000_00120`,
+passes with `likely_subsystems=["none"]`, and `case reduce` reports it is
+already passing. Do not patch #160 from this clean early boot prefix; use a
+later title/menu/options or real-device route for remaining audio reports.
 Follow-up 2026-06-03: selector-picked `issue-160-intro-audio-wave-current`
 also remains current and clean, but its requested prefix is not actionable.
 Fresh `verify-recording --slug issue-160-intro-audio-wave-current` passes with
