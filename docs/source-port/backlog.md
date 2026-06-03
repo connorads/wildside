@@ -1423,6 +1423,13 @@ entries `$00BC..$00BE` / tiles `188..190`, source `(5,3)`, palette-line 0 colour
 reveal experiment regressed the frame to `2086` changed pixels, so the broad
 `loc_1BA02` phase is correct; continue from ASM `sub_1C1A2/sub_1C1D2` nibble
 mask or `DecompressToVRAM_Special` art parity for those plane-A nibbles.
+Follow-up 2026-06-03: rejected two broader #210 intro-2 hypotheses. Changing
+`unk_1C336` nibble `0` from `2` to transparent `0` regressed `demo_boot@700` to
+`26575` changed pixels, so ASM `DecompressToVRAM_Special`'s `0 -> 2` mapping is
+required for the scene as a whole. Applying one fewer `sub_1C1A2` mask call
+regressed the same checkpoint to `1077` changed pixels, so the residual is not a
+simple half-frame/global mask-count lead. Continue from the specific
+plane-A tile bytes/nibbles reported by `native_vdp_samples`.
 Note 2026-06-03 selector follow-up for #210: selector-picked
 `issue-210-chameleon-address-fix` has the same stale-later-wrapper shape. Fresh
 full and native-only `verify-recording` both drift against the cached native
