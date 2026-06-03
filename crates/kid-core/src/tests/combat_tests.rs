@@ -487,6 +487,51 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn non_fatal_damage_leaves_number_lives_unchanged_loc_b700() {
+        // #241 (2026-06-03 playtest): "6 lives -> 4 lives on a hit". The lives
+        // HUD counter reads `Number_Lives` ($FFFFFC3E); the ROM damage routine
+        // loc_B700 (kid.asm:14638) only touches `Number_Hitpoints`/
+        // `Extra_hitpoint_slots`. `Number_Lives` is decremented exclusively in
+        // lose_life (subq.w #1,(Number_Lives), kid.asm:14766), reached only when
+        // HP hits zero with no helmet/extra slots left. A non-fatal hit must
+        // therefore leave the displayed lives count untouched — the visible
+        // change the player saw is the HP pip row, not the lives counter.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        runtime.progression.number_lives = 6;
+        runtime.progression.invulnerable_frames = 0;
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0100_0000, 0x00C0_0000, 1)];
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level start should seed a slice");
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00C0_0000;
+        let x = slice.player.x_pos;
+        let y = slice.player.y_pos;
+
+        // First frame queues the contact, second frame applies the damage.
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, y, x, y);
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, y, x, y);
+
+        assert_eq!(
+            runtime.progression.number_hitpoints, 4,
+            "non-fatal hit decrements HP (loc_B700: HelmetHitpoint_Table[IronKnight]=5, subq #1)"
+        );
+        assert_eq!(
+            runtime.progression.number_lives, 6,
+            "#241: a non-fatal hit must NOT change Number_Lives — lives only fall in lose_life on a true death"
+        );
+        assert_eq!(
+            runtime.progression.current_form,
+            PlayerForm::IronKnight,
+            "helmet retained while HP remains (loc_B786 strips only at zero HP)"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // DiamondPower_Init / Main rain (loc_3FDFE, loc_3FE62, loc_3FE90)
     // -----------------------------------------------------------------------
