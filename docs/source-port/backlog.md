@@ -901,6 +901,13 @@ both 523 frames. Its requested `0..120` case is
 `codex-intro-smoke_case_00000_00120`, which passes with world mode, camera,
 player position/motion, entities, and events matching; `case reduce` reports it
 is already passing. This smoke route is non-actionable for #210/#161.
+Follow-up 2026-06-03: selector-picked `codex-sega-logo-frame-probe` also has
+the same clean shape. Fresh `verify-recording` passes with trace/state/frame
+green and no first trace drift; recorded/replay traces are both 523 frames, with
+enemy comparison skipped because the oracle captured no enemy snapshots. Its
+requested `0..120` case is `codex-intro-smoke_case_00000_00120`, which passes
+with `likely_subsystems=["none"]`; `case reduce` reports it is already passing.
+This Sega-logo route is non-actionable for #210/#161.
 Follow-up 2026-06-02: selector-picked `codex-intro-text-frame-probe` also has
 the same clean shape. Fresh `verify-recording` passes with trace/state/frame
 green and no first trace drift; recorded/replay traces are both 523 frames. Its
