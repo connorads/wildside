@@ -901,6 +901,16 @@ contains `audio-events.txt`, not a top-level waveform, so the remaining
 playtest complaint needs a fresh title/menu/options route that records
 `audio.wav` and compares rendered RMS/onset around title/menu frames, not
 another patch to the already-guarded frame-173 cue.
+Follow-up 2026-06-03: selector-picked `issue-160-intro-audio-repro` remains
+current and clean, but the requested prefix is not an actionable audio case.
+Fresh `verify-recording --slug issue-160-intro-audio-repro` passes with
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+`first_trace_drift=null`, and matching 300-frame recorded/replay traces. The
+requested `0..120` case derives as
+`issue-160-intro-audio-repro_case_00000_00120`, passes with
+`likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
+Do not patch #160 from this clean early intro prefix; keep using it only as
+guard evidence for the frame-173 intro cue.
 Follow-up 2026-06-03: selector-picked `issue-160-audio-bgm-loc12004` is stale
 before it can answer any `Load_InGame loc_12004` BGM-ordering question. Fresh
 full and native-only `verify-recording` both drift at native replay frame 0,
