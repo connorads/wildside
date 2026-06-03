@@ -749,6 +749,13 @@ traces are both 2790 frames. Its requested `0..120` case is
 camera, player position/motion, entities, and events matching; `case reduce`
 reports it is already passing. Do not patch the cold intro corridor/static path
 from this selector item.
+Follow-up 2026-06-02: selector-picked `codex-intro2-fade-hold-probe` is clean
+too. Fresh `verify-recording` passes with trace/state/frame green and no first
+trace drift; recorded/replay traces are both 2790 frames. Its requested `0..120`
+case is `issue-161-current-intro-long_case_00000_00120`, which passes with
+world mode, camera, player position/motion, entities, and events matching; `case
+reduce` reports it is already passing. This fade-hold route is non-actionable
+for #161/#210.
 Note 2026-05-26 for #161: `Load_IntroSequence5` now replays the staged `loc_1BC36` tile worker: `sub_1C034` frame uploads from `off_1C126` switch on the ROM hibernate boundaries, then `sub_1C0EE` / `sub_1C112` blit and clear the 10x10 panel at plane cell `(3,$13)`. Regressions: `intro_sequence_5_loc_1bc36_streams_sub_1c034_frames_on_rom_hibernate_boundaries`, `intro_sequence_5_loc_1bc36_panel_blit_and_blank_follow_sub_1c0ee_order`. Superseded by the later full cold-intro CRC pass below.
 Note 2026-05-26 for #161: recording verification now replays checkpoint frames through the live `NativeRuntime::vdp_state` path used by `play-native`, instead of rebuilding intro screenshots from the trace-only fallback that intentionally returns black for intro modes. Refreshed `.cache/recordings/issue-161-current-intro-long` verifies native-only and now shows the Wild Side exterior, Hologram room, intro-3 roster scene, and story text in `verify/native/` checkpoint PNGs. Superseded by the later live VDP CRC pass below; the remaining PNG diffs are evidence-path debt.
 Note 2026-05-26 for #161: cold-boot intro timing now follows the ASM object loops through the first three intro segments. `Load_SegaScreen` keeps mode `$0000` through oracle frame 172, `sub_1B8F4/loc_1B924` keeps intro 1 through frame 533, `Load_IntroSequence2/loc_1BA02` keeps intro 2 through frame 982, and `sub_1B93E/loc_1B96E` keeps intro 3 through frame 1281. Regressions: `cold_boot_sega_screen_hands_off_to_intro_sequence_1_on_oracle_frame_173`, `cold_boot_intro_sequences_1_and_2_follow_oracle_handoff_frames`, `cold_boot_intro_sequence_3_follows_oracle_handoff_frame`. `verify-tas --scenario .cache/recordings/issue-161-current-intro-long/scenario.json --frame-start 0 --frame-end 2200 --checkpoint-interval 60 --bisect --frontier-kind gameplay` now moves the first CRC frontier from frame 119 to frame 1282; remaining #161 frontier is intro-3 roster/Kid trace state carrying into intro 4, not the coarse boot timers.
