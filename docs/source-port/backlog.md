@@ -1034,6 +1034,11 @@ passes (`case issue-160-latest-playtest-audio-audit_case_00000_00120: PASS`);
 `case reduce --case issue-160-latest-playtest-audio-audit` reports the case is
 already passing. Do not use this recording for the reported missing menu music:
 capture a later route that reaches title/menu/options with `audio.wav` present.
+Rechecked 2026-06-03: the same bundle still passes full verification with
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+`first_trace_drift=null`, and matching 1426-frame recorded/replay traces; its
+`0..120` case still passes with `likely_subsystems=["none"]` and reduction
+still reports that it is already passing.
 Follow-up 2026-06-02: `issue-160-record-frame-cap-smoke` is likewise clean but
 too short for #160 audio triage. It is a 60-frame Sega-screen smoke recording
 used to confirm `play-native --record-frames` saves; full verification passes,
