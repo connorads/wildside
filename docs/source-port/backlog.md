@@ -1414,6 +1414,15 @@ miss to a sparse tile/mask residual (`changed_pixel_count=129`, bounds
 `5..317,3..87`) and kept `mise run verify-slice-fast` green. Strict
 `verify-recording --slug issue-210-cold-idle-2600` is still red; continue from
 intro-2 special sky art/mask/plane parity, not gameplay timing.
+Follow-up 2026-06-03: `verify-recording` now records native VDP provenance for
+sampled pixel diffs. At `demo_boot@700`, every remaining top sampled miss comes
+from low-priority plane A sky/castle tiles overwriting the plane B sky/castle or
+black pixel underneath: examples include plane A map `$0000` cells `0..5`
+entries `$00BC..$00BE` / tiles `188..190`, source `(5,3)`, palette-line 0 colour
+2, and lower rows in tiles `200..231` with colour 14/15. A one-frame later
+reveal experiment regressed the frame to `2086` changed pixels, so the broad
+`loc_1BA02` phase is correct; continue from ASM `sub_1C1A2/sub_1C1D2` nibble
+mask or `DecompressToVRAM_Special` art parity for those plane-A nibbles.
 Note 2026-06-03 selector follow-up for #210: selector-picked
 `issue-210-chameleon-address-fix` has the same stale-later-wrapper shape. Fresh
 full and native-only `verify-recording` both drift against the cached native

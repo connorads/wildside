@@ -174,6 +174,30 @@ pub struct FrameBuffer {
     pub rgb: Vec<u8>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VdpPixelSample {
+    pub x: usize,
+    pub y: usize,
+    pub layers: Vec<VdpPixelLayerSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VdpPixelLayerSample {
+    pub layer: &'static str,
+    pub priority: bool,
+    pub map_base: usize,
+    pub cell_x: usize,
+    pub cell_y: usize,
+    pub cell_index: usize,
+    pub entry: u16,
+    pub tile_index: usize,
+    pub palette_line: usize,
+    pub colour_index: u8,
+    pub source_x: usize,
+    pub source_y: usize,
+    pub rgb: Option<[u8; 3]>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AudioEvent {
     Ym2612Write {
@@ -1008,6 +1032,50 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
             }
         }
     }
+}
+
+pub fn sample_vdp_pixel(vdp: &VdpSnapshot, x: usize, y: usize) -> VdpPixelSample {
+    let plane_a_base = (usize::from(vdp.registers[2] & 0x38)) << 10;
+    let plane_b_base = (usize::from(vdp.registers[4] & 0x07)) << 13;
+    let window_base = window_plane_base(&vdp.registers);
+    let hscroll_base = usize::from(vdp.registers[0x0D]) << 10;
+    let vscroll_a = i32::from(read_u16_wrapped(&vdp.vsram, 0) as i16);
+    let vscroll_b = i32::from(read_u16_wrapped(&vdp.vsram, 2) as i16);
+    let (plane_width_cells, plane_height_cells) = plane_dimensions(vdp.registers[0x10]);
+    let window_region = window_region(&vdp.registers, 320, 224);
+
+    let plane_a = ScrollPlane {
+        base: plane_a_base,
+        width_cells: plane_width_cells,
+        height_cells: plane_height_cells,
+        hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 0, vdp.registers[0x0B]),
+        vscroll: vscroll_a,
+    };
+    let plane_b = ScrollPlane {
+        base: plane_b_base,
+        width_cells: plane_width_cells,
+        height_cells: plane_height_cells,
+        hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 2, vdp.registers[0x0B]),
+        vscroll: vscroll_b,
+    };
+    let window_plane = WindowPlane {
+        base: window_base,
+        region: window_region,
+    };
+
+    let mut layers = Vec::new();
+    for priority in [false, true] {
+        if let Some(sample) = sample_plane_pixel(vdp, "plane_b", &plane_b, x, y, priority) {
+            layers.push(sample);
+        }
+        if let Some(sample) =
+            sample_plane_a_or_window_pixel(vdp, &plane_a, &window_plane, x, y, priority)
+        {
+            layers.push(sample);
+        }
+    }
+
+    VdpPixelSample { x, y, layers }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2016,6 +2084,40 @@ fn plane_pixel_rgb(
     tile_pixel_rgb(vdp, entry, (world_x as usize) & 7, (world_y as usize) & 7)
 }
 
+fn sample_plane_pixel(
+    vdp: &VdpSnapshot,
+    layer: &'static str,
+    plane: &ScrollPlane,
+    screen_x: usize,
+    screen_y: usize,
+    priority: bool,
+) -> Option<VdpPixelLayerSample> {
+    let plane_width_pixels = (plane.width_cells * 8) as i32;
+    let plane_height_pixels = (plane.height_cells * 8) as i32;
+    let world_x = (screen_x as i32 - plane.hscroll).rem_euclid(plane_width_pixels);
+    let world_y = (screen_y as i32 + plane.vscroll).rem_euclid(plane_height_pixels);
+    let cell_x = (world_x as usize) / 8;
+    let cell_y = (world_y as usize) / 8;
+    let cell_index = cell_y * plane.width_cells + cell_x;
+    let entry = read_u16_wrapped(&vdp.vram, plane.base + cell_index * 2);
+    if (entry & 0x8000 != 0) != priority {
+        return None;
+    }
+
+    Some(tile_pixel_sample(
+        vdp,
+        layer,
+        priority,
+        plane.base,
+        cell_x,
+        cell_y,
+        cell_index,
+        entry,
+        (world_x as usize) & 7,
+        (world_y as usize) & 7,
+    ))
+}
+
 fn plane_a_or_window_pixel_rgb(
     vdp: &VdpSnapshot,
     plane_a: &ScrollPlane,
@@ -2036,6 +2138,28 @@ fn plane_a_or_window_pixel_rgb(
     }
 
     plane_pixel_rgb(vdp, plane_a, screen_x, screen_y, priority)
+}
+
+fn sample_plane_a_or_window_pixel(
+    vdp: &VdpSnapshot,
+    plane_a: &ScrollPlane,
+    window: &WindowPlane,
+    screen_x: usize,
+    screen_y: usize,
+    priority: bool,
+) -> Option<VdpPixelLayerSample> {
+    if let Some(region) = window.region
+        && screen_x >= region.left
+        && screen_x < region.left + region.width
+        && screen_y >= region.top
+        && screen_y < region.top + region.height
+    {
+        let window_x = screen_x - region.left;
+        let window_y = screen_y - region.top;
+        return sample_window_pixel(vdp, window.base, window_x, window_y, priority);
+    }
+
+    sample_plane_pixel(vdp, "plane_a", plane_a, screen_x, screen_y, priority)
 }
 
 fn window_pixel_rgb(
@@ -2059,6 +2183,40 @@ fn window_pixel_rgb(
     }
 
     tile_pixel_rgb(vdp, entry, screen_x & 7, screen_y & 7)
+}
+
+fn sample_window_pixel(
+    vdp: &VdpSnapshot,
+    window_base: usize,
+    screen_x: usize,
+    screen_y: usize,
+    priority: bool,
+) -> Option<VdpPixelLayerSample> {
+    let map_width_cells = if is_h40_mode(vdp.registers[0x0C]) {
+        64
+    } else {
+        32
+    };
+    let cell_x = screen_x / 8;
+    let cell_y = screen_y / 8;
+    let cell_index = cell_y * map_width_cells + cell_x;
+    let entry = read_u16_wrapped(&vdp.vram, window_base + cell_index * 2);
+    if (entry & 0x8000 != 0) != priority {
+        return None;
+    }
+
+    Some(tile_pixel_sample(
+        vdp,
+        "window",
+        priority,
+        window_base,
+        cell_x,
+        cell_y,
+        cell_index,
+        entry,
+        screen_x & 7,
+        screen_y & 7,
+    ))
 }
 
 const MAX_SPRITES: usize = 80;
@@ -2233,6 +2391,63 @@ fn tile_pixel_rgb(vdp: &VdpSnapshot, entry: u16, tile_x: usize, tile_y: usize) -
         tile_y = 7 - tile_y;
     }
     tile_pixel_rgb_from_parts(vdp, tile_index, palette, tile_x, tile_y)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn tile_pixel_sample(
+    vdp: &VdpSnapshot,
+    layer: &'static str,
+    priority: bool,
+    map_base: usize,
+    cell_x: usize,
+    cell_y: usize,
+    cell_index: usize,
+    entry: u16,
+    tile_x: usize,
+    tile_y: usize,
+) -> VdpPixelLayerSample {
+    let tile_index = usize::from(entry & 0x07FF);
+    let hflip = entry & 0x0800 != 0;
+    let vflip = entry & 0x1000 != 0;
+    let palette_line = usize::from((entry >> 13) & 0x03);
+    let mut source_x = tile_x & 7;
+    let mut source_y = tile_y & 7;
+    if hflip {
+        source_x = 7 - source_x;
+    }
+    if vflip {
+        source_y = 7 - source_y;
+    }
+    let tile_byte = read_u8_wrapped(&vdp.vram, tile_index * 32 + source_y * 4 + source_x / 2);
+    let colour_index = if source_x & 1 == 0 {
+        tile_byte >> 4
+    } else {
+        tile_byte & 0x0F
+    };
+    let rgb = if colour_index == 0 {
+        None
+    } else {
+        Some(cram_rgb(
+            &vdp.cram,
+            palette_line * 16 + usize::from(colour_index),
+        ))
+    };
+
+    VdpPixelLayerSample {
+        layer,
+        priority,
+        map_base,
+        cell_x,
+        cell_y,
+        cell_index,
+        entry,
+        tile_index,
+        palette_line,
+        colour_index,
+        source_x,
+        source_y,
+        rgb,
+    }
 }
 
 #[inline]
@@ -4811,6 +5026,83 @@ mod tests {
             None,
             "VDP window priority bit must reject the opposite priority pass"
         );
+    }
+
+    #[test]
+    fn sample_vdp_pixel_reports_plane_source_tile_and_transparency() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        set_tile_pixel(&mut vdp.vram, 4, 5, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x2000 | 4);
+
+        let sample = super::sample_vdp_pixel(&vdp, 5, 3);
+        let plane_a = sample
+            .layers
+            .iter()
+            .find(|layer| layer.layer == "plane_a")
+            .expect("plane A sample should be present");
+
+        assert!(!plane_a.priority);
+        assert_eq!(plane_a.map_base, 0x2000);
+        assert_eq!(plane_a.cell_x, 0);
+        assert_eq!(plane_a.cell_y, 0);
+        assert_eq!(plane_a.cell_index, 0);
+        assert_eq!(plane_a.entry, 0x2000 | 4);
+        assert_eq!(plane_a.tile_index, 4);
+        assert_eq!(plane_a.palette_line, 1);
+        assert_eq!(plane_a.colour_index, 3);
+        assert_eq!(plane_a.source_x, 5);
+        assert_eq!(plane_a.source_y, 3);
+        assert_eq!(plane_a.rgb, Some([0xFF, 0x00, 0x00]));
+
+        let transparent = super::sample_vdp_pixel(&vdp, 4, 3);
+        let transparent_plane_a = transparent
+            .layers
+            .iter()
+            .find(|layer| layer.layer == "plane_a")
+            .expect("transparent plane A sample should still explain the tile source");
+        assert_eq!(transparent_plane_a.colour_index, 0);
+        assert_eq!(transparent_plane_a.rgb, None);
+    }
+
+    #[test]
+    fn sample_vdp_pixel_reports_window_source_when_window_covers_pixel() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[0x0C] = 0x81;
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 65, 0x8000 | 0x4000 | 6);
+        let window = WindowPlane {
+            base: 0x3400,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let sample = super::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 24, 16, true)
+            .expect("window sample should be present");
+
+        assert_eq!(sample.layer, "window");
+        assert!(sample.priority);
+        assert_eq!(sample.map_base, 0x3400);
+        assert_eq!(sample.cell_x, 1);
+        assert_eq!(sample.cell_y, 1);
+        assert_eq!(sample.cell_index, 65);
+        assert_eq!(sample.tile_index, 6);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.colour_index, 5);
+        assert_eq!(sample.rgb, Some([0xFF, 0xFF, 0xFF]));
     }
 
     #[test]

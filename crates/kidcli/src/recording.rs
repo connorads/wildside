@@ -168,6 +168,8 @@ pub(crate) struct CheckpointFrameDiff {
     #[serde(default)]
     pub(crate) native_final_scene_samples: Vec<FinalScenePixelDiagnostic>,
     #[serde(default)]
+    pub(crate) native_vdp_samples: Vec<NativeVdpPixelDiagnostic>,
+    #[serde(default)]
     pub(crate) native_eol_score_sprites: Vec<NativeEolScoreSpriteDiagnostic>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) oracle_gameplay_debug_fields: BTreeMap<String, String>,
@@ -222,6 +224,30 @@ pub(crate) struct NativeLayerPixelDiagnostic {
 pub(crate) struct NativeLayerPixelSample {
     pub(crate) layer: String,
     pub(crate) rgb: [u8; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeVdpPixelDiagnostic {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) layers: Vec<NativeVdpLayerPixelSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct NativeVdpLayerPixelSample {
+    pub(crate) layer: String,
+    pub(crate) priority: bool,
+    pub(crate) map_base: usize,
+    pub(crate) cell_x: usize,
+    pub(crate) cell_y: usize,
+    pub(crate) cell_index: usize,
+    pub(crate) entry: u16,
+    pub(crate) tile_index: usize,
+    pub(crate) palette_line: usize,
+    pub(crate) colour_index: u8,
+    pub(crate) source_x: usize,
+    pub(crate) source_y: usize,
+    pub(crate) rgb: Option<[u8; 3]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1393,6 +1419,8 @@ fn attach_native_pixel_samples(
         (usize, String),
         Vec<FinalScenePixelDiagnostic>,
     > = BTreeMap::new();
+    let mut vdp_samples_by_checkpoint: BTreeMap<(usize, String), Vec<NativeVdpPixelDiagnostic>> =
+        BTreeMap::new();
     let mut eol_sprites_by_checkpoint: BTreeMap<
         (usize, String),
         Vec<NativeEolScoreSpriteDiagnostic>,
@@ -1489,9 +1517,25 @@ fn attach_native_pixel_samples(
                     &level_visuals,
                     runtime.block_grid(),
                 );
+                let vdp_samples = runtime
+                    .vdp_state()
+                    .map(|vdp| {
+                        let snapshot = kid_md::VdpSnapshot {
+                            registers: vdp.registers,
+                            vram: vdp.vram.clone(),
+                            cram: vdp.cram.clone(),
+                            vsram: vdp.vsram.clone(),
+                        };
+                        pixels
+                            .iter()
+                            .map(|(x, y)| NativeVdpPixelDiagnostic::from_sample(&snapshot, *x, *y))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
                 background_samples_by_checkpoint.insert(key.clone(), background_samples);
                 layer_samples_by_checkpoint.insert(key.clone(), layer_samples);
                 final_scene_samples_by_checkpoint.insert(key.clone(), final_scene_samples);
+                vdp_samples_by_checkpoint.insert(key.clone(), vdp_samples);
                 eol_sprites_by_checkpoint.insert(key, eol_sprites);
             }
         }
@@ -1509,10 +1553,46 @@ fn attach_native_pixel_samples(
         diff.native_final_scene_samples = final_scene_samples_by_checkpoint
             .remove(&key)
             .unwrap_or_default();
+        diff.native_vdp_samples = vdp_samples_by_checkpoint.remove(&key).unwrap_or_default();
         diff.native_eol_score_sprites = eol_sprites_by_checkpoint.remove(&key).unwrap_or_default();
     }
 
     Ok(())
+}
+
+impl NativeVdpPixelDiagnostic {
+    fn from_sample(vdp: &kid_md::VdpSnapshot, x: usize, y: usize) -> Self {
+        let sample = kid_md::sample_vdp_pixel(vdp, x, y);
+        Self {
+            x: sample.x,
+            y: sample.y,
+            layers: sample
+                .layers
+                .into_iter()
+                .map(NativeVdpLayerPixelSample::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<kid_md::VdpPixelLayerSample> for NativeVdpLayerPixelSample {
+    fn from(sample: kid_md::VdpPixelLayerSample) -> Self {
+        Self {
+            layer: sample.layer.to_string(),
+            priority: sample.priority,
+            map_base: sample.map_base,
+            cell_x: sample.cell_x,
+            cell_y: sample.cell_y,
+            cell_index: sample.cell_index,
+            entry: sample.entry,
+            tile_index: sample.tile_index,
+            palette_line: sample.palette_line,
+            colour_index: sample.colour_index,
+            source_x: sample.source_x,
+            source_y: sample.source_y,
+            rgb: sample.rgb,
+        }
+    }
 }
 
 fn sample_native_layers_for_pixels(
@@ -1713,6 +1793,7 @@ fn compare_recording_frames(
             native_background_samples: Vec::new(),
             native_layer_samples: Vec::new(),
             native_final_scene_samples: Vec::new(),
+            native_vdp_samples: Vec::new(),
             native_eol_score_sprites: Vec::new(),
             oracle_gameplay_debug_fields: BTreeMap::new(),
             diff_path,
