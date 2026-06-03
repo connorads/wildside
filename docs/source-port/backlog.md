@@ -958,6 +958,16 @@ recorded/replay traces. The requested `0..120` case derives as
 because the source recording replay drifted at frame 0. Re-record this Level 0
 dragon-stomp route on current native before using it as gameplay evidence.
 Note 2026-06-03 selector follow-up for #211: selector-picked
+`idle-level0-dragon` is stale before any current Level 0 DragonWalking idle
+evidence. Fresh full and native-only `verify-recording` both drift against the
+cached native trace at frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 121-frame
+recorded/replay traces. The requested `0..120` case derives as
+`idle_level0_dragon_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record this Level 0
+dragon idle route on current native before using it as gameplay evidence.
+Note 2026-06-03 selector follow-up for #211: selector-picked
 `debug-slope-level1-oracle-settle-current` is stale before any current settled
 slope gameplay evidence. Fresh full and native-only `verify-recording` both
 drift against the cached native trace at frame 0, with `trace_match=false`,
