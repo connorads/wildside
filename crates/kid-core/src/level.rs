@@ -1774,6 +1774,67 @@ pub(crate) fn theme_collision_filename_loc_11C30(foreground_theme: u8) -> Option
     Some(filename)
 }
 
+/// The per-theme collision tables in `ThemeCollision_Index` pointer-table order
+/// (kid.asm:45903). The ROM packs them as one contiguous block from `unk_7BB64`
+/// up to the mappings region, and each pointer is the base a skin byte indexes.
+const THEME_COLLISION_FILES_LOC_11C30: [&str; 11] = [
+    "theme0.bin",
+    "sky.bin",
+    "ice.bin",
+    "hill.bin",
+    "island.bin",
+    "desert.bin",
+    "swamp.bin",
+    "mountain.bin",
+    "cave.bin",
+    "forest.bin",
+    "city.bin",
+];
+
+/// Build the ROM-faithful 256-entry collision table for `foreground_theme`.
+///
+/// ASM loc_11C36 (kid.asm:23818) reads the collision nibble with
+/// `move.b (a0,d2.w),d3` where `a0 = ThemeCollision_Index[theme]` and `d2` is the
+/// full 8-bit skin byte (0..=255). The ROM tables are packed contiguously
+/// (`unk_7BB64`..`unk_7C4EC`, kid.asm:46114), each pointer addressing one theme's
+/// base, so a skin index past a theme's own data deliberately reads into the
+/// FOLLOWING theme's bytes — the original game has no per-theme length check.
+///
+/// The bundle's `tools/to_split.txt` slices each `theme/collision/<name>.bin` at
+/// the NEXT pointer (its "own" length), so a per-file read loses those high-index
+/// bytes. Reconstruct the contiguous region by concatenating the sibling files in
+/// pointer-table order, then return the 256 bytes starting at this theme's base —
+/// exactly the bytes the ROM's `(a0,d2.w)` would address. Bytes 0x00 outside the
+/// last table (`city`) match the ROM reading into the adjacent mappings region.
+#[allow(non_snake_case)]
+pub(crate) fn theme_collision_table_loc_11C36(
+    collision_dir: &std::path::Path,
+    foreground_theme: u8,
+) -> Option<Vec<u8>> {
+    let theme = usize::from(foreground_theme & 0x0F);
+    if theme >= THEME_COLLISION_FILES_LOC_11C30.len() {
+        return None;
+    }
+    // The contiguous region = concatenation of every table in pointer order; the
+    // requested theme's base is the cumulative length of the tables before it.
+    let mut region = Vec::with_capacity(256 + 16);
+    let mut base_offset = 0usize;
+    for (index, filename) in THEME_COLLISION_FILES_LOC_11C30.iter().enumerate() {
+        let bytes = fs::read(collision_dir.join(filename)).ok()?;
+        if index < theme {
+            base_offset += bytes.len();
+        }
+        region.extend_from_slice(&bytes);
+    }
+    let mut table = vec![0u8; 256];
+    for (slot, byte) in table.iter_mut().enumerate() {
+        if let Some(value) = region.get(base_offset + slot) {
+            *byte = *value;
+        }
+    }
+    Some(table)
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_blocks: u16) -> u32 {
@@ -18348,13 +18409,14 @@ impl NativeRuntime {
     ///
     /// Verified byte-for-byte against the live-dumped `Level_Layout` fixtures
     /// (`decode_level_layout_matches_fixture_collision_cells_loc_11c34`): every
-    /// cell on every fixtured level matches, with the only residuals being two
-    /// explained non-static-loader classes — runtime-toggled prize/ghost/smash
-    /// overlay cells the idle dump captured mid-animation, and collision-table
-    /// extraction defects (child #235) where the bundled theme table trims or
-    /// mishandles high skin indices. 74 of 83 non-aliased levels are literally
-    /// byte-identical; the rest differ only by those classes, with zero
-    /// unexplained mismatches.
+    /// cell on every fixtured level matches, with the only residual being
+    /// runtime-toggled prize/ghost/smash overlay cells the idle dump captured
+    /// mid-animation. Since #247 the collision lookup reads the full ROM
+    /// contiguous table region (`theme_collision_table_loc_11C36`), so high skin
+    /// indices read into the adjacent theme exactly as the ROM does — the former
+    /// collision-table truncation residual (e.g. swamp skin 254) is gone. 75 of
+    /// 83 non-aliased levels are literally byte-identical; the rest differ only by
+    /// the overlay class, with zero unexplained mismatches.
     ///
     /// Returns `None` when the foreground resource, header, or theme-collision
     /// table is unavailable, so the caller can fall back to "no grid". The block
@@ -18385,15 +18447,15 @@ impl NativeRuntime {
             .join(&terrain.foreground.relative_path);
         let terrain_bytes = fs::read(terrain_path).ok()?;
 
-        // ASM loc_11C30: collision nibbles come from ThemeCollision_Index[theme].
-        let collision_filename = theme_collision_filename_loc_11C30(header.level_theme)?;
-        let collision_path = self
-            .assets
-            .output_root
-            .join("theme")
-            .join("collision")
-            .join(collision_filename);
-        let collision_index = fs::read(collision_path).ok()?;
+        // ASM loc_11C30/loc_11C36: collision nibbles come from
+        // `ThemeCollision_Index[theme]` indexed by the full 8-bit skin byte. Build
+        // the ROM-faithful 256-entry table from the contiguous bundle region so
+        // high skin indices read into the adjacent theme's bytes exactly as the
+        // ROM's `(a0,d2.w)` does, rather than zero-padding the trimmed per-file
+        // slice (which loses real collision nibbles at high skins — e.g. swamp
+        // skin 254 reads $06/Solid from the following `mountain` table).
+        let collision_dir = self.assets.output_root.join("theme").join("collision");
+        let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
 
         // ASM Load_LevelData loc_15A0: width_blocks = width_screens * 20,
         // height_blocks = height_screens * 14 + Number_blank_top_rows.
@@ -18410,18 +18472,12 @@ impl NativeRuntime {
         if terrain_bytes.len() < expected_cells {
             return None;
         }
-        // The collision table is indexed by skin byte (0..=255). The bundle
-        // tables are trimmed to the last meaningful entry, so pad with zero
-        // (= passable) for any skin byte beyond the table's length, matching the
-        // ROM's unused high-index entries.
-        let mut padded_index = collision_index;
-        if padded_index.len() < 256 {
-            padded_index.resize(256, 0);
-        }
-
+        // `theme_collision_table_loc_11C36` already returns a full 256-entry table
+        // (ROM-faithful, reading high skins into adjacent themes), so the skin
+        // byte indexes it directly with no zero-padding.
         let mut cells = level_layout_cells_loc_11C34(
             &terrain_bytes,
-            &padded_index,
+            &collision_index,
             width_blocks,
             height_blocks,
         );

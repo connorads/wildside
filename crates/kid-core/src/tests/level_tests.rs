@@ -27133,9 +27133,12 @@ mod native_level_terrain_decoder {
         repo_root().join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/level-layout")
     }
 
-    /// The trimmed length of the theme's bundled collision table. Skins at or
-    /// beyond this index lose their real ROM collision nibble (the decoder
-    /// zero-pads), which is the child-#235 collision-table truncation residual.
+    /// The OWN length of the theme's bundled collision table (the bytes the
+    /// `tools/to_split.txt` slice trims to, ending at the next theme's pointer).
+    /// Before #247 the decoder zero-padded skins at or beyond this index, losing
+    /// their real ROM collision nibble; #247 instead reads the full contiguous
+    /// region so those high skins read into the adjacent theme's bytes, matching
+    /// the ROM. This helper now only proves no genuine-trim cell survives.
     fn collision_table_len(runtime: &NativeRuntime, theme: u8) -> usize {
         let Some(filename) = crate::level::theme_collision_filename_loc_11C30(theme) else {
             return 256;
@@ -27152,19 +27155,47 @@ mod native_level_terrain_decoder {
         .unwrap_or(256)
     }
 
+    /// `theme_collision_table_loc_11C36` reads the FULL ROM contiguous region:
+    /// `swamp` skin 254 must read $06 (Solid) from the following `mountain` table,
+    /// not zero-pad to passable. ASM loc_11C36 (kid.asm:23818) indexes
+    /// `ThemeCollision_Index[theme]` with the full 8-bit skin and the tables are
+    /// packed contiguously (kid.asm:46114), so the original game has no per-theme
+    /// length check. Guards #247.
+    #[test]
+    fn theme_collision_table_reads_into_adjacent_theme_loc_11c36() {
+        let Some(runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+        let collision_dir = runtime.assets.output_root.join("theme").join("collision");
+        // swamp = theme 6. Its own table is 252 bytes, so skin 254 falls past it.
+        let swamp = crate::level::theme_collision_table_loc_11C36(&collision_dir, 6)
+            .expect("swamp collision table");
+        assert_eq!(swamp.len(), 256, "the table is full 8-bit-indexable");
+        // The ROM byte at swamp_base + 254 belongs to the next (mountain) table
+        // and is $06 (Solid). The trimmed per-file read zero-padded it to 0.
+        assert_eq!(
+            swamp[254], 0x06,
+            "swamp skin 254 must read Solid from the adjacent mountain table, \
+             reproducing the ROM's contiguous (a0,d2.w) read"
+        );
+        // In-range entries are unaffected (island skin 207 = Solid).
+        let island = crate::level::theme_collision_table_loc_11C36(&collision_dir, 4)
+            .expect("island collision table");
+        assert_eq!(island[207], 0x06, "in-range entries are unchanged");
+    }
+
     /// FULL byte-equality of `decode_level_layout` (terrain + block overlay)
     /// against every live-dumped `Level_Layout` fixture. With the `loc_11C7E`
-    /// block-overlay pass now applied, the decoder reproduces the fixtures
-    /// exactly EXCEPT for two explained, non-static-loader residual classes,
-    /// classified per cell:
+    /// block-overlay pass applied and the #247 contiguous-region collision table,
+    /// the decoder reproduces the fixtures exactly EXCEPT for one explained,
+    /// non-static-loader residual class, classified per cell:
     ///   (a) runtime-toggled overlay cells — prize/ghost/smash blocks the live
     ///       idle dump captured mid-animation in a state the static ROM loader
-    ///       (which this ports) does not reproduce; and
-    ///   (b) collision-table extraction defects (child #235) — plain cells whose
-    ///       skin matches but whose collision nibble differs because the bundled
-    ///       theme table trims/mishandles high skin indices.
-    /// The test asserts ZERO unexplained mismatches on every fixtured level,
-    /// proving the `decode_saxman -> loc_11C34 -> loc_11C7E` chain is byte-exact.
+    ///       (which this ports) does not reproduce.
+    /// Genuine collision-table truncation is GONE since #247 (the class-(b) branch
+    /// now asserts no skin past its theme's own table length reaches it). The test
+    /// asserts ZERO unexplained mismatches on every fixtured level, proving the
+    /// `decode_saxman -> loc_11C34 -> loc_11C7E` chain is byte-exact.
     #[test]
     fn decode_level_layout_matches_fixture_collision_cells_loc_11c34() {
         let Some(runtime) = cached_runtime_for_decoder() else {
@@ -27353,16 +27384,37 @@ mod native_level_terrain_decoder {
                     level_dynamic += 1;
                     continue;
                 }
-                // (b) Collision-table defect (child #235 extraction gap): both
-                //     sides agree on skin, neither has a block, and the ONLY
-                //     difference is the collision nibble. That nibble comes
-                //     solely from the theme collision table (skin -> collision),
-                //     so any divergence here is a table-content defect, not a
-                //     collision-map (`loc_11C34`) port error. The bundle both
-                //     trims tables to their last meaningful entry AND, for some
-                //     themes, carries wrong nibbles at high skin indices; both
-                //     manifest identically (skin matches, nibble differs).
+                // (b) Plain-cell collision-nibble residual: both sides agree on
+                //     skin, neither has a block, and the ONLY difference is the
+                //     collision nibble. The nibble comes solely from the theme
+                //     collision table (skin -> collision). Since #247 made the
+                //     decoder read the full ROM contiguous region (so a high skin
+                //     index reads into the adjacent theme exactly as the ROM does),
+                //     genuine collision-table truncation is GONE — the assert below
+                //     proves no cell with a skin past its theme's own table length
+                //     reaches here. What remains is the L0x3F runtime-overlay
+                //     residual: in-range skins whose correct table collision was
+                //     cleared by the loc_11C7E block-overlay pass because the idle
+                //     dump captured a toggleable block in a different state.
                 if !cell.has_block && !expected_cell.has_block && cell.skin == fixture_skin {
+                    // With the ROM-faithful contiguous-region collision table
+                    // (#247), GENUINE truncation (skin index past the theme's own
+                    // table length, reading into the adjacent theme) is now exact,
+                    // so any cell still landing here has an IN-RANGE skin whose
+                    // collision nibble the decoder produced correctly from the
+                    // table, then the loc_11C7E block-overlay pass cleared. These
+                    // are the runtime-overlay residual: the idle live dump captured
+                    // the cell solid (a destructible/toggleable block in its placed
+                    // state) where our static loader's overlay reflects a different
+                    // toggle state. Assert no GENUINE table-trim cells survive.
+                    let table_own_len = collision_table_len(&runtime, header.level_theme);
+                    assert!(
+                        usize::from(fixture_skin) < table_own_len,
+                        "level {logical:#04X} theme {}: skin {fixture_skin} >= table own length \
+                         {table_own_len} should be served by the contiguous-region collision \
+                         table (#247), not a residual",
+                        header.level_theme,
+                    );
                     level_truncation += 1;
                     continue;
                 }
@@ -27392,9 +27444,11 @@ mod native_level_terrain_decoder {
         }
         eprintln!(
             "decode_level_layout: {full_byte_equal_levels} of {levels_checked} non-aliased \
-             fixtured levels are LITERALLY byte-identical; the rest differ only by explained \
-             residuals (runtime-toggled prize/ghost/smash overlay cells + collision-table \
-             extraction defects), with zero unexplained cell mismatches on any level",
+             fixtured levels are LITERALLY byte-identical; the rest differ only by the \
+             runtime-toggled overlay residual (idle dump captured a toggleable block in a \
+             different state), with ZERO genuine collision-table truncation (the #247 \
+             contiguous-region table is byte-exact) and zero unexplained cell mismatches \
+             ({overlay_cells_total} in-range overlay-cleared cells across all levels)",
         );
 
         // Surface the explained residual so a future collision-table-extraction
