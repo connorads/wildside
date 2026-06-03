@@ -67,6 +67,92 @@ pub(crate) fn capture_frames(
     Ok(())
 }
 
+/// Dump an enemy family's sprite tile sheet as a PNG grid (16 tiles per row,
+/// row-major so a tile's grid index equals its `tile_base_index`). Renders with
+/// the family's level-resolved palette (incl. forest borrow), so it shows the
+/// art exactly as the live renderer sees it. Pixel index 0 is drawn dark
+/// magenta to mark tile bounds/transparency. Used to locate the correct
+/// `tile_base_index` for sub-sprites like the RockTank turret (#145).
+pub(crate) fn dump_enemy_sheet(
+    manifest: &AssetManifest,
+    level_id: u8,
+    enemy_type: u8,
+    output: &Path,
+) -> Result<()> {
+    use native_player::load_session_assets;
+
+    let (level_visuals, _block_grid) = load_session_assets(manifest, level_id)?;
+    let family = level_visuals
+        .enemies
+        .families
+        .get(&enemy_type)
+        .ok_or_else(|| {
+            anyhow!("enemy 0x{enemy_type:02X} not present in level 0x{level_id:02X} visuals")
+        })?;
+    let sheet = &family
+        .frames
+        .first()
+        .ok_or_else(|| anyhow!("enemy 0x{enemy_type:02X} has no frames"))?
+        .tile_sheet;
+    let palette = &family.palette;
+
+    let cols = 16usize;
+    let scale = 6usize;
+    let gap = 2usize;
+    let cell = 8 * scale + gap;
+    let rows = sheet.tiles.len().div_ceil(cols).max(1);
+    let image_width = cols * cell;
+    let image_height = rows * cell;
+    let mut rgb = vec![48u8; image_width * image_height * 3];
+
+    for (idx, tile) in sheet.tiles.iter().enumerate() {
+        let cell_x = (idx % cols) * cell;
+        let cell_y = (idx / cols) * cell;
+        for tile_y in 0..8 {
+            for tile_x in 0..8 {
+                let pixel_index = usize::from(tile.pixels[tile_y * 8 + tile_x]);
+                let colour = if pixel_index == 0 {
+                    (40u8, 0u8, 40u8)
+                } else {
+                    palette
+                        .colours
+                        .get(pixel_index)
+                        .map_or((255, 0, 255), |c| (c.red, c.green, c.blue))
+                };
+                for scale_y in 0..scale {
+                    for scale_x in 0..scale {
+                        let dest_x = cell_x + tile_x * scale + scale_x;
+                        let dest_y = cell_y + tile_y * scale + scale_y;
+                        let offset = (dest_y * image_width + dest_x) * 3;
+                        rgb[offset] = colour.0;
+                        rgb[offset + 1] = colour.1;
+                        rgb[offset + 2] = colour.2;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    image::save_buffer_with_format(
+        output,
+        &rgb,
+        image_width as u32,
+        image_height as u32,
+        image::ColorType::Rgb8,
+        image::ImageFormat::Png,
+    )
+    .with_context(|| format!("failed to write {}", output.display()))?;
+    println!(
+        "dumped {} tiles ({cols} cols x {rows} rows; index = tile_base_index) to {}",
+        sheet.tiles.len(),
+        output.display()
+    );
+    Ok(())
+}
+
 /// Layer names used for per-layer diagnosis.
 const LAYER_NAMES: &[&str] = &[
     "background",

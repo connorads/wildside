@@ -515,6 +515,23 @@ enum Commands {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Dump an enemy family's sprite tile sheet to a PNG grid (debug; tile
+    /// grid index = tile_base_index). Helps locate sub-sprite tile offsets.
+    DumpEnemySheet {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex level ID providing the palette/theme context (e.g. 01)
+        #[arg(long)]
+        level: String,
+        /// Hex enemy object type (e.g. 0A for Rock Tank)
+        #[arg(long)]
+        enemy: String,
+        /// Output PNG path
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Sweep levels for native vs oracle parity, producing a JSON report.
     Sweep {
         #[arg(long)]
@@ -1608,6 +1625,23 @@ fn main() -> Result<()> {
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
             sweep::capture_frames(&manifest, level_id, &frame_indices, &output, filter)?;
+        }
+        Commands::DumpEnemySheet {
+            rom,
+            dir,
+            level,
+            enemy,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_id =
+                u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 01)")?;
+            let enemy_type =
+                u8::from_str_radix(&enemy, 16).context("enemy must be a hex byte (e.g. 0A)")?;
+            sweep::dump_enemy_sheet(&manifest, level_id, enemy_type, &output)?;
         }
         Commands::VerifyTas {
             rom,
