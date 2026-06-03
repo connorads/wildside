@@ -5019,6 +5019,17 @@ because the source recording replay drifted at frame 0. Keep #146 closed from
 the validated long-probe evidence above; re-record Level 2 death before using
 this shorter bundle for new respawn/loading work.
 
+Follow-up 2026-06-03 selector replay for the #146 short stomp probe:
+`issue-146-level2-stomp-probe` is stale on current native. Fresh full and
+native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 1861-frame recorded/replay traces. The requested `0..120` case derives
+as `stomp_enemy_01_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Keep #146 closed from
+the validated long-probe evidence above; re-record the short stomp route before
+using this saved bundle for new respawn/loading work.
+
 Follow-up 2026-06-03 selector replay for the #146 long probe:
 `issue-146-level2-stomp-long-probe` is also stale on current native. Fresh full
 and native-only `verify-recording` both drift at native replay frame 0, with
