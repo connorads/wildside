@@ -918,6 +918,14 @@ enemy comparison skipped because the oracle captured no enemy snapshots. Its
 requested `0..120` case is `codex-intro-smoke_case_00000_00120`, which passes
 with `likely_subsystems=["none"]`; `case reduce` reports it is already passing.
 This Sega-logo route is non-actionable for #210/#161.
+Follow-up 2026-06-03: selector-picked `debug-current-boot-visuals` is also
+clean. Fresh `verify-recording` passes with `trace_match=true`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and no first trace drift;
+recorded/replay traces are both 2200 frames, with enemy comparison skipped
+because the oracle captured no enemy snapshots. Its requested `0..120` case is
+`debug-current-boot-visuals_case_00000_00120`, which passes with
+`likely_subsystems=["none"]`; `case reduce` reports it is already passing. This
+boot-visuals route is non-actionable for #210/#161.
 Follow-up 2026-06-02: selector-picked `codex-intro-text-frame-probe` also has
 the same clean shape. Fresh `verify-recording` passes with trace/state/frame
 green and no first trace drift; recorded/replay traces are both 523 frames. Its
