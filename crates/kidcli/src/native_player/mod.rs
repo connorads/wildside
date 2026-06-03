@@ -817,6 +817,10 @@ fn render_intro_vdp_trace_overlay(
     level_visuals: &NativeLevelVisuals,
     frame: &mut [u8],
 ) {
+    if !should_render_intro_vdp_trace_overlay(trace, frame) {
+        return;
+    }
+
     let (Some(x_pos), Some(y_pos)) = (trace.kid_x_pos, trace.kid_y_pos) else {
         return;
     };
@@ -851,6 +855,13 @@ fn render_intro_vdp_trace_overlay(
     };
     push_player_sprite(&mut overlay.commands, &object, trace, level_visuals, false);
     render_scene_overlay(&overlay, frame);
+}
+
+fn should_render_intro_vdp_trace_overlay(trace: &NativeTraceFrame, frame: &[u8]) -> bool {
+    matches!(trace.game_mode, GameMode::IntroSequence4)
+        && trace.kid_x_pos.is_some()
+        && trace.kid_y_pos.is_some()
+        && !frame.chunks_exact(3).all(|pixel| pixel == [0, 0, 0])
 }
 
 fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
@@ -5986,11 +5997,35 @@ mod tests {
         let visuals = sample_level_visuals();
         let mut frame = vec![12; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
+        assert!(should_render_intro_vdp_trace_overlay(&trace, &frame));
         render_vdp_trace_overlay(&trace, &visuals, &mut frame);
 
         assert!(
             frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
             "VDP intro sequence shell should retain the carried ASM loc_1AEEC visible kid_gfx overlay",
+        );
+    }
+
+    #[test]
+    fn vdp_intro_sequence_black_frame_suppresses_carried_kid_overlay() {
+        // ASM sub_1C204 fade windows can leave a carried kid_gfx pose in trace
+        // while the VDP frame is all black. The overlay is only for visible
+        // IntroSequence4 shells; drawing the carried pose here leaks a normal
+        // Kid sprite onto the black intro screen.
+        let mut trace = sample_trace(GameMode::IntroSequence4);
+        trace.kid_x_pos = Some(0x0060_0000);
+        trace.kid_y_pos = Some(0x00D0_0000);
+        trace.kid_facing = Some(Direction::Right);
+        trace.kid_on_ground = Some(true);
+        let visuals = sample_level_visuals();
+        let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        assert!(!should_render_intro_vdp_trace_overlay(&trace, &frame));
+        render_vdp_trace_overlay(&trace, &visuals, &mut frame);
+
+        assert!(
+            frame.chunks_exact(3).all(|pixel| pixel == [0, 0, 0]),
+            "black intro VDP frames must remain blank even when trace still carries a kid_gfx pose",
         );
     }
 
