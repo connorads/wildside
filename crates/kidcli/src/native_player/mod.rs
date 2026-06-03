@@ -790,11 +790,15 @@ pub(crate) fn render_vdp_trace_overlay(
     level_visuals: &NativeLevelVisuals,
     frame: &mut [u8],
 ) {
-    if matches!(trace.game_mode, GameMode::IntroSequence4) {
-        render_intro_vdp_trace_overlay(trace, level_visuals, frame);
-        return;
-    }
-
+    // ASM Load_IntroSequence4 (`sub_1B988`) sets `Camera_Y_pos=4` and allocates
+    // a single object running `loc_1C7A0` with `IntroText4` — the holographic
+    // background plus the story-text writer. It never allocates a player/Kid
+    // GfxObjectSlot: the per-glyph kid montage poses belong to
+    // `Load_IntroSequence3` (`unk_1AF24`/`loc_1AEEC`) and `Load_IntroSequence5`
+    // (`loc_1BCD0`), not IntroSequence4. The previous overlay composited a
+    // normal Kid sprite here from a stale carried `kid_gfx` pose
+    // (kid_x/kid_y ~ $60/$D0), which drew a spurious Kid at the bottom-left of
+    // the story screen (#210). No player overlay belongs on IntroSequence4.
     if trace.boot_phase.as_deref() != Some("starting_level")
         || trace.game_mode != GameMode::LevelTransition
     {
@@ -810,58 +814,6 @@ pub(crate) fn render_vdp_trace_overlay(
     if !overlay.commands.is_empty() {
         render_scene_overlay(&overlay, frame);
     }
-}
-
-fn render_intro_vdp_trace_overlay(
-    trace: &NativeTraceFrame,
-    level_visuals: &NativeLevelVisuals,
-    frame: &mut [u8],
-) {
-    if !should_render_intro_vdp_trace_overlay(trace, frame) {
-        return;
-    }
-
-    let (Some(x_pos), Some(y_pos)) = (trace.kid_x_pos, trace.kid_y_pos) else {
-        return;
-    };
-
-    // ASM Load_IntroSequence4 can inherit a live gfx-object pose from the
-    // timeout-restart Load_IntroSequence3 lineage. The core trace already
-    // exposes the oracle-timed `kid_gfx` position; preserve it when the
-    // interactive player takes the VDP render path.
-    let object = NativeObjectSnapshot {
-        kind: NativeObjectKind::Player,
-        x_pos,
-        y_pos,
-        layout_index: None,
-        x_velocity: trace.kid_x_velocity,
-        y_velocity: trace.kid_y_velocity,
-        facing: trace.kid_facing,
-        on_ground: trace.kid_on_ground,
-        hit_points: None,
-        damage_flash: false,
-        palette_variant: 0,
-        stationary: true,
-        shared_walker_state: None,
-        shared_walker_patrol_timer: None,
-        shared_walker_patrol_short_next: None,
-        walk_phase: None,
-        wait_timer: None,
-        debug_fields: std::collections::BTreeMap::new(),
-    };
-    let mut overlay = Scene {
-        background: [0, 0, 0],
-        commands: Vec::new(),
-    };
-    push_player_sprite(&mut overlay.commands, &object, trace, level_visuals, false);
-    render_scene_overlay(&overlay, frame);
-}
-
-fn should_render_intro_vdp_trace_overlay(trace: &NativeTraceFrame, frame: &[u8]) -> bool {
-    matches!(trace.game_mode, GameMode::IntroSequence4)
-        && trace.kid_x_pos.is_some()
-        && trace.kid_y_pos.is_some()
-        && !frame.chunks_exact(3).all(|pixel| pixel == [0, 0, 0])
 }
 
 fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
@@ -6090,48 +6042,29 @@ mod tests {
     }
 
     #[test]
-    fn vdp_intro_sequence_composites_oracle_timed_kid_pose() {
-        // ASM Load_IntroSequence4 can inherit an oracle-timed kid_gfx pose
-        // from the timeout-restart Load_IntroSequence3 lineage. Native trace
-        // exposes that pose through kid_x/kid_y, so the VDP path must
-        // composite it instead of returning the bare tile planes.
+    fn vdp_intro_sequence_4_does_not_overlay_player_sprite_loc_1b988() {
+        // ASM Load_IntroSequence4 (`sub_1B988`, kid.asm:30273) sets
+        // `Camera_Y_pos=4` and allocates a single object running `loc_1C7A0`
+        // with `IntroText4` — the holographic background plus story-text
+        // writer. It allocates NO player/Kid GfxObjectSlot. The carried
+        // `kid_gfx` pose in the trace (kid_x/kid_y ~ $60/$D0) is stale leftover
+        // state from `Load_IntroSequence3`'s `unk_1AF24`/`loc_1AEEC` montage,
+        // not an IntroSequence4 object. Compositing it drew a spurious normal
+        // Kid sprite at the bottom-left of the story screen (#210). The overlay
+        // must leave a non-black IntroSequence4 shell untouched.
         let mut trace = sample_trace(GameMode::IntroSequence4);
         trace.kid_x_pos = Some(0x0060_0000);
         trace.kid_y_pos = Some(0x00D0_0000);
         trace.kid_facing = Some(Direction::Left);
         trace.kid_on_ground = Some(true);
         let visuals = sample_level_visuals();
-        let mut frame = vec![12; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut frame = vec![40; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
-        assert!(should_render_intro_vdp_trace_overlay(&trace, &frame));
         render_vdp_trace_overlay(&trace, &visuals, &mut frame);
 
         assert!(
-            frame.chunks_exact(3).any(|pixel| pixel != [12, 12, 12]),
-            "VDP intro sequence shell should retain the carried ASM loc_1AEEC visible kid_gfx overlay",
-        );
-    }
-
-    #[test]
-    fn vdp_intro_sequence_black_frame_suppresses_carried_kid_overlay() {
-        // ASM sub_1C204 fade windows can leave a carried kid_gfx pose in trace
-        // while the VDP frame is all black. The overlay is only for visible
-        // IntroSequence4 shells; drawing the carried pose here leaks a normal
-        // Kid sprite onto the black intro screen.
-        let mut trace = sample_trace(GameMode::IntroSequence4);
-        trace.kid_x_pos = Some(0x0060_0000);
-        trace.kid_y_pos = Some(0x00D0_0000);
-        trace.kid_facing = Some(Direction::Right);
-        trace.kid_on_ground = Some(true);
-        let visuals = sample_level_visuals();
-        let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
-
-        assert!(!should_render_intro_vdp_trace_overlay(&trace, &frame));
-        render_vdp_trace_overlay(&trace, &visuals, &mut frame);
-
-        assert!(
-            frame.chunks_exact(3).all(|pixel| pixel == [0, 0, 0]),
-            "black intro VDP frames must remain blank even when trace still carries a kid_gfx pose",
+            frame.chunks_exact(3).all(|pixel| pixel == [40, 40, 40]),
+            "IntroSequence4 story shell must stay free of any carried Kid pose overlay",
         );
     }
 

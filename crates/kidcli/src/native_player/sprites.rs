@@ -662,23 +662,6 @@ pub(super) fn player_screen_position(
     )
 }
 
-pub(super) fn push_player_sprite(
-    commands: &mut Vec<DrawCommand>,
-    object: &NativeObjectSnapshot,
-    trace: &NativeTraceFrame,
-    level_visuals: &NativeLevelVisuals,
-    damage_flash_white_phase: bool,
-) {
-    push_player_sprite_with_priority_override(
-        commands,
-        object,
-        trace,
-        level_visuals,
-        damage_flash_white_phase,
-        None,
-    );
-}
-
 pub(super) fn push_player_sprite_with_priority_override(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
