@@ -446,6 +446,18 @@ recorded/replay traces. The requested `0..120` case derives as
 state on Level 00 (player fields=x_pos|x_velocity|y_velocity|movement_state)`.
 Fix settled-recording oracle bootstrap, or use the natural Level 00 route,
 before treating this direct slope probe as authoritative slope gameplay.
+
+Follow-up 2026-06-03 selector replay for #126 natural route:
+`issue-126-level00-walk-right-current` is not a current full-route authority.
+Fresh full and native-only `verify-recording` both drift at native replay frame
+192, with `trace_match=false`, `oracle_state_match=true`,
+`oracle_frame_match=true`, and matching 961-frame recorded/replay traces. The
+requested `0..120` prefix derives as `walk_right_00_case_00000_00120` and
+passes with matching `world.game_mode`, `camera`, `player.position`,
+`entities`, and `events`; `case reduce` therefore reports "already passing".
+Do not patch #126 slope behaviour from this clean prefix, and do not call the
+long natural route green until it is re-recorded or the frame-192 replay drift is
+explained.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
