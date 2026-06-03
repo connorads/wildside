@@ -150,6 +150,15 @@ no enemy snapshots. The requested `0..120` case derives as
 `likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
 Use later title/menu/options audio routes or waveform captures for #003, not
 this clean intro-reset gameplay prefix.
+Follow-up 2026-06-03: selector-picked `issue-003-title-audio-current` has a
+clean selected prefix but a stale later tail. Fresh full and native-only
+`verify-recording` both drift against the cached native trace at frame 3456,
+with `trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`,
+and matching 3600-frame recorded/replay traces. The requested `0..120` case
+derives as `issue-003-title-audio-current_case_00000_00120`, passes with
+`likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
+Re-record this title/menu audio route before using the later tail for #003; do
+not patch from the clean early gameplay prefix.
 Follow-up 2026-06-03: selector-picked
 `issue-003-cold-boot-audio-current-refresh` confirms the same clean cold-boot
 shape. Fresh `verify-recording` passes with `trace_match=true`,
