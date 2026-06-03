@@ -2330,6 +2330,18 @@ the blocked summary. Re-record this route after the current Highwater movement
 fixes, or use a fresh live route, before changing shooter activation, projectile
 rendering, or player overlap response from this evidence.
 
+Note 2026-06-02 selector follow-up for #214: queued recording
+`codex-highwater-berzerker-shooter` is also stale before any gameplay/oracle
+question. Fresh `verify-recording` and `verify-recording --native-only` both
+fail at frame 0 with native trace mismatch while recorded/replay traces are
+121 frames. The requested `0..120` case derives as
+`codex-highwater-berzerker-shooter_case_00000_00120`, but `case verify` fails
+with `likely_subsystems=["recording verification"]`; `case reduce` refuses with
+`source recording replay drifted at frame 0`, and `case summarise` only refreshes
+the blocked summary. Re-record the Berzerker shooter route on current native
+before using it for Highwater shooter activation, projectile rendering, or
+player overlap fixes.
+
 Note 2026-06-02 latest for #214: current committed shooter/barrier audit route
 is gameplay-replayable but still not closed. Native replay passes for
 `issue-214-highwater-shooter-barrier-audit`, focused shooter logic coverage is
