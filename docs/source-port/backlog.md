@@ -1120,6 +1120,18 @@ HP/contact, Level 01 slope state, or shared-walker falling from the stale
 cases; continue #213 with a new non-death upward-contact route that actually
 reaches the live Drips/slime/block interaction.
 
+Note 2026-06-03 follow-up for #213: selector-picked recording
+`codex-level01-walk-right-shared-walker-fall-current-1800` still is not a
+new failing gameplay case. Fresh full verification is native-replayable
+(`trace_match=true`, no trace drift, 1861 recorded/replay frames) but fails the
+recording checkpoint at `level_settle@60` with object counts `native 4 / 4,
+oracle 4 / 6`. Native-only replay passes. The requested 0..120 case derives as
+`walk_right_01_case_00000_00120`, `case verify` passes with
+`likely_subsystems=["none"]`, and `case reduce` reports the case is already
+passing. Do not patch shared-walker falling, RockTank, or Drips behaviour from
+this selector item; it exposes only the known settled Level 01 oracle bootstrap
+gap plus a clean early gameplay prefix.
+
 Note 2026-06-02 follow-up for #213: selector-picked recording
 `codex-issue-213-drips-floor-probe-2000-promoted` is not a gameplay-authoritative
 case source on current `main`. The old recording drifts at native replay frame
