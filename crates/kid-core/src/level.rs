@@ -1748,6 +1748,32 @@ const SUB_2A4C_GRAVITY_STEP_FP: i32 = 0x0000_36B0;
 const SUB_2A4C_SPRITE_TILE_WORD: u16 = 0x8228;
 const SUB_2A4C_SPRITE_COORD_BIAS: i16 = 0x0080;
 
+/// Map a foreground theme to its `ThemeCollision_Index[theme]` bundle filename.
+///
+/// ASM Load_Level (kid.asm:23746) masks the raw FG-theme byte with `$3F`, scales
+/// by 4, and indexes the `ThemeCollision_Index` pointer table (kid.asm:45903).
+/// The bundle exports those per-theme nibble tables to `theme/collision/<name>.bin`
+/// via the `binclude`s at kid.asm:46114-46124, so the filename order mirrors the
+/// pointer-table order exactly.
+#[allow(non_snake_case)]
+pub(crate) fn theme_collision_filename_loc_11C30(foreground_theme: u8) -> Option<&'static str> {
+    let filename = match foreground_theme & 0x0F {
+        0 => "theme0.bin",
+        1 => "sky.bin",
+        2 => "ice.bin",
+        3 => "hill.bin",
+        4 => "island.bin",
+        5 => "desert.bin",
+        6 => "swamp.bin",
+        7 => "mountain.bin",
+        8 => "cave.bin",
+        9 => "forest.bin",
+        10 => "city.bin",
+        _ => return None,
+    };
+    Some(filename)
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_blocks: u16) -> u32 {
@@ -17707,11 +17733,13 @@ impl NativeRuntime {
                 )
             };
         if !layout_path.is_file() {
-            // ASM BlockLayoutDecodeWordsLoc1354E decodes the compressed BLOCK
-            // resource into Level_Layout cells. Native has not ported that
-            // decoder yet, so fail closed instead of treating the raw BLOCK
-            // resource as already-decoded collision cells.
-            return None;
+            // No pre-dumped Level_Layout fixture: decode the collision terrain
+            // natively from the foreground resource + theme collision table.
+            // This is the only terrain source for levels the dumper never
+            // reached (the unreachable bonus levels), so falling back here gives
+            // them a real floor instead of an empty void (closes #246 + the
+            // bonus-level falling-death half of #238).
+            return self.decode_level_layout(level_id);
         }
         let mut data = fs::read(layout_path).ok()?;
         let metadata = fs::read_to_string(metadata_path)
@@ -17722,6 +17750,103 @@ impl NativeRuntime {
             &data,
             metadata.width_blocks,
             metadata.height_blocks,
+        ))
+    }
+
+    /// Decode the level's collision terrain natively, without a pre-dumped
+    /// `Level_Layout` fixture.
+    ///
+    /// Ports the verified terrain-build chain of ASM `Load_Level`
+    /// (kid.asm:23808-23829):
+    ///   1. `decode_saxman` the foreground resource → `Level_terrain_layout`
+    ///      (one skin byte per cell, row-major; the `$118` "screen" stride is
+    ///      just the buffer allocation, real data is `width*height` then
+    ///      zero-padded — verified byte-identical to a live RAM dump for
+    ///      resource 0x01).
+    ///   2. `loc_11C34/loc_11C36`: for each cell build a `Level_Layout` word of
+    ///      `[ThemeCollision_Index[theme][skin] << 4, skin]`.
+    ///
+    /// `// TODO(fidelity): the block-overlay pass (loc_11C7E + sub_127A8) is not
+    /// yet ported, so blocks placed by the level's block layout (smash/ice/
+    /// rubber/mushroom/shooter base cells `$E0xx` and the `$20`/`$xx`-flag
+    /// collision overlays) are absent. The solid terrain floor/walls — which is
+    /// what keeps the player from falling out of bonus levels — is exact.`
+    ///
+    /// Returns `None` when the foreground resource, header, or theme-collision
+    /// table is unavailable, so the caller can fall back to "no grid".
+    pub(crate) fn decode_level_layout(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
+        let header = self.level_header(level_id)?;
+        let resource_level = kid_data::resource_level_id(&self.assets, level_id.0);
+
+        // ASM Load_Level decompresses the foreground layout pointer; the bundle
+        // already exports `decode_saxman(level/foreground/<resource>.bin)` to
+        // `decoded/level/<resource>/foreground.bin`, which is byte-identical to
+        // the live `Level_terrain_layout` skin buffer.
+        let terrain = self
+            .assets
+            .decoded_levels
+            .iter()
+            .find(|decoded| decoded.level_id == resource_level)
+            .or_else(|| {
+                self.assets
+                    .decoded_levels
+                    .iter()
+                    .find(|decoded| decoded.level_id == level_id.0)
+            })?;
+        let terrain_path = self
+            .assets
+            .output_root
+            .join(&terrain.foreground.relative_path);
+        let terrain_bytes = fs::read(terrain_path).ok()?;
+
+        // ASM loc_11C30: collision nibbles come from ThemeCollision_Index[theme].
+        let collision_filename = theme_collision_filename_loc_11C30(header.level_theme)?;
+        let collision_path = self
+            .assets
+            .output_root
+            .join("theme")
+            .join("collision")
+            .join(collision_filename);
+        let collision_index = fs::read(collision_path).ok()?;
+
+        // ASM Load_LevelData loc_15A0: width_blocks = width_screens * 20,
+        // height_blocks = height_screens * 14 + Number_blank_top_rows.
+        let blank_top_rows =
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        let width_blocks = u16::from(header.width_screens).saturating_mul(20);
+        let height_blocks = u16::from(header.height_screens)
+            .saturating_mul(14)
+            .saturating_add(blank_top_rows);
+        if width_blocks == 0 || height_blocks == 0 {
+            return None;
+        }
+        let expected_cells = usize::from(width_blocks) * usize::from(height_blocks);
+        if terrain_bytes.len() < expected_cells {
+            return None;
+        }
+        // The collision table is indexed by skin byte (0..=255). The bundle
+        // tables are trimmed to the last meaningful entry, so pad with zero
+        // (= passable) for any skin byte beyond the table's length, matching the
+        // ROM's unused high-index entries.
+        let mut padded_index = collision_index;
+        if padded_index.len() < 256 {
+            padded_index.resize(256, 0);
+        }
+
+        let cells = level_layout_cells_loc_11C34(
+            &terrain_bytes,
+            &padded_index,
+            width_blocks,
+            height_blocks,
+        );
+        let mut bytes = Vec::with_capacity(cells.len() * 2);
+        for word in cells {
+            bytes.extend_from_slice(&word.to_be_bytes());
+        }
+        Some(terrain::BlockGrid::from_level_layout(
+            &bytes,
+            width_blocks,
+            height_blocks,
         ))
     }
 

@@ -2531,20 +2531,7 @@ impl NativeRuntime {
         foreground_theme: u8,
         terrain_byte: u8,
     ) -> Option<u8> {
-        let filename = match foreground_theme & 0x0F {
-            0 => "theme0.bin",
-            1 => "sky.bin",
-            2 => "ice.bin",
-            3 => "hill.bin",
-            4 => "island.bin",
-            5 => "desert.bin",
-            6 => "swamp.bin",
-            7 => "mountain.bin",
-            8 => "cave.bin",
-            9 => "forest.bin",
-            10 => "city.bin",
-            _ => return None,
-        };
+        let filename = crate::level::theme_collision_filename_loc_11C30(foreground_theme)?;
         let path = self
             .assets
             .output_root
