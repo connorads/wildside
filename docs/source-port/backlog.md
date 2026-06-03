@@ -1767,6 +1767,18 @@ recorded/replay traces. The requested `0..120` case derives as
 because the source recording replay drifted at frame 0. Re-record this #169
 near-pool Drips route on current native before using it as gameplay evidence.
 
+Note 2026-06-03 follow-up for #169: selector-picked recording
+`issue-169-drips-probe-near-resource-pool` is stale before any current Level 2
+Drips/resource-pool gameplay evidence. Fresh full and native-only verification
+both drift at native replay frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 540-frame
+recorded/replay traces. The requested `0..120` case derives as
+`issue-169-drips-probe-near-resource-pool_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Re-record this
+#169 resource-pool Drips route on current native before using it as gameplay
+evidence.
+
 Note 2026-06-03 follow-up for #213: selector-picked recording
 `codex-level2-walk-right-rocktank` is stale before any current Level 2 RockTank
 or walk-right gameplay evidence. Fresh full and native-only verification both
