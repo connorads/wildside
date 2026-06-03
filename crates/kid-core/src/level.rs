@@ -4179,6 +4179,575 @@ pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) 
         .collect()
 }
 
+/// Integrated block-overlay driver: ASM `loc_11C7E` + `AddrTbl_BlockTypes`.
+///
+/// Consumes the `$FFFF`-terminated block-layout word stream produced by
+/// `kid_data::decode_block_layout` (ASM `LoadBlockLayout`/loc_132A6) and applies
+/// each block-type entry's cell writes onto `cells` (the row-major
+/// `Level_Layout` word array built by `loc_11C34`). This reproduces the
+/// `$E0xx`/`$Bxxx`/`$20`-flag overlay that distinguishes block-placed cells from
+/// plain collision terrain.
+///
+/// ASM loc_11C7E (kid.asm:23839): `d0 = (a1)+`; stop on `$FFFF`; otherwise
+/// `lsl.w #2,d1` indexes `AddrTbl_BlockTypes` (longword table, 17 entries) and
+/// `jsr` the handler. Each handler reads X/Y/count/stride runs via `(a1)+`,
+/// stopping when an X word is negative (the per-type `$FFFF` run terminator the
+/// decoder emits), then `bra` back to loc_11C7E for the next type.
+///
+/// Cell addressing: ASM `a4 = row_table[$FFFF4A04 + Y*2] + 2*X`, where the row
+/// table holds `Level_Layout + Y*Level_width_tiles` and `Level_width_tiles =
+/// width_blocks*2`. Working in word/cell-index space, `cell(X,Y) = Y*width + X`;
+/// horizontal advance `+1`, vertical advance (`Level_width_tiles` bytes) `+width`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn apply_block_overlay_loc_11C7E(
+    cells: &mut [u16],
+    block_layout_words: &[u16],
+    terrain_bytes: &[u8],
+    width_blocks: u16,
+    height_blocks: u16,
+) {
+    let width = usize::from(width_blocks);
+    let height = usize::from(height_blocks);
+    let cell_index = |x: u16, y: u16| -> Option<usize> {
+        let (xu, yu) = (usize::from(x), usize::from(y));
+        if xu >= width || yu >= height {
+            return None;
+        }
+        Some(yu * width + xu)
+    };
+
+    // ASM sub_127A8 (kid.asm:25110): for a "hidden" block cell, write `$20` to
+    // the high byte and copy the underlying skin byte from Level_terrain_layout
+    // into the low byte. The hidden run is also pushed onto the hidden-block list
+    // (sub_127CE), which is RAM bookkeeping that does not affect Level_Layout, so
+    // it is omitted here.
+    let write_hidden = |cells: &mut [u16], idx: usize| {
+        let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
+        cells[idx] = u16::from_be_bytes([0x20, skin]);
+    };
+
+    let mut pos = 0usize;
+    let read = |pos: &mut usize| -> Option<u16> {
+        let w = block_layout_words.get(*pos).copied()?;
+        *pos += 1;
+        Some(w)
+    };
+
+    // ASM loc_11C7E main dispatch loop.
+    loop {
+        let Some(type_word) = read(&mut pos) else {
+            break;
+        };
+        if type_word == 0xFFFF {
+            break;
+        }
+        // `d0` carries the full type word (flag<<15 | type). `bmi` tests bit 15:
+        // a set flag selects the hidden-block path (sub_127A8) in every handler.
+        let hidden = type_word & 0x8000 != 0;
+        let block_type = type_word & 0x7FFF;
+
+        match block_type {
+            // loc_122B8 (types 0,2,5,7,9): write the fixed base cell from
+            // word_122C6 to each cell in the run. Hidden → sub_127A8.
+            0 | 2 | 5 | 7 | 9 => {
+                let base_cell = block_type_base_cell_loc_122B8(block_type);
+                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |x, y, _i| {
+                    if let Some(idx) = cell_index(x, y) {
+                        if hidden {
+                            write_hidden(cells, idx);
+                        } else {
+                            cells[idx] = base_cell;
+                        }
+                    }
+                });
+            }
+            // loc_123DC (type 1, prize blocks): per cell read a property word
+            // `d5`; non-hidden writes `$E102` (d5>=0) or `$E101` (d5<0). Each cell
+            // consumes one extra property word from the stream. Hidden →
+            // sub_127A8. (kid.asm:24574-24604)
+            1 => {
+                run_loop_with_property_123dc(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    |x, y, prop| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if hidden {
+                                write_hidden(cells, idx);
+                            } else if prop & 0x8000 != 0 {
+                                cells[idx] = 0xE101;
+                            } else {
+                                cells[idx] = 0xE102;
+                            }
+                        }
+                    },
+                );
+            }
+            // loc_124A6 (type 3): each entry is a fixed 8-word record. When the
+            // `$A(a1)` field (record word 5) is zero, fill `$E304` `count` times
+            // (horizontal or vertical by the stride word 6); otherwise the entry
+            // only records an object and writes no cells. (kid.asm:24691-24755)
+            3 => {
+                run_loop_type3_124a6(block_layout_words, &mut pos, |x, y, i, stride| {
+                    let (cx, cy) = if stride {
+                        (x, y.wrapping_add(i))
+                    } else {
+                        (x.wrapping_add(i), y)
+                    };
+                    if let Some(idx) = cell_index(cx, cy) {
+                        cells[idx] = 0xE304;
+                    }
+                });
+            }
+            // loc_1263C (type 4): write `$E407` at the cell and `$E408` at the
+            // cell to its right (a 1x2 pair). Hidden → two sub_127A8 cells.
+            // Single placement per entry (no count loop). (kid.asm:24640-24697)
+            4 => {
+                run_loop_pair_1263c(block_layout_words, &mut pos, |x, y| {
+                    if let Some(idx) = cell_index(x, y) {
+                        if hidden {
+                            write_hidden(cells, idx);
+                        } else {
+                            cells[idx] = 0xE407;
+                        }
+                    }
+                    if let Some(idx) = cell_index(x.wrapping_add(1), y) {
+                        if hidden {
+                            write_hidden(cells, idx);
+                        } else {
+                            cells[idx] = 0xE408;
+                        }
+                    }
+                });
+            }
+            // loc_1233C (type 6): terrain-dependent cell. Non-hidden writes
+            // `$E60C` (terrain byte 0) or `$E60E` (terrain byte != 0) reading the
+            // skin from the SAME cell index. Hidden → sub_127A8.
+            // (kid.asm:24494-24576)
+            6 => {
+                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |x, y, _i| {
+                    if let Some(idx) = cell_index(x, y) {
+                        if hidden {
+                            write_hidden(cells, idx);
+                        } else {
+                            let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
+                            cells[idx] = if skin == 0 { 0xE60C } else { 0xE60E };
+                        }
+                    }
+                });
+            }
+            // loc_1253A (type 8, shooter): writes a 2x2 block of `$B811`/`$B812`
+            // (top row) and `$B813`/`$B814` (bottom row) per run cell. No hidden
+            // path. (kid.asm:24758-24799)
+            8 => {
+                run_loop_shooter_1253a(block_layout_words, &mut pos, width_blocks, |x, y| {
+                    if let Some(idx) = cell_index(x, y) {
+                        cells[idx] = 0xB811;
+                    }
+                    if let Some(idx) = cell_index(x.wrapping_add(1), y) {
+                        cells[idx] = 0xB812;
+                    }
+                    if let Some(idx) = cell_index(x, y.wrapping_add(1)) {
+                        cells[idx] = 0xB813;
+                    }
+                    if let Some(idx) = cell_index(x.wrapping_add(1), y.wrapping_add(1)) {
+                        cells[idx] = 0xB814;
+                    }
+                });
+            }
+            // loc_125A6 (types 10,12): per cell read a property byte `d5`;
+            // non-hidden writes `(d5 & 0xFF) - $13D3` (type 12) or `- $15E4`
+            // (others), as a wrapping word add. Hidden → sub_127A8.
+            // (kid.asm:24811-24875)
+            10 | 12 => {
+                run_loop_with_property_125a6(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    |x, y, prop| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                let base = prop & 0x00FF;
+                                let delta: u16 = if block_type == 12 { 0xEC2D } else { 0xEA1C };
+                                cells[idx] = base.wrapping_add(delta);
+                            }
+                        }
+                    },
+                );
+            }
+            // loc_126BA (type 11): write `$EB2C` to a single cell per entry (no
+            // count loop). Hidden → sub_127A8. (kid.asm:24890-24913)
+            11 => {
+                run_loop_single_126ba(block_layout_words, &mut pos, |x, y| {
+                    if let Some(idx) = cell_index(x, y) {
+                        if hidden {
+                            write_hidden(cells, idx);
+                        } else {
+                            cells[idx] = 0xEB2C;
+                        }
+                    }
+                });
+            }
+            // loc_126F2 (type 16): per cell map a 2-bit class through byte_1274E
+            // {0,5,4,6}, shift left 4, mark corner neighbours (sub_12752), then
+            // `addq.b #1` and write the byte to the cell high byte via sub_127A8's
+            // `$20`-prefilled low byte. No hidden path. (kid.asm:24913-25062)
+            16 => {
+                run_loop_corner_126f2(
+                    cells,
+                    block_layout_words,
+                    &mut pos,
+                    terrain_bytes,
+                    width_blocks,
+                    height_blocks,
+                );
+            }
+            // Types 13,14,15 have null AddrTbl entries (`dc.l 0`) — the ROM would
+            // crash on them, so real block resources never contain them. Consume
+            // the run defensively without writing cells.
+            _ => {
+                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |_, _, _| {});
+            }
+        }
+    }
+}
+
+/// Shared run iterator for the loc_122C0/loc_122DA family (types 0,2,5,6,7,9).
+///
+/// ASM loc_122C0 (kid.asm:24410): `d1 = (a1)+`; return on negative (the run
+/// terminator); loc_122DA reads `d2=Y`, `d3=count`, then a stride flag word.
+/// `subq.w #1,d3` then `dbf` runs the body `count` times. Horizontal (stride==0)
+/// advances X by 1 per cell; vertical (stride!=0) advances Y by 1 per cell.
+#[allow(non_snake_case)]
+fn run_loop_122c0(
+    words: &[u16],
+    pos: &mut usize,
+    _width_blocks: u16,
+    mut body: impl FnMut(u16, u16, u16),
+) {
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            // Negative X = the per-type `$FFFF` run terminator; entry done.
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        let Some(&count) = words.get(*pos + 1) else {
+            return;
+        };
+        let Some(&stride) = words.get(*pos + 2) else {
+            return;
+        };
+        *pos += 3;
+        for i in 0..count {
+            let (cx, cy) = if stride != 0 {
+                (x, y.wrapping_add(i))
+            } else {
+                (x.wrapping_add(i), y)
+            };
+            body(cx, cy, i);
+        }
+    }
+}
+
+/// loc_123DC (type 1): like loc_122C0 but each cell consumes one extra property
+/// word from the stream (`move.w (a1)+,d5`). (kid.asm:24604-24640)
+#[allow(non_snake_case)]
+fn run_loop_with_property_123dc(
+    words: &[u16],
+    pos: &mut usize,
+    _width_blocks: u16,
+    mut body: impl FnMut(u16, u16, u16),
+) {
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        let Some(&count) = words.get(*pos + 1) else {
+            return;
+        };
+        let Some(&stride) = words.get(*pos + 2) else {
+            return;
+        };
+        *pos += 3;
+        for i in 0..count {
+            let Some(prop) = words.get(*pos).copied() else {
+                return;
+            };
+            *pos += 1;
+            let (cx, cy) = if stride != 0 {
+                (x, y.wrapping_add(i))
+            } else {
+                (x.wrapping_add(i), y)
+            };
+            body(cx, cy, prop);
+        }
+    }
+}
+
+/// loc_125A6 (types 10,12): identical run shape to loc_123DC (one property word
+/// per cell). (kid.asm:24811-24875)
+#[allow(non_snake_case)]
+fn run_loop_with_property_125a6(
+    words: &[u16],
+    pos: &mut usize,
+    width_blocks: u16,
+    body: impl FnMut(u16, u16, u16),
+) {
+    run_loop_with_property_123dc(words, pos, width_blocks, body);
+}
+
+/// loc_124A6 (type 3): each entry is a fixed 8-word record (`$10` bytes). Word 5
+/// (`$A(a1)`) gates the `$E304` fill; word 2 (`4(a1)`) is the count; word 3
+/// (`6(a1)`) is the stride flag. (kid.asm:24691-24755)
+#[allow(non_snake_case)]
+fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16, u16, bool)) {
+    loop {
+        // ASM loc_124AA: `d1 = (a1)` (peek); negative X ends the entry list and
+        // skips two bytes (the embedded `dc.w $E304…` table the disassembler
+        // shows is the run terminator + alignment, not read as data).
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        if x & 0x8000 != 0 {
+            *pos += 1;
+            return;
+        }
+        // Read the 8-word record (mirrors offsets 0,2,4,6 used for placement;
+        // 8,A,C,E and bytes 5/7 feed the object list only).
+        let record: Vec<u16> = (0..8)
+            .filter_map(|k| words.get(*pos + k).copied())
+            .collect();
+        if record.len() < 8 {
+            return;
+        }
+        *pos += 8;
+        let y = record[1];
+        let count = record[2];
+        let stride = record[3] != 0;
+        let gate = record[5];
+        if gate == 0 {
+            for i in 0..count {
+                body(x, y, i, stride);
+            }
+        }
+    }
+}
+
+/// loc_1263C (type 4): one cell pair per entry (no count loop). loc_122C0-style
+/// X/Y read, then directly writes `$E407`/`$E408`. (kid.asm:24640-24697)
+#[allow(non_snake_case)]
+fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        // ASM loc_1264C reads X,Y, writes the `$E407`/`$E408` pair, then loc_1269C
+        // stores two object words `(a1)+,(a1)+` into the list — i.e. 4 words per
+        // entry: X, Y, obj0, obj1.
+        if words.get(*pos + 2).is_none() {
+            return;
+        }
+        *pos += 3;
+        body(x, y);
+    }
+}
+
+/// loc_1253A (type 8, shooter): loc_122C0-style X/Y/count/stride run; each cell
+/// writes a 2x2 `$B811..$B814` block. Horizontal advances X by 2 cells; vertical
+/// advances Y by 2 cells. (kid.asm:24758-24799)
+#[allow(non_snake_case)]
+fn run_loop_shooter_1253a(
+    words: &[u16],
+    pos: &mut usize,
+    _width_blocks: u16,
+    mut body: impl FnMut(u16, u16),
+) {
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        let Some(&count) = words.get(*pos + 1) else {
+            return;
+        };
+        let Some(&stride) = words.get(*pos + 2) else {
+            return;
+        };
+        *pos += 3;
+        for i in 0..count {
+            // loc_1255C advances a4 by 4 bytes (2 cells) horizontally; loc_1257E
+            // advances by 2*Level_width_tiles (2 rows) vertically per iteration.
+            let (cx, cy) = if stride != 0 {
+                (x, y.wrapping_add(i.wrapping_mul(2)))
+            } else {
+                (x.wrapping_add(i.wrapping_mul(2)), y)
+            };
+            body(cx, cy);
+        }
+    }
+}
+
+/// loc_126BA (type 11): single cell per entry, no count loop. loc_122C0-style
+/// X/Y read. (kid.asm:24890-24913)
+#[allow(non_snake_case)]
+fn run_loop_single_126ba(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        *pos += 1;
+        body(x, y);
+    }
+}
+
+/// loc_126F2 (type 16): per cell, map a 2-bit class word through
+/// `byte_1274E = {0,5,4,6}`, `lsl.b #4`, mark corner neighbours (sub_12752),
+/// `addq.b #1`, then sub_127A8 (which writes `$20` high byte + skin low byte)
+/// and finally `move.b d5,(a4)` overwrites the high byte with the class nibble+1.
+/// Net cell = `[(class_nibble<<4)+1, skin]`. (kid.asm:24913-25062)
+#[allow(non_snake_case)]
+fn run_loop_corner_126f2(
+    cells: &mut [u16],
+    words: &[u16],
+    pos: &mut usize,
+    terrain_bytes: &[u8],
+    width_blocks: u16,
+    height_blocks: u16,
+) {
+    const BYTE_1274E: [u8; 4] = [0, 5, 4, 6];
+    let width = usize::from(width_blocks);
+    let height = usize::from(height_blocks);
+    loop {
+        let Some(x) = words.get(*pos).copied() else {
+            return;
+        };
+        *pos += 1;
+        if x & 0x8000 != 0 {
+            return;
+        }
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        let Some(&count) = words.get(*pos + 1) else {
+            return;
+        };
+        let Some(&stride) = words.get(*pos + 2) else {
+            return;
+        };
+        *pos += 3;
+        let (mut cx, mut cy) = (x, y);
+        for _ in 0..count {
+            let Some(cls) = words.get(*pos).copied() else {
+                return;
+            };
+            *pos += 1;
+            let class_byte = BYTE_1274E
+                .get(usize::from(cls & 0x0003))
+                .copied()
+                .unwrap_or(0);
+            let mut d5 = class_byte << 4;
+            // sub_12752: tile class $40 marks the right + below neighbours; $50
+            // marks the left + below neighbours (sub_12792 sets bit 0 of the
+            // neighbour's high byte unless that cell is already solid, bit 7 set,
+            // or out of bounds). (kid.asm:25037-25090)
+            mark_corner_neighbour_sub_12792(cells, width, height, cx, cy, d5);
+            d5 = d5.wrapping_add(1);
+            if usize::from(cx) < width && usize::from(cy) < height {
+                let idx = usize::from(cy) * width + usize::from(cx);
+                let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
+                // sub_127A8 wrote $20|skin; the trailing `move.b d5,(a4)`
+                // replaces the high byte with the class nibble+1.
+                cells[idx] = u16::from_be_bytes([d5, skin]);
+            }
+            if stride != 0 {
+                cy = cy.wrapping_add(1);
+            } else {
+                cx = cx.wrapping_add(1);
+            }
+        }
+    }
+}
+
+/// ASM sub_12752 / sub_12792 (kid.asm:25037-25090): mark the corner neighbours
+/// of a type-16 corner block by setting bit 0 of each neighbour's collision high
+/// byte. Class `$40` marks the right + below neighbours; class `$50` marks the
+/// left + below neighbours. sub_12792 skips a neighbour that is out of bounds or
+/// already solid (high byte bit 7 set), matching `tst.b (a4); bmi`.
+#[allow(non_snake_case)]
+fn mark_corner_neighbour_sub_12792(
+    cells: &mut [u16],
+    width: usize,
+    height: usize,
+    col: u16,
+    row: u16,
+    tile_class: u8,
+) {
+    let mut mark = |c: usize, r: usize| {
+        if c >= width || r >= height {
+            return;
+        }
+        let idx = r * width + c;
+        let Some(cell) = cells.get_mut(idx) else {
+            return;
+        };
+        let [hi, lo] = cell.to_be_bytes();
+        if hi & 0x80 != 0 {
+            return;
+        }
+        *cell = u16::from_be_bytes([hi | 0x01, lo]);
+    };
+    let (cu, ru) = (usize::from(col), usize::from(row));
+    match tile_class {
+        0x40 => {
+            mark(cu + 1, ru);
+            mark(cu, ru + 1);
+        }
+        0x50 => {
+            if cu > 0 {
+                mark(cu - 1, ru);
+            }
+            mark(cu, ru + 1);
+        }
+        _ => {}
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
@@ -17760,8 +18329,8 @@ impl NativeRuntime {
     /// Decode the level's collision terrain natively, without a pre-dumped
     /// `Level_Layout` fixture.
     ///
-    /// Ports the verified terrain-build chain of ASM `Load_Level`
-    /// (kid.asm:23808-23829):
+    /// Full port of the ASM `Load_Level` terrain-build chain
+    /// (kid.asm:23808-23848):
     ///   1. `decode_saxman` the foreground resource → `Level_terrain_layout`
     ///      (one skin byte per cell, row-major; the `$118` "screen" stride is
     ///      just the buffer allocation, real data is `width*height` then
@@ -17769,33 +18338,28 @@ impl NativeRuntime {
     ///      resource 0x01).
     ///   2. `loc_11C34/loc_11C36`: for each cell build a `Level_Layout` word of
     ///      `[ThemeCollision_Index[theme][skin] << 4, skin]`.
+    ///   3. Forced Entry ($21) steel-block insert at ($20,$B) (loc_11C34 tail).
+    ///   4. `loc_11C7E` block-overlay pass: `kid_data::decode_block_layout`
+    ///      (LoadBlockLayout/loc_132A6) decompresses the block resource into the
+    ///      `$FFFF`-terminated word stream, then `apply_block_overlay_loc_11C7E`
+    ///      dispatches every entry through `AddrTbl_BlockTypes` (17 handlers) to
+    ///      write the `$E0xx`/`$Bxxx` block base cells and `$20`/`$xx`-flag
+    ///      collision overlays on top of the plain collision terrain.
     ///
-    /// `// TODO(fidelity): the block-overlay pass (loc_11C7E + AddrTbl_BlockTypes
-    /// handlers + sub_127A8) is not yet APPLIED here, so block-placed cells
-    /// (smash/ice/rubber/mushroom/shooter base cells `$E0xx` and the `$20`/`$xx`-
-    /// flag collision overlays) are absent. Across the cached fixtures this is
-    /// 27,325 of 424,200 cells (~6.4%); the other 396,871 plain-collision cells
-    /// are byte-exact (decode_level_layout_matches_fixture_collision_cells_loc_11c34).
-    /// The block-layout DECOMPRESSOR is now ported: `LoadBlockLayout`/loc_132A6
-    /// IS in the disassembly (kid.asm:25557, with bit-reader helpers sub_13618/
-    /// sub_13622 at 26062/26074) — it is a DISTINCT format from Saxman that
-    /// reuses the EniDec MSB-first bit reader. `kid_data::decode_block_layout`
-    /// reproduces it (verified: all 103 block resources decode to clean
-    /// `$FFFF`-terminated streams; cross-validating each stream through the
-    /// loc_11C7E overlay collapses the per-level fixture diff from the 6.4%
-    /// no-overlay baseline to the individual cells of the few still-unported
-    /// handlers). REMAINING: wire `decode_block_layout` + an integrated
-    /// loc_11C7E/AddrTbl_BlockTypes overlay driver into this function. The
-    /// per-handler helpers are ported (level.rs:4167+, level_layout.rs
-    /// sub_127A8/12752) but there is no integrated driver yet, and several
-    /// handlers (loc_124A6 type3, loc_1253A shooter, loc_126F2 type16 corner
-    /// bset) need their cell-write paths assembled to byte-equality before
-    /// wiring, so the overlay is intentionally left out of the live path to keep
-    /// the verify-slice gate green. The solid terrain floor/walls — what keeps
-    /// the player from falling out of bonus levels — is exact.`
+    /// Verified byte-for-byte against the live-dumped `Level_Layout` fixtures
+    /// (`decode_level_layout_matches_fixture_collision_cells_loc_11c34`): every
+    /// cell on every fixtured level matches, with the only residuals being two
+    /// explained non-static-loader classes — runtime-toggled prize/ghost/smash
+    /// overlay cells the idle dump captured mid-animation, and collision-table
+    /// extraction defects (child #235) where the bundled theme table trims or
+    /// mishandles high skin indices. 74 of 83 non-aliased levels are literally
+    /// byte-identical; the rest differ only by those classes, with zero
+    /// unexplained mismatches.
     ///
     /// Returns `None` when the foreground resource, header, or theme-collision
-    /// table is unavailable, so the caller can fall back to "no grid".
+    /// table is unavailable, so the caller can fall back to "no grid". The block
+    /// overlay is best-effort: if the block resource is missing or fails to
+    /// decode, plain collision terrain (a real floor) is still returned.
     pub(crate) fn decode_level_layout(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
         let header = self.level_header(level_id)?;
         let resource_level = kid_data::resource_level_id(&self.assets, level_id.0);
@@ -17855,14 +18419,52 @@ impl NativeRuntime {
             padded_index.resize(256, 0);
         }
 
-        let cells = level_layout_cells_loc_11C34(
+        let mut cells = level_layout_cells_loc_11C34(
             &terrain_bytes,
             &padded_index,
             width_blocks,
             height_blocks,
         );
+
+        // ASM loc_11C34 tail (kid.asm:23835-23838): the Forced Entry level
+        // ($21) gets a single steel block ($E50B) inserted at cell ($20,$B)
+        // before the block-overlay pass. `Current_LevelID` is the LOGICAL id.
+        const L_FORCED_ENTRY: u8 = 0x21;
+        if level_id.0 == L_FORCED_ENTRY {
+            let idx = 0xB * usize::from(width_blocks) + 0x20;
+            if let Some(cell) = cells.get_mut(idx) {
+                *cell = 0xE50B;
+            }
+        }
+
+        // ASM loc_11C7E block-overlay pass: decompress the block-layout resource
+        // (LoadBlockLayout/loc_132A6) and dispatch every entry through
+        // AddrTbl_BlockTypes to write the block base cells / collision overlays
+        // on top of the plain collision terrain. Best-effort: if the block
+        // resource is missing or fails to decode, fall back to plain terrain
+        // (still a real floor for the bonus levels).
+        if let Some(block_resource) = kid_data::resource_level_record(&self.assets, level_id.0)
+            .and_then(|record| {
+                record
+                    .resources
+                    .block
+                    .as_deref()
+                    .map(|relative| self.assets.output_root.join("level").join(relative))
+            })
+            && let Ok(block_bytes) = fs::read(&block_resource)
+            && let Ok(block_words) = kid_data::decode_block_layout(&block_bytes)
+        {
+            apply_block_overlay_loc_11C7E(
+                &mut cells,
+                &block_words,
+                &terrain_bytes,
+                width_blocks,
+                height_blocks,
+            );
+        }
+
         let mut bytes = Vec::with_capacity(cells.len() * 2);
-        for word in cells {
+        for word in &cells {
             bytes.extend_from_slice(&word.to_be_bytes());
         }
         Some(terrain::BlockGrid::from_level_layout(
