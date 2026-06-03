@@ -1145,6 +1145,17 @@ this selector item; it exposes only the known settled Level 01 oracle bootstrap
 gap plus a clean early gameplay prefix.
 
 Note 2026-06-03 follow-up for #213: selector-picked recording
+`codex-rocktank-contact-level01-walk-right-current-1800` is likewise not a new
+failing RockTank contact case. Fresh full verification replays natively
+(`trace_match=true`, no trace drift, 1861 recorded/replay frames) but fails the
+recording checkpoint at `level_settle@60` with object counts `native 4 / 4,
+oracle 4 / 6`. Native-only replay passes. The requested 0..120 case derives as
+`walk_right_01_case_00000_00120`, `case verify` passes with
+`likely_subsystems=["none"]`, and `case reduce` reports the case is already
+passing. Do not patch RockTank contact or Level 01 movement from this selector
+item; it only repeats the known settled Level 01 oracle bootstrap gap.
+
+Note 2026-06-03 follow-up for #213: selector-picked recording
 `codex-level01-walk-right-shared-walker-fall-pixel-cross-1800` is stale before
 any shared-walker or Level 01 Drips gameplay evidence. Fresh full and
 native-only verification both drift at native replay frame 0, with
