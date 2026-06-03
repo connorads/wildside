@@ -6053,6 +6053,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn loc_b700_helmet_damage_preserves_displayed_lives() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
+        runtime.progression.number_lives = 6;
+        runtime.queue_form_change(PlayerForm::IronKnight);
+        runtime.step_frame(FrameInput::default());
+
+        runtime.apply_damage();
+
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.number_lives, 6,
+            "ASM loc_B72C subtracts from Number_Hitpoints only; lose_life is the separate path that subtracts Number_Lives"
+        );
+        assert_eq!(
+            trace.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints() - 1,
+            "ASM loc_B722 first caps the transform-seeded Iron Knight HP to HelmetHitpoint_Table[6]=5, so the first hit displays four HP without touching lives"
+        );
+        assert_eq!(trace.current_helmet_id, PlayerForm::IronKnight.helmet_id());
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+    }
+
+    #[test]
     fn loc_b786_final_helmet_hp_strips_form_before_life_loss() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
