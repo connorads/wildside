@@ -1272,6 +1272,18 @@ RockTank walk-right route on current native before using it as gameplay
 evidence.
 
 Note 2026-06-03 follow-up for #213: selector-picked recording
+`debug-rocktank-level2-oracle-settle-current` is stale before any current Level
+2 RockTank oracle-settle gameplay evidence. Fresh full and native-only
+verification both drift at native replay frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 1261-frame
+recorded/replay traces. The requested 0..120 case derives as
+`walk_right_01_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record this Level 2
+RockTank oracle-settle route on current native before using it as gameplay
+evidence.
+
+Note 2026-06-03 follow-up for #213: selector-picked recording
 `codex-rocktank-level2-near` is stale before any current Level 2 near-RockTank
 gameplay evidence. Fresh full and native-only verification both drift at native
 replay frame 0, with `trace_match=false`, `oracle_state_match=true`,
