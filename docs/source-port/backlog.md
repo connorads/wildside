@@ -99,6 +99,16 @@ current live "intro/menu silent, options starts" report: the scripted native
 state path queues the expected ASM `Load_IntroSequence1` and `Load_OptionMenu`
 music commands, so remaining work is either live-route drift outside this
 script or GEMS/audio output after the command is issued.
+Follow-up 2026-06-03: selector-picked `issue-003-title-options-audio-audit`
+is native-replayable but not oracle-authoritative at the later Options
+checkpoint. Fresh full verification fails at `options_entry@2760` with Kid
+position native `002E0000,008C0000` versus oracle `00280000,00440000`, while
+native-only replay passes and the report keeps `trace_match=true`,
+`first_trace_drift=null`, and matching 2860-frame traces. The requested `0..120`
+case derives as `issue-003-title-options-audio-audit_case_00000_00120`, passes
+with `likely_subsystems=["none"]`, and `case reduce` reports it is already
+passing. Continue #003 from the later title/options audio route or a waveform
+capture, not from this clean early gameplay prefix.
 
 Follow-up 2026-06-01: the same scripted `audio-events.txt` transcript now logs
 SFX `PlaySound(id)` rows derived from `played_sound_effect_ids` and the existing
