@@ -432,6 +432,20 @@ Focused oracle evidence:
 is CRC-clean through all 180 frames; the next strict state miss is frame 138
 object/contact state (`number_objects` first, then Kid damage at frame 144),
 not the earlier player Y/camera movement drop.
+
+Follow-up 2026-06-03 selector replay for #126: direct mid-slope recording
+`issue-126-level00-slope-right-current` is current on native but still blocked
+as gameplay evidence. Full `verify-recording` fails immediately because
+checkpoint `slope_probe_start@0` reaches oracle with different character
+movement (`native Some(6)`, `oracle Some(3)`), while native-only replay passes.
+The verifier report has `trace_match=true`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no trace drift, and matching 121-frame
+recorded/replay traces. The requested `0..120` case derives as
+`level_00_slope_right_probe_case_00000_00120`, but `case reduce` refuses with
+`settled recording oracle bootstrap reached gameplay with a different initial
+state on Level 00 (player fields=x_pos|x_velocity|y_velocity|movement_state)`.
+Fix settled-recording oracle bootstrap, or use the natural Level 00 route,
+before treating this direct slope probe as authoritative slope gameplay.
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
