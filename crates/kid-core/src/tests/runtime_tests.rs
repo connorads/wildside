@@ -7178,13 +7178,16 @@ mod chunk_09 {
         assert_eq!(rt.block_bounces[0].cell_x, 5);
         assert_eq!(rt.block_bounces[0].cell_y, 3);
         assert_eq!(
-            rt.blocks_hit_this_frame, 1,
-            "ASM loc_10DA4 plays sfx_Rubber_block directly; rubber contact must not also feed the generic sfx_Block_hit counter"
+            rt.blocks_hit_this_frame, 0,
+            "#242: both metal (loc_110D0 -> sfx_Metal_block) and rubber (loc_10DA4 -> sfx_Rubber_block) play their own SFX directly; neither may feed the generic sfx_Block_hit headbutt counter (which played the brick-break crunch on bounces)"
         );
         assert_eq!(
             rt.played_sound_effects,
-            vec![QueuedSoundEffect::RubberBlock],
-            "ASM loc_10DA4 (kid.asm:22692) calls j_PlaySound with sfx_Rubber_block before allocating sub_10DE4"
+            vec![
+                QueuedSoundEffect::MetalBlock,
+                QueuedSoundEffect::RubberBlock
+            ],
+            "ASM loc_110D0 (kid.asm:23021) plays sfx_Metal_block ($12) for the springy bounce and loc_10DA4 (kid.asm:22692) plays sfx_Rubber_block ($56); both are queued from core in block-effect order"
         );
     }
 

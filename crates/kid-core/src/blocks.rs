@@ -3503,7 +3503,12 @@ impl NativeRuntime {
         // Metal block bounce animation
         if let Some((cx, cy)) = slice.metal_block_hit {
             let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cx, cy);
-            self.blocks_hit_this_frame += 1;
+            // ASM loc_110D0 (kid.asm:23021) plays `sfx_Metal_block = $12`
+            // directly for the springy-block bounce. Emit it from core like the
+            // rubber path instead of feeding the generic `sfx_Block_hit`
+            // headbutt counter, which played the brick-break crunch (#242).
+            self.played_sound_effects
+                .push(QueuedSoundEffect::MetalBlock);
             self.block_bounces.push(BlockBounceAnim {
                 cell_x,
                 cell_y,

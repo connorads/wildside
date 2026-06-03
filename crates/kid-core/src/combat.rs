@@ -44,6 +44,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceOuch2,
     VoiceOuch3,
     RubberBlock,
+    MetalBlock,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -70,6 +71,11 @@ impl QueuedSoundEffect {
             // ASM loc_10DA4 (kid.asm:22692): rubber contact plays
             // `sfx_Rubber_block = $56` before spawning the skin-swap worker.
             Self::RubberBlock => 0x56,
+            // ASM loc_110D0 (kid.asm:23021): metal/springy block bounce plays
+            // `sfx_Metal_block = $12` (#242 — native was falling through to the
+            // generic `sfx_Block_hit` headbutt heuristic, i.e. the brick-break
+            // crunch).
+            Self::MetalBlock => 0x12,
             // constants.asm: Red Stealth ability SFX.
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,
