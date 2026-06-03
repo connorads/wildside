@@ -1075,6 +1075,14 @@ position mismatch), so this is native waveform evidence rather than an
 oracle-authoritative gameplay case. The remaining human "silent menu" report
 needs either a live-route reproduction that differs from this scripted path or
 an SDL playback/mixer investigation, not another title/options command fix.
+Rechecked 2026-06-03: the scripted title/options waveform route remains
+native-replayable (`verify-recording --slug
+issue-160-title-options-audio-wave-current --native-only` passes), but full
+oracle verification still diverges at `options_entry@2760` on Kid position
+(`native 002E0000,008C0000`; `oracle 00280000,00440000`). The selector
+`0..120` prefix derives as `issue-003-title-options-audio-audit_case_00000_00120`,
+passes with `likely_subsystems=["none"]`, and reduction reports it is already
+passing, so do not patch from the clean early prefix.
 Follow-up 2026-06-02: `play-native` recording bundles now include
 `audio-diagnostics.txt` so live captures preserve whether GEMS loaded, whether
 SDL audio opened, how many generated frames were queued, and whether queue
