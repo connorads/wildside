@@ -911,6 +911,16 @@ reports `likely_subsystems=["recording verification"]`, and `case reduce`
 refuses because the source recording replay drifted at frame 0. Re-record the
 `loc_12004` BGM route on current main before using it for #160 BGM sequencing
 work.
+Follow-up 2026-06-03: selector-picked `issue-160-audio-gems-pointer-order` is
+stale before it can answer any current GEMS pointer-order question. Fresh full
+and native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 180-frame recorded/replay traces. The requested `0..120` case derives
+as `issue-160-audio-gems-pointer-order_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Re-record the
+GEMS pointer-order route on current main before using it for #160 audio
+follow-up work.
 Follow-up 2026-06-03: selector-picked
 `issue-160-audio-current-settled-after-startonly` is no longer current enough
 to use as settled BGM/SFX evidence. Fresh full and native-only
