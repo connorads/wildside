@@ -973,6 +973,18 @@ case is blocked with the same source-recording drift. Re-record the Level 01
 Drips idle/drop or walk route against current native before treating any of
 these bundles as gameplay-authoritative.
 
+Note 2026-06-03 follow-up for #213: selector-picked recording
+`codex-level01-walk-right-frontier-3600` is also stale before any current
+Level 01 walk/Drips gameplay evidence. Fresh full and native-only verification
+both drift at native replay frame 0, with `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, and matching 3661-frame
+recorded/replay traces. The requested 0..120 case derives as
+`walk_right_01_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record this Level 01
+walk-right frontier route on current native before using it as Drips gameplay
+evidence.
+
 Note 2026-06-02 follow-up for #213: `tmp-issue-213-drips-current` is only
 usable for its first 120 frames. Full and native-only `verify-recording` drift
 at frame 135, but the selector-requested 0..120 case derives as
