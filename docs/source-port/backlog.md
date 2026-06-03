@@ -643,6 +643,17 @@ because the source recording replay drifted at frame 0. Re-record a current
 Iron Knight/Heavy Man block-break route before using this bundle for new #143
 evidence.
 
+Follow-up 2026-06-03 selector replay for #143 positive route:
+`issue-143-level27-ik-smash-probe-5` is also stale on current native. Fresh full
+and native-only `verify-recording` both drift at native replay frame 0, with
+`trace_match=false`, `oracle_state_match=true`, `oracle_frame_match=true`, and
+matching 1200-frame recorded/replay traces. The requested `0..120` case derives
+as `issue_143_level27_ik_smash_probe_5_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 0. Keep #143
+closed from the committed block-break tests and re-record this Level 27 route
+before using it as fresh block-break evidence.
+
 | 144 | [?] | P1 | enemy | Level 2 shooter enemy fires too rapidly | Evidence-needed after the latest live report. Current `main` still passes the ASM-backed `0x0B` shooting-tank cadence and live-spawn regressions, while available Level 01 tank recordings are stale or non-authoritative. Reproduce the reported mouth-open/no-shot or rapid-fire symptom with a deterministic current recording before changing `sub_3C4F8` / `loc_3B730` logic. |
 | 145 | [?] | P1 | render | Level 2 shooter enemy is not rendered correctly | Evidence-needed after the latest live report. Current stateless renderer tests still pass for RockTank body/turret split, shooting turret frame timing, and damage flash inheritance, but the live generated-asset bullet render test is skipped in this harness and existing Level 01 tank recordings are not oracle-authoritative. Capture a fresh Level 01 `$0B` shooting-tank route with generated assets before changing render logic. |
 Note 2026-05-28 for #144/#145: fresh playtest still suspected the Level 2 RockTank mouth-open frame was missing a shot. ASM and the generated Level 0x01 layout distinguish the two families: the first two visible tanks are plain `0x0A` at x=648 and x=200, and `Tank.asm loc_3B41C` only plays the mouth-open sound/animation; the shooting path is only `0x0B` `Tank_Shooting.asm loc_3C50E -> loc_3B730`. Added `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`, which drives a real Level 0x01 `0x0B` tank through the live session asset path and verifies the emitted `TankBullet` renders `stru_3B526` ROM sprite frames, not the generic projectile dot. |
