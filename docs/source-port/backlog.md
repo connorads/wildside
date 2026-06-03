@@ -2456,6 +2456,17 @@ the human report that the sound audibly cuts off; rendered waveform-window
 comparison is still needed. The old `issue-216-prize-block-audio-events` route
 is also polluted by frame-109 damage (`PlaySound(97)`), so block/diamond delay
 still needs a clean no-damage prize-block recording before closure.
+Follow-up 2026-06-02: selector-picked refresh shows the cache-local
+`codex-highwater-flag-transition-frontier` wrapper is no longer authoritative
+for reduced gameplay work. Fresh `verify-recording` and native-only replay both
+drift at frame 299 with native trace mismatch, although recorded/replay traces
+are both 2401 frames. The requested `0..120` case derives as
+`highwater_flag_transition_audit_02_case_00000_00120`, but `case verify` fails
+and `case reduce` blocks with settled-recording oracle bootstrap reaching Level
+02 gameplay from a different initial state (`player x_velocity|y_velocity`,
+`camera x_pos`). Re-record the flag-transition route or fix settled-recording
+oracle bootstrap before treating this cache wrapper as current #216 gameplay or
+waveform evidence.
 Note 2026-06-02 for #216: added a committed clean repro builder,
 `record-scenario --scenario issue216-prize-audio-audit --level 00`, because
 the old generic `prize-block` route walked through an enemy before the audio
