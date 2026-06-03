@@ -771,6 +771,25 @@ Kid `loc_ABA4` helper; first record the reported Iron Knight/Heavy Man or
 Berzerker/Rhino wall-side jump route, then inspect whether the rise comes from
 Iron Knight climb attach/release (`loc_7664`/`loc_A30A`/`loc_A9AA`), Berzerker
 wall contact/charge cleanup, or another wall-sticky latch.
+
+Note 2026-06-03 for #147: narrowed the shared root cause to the
+floor-collision-during-cling re-stick at `crates/kid-core/src/movement.rs:3497-3512`.
+ASM cross-check confirms the *form selection* is faithful: `loc_AD7C`/`loc_AD98`/
+`loc_ADAC` (kid.asm:13581-13599) re-enter the cling loop `loc_AA22` with
+`collision_type=4` exactly when `Current_Helmet > 2` (Red Stealth=3, Iron
+Knight=6, Berzerker=7 — the three reopened forms), which native mirrors with
+`form.helmet_id() > 2`. The single-cell overhang release
+`try_release_wall_cling_overhang` (`movement.rs:4171`, ASM `loc_AB22`/`sub_AE6E`)
+is one-shot and only fires when the wall actually ends, so it is NOT the climb.
+The multi-cell "zoom to top" therefore comes from the form RETAINING its jump's
+upward velocity each frame while the re-stick keeps `on_ground=false` and re-arms
+sticky, so it rises through the stack instead of landing. REMAINING WORK (per the
+hard "probe before changing movement code" rule, deferred twice already): add a
+non-Kid (Red Stealth) wall-side-jump probe scenario, trace `y_pos`/`y_velocity`
+per frame vs oracle to confirm the retained-velocity mechanism and the ROM's
+cling-loop vertical handling at `loc_AA22`, THEN gate the re-stick so it does not
+keep an ascending form airborne through solid cells. Not fixed this session —
+movement physics must not be changed on a hypothesis.
 | 148 | [x] | P2 | player | Kid death animation does not match the original | FIXED: the engine `advance_death_windup_motion` (`crates/kid-core/src/combat.rs:8815`) drives ASM `loc_B7FA` / `loc_B80C` tumble physics — initial `x_vel=$8000`, `y_vel=-$40000`, per-frame gravity `+$3000`. The scene renderer now draws the player sprite directly at that engine-updated object position and must not add the old parabolic y-offset on top. Regression: `loc_b7fa_death_tumble_renderer_uses_engine_position_without_extra_offset`. Refreshed verification 2026-05-19: `cargo test -p kidcli loc_b` passes. |
 | 149 | [x] | P2 | block | Hit blocks do not shake before breaking | FIXED: ASM `sub_1007A` (kid.asm:21345-21599) wobbles a prize block for 31 frames using `PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A` and alternates the visible sprite frames from `stru_101B6` / `stru_10296`. Native `BlockBounceAnim` carries `initial_duration` + `y_offset_px`; the engine walks the ASM delta table each tick for prize blocks and the renderer applies `y_offset` to block draw state. Refreshed 2026-05-24 in commit `6fefd268`: deleted-cell prize blocks also render the ROM wobble sprite while `block_bounces.remaining > 8`, so the block no longer disappears before the broken/wobbling art appears. Regressions: `prize_block_bounce_y_offset_follows_asm_sub_1007a_cumulative_pattern`, `build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write`; companion metal-block check: `metal_block_bounce_y_deltas_loc_11196_match_asm_four_up_four_down`. Verification: `cargo test -p kidcli build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write -- --nocapture`, `cargo test -p kid-core bounce_y -- --nocapture`, and `mise run verify-slice-fast`. |
 
