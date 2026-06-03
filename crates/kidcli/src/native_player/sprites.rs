@@ -1301,7 +1301,7 @@ pub(super) fn push_enemy_sprite(
         Direction::Left => Direction::Right,
     };
 
-    if is_rock_tank_child_snapshot(object_type, object) {
+    if is_rock_tank_child_snapshot(object_type, object, trace) {
         if let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
         {
@@ -1361,8 +1361,23 @@ fn is_rock_tank_type(object_type: u8) -> bool {
     matches!(object_type, 0x0A | 0x0B)
 }
 
-fn is_rock_tank_child_snapshot(object_type: u8, object: &NativeObjectSnapshot) -> bool {
-    is_rock_tank_type(object_type) && object.hit_points.is_none()
+fn is_rock_tank_child_snapshot(
+    object_type: u8,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+) -> bool {
+    // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate the
+    // linked turret as a zeroed GfxObject. Native traces may expose that child
+    // as either `None` or `Some(0)` HP depending on the source path; require a
+    // live same-layout parent so true zero-HP death parents still render their
+    // death animation.
+    is_rock_tank_type(object_type)
+        && matches!(object.hit_points, None | Some(0))
+        && trace.active_objects.iter().any(|candidate| {
+            matches!(candidate.kind, NativeObjectKind::Enemy { object_type: candidate_type } if candidate_type == object_type)
+                && candidate.layout_index == object.layout_index
+                && candidate.hit_points.is_some_and(|hit_points| hit_points > 0)
+        })
 }
 
 fn rock_tank_damage_flash(
@@ -1373,7 +1388,7 @@ fn rock_tank_damage_flash(
     if object.damage_flash {
         return true;
     }
-    if !is_rock_tank_child_snapshot(object_type, object) {
+    if !is_rock_tank_child_snapshot(object_type, object, trace) {
         return false;
     }
 
@@ -1390,13 +1405,16 @@ fn is_rock_tank_parent_without_child_snapshot(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
 ) -> bool {
-    if !is_rock_tank_type(object_type) || object.hit_points.is_none() {
+    if !is_rock_tank_type(object_type)
+        || object.hit_points.is_none()
+        || is_rock_tank_child_snapshot(object_type, object, trace)
+    {
         return false;
     }
     !trace.active_objects.iter().any(|candidate| {
         matches!(candidate.kind, NativeObjectKind::Enemy { object_type: candidate_type } if candidate_type == object_type)
             && candidate.layout_index == object.layout_index
-            && candidate.hit_points.is_none()
+            && is_rock_tank_child_snapshot(object_type, candidate, trace)
     })
 }
 

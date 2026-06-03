@@ -8654,6 +8654,60 @@ mod tests {
     }
 
     #[test]
+    fn rock_tank_renderer_treats_zero_hp_child_snapshot_as_turret_loc_3b372() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 30;
+        let visuals = sample_level_visuals();
+        let body = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x00B3_8000,
+            y_pos: 0x00E0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(0x0000_8000),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let child = NativeObjectSnapshot {
+            y_pos: 0x00D8_0000,
+            hit_points: Some(0),
+            on_ground: None,
+            ..body.clone()
+        };
+        trace.active_objects = vec![body.clone(), child.clone()];
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &body, &trace, &visuals, 0x0A);
+        sprites::push_enemy_sprite(&mut commands, &child, &trace, &visuals, 0x0A);
+
+        assert_eq!(
+            commands.len(),
+            2,
+            "ASM Tank.asm loc_3B372 creates a linked zeroed GfxObject child; native must not draw a synthetic turret plus a zero-HP death body"
+        );
+        assert_eq!(
+            sprite_tiles(&commands[0])[0].tile.tile_index,
+            0x034,
+            "live Tank parent still renders the body frame from stru_3B270"
+        );
+        assert_eq!(
+            sprite_tiles(&commands[1])[0].tile.tile_index,
+            0x020,
+            "zero-HP Tank child should render the turret frame from stru_3B27E, not the parent death frame"
+        );
+    }
+
+    #[test]
     fn live_rock_tank_animation_does_not_phase_shift_by_layout_index() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 3;
