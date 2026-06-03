@@ -1104,6 +1104,14 @@ reported windows: intro-after-cue RMS `0.058487`, title/menu pre-options RMS
 rejects the live SDL queue/output path for the deterministic title/options
 route; if a human still hears silence, capture their exact route with
 `play-native --record ...` and inspect `audio-diagnostics.txt`.
+Rechecked 2026-06-03: the route remains native-replayable
+(`verify-recording --slug issue-160-live-title-options-audio-diagnostics
+--native-only` passes) and the requested `0..120` case passes as
+`issue-160-live-title-options-audio-diagnostics_case_00000_00120` with
+`likely_subsystems=["none"]`; reduction still reports that prefix is already
+passing. Full oracle verification is still not an authoritative gameplay
+wrapper for the later Options checkpoint: `options_entry@2760` diverges on Kid
+position (`native 002E0000,008C0000`; `oracle 00280000,00440000`).
 Follow-up 2026-06-02: selector-picked recording
 `codex-boot-title-idle-audio-current` is also non-actionable for reduced
 gameplay or audio fixes. Its original bundle is trace-stale at native replay
