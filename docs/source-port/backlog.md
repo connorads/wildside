@@ -911,6 +911,16 @@ requested `0..120` case derives as
 `likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
 Do not patch #160 from this clean early intro prefix; keep using it only as
 guard evidence for the frame-173 intro cue.
+Follow-up 2026-06-03: selector-picked `issue-160-intro-audio-wave-current`
+also remains current and clean, but its requested prefix is not actionable.
+Fresh `verify-recording --slug issue-160-intro-audio-wave-current` passes with
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+`first_trace_drift=null`, and matching 260-frame recorded/replay traces. The
+requested `0..120` case derives as
+`issue-160-intro-audio-wave-current_case_00000_00120`, passes with
+`likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
+Use this route as intro waveform guard evidence only; it does not reach
+title/menu/options or expose a new #160 audio mismatch.
 Follow-up 2026-06-03: selector-picked `issue-160-audio-bgm-loc12004` is stale
 before it can answer any `Load_InGame loc_12004` BGM-ordering question. Fresh
 full and native-only `verify-recording` both drift at native replay frame 0,
