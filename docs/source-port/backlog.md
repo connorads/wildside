@@ -1395,6 +1395,19 @@ frame 3270, with `trace_match=false`, `oracle_state_match=true`,
 Re-record this cold-loop wrapper on current native before using its later tail;
 do not patch #210 from the clean early prefix.
 Note 2026-06-03 selector follow-up for #210: selector-picked
+`issue-210-cold-idle-2600` is current for native replay and oracle state, but
+still not an actionable gameplay reducer. Fresh native-only verification passes;
+fresh full `verify-recording` has `trace_match=true`, `oracle_state_match=true`,
+`first_trace_drift=null`, and matching 2601-frame traces, but fails strict pixels
+with `oracle_frame_match=false`. The first visible miss is `demo_boot@700`
+(`changed_pixel_count=37025`, full-frame bounds `0..319,0..223`), while
+`sega_tail@172`, `intro_mid@360`, and `title_timeout@640` are pixel-clean. The
+requested `0..120` case derives as
+`issue_210_cold_boot_idle_demo_loop_case_00000_00120`, passes with
+`likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
+Do not patch gameplay from this clean early prefix; use this bundle as a visual
+parity lead around `demo_boot@700` or capture a fresh manual title/menu route.
+Note 2026-06-03 selector follow-up for #210: selector-picked
 `issue-210-chameleon-address-fix` has the same stale-later-wrapper shape. Fresh
 full and native-only `verify-recording` both drift against the cached native
 trace at frame 2602, with `trace_match=false`, `oracle_state_match=true`,
