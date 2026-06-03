@@ -629,7 +629,7 @@ const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 const INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED: usize = 44;
 const INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED: usize = 60;
-const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C;
+const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C + 18;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
 
 fn build_intro_sequence_2_handoff_vdp_at_elapsed(
@@ -4294,6 +4294,31 @@ mod tests {
             vram_word(&after, 0x1780),
             0,
             "ASM loc_1BA02 calls sub_1C1A2 twice per frame; once d1 reaches zero, sub_1C180 should upload XORed sky/castle art to VRAM $1780",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_2_loc_1BA02_cold_boot_reveal_starts_at_elapsed_151() {
+        let data = IntroSub1B850Data {
+            intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
+            ..empty_intro_data()
+        };
+
+        let preroll_tail =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 1, 1, 150, 0);
+        assert_eq!(
+            vram_word(&preroll_tail, 0x1780),
+            0,
+            "ASM loc_1B9D0 -> sub_1C204 -> loc_1B9F4 -> loc_1BA02 keeps the sky reveal hidden through the preroll; oracle issue-210 frame 700 showed native elapsed 166 matching oracle elapsed 184 before this 18-frame visual delay was accounted for",
+        );
+
+        let first_visible =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 1, 1, 151, 0);
+        assert_ne!(
+            vram_word(&first_visible, 0x1780),
+            0,
+            "ASM sub_1C1A2 pre-increments d1 twice per loc_1BA02 frame; after the ROM-observed hidden handoff delay, elapsed 151 is the first visible sky/castle upload",
         );
     }
 

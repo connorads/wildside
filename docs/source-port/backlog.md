@@ -1407,6 +1407,13 @@ requested `0..120` case derives as
 `likely_subsystems=["none"]`, and `case reduce` reports it is already passing.
 Do not patch gameplay from this clean early prefix; use this bundle as a visual
 parity lead around `demo_boot@700` or capture a fresh manual title/menu route.
+Follow-up 2026-06-03: ASM `Load_IntroSequence2 -> loc_1B9D0 -> loc_1B9F4 ->
+loc_1BA02` accounts for an extra hidden handoff delay before the sky reveal loop.
+Delaying native reveal by 18 frames reduced `demo_boot@700` from a full-screen
+miss to a sparse tile/mask residual (`changed_pixel_count=129`, bounds
+`5..317,3..87`) and kept `mise run verify-slice-fast` green. Strict
+`verify-recording --slug issue-210-cold-idle-2600` is still red; continue from
+intro-2 special sky art/mask/plane parity, not gameplay timing.
 Note 2026-06-03 selector follow-up for #210: selector-picked
 `issue-210-chameleon-address-fix` has the same stale-later-wrapper shape. Fresh
 full and native-only `verify-recording` both drift against the cached native
