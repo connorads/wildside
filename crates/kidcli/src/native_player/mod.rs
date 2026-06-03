@@ -2043,8 +2043,22 @@ fn try_load_generated_level_layout(
     level_id: u8,
 ) -> Result<Option<BlockGrid>> {
     let layout_dir = manifest.output_root.join("level-layout");
-    let layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
-    let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+    let logical_layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
+    let logical_metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+    let (layout_path, metadata_path) =
+        if logical_layout_path.is_file() && logical_metadata_path.is_file() {
+            (logical_layout_path, logical_metadata_path)
+        } else {
+            // ASM Load_Level_Data resolves Current_LevelID through
+            // MapOrder_Index before decoding the BLOCK resource. Prefer
+            // generated logical Level_Layout specialisations when present,
+            // then fall back to the mapped resource layout for aliased levels.
+            let resource_level = resource_level_id(manifest, level_id);
+            (
+                layout_dir.join(format!("{resource_level:02X}.bin")),
+                layout_dir.join(format!("{resource_level:02X}.json")),
+            )
+        };
     if !layout_path.is_file() || !metadata_path.is_file() {
         return Ok(None);
     }
@@ -8379,6 +8393,65 @@ mod tests {
             LevelId(2),
             "N/P debug warp should not enter a level that cannot load visuals and collision"
         );
+    }
+
+    #[test]
+    fn native_session_block_grid_prefers_logical_layout_before_resource_fallback() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
+
+        write_file(fixture._root.path(), "level-layout/04.bin", &[0x00, 0x00])
+            .expect("write logical layout");
+        write_file(
+            fixture._root.path(),
+            "level-layout/04.json",
+            br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
+        )
+        .expect("write logical metadata");
+        write_file(fixture._root.path(), "level-layout/01.bin", &[0x60, 0x42])
+            .expect("write resource layout");
+        write_file(
+            fixture._root.path(),
+            "level-layout/01.json",
+            br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
+        )
+        .expect("write resource metadata");
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x04)
+            .expect("logical level should load generated logical collision");
+        let cell = grid.cell_at(0, 0);
+
+        assert_eq!(
+            cell.collision,
+            CollisionKind::Empty,
+            "generated logical Level_Layout files are parity specialisations and should win over the mapped resource fallback"
+        );
+    }
+
+    #[test]
+    fn native_session_block_grid_falls_back_to_map_order_resource_layout() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
+
+        write_file(fixture._root.path(), "level-layout/01.bin", &[0x60, 0x42])
+            .expect("write resource layout");
+        write_file(
+            fixture._root.path(),
+            "level-layout/01.json",
+            br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
+        )
+        .expect("write resource metadata");
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x04)
+            .expect("logical level should fall back to mapped resource collision");
+        let cell = grid.cell_at(0, 0);
+
+        assert_eq!(
+            cell.collision,
+            CollisionKind::Solid,
+            "ASM Load_Level_Data resolves Current_LevelID through MapOrder_Index when no generated logical Level_Layout exists"
+        );
+        assert_eq!(cell.skin, 0x42);
     }
 
     #[test]

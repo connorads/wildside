@@ -17678,7 +17678,23 @@ impl NativeRuntime {
         level_id: LevelId,
     ) -> Option<terrain::BlockGrid> {
         let layout_dir = self.assets.output_root.join("level-layout");
-        let layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
+        let logical_layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
+        let logical_metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
+        let (layout_path, metadata_path) =
+            if logical_layout_path.is_file() && logical_metadata_path.is_file() {
+                (logical_layout_path, logical_metadata_path)
+            } else {
+                // ASM Load_Level_Data resolves Current_LevelID through
+                // MapOrder_Index before loading the BLOCK resource. Generated
+                // Level_Layout files may already be keyed by logical level;
+                // fall back to the resource level only when the logical
+                // specialisation is absent.
+                let resource_level = kid_data::resource_level_id(&self.assets, level_id.0);
+                (
+                    layout_dir.join(format!("{resource_level:02X}.bin")),
+                    layout_dir.join(format!("{resource_level:02X}.json")),
+                )
+            };
         if !layout_path.is_file() {
             // ASM BlockLayoutDecodeWordsLoc1354E decodes the compressed BLOCK
             // resource into Level_Layout cells. Native has not ported that
@@ -17687,7 +17703,6 @@ impl NativeRuntime {
             return None;
         }
         let mut data = fs::read(layout_path).ok()?;
-        let metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
         let metadata = fs::read_to_string(metadata_path)
             .ok()
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
@@ -17705,7 +17720,13 @@ impl NativeRuntime {
         layout_width: u16,
     ) -> Option<terrain::BlockList> {
         let layout_dir = self.assets.output_root.join("level-layout");
-        let path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
+        let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
+        let path = if logical_path.is_file() {
+            logical_path
+        } else {
+            let resource_level = kid_data::resource_level_id(&self.assets, level_id.0);
+            layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
+        };
         let data = fs::read(path).ok()?;
         Some(terrain::BlockList::from_raw(&data, layout_width))
     }

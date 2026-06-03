@@ -5081,6 +5081,56 @@ mod chunk_02 {
     }
 
     #[test]
+    fn aliased_levels_prefer_logical_generated_block_grid() {
+        let output_root = unique_temp_path("aliased-generated-block-grid");
+        let mut manifest = manifest_with_levels(7);
+        manifest.output_root = output_root.clone();
+        manifest.map_order[6] = 2;
+
+        write_generated_level_layout(&output_root, 6, 1, 1, &[0x00, 0x00]);
+        write_generated_level_layout(&output_root, 2, 1, 1, &[0x60, 0x42]);
+
+        let runtime = NativeRuntime::new(manifest);
+        let grid = runtime
+            .load_block_grid_for_level(LevelId(6))
+            .expect("logical aliased level should load its generated block grid");
+        let cell = grid.cell_at(0, 0);
+
+        assert_eq!(
+            cell.collision,
+            terrain::CollisionKind::Empty,
+            "generated logical Level_Layout files are parity specialisations and should win over the mapped resource fallback"
+        );
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
+    fn aliased_levels_fall_back_to_resource_generated_block_grid() {
+        let output_root = unique_temp_path("aliased-resource-block-grid");
+        let mut manifest = manifest_with_levels(7);
+        manifest.output_root = output_root.clone();
+        manifest.map_order[6] = 2;
+
+        write_generated_level_layout(&output_root, 2, 1, 1, &[0x60, 0x42]);
+
+        let runtime = NativeRuntime::new(manifest);
+        let grid = runtime
+            .load_block_grid_for_level(LevelId(6))
+            .expect("aliased level should fall back to its resource block grid");
+        let cell = grid.cell_at(0, 0);
+
+        assert_eq!(
+            cell.collision,
+            terrain::CollisionKind::Solid,
+            "ASM Load_Level_Data resolves Current_LevelID through MapOrder_Index when no generated logical Level_Layout exists"
+        );
+        assert_eq!(cell.skin, 0x42);
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
     fn aliased_levels_resolve_enemy_layout_from_resource_level() {
         let mut manifest = manifest_with_levels(7);
         manifest.map_order[6] = 2;
