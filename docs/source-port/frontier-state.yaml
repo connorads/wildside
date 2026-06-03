@@ -692,7 +692,7 @@
       },
       {
         "name": "Recording `codex-dummy-boot-audio-current` exposes an actionable dummy boot audio mismatch",
-        "reason": "Rejected 2026-06-02. Fresh verification shows this 240-frame dummy boot prefix is current and oracle-clean. `cargo run -q -p kidcli -- verify-recording --slug codex-dummy-boot-audio-current` passes with `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`, recorded/replay trace len 240, and zero-pixel frame diffs. The requested 0..120 case derives as `codex-dummy-boot-audio-current_case_00000_00120`, and `cargo run -q -p kidcli -- case verify --case codex-dummy-boot-audio-current` passes with matching world mode, camera, player, entities, and events. This route exposes no audio or gameplay mismatch to reduce."
+        "reason": "Rejected 2026-06-02. Fresh verification shows this 240-frame dummy boot prefix is current and oracle-clean. `cargo run -q -p kidcli -- verify-recording --slug codex-dummy-boot-audio-current` passes with `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`, recorded/replay trace len 240, and zero-pixel frame diffs. The requested 0..120 case derives as `codex-dummy-boot-audio-current_case_00000_00120`, and `cargo run -q -p kidcli -- case verify --case codex-dummy-boot-audio-current` passes with matching world mode, camera, player, entities, and events. The selector-picked `codex-dummy-boot-audio-current-refresh` sibling has the same trace/state/frame-clean result and the same passing 0..120 case. This route exposes no audio or gameplay mismatch to reduce."
       },
       {
         "name": "Recording `issue-213-level01-walk-right` is ready to reduce into an authoritative Level 01 walk/Drips route",
