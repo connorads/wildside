@@ -27138,6 +27138,14 @@ mod native_level_terrain_decoder {
         let mut levels_checked = 0_u32;
         let mut clean_cells_checked = 0_u64;
         let mut skipped_aliased = 0_u32;
+        // Quantify the documented loc_11C7E block-overlay gap: cells whose
+        // fixture high byte is NOT the plain `collision[skin] << 4` were written
+        // by the block-overlay pass. The native decoder cannot reproduce them
+        // because the block-layout resource uses a compressor (`LoadBlockLayout`)
+        // whose body is absent from the cached disassembly and is not decoded by
+        // the asset bundle (see the module doc comment + #229 report).
+        let mut overlay_cells_total = 0_u64;
+        let mut total_cells = 0_u64;
 
         for entry in entries.flatten() {
             let name = entry.file_name();
@@ -27262,11 +27270,22 @@ mod native_level_terrain_decoder {
                 }
             }
             clean_cells_checked += plain_matches;
+            overlay_cells_total += cell_count as u64 - plain_cells;
+            total_cells += cell_count as u64;
             assert!(
                 plain_cells == 0 || plain_matches * 1000 >= plain_cells * 995,
                 "level {logical:#04X}: decoder must reproduce >=99.5% of plain collision cells, matched {plain_matches} of {plain_cells}",
             );
         }
+
+        // Surface the overlay gap so a future block-overlay port can confirm it
+        // shrinks to zero. These are the only fixture cells the decoder does not
+        // reproduce byte-for-byte; everything else is byte-equal.
+        eprintln!(
+            "native decoder: byte-exact on {clean_cells_checked} plain cells; \
+             {overlay_cells_total} of {total_cells} cells are block-overlay \
+             (loc_11C7E) writes not yet reproducible natively"
+        );
 
         // Guard against the cache being present but empty: if we found fixtures
         // we must have verified a meaningful number of plain collision cells

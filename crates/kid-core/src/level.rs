@@ -17766,11 +17766,24 @@ impl NativeRuntime {
     ///   2. `loc_11C34/loc_11C36`: for each cell build a `Level_Layout` word of
     ///      `[ThemeCollision_Index[theme][skin] << 4, skin]`.
     ///
-    /// `// TODO(fidelity): the block-overlay pass (loc_11C7E + sub_127A8) is not
-    /// yet ported, so blocks placed by the level's block layout (smash/ice/
+    /// `// TODO(fidelity): the block-overlay pass (loc_11C7E + AddrTbl_BlockTypes
+    /// handlers + sub_127A8) is not applied, so block-placed cells (smash/ice/
     /// rubber/mushroom/shooter base cells `$E0xx` and the `$20`/`$xx`-flag
-    /// collision overlays) are absent. The solid terrain floor/walls — which is
-    /// what keeps the player from falling out of bonus levels — is exact.`
+    /// collision overlays) are absent. Across the cached fixtures this is 27,325
+    /// of 424,200 cells (~6.4%); the other 396,871 plain-collision cells are
+    /// byte-exact (see decode_level_layout_matches_fixture_collision_cells_loc_11c34).
+    /// BLOCKER: the handler bodies ARE in kid.asm (loc_122B8..loc_126F2) and the
+    /// pure helpers are ported (level.rs:4167+, level_layout.rs sub_127A8/12752),
+    /// but the overlay INPUT — the decompressed block-layout word stream — cannot
+    /// be produced natively. The ROM decompresses it via `LoadBlockLayout`
+    /// (kid.asm:23832), whose decompressor body is absent from the cached
+    /// disassembly, and the block resource is NOT the same Saxman format as the
+    /// foreground (its header word is not a control-stream split: feeding
+    /// `level/block/<id>.bin` to decode_saxman fails). The asset bundle exports
+    /// the block resource RAW (export_raw_level_asset), never decoding it. Until
+    /// the block-layout decompressor is identified, the overlay cannot be ported
+    /// to byte-equality without guessing the format. The solid terrain floor/
+    /// walls — what keeps the player from falling out of bonus levels — is exact.`
     ///
     /// Returns `None` when the foreground resource, header, or theme-collision
     /// table is unavailable, so the caller can fall back to "no grid".
