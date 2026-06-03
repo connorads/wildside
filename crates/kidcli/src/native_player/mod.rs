@@ -2538,6 +2538,83 @@ mod tests {
     }
 
     #[test]
+    fn tar_monster_glob_uses_rom_child_sprite_frame_loc_3247e_unk_c781e() {
+        // Backlog #243: the Highwater Tar Monster ($05) shoots a dark tar glob,
+        // not a red dot. ASM Tar_Monster.asm loc_3247E writes `LnkTo_unk_C781E`
+        // = `sprite_frame_vram $0BC,$04,$04,$1E,$08` (decoded from kid.bin).
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: -0x0004_0000,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 120,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::TarMonsterGlob,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let glob_tiles = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { tiles, .. }
+                if tiles.iter().any(|tile| tile.tile.tile_index == 0x0BC) =>
+            {
+                Some(tiles)
+            }
+            _ => None,
+        });
+        assert!(
+            glob_tiles.is_some(),
+            "ASM Tar_Monster.asm loc_3247E should render the glob from ROM tile `unk_C781E` ($0BC)",
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect { width: 4, height: 4, colour, .. } if *colour == [255, 80, 40]
+            )),
+            "Tar Monster globs must not fall back to the generic red enemy projectile dot",
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_child_uses_rom_child_sprite_frame_loc_325e6_unk_c782e() {
+        // Backlog #243: retaliation fragments use `LnkTo_unk_C782E`
+        // = `sprite_frame_vram $0C1,$03,$03,$06,$06` (ASM Tar_Monster.asm loc_325E6).
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x0001_0000,
+            y_velocity: -0x0001_0000,
+            friendly: false,
+            remaining_frames: 60,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::TarMonsterBurstChild,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. }
+                    if tiles.iter().any(|tile| tile.tile.tile_index == 0x0C1)
+            )),
+            "ASM Tar_Monster.asm loc_325E6 should render burst fragments from ROM tile `unk_C782E` ($0C1)",
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect { width: 4, height: 4, colour, .. } if *colour == [255, 80, 40]
+            )),
+            "Tar Monster burst fragments must not fall back to the generic red projectile dot",
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730() {
         let Some(manifest) = cached_generated_manifest() else {

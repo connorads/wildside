@@ -8809,6 +8809,12 @@ impl ActiveEnemy {
             return false;
         }
         if matches!(self.family, EnemyFamily::TarMonster) {
+            // ORIGINAL_QUIRK: the Tar Monster phases in and out by design. ASM
+            // Tar_Monster.asm script `unk_32264` cycles hibernate -> appear
+            // (`loc_322BC`, sfx_Tar_Monster_appears) -> attack -> disappear
+            // (`loc_322DA`, sfx_Tar_Monster_disappears), so it is only on-screen
+            // during Visible/Attacking. The "flicker" reported in playtest is
+            // this faithful emerge/submerge cycle, not a render bug.
             return matches!(
                 self.tar_monster_state,
                 TarMonsterState::Visible | TarMonsterState::Attacking

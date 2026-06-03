@@ -16,6 +16,7 @@ const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
+const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // ASM loc_D734: after loc_D702 allocates the EOL row workers, the ROM runs
@@ -109,6 +110,41 @@ fn drips_drop_child_frame(
         width_px: 0x05,
         height_px: 0x0A,
         tile_base_index: 0x082,
+        tile_sheet,
+    })
+}
+
+fn tar_monster_glob_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    Some(kid_render::SpriteFrame {
+        // ASM Tar_Monster.asm loc_3247E writes `LnkTo_unk_C781E` to the straight
+        // glob. `unk_C781E` is `sprite_frame_vram $0BC,$04,$04,$1E,$08` (decoded
+        // from kid.bin @ $C781E). This is the dark tar comet, not a red dot.
+        origin_x: 0x04,
+        origin_y: 0x04,
+        width_px: 0x1E,
+        height_px: 0x08,
+        tile_base_index: 0x0BC,
+        tile_sheet,
+    })
+}
+
+fn tar_monster_burst_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    Some(kid_render::SpriteFrame {
+        // ASM Tar_Monster.asm loc_325E6 writes `LnkTo_unk_C782E` to each
+        // retaliation fragment. `unk_C782E` is `sprite_frame_vram
+        // $0C1,$03,$03,$06,$06` (decoded from kid.bin @ $C782E) — a small dark
+        // tar blob.
+        origin_x: 0x03,
+        origin_y: 0x03,
+        width_px: 0x06,
+        height_px: 0x06,
+        tile_base_index: 0x0C1,
         tile_sheet,
     })
 }
@@ -3926,6 +3962,53 @@ fn build_game_scene_filtered(
                             width: 4,
                             height: 5,
                             colour: [120, 200, 90],
+                        });
+                    }
+                }
+                ActiveProjectileKind::TarMonsterGlob
+                | ActiveProjectileKind::TarMonsterBurstChild => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&TAR_MONSTER_OBJECT_TYPE)
+                        .and_then(|tar_visuals| {
+                            let frame = match projectile.kind {
+                                ActiveProjectileKind::TarMonsterGlob => {
+                                    tar_monster_glob_child_frame(tar_visuals)?
+                                }
+                                ActiveProjectileKind::TarMonsterBurstChild => {
+                                    tar_monster_burst_child_frame(tar_visuals)?
+                                }
+                                _ => return None,
+                            };
+                            // ASM Tar_Monster.asm loc_324D0/loc_324DC mirrors the
+                            // glob when `x_direction != 0`, so face the sprite by
+                            // travel direction. Burst fragments scatter both ways.
+                            let facing = if projectile.x_velocity < 0 {
+                                Direction::Left
+                            } else {
+                                Direction::Right
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(tar_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        // Asset-missing fallback: keep a dark tar footprint rather
+                        // than reverting to the generic red enemy-projectile dot.
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 3,
+                            y: sy - 3,
+                            width: 6,
+                            height: 6,
+                            colour: [40, 50, 80],
                         });
                     }
                 }

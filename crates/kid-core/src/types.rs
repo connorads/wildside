@@ -101,6 +101,15 @@ pub enum ActiveProjectileKind {
     /// Flying Dragon descent fire child: ASM `Dragon_Flying.asm loc_34BAC`
     /// runs a startup sprite, travel loop, and two-stage cleanup.
     DragonFlyingDescentFire,
+    /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
+    /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
+    /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
+    /// generic red dot.
+    TarMonsterGlob,
+    /// Tar Monster retaliation burst child: ASM `Tar_Monster.asm loc_325E6`
+    /// scatters fragments using sprite `LnkTo_unk_C782E`
+    /// (`sprite_frame_vram $0C1,$03,$03,$06,$06`).
+    TarMonsterBurstChild,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
