@@ -448,6 +448,7 @@ pub(super) fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
         kid_jump_gravity_probe: None,
+        kid_grabbed_by_hand: false,
     }
 }
 
@@ -547,6 +548,7 @@ pub(super) fn shooter_test_slice(camera_x_px: u32, camera_y_px: u32) -> OpeningS
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
         kid_jump_gravity_probe: None,
+        kid_grabbed_by_hand: false,
     }
 }
 

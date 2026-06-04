@@ -2636,6 +2636,17 @@ pub(crate) struct OpeningSliceState {
     pub(crate) kid_flip_follow_on_stages: Option<KidFlipFollowOnStages>,
     /// Focused gate snapshot around the native `apply_jump_and_gravity_vel_only(...)` call.
     pub(crate) kid_jump_gravity_probe: Option<KidJumpGravityProbe>,
+    /// ASM `KidGrabbedByHand` ($FFFFFA28): global flag set by the Hand enemy
+    /// (`Hand.asm loc_32906: st (KidGrabbedByHand).w`) while it grabs Kid and
+    /// cleared on release (`loc_32970: sf (KidGrabbedByHand).w`). The ROM
+    /// consults it in the player jump init (`sub_A432`/`loc_A466`: weakens the
+    /// launch by `+$20000`), crawl entry (`loc_8C70`/`loc_7772`: suppresses
+    /// crawl while Down is held), and the climb B-jump-off (`kid_flip`: skips
+    /// the wall jump-off). Defaults `false` so normal play is unaffected; only
+    /// behaves differently while a live Hand is grabbing. Wiring the Hand AI to
+    /// set this field needs the live enemy step loop (#205); see
+    /// `set_kid_grabbed_by_hand` for the integration point.
+    pub(crate) kid_grabbed_by_hand: bool,
 }
 
 #[cfg(test)]

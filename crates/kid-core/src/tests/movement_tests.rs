@@ -4793,6 +4793,7 @@ mod chunk_11 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -18620,6 +18621,73 @@ mod chunk_12 {
             .kid_jump_gravity_probe
             .expect("buffered grounded jump should record the sub_B168 launch branch");
         assert_eq!(probe.branch, KidJumpGravityBranch::JumpBuffered);
+    }
+
+    /// Issue #219 wiring: ASM sub_A432/loc_A466 weakens the grounded launch by
+    /// `addi.l #$20000,d0` while `KidGrabbedByHand` ($FFFFFA28) is set. The
+    /// flag is now plumbed onto `OpeningSliceState` (via
+    /// `set_kid_grabbed_by_hand`, the Hand-AI #205 integration point) and read
+    /// by the live `apply_jump_and_gravity_vel_only` launch. Verify two things:
+    ///   1. not-grabbed launch is byte-identical to the modelled
+    ///      `initiate_jump` wrapper (no regression for normal play);
+    ///   2. grabbed launch equals that y_vel + $20000 (weaker, less negative),
+    ///      matching `initiate_jump_with_hand_grab(.., true)` and the ROM.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let start_x_vel = 0x0002_0000;
+
+        // Reference y_vel straight from the modelled arithmetic.
+        let (_, expected_ungrabbed) =
+            crate::physics::initiate_jump(start_x_vel, crate::physics::JUMP_HEIGHTS[0]);
+
+        let mut ungrabbed = OpeningSliceState::new(bounds);
+        ungrabbed.player.on_ground = true;
+        ungrabbed.player.y_velocity = 0;
+        ungrabbed.player.x_velocity = start_x_vel;
+        ungrabbed.apply_jump_and_gravity_vel_only(
+            FrameInput::default(),
+            true,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            ungrabbed.player.y_velocity, expected_ungrabbed,
+            "loc_A466: not-grabbed live launch must match initiate_jump (normal play unaffected)",
+        );
+
+        let mut grabbed = OpeningSliceState::new(bounds);
+        grabbed.player.on_ground = true;
+        grabbed.player.y_velocity = 0;
+        grabbed.player.x_velocity = start_x_vel;
+        grabbed.set_kid_grabbed_by_hand(true);
+        grabbed.apply_jump_and_gravity_vel_only(
+            FrameInput::default(),
+            true,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            grabbed.player.y_velocity,
+            expected_ungrabbed.wrapping_add(0x2_0000),
+            "loc_A466: grabbed live launch applies addi.l #$20000,d0 (weaker jump)",
+        );
+        assert!(
+            grabbed.player.y_velocity > ungrabbed.player.y_velocity,
+            "loc_A466: grabbed y_vel ({:#x}) must be less negative than ungrabbed ({:#x})",
+            grabbed.player.y_velocity,
+            ungrabbed.player.y_velocity,
+        );
+        assert!(
+            grabbed.player.y_velocity < 0,
+            "loc_A466: grabbed launch is still upward (negative y_vel)",
+        );
     }
 
     /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches grounded jumps before

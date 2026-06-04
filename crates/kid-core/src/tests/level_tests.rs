@@ -7865,6 +7865,7 @@ mod chunk_02 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.step(
@@ -17213,6 +17214,7 @@ mod chunk_02 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -17294,6 +17296,7 @@ mod chunk_02 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -17365,6 +17368,7 @@ mod chunk_02 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(

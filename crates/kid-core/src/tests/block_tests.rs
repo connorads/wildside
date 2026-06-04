@@ -944,6 +944,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1013,6 +1014,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1083,6 +1085,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1157,6 +1160,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1227,6 +1231,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1304,6 +1309,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_ceiling_collision(
@@ -1390,6 +1396,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -1455,6 +1462,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -1536,6 +1544,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -1596,6 +1605,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH, true);
@@ -1656,6 +1666,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -1713,6 +1724,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -1770,6 +1782,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, false);
@@ -12498,6 +12511,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -12558,6 +12572,7 @@ mod chunk_04 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         // No floor under player → should leave ground and reset terrain type

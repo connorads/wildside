@@ -2595,6 +2595,7 @@ impl OpeningSliceState {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         }
     }
 
@@ -2658,7 +2659,23 @@ impl OpeningSliceState {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         }
+    }
+
+    /// Integration point for the Hand enemy AI (#205).
+    ///
+    /// ASM `KidGrabbedByHand` ($FFFFFA28) is a global flag the Hand object sets
+    /// while it is grabbing Kid (`Hand.asm loc_32906: st (KidGrabbedByHand).w`)
+    /// and clears on release (`loc_32970: sf (KidGrabbedByHand).w`). The native
+    /// Hand state machine models the same grab window as
+    /// `HandState::Grabbing`. Once the live enemy step loop exists (#205), it
+    /// should call this each frame with `enemy.hand_state == HandState::Grabbing`
+    /// for any active Hand so the player jump/crawl/climb paths read the flag.
+    /// Until then the field stays `false` and player behaviour is unchanged.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn set_kid_grabbed_by_hand(&mut self, grabbed: bool) {
+        self.kid_grabbed_by_hand = grabbed;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -4838,7 +4855,14 @@ impl OpeningSliceState {
             // Native mirrors x_vel into y_vel earlier in the frame, so the
             // grounded jump gate cannot require y_vel >= 0.
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens the launch by
+            // `+$20000`. The flag defaults false (no live Hand grab in the
+            // current loop), so not-grabbed play is byte-identical to before.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -4864,7 +4888,13 @@ impl OpeningSliceState {
         // Jump buffer initiation
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens the buffered
+            // launch by `+$20000`. Defaults false → not-grabbed play unchanged.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -5235,7 +5265,12 @@ impl OpeningSliceState {
     ) {
         if self.player.on_ground && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens launch by `+$20000`.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -5250,7 +5285,12 @@ impl OpeningSliceState {
 
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens launch by `+$20000`.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -5297,7 +5337,12 @@ impl OpeningSliceState {
         // Jump initiation (same as update_vertical_motion)
         if self.player.on_ground && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens launch by `+$20000`.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -5313,7 +5358,12 @@ impl OpeningSliceState {
         // Jump buffer initiation
         if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            // ASM sub_A432/loc_A466: KidGrabbedByHand weakens launch by `+$20000`.
+            let (new_x_vel, y_vel) = physics::initiate_jump_with_hand_grab(
+                self.player.x_velocity,
+                jump_height,
+                self.kid_grabbed_by_hand,
+            );
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;

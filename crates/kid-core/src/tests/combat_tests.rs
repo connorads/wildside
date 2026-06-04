@@ -13174,6 +13174,7 @@ mod chunk_05 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -13245,6 +13246,7 @@ mod chunk_05 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -13381,6 +13383,7 @@ mod chunk_05 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         // Trigger + first tick
@@ -13463,6 +13466,7 @@ mod chunk_05 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -13715,6 +13719,7 @@ mod chunk_05 {
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
             kid_jump_gravity_probe: None,
+            kid_grabbed_by_hand: false,
         };
 
         // Trigger twice while standing
