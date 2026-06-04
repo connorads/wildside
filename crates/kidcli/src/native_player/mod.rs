@@ -10074,6 +10074,52 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_keeps_rock_tank_death_body_visible_loc_3b480() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0x10 + 0x08 + 0x3C),
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+        let tank_death_command = scene
+            .commands
+            .iter()
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 84)
+                )
+            })
+            .expect("ASM Tank.asm loc_3B480 keeps stru_3B29A visible before deletion");
+
+        match tank_death_command {
+            DrawCommand::Sprite { tile_sheet, .. } => assert_eq!(
+                tile_sheet.tiles[0].pixels[0], 84,
+                "ASM Tank.asm loc_3B480 should render the first stru_3B29A body frame instead of disappearing on the fatal hit frame"
+            ),
+            other => panic!("expected Tank death sprite command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn fire_demon_diamond_and_armadillo_death_snapshots_select_rom_frames() {
         let visuals = sample_level_visuals();
         let trace = sample_trace(GameMode::InGame);
