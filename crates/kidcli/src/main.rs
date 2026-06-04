@@ -71,7 +71,9 @@ use scenarios::{
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
-    issue_216_prize_audio_audit_scenario, issue_249_juggernaut_wall_jump_audit_scenario,
+    issue_216_prize_audio_audit_scenario, issue_249_blw2_left_pit_wall_jump_audit_scenario,
+    issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
+    issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
     stomp_enemy_scenario, walk_right_scenario,
@@ -140,6 +142,10 @@ enum RecordScenarioKind {
     Issue249JuggernautWallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall while pulsing jump (#249).
     Issue249JuggernautWallJumpAudit,
+    /// drive Juggernaut/Rhino into Blue Lake Woods 2's left pit wall without jump (#249).
+    Issue249Blw2LeftPitWallNoJumpAudit,
+    /// drive Juggernaut/Rhino into Blue Lake Woods 2's left pit wall while pulsing jump (#249).
+    Issue249Blw2LeftPitWallJumpAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2553,6 +2559,12 @@ fn build_record_scenario(
         RecordScenarioKind::Issue249JuggernautWallJumpAudit => {
             issue_249_juggernaut_wall_jump_audit_scenario()
         }
+        RecordScenarioKind::Issue249Blw2LeftPitWallNoJumpAudit => {
+            issue_249_blw2_left_pit_wall_no_jump_audit_scenario()
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallJumpAudit => {
+            issue_249_blw2_left_pit_wall_jump_audit_scenario()
+        }
     }
 }
 
@@ -2620,6 +2632,12 @@ fn record_scenario_command(
         }
         RecordScenarioKind::Issue249JuggernautWallJumpAudit => {
             "issue249-juggernaut-wall-jump-audit"
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallNoJumpAudit => {
+            "issue249-blw2-left-pit-wall-no-jump-audit"
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallJumpAudit => {
+            "issue249-blw2-left-pit-wall-jump-audit"
         }
     };
     let mut command = format!(
@@ -2918,6 +2936,7 @@ mod tests {
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
     use crate::recording;
+    use crate::scenarios::DynamicStartPosition;
     use crate::verify::verify_soak_level_10m;
     use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
     use kid_data::{
@@ -4721,9 +4740,8 @@ AddrTbl_LevelNames:
         const RIGHT: u8 = 1 << 3;
         const JUMP: u8 = 1 << 4;
         assert_eq!(scenario.script[60], RIGHT);
-        assert_eq!(
-            scenario.script.iter().any(|buttons| buttons & JUMP != 0),
-            false,
+        assert!(
+            !scenario.script.iter().any(|buttons| buttons & JUMP != 0),
             "the audit must reproduce wall contact without any jump edge"
         );
     }
@@ -4766,6 +4784,70 @@ AddrTbl_LevelNames:
         assert_eq!(scenario.script[120] & (RIGHT | JUMP), RIGHT | JUMP);
         assert_eq!(
             scenario.script[122] & JUMP,
+            0,
+            "jump release creates the next rising edge"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_issue249_blw2_left_pit_wall_no_jump_targets_reported_pit() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::Issue249Blw2LeftPitWallNoJumpAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(
+            scenario.slug,
+            "issue_249_blw2_left_pit_wall_no_jump_audit_01"
+        );
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x01),
+            "the reported rubber-block drop pit is in Blue Lake Woods 2, not the older Highwater route"
+        );
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 352, y: 560 }),
+            "block-grid scan pins the left pit wall at x=320, y=160..576"
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 240, y: 448 })
+        );
+        assert_eq!(scenario.playtest_form, Some(5));
+        const LEFT: u8 = 1 << 2;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[60], LEFT);
+        assert!(
+            scenario.script.iter().all(|buttons| buttons & JUMP == 0),
+            "the no-jump audit must isolate any automatic wall launch"
+        );
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "left_pit_wall_hold_loc_aba4"),
+            "ASM loc_ABA4 is the pull-up gate this scenario is meant to audit"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_issue249_blw2_left_pit_wall_jump_pulses_jump() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::Issue249Blw2LeftPitWallJumpAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "issue_249_blw2_left_pit_wall_jump_audit_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert_eq!(scenario.playtest_form, Some(5));
+        const LEFT: u8 = 1 << 2;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[12] & (LEFT | JUMP), LEFT | JUMP);
+        assert_eq!(
+            scenario.script[14] & JUMP,
             0,
             "jump release creates the next rising edge"
         );

@@ -1259,6 +1259,66 @@ pub fn issue_249_juggernaut_wall_jump_audit_scenario() -> DynamicScenario {
     }
 }
 
+fn issue_249_blw2_left_pit_wall_scenario_for(slug: &str, pulse_jump: bool) -> DynamicScenario {
+    const FRAME_COUNT: usize = 180;
+    const LEFT: u8 = 1 << 2;
+    const JUMP: u8 = 1 << 4;
+    const WALL_HOLD_END: usize = 179;
+    const JUMP_START: usize = 12;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, WALL_HOLD_END, LEFT);
+    if pulse_jump {
+        let mut frame = JUMP_START;
+        while frame + 2 < FRAME_COUNT {
+            script[frame] = LEFT | JUMP;
+            script[frame + 1] = LEFT | JUMP;
+            script[frame + 2] = LEFT;
+            frame += 3;
+        }
+    }
+
+    DynamicScenario {
+        slug: slug.into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "left_pit_wall_contact_loc_a8de".into(),
+                frame_index: 30,
+            },
+            DynamicCheckpoint {
+                label: "left_pit_wall_hold_loc_aba4".into(),
+                frame_index: 90,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        // Level 01's rubber-block drop pit has a long left wall at block col
+        // 20, rows 10..35 (x=320, y=160..576). Spawn beside the wall so #249
+        // probes the reported pit, not the older Highwater right-wall route.
+        start_position: Some(DynamicStartPosition { x: 352, y: 560 }),
+        camera_position: Some(DynamicStartPosition { x: 240, y: 448 }),
+        playtest_form: Some(5),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
+pub fn issue_249_blw2_left_pit_wall_no_jump_audit_scenario() -> DynamicScenario {
+    issue_249_blw2_left_pit_wall_scenario_for(
+        "issue_249_blw2_left_pit_wall_no_jump_audit_01",
+        false,
+    )
+}
+
+pub fn issue_249_blw2_left_pit_wall_jump_audit_scenario() -> DynamicScenario {
+    issue_249_blw2_left_pit_wall_scenario_for("issue_249_blw2_left_pit_wall_jump_audit_01", true)
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
