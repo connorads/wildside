@@ -1738,6 +1738,18 @@ case derives as `issue-213-drips-camera-only_case_00000_00064`, but
 Re-record a longer current Level 01 Drips/slime/metal-block route before using
 this camera-only bundle as #213 evidence.
 
+Note 2026-06-04 selector follow-up for #213: selector-picked recording
+`issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
+comparison. Fresh full and native-only `verify-recording` both fail at frame 0
+with `recording replay drifted at frame 0 (native trace frame mismatch)`. The
+cached report has `trace_match=false`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no frame diffs, and matching 512-frame
+recorded/replay traces. The requested `0..120` case derives as
+`issue-213-drips-floor-probe-512_case_00000_00120`, but `case verify` reports
+`likely_subsystems=["recording verification"]`, and `case reduce` refuses
+because the source recording replay drifted at frame 0. Re-record a current
+Level 01 Drips floor/slime route before using this bundle as #213 evidence.
+
 Note 2026-05-31 for #213: natural settled Level 01 idle comparison initially hit an earlier enemy-roster divergence before any Drips were active. Native recording settle handed frame 0 to the trace one live frame too early: the first RockTank body at layout index 1 stayed at `$00A40000` while oracle had already run `Tank.asm loc_3B40A` into the shared walker and reached `$00A48000`, with the turret child still at `$00A40000` until the next hibernate sync (`loc_3C03A/loc_3C044`). Fixed `settle_recording_oracle_warp_live_window(LevelId(1))` to wait `ORACLE_SETTLED_WARP_LIVE_FRAMES + 1`, added `settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase`, and verified `.cache/recordings/issue-213-level01-idle-native/scenario.json` with `tas-diff --frame-start 0 --frame-end 180 --frontier-kind enemy --only-divergent`: 180/180 match. The Drips/slime collision repro remains open; this removes the earlier Level 01 timing blocker and should make the next Drips probe trustworthy.
 
 Note 2026-05-31 for #213: lower-floor probe `.cache/scenarios/issue-213-drips-floor-probe.json` exposed a native enemy-loading mismatch before Drips movement could be judged. ASM `Manage_EnemyLoading loc_36900` gates post-initial-pass spawns with `$FFFFFB51`, skipping enemies already inside the visible inner box (`x=$FFE0..$0160`, `y=$FFE0..$0100`). Native only used the wider activation window, so both Drips controllers at layout indices 7/8 popped into the probe. Added native `enemy_loading_initial_pass_complete` and the loc_36900 inner-window suppression; regression `settled_recording_probe_level_one_suppresses_inner_visible_drips_spawn` pins index 7. Re-ran `tas-diff --scenario .cache/scenarios/issue-213-drips-floor-probe.json --frame-start 0 --frame-end 4 --frontier-kind enemy --only-divergent`: native now has only the index-8 Drips controller (number_objects 6 vs oracle 5), so the remaining blocker is the status/lifecycle path that leaves oracle index 8 non-visible while native still exposes it.
