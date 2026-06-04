@@ -1123,7 +1123,6 @@ pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_projectile_dp_collision_word_loc_1EA0(object_meta_low_byte_3a: u8) -> u16 {
     // ASM loc_1EA0 (kid.asm:3665): the Diamond Power pass swaps d7, reads
@@ -2467,15 +2466,14 @@ impl NativeRuntime {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut i16) -> bool {
     // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` (loop if decremented D0 != -1).
     *remaining_bounces = remaining_bounces.wrapping_sub(1);
     *remaining_bounces != -1
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionProjectileOutOfRangeLoc3E314 {
     KeepAlive,
     Delete,
@@ -2503,7 +2501,6 @@ pub(crate) fn lion_projectile_screen_range_delete_loc_3e314(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(clippy::manual_range_contains)]
 pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     x_velocity: i32,
@@ -2524,19 +2521,16 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     (x_velocity, y_velocity)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn lion_projectile_x_reflection_vel_loc_3e2a4(x_velocity: i32) -> i32 {
     // ASM Lion.asm loc_3E2A4: negate x_vel on wall collisions.
     -x_velocity
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn lion_projectile_y_reflection_vel_loc_3e2c8(y_velocity: i32) -> i32 {
     // ASM Lion.asm loc_3E2C8: negate y_vel on floor/ceiling collisions.
     -y_velocity
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_projectile_bounce_velocities_loc_3e29e(
     x_velocity: i32,
     y_velocity: i32,
@@ -2552,7 +2546,6 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e29e(
     (bounced_x_velocity, x_velocity)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
     match cell.collision {
         terrain::CollisionKind::SlopeUp => 0x14,
@@ -2561,7 +2554,6 @@ fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_projectile_bounce_velocity_dispatch_loc_3e266(
     h_blocked: bool,
     v_blocked: bool,
@@ -2587,7 +2579,6 @@ pub(crate) fn lion_projectile_bounce_velocity_dispatch_loc_3e266(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_projectile_terrain_collision_id_loc_3e260(
     h_blocked: bool,
     v_blocked: bool,

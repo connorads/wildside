@@ -563,34 +563,34 @@ pub struct NativeRuntime {
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteSubE1330 {
     pub(crate) queued_bytes: [u8; 3],
     pub(crate) preserves_a0: bool,
     pub(crate) preserves_d0: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteSubE1334 {
     pub(crate) queued_bytes: [u8; 2],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteSubE1338 {
     pub(crate) queued_bytes: [u8; 2],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteSubE133C {
     pub(crate) queued_bytes: [u8; 0],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverZ80HandshakeLocE136C {
     pub(crate) bus_request_register: u32,
     pub(crate) bus_latch_register: u32,
@@ -603,8 +603,8 @@ pub(crate) struct SoundDriverZ80HandshakeLocE136C {
     pub(crate) delay_iterations: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverUploadSubE13DA {
     pub(crate) source_relative_path: &'static str,
     pub(crate) destination_start: u32,
@@ -617,8 +617,8 @@ pub(crate) struct SoundDriverUploadSubE13DA {
     pub(crate) preserves_a1: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverResetSubE1416 {
     pub(crate) requests_z80_reset: bool,
     pub(crate) reset_assert_delay_iterations: u32,
@@ -626,8 +626,8 @@ pub(crate) struct SoundDriverResetSubE1416 {
     pub(crate) releases_z80_reset: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverBeginWriteSubE143A {
     pub(crate) command_head_address: u32,
     pub(crate) ring_buffer_address: u32,
@@ -637,23 +637,23 @@ pub(crate) struct SoundDriverBeginWriteSubE143A {
     pub(crate) waits_for_bus_grant: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteCommandSubE1482 {
     pub(crate) queued_bytes: [u8; 2],
     pub(crate) next_write_index: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteByteSubE148E {
     pub(crate) queued_byte: u8,
     pub(crate) next_write_index: u8,
     pub(crate) committed_write_index: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteLongLowByteSubE149C {
     pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
     pub(crate) write: SoundDriverWriteByteSubE148E,
@@ -661,8 +661,8 @@ pub(crate) struct SoundDriverWriteLongLowByteSubE149C {
     pub(crate) restores_previous_sr: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWritePointerSubE14AC {
     pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
     pub(crate) writes: [SoundDriverWriteByteSubE148E; 3],
@@ -670,8 +670,8 @@ pub(crate) struct SoundDriverWritePointerSubE14AC {
     pub(crate) restores_previous_sr: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteCommandAndByte {
     pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
     pub(crate) command_write: SoundDriverWriteCommandSubE1482,
@@ -680,8 +680,8 @@ pub(crate) struct SoundDriverWriteCommandAndByte {
     pub(crate) restores_previous_sr: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteCommandAndTwoBytes {
     pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
     pub(crate) command_write: SoundDriverWriteCommandSubE1482,
@@ -690,8 +690,8 @@ pub(crate) struct SoundDriverWriteCommandAndTwoBytes {
     pub(crate) restores_previous_sr: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SoundDriverWriteCommandAndThreeBytes {
     pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
     pub(crate) command_write: SoundDriverWriteCommandSubE1482,
@@ -700,7 +700,6 @@ pub(crate) struct SoundDriverWriteCommandAndThreeBytes {
     pub(crate) restores_previous_sr: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlaneClearPassSetupLoc1698 {
     pub(crate) target_addr: u32,
@@ -708,8 +707,8 @@ pub(crate) struct PlaneClearPassSetupLoc1698 {
     pub(crate) next_source_longword: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlaneClearWordFillLoc16B6 {
     pub(crate) target_addr: u32,
     pub(crate) next_addr: u32,
@@ -1220,7 +1219,6 @@ struct PendingEnemyCollision {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 enum PendingEnemyCollisionTarget {
     Parent,
     ChildAttachment,

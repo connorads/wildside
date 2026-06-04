@@ -196,7 +196,6 @@ pub(crate) const SPRITE_TABLE_BASE_SENTINEL_LOC_B42: u32 = 0xFFFF_0000;
 #[allow(dead_code)]
 pub(crate) const SPRITE_TABLE_EMPTY_CLEAR_BYTES_LOC_B42: u32 = 8;
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {
     pub(crate) visited_slots: [u32; 5],
@@ -1091,6 +1090,7 @@ pub(crate) struct PauseMenuSpriteEntrySub6874 {
 
 /// Result of the pause-menu gate check at sub_6874 / loc_687C.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuGateLoc687C {
     /// Game_Paused == 0 → sub_6874 returns immediately (rts).
     NotPaused,
@@ -1144,6 +1144,7 @@ pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
 /// Number of bytes per iteration of the pause menu art copy inner loop.
 /// ASM loc_690C (kid.asm:6622-6631): 8 × `move.l (a0)+,(a6)` = 32 bytes per
 /// iteration, copying uncompressed tile art to VDP data port.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C: u32 = 8 * 4;
 
 /// Compute the total byte count for the pause menu uncompressed art DMA.
@@ -1163,6 +1164,7 @@ pub(crate) fn pause_menu_art_total_bytes_loc_690C(header_word: u16) -> u32 {
 /// Layout for the pause menu's plane-tile save/restore, describing how many
 /// word-reads per row and whether the menu wraps around the plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuPlaneColumnLayout {
     /// Tile column of the menu's left edge within the 64-tile-wide plane A.
     pub(crate) tile_col: u16,
@@ -1306,6 +1308,7 @@ pub(crate) fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32)
 /// word-read loops (loc_69A0/loc_69AE + loc_69C0) when the menu wraps
 /// around the 64-tile plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuTileSaveRow {
     /// VDP read command for the start of this row.
     pub(crate) vdp_read_cmd: u32,
@@ -1364,6 +1367,7 @@ pub(crate) fn pause_menu_tile_save_plan_loc_695C(
 /// + lea    (MapUnc_PauseMenu_Restart).l,a1
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuTextSelectionRestartText {
     /// Number_Lives <= 1 — player cannot restart, only give up.
     GiveUp,
@@ -1438,6 +1442,7 @@ pub(crate) fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
 /// word-write loops (loc_6A5A/loc_6A64 + loc_6A76) when the menu wraps
 /// around the 64-tile plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuTextWriteRow {
     /// VDP write command for the start of this row.
     pub(crate) vdp_write_cmd: u32,
@@ -1501,6 +1506,7 @@ pub(crate) fn pause_menu_text_write_plan_loc_69D2(
 /// Structurally identical to [`PauseMenuTextWriteRow`] — the ROM reuses the
 /// same VDP write address computation and column-reset mask.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuTileRestoreRow {
     /// VDP write command for the start of this row.
     pub(crate) vdp_write_cmd: u32,
@@ -1587,6 +1593,7 @@ pub(crate) fn pause_menu_tile_restore_plan_loc_6B68(
 ///   ori.w  #$4000,d1; swap d1; move.w #0,d1
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuArrowCursorCmdsLoc6A84 {
     /// VDP write command for the upper arrow position (Camera_Y + $48).
     pub(crate) upper_arrow_cmd: u32,
@@ -1633,6 +1640,7 @@ pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
 /// the cursor can move, the loop writes two tile words to the arrow positions
 /// and updates `Pause_Option`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuCursorMove {
     /// Tile word written to the upper arrow VDP address.
     pub(crate) upper_arrow_tile: u16,
@@ -1647,7 +1655,9 @@ pub(crate) struct PauseMenuCursorMove {
 /// ASM Game_Paused_Loop (kid.asm:6839-6856):
 /// - `$867C`: the arrow-present tile (points at the selected option)
 /// - `$8678`: the arrow-absent tile (blank / no arrow)
+#[cfg_attr(not(test), allow(dead_code))]
 const PAUSE_ARROW_PRESENT_TILE: u16 = 0x867C;
+#[cfg_attr(not(test), allow(dead_code))]
 const PAUSE_ARROW_ABSENT_TILE: u16 = 0x8678;
 
 /// Handle the Down button press inside the pause loop.
@@ -1730,6 +1740,7 @@ pub(crate) fn pause_loop_up_handler_game_paused_loop(
 ///   restart the level (lives remaining) or set `Game_Paused = 3` at loc_6B62
 ///   (last life → game over path).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuStartResult {
     /// Start not pressed — continue the pause loop.
     NotPressed,
@@ -1796,6 +1807,7 @@ pub(crate) fn pause_loop_start_handler_chk_start(
 /// - `!= 3` → normal unpause at loc_6C3E: clear `Game_Paused`, call
 ///   `sub_E1338`, reload Eyeclops beam art via `off_Load_EyclopsBeamArt`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuUnpauseExitLoc6C0A {
     /// ASM loc_6C0A, Game_Paused == 3: last life lost during pause menu.
     /// Play sfx_Voice_bummer, set Kid action = 4 / param = $30, lives = 1.
@@ -2090,7 +2102,6 @@ pub(crate) struct EndSequencePanelScrollLoopLoc1D3A0 {
     pub(crate) panel_refresh_iterations: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceHideGlyphsLoc1D7F0 {
     pub(crate) glyph_pointer_table_base: u16,
@@ -2099,7 +2110,6 @@ pub(crate) struct EndSequenceHideGlyphsLoc1D7F0 {
     pub(crate) cleared_flag_offset: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequencePageFadeOuterLoopLoc1D80C {
     pub(crate) outer_loop_seed: u16,
@@ -2111,7 +2121,6 @@ pub(crate) struct EndSequencePageFadeOuterLoopLoc1D80C {
     pub(crate) inner_loop_entry_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequencePageFadeInnerLoopLoc1D814 {
     pub(crate) loop_seed: u16,
@@ -2121,7 +2130,6 @@ pub(crate) struct EndSequencePageFadeInnerLoopLoc1D814 {
     pub(crate) next_outer_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) glyph_count: u16,
@@ -2132,14 +2140,12 @@ pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) text_script_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequencePageBreakDispatchLoc1D40E {
     pub(crate) branch_target: &'static str,
     pub(crate) has_padding_nop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequencePageBreakWaitLoopLoc1D418 {
     pub(crate) wait_seed: u16,
@@ -2156,7 +2162,6 @@ pub(crate) struct EndSequencePageBreakWaitLoopLoc1D418 {
     pub(crate) glyph_load_subroutine: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceTerminatorExitLoc1D450 {
     pub(crate) wait_seed: u16,
@@ -2175,7 +2180,6 @@ pub(crate) struct EndSequenceTerminatorExitLoc1D450 {
     pub(crate) continuation_pointer_source: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
     pub(crate) page_text_subroutine: &'static str,
@@ -2192,7 +2196,6 @@ pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
     pub(crate) terminator_branch: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueScreenOptionalFadeLocD372 {
     pub(crate) score_object_fades: bool,
@@ -2201,7 +2204,6 @@ pub(crate) struct ContinueScreenOptionalFadeLocD372 {
     pub(crate) falling_velocity: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueScreenMandatoryFadeLocD386 {
     pub(crate) continue_text_fades: bool,
@@ -2212,14 +2214,12 @@ pub(crate) struct ContinueScreenMandatoryFadeLocD386 {
     pub(crate) post_fade_wait_seed: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueTimeoutTitlePaletteBackupLocD40A {
     pub(crate) palette_backup_dbf_seed: u16,
     pub(crate) palette_backup_longwords: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueTimeoutTitlePaletteClearLocD418 {
     pub(crate) palette_clear_dbf_seed: u16,
@@ -2227,7 +2227,6 @@ pub(crate) struct ContinueTimeoutTitlePaletteClearLocD418 {
     pub(crate) fade_progress_seed: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueTimeoutTitleFadeStepLocD428 {
     pub(crate) fade_progress: u16,
@@ -2236,7 +2235,6 @@ pub(crate) struct ContinueTimeoutTitleFadeStepLocD428 {
     pub(crate) return_to_title: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContinueTimeoutTitleReturnLocD44C {
     pub(crate) final_refresh_subroutine: &'static str,
@@ -2248,7 +2246,6 @@ pub(crate) struct ContinueTimeoutTitleReturnLocD44C {
     pub(crate) tail_subroutine: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
@@ -2455,20 +2452,17 @@ pub(crate) struct TitleTextWordWritesSub1B7B6 {
     pub(crate) bottom_words: [u16; 2],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTextInitialHibernateLoc1C7AE {
     pub(crate) hibernate_frames: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum IntroTextByteDispatchLoc1C7B6 {
     DeleteCurrentObject,
     Continue { byte: u8 },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTextLineBreakLoc1C7C4 {
     pub(crate) next_x_pos: u16,
@@ -2476,14 +2470,12 @@ pub(crate) struct IntroTextLineBreakLoc1C7C4 {
     pub(crate) continues_parsing: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTextDelayLoc1C7D2 {
     pub(crate) hibernate_frames: u8,
     pub(crate) returns_to_hibernate: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTextBuggySubstitutionLoc1C7DC {
     pub(crate) comparison_addr: u16,
@@ -2491,7 +2483,6 @@ pub(crate) struct IntroTextBuggySubstitutionLoc1C7DC {
     pub(crate) substituted: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTextGlyphStepLoc1C7E6 {
     pub(crate) tile_index: u8,
@@ -2499,6 +2490,7 @@ pub(crate) struct IntroTextGlyphStepLoc1C7E6 {
     pub(crate) hibernate_frames: Option<u16>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2783,7 +2775,6 @@ pub(crate) fn intro_sequence_1_right_title_sprite_step_loc_1AE20(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence2LayoutCopyLoc1B012 {
     pub(crate) destination_addr: u32,
@@ -2844,7 +2835,6 @@ const TITLE_SCREEN_TILE_ATTRIBUTE_BYTES_LOC_1B322: [u8; 64] = [
     0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleScreenTileAttributeUploadLoc1B322 {
     pub(crate) vram_word_addr: u16,
@@ -2868,7 +2858,6 @@ pub(crate) fn title_screen_tile_attribute_upload_loc_1B322()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleScreenLightningFlashUploadLoc1B432 {
     pub(crate) flash_frame: u8,
@@ -2893,7 +2882,6 @@ pub(crate) fn title_screen_lightning_flash_upload_loc_1B432(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleScreenLightningFlashStepLoc1B37C {
     pub(crate) hibernate_frames: u16,
@@ -2901,7 +2889,6 @@ pub(crate) struct TitleScreenLightningFlashStepLoc1B37C {
     pub(crate) play_thunderstorm: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleScreenLightningSequenceLoc1B37C {
     pub(crate) flash_vram_word_addr: u16,
@@ -2984,7 +2971,6 @@ pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightnin
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
     pub(crate) vram_word_addr: u16,
@@ -3006,7 +2992,6 @@ pub(crate) fn intro_sequence_6_longword_fill_loc_1B170() -> IntroSequence6Longwo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6WordFillLoc1B182 {
     pub(crate) vram_word_addr: u16,
@@ -3039,7 +3024,6 @@ pub(crate) fn title_screen_tilemap_clear_loc_1B258() -> IntroSequence6WordFillLo
     intro_sequence_6_tilemap_clear_loc_1B182()
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6ScrollBootstrapLoc1B23A {
     pub(crate) camera_y_pos: i32,
@@ -3064,7 +3048,6 @@ pub(crate) fn intro_sequence_6_scroll_bootstrap_loc_1B23A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6HiddenTitleShellLoc1B1E8 {
     pub(crate) scroll_bootstrap: IntroSequence6ScrollBootstrapLoc1B23A,
@@ -3095,7 +3078,6 @@ const TITLE_SCREEN_HIDDEN_SHELL_FRAMES_LOC_1B446: [u8; 29] = [
     0, 1, 0, 1, 0, 1, 2, 1, 2, 3, 2, 3, 2, 3, 4, 3, 4, 3, 4, 5, 4, 5, 4, 5, 6, 5, 6, 5, 6,
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleScreenHiddenShellScriptLoc1B446 {
     pub(crate) initial_hibernate_frames: u16,
@@ -3118,7 +3100,6 @@ pub(crate) fn title_screen_hidden_shell_script_loc_1B446() -> TitleScreenHiddenS
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleScreenHiddenShellPaletteRestoreLoc1B45A {
     pub(crate) blackout_hibernate_frames: u16,
@@ -3153,7 +3134,6 @@ pub(crate) fn title_screen_hidden_shell_palette_restore_loc_1B45A()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleScreenHiddenCameraRampLoc1B51A {
     pub(crate) initial_hibernate_frames: u16,
@@ -3203,7 +3183,6 @@ pub(crate) fn title_screen_hidden_camera_ramp_loc_1B51A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleScreenTileStripeClearLoc1B53E {
     pub(crate) vram_word_addr: u16,
@@ -3224,7 +3203,6 @@ pub(crate) fn title_screen_tile_stripe_clear_loc_1B53E() -> TitleScreenTileStrip
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleShellArtIndexLoc1BF3E {
     pub(crate) table_entry_size: u16,
@@ -3247,7 +3225,6 @@ pub(crate) fn title_shell_art_index_loc_1BF3E() -> TitleShellArtIndexLoc1BF3E {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleShellArtDecompressLoc1BF54 {
     pub(crate) decompress_target: u32,
@@ -3271,7 +3248,6 @@ pub(crate) fn title_shell_art_decompress_loc_1BF54() -> TitleShellArtDecompressL
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleShellVRamFillLoc1BF70 {
     pub(crate) fill_pattern: u16,
@@ -3290,7 +3266,6 @@ pub(crate) fn title_shell_vram_fill_loc_1BF70() -> TitleShellVRamFillLoc1BF70 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleShellRowCopyLoopLoc1BF84 {
     pub(crate) row_count: u16,
@@ -3315,7 +3290,6 @@ pub(crate) fn title_shell_row_copy_loop_loc_1BF84() -> TitleShellRowCopyLoopLoc1
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleShellWordCopyLoopLoc1BF8A {
     pub(crate) source: u32,
@@ -3337,7 +3311,6 @@ pub(crate) fn title_shell_word_copy_loop_loc_1BF8A() -> TitleShellWordCopyLoopLo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadClearLoopLoc1C060 {
     pub(crate) vram_work_ram_addr: u32,
@@ -3362,7 +3335,6 @@ pub(crate) fn intro_tile_upload_clear_loop_loc_1C060() -> IntroTileUploadClearLo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadRowCopyLoopLoc1C07C {
     pub(crate) vram_row_stride_bytes: u16,
@@ -3384,7 +3356,6 @@ pub(crate) fn intro_tile_upload_row_copy_loop_loc_1C07C() -> IntroTileUploadRowC
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadWordCopyLoopLoc1C082 {
     pub(crate) source: u32,
@@ -3406,7 +3377,6 @@ pub(crate) fn intro_tile_upload_word_copy_loop_loc_1C082() -> IntroTileUploadWor
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadVramDmaLoopLoc1C0A4 {
     pub(crate) words_per_row: u16,
@@ -3433,7 +3403,6 @@ pub(crate) fn intro_tile_upload_vram_dma_loop_loc_1C0A4() -> IntroTileUploadVram
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadVramDmaGroup2Loc1C0BE {
     pub(crate) words_per_row: u16,
@@ -3459,7 +3428,6 @@ pub(crate) fn intro_tile_upload_vram_dma_group_2_loc_1C0BE() -> IntroTileUploadV
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroTileUploadVramDmaGroup3Loc1C0D6 {
     pub(crate) words_per_row: u16,
@@ -3487,7 +3455,6 @@ pub(crate) fn intro_tile_upload_vram_dma_group_3_loc_1C0D6() -> IntroTileUploadV
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroDecompressionBufferZeroFillLoc1C11E {
     pub(crate) word_count: u16,
@@ -3511,7 +3478,6 @@ pub(crate) fn intro_decompression_buffer_zero_fill_loc_1C11E()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence4PaletteMaskStartLoc1C1E2 {
     pub(crate) start_byte_offset: usize,
@@ -3557,7 +3523,6 @@ pub(crate) fn apply_intro_sequence_4_palette_mask_loop_loc_1C1E4(
     masked_bytes
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternFillRowLoopLoc1C5E8 {
     pub(crate) vram_address_step: u32,
@@ -3579,7 +3544,6 @@ pub(crate) fn vdp_pattern_fill_row_loop_loc_1C5E8() -> VdpPatternFillRowLoopLoc1
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternFillWordLoopLoc1C5F4 {
     pub(crate) source_register: &'static str,
@@ -3601,7 +3565,6 @@ pub(crate) fn vdp_pattern_fill_word_loop_loc_1C5F4() -> VdpPatternFillWordLoopLo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,
@@ -3643,7 +3606,6 @@ pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonIdleStepLoc1B6A2 {
     pub(crate) hibernate_frames: u16,
@@ -3673,7 +3635,6 @@ pub(crate) fn title_text_chameleon_idle_step_loc_1B6A2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRevealIterationLoc1B6CE {
     pub(crate) incoming_d2: i16,
@@ -3682,7 +3643,6 @@ pub(crate) struct TitleTextChameleonRevealIterationLoc1B6CE {
     pub(crate) upload: Option<TitleTextChameleonFrameUploadSub1B71A>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRevealLoopLoc1B6CE {
     pub(crate) hibernate_frames_per_iteration: u16,
@@ -3725,7 +3685,6 @@ pub(crate) fn title_text_chameleon_reveal_loop_loc_1B6CE(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonSegaStepLoc1B6DC {
     pub(crate) hibernate_frames: u16,
@@ -3768,7 +3727,6 @@ pub(crate) fn title_text_chameleon_sega_step_loc_1B6DC(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
@@ -4793,7 +4751,6 @@ pub(crate) fn level_layout_final_copy_to_vram_loc_1CD18() -> LevelLayoutCopyToVr
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpBit15ClearToDecompressionBufferLoc1CD5A {
     pub(crate) dbf_seed: u16,
@@ -4822,7 +4779,6 @@ pub(crate) fn vdp_bit15_clear_to_decompression_buffer_loc_1CD5A()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpUploadDecompressionBufferLoc1CD78 {
     pub(crate) dbf_seed: u16,
@@ -4846,7 +4802,6 @@ pub(crate) fn vdp_upload_decompression_buffer_loc_1CD78() -> VdpUploadDecompress
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPostUploadDelayLoc1CD82 {
     pub(crate) dbf_seed: u16,
@@ -4866,7 +4821,6 @@ pub(crate) fn vdp_post_upload_delay_loc_1CD82() -> VdpPostUploadDelayLoc1CD82 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternStripeOuterLoopLoc1CD90 {
     pub(crate) row_seed: u16,
@@ -4887,7 +4841,6 @@ pub(crate) fn vdp_pattern_stripe_outer_loop_loc_1CD90() -> VdpPatternStripeOuter
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternStripeWordCopyLoopLoc1CD92 {
     pub(crate) source: u32,
@@ -4895,7 +4848,6 @@ pub(crate) struct VdpPatternStripeWordCopyLoopLoc1CD92 {
     pub(crate) copy_iterations: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlaneLineWordCopyLoc1CDD4 {
     pub(crate) source_base: u32,
@@ -4935,7 +4887,6 @@ pub(crate) fn plane_line_word_copy_loc_1CDD4(row_index: u16) -> PlaneLineWordCop
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternStripeFillLoopLoc1CD9A {
     pub(crate) fill_word: u16,
@@ -4974,7 +4925,6 @@ pub(crate) fn end_sequence_camera_shake_sub_1D846(
     (camera_x_pos, camera_y_pos)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstPreludeLoc1D1D6 {
     pub(crate) burst_subroutine: &'static str,
@@ -4997,7 +4947,6 @@ pub(crate) fn end_sequence_burst_prelude_loc_1D1D6() -> EndSequenceBurstPreludeL
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstWaitLoopLoc1D1DE {
     pub(crate) hibernate_subroutine: &'static str,
@@ -5024,7 +4973,6 @@ pub(crate) fn end_sequence_burst_wait_loop_loc_1D1DE() -> EndSequenceBurstWaitLo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstCameraLoopLoc1D1EC {
     pub(crate) burst_priority: u8,
@@ -5112,7 +5060,6 @@ pub(crate) fn end_sequence_falling_sprite_init_sub_1D8B4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceFallingSpriteSpawnInput {
     pub(crate) x_pos: u16,
@@ -5120,7 +5067,6 @@ pub(crate) struct EndSequenceFallingSpriteSpawnInput {
     pub(crate) sprite_mapping: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceFallingSpriteSpawnLoopLoc1D226 {
     pub(crate) object_slot_flags: u16,
@@ -5161,7 +5107,6 @@ pub(crate) fn end_sequence_falling_sprite_spawn_loop_loc_1D226()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstLowPriorityPreludeLoc1D24A {
     pub(crate) burst_subroutine: &'static str,
@@ -5183,7 +5128,6 @@ pub(crate) fn end_sequence_burst_low_priority_prelude_loc_1D24A()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
     pub(crate) hibernate_subroutine: &'static str,

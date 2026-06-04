@@ -1,28 +1,28 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ActivePlatformHandleSub2728 {
     pub(crate) layout_offset_words: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DuplicatePlatformResolutionLoc286A {
     pub(crate) deallocate_existing_slot: bool,
     pub(crate) mark_special_platform_loaded: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformCollisionEntryLoc257E {
     pub(crate) collision_response_word: u32,
     pub(crate) first_platform_slot_pointer_addr: u16,
     pub(crate) kid_gfx_object_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlayerHitboxLoc2590 {
     pub(crate) left: i16,
     pub(crate) right: i16,
@@ -30,14 +30,13 @@ pub(crate) struct PlayerHitboxLoc2590 {
     pub(crate) bottom: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformCollisionReturnLoc2720 {
     pub(crate) collision_type_word: u16,
     pub(crate) scratch_bytes_released: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HorizontalOverlapResolutionLoc25EE {
     pub(crate) left_exit_px: i16,
@@ -45,19 +44,16 @@ pub(crate) struct HorizontalOverlapResolutionLoc25EE {
     pub(crate) push_x_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HorizontalOverlapResolutionLoc2616 {
     pub(crate) push_x_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerticalOverlapResolutionLoc261E {
     pub(crate) push_y_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerticalOverlapResolutionLoc2632 {
     pub(crate) top_exit_px: i16,
@@ -65,20 +61,18 @@ pub(crate) struct VerticalOverlapResolutionLoc2632 {
     pub(crate) push_y_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerticalOverlapResolutionLoc265A {
     pub(crate) push_y_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerticalPushMagnitudeLoc266A {
     pub(crate) magnitude_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn platform_collision_return_loc_2720(
     collision_type_word: u16,
 ) -> PlatformCollisionReturnLoc2720 {
@@ -91,7 +85,6 @@ pub(crate) fn platform_collision_return_loc_2720(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -122,7 +115,6 @@ pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_right_exit_loc_2616(
     platform_right_px: i16,
@@ -138,7 +130,6 @@ pub(crate) fn horizontal_overlap_right_exit_loc_2616(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn vertical_overlap_top_exit_loc_261E(
     platform_top_px: i16,
@@ -154,7 +145,6 @@ pub(crate) fn vertical_overlap_top_exit_loc_261E(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn vertical_overlap_resolution_loc_2632(
     platform_top_px: i16,
@@ -184,7 +174,6 @@ pub(crate) fn vertical_overlap_resolution_loc_2632(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
     platform_bottom_px: i16,
@@ -200,7 +189,6 @@ pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMagnitudeLoc266A {
     // ASM loc_266A (kid.asm:4571): copy `d6` into `d4`, and when the signed
@@ -217,7 +205,6 @@ pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMa
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HorizontalPlatformPushLoc2686 {
     pub(crate) kid_hitbox_left_px: i16,
@@ -226,7 +213,6 @@ pub(crate) struct HorizontalPlatformPushLoc2686 {
     pub(crate) takes_negative_branch: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn apply_horizontal_platform_push_loc_2686(
     kid_hitbox_left_px: i16,
@@ -245,16 +231,16 @@ pub(crate) fn apply_horizontal_platform_push_loc_2686(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PositivePlatformCarryLoc26A2 {
     pub(crate) carried_x_velocity_fp: i32,
     pub(crate) touched_right_wall: bool,
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn positive_platform_carry_loc_26A2(
     platform_x_velocity_fp: i32,
     left_wall_already_touched: bool,
@@ -270,24 +256,24 @@ pub(crate) fn positive_platform_carry_loc_26A2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NegativePlatformCarryLoc26B6 {
     pub(crate) carried_x_velocity_fp: i32,
     pub(crate) touched_left_wall: bool,
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NegativePlatformCarryCommitLoc26C0 {
     pub(crate) carried_x_velocity_fp: i32,
     pub(crate) touched_left_wall: bool,
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformLandingLoc26D4 {
     pub(crate) kid_hitbox_top_px: i16,
     pub(crate) kid_hitbox_bottom_px: i16,
@@ -298,16 +284,16 @@ pub(crate) struct PlatformLandingLoc26D4 {
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BottomPlatformCarryLoc26FE {
     pub(crate) carried_y_velocity_fp: i32,
     pub(crate) touched_bottom_face: bool,
     pub(crate) escalates_to_loc_271_a: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn negative_platform_carry_loc_26B6(
     platform_x_velocity_fp: i32,
     right_wall_already_touched: bool,
@@ -323,8 +309,8 @@ pub(crate) fn negative_platform_carry_loc_26B6(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn negative_platform_carry_commit_loc_26C0(
     carried_x_velocity_fp: i32,
     right_wall_already_touched: bool,
@@ -339,8 +325,8 @@ pub(crate) fn negative_platform_carry_commit_loc_26C0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn platform_landing_loc_26D4(
     kid_hitbox_top_px: i16,
     kid_hitbox_bottom_px: i16,
@@ -365,8 +351,8 @@ pub(crate) fn platform_landing_loc_26D4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn bottom_platform_carry_loc_26FE(
     platform_y_velocity_fp: i32,
     character_movement_is_jump: bool,
@@ -485,16 +471,16 @@ pub(crate) fn deallocate_platform_slot_sub_23B4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn find_active_platform_miss_loc_2740() -> Option<usize> {
     // ASM loc_2740 (kid.asm:4662): once the active platform-slot walk reaches
     // a zero link, `moveq #0,d7; rts` reports "no matching slot".
     None
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn resolve_duplicate_platform_load_loc_286A(
     existing_platform_kind: u8,
 ) -> DuplicatePlatformResolutionLoc286A {
@@ -510,8 +496,8 @@ pub(crate) fn resolve_duplicate_platform_load_loc_286A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u16) -> u16 {
     // ASM loc_286E (kid.asm:4785): every exit path from
     // `Manage_PlatformLoading` advances `(PlatformLoader_Offset).w` by one
@@ -540,8 +526,8 @@ fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
     u32::from(buffer_edge) << 5
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
@@ -1030,8 +1016,8 @@ pub(crate) fn crawl_standup_platform_overhead_sub_DAA6(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteDispatchInputLoc244C {
     pub(crate) world_x_px: i16,
     pub(crate) world_y_px: i16,
@@ -1043,8 +1029,8 @@ pub(crate) struct PlatformSpriteDispatchInputLoc244C {
     pub(crate) render_flags: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PlatformSpriteVariantLoc244C {
     Loc24CC,
     Loc24F0,
@@ -1053,8 +1039,8 @@ pub(crate) enum PlatformSpriteVariantLoc244C {
     Loc24C0,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteDispatchLoc244C {
     pub(crate) screen_x_word: i16,
     pub(crate) screen_y_word: i16,
@@ -1110,8 +1096,8 @@ pub(crate) fn platform_sprite_dispatch_loc_244C(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteEntryLoc2548 {
     pub(crate) y_word: u16,
     pub(crate) tile_word: u16,
@@ -1119,8 +1105,8 @@ pub(crate) struct PlatformSpriteEntryLoc2548 {
     pub(crate) x_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteEmitLoc2548 {
     pub(crate) sprite: PlatformSpriteEntryLoc2548,
     pub(crate) next_number_sprites: u8,
@@ -1179,8 +1165,8 @@ pub(crate) fn platform_single_sprite_loc_24C0(
     )
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteStripLoc24CC {
     pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
     pub(crate) next_number_sprites: u8,
@@ -1220,8 +1206,8 @@ pub(crate) fn platform_strip_sprites_loc_24CC(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformSpriteStripLoc24F0 {
     pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
     pub(crate) next_number_sprites: u8,
@@ -1357,8 +1343,8 @@ pub(crate) fn platform_strip_sprites_loc_251C(
 // ---------------------------------------------------------------------------
 
 /// Per-frame action for the SoftPlatform settled wait state.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SoftPlatformSettledActionLoc4160 {
     /// Kid is still standing on this platform — stay in settled wait.
     StaySettled,
@@ -1370,8 +1356,8 @@ pub(crate) enum SoftPlatformSettledActionLoc4160 {
 /// its original y position and clears velocity, this state hibernates one
 /// frame per iteration and checks whether Kid is still standing on this
 /// specific platform.
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn soft_platform_settled_step_loc_4160(
     platform_standing_on: u16,
     this_platform_addr: u16,
@@ -1459,8 +1445,8 @@ impl ActivePlatform {
 }
 
 /// Per-frame action for the TrapPlatformDown post-fall wait state.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TrapPlatformDownPostFallActionLoc41EE {
     /// Platform not yet deactivated — continue waiting.
     ContinueWaiting,
@@ -1472,8 +1458,8 @@ pub(crate) enum TrapPlatformDownPostFallActionLoc41EE {
 /// (platform Y - Kid screen Y >= $E0), velocity is cleared and the sub-pixel
 /// field set to $800. This loop hibernates each frame and polls the
 /// deactivation flag at `$12(a3)`.
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn trap_platform_down_post_fall_step_loc_41EE(
     deactivated_flag: u8,
 ) -> TrapPlatformDownPostFallActionLoc41EE {
@@ -1489,8 +1475,8 @@ pub(crate) fn trap_platform_down_post_fall_step_loc_41EE(
 }
 
 /// Per-frame result of the TrapPlatformUp move loop.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TrapPlatformUpMoveStepLoc4230 {
     /// Updated y velocity after deceleration (clamped to -$40000).
     pub(crate) new_y_velocity: i32,
@@ -1502,8 +1488,8 @@ pub(crate) struct TrapPlatformUpMoveStepLoc4230 {
 /// velocity to the platform position (`TrapPlatformUp_Move`), this routine
 /// decelerates upward velocity by $4000 per frame (clamped to -$40000) and
 /// checks whether the platform has risen far enough above Kid to exit.
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn trap_platform_up_move_step_loc_4230(
     y_velocity: i32,
     platform_y_px: i16,
@@ -1535,8 +1521,8 @@ pub(crate) fn trap_platform_up_move_step_loc_4230(
 }
 
 /// Per-frame action for the TrapPlatformUp post-rise wait state.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TrapPlatformUpPostRiseActionLoc4270 {
     /// Deactivation flag still zero — continue waiting.
     ContinueWaiting,
@@ -1548,8 +1534,8 @@ pub(crate) enum TrapPlatformUpPostRiseActionLoc4270 {
 /// above Kid (platform Y - Kid Y <= -$E0), velocity is cleared and the
 /// sub-pixel field set to $800. This loop hibernates each frame and polls
 /// the deactivation flag at `$12(a3)`.
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn trap_platform_up_post_rise_step_loc_4270(
     deactivated_flag: u8,
 ) -> TrapPlatformUpPostRiseActionLoc4270 {

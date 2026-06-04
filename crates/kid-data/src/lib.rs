@@ -29,7 +29,6 @@ pub const GENERATED_BUNDLE_VERSION: u32 = 9;
 pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
 const OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE: usize = 0x1180;
-#[cfg_attr(not(test), allow(dead_code))]
 const ENIGMA_BIT_MASKS: [u16; 16] = [
     0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF,
     0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF,
@@ -605,10 +604,12 @@ const COLUMN_MASK_LOOKUP_SUB_1C1A2: [u8; 16] = [
     0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
 ];
 
+#[cfg_attr(not(test), allow(dead_code))]
 const SPRITE_SIZE_TILE_COUNTS_SUB_13C0: [u16; 16] =
     [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 11, 3, 7, 11, 15];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 struct SpriteTableEntrySub13C0 {
     y: u16,
     size: u8,
@@ -618,12 +619,14 @@ struct SpriteTableEntrySub13C0 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 struct SpriteDmaTransferSub13C0 {
     tile_count: u16,
     art_source: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 struct SpriteBuilderStateSub13C0 {
     number_sprites: u8,
     tile_word_cursor: u16,
@@ -4693,7 +4696,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok((command, count))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn read_raw_flag_bit_sub_13588(&mut self) -> Result<u8> {
         if self.bits_remaining_d6 == 0 {
             bail!("Enigma flag read exceeded buffered bits");
@@ -4702,7 +4704,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok(((self.current_word_d5 >> self.bits_remaining_d6) & 1) as u8)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn read_inline_packet_sub_13588(&mut self, bit_count: usize) -> Result<u16> {
         if bit_count == 0 || bit_count > 16 {
             bail!("Enigma inline packets must be between 1 and 16 bits");
@@ -4742,7 +4743,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok((carried | appended) & mask)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn read_bits_sub_13622(&mut self, bit_count: usize) -> Result<u16> {
         // ASM sub_13622 (kid.asm:26074): read up to 16 bits from the current
         // Enigma word buffer, splitting wide reads into a high chunk and a low
@@ -4763,7 +4763,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok((high << 8) | low)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn read_short_bits_sub_1364c(&mut self, bit_count: u16) -> Result<u16> {
         // ASM sub_1364C (kid.asm:26105): tail-call sub_1363C to fetch the
         // short value, then shift d0 into a byte count for loc_13650's
@@ -4773,7 +4772,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok(value)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn peek_bits_sub_1363c(&self, bit_count: u16) -> Result<u16> {
         // ASM sub_1363C (kid.asm:26091): keep d6 intact, right-shift the
         // buffered word by (d6-d0), then mask the low d0 bits with the ROM's
@@ -4786,7 +4784,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok((self.current_word_d5 >> shift) & mask)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn consume_bits_loc_13650(&mut self, bit_count: u16) -> Result<()> {
         self.bits_remaining_d6 -= bit_count;
         if self.bits_remaining_d6 >= 9 {
