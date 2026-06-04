@@ -3723,6 +3723,19 @@ x568/y575/w370 right+B scan route on current native before using it as
 Drips/Tank gameplay evidence.
 | 214 | [?] | P1 | block/enemy | 2026-05-30 playtest: Highwater shooter blocks still have live-path projectile/barrier regressions | Evidence source: human playtest after pushed commits. Symptoms: top shooter blocks do not all move/fire, projectile visuals may still be wrong in live play, the projectile does not reliably clear the barrier ahead, and jumping on a shooter block can launch the player into the sky. #065's asset-backed render and barrier tests pass, so focus on live-session state, projectile collision, and block/player overlap response. Native repro: not yet recorded on current checkout. Oracle repro: unknown. Minimum gate: Level 02 Highwater recording around the first shooter-barrier stack, with `active_projectile_details`, shooter cell rows, player overlap response, and barrier cell mutations checked before patching. |
 
+Note 2026-06-04 selector follow-up for #214: selector-picked recording
+`issue-214-highwater-dense-0-40` is stale on current native before any new
+Highwater shooter/barrier conclusion. Fresh full and native-only
+`verify-recording` both fail at frame 4 with
+`recording replay drifted at frame 4 (native trace frame mismatch)`. The cached
+report has `trace_match=false`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no frame diffs, and matching 41-frame
+recorded/replay traces. The requested `0..40` case derives as
+`highwater_shooter_barrier_audit_02_case_00000_00040`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 4. Re-record this
+dense Highwater prefix on current native before using it as #214 evidence.
+
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
 recording scenario for the first Highwater Pass 1 shooter/barrier route. The
 scenario warps to Level 02, applies Berzerker (`playtest_form=7`), holds Right
