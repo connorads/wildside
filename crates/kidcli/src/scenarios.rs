@@ -1057,6 +1057,67 @@ pub fn highwater_pass2_juggernaut_flag_transition_audit_scenario() -> DynamicSce
     }
 }
 
+/// Focused #147 wall-grab "zoom to top" / "can't jump off a wall" audit.
+///
+/// A non-Kid form (Red Stealth, helmet 3) warps to Highwater Pass 1 (Level 0x02)
+/// and walks right along the col 8-9 corridor into the full-height col-10 wall,
+/// then pulses the jump button (B) against it. ASM `loc_AD7C`/`loc_AD98`/
+/// `loc_ADAC` (kid.asm:13580-13600) dispatch on the `sub_902A` collision RESULT
+/// d7 ∈ {-1,0,1,2}, NOT on `Current_Helmet`; the `collision_type=4 → loc_AA22`
+/// re-stick at `loc_ADAC` needs d7>2 which `sub_902A` never returns, so floor
+/// contact during wall-cling lands every form uniformly via `loc_A94E`. A
+/// previous fix misread d7 as the helmet and re-armed wall-cling for helmet_id>2
+/// forms on floor touch, holding them airborne with retained jump velocity. The
+/// oracle here shows the correct trajectory: Red Stealth jumps off the floor and
+/// lands in a clean parabola (MoveID 0 → jump → land) rather than being pinned to
+/// the wall. This was the engine bug behind the re-confirmed #147 report.
+pub fn issue_147_wall_side_jump_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 240;
+    const RIGHT: u8 = 1 << 3;
+    const JUMP: u8 = 1 << 4;
+    const WALK_END: usize = 120;
+    const JUMP_START: usize = 120;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    // Walk right into the wall.
+    apply_range(&mut script, 0, WALK_END.saturating_sub(1), RIGHT);
+    // Pulse jumps against the wall: hold B for 2 frames, release for 1 (so the
+    // jump button has a fresh rising edge each cycle) while still pushing right.
+    let mut frame = JUMP_START;
+    while frame + 2 < FRAME_COUNT {
+        script[frame] = RIGHT | JUMP;
+        script[frame + 1] = RIGHT | JUMP;
+        script[frame + 2] = RIGHT;
+        frame += 3;
+    }
+
+    DynamicScenario {
+        slug: "issue_147_wall_side_jump_audit_02".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "reach_wall".into(),
+                frame_index: WALK_END.saturating_sub(1),
+            },
+            DynamicCheckpoint {
+                label: "jump_into_wall".into(),
+                frame_index: 180,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form: Some(3),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x02),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1409,10 +1470,35 @@ mod tests {
         diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
         diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
         diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
-        idle_level_full_frame_scenario, idle_level_scenario, issue_216_prize_audio_audit_scenario,
+        idle_level_full_frame_scenario, idle_level_scenario,
+        issue_147_wall_side_jump_audit_scenario, issue_216_prize_audio_audit_scenario,
         lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
         stomp_enemy_scenario, walk_right_scenario,
     };
+
+    #[test]
+    fn issue_147_wall_side_jump_audit_drives_red_stealth_into_level2_wall() {
+        let scenario = issue_147_wall_side_jump_audit_scenario();
+        assert_eq!(scenario.slug, "issue_147_wall_side_jump_audit_02");
+        // Red Stealth (helmet 3) on Highwater Pass 1.
+        assert_eq!(scenario.playtest_form, Some(3));
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+        assert!(scenario.settle_oracle_warp);
+        // Walks right (bit 3) into the wall, then pulses jump (bit 4) with a
+        // fresh rising edge every third frame so the standing-jump can re-fire.
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[60], RIGHT, "still walking before the wall");
+        assert!(
+            scenario.script[120] & JUMP != 0 && scenario.script[120] & RIGHT != 0,
+            "jump pulse pushes right into the wall",
+        );
+        assert_eq!(
+            scenario.script[122] & JUMP,
+            0,
+            "jump released for one frame so the next press is a rising edge",
+        );
+    }
 
     #[test]
     fn dynamic_scenario_deserialises_probe_start_position() {

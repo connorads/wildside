@@ -3468,7 +3468,6 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
 
-                let wall_cling_before_floor = self.player.wall_cling_direction;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3494,22 +3493,24 @@ impl OpeningSliceState {
                         allow_asm_faithful_solid_touch_snap,
                     )
                 };
-                if let Some(direction) = wall_cling_before_floor
-                    && form.helmet_id() > 2
-                    && !on_ground_before
-                    && self.player.on_ground
-                {
-                    // ASM loc_AD98 -> loc_ADAC: Red Stealth through Micromax
-                    // convert floor contact during wall-cling into
-                    // collision_type=4 and branch back to loc_AA22, rather
-                    // than landing through the normal walking path.
-                    self.player.on_ground = false;
-                    self.player.wall_cling_direction = Some(direction);
-                    match direction {
-                        Direction::Right => self.player.right_wall_sticky = true,
-                        Direction::Left => self.player.left_wall_sticky = true,
-                    }
-                }
+                // ASM loc_AD7C/loc_AD98/loc_ADAC dispatch (kid.asm:13580-13600)
+                // branches on d7 = the RESULT of sub_902A (kid.asm:10437), NOT on
+                // Current_Helmet. sub_902A returns d7 ∈ {-1,0,1,2}: 1 = floor while
+                // falling, 2 = ceiling while rising, 0 = rising clamp with FA6A=0,
+                // -1 = upward floor bounce. In EVERY one of those paths sub_902A
+                // already cleared y_vel and snapped y_pos. loc_ADAC (the
+                // collision_type=4 → loc_AA22 re-stick) is reached only when d7>2,
+                // which sub_902A never returns, so loc_ADAC is effectively dead
+                // ROM code. Floor contact during wall-cling therefore lands the
+                // form uniformly (loc_AD7C → loc_A94E), exactly like apply_floor_
+                // collision already does. A previous fix (commit "Preserve Red
+                // Stealth wall cling on floor touch") misread d7 as the helmet id
+                // and re-armed wall-cling for helmet_id>2 forms here, holding them
+                // airborne with retained jump velocity — the #147 wall-grab
+                // "zoom to top"/"can't jump off a wall" cheat. Oracle probe
+                // issue147_red_stealth_wall_walk_jump_02 confirms a Red Stealth
+                // standing against a wall jumps and lands normally (MoveID 0 →
+                // jump → land); native must NOT re-stick on floor contact.
                 let plain_airborne_floor_landing = !on_ground_before
                     && self.player.on_ground
                     && airborne_slope_recontact.is_none();

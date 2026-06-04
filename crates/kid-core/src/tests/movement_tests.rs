@@ -20642,9 +20642,16 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_ADAC (kid.asm:13598): wall-cling floor contact for helmets 3+
-    /// (Red Stealth through Micromax). `move.w #4,collision_type(a3); bra loc_AA22`
-    /// — sets collision_type=4 and continues the wall-cling loop (doesn't land).
+    /// ASM loc_AD7C/loc_AD98/loc_ADAC (kid.asm:13580-13600): wall-cling floor
+    /// contact dispatch branches on d7 = the RESULT of sub_902A (kid.asm:10437),
+    /// NOT on Current_Helmet. sub_902A returns d7 ∈ {-1,0,1,2}; loc_ADAC (the
+    /// collision_type=4 → loc_AA22 re-stick) needs d7>2, which sub_902A never
+    /// returns, so loc_ADAC is dead ROM code. Floor contact during wall-cling
+    /// therefore lands every form through loc_AD7C → loc_A94E, exactly like
+    /// apply_floor_collision already does. This guards against the #147 regression
+    /// where helmet_id>2 forms were wrongly re-stuck to the wall on floor touch
+    /// (held airborne with retained jump velocity = the "zoom to top"/"can't jump
+    /// off a wall" cheat). Verify Red Stealth floor contact lands.
     #[test]
     fn loc_adac_floor_contact_during_wall_cling_red_stealth() {
         let grid = grid_with_floor_at_row(4);
@@ -20662,7 +20669,9 @@ mod chunk_12 {
         slice.player.right_wall_sticky = true;
 
         let no_input = FrameInput::from_mask(0);
-        // Red Stealth = helmet index 3 (d7>2 path → loc_ADAC in ASM).
+        // Red Stealth = helmet index 3. The ASM dispatch (loc_AD7C) branches on
+        // the sub_902A collision RESULT d7, not the helmet, so this falling floor
+        // contact (d7=1) lands via loc_A94E regardless of form.
         slice.step_with_order(
             no_input,
             false,
@@ -20677,17 +20686,8 @@ mod chunk_12 {
         );
 
         assert!(
-            !slice.player.on_ground,
-            "loc_ADAC: Red Stealth floor contact during wall-cling should stay in the wall-cling loop",
-        );
-        assert_eq!(
-            slice.player.wall_cling_direction,
-            Some(Direction::Right),
-            "loc_ADAC branches back to loc_AA22 instead of clearing the active wall side",
-        );
-        assert!(
-            slice.player.right_wall_sticky,
-            "loc_ADAC should preserve the right-wall sticky latch for the next wall-cling iteration",
+            slice.player.on_ground,
+            "loc_AD7C → loc_A94E: Red Stealth floor contact during wall-cling lands (loc_ADAC re-stick is unreachable: sub_902A never returns d7>2)",
         );
     }
 

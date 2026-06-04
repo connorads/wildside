@@ -69,7 +69,8 @@ use scenarios::{
     enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
-    idle_level_scenario, issue_216_prize_audio_audit_scenario, lava_weather_audit_scenario,
+    idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
+    issue_216_prize_audio_audit_scenario, lava_weather_audit_scenario,
     level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
     walk_right_scenario,
 };
@@ -127,6 +128,8 @@ enum RecordScenarioKind {
     HighwaterFlagTransitionAudit,
     /// start at Highwater Pass 2's flag as Juggernaut and audit the normal level-4 hand-off.
     HighwaterPass2JuggernautFlagTransitionAudit,
+    /// drive Red Stealth into a Level 02 wall and jump (#147 wall-grab "zoom to top" audit).
+    Issue147WallSideJumpAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2484,6 +2487,7 @@ fn build_record_scenario(
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             highwater_pass2_juggernaut_flag_transition_audit_scenario()
         }
+        RecordScenarioKind::Issue147WallSideJumpAudit => issue_147_wall_side_jump_audit_scenario(),
     }
 }
 
@@ -2541,6 +2545,7 @@ fn record_scenario_command(
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             "highwater-pass2-juggernaut-flag-transition-audit"
         }
+        RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
