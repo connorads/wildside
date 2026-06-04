@@ -8924,6 +8924,31 @@ mod tests {
             0x020,
             "ASM `stru_3B27E` child snapshot renders the RockTank turret frame"
         );
+        match commands.as_slice() {
+            [
+                DrawCommand::Sprite {
+                    x: body_x,
+                    y: body_y,
+                    ..
+                },
+                DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
+                    ..
+                },
+            ] => {
+                assert_eq!(
+                    *turret_x, *body_x,
+                    "ASM Tank.asm loc_3B372 copies the parent X into the linked turret child"
+                );
+                assert_eq!(
+                    *body_y - *turret_y,
+                    20,
+                    "ASM Tank.asm loc_3B372 subtracts 8 from the child Y for top-anchored hardware sprites; native child-snapshot rendering must compensate that offset so the full turret bottom overlaps the body instead of floating above it"
+                );
+            }
+            other => panic!("expected body + turret sprite commands, got {other:?}"),
+        }
 
         let shooting_body = make_body(0x0B);
         assert_eq!(
