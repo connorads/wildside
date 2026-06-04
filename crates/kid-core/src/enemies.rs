@@ -289,52 +289,90 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
 
 pub(crate) const LION_COLID_HURT: u16 = 0x001C;
 pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_RIGHTWALL: u16 = 0x0004;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_LEFTWALL: u16 = 0x0008;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_FLOOR: u16 = 0x000C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_CEILING: u16 = 0x0010;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_HURT: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const DRAGON_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
 pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_HURT: i16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDRIGHT: i16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDLEFT: i16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = 0x002C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_FLOOR: i16 = 0x000C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_HURT: i16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
 pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const SCORPION_COLID_KIDABOVE: i16 = 0x002C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_RIGHTWALL: i16 = 0x0004;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_LEFTWALL: i16 = 0x0008;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_FLOOR: i16 = 0x000C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_CEILING: i16 = 0x0010;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_SLOPEUP: i16 = 0x0014;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_SLOPEDOWN: i16 = 0x0018;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const TANK_COLID_HURT: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_RIGHTWALL: u16 = 0x0004;
+#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_LEFTWALL: u16 = 0x0008;
+#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_SLOPEUP: u16 = 0x0014;
+#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_SLOPEDOWN: u16 = 0x0018;
 const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
 const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
@@ -407,11 +445,17 @@ pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisi
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_OBJECT_ID: u16 = 0x000A;
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_SHOOTING_OBJECT_ID: u16 = 0x000B;
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_VISIBLE_OBJECT_META: u16 = 0x008A;
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_SHOOTING_VISIBLE_OBJECT_META: u16 = 0x008B;
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_ART_PALETTE_LINES: [u8; 3] = [1, 2, 2];
+#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -518,7 +562,6 @@ pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_walk_speed_loc_3b5f2(current_hp: u8) -> i32 {
     // ASM Tank_Shooting.asm loc_3B5F2: HP > 3 preloads `$50(a5)` with
     // `$8000`, HP == 3 falls directly into this `$8000` add, and all paths
@@ -532,7 +575,6 @@ pub(crate) fn tank_shooting_walk_speed_loc_3b5f2(current_hp: u8) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabMotionProfileLoc3B00A {
     pub(crate) walk_speed: i32,
     pub(crate) stored_speed: i32,
@@ -542,7 +584,6 @@ pub(crate) struct CrabMotionProfileLoc3B00A {
     pub(crate) increments_enemy_count: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_motion_profile_loc_3b00a(current_hp: u8) -> CrabMotionProfileLoc3B00A {
     // ASM Crab.asm loc_3B00A: both speed slots receive one final `$8000` add
     // after loc_3AFD0's optional `$10000` preload, then `$4A/$48` and
@@ -563,7 +604,6 @@ pub(crate) fn crab_motion_profile_loc_3b00a(current_hp: u8) -> CrabMotionProfile
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabCollisionRouteLoc3B048 {
     ContinueSharedWalker,
     Death,
@@ -571,7 +611,6 @@ pub(crate) enum CrabCollisionRouteLoc3B048 {
     Damage,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_collision_dispatch_loc_3b048(
     collision_type: i16,
     using_freeze_sprite: bool,
@@ -611,7 +650,6 @@ pub(crate) fn crab_collision_dispatch_loc_3b048(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabBerzerkerKnockbackStartLoc3B180 {
     pub(crate) has_level_collision: bool,
     pub(crate) is_moved: bool,
@@ -621,13 +659,11 @@ pub(crate) struct CrabBerzerkerKnockbackStartLoc3B180 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabBerzerkerSideGateLoc3B180 {
     ResumeProximityCallback,
     Knockback(CrabBerzerkerKnockbackStartLoc3B180),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_berzerker_side_gate_loc_3b180(
     berzerker_charging: bool,
     kid_x_velocity: i32,
@@ -650,7 +686,6 @@ pub(crate) fn crab_berzerker_side_gate_loc_3b180(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabAirborneDecelerationFrameLoc3B1A6 {
     pub(crate) collision_type: u16,
     pub(crate) hibernates_one_frame: bool,
@@ -658,13 +693,11 @@ pub(crate) struct CrabAirborneDecelerationFrameLoc3B1A6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabAirborneDecelerationRouteLoc3B1A6 {
     NonNegativeXVelocity { x_velocity: i32 },
     NegativeXVelocityTail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_airborne_deceleration_frame_loc_3b1a6(
     x_velocity: i32,
 ) -> CrabAirborneDecelerationFrameLoc3B1A6 {
@@ -687,12 +720,10 @@ pub(crate) fn crab_airborne_deceleration_frame_loc_3b1a6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabNegativeAirborneDecelerationLoc3B1BE {
     pub(crate) x_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_negative_airborne_deceleration_loc_3b1be(
     x_velocity: i32,
 ) -> CrabNegativeAirborneDecelerationLoc3B1BE {
@@ -704,13 +735,11 @@ pub(crate) fn crab_negative_airborne_deceleration_loc_3b1be(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabAirborneThresholdRouteLoc3B1C6 {
     ContinueCollisionResponse,
     Settle,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_airborne_threshold_route_loc_3b1c6(
     x_velocity: i32,
 ) -> CrabAirborneThresholdRouteLoc3B1C6 {
@@ -724,7 +753,6 @@ pub(crate) fn crab_airborne_threshold_route_loc_3b1c6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabAirborneSettleTailLoc3B254 {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
@@ -733,7 +761,6 @@ pub(crate) struct CrabAirborneSettleTailLoc3B254 {
     pub(crate) resumes_proximity_callback: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_airborne_settle_tail_loc_3b254() -> CrabAirborneSettleTailLoc3B254 {
     // ASM Crab.asm loc_3B254: `sf is_moved(a3)`, `sf has_level_collision(a3)`,
     // zero both velocity longwords, then branch back to loc_3B0BE.
@@ -774,7 +801,6 @@ pub(crate) fn crab_airborne_collision_dispatch_loc_3b1da(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_reverse_x_velocity_loc_3b24c(x_velocity: i32) -> i32 {
     // ASM Crab.asm loc_3B24C: `neg.l x_vel(a3)` reverses the complete
     // FP16.16 longword and keeps 68000 two's-complement wrapping behaviour.
@@ -819,27 +845,23 @@ pub(crate) fn crab_negative_slope_route_loc_3b212(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabGravityTailLoc3B218 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabGravityAccelerationTailLoc3B226 {
     pub(crate) y_velocity: i32,
     pub(crate) route: CrabGravityAccelerationRouteLoc3B226,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabGravityAccelerationRouteLoc3B226 {
     NonNegativeXVelocity { x_velocity: i32 },
     NegativeXVelocityTail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_gravity_acceleration_tail_loc_3b226(
     x_velocity: i32,
     y_velocity: i32,
@@ -858,14 +880,12 @@ pub(crate) fn crab_gravity_acceleration_tail_loc_3b226(
     CrabGravityAccelerationTailLoc3B226 { y_velocity, route }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_negative_gravity_x_tail_loc_3b240(x_velocity: i32) -> i32 {
     // ASM Crab.asm loc_3B240: negative x_vel from the gravity tail receives
     // `subi.l #$4000,x_vel(a3)` before looping back to loc_3B1A6.
     x_velocity.wrapping_sub(0x0000_4000)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_gravity_tail_loc_3b218(
     x_velocity: i32,
     y_velocity: i32,
@@ -921,20 +941,17 @@ pub(crate) fn crab_slope_collision_response_loc_3b1f8(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabDamageResultLoc3B08C {
     pub(crate) current_hp: u16,
     pub(crate) route: CrabDamageRouteLoc3B08C,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_damage_after_hurt_loc_3b08c(current_hp: u16) -> CrabDamageResultLoc3B08C {
     // ASM Crab.asm loc_3B08C: decrement the `current_hp(a3)` word before
     // deciding whether the crab survives for the hurt animation or exits.
@@ -1075,7 +1092,6 @@ pub(crate) fn orca_death_sequence_loc_3d268() -> OrcaDeathSequenceLoc3D268 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaBerzerkerKnockbackStartLoc3D27E {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -1087,13 +1103,11 @@ pub(crate) struct OrcaBerzerkerKnockbackStartLoc3D27E {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaBerzerkerSideGateLoc3D27E {
     ResumePatrol { next_collision_type: u16 },
     Knockback(OrcaBerzerkerKnockbackStartLoc3D27E),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_berzerker_side_gate_loc_3d27e(
     berzerker_charging: bool,
 ) -> OrcaBerzerkerSideGateLoc3D27E {
@@ -1122,14 +1136,12 @@ pub(crate) const ORCA_BERZERKER_KNOCKBACK_GRAVITY_LOC_3D2AA: i32 = 0x0000_4000;
 pub(crate) const ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA: u16 = 0xD2AA;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaBerzerkerAirborneFrameLoc3D2AA {
     pub(crate) applies_motion_subroutine: bool,
     pub(crate) next_y_velocity: i32,
     pub(crate) repeats_airborne_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_berzerker_airborne_frame_loc_3d2aa(
     y_velocity: i32,
 ) -> OrcaBerzerkerAirborneFrameLoc3D2AA {
@@ -1194,7 +1206,6 @@ pub(crate) fn orca_normal_resume_loc_3d2d2(facing: Direction) -> OrcaResumeBranc
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaLungeDecisionLoc3D2F4 {
     ResumePatrol,
     BeginWindup {
@@ -1206,7 +1217,6 @@ pub(crate) enum OrcaLungeDecisionLoc3D2F4 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_lunge_decision_loc_3d2f4(
     orca_x_pos: u32,
     kid_x_pos: u32,
@@ -1236,14 +1246,12 @@ pub(crate) fn orca_lunge_decision_loc_3d2f4(
 pub(crate) const ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320: u8 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaLungeWindupLoc3D320 {
     pub(crate) hibernate_frames: u8,
     pub(crate) polls_collision_each_frame: bool,
     pub(crate) branches_on_nonzero_collision: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_lunge_windup_loc_3d320(dbf_seed: u8) -> OrcaLungeWindupLoc3D320 {
     // ASM Orca.asm loc_3D320: hibernate once, poll `collision_type(a3)`,
     // branch to loc_3D21E on non-zero collision, then `dbf d1,loc_3D320`.
@@ -1270,7 +1278,6 @@ pub(crate) fn orca_lunge_right_x_velocity_loc_3d3d2(x_velocity: i32) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaLungeLaunchTailLoc3D348 {
     pub(crate) y_velocity: i32,
     pub(crate) sprite_mapping_offset_delta: u16,
@@ -1481,7 +1488,6 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -1496,7 +1502,6 @@ pub(crate) enum LionRoarWaitDispatch {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_roar_wait_dispatch_loc_3e09e(
     collision_type: u16,
     roar_fire_sprite_reached: bool,
@@ -1583,8 +1588,8 @@ pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionCollisionResumeLoc3E318 {
     Loc3E7CA,
     Loc3E6AE,
@@ -1592,8 +1597,8 @@ pub(crate) enum LionCollisionResumeLoc3E318 {
     Loc3E3AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionCollisionLoc3E318 {
     Kill,
     Hurt {
@@ -1670,14 +1675,12 @@ pub(crate) fn lion_charge_direction_dispatch_loc_3e11e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionProjectileLaunchTail {
     pub(crate) x_offset_pixels: i16,
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_projectile_launch_tail_loc_3e180(
     parent_facing: Direction,
 ) -> LionProjectileLaunchTail {
@@ -1790,6 +1793,7 @@ pub(crate) struct LionLoc3E434Result {
     pub(crate) branch: LionLoc3E434Branch,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn lion_kid_minus_lion_x_delta(lion_x_word: u16, kid_x_word: u16) -> i16 {
     let lion_x = i16::from_be_bytes(lion_x_word.to_be_bytes());
     let kid_x = i16::from_be_bytes(kid_x_word.to_be_bytes());
@@ -2552,16 +2556,27 @@ pub(crate) enum MiniHoppingSkullAirSprite {
 
 #[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_SLOPEDOWN: u16 = 0x0018;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_HURT: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_GROUND_KIDRIGHT: u16 = 0x0024;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_GROUND_KIDBELOW: u16 = 0x0028;
+#[cfg_attr(not(test), allow(dead_code))]
 const MINI_SKULL_COLID_GROUND_HURT: u16 = 0x002C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2691,7 +2706,9 @@ pub(crate) enum MiniHoppingSkullStoppedWaitTail {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
+    #[cfg_attr(not(test), allow(dead_code))]
     ContinueWait,
+    #[cfg_attr(not(test), allow(dead_code))]
     DamageSkull,
     QueueScreamWorker,
     BerzerkerChargeKillsSkull,
@@ -2859,7 +2876,6 @@ pub(crate) enum MiniHoppingSkullAirDamageDeathAnimation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
     pub(crate) y_velocity: i32,
     pub(crate) hibernates_one_frame: bool,
@@ -2894,6 +2910,7 @@ pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000;
 pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_vel
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullStartupLoc3652E {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -2912,6 +2929,7 @@ pub(crate) fn big_hopping_skull_startup_loc_3652e() -> BigHoppingSkullStartupLoc
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullLevelHeightRouteLoc3656C {
     ReturnLoc3657C,
     DeleteCurrentObject,
@@ -2932,6 +2950,7 @@ pub(crate) fn big_hopping_skull_level_height_gate_loc_3656c(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullContactWaitRouteLoc365AC {
     Relaunch,
     SharedTail,
@@ -2939,6 +2958,7 @@ pub(crate) enum BigHoppingSkullContactWaitRouteLoc365AC {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullContactWaitLoc365AC {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -2973,12 +2993,14 @@ pub(crate) fn big_hopping_skull_contact_wait_loc_365ac(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDamageEntryRouteLoc365D8 {
     DestroySkull,
     HitAnimationThenWait,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDamageEntryLoc365D8 {
     pub(crate) has_kid_collision: bool,
     pub(crate) kid_y_velocity: i32,
@@ -3014,6 +3036,7 @@ pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitGroanGateLoc365F2 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -3039,6 +3062,7 @@ pub(crate) fn big_hopping_skull_hit_groan_gate_loc_365f2(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitVoiceGateLoc36616 {
     pub(crate) sound_effect: Option<&'static str>,
     pub(crate) d0_preserved: bool,
@@ -3060,6 +3084,7 @@ pub(crate) fn big_hopping_skull_hit_voice_gate_loc_36616(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullHitAnimationWaitRouteLoc36632 {
     Relaunch,
     LoopHitAnimation,
@@ -3067,6 +3092,7 @@ pub(crate) enum BigHoppingSkullHitAnimationWaitRouteLoc36632 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitAnimationWaitLoc36632 {
     pub(crate) collision_probe_extent: u16,
     pub(crate) clear_has_kid_collision: bool,
@@ -3100,6 +3126,7 @@ pub(crate) fn big_hopping_skull_hit_animation_wait_loc_36632(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeathEntryLoc3664E {
     pub(crate) sound_effect: &'static str,
     pub(crate) d0_preserved: bool,
@@ -3121,12 +3148,14 @@ pub(crate) fn big_hopping_skull_death_entry_loc_3664e() -> BigHoppingSkullDeathE
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDeathWaitRouteLoc36664 {
     LoopDeathAnimation,
     FinalizeDeletion,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeathWaitLoc36664 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -3165,6 +3194,7 @@ pub(crate) fn big_hopping_skull_death_wait_loc_36664(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDeathAnimationGateLoc3667E {
     LoopDeathAnimation,
     FinalizeDeathStatus,
@@ -3185,6 +3215,7 @@ pub(crate) fn big_hopping_skull_death_animation_gate_loc_3667e(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullRespawnMarkerLoc366A4 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
@@ -3204,6 +3235,7 @@ pub(crate) fn big_hopping_skull_respawn_marker_loc_366a4(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeleteTailLoc366B2 {
     pub(crate) deletes_current_object: bool,
 }
@@ -3377,7 +3409,6 @@ pub(crate) struct BigHoppingSkullBoundsCorrectionLoc36770 {
     pub(crate) route: BigHoppingSkullBoundsRouteLoc36770,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn write_velocity_high_word(value: i32, high_word: i16) -> i32 {
     (i32::from(high_word) << 16) | (value & 0x0000_FFFF)
 }
@@ -3786,7 +3817,6 @@ pub(crate) fn armadillo_death_animation_loc_3c886() -> ArmadilloDeathAnimationLo
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloBerzerkerLaunchSetupLoc3C898 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -3798,14 +3828,12 @@ pub(crate) struct ArmadilloBerzerkerLaunchSetupLoc3C898 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloBerzerkerSideContactLoc3C898 {
     ResumeSharedWalker,
     PositiveRecoilWord,
     Launch(ArmadilloBerzerkerLaunchSetupLoc3C898),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_berzerker_side_contact_loc_3c898(
     berzerker_charging: bool,
     recoil_state_word: i16,
@@ -3833,14 +3861,12 @@ pub(crate) fn armadillo_berzerker_side_contact_loc_3c898(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) applies_shared_motion: bool,
     pub(crate) next_y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
     y_velocity: i32,
 ) -> ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
@@ -3854,6 +3880,7 @@ pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
 }
 
 pub(crate) const ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC: u16 = 0xC8CC;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE: i32 = 0x0014_0000;
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4140,7 +4167,6 @@ pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatColl
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatDamageResponseLoc3CB38 {
     Death,
     Hurt {
@@ -4152,7 +4178,6 @@ pub(crate) enum GoatDamageResponseLoc3CB38 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_damage_response_loc_3cb38(
     current_hp: u16,
     saved_walk_speed: i32,
@@ -4194,7 +4219,6 @@ pub(crate) fn goat_death_sequence_loc_3cb64() -> GoatDeathSequenceLoc3CB64 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatBerzerkerKnockbackStartLoc3CB76 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -4206,14 +4230,12 @@ pub(crate) struct GoatBerzerkerKnockbackStartLoc3CB76 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatBerzerkerSideGateLoc3CB76 {
     ResumeSharedWalker { next_collision_type: u16 },
     AirborneKnockback(GoatBerzerkerKnockbackStartLoc3CB76),
     SideShoveThenHurtResume,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_berzerker_side_gate_loc_3cb76(
     berzerker_charging: bool,
     recoil_state_word: i16,
@@ -4248,7 +4270,6 @@ pub(crate) const GOAT_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CBA8: i32 = 0x0000_4000;
 pub(crate) const GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8: u16 = 0xCBA8;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatBerzerkerAirborneFrameLoc3CBA8 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) applies_motion_subroutine: bool,
@@ -4257,7 +4278,6 @@ pub(crate) struct GoatBerzerkerAirborneFrameLoc3CBA8 {
     pub(crate) repeats_airborne_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_berzerker_airborne_frame_loc_3cba8(
     y_velocity: i32,
 ) -> GoatBerzerkerAirborneFrameLoc3CBA8 {
@@ -4273,6 +4293,7 @@ pub(crate) fn goat_berzerker_airborne_frame_loc_3cba8(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA: i32 = 0x0014_0000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -4360,13 +4381,11 @@ pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatTrackingRightRouteLoc3CC36 {
     TurnRight,
     AlreadyFacingRight,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_tracking_right_route_loc_3cc36(
     goat_x_px: i16,
     kid_x_px: i16,
@@ -4387,13 +4406,11 @@ pub(crate) fn goat_tracking_right_route_loc_3cc36(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatTrackingLeftRouteLoc3CC46 {
     TurnLeft,
     AlreadyFacingLeft,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_tracking_left_route_loc_3cc46(
     goat_x_px: i16,
     kid_x_px: i16,
@@ -4414,13 +4431,11 @@ pub(crate) fn goat_tracking_left_route_loc_3cc46(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatTrackingResumeRouteLoc3CC52 {
     Loc3E566,
     Loc3E3B2,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_tracking_resume_route_loc_3cc52(
     facing: Direction,
 ) -> GoatTrackingResumeRouteLoc3CC52 {
@@ -4434,14 +4449,12 @@ pub(crate) fn goat_tracking_resume_route_loc_3cc52(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatTrackingRouteLoc3CC18 {
     Resume(GoatTrackingResumeRouteLoc3CC52),
     Right(GoatTrackingRightRouteLoc3CC36),
     Left(GoatTrackingLeftRouteLoc3CC46),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_tracking_route_loc_3cc18(
     shared_walker_state: i16,
     goat_x_px: i16,
@@ -4466,7 +4479,6 @@ pub(crate) fn goat_tracking_route_loc_3cc18(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
@@ -4474,7 +4486,6 @@ pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) x_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_init_loc_3ad7c(
     enemy_x_px: i32,
     player_x_px: i32,
@@ -4498,7 +4509,6 @@ pub(crate) fn diamond_high_hp_init_loc_3ad7c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondHighHpCollisionRouteLoc3ADA4 {
     Loop,
     Fall { y_velocity: i32 },
@@ -4509,13 +4519,11 @@ pub(crate) enum DiamondHighHpCollisionRouteLoc3ADA4 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpCollisionDispatchLoc3ADA4 {
     pub(crate) clears_collision_before_poll: bool,
     pub(crate) route: DiamondHighHpCollisionRouteLoc3ADA4,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
     collision_type: u16,
     x_velocity: i32,
@@ -4564,7 +4572,6 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_fall_y_velocity_loc_3ae78() -> i32 {
     // ASM Diamond.asm loc_3AE78: zero collision stores `#$1C000` into
     // `y_vel(a3)` before returning to the high-HP collision loop.
@@ -4636,21 +4643,18 @@ pub(crate) fn diamond_high_hp_berzerker_launch_tick_loc_3aeb2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae50() -> i32 {
     // ASM Diamond.asm loc_3AE50: `move.l #-$18000,y_vel(a3)` sends the
     // high-HP Diamond upward along the slope before returning to loc_3ADA4.
     -0x0001_8000
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae5c() -> i32 {
     // ASM Diamond.asm loc_3AE5C: `move.l #$18000,y_vel(a3)` sends the
     // high-HP Diamond downward along the slope before returning to loc_3ADA4.
     0x0001_8000
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_slopedown_y_velocity_loc_3ae68(x_velocity: i32) -> i32 {
     // ASM Diamond.asm loc_3AE68: `tst.l x_vel(a3); bmi.s loc_3AE50; bra.s
     // loc_3AE5C`. Down-slope contact inverts the slope-up sign mapping.
@@ -4954,6 +4958,7 @@ pub(crate) fn fire_demon_init_walk_dispatch_loc_3a476(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_TARGET_BYTE_OFFSETS_LOC_3A48E: [u16; 3] = [0x22, 0x42, 0x52];
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4972,7 +4977,9 @@ pub(crate) struct FireDemonPalettePulseSeedLoc3A4B8 {
     pub(crate) data_index_byte_offset: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_DATA_INDEX_BASE_LOC_3A4B8: u16 = 0x0634;
+#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_DATA_INDEX_STEP_LOC_3A4B4: u16 = 0x000C;
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -5257,20 +5264,17 @@ pub(crate) fn fire_demon_hurt_recovery_loc_3a5be(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonResumeSharedWalkerBranchLoc3A5D4 {
     LeftSharedWalker,
     RightSharedWalker,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonResumeSharedWalkerLoc3A5D4 {
     pub(crate) next_collision_type: u16,
     pub(crate) branch: FireDemonResumeSharedWalkerBranchLoc3A5D4,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_resume_shared_walker_loc_3a5d4(
     facing: Direction,
 ) -> FireDemonResumeSharedWalkerLoc3A5D4 {
@@ -5288,7 +5292,6 @@ pub(crate) fn fire_demon_resume_shared_walker_loc_3a5d4(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonBerzerkerLaunchLoc3A5E4 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -5300,13 +5303,11 @@ pub(crate) struct FireDemonBerzerkerLaunchLoc3A5E4 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonBerzerkerSideGateLoc3A5E4 {
     ResumeSharedWalker(FireDemonResumeSharedWalkerLoc3A5D4),
     Launch(FireDemonBerzerkerLaunchLoc3A5E4),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_berzerker_side_gate_loc_3a5e4(
     berzerker_charging: bool,
     facing: Direction,
@@ -5336,7 +5337,6 @@ pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_GRAVITY_LOC_3A610: i32 = 0x0000_400
 pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610: u16 = 0xA610;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonBerzerkerLaunchLoopTickLoc3A610 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
@@ -5344,7 +5344,6 @@ pub(crate) struct FireDemonBerzerkerLaunchLoopTickLoc3A610 {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_berzerker_launch_loop_tick_loc_3a610(
     y_velocity: i32,
 ) -> FireDemonBerzerkerLaunchLoopTickLoc3A610 {
@@ -5433,14 +5432,12 @@ pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 pub(crate) const TANK_BULLET_SPAWN_Y_OFFSET_PX: i32 = 14;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankBulletLoopRouteLoc3B7BA {
     Continue,
     /// ASM Tank_Shooting.asm loc_3B7EC: shared `j_Delete_CurrentObject` tail.
     Delete,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_bullet_loop_route_loc_3b7ba(
     x_pos_word: u16,
     y_pos_word: u16,
@@ -5482,7 +5479,6 @@ const SCORPION_STING_Y_MAX_LOC_3DDEE: i16 = 0x30;
 const SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE: u8 = 0x06 + 0x0F + 0x06;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionCloseRangeRouteLoc3DDC8 {
     ContinueSharedWalker,
     TrackingLockedVerticalMiss,
@@ -5502,7 +5498,6 @@ impl ScorpionCloseRangeRouteLoc3DDC8 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_close_range_route_loc_3ddc8(
     scorpion_x_minus_kid_x_px: i16,
     scorpion_y_minus_kid_y_px: i16,
@@ -5713,7 +5708,6 @@ pub(crate) struct ScorpionTailGfxPosition {
     pub(crate) y_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_tail_sync_loc_3dc86(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -5737,7 +5731,6 @@ pub(crate) fn scorpion_tail_sync_loc_3dc86(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionCollisionRouteLoc3DCB0 {
     ContinueSharedWalker,
     Damage,
@@ -5745,7 +5738,6 @@ pub(crate) enum ScorpionCollisionRouteLoc3DCB0 {
     Death,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_collision_dispatch_loc_3dcb0(
     collision_type: i16,
 ) -> ScorpionCollisionRouteLoc3DCB0 {
@@ -5768,7 +5760,6 @@ pub(crate) fn scorpion_collision_dispatch_loc_3dcb0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionDamageRouteLoc3DCD4 {
     Hurt {
         remaining_hp: u16,
@@ -5778,7 +5769,6 @@ pub(crate) enum ScorpionDamageRouteLoc3DCD4 {
     Death,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_damage_route_loc_3dcd4(current_hp: u16) -> ScorpionDamageRouteLoc3DCD4 {
     // ASM Scorpion.asm loc_3DCD4: `subq.w #1,$44(a3); beq.s ...` branches to
     // death when the decremented current_hp word reaches zero; otherwise it
@@ -5818,7 +5808,6 @@ pub(crate) fn scorpion_death_route_loc_3dcf4() -> ScorpionDeathRouteLoc3DCF4 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionBerzerkerKnockbackStartLoc3DD0E {
     pub(crate) linked_tail_has_kid_collision: bool,
     pub(crate) has_level_collision: bool,
@@ -5831,13 +5820,11 @@ pub(crate) struct ScorpionBerzerkerKnockbackStartLoc3DD0E {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionBerzerkerSideGateLoc3DD0E {
     ResumeSharedWalker { next_collision_type: u16 },
     Knockback(ScorpionBerzerkerKnockbackStartLoc3DD0E),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_berzerker_side_gate_loc_3dd0e(
     berzerker_charging: bool,
     sprite_before_sting_gate: bool,
@@ -5870,7 +5857,6 @@ pub(crate) const SCORPION_BERZERKER_KNOCKBACK_GRAVITY_LOC_3DD4A: i32 = 0x0000_40
 pub(crate) const SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A: u16 = 0x3DD4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionBerzerkerAirborneFrameLoc3DD4A {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) applies_motion_subroutine: bool,
@@ -5879,7 +5865,6 @@ pub(crate) struct ScorpionBerzerkerAirborneFrameLoc3DD4A {
     pub(crate) repeats_airborne_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_berzerker_airborne_frame_loc_3dd4a(
     y_velocity: i32,
 ) -> ScorpionBerzerkerAirborneFrameLoc3DD4A {
@@ -5939,6 +5924,7 @@ pub(crate) fn scorpion_collision_resume_loc_3dd5c(
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
 pub(crate) const ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE: u16 =
     archer_shooting_cycle_delay_frames_loc_341BE();
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A: i32 = -0x0004_0000;
 
 /// Arrow velocity table from Archer.asm `byte_3437A`.
@@ -5976,14 +5962,12 @@ pub(crate) const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherShootingTableLoc3419A {
     Horizontal,
     Vertical,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_opening_angle_loc_3419A(
     table: ArcherShootingTableLoc3419A,
     facing: Direction,
@@ -6003,7 +5987,6 @@ pub(crate) fn archer_opening_angle_loc_3419A(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherShotSelectionLoc340C0 {
     pub(crate) initial_angle: usize,
     pub(crate) facing: Direction,
@@ -6011,7 +5994,6 @@ pub(crate) struct ArcherShotSelectionLoc340C0 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShotSelectionLoc340C0 {
     // ASM Archer.asm loc_3408C/loc_340C0: start on Shooting_Vertical with
     // x_direction clear, then `cmpi #6`, `cmpi #$D`, and `cmpi #$14` divide the
@@ -6034,7 +6016,6 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherArrowSetupLoc341AA {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -6372,7 +6353,6 @@ pub(crate) enum RobotState {
     /// ASM sub_3C4F8 loc_3C58E: head turn sequence before Enemy03_Robot_Shoot.
     Aiming,
     /// Charging at high speed after loc_3A96C collision/hit routing.
-    #[cfg_attr(not(test), allow(dead_code))]
     Charging,
 }
 
@@ -6940,7 +6920,6 @@ pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingDamageRouteLoc3CEBE {
     Death {
         remaining_hp: u16,
@@ -6955,7 +6934,6 @@ pub(crate) enum DragonWalkingDamageRouteLoc3CEBE {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_damage_route_loc_3cebe(
     current_hp: u16,
     parent_spawned_child: bool,
@@ -6979,7 +6957,6 @@ pub(crate) fn dragon_walking_damage_route_loc_3cebe(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingTerminalRouteLoc3CEE4 {
     DeathAnimation {
         set_has_kid_collision: bool,
@@ -6991,7 +6968,6 @@ pub(crate) enum DragonWalkingTerminalRouteLoc3CEE4 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_terminal_route_loc_3cee4(
     collision_type: i16,
     parent_spawned_child: bool,
@@ -7078,6 +7054,7 @@ pub(crate) fn dragon_walking_berzerker_side_gate_loc_3cf0e(
     )
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_WALKING_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CF3A: i32 = 0x0000_4000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7167,14 +7144,12 @@ pub(crate) fn dragon_walking_normal_resume_dispatch_loc_3cf62(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathTriggerNextLoc3CF6E {
     SpawnedChildRecover,
     AllocateBreathObject,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathTriggerLoc3CF6E {
     pub(crate) breath_timer: u16,
     pub(crate) phase_done_flag_5b: u8,
@@ -7182,7 +7157,6 @@ pub(crate) struct DragonWalkingBreathTriggerLoc3CF6E {
     pub(crate) next: DragonWalkingBreathTriggerNextLoc3CF6E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_trigger_loc_3cf6e(
     parent_spawned_child: bool,
     object_flag_19_set: bool,
@@ -7203,7 +7177,6 @@ pub(crate) fn dragon_walking_breath_trigger_loc_3cf6e(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathObjectStartLoc3CF90 {
     pub(crate) swaps_parent_and_child_registers: bool,
     pub(crate) allocation_mask: u16,
@@ -7211,7 +7184,6 @@ pub(crate) struct DragonWalkingBreathObjectStartLoc3CF90 {
     pub(crate) parent_animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_object_start_loc_3cf90()
 -> DragonWalkingBreathObjectStartLoc3CF90 {
     // ASM Dragon.asm loc_3CF90: exchange `a0/a1`, allocate a child object slot
@@ -7434,7 +7406,6 @@ const DRAGON_FLYING_COLID_SLOPEUP: u16 = 0x0014;
 const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = 0x0018;
 const DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES: u16 = 2;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
     // ASM Dragon_Flying.asm loc_347B2: negative drift subtracts `$200`
     // from d7 and clamps at `$FFFE8000` (-$18000).
@@ -7442,13 +7413,11 @@ pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonDriftStoreLoc347C8 {
     pub(crate) x_velocity: i32,
     pub(crate) checks_fire_breath_cone: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_store_loc_347c8(
     d7_velocity: i32,
     d1_fire_gate: u16,
@@ -7505,14 +7474,12 @@ pub(crate) fn dragon_hover_dbf_tail_loc_3482e(d0_before_dbf: u16) -> DragonHover
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonDescentMoveSetupLoc348E4 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
     pub(crate) dbf_counter_after_subq: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_descent_move_setup_loc_348e4(
     facing: Direction,
     left_facing_x_vel_px: i8,
@@ -7610,7 +7577,6 @@ pub(crate) fn dragon_return_stop_loc_349c0(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonTerrainDispatchLoc349DE {
     DeathExplosion {
         collision_cleared: bool,
@@ -7625,7 +7591,6 @@ pub(crate) enum DragonTerrainDispatchLoc349DE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_terrain_dispatch_loc_349DE(
     collision_type: u16,
 ) -> DragonTerrainDispatchLoc349DE {
@@ -7650,13 +7615,11 @@ pub(crate) fn dragon_terrain_dispatch_loc_349DE(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonRightSlideStartLoc34A00 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_right_slide_start_loc_34a00(
     previous_x_velocity: i32,
 ) -> DragonRightSlideStartLoc34A00 {
@@ -7670,7 +7633,6 @@ pub(crate) fn dragon_right_slide_start_loc_34a00(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonRightSlideFrameLoc34A0A {
     CollisionRoute {
         x_velocity: i32,
@@ -7684,7 +7646,6 @@ pub(crate) enum DragonRightSlideFrameLoc34A0A {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_right_slide_frame_loc_34a0a(
     x_velocity: i32,
     collision_type: u16,
@@ -7712,13 +7673,11 @@ pub(crate) fn dragon_right_slide_frame_loc_34a0a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonLeftSlideStartLoc34A24 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_left_slide_start_loc_34a24(
     previous_x_velocity: i32,
 ) -> DragonLeftSlideStartLoc34A24 {
@@ -7732,7 +7691,6 @@ pub(crate) fn dragon_left_slide_start_loc_34a24(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonLeftSlideFrameLoc34A2E {
     CollisionRoute {
         x_velocity: i32,
@@ -7746,7 +7704,6 @@ pub(crate) enum DragonLeftSlideFrameLoc34A2E {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_left_slide_frame_loc_34a2e(
     x_velocity: i32,
     collision_type: u16,
@@ -7774,12 +7731,10 @@ pub(crate) fn dragon_left_slide_frame_loc_34a2e(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonUpSlideStartLoc34A48 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_up_slide_start_loc_34a48(
     previous_y_velocity: i32,
 ) -> DragonUpSlideStartLoc34A48 {
@@ -7791,7 +7746,6 @@ pub(crate) fn dragon_up_slide_start_loc_34a48(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonUpSlideFrameLoc34A4E {
     CollisionRoute {
         y_velocity: i32,
@@ -7805,7 +7759,6 @@ pub(crate) enum DragonUpSlideFrameLoc34A4E {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_up_slide_frame_loc_34a4e(
     y_velocity: i32,
     collision_type: u16,
@@ -7833,12 +7786,10 @@ pub(crate) fn dragon_up_slide_frame_loc_34a4e(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonDownSlideStartLoc34A68 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_down_slide_start_loc_34a68(
     previous_y_velocity: i32,
 ) -> DragonDownSlideStartLoc34A68 {
@@ -7850,7 +7801,6 @@ pub(crate) fn dragon_down_slide_start_loc_34a68(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonDownSlideFrameLoc34A6E {
     CollisionRoute {
         y_velocity: i32,
@@ -7865,7 +7815,6 @@ pub(crate) enum DragonDownSlideFrameLoc34A6E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_down_slide_frame_loc_34A6E(
     y_velocity: i32,
     collision_type: u16,
@@ -7893,7 +7842,6 @@ pub(crate) fn dragon_down_slide_frame_loc_34A6E(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingReboundStartLoc34A88 {
     pub(crate) snap_x_pos: u32,
     pub(crate) snap_y_pos: u32,
@@ -7908,14 +7856,12 @@ pub(crate) struct DragonFlyingReboundStartLoc34A88 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingSnapBackCoordsLoc34B96 {
     pub(crate) snap_x_pos: u32,
     pub(crate) snap_y_pos: u32,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_snap_back_coords_loc_34B96(
     x_pos: u32,
     y_pos: u32,
@@ -7931,7 +7877,6 @@ pub(crate) fn dragon_flying_snap_back_coords_loc_34B96(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_rebound_start_loc_34A88(
     x_pos: u32,
     y_pos: u32,
@@ -7958,7 +7903,6 @@ pub(crate) fn dragon_flying_rebound_start_loc_34A88(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_right_rebound_start_loc_34ADC(
     x_pos: u32,
     y_pos: u32,
@@ -7983,7 +7927,6 @@ pub(crate) fn dragon_flying_right_rebound_start_loc_34ADC(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingReboundFrameLoc34AC2 {
     BeginReturnToAnchor {
         y_velocity: i32,
@@ -7998,7 +7941,6 @@ pub(crate) enum DragonFlyingReboundFrameLoc34AC2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
     y_velocity: i32,
     collision_type: u16,
@@ -8036,14 +7978,12 @@ pub(crate) fn dragon_flying_right_rebound_frame_loc_34B16(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingReboundCollisionRouteLoc34B30 {
     DeathExplosion,
     RestartScript,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_rebound_collision_route_loc_34B30(
     collision_type: u16,
 ) -> DragonFlyingReboundCollisionRouteLoc34B30 {
@@ -8056,7 +7996,6 @@ pub(crate) fn dragon_flying_rebound_collision_route_loc_34B30(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingDescentFireSetupLoc34BE6 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -8082,7 +8021,6 @@ fn fp16_high_signed_word(value: i32) -> i16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
     dragon_x_pos: u32,
     dragon_y_pos: u32,
@@ -8116,7 +8054,6 @@ pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingDescentFireFirstLoopLoc34C26 {
     CollisionCleanup {
         dbf_counter: u16,
@@ -8135,7 +8072,6 @@ pub(crate) enum DragonFlyingDescentFireFirstLoopLoc34C26 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_descent_fire_first_loop_loc_34C26(
     d0_before_dbf: u16,
     collision_type: u16,
@@ -8165,7 +8101,6 @@ pub(crate) fn dragon_flying_descent_fire_first_loop_loc_34C26(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingDescentFireTravelLoopLoc34C3A {
     CollisionCleanup {
         has_level_collision: bool,
@@ -8183,7 +8118,6 @@ pub(crate) enum DragonFlyingDescentFireTravelLoopLoc34C3A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_descent_fire_travel_loop_loc_34C3A(
     collision_type: u16,
     animation_done_flag_19: bool,
@@ -8213,7 +8147,6 @@ pub(crate) fn dragon_flying_descent_fire_travel_loop_loc_34C3A(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingDescentFireCleanupLoc34C4A {
     pub(crate) has_level_collision: bool,
     pub(crate) x_velocity: i32,
@@ -8226,7 +8159,6 @@ pub(crate) struct DragonFlyingDescentFireCleanupLoc34C4A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_descent_fire_cleanup_loc_34C4A()
 -> DragonFlyingDescentFireCleanupLoc34C4A {
     // ASM Dragon_Flying.asm loc_34C4A: clear level collision and both velocity
@@ -8245,13 +8177,11 @@ pub(crate) fn dragon_flying_descent_fire_cleanup_loc_34C4A()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_respawn_marker_loc_34998(
     object_status_slot: u8,
 ) -> DragonFlyingRespawnMarkerLoc34998 {
@@ -8265,13 +8195,11 @@ pub(crate) fn dragon_flying_respawn_marker_loc_34998(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingDeleteTailLoc349A6 {
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc349A6 {
     // ASM Dragon_Flying.asm loc_349A6: all death-status routes converge on the
     // `j_Delete_CurrentObject` tail after the explosion animation finishes.
@@ -8281,7 +8209,6 @@ pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingDeathStatusRouteLoc3492C {
     WriteRespawnMarker(DragonFlyingRespawnMarkerLoc34998),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -8289,7 +8216,6 @@ pub(crate) enum DragonFlyingDeathStatusRouteLoc3492C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingDeathSequenceLoc3492C {
     pub(crate) animation_label: &'static str,
     pub(crate) animation_hibernate_frames: u16,
@@ -8306,7 +8232,6 @@ pub(crate) struct DragonFlyingDeathSequenceLoc3492C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_death_sequence_loc_3492C(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -9943,6 +9868,7 @@ pub(crate) fn step_flyer_with_rng(
 /// ASM `Cloud.asm loc_35BDE -> loc_35C54`: `move.w #$3C,d3` is written after
 /// wall reversal, but the active loop never reads `d3`, so Cloud resumes
 /// flying immediately on the next frame instead of idling.
+#[cfg_attr(not(test), allow(dead_code))]
 const CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC: [u16; 5] = [0x7800, 0x0004, 0x1E00, 0x0008, 0xFFFF];
 
 #[allow(non_snake_case)]
@@ -9954,6 +9880,7 @@ pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CloudControlDispatchLoc35BB2 {
     Wait { frames: u8 },
     SetStatus44,
@@ -10070,6 +9997,7 @@ pub(crate) fn cloud_transition_loc_35C82() -> CloudTransitionLoc35C82 {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
     "LnkTo_unk_C787E-Data_Index",
     "LnkTo_unk_C7886-Data_Index",
@@ -10145,7 +10073,6 @@ pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDiagonalAttackInputLoc35CD8 {
     pub(crate) object_45: u8,
     pub(crate) animation_done_flag_18: bool,
@@ -10159,7 +10086,6 @@ pub(crate) struct CloudDiagonalAttackInputLoc35CD8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CloudDiagonalAttackRouteLoc35CD8 {
     ContinueExistingAttack,
     LaterRangeChecks,
@@ -10177,7 +10103,6 @@ pub(crate) enum CloudDiagonalAttackRouteLoc35CD8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDiagonalAttackSetupLoc35CD8 {
     pub(crate) route: CloudDiagonalAttackRouteLoc35CD8,
     pub(crate) animation_script: Option<&'static str>,
@@ -10206,7 +10131,6 @@ fn cloud_diagonal_attack_start_loc_35cd8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
     input: CloudDiagonalAttackInputLoc35CD8,
 ) -> CloudDiagonalAttackSetupLoc35CD8 {
@@ -10337,6 +10261,7 @@ pub(crate) fn cloud_attack_projectile_delete_tail_loc_35E9C()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
@@ -10675,7 +10600,6 @@ pub(crate) const UFO_PATTERN_SCRIPT_LOC_35344: [UfoMotionCommand; 16] = [
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoMotionCommand {
     pub(crate) x_acceleration: i32,
     pub(crate) target_x_velocity: i32,
@@ -10683,7 +10607,6 @@ pub(crate) struct UfoMotionCommand {
     pub(crate) target_y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_double_acceleration_loc_34e10(
     mut command: UfoMotionCommand,
     double_acceleration: bool,
@@ -10696,7 +10619,6 @@ pub(crate) fn ufo_double_acceleration_loc_34e10(
     command
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_double_terminal_speed_loc_34e1c(
     mut command: UfoMotionCommand,
     double_terminal_speed: bool,
@@ -10710,7 +10632,6 @@ pub(crate) fn ufo_double_terminal_speed_loc_34e1c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoTrackingCommandLoc34E2A {
     pub(crate) motion: UfoMotionCommand,
     pub(crate) y_velocity: i32,
@@ -10718,7 +10639,6 @@ pub(crate) struct UfoTrackingCommandLoc34E2A {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamStartLoc34Eec {
     pub(crate) beam_segments: u8,
     pub(crate) beam_interval: u8,
@@ -10784,12 +10704,10 @@ pub(crate) fn ufo_clear_on_screen_latch_loc_34f88() -> bool {
     false
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn fixed_integer_word(pos: u32) -> i16 {
     (pos >> 16) as u16 as i16
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn ufo_tracking_command_loc_34e2a(
     ufo_x_pos: u32,
@@ -10847,7 +10765,6 @@ pub(crate) fn ufo_tracking_command_loc_34e2a(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_right_tracking_command_loc_34e86() -> UfoMotionCommand {
     // ASM UFO.asm loc_34E86: Kid is to the right, so d1/d0 become
     // +$20000/+$1000 and `st x_direction(a3)` marks the UFO as flipped.
@@ -10859,7 +10776,6 @@ pub(crate) fn ufo_right_tracking_command_loc_34e86() -> UfoMotionCommand {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_tracking_tail_loc_34e96(
     command: UfoMotionCommand,
     double_acceleration: bool,
@@ -10873,7 +10789,6 @@ pub(crate) fn ufo_tracking_tail_loc_34e96(
     )
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_motion_picker_loc_35326(
     random_byte: u8,
     ufo_x_pos: u32,
@@ -10893,7 +10808,6 @@ pub(crate) fn ufo_motion_picker_loc_35326(
     )
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_motion_from_script_loc_35444(
     script: UfoMotionCommand,
     x_velocity: i32,
@@ -11115,7 +11029,6 @@ const UFO_BEAM_INTERVAL_FRAMES: u8 = 5;
 const UFO_BEAM_Y_VELOCITY: i32 = 0x3_0000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamLoadTickLoc34FD6 {
     pub(crate) next_beam_segments: u8,
     pub(crate) next_beam_interval: u8,
@@ -11123,7 +11036,6 @@ pub(crate) struct UfoBeamLoadTickLoc34FD6 {
     pub(crate) clear_ufo_shooting_state: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_load_tick_loc_34fd6(
     shooting_active: bool,
     beam_segments: u8,
@@ -11162,13 +11074,11 @@ pub(crate) fn ufo_beam_load_tick_loc_34fd6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamClearLoc34FFE {
     pub(crate) ufo_shooting_latch: bool,
     pub(crate) global_shooting_flag: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_clear_shooting_state_loc_34ffe() -> UfoBeamClearLoc34FFE {
     // ASM UFO.asm loc_34FFE: when `$48(a5)` reaches zero, clear `$46(a5)` and
     // `Some_UFO_Shooting`.
@@ -11178,7 +11088,6 @@ pub(crate) fn ufo_beam_clear_shooting_state_loc_34ffe() -> UfoBeamClearLoc34FFE 
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
     // ASM UFO.asm loc_34EEC: targeted shooting starts the shared UFO beam
     // sequence, freezes the UFO, and reloads the one-second loop counter to $32.
@@ -11263,7 +11172,6 @@ pub(crate) fn step_ufo_beam_with_rng(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_random_beam_should_start_loc_34f8e(random_byte: u8) -> bool {
     // ASM UFO.asm Enemy0F_UFO_ChkLoadBeam: after `Get_RandomNumber_byte`,
     // `cmpi.w #4,d7; bgt return` starts the beam for byte values 0..=4.
@@ -11425,7 +11333,6 @@ fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, accelera
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_apply_acceleration_axis_loc_3502a(
     current_velocity: i32,
     target_velocity: i32,
@@ -11436,7 +11343,6 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_3502a(
     ufo_apply_acceleration_axis_loc_35050(next_velocity.min(target_velocity))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_apply_acceleration_axis_loc_3501e(
     current_velocity: i32,
     target_velocity: i32,
@@ -11447,7 +11353,6 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_3501e(
     ufo_apply_acceleration_axis_loc_35044(current_velocity, target_velocity, acceleration)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_apply_acceleration_axis_loc_35044(
     current_velocity: i32,
     target_velocity: i32,
@@ -11462,14 +11367,12 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_35044(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_apply_acceleration_axis_loc_35050(final_velocity: i32) -> i32 {
     // ASM UFO.asm loc_35050: write the chosen `d7` into Y velocity and return.
     final_velocity
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum UfoCollisionBehaviorLoc35056 {
     BounceWall,
     BounceFloorCeil,
@@ -11480,13 +11383,11 @@ pub(crate) enum UfoCollisionBehaviorLoc35056 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoCollisionDispatchLoc35056 {
     pub(crate) collision_type: u16,
     pub(crate) behavior: Option<UfoCollisionBehaviorLoc35056>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_collision_dispatch_loc_35056(
     collision_type: i16,
 ) -> UfoCollisionDispatchLoc35056 {
@@ -11537,7 +11438,6 @@ pub(crate) fn ufo_collision_clear_loc_35070(collision_type: u16) -> UfoCollision
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TornadoCollisionBehaviorLoc35948 {
     BounceWall,
     BounceFloorCeil,
@@ -11550,13 +11450,11 @@ pub(crate) enum TornadoCollisionBehaviorLoc35948 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoCollisionDispatchLoc35948 {
     pub(crate) collision_type: u16,
     pub(crate) behavior: Option<TornadoCollisionBehaviorLoc35948>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_collision_dispatch_loc_35948(
     collision_type: i16,
 ) -> TornadoCollisionDispatchLoc35948 {
@@ -11669,7 +11567,6 @@ pub(crate) fn tornado_hit_sequence_loc_359b2(object_status_slot: u8) -> TornadoH
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoCycloneBounceLoc35986 {
     pub(crate) player_x_velocity: i32,
     pub(crate) tornado_x_velocity: i32,
@@ -11693,13 +11590,11 @@ fn tornado_cyclone_bounce_from_d7_loc_35986(d7: i32) -> TornadoCycloneBounceLoc3
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_cyclone_bounce_kid_right_loc_3597e() -> TornadoCycloneBounceLoc35986 {
     // ASM Tornado.asm loc_3597E: `moveq #2,d7; bra.w loc_35986`.
     tornado_cyclone_bounce_from_d7_loc_35986(2)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_cyclone_bounce_kid_left_loc_35984() -> TornadoCycloneBounceLoc35986 {
     // ASM Tornado.asm loc_35984: `moveq #-2,d7`, then fall through to `loc_35986`.
     tornado_cyclone_bounce_from_d7_loc_35986(-2)
@@ -11717,13 +11612,11 @@ pub(crate) fn tornado_cyclone_bounce_for_positions_loc_35986(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoPositionRestoreLoc350F2 {
     pub(crate) x_pos: i32,
     pub(crate) y_pos: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_restore_position_loc_350f2(
     x_pos: i32,
     y_pos: i32,
@@ -11739,13 +11632,11 @@ pub(crate) fn ufo_restore_position_loc_350f2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoWallBounceLoc35120 {
     pub(crate) x_velocity: i32,
     pub(crate) d0: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_bounce_wall_tail_loc_35120(x_velocity: i32, d0: i32) -> UfoWallBounceLoc35120 {
     // ASM UFO.asm loc_35120: after the wall bounce has negated `x_vel`, keep it.
     // Clear-only behavior means positive `d0` values are negated so they can be
@@ -11757,13 +11648,11 @@ pub(crate) fn ufo_bounce_wall_tail_loc_35120(x_velocity: i32, d0: i32) -> UfoWal
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoFloorCeilBounceLoc35146 {
     pub(crate) y_velocity: i32,
     pub(crate) d2: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_bounce_floor_ceil_tail_loc_35146(
     y_velocity: i32,
     d2: i32,
@@ -11777,7 +11666,6 @@ pub(crate) fn ufo_bounce_floor_ceil_tail_loc_35146(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtSpawnTailLoc35174 {
     pub(crate) some_ufo_shooting_cleared: bool,
     pub(crate) allocation_selector: u16,
@@ -11790,7 +11678,6 @@ pub(crate) struct UfoHurtSpawnTailLoc35174 {
     pub(crate) parent_animation_flag_13_cleared: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_tail_loc_35174(
     parent_x_velocity: i32,
     some_ufo_shooting: bool,
@@ -11848,7 +11735,6 @@ pub(crate) struct UfoHurtHibernateGateLoc351B6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoFirstHurtSurviveLoc35228 {
     pub(crate) parent_y_velocity: i32,
     pub(crate) d2: i32,
@@ -11856,7 +11742,6 @@ pub(crate) struct UfoFirstHurtSurviveLoc35228 {
     pub(crate) hurt_primed: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_first_hurt_survive_loc_35228(
     parent_y_velocity: i32,
 ) -> UfoFirstHurtSurviveLoc35228 {
@@ -13113,7 +12998,6 @@ pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballTrailInitLoc330D0 {
     pub(crate) gfx_object_long: u32,
     pub(crate) display_flag_13: u8,
@@ -13126,7 +13010,6 @@ pub(crate) struct FireballTrailInitLoc330D0 {
     pub(crate) animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_trail_init_loc_330d0(
     parent_x_direction: u8,
     parent_x_px: i16,
@@ -13254,12 +13137,14 @@ pub(crate) enum FireballSpriteBranchLoc32F3E {
     PositiveXNonNegativeY,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_velocity_word_after_shift8_loc_32f3e(velocity: i32) -> u16 {
     let shifted = velocity >> 8;
     let bytes = shifted.to_be_bytes();
     u16::from_be_bytes([bytes[2], bytes[3]])
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn signed_word(word: u16) -> i16 {
     i16::from_be_bytes(word.to_be_bytes())
 }
@@ -13309,6 +13194,7 @@ pub(crate) struct FireballSpriteSelectionLoc32F3E {
     pub(crate) quadrant_index: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A: [(u8, u8); 20] = [
     (0x00, 0x08),
     (0x00, 0x06),
@@ -13332,6 +13218,7 @@ const FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A: [(u8, u8); 20] = [
     (0x00, 0x08),
 ];
 
+#[cfg_attr(not(test), allow(dead_code))]
 const FIREBALL_SPRITE_LINKS_LOC_33072: [&str; 18] = [
     "LnkTo_unk_C78D6-Data_Index",
     "LnkTo_unk_C78DE-Data_Index",
@@ -13416,6 +13303,7 @@ pub(crate) fn fireball_sprite_commit_loc_3304a(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     // ASM Fireball.asm unk_32EDC: the first $3F ratio slots map to 0, 1, 2,
     // then 3; loc_32F78/loc_32FAC mirror or offset that base sprite index.
@@ -13427,6 +13315,7 @@ fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_ratio_sprite_index(abs_x_word: u16, abs_y_word: u16) -> Option<i16> {
     let scaled_y_word = abs_y_word.wrapping_shl(3);
     let divisor = i32::from(signed_word(abs_x_word));
@@ -13574,7 +13463,6 @@ pub(crate) struct FireballBounceCommitLoc32CE4 {
     pub(crate) next_fire_trail_count: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_floor_ceiling_bounce_loc_32ce4(
     enemy: &ActiveEnemy,
     rng: &mut RomRandomState,
@@ -13677,7 +13565,6 @@ pub(crate) struct FireballSlopeDownTrailMarkerLoc32E3C {
     pub(crate) y_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_slope_up_trail_marker_loc_32d7e(
     probe_x_px: i16,
     probe_y_px: i16,
@@ -13700,7 +13587,6 @@ pub(crate) fn fireball_slope_up_trail_marker_loc_32d7e(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_slope_down_trail_marker_loc_32e3c(
     probe_x_px: i16,
     probe_y_px: i16,
@@ -14721,7 +14607,6 @@ pub(crate) fn enemy_should_remain_active(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
     x_pos: u32,
     y_pos: u32,
@@ -15872,7 +15757,6 @@ pub(crate) fn mini_hopping_skull_air_damage_death_animation_loc_3f238(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_side_contact_loc_3f244(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -15886,7 +15770,6 @@ pub(crate) fn mini_hopping_skull_air_side_contact_loc_3f244(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
     y_velocity: i32,
 ) -> MiniHoppingSkullChargingBerzerkerLoopFrame {
@@ -16225,13 +16108,11 @@ pub(crate) fn hopper_should_reverse(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SharedWalkerTurnaroundLoc3C026 {
     pub(crate) next_counter: u8,
     pub(crate) collision_type: Option<i16>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_walker_turnaround_loc_3c026(
     turnaround_counter: u8,
 ) -> SharedWalkerTurnaroundLoc3C026 {
@@ -16643,7 +16524,6 @@ fn diamond_high_hp_collision_type(
 pub(crate) const DRILLER_DRILL_CHILD_X_OFFSET: i32 = 0x18;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DrillerBlockDrillActionLoc3BEDE {
     None,
     SmashBits,
@@ -16658,7 +16538,6 @@ pub(crate) struct DrilledBlockLoc3BE78 {
     pub(crate) direction: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn driller_block_drill_action_loc_3bede(
     cell: terrain::Cell,
 ) -> DrillerBlockDrillActionLoc3BEDE {
@@ -17086,11 +16965,12 @@ pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -17102,7 +16982,6 @@ pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackAirborneStateLoc3D9DA {
     pub(crate) y_velocity: i32,
     pub(crate) hibernates_one_frame: bool,
@@ -17110,7 +16989,6 @@ pub(crate) struct NinjaJumpAttackAirborneStateLoc3D9DA {
     pub(crate) sprite_link: Option<&'static str>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     x_direction_right: bool,
 ) -> NinjaJumpAttackStartStateLoc3D9A4 {
@@ -17135,7 +17013,6 @@ pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_airborne_tick_loc_3d9da(
     y_velocity: i32,
 ) -> NinjaJumpAttackAirborneStateLoc3D9DA {
@@ -17203,7 +17080,6 @@ pub(crate) fn ninja_jump_attack_collision_dispatch_loc_3da0c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackWallBounceStateLoc3DA46 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -17211,7 +17087,6 @@ pub(crate) struct NinjaJumpAttackWallBounceStateLoc3DA46 {
     pub(crate) loops_airborne: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_wall_bounce_loc_3da46(
     x_velocity: i32,
     x_direction_right: bool,
@@ -17269,7 +17144,9 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A: i32 = -0x0004_8000;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C: i32 = 0x0000_4000;
@@ -17372,7 +17249,6 @@ pub(crate) fn ninja_kid_above_landing_loop_loc_3dabc(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaBerzerkerSideLaunchStateLoc3DB0A {
     pub(crate) has_kid_collision: bool,
     pub(crate) has_level_collision: bool,
@@ -17384,13 +17260,11 @@ pub(crate) struct NinjaBerzerkerSideLaunchStateLoc3DB0A {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaBerzerkerSideContactRouteLoc3DB0A {
     ContinueAirborneLoop,
     Launch(NinjaBerzerkerSideLaunchStateLoc3DB0A),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_berzerker_side_contact_loc_3db0a(
     berzerker_charging: bool,
 ) -> NinjaBerzerkerSideContactRouteLoc3DB0A {
@@ -17415,7 +17289,6 @@ pub(crate) fn ninja_berzerker_side_contact_loc_3db0a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checked_sub_3e8ba: bool,
@@ -17423,7 +17296,6 @@ pub(crate) struct NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_berzerker_side_launch_loop_tick_loc_3db3c(
     y_velocity: i32,
 ) -> NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
@@ -18066,7 +17938,6 @@ pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
 pub(crate) const HAND_GRAVITY: i32 = 0x4000;
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_seed_loc_328a6(hit_points: u8) -> i16 {
     // ASM Hand.asm loc_328A6: `move.w $46(a5),d5` loads the table's
     // HP-derived attack-speed seed: HP 1 => 1, HP 2 => 2, HP 3+ => 3.
@@ -18089,7 +17960,6 @@ fn hand_jump_units_from_random_loc_328aa(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_components_loc_328aa(
     speed_seed: i16,
     x_direction_flag: bool,
@@ -18118,7 +17988,6 @@ pub(crate) fn hand_jump_components_loc_328aa(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_x_velocity_loc_328e0(x_velocity_word: i16) -> i32 {
     // ASM Hand.asm loc_328E0: `swap d7; move.l d7,x_vel(a3)` promotes the
     // signed X word prepared by loc_328AA into the high word of 16.16 velocity.
@@ -18131,7 +18000,6 @@ fn fixed_position_integer_word(position: u32) -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_loop_gravity_loc_328f0(y_velocity: i32) -> i32 {
     // ASM Hand.asm loc_328F0: after hibernation/range/collision checks,
     // `addi.l #$4000,y_vel(a3)` applies uncapped long-word gravity.
@@ -18315,7 +18183,6 @@ pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_init_y_snap_loc_32aea(y_pos_word: u16) -> u16 {
     // ASM Hand.asm loc_32AEA: after init and blank-row adjustment, snap the
     // integer y word to `((y - 8) & $FFF0) + $F`.
@@ -18334,6 +18201,7 @@ pub(crate) struct HandTerrainScanLoc32AFE {
     pub(crate) any_collision_4000: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn asr4_word(value: u16) -> i16 {
     i16::from_be_bytes(value.to_be_bytes()) >> 4
 }
@@ -18625,14 +18493,12 @@ fn hand_grab_timer_step_loc_3292e(wait_timer: u16, player_facing: Option<Directi
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGrabSnapLoc3294C {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_grab_snap_loc_3294c(
     kid_x_pos: u32,
     kid_y_pos: u32,
@@ -18656,7 +18522,6 @@ pub(crate) fn hand_grab_snap_loc_3294c(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandReleaseLoc32970 {
     pub(crate) kid_grabbed_by_hand: bool,
     pub(crate) hand_state: HandState,
@@ -18667,7 +18532,6 @@ pub(crate) struct HandReleaseLoc32970 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_release_loc_32970() -> HandReleaseLoc32970 {
     // ASM Hand.asm loc_32970: clear KidGrabbedByHand, probe a 9x14 collision
     // window, restore level-collision/moved flags, load `d5 = 2`, then branch
@@ -18711,7 +18575,6 @@ pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_velocity_candidate_loc_327e4(hit_points: u8, x_direction_flag: bool) -> i32 {
     // ASM Hand.asm loc_327E4: load the negative `$48(a5)` table velocity,
     // then negate it only when raw x_direction is non-zero.
@@ -18725,7 +18588,6 @@ pub(crate) fn hand_velocity_candidate_loc_327e4(hit_points: u8, x_direction_flag
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandInitialMotionLoc327F2 {
     pub(crate) x_velocity: i32,
     pub(crate) animation_label: &'static str,
@@ -18733,7 +18595,6 @@ pub(crate) struct HandInitialMotionLoc327F2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_initial_motion_loc_327f2(
     hit_points: u8,
     x_direction_flag: bool,
@@ -19367,21 +19228,18 @@ pub(crate) fn robot_destroy_prep_loc_3a9d2() -> RobotDestroyPrepLoc3A9D2 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotHitReactionRouteLoc3A8Fc {
     ClearAndWalk,
     EnterCharge,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotChildSpriteUpdateLoc3A8Fc {
     KeepCurrent,
     UseHitFrame,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) remaining_hp: u16,
@@ -19396,7 +19254,6 @@ pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) replay_jump_sound: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_hit_reaction_loc_3a8fc(
     current_hp: u16,
     tracking_latch_set: bool,
@@ -19788,7 +19645,6 @@ pub(crate) fn robot_shoot_lethal_hit_loc_3ab56(facing: Direction) -> RobotShootL
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotShotSpawnLoc3AC0C {
     pub(crate) projectile_x_direction: u8,
@@ -19799,7 +19655,6 @@ pub(crate) struct RobotShotSpawnLoc3AC0C {
     pub(crate) hibernates_one_frame_before_sound_gate: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_shot_spawn_loc_3ac0c(
     child_x_direction: u8,
     child_y_offset_46_px: i16,
@@ -19822,14 +19677,12 @@ pub(crate) fn robot_shot_spawn_loc_3ac0c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RobotShotFlightRouteLoc3AC48 {
     ContinueFlight,
     StartImpact,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotShotFlightLoc3AC48 {
     pub(crate) collision_type_cleared_before_frame: bool,
@@ -19837,7 +19690,6 @@ pub(crate) struct RobotShotFlightLoc3AC48 {
     pub(crate) route: RobotShotFlightRouteLoc3AC48,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn robot_shot_flight_loop_loc_3ac48(
     screen_x_px: i16,
     screen_y_px: i16,
@@ -20319,6 +20171,7 @@ pub(crate) const TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8: [(i32, i32); 5] = 
 /// Raw control script bytes used by `unk_32264` in `loc_32248`.
 /// Bytecode pairs are read with `move.w (a0)+,d0`, so each table entry is a signed
 /// 16-bit step command in the native script interpreter.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const TAR_MONSTER_CONTROL_BYTES_LOC_32248: [u8; 44] = [
     0x00, 0x04, 0x00, 0x10, 0x5A, 0x00, 0x00, 0x10, 0x05, 0x00, 0x00, 0x10, 0x0A, 0x00, 0x00, 0x10,
     0x07, 0x00, 0x00, 0x10, 0x32, 0x00, 0x00, 0x10, 0x00, 0x0A, 0x00, 0x00, 0x08, 0x46, 0x00, 0x00,
@@ -20504,7 +20357,6 @@ pub(crate) struct TarMonsterShotSoundLoc32468 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotSpawnLoc3247E {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -20518,7 +20370,6 @@ pub(crate) struct TarMonsterShotSpawnLoc3247E {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterShotSpawnRouteLoc3247E {
     StraightShot(TarMonsterShotSpawnLoc3247E),
     RetaliationBurst {
@@ -20529,7 +20380,6 @@ pub(crate) enum TarMonsterShotSpawnRouteLoc3247E {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterRetaliationEntryLoc325AC {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -20593,7 +20443,6 @@ pub(crate) struct TarMonsterProjectileDeleteLoc32652 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileDispatchSeedLoc32698 {
     pub(crate) remaining_collision_budget: u16,
     pub(crate) collision_offset: u16,
@@ -20601,14 +20450,12 @@ pub(crate) struct TarMonsterProjectileDispatchSeedLoc32698 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterProjectileCollisionBudgetLoc32698 {
     DeleteCurrentObject,
     DispatchSeed(TarMonsterProjectileDispatchSeedLoc32698),
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterProjectileCollisionTargetLoc32682 {
     Loc326AA,
     Loc326B8,
@@ -20619,7 +20466,6 @@ pub(crate) enum TarMonsterProjectileCollisionTargetLoc32682 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileCollisionDispatchLoc32682 {
     pub(crate) sprite_frame_link: Option<&'static str>,
     pub(crate) remaining_collision_budget: u16,
@@ -20628,7 +20474,6 @@ pub(crate) struct TarMonsterProjectileCollisionDispatchLoc32682 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterProjectileCollisionRouteLoc32682 {
     ReturnOnly,
     DeleteCurrentObject,
@@ -20636,13 +20481,11 @@ pub(crate) enum TarMonsterProjectileCollisionRouteLoc32682 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileCollisionLoc32682 {
     pub(crate) route: TarMonsterProjectileCollisionRouteLoc32682,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileVelocityPair {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -20665,7 +20508,6 @@ pub(crate) struct TarMonsterProjectileLoopLoc3263C {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -20686,7 +20528,6 @@ pub(crate) struct TarMonsterShotWaitLoc324E6 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterBurstCleanupLoc324F8 {
     pub(crate) hides_original_shot: bool,
     pub(crate) clears_original_x_velocity: bool,
@@ -20963,7 +20804,6 @@ pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_shot_spawn_loc_3247E(
     source_x_pos: u32,
     source_y_pos: u32,
@@ -20995,7 +20835,6 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
     source_x_pos: u32,
     source_y_pos: u32,
@@ -21102,7 +20941,6 @@ pub(crate) fn tar_monster_projectile_delete_loc_32652() -> TarMonsterProjectileD
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_dispatch_seed_loc_32698(
     collision_type: u16,
     collision_response_budget: u16,
@@ -21125,7 +20963,6 @@ pub(crate) fn tar_monster_projectile_dispatch_seed_loc_32698(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32 {
     // ASM loc_326AA: copy x_vel(a3), arithmetic-shift it right by one, negate
     // the halved value, and write it back to x_vel(a3).
@@ -21133,7 +20970,6 @@ pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_reflect_y_loc_326B8(y_velocity: i32) -> i32 {
     // ASM loc_326B8: copy y_vel(a3), arithmetic-shift it right by one, negate
     // the halved value, then fall through to the shared y_vel(a3) writeback.
@@ -21141,7 +20977,6 @@ pub(crate) fn tar_monster_projectile_reflect_y_loc_326B8(y_velocity: i32) -> i32
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_write_y_velocity_loc_326C0(y_velocity_d7: i32) -> i32 {
     // ASM loc_326C0: `move.l d7,y_vel(a3); rts` writes the prepared d7 long
     // directly to the projectile's y_vel field.
@@ -21149,7 +20984,6 @@ pub(crate) fn tar_monster_projectile_write_y_velocity_loc_326C0(y_velocity_d7: i
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
     x_velocity: i32,
     y_velocity: i32,
@@ -21163,7 +20997,6 @@ pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_velocity_swap_loc_326DC(
     x_velocity: i32,
     y_velocity: i32,
@@ -21177,7 +21010,6 @@ pub(crate) fn tar_monster_projectile_velocity_swap_loc_326DC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_collision_loc_32682(
     collision_type: i16,
     collision_response_budget: u16,
@@ -21234,6 +21066,7 @@ pub(crate) fn tar_monster_projectile_collision_loc_32682(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
     collision: TarMonsterProjectileCollisionLoc32682,
 ) -> bool {
@@ -21281,7 +21114,6 @@ pub(crate) fn tar_monster_projectile_loop_loc_3263C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_shot_motion_loc_324D0(
     x_pos_after_spawn_setup: u32,
     copied_x_direction: Direction,
@@ -21321,7 +21153,6 @@ pub(crate) fn tar_monster_shot_wait_loc_324E6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc324F8 {
     // ASM loc_324F8 hides the impacted glob, clears both velocity longs, spawns
     // two fixed-velocity children, then falls through loc_32534 for the final
@@ -21382,7 +21213,6 @@ pub(crate) struct TarMonsterInitLoc321C6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_hit_points_loc_321c6(enemy_level: u8) -> u8 {
     // ASM loc_321C6 indexes `dc.b Hitpoints_Enemy_05(pc,d3.w),d3`.
     TAR_MONSTER_HITPOINTS_BY_LEVEL[usize::from(enemy_level.min(3))]
@@ -21542,7 +21372,6 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
 }
 
 /// Spawn the five-child burst from the Tar Monster glob impact path.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spawn_tar_monster_retaliation(
     projectiles: &mut Vec<EnemyProjectile>,
     x: u32,
@@ -21629,7 +21458,6 @@ const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
 const DRAGON_WALKING_PHASE_RECOVER: u8 = 2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathChildPositionLoc3D070 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -21637,7 +21465,6 @@ pub(crate) struct DragonWalkingBreathChildPositionLoc3D070 {
     pub(crate) animation_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_child_position_loc_3d070(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -21660,21 +21487,18 @@ pub(crate) fn dragon_walking_breath_child_position_loc_3d070(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathChildPollNextLoc3D082 {
     RepeatPoll,
     DeleteChild,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathChildPollLoc3D082 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) sets_parent_phase_done_flag_5b: bool,
     pub(crate) next: DragonWalkingBreathChildPollNextLoc3D082,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_child_poll_loc_3d082(
     parent_phase_done_flag_5b: u8,
     child_animation_done_flag_18: bool,
@@ -21706,12 +21530,10 @@ pub(crate) fn dragon_walking_breath_child_poll_loc_3d082(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathChildDeleteLoc3D09E {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_child_delete_loc_3d09e()
 -> DragonWalkingBreathChildDeleteLoc3D09E {
     // ASM Dragon.asm loc_3D09E: tail-jump to `Delete_CurrentObject`; native
@@ -22385,13 +22207,11 @@ pub(crate) fn drips_idle_loop_loc_33516() -> DripsIdleLoopLoc33516 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsVelocityDeltasLoc33526 {
     pub(crate) x_delta: i32,
     pub(crate) y_delta: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_velocity_deltas_loc_33526(
     child_byte_44: u8,
     child_byte_45: u8,
@@ -22420,13 +22240,11 @@ pub(crate) fn drips_velocity_deltas_loc_33526(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsVelocityApplyLoc33546 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_velocity_apply_loc_33546(
     x_velocity: i32,
     y_velocity: i32,
@@ -22512,7 +22330,6 @@ pub(crate) fn drips_collision_no_contact_result_loc_33584(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsRightBoundsNextLoc33588 {
     ContactLoc335D4,
     CheckLeftLoc335AA,
@@ -22520,13 +22337,11 @@ pub(crate) enum DripsRightBoundsNextLoc33588 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsLeftBoundsNextLoc335AA {
     ContactLoc335D4,
     CheckVerticalLoc335B0,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_right_bounds_gate_loc_33588(
     has_level_collision_byte_19: bool,
     x_pos_word: i16,
@@ -22550,7 +22365,6 @@ pub(crate) fn drips_right_bounds_gate_loc_33588(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_left_bounds_gate_loc_335aa(x_pos_word: i16) -> DripsLeftBoundsNextLoc335AA {
     // ASM Drips.asm loc_335AA: subtract 8 from `x_pos(a3)` and branch to
     // d5=1 when the signed word result is negative; otherwise continue to the
@@ -22562,7 +22376,6 @@ pub(crate) fn drips_left_bounds_gate_loc_335aa(x_pos_word: i16) -> DripsLeftBoun
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
     y_pos_word: i16,
     y_velocity: i32,
@@ -22583,20 +22396,17 @@ pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_bounds_no_contact_result_loc_335d0() -> u16 {
     // ASM Drips.asm loc_335D0: the in-bounds return tail moves 0 into d5.
     0
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_bounds_contact_result_loc_335d4() -> u16 {
     // ASM Drips.asm loc_335D4: the out-of-bounds return tail moves 1 into d5.
     1
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerInitLoc335D8 {
     pub(crate) status_flag_13: bool,
     pub(crate) priority: u8,
@@ -22610,7 +22420,6 @@ pub(crate) struct DripsSurfaceCrawlerInitLoc335D8 {
     pub(crate) startup_animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_init_loc_335d8(
     queued_x_word: u16,
     queued_y_word: u16,
@@ -23120,7 +22929,6 @@ pub(crate) fn drips_surface_crawler_delete_tail_loc_3392c() -> DripsSurfaceCrawl
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerTurnFieldLoc33AF6 {
     XPos,
     YPos,
@@ -23128,7 +22936,6 @@ pub(crate) enum DripsSurfaceCrawlerTurnFieldLoc33AF6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerTurnAnimationLoc33AF6 {
     Stru33E10,
     Stru33E1E,
@@ -23156,7 +22963,6 @@ pub(crate) enum DripsSurfaceCrawlerTurnAnimationLoc33AF6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerTurnNextLoc33AF6 {
     Loc33650,
     Loc336D0,
@@ -23169,7 +22975,6 @@ pub(crate) enum DripsSurfaceCrawlerTurnNextLoc33AF6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerTurnScriptLoc33AF6 {
     pub(crate) snap_field: DripsSurfaceCrawlerTurnFieldLoc33AF6,
     pub(crate) snap_offset: i16,
@@ -23188,7 +22993,6 @@ pub(crate) struct DripsSurfaceCrawlerTurnScriptLoc33AF6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerFirstAnimationLoc33B30 {
     pub(crate) x_delta: i16,
     pub(crate) y_delta: i16,
@@ -23198,7 +23002,6 @@ pub(crate) struct DripsSurfaceCrawlerFirstAnimationLoc33B30 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerSecondAnimationLoc33B5E {
     pub(crate) x_delta: i16,
     pub(crate) y_delta: i16,
@@ -23209,17 +23012,14 @@ pub(crate) struct DripsSurfaceCrawlerSecondAnimationLoc33B5E {
     pub(crate) next: DripsSurfaceCrawlerTurnNextLoc33AF6,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_i8(byte: u8) -> i16 {
     i16::from(i8::from_ne_bytes([byte]))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_i16(hi: u8, lo: u8) -> i32 {
     i32::from(i16::from_be_bytes([hi, lo]))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_field_loc_33af6(byte: u8) -> DripsSurfaceCrawlerTurnFieldLoc33AF6 {
     match byte {
         0x1A => DripsSurfaceCrawlerTurnFieldLoc33AF6::XPos,
@@ -23228,7 +23028,6 @@ fn drips_turn_script_field_loc_33af6(byte: u8) -> DripsSurfaceCrawlerTurnFieldLo
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_animation_loc_33af6(
     byte_offset: u8,
 ) -> DripsSurfaceCrawlerTurnAnimationLoc33AF6 {
@@ -23259,7 +23058,6 @@ fn drips_turn_script_animation_loc_33af6(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_next_loc_33af6(byte_offset: u8) -> DripsSurfaceCrawlerTurnNextLoc33AF6 {
     match byte_offset {
         0x00 => DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650,
@@ -23273,7 +23071,6 @@ fn drips_turn_script_next_loc_33af6(byte_offset: u8) -> DripsSurfaceCrawlerTurnN
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_first_animation_loc_33b30(
     table: [u8; 4],
 ) -> DripsSurfaceCrawlerFirstAnimationLoc33B30 {
@@ -23289,7 +23086,6 @@ pub(crate) fn drips_surface_crawler_first_animation_loc_33b30(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_second_animation_loc_33b5e(
     table: [u8; 8],
 ) -> DripsSurfaceCrawlerSecondAnimationLoc33B5E {
@@ -23307,7 +23103,6 @@ pub(crate) fn drips_surface_crawler_second_animation_loc_33b5e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn drips_surface_crawler_turn_script_loc_33af6(
     table: [u8; 16],
 ) -> DripsSurfaceCrawlerTurnScriptLoc33AF6 {
@@ -23337,7 +23132,6 @@ fn drips_surface_crawler_turn_script_loc_33af6(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_3395a() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_3395A: select `unk_33C00`, then branch to the shared
@@ -23348,7 +23142,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3395a() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33950() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33950: select `unk_33BC0`, then branch to the shared
@@ -23359,7 +23152,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33950() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33946() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33946: select `unk_33C30`, then branch to the shared
@@ -23370,7 +23162,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33946() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33964() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33964: select `unk_33C70`, then branch to the shared
@@ -23381,7 +23172,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33964() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_3396e() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_3396E: select `unk_33C40`, then branch to the shared
@@ -23392,7 +23182,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3396e() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33978() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33978: select `unk_33BD0`, then branch to the shared
@@ -23403,7 +23192,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33978() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_3398c() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_3398C: select `unk_33C90`, then branch to the shared
@@ -23414,7 +23202,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3398c() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339a0() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339A0: select `unk_33BB0`, then branch to the shared
@@ -23425,7 +23212,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339a0() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339aa() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339AA: select `unk_33C10`, then branch to the shared
@@ -23436,7 +23222,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339aa() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339b4() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339B4: select `unk_33C60`, then branch to the shared
@@ -23447,7 +23232,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339b4() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339be() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339BE: select `unk_33C50`, then branch to the shared
@@ -23458,7 +23242,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339be() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339c8() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339C8: select `unk_33BA0`, then branch to the shared
@@ -23469,7 +23252,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339c8() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33982() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33982: select `unk_33BF0`, then branch to the shared
@@ -23480,7 +23262,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33982() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_3393c() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_3393C: select `unk_33C80`, then branch to the shared
@@ -23491,7 +23272,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3393c() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a2c() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A2C: select `unk_33CE0`, then branch to the shared
@@ -23502,7 +23282,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a2c() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33996() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33996: select `unk_33C20`, then branch to the shared
@@ -23513,7 +23292,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33996() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339dc() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339DC: select `unk_33CA0`, then branch to the shared
@@ -23524,7 +23302,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339dc() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339d2() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339D2: select `unk_33BE0`, then branch to the shared
@@ -23535,7 +23312,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339d2() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a40() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A40: select `unk_33D10`, then branch to the shared
@@ -23546,7 +23322,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a40() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a18() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A18: select `unk_33CC0`, then branch to the shared
@@ -23557,7 +23332,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a18() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a22() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A22: select `unk_33CD0`, then branch to the shared
@@ -23568,7 +23342,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a22() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a36() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A36: select `unk_33D00`, then branch to the shared
@@ -23579,7 +23352,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a36() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339e6() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339E6: select `unk_33CB0`, then branch to the shared
@@ -23590,7 +23362,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339e6() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339f0() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339F0: select `unk_33D70`, then branch to the shared
@@ -23601,7 +23372,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339f0() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a0e() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A0E: select `unk_33D90`, then branch to the shared
@@ -23612,7 +23382,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a0e() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a72() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A72: select `unk_33D60`, then branch to the shared
@@ -23623,7 +23392,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a72() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_339fa() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_339FA: select `unk_33D80`, then branch to the shared
@@ -23634,7 +23402,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_339fa() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a04() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A04: select `unk_33CF0`, then branch to the shared
@@ -23645,7 +23412,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a04() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a4a() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A4A: select `unk_33D20`, then branch to the shared
@@ -23656,7 +23422,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a4a() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a54() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A54: select `unk_33D30`, then branch to the shared
@@ -23667,7 +23432,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a54() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a5e() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A5E: select `unk_33D40`, then branch to the shared
@@ -23678,7 +23442,6 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a5e() -> DripsSurfaceCrawl
     ])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_turn_script_loc_33a68() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
 {
     // ASM Drips.asm loc_33A68: select `unk_33D50`, then branch to the shared
@@ -23839,11 +23602,16 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = 0x0004;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = 0x0008;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = 0x000C;
 pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = 0x001C;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = 0x0020;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
@@ -23912,13 +23680,11 @@ pub(crate) fn spinning_twins_orbit_tick_loc_3b904(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsWalkingVelocityGateLoc3BB5A {
     CollisionDispatch,
     Settle,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_velocity_gate_loc_3bb5a(
     x_velocity: i32,
 ) -> SpinningTwinsWalkingVelocityGateLoc3BB5A {
@@ -23996,14 +23762,12 @@ pub(crate) fn spinning_twins_floor_landing_loc_3bb8a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsSettleWalkerEntryLoc3BB94 {
     LeftLoc3C0D2,
     RightLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsSettleEntryLoc3BB94 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -24014,7 +23778,6 @@ pub(crate) struct SpinningTwinsSettleEntryLoc3BB94 {
     pub(crate) walker_entry: SpinningTwinsSettleWalkerEntryLoc3BB94,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_settle_entry_loc_3bb94(
     x_direction: u8,
 ) -> SpinningTwinsSettleEntryLoc3BB94 {
@@ -24070,13 +23833,11 @@ pub(crate) fn spinning_twins_settled_collision_dispatch_loc_3bbc4(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsResumeWalkLoc3BBE6 {
     pub(crate) next_collision_type: u16,
     pub(crate) resume_direction: Direction,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_resume_walk_loc_3bbe6(
     x_direction: u8,
 ) -> SpinningTwinsResumeWalkLoc3BBE6 {
@@ -24094,7 +23855,6 @@ pub(crate) fn spinning_twins_resume_walk_loc_3bbe6(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsBerzerkerLaunchSetupLoc3BBF6 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -24106,13 +23866,11 @@ pub(crate) struct SpinningTwinsBerzerkerLaunchSetupLoc3BBF6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsBerzerkerSideGateLoc3BBF6 {
     ResumeWalk(SpinningTwinsResumeWalkLoc3BBE6),
     Launch(SpinningTwinsBerzerkerLaunchSetupLoc3BBF6),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_berzerker_side_gate_loc_3bbf6(
     berzerker_charging: bool,
     x_direction: u8,
@@ -24142,7 +23900,6 @@ pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_GRAVITY_LOC_3BC22: i32 = 0x0000
 pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22: u16 = 0xBC22;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
@@ -24150,7 +23907,6 @@ pub(crate) struct SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_berzerker_launch_loop_tick_loc_3bc22(
     y_velocity: i32,
 ) -> SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
@@ -24166,7 +23922,6 @@ pub(crate) fn spinning_twins_berzerker_launch_loop_tick_loc_3bc22(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsDamageRecoveryLoc3BC34 {
     pub(crate) next_hit_points: u16,
     pub(crate) hit_animation: &'static str,
@@ -24176,13 +23931,11 @@ pub(crate) struct SpinningTwinsDamageRecoveryLoc3BC34 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsDamageContactLoc3BC34 {
     Death { next_hit_points: u16 },
     Recover(SpinningTwinsDamageRecoveryLoc3BC34),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_damage_contact_loc_3bc34(
     hit_points: u16,
     x_direction: u8,
@@ -24206,7 +23959,6 @@ pub(crate) fn spinning_twins_damage_contact_loc_3bc34(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsDeathStatusRouteLoc3BC78 {
     ClearStatusSlot(SpinningTwinsClearStatusSlotLoc3BC98),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -24214,13 +23966,11 @@ pub(crate) enum SpinningTwinsDeathStatusRouteLoc3BC78 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsClearStatusSlotLoc3BC98 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_clear_status_slot_loc_3bc98(
     object_status_slot: u8,
 ) -> SpinningTwinsClearStatusSlotLoc3BC98 {
@@ -24249,14 +23999,12 @@ pub(crate) fn spinning_twins_delete_tail_loc_3bca2() -> SpinningTwinsDeleteTailL
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsPartnerSignalTailLoc3BCA6 {
     pub(crate) partner_slot: u8,
     pub(crate) next_partner_flag_5b: u8,
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_partner_signal_tail_loc_3bca6(
     partner_slot: u8,
 ) -> SpinningTwinsPartnerSignalTailLoc3BCA6 {
@@ -24276,7 +24024,6 @@ pub(crate) struct SpinningTwinsDeathStatusLoc3BC78 {
     pub(crate) delete_tail: SpinningTwinsDeleteTailLoc3BCA2,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_death_status_route_loc_3bc78(
     object_status_slot: u8,
 ) -> SpinningTwinsDeathStatusRouteLoc3BC78 {
@@ -24309,7 +24056,6 @@ pub(crate) fn spinning_twins_death_status_loc_3bc78(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,
     // `tst.l y_vel(a3)` skips gravity when y_vel is already zero; otherwise
@@ -24321,14 +24067,12 @@ pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32)
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_left_x_velocity_loc_3bb42(x_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB42: a set x_direction flag takes the
     // left-launched child through `addi.l #$1200,x_vel(a3)`.
     x_velocity.wrapping_add(SPINNING_TWINS_DROP_X_DRAG)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_right_x_velocity_loc_3bb52(x_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB52: a clear x_direction flag takes the
     // right-launched child through `subi.l #$1200,x_vel(a3)`.
@@ -24336,7 +24080,6 @@ pub(crate) fn spinning_twins_walking_child_right_x_velocity_loc_3bb52(x_velocity
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -24345,7 +24088,6 @@ pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_first_walking_child_init_loc_3bb0c(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -24364,7 +24106,6 @@ pub(crate) fn spinning_twins_first_walking_child_init_loc_3bb0c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsSecondWalkingChildInitLoc3BB06 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -24373,7 +24114,6 @@ pub(crate) struct SpinningTwinsSecondWalkingChildInitLoc3BB06 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_second_walking_child_init_loc_3bb06(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -24391,7 +24131,6 @@ pub(crate) fn spinning_twins_second_walking_child_init_loc_3bb06(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsDropTransitionLoc3B93C {
     pub(crate) split_child_count: u8,
     pub(crate) orbit_child_hidden: bool,
@@ -24399,7 +24138,6 @@ pub(crate) struct SpinningTwinsDropTransitionLoc3B93C {
     pub(crate) original_deleted_after_animation: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_drop_transition_loc_3b93c(
     enemy: &mut ActiveEnemy,
 ) -> SpinningTwinsDropTransitionLoc3B93C {
@@ -24425,7 +24163,6 @@ pub(crate) fn spinning_twins_drop_transition_loc_3b93c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFallingVisualInitLoc3B9B0 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -24435,7 +24172,6 @@ pub(crate) struct SpinningTwinsFallingVisualInitLoc3B9B0 {
     pub(crate) frames_until_next_step_index: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_falling_visual_init_loc_3b9b0(
     parent_x_pos: u32,
     parent_y_pos: u32,
@@ -24457,7 +24193,6 @@ pub(crate) const SPINNING_TWINS_FALLING_VISUAL_X_STEPS_LOC_3BA00: [i32; 5] =
     [0x1_2000, 0x1_2000, 0x1_8000, 0x2_4000, 0x3_0000];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFallingVisualStateLoc3BA00 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -24467,7 +24202,6 @@ pub(crate) struct SpinningTwinsFallingVisualStateLoc3BA00 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFallingVisualStepLoc3BA00 {
     pub(crate) state: SpinningTwinsFallingVisualStateLoc3BA00,
     pub(crate) alive: bool,
@@ -24479,7 +24213,6 @@ fn spinning_twins_falling_visual_screen_delta_px(position: u32, camera_position:
     position_px.wrapping_sub(camera_px) as i16
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
     mut state: SpinningTwinsFallingVisualStateLoc3BA00,
     camera_x_pos: u32,
@@ -24760,7 +24493,6 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockClearanceWindowLoc3639E {
     pub(crate) top_row: u16,
     pub(crate) bottom_row: u16,
@@ -24771,13 +24503,11 @@ pub(crate) struct EmoRockClearanceWindowLoc3639E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum EmoRockClearanceWindowRouteLoc3639E {
     Scan(EmoRockClearanceWindowLoc3639E),
     Blocked,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_clearance_window_loc_3639e(
     level_width_pixels: i32,
     x_px: i32,
@@ -24826,14 +24556,12 @@ pub(crate) fn emo_rock_clearance_window_loc_3639e(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_clearance_cell_blocked_loc_363e0(cell: terrain::Cell) -> bool {
     // ASM Emo_Rock.asm loc_363E0: each scanned word is masked with `$4000`;
     // any set bit branches to the blocked return at loc_363FA.
     cell.is_solid_floor()
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_clearance_rows_loc_363dc(
     grid: &terrain::BlockGrid,
     window: EmoRockClearanceWindowLoc3639E,
@@ -25018,7 +24746,6 @@ const EMO_ROCK_BERZERKER_LAUNCH_Y_VELOCITY: i32 = -0x0003_0000;
 const EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY: i32 = 0x0000_6000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockBerzerkerLaunchLoc362Ee {
     pub(crate) has_kid_collision: bool,
     pub(crate) has_level_collision: bool,
@@ -25027,7 +24754,6 @@ pub(crate) struct EmoRockBerzerkerLaunchLoc362Ee {
     pub(crate) next_loop: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_berzerker_launch_loc_362ee(
     player_x_velocity: i32,
 ) -> EmoRockBerzerkerLaunchLoc362Ee {
@@ -25044,21 +24770,18 @@ pub(crate) fn emo_rock_berzerker_launch_loc_362ee(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum EmoRockBerzerkerAirborneRouteLoc3630A {
     ContinueAirborne,
     Death,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockBerzerkerAirborneFrameLoc3630A {
     pub(crate) y_velocity: i32,
     pub(crate) hibernates_one_frame: bool,
     pub(crate) route: EmoRockBerzerkerAirborneRouteLoc3630A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_berzerker_airborne_frame_loc_3630a(
     y_velocity: i32,
     flag_19_set: bool,
@@ -25313,7 +25036,6 @@ pub(crate) fn player_relative_direction(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherAngleLoc34458 {
     pub(crate) angle: usize,
     pub(crate) quadrant_selector: u8,
@@ -25425,7 +25147,6 @@ pub(crate) fn archer_adjust_angle(current: u8, target: u8) -> u8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherReaimLoc3432E {
     pub(crate) current_angle: u8,
     pub(crate) x_velocity: i32,
@@ -25643,7 +25364,6 @@ const CRAB_FREEZE_DISTANCE: i64 = 0x40;
 /// ASM loc_3B142: cmpi.w #$E0,d7 (unfreeze threshold = 224px).
 const CRAB_UNFREEZE_DISTANCE: i64 = 0xE0;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_facing_toward_kid_loc_3b0e0(crab_x_minus_kid_x: i16) -> Direction {
     // ASM Crab.asm loc_3B0E0: a negative `d7 = crab_x - Kid_x` reaches
     // `st x_direction(a3)`, which is the crab's flipped/right-facing state.
@@ -25654,7 +25374,6 @@ pub(crate) fn crab_facing_toward_kid_loc_3b0e0(crab_x_minus_kid_x: i16) -> Direc
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_freeze_direction_gate_loc_3b0fe(
     kid_facing: Direction,
     crab_facing: Direction,
@@ -25838,12 +25557,14 @@ fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankInitWalkerEntryLoc3B40A {
     LeftLoc3C0D2,
     RightLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankInitDriveSoundLoc3B40A {
     pub(crate) next_tank_drive_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
@@ -25878,7 +25599,9 @@ pub(crate) fn tank_init_drive_sound_loc_3b40a(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankMouthFrameLoc3B41C {
+    #[cfg_attr(not(test), allow(dead_code))]
     OpeningTimerA,
+    #[cfg_attr(not(test), allow(dead_code))]
     ClosingTimer37,
     Other,
 }
@@ -25913,7 +25636,6 @@ fn tank_collision_word_is_negative_loc_3b41c(collision_type: u16) -> bool {
     collision_type & 0x8000 != 0
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_update_loc_3b41c(
     parent_collision_type: u16,
     child_collision_type: u16,
@@ -26020,12 +25742,14 @@ pub(crate) fn tank_update_loc_3b41c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankResumeWalkBranchLoc3B4BA {
     LeftSharedWalker,
     RightSharedWalker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankResumeWalkLoc3B4BA {
     pub(crate) next_child_collision_type: u16,
     pub(crate) branch: TankResumeWalkBranchLoc3B4BA,
@@ -26046,6 +25770,7 @@ pub(crate) fn tank_resume_walk_loc_3b4ba(x_direction: u8) -> TankResumeWalkLoc3B
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingCollisionRouteLoc3B6C0 {
     Death,
     Damage,
@@ -26073,6 +25798,7 @@ pub(crate) fn tank_shooting_collision_route_loc_3b6c0(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingDamageRouteLoc3B6DE {
     Death,
     Hurt { remaining_hp: u16 },
@@ -26094,11 +25820,13 @@ pub(crate) fn tank_shooting_damage_after_hit_loc_3b6de(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingDeathRouteLoc3B6E6 {
     SharedDeactivateLoc3C46E,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankShootingDeathLoc3B6E6 {
     pub(crate) child_visible: bool,
     pub(crate) child_has_kid_collision: bool,
@@ -26133,7 +25861,6 @@ pub(crate) struct TankShootingResumeWalkLoc3B720 {
     pub(crate) branch: TankShootingResumeWalkBranchLoc3B720,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_resume_walk_loc_3b720(
     x_direction: u8,
 ) -> TankShootingResumeWalkLoc3B720 {
@@ -26158,7 +25885,6 @@ pub(crate) struct TankShootingHurtRecoveryLoc3B700 {
     pub(crate) resume_walk: TankShootingResumeWalkLoc3B720,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_hurt_recovery_loc_3b700(
     x_direction: u8,
 ) -> TankShootingHurtRecoveryLoc3B700 {
@@ -26185,12 +25911,14 @@ fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankShootingInitDriveSoundLoc3B690 {
     pub(crate) next_tank_drive_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
@@ -26454,7 +26182,6 @@ pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows: u16) -> u32 {
     // ASM sub_36FF4 (kid.asm:38882): load `Number_blank_top_rows`, shift left
     // by 4, and add that pixel offset to `y_pos(a3)`.
@@ -26462,7 +26189,6 @@ pub(crate) fn enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows: u16) -> u32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spawn_y_pos_sub_36FF4(
     family: EnemyFamily,
     object_y: u32,
@@ -40221,18 +39947,21 @@ pub(crate) struct SharedEnemyAttachmentInputSub3BF72 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyDriveSoundEffectSub3C352 {
     DrillMoving,
     TankDriving,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyDriveSoundCallSub3C352 {
     PlaySound(SharedEnemyDriveSoundEffectSub3C352),
     PlaySound2(SharedEnemyDriveSoundEffectSub3C352),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
     pub(crate) next_previous_motion_active: bool,
     pub(crate) next_refcount: u8,
@@ -40247,7 +39976,6 @@ pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
 // leftward walking loop — reached via loc_3C25E after gravity update,
 // runs once per frame before hibernate at loc_3C194.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_attachment_sub_3BF72(
     input: SharedEnemyAttachmentInputSub3BF72,
 ) -> SharedEnemyAttachmentLayoutSub3BF72 {
@@ -40403,6 +40131,7 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
 
 /// Result of the deactivation-time drive sound cleanup at loc_3C494.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DeactivationDriveSoundResultLoc3C494 {
     pub(crate) next_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
@@ -40477,6 +40206,7 @@ pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
 
 /// Result of the deactivation status table update at loc_3C4C0.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DeactivationStatusActionLoc3C4C0 {
     /// loc_3C4E6: bit 7 clear (positive slot) — write `$2168` to
     /// `EnemyStatus_Table[d0]`.
@@ -40526,14 +40256,12 @@ pub(crate) const ROBOT_ATTACK_MAPPING_A_SUB_3C4F8: u16 = 0x8338;
 pub(crate) const ROBOT_ATTACK_MAPPING_B_SUB_3C4F8: u16 = 0x8340;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyRobotHelperKindSub3C4F8 {
     RockTankShooting,
     Robot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SharedEnemyRobotHelperInputSub3C4F8 {
     pub(crate) helper_kind: SharedEnemyRobotHelperKindSub3C4F8,
     pub(crate) parent_mapping: u16,
@@ -40553,7 +40281,6 @@ pub(crate) struct SharedEnemyRobotHelperInputSub3C4F8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SharedEnemyRobotHelperResultSub3C4F8 {
     pub(crate) spawned_loc_3_b730_worker: bool,
     pub(crate) next_parent_mapping: u16,
@@ -40566,7 +40293,6 @@ pub(crate) struct SharedEnemyRobotHelperResultSub3C4F8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
     input: SharedEnemyRobotHelperInputSub3C4F8,
 ) -> SharedEnemyRobotHelperResultSub3C4F8 {
