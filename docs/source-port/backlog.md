@@ -770,6 +770,16 @@ rechecked: `Enemy0B_RockTank_shooting_Init` creates the turret child at
 record a fresh deterministic Level 01 `$0B` shooting-tank window with generated
 assets, then compare turret child frame/position and bullet sprite frames
 against oracle PNGs before touching renderer code.
+
+Follow-up 2026-06-04 current-main retest for #145: fresh native capture
+`capture-frames --level 01 --frames 300 --output
+.cache/debug/issue-145-current-capture` renders the first Level 01 RockTank as a
+compact grey tank, not the old two-stacked turret crop saved in
+`.cache/debug/issue-145-tank-2026-06-03/native_tight_crop.png`. The assembled
+debug frame `dump-enemy-sheet --level 01 --enemy 0A --frame 20,1e,14` also shows
+the compact ROM turret shape. `cargo test -q -p kidcli rock_tank_renderer --
+--nocapture` passes 3/3. Treat new tank-stack reports as human retest/current
+build validation before changing renderer geometry again.
 | 146 | [x] | P1 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | Validated 2026-05-18 from deterministic native replay evidence. Short route `.cache/recordings/issue-146-level2-death/` starts settled Blue Lake Woods 2 (`mode=InGame level=01`, Kid at `(32,191)`), takes damage at frames 814 and 1272, enters `LevelTransition` at frame 1347, decrements lives from 3 to 2, and restores HP from 0 to 2. Long route `.cache/recordings/issue-146-level2-stomp-long-probe/` verifies native-only and mechanically rules out the reported permanent loading hang for this route: frame 0 is `InGame`, frame 1347 is `LevelTransition`, frame 8589 returns to `InGame`, and frame 9060 is still live Level 01 gameplay with lives=2, HP=2, not paused, not game-over. Visual confirmation: `verify/native/009059_stomp_end.png` shows live Level 2 play after the death transition. Verification: `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-death --native-only`; `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-stomp-long-probe --native-only`. Default oracle verification remains non-authoritative for this settled recording shape because oracle checkpoints stay paused on Level 0, matching the known settled-recording oracle-bootstrap limitation documented for #136. Reopen only with a deterministic route that still remains in `LevelTransition` or otherwise fails to resume gameplay. |
 | 147 | [?] | P1 | player | FIXED 2026-06-04 (oracle-verified): culprit was recent commit 708e663c "Preserve Red Stealth wall cling on floor touch" — its `helmet_id()>2` block at movement.rs:3497 re-armed `*_wall_sticky`+`on_ground=false` on every floor touch during cling WITHOUT clearing y_velocity, pinning Red Stealth/Iron Knight/Berzerker airborne against a wall (can't jump off / rises up the stack). Earlier "loc_ADAC re-stick" narrowing was WRONG: d7 at loc_AD7C is the sub_902A collision result (∈{-1,0,1,2}, clears y_vel), NOT Current_Helmet; loc_ADAC (d7>2) is DEAD ROM code; ROM lands clinging forms uniformly via loc_AD7C→loc_A94E. FIX: removed the misread block; restored the flipped test assertion. Oracle probe `issue_147_wall_side_jump_audit_scenario` (Red Stealth into Highwater col-10 wall): before=stuck/never jumps; after=0 divergent/240 MATCH vs jgenesis for Red Stealth AND Iron Knight (Berzerker 69 HORIZONTAL diffs are pre-existing ground-charge, not this bug). Gate green incl. verify-slice-fast. Human re-test feel. ORIGINAL: REOPENED 2026-06-03 (re-confirmed live for Samurai and Rhino/Berzerker). Level 2 wall-grab "zoom to top" cheat — jumping at a tall block stack lets Kid skip up to the top of the stack | Evidence-needed after latest form-specific playtest reports. The original Kid pull-up bug remains covered: native `try_snap_wall_sticky_ledge` gates `loc_ABA4` to `PlayerForm::TheKid`, checks head clearance at y-20/y-36, and current `loc_aba4`/`loc_abf0` tests pass. Remaining reports mention Iron Knight/Heavy Man and Berzerker/Rhino, so capture a deterministic current form-specific wall route before changing movement code. |
 
@@ -812,6 +822,17 @@ per frame vs oracle to confirm the retained-velocity mechanism and the ROM's
 cling-loop vertical handling at `loc_AA22`, THEN gate the re-stick so it does not
 keep an ascending form airborne through solid cells. Not fixed this session —
 movement physics must not be changed on a hypothesis.
+
+Follow-up 2026-06-04 current-main deterministic route for #147: generated
+`.cache/recordings/issue-147-wall-side-jump-current` from the durable
+`issue147-wall-side-jump-audit` scenario and verified it. Result:
+`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; the
+remaining checkpoint diffs are pixel-only palette/background/player sprite
+colour differences, not movement. This confirms the Red Stealth wall-side jump
+route is currently oracle-state-correct. Do not reintroduce any
+`helmet_id()>2` wall-cling re-stick patch without a new state-divergent
+recording, preferably for the reported Berzerker/Rhino path rather than the
+already-green Red Stealth route.
 | 148 | [x] | P2 | player | Kid death animation does not match the original | FIXED: the engine `advance_death_windup_motion` (`crates/kid-core/src/combat.rs:8815`) drives ASM `loc_B7FA` / `loc_B80C` tumble physics — initial `x_vel=$8000`, `y_vel=-$40000`, per-frame gravity `+$3000`. The scene renderer now draws the player sprite directly at that engine-updated object position and must not add the old parabolic y-offset on top. Regression: `loc_b7fa_death_tumble_renderer_uses_engine_position_without_extra_offset`. Refreshed verification 2026-05-19: `cargo test -p kidcli loc_b` passes. |
 | 149 | [x] | P2 | block | Hit blocks do not shake before breaking | FIXED: ASM `sub_1007A` (kid.asm:21345-21599) wobbles a prize block for 31 frames using `PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A` and alternates the visible sprite frames from `stru_101B6` / `stru_10296`. Native `BlockBounceAnim` carries `initial_duration` + `y_offset_px`; the engine walks the ASM delta table each tick for prize blocks and the renderer applies `y_offset` to block draw state. Refreshed 2026-05-24 in commit `6fefd268`: deleted-cell prize blocks also render the ROM wobble sprite while `block_bounces.remaining > 8`, so the block no longer disappears before the broken/wobbling art appears. Regressions: `prize_block_bounce_y_offset_follows_asm_sub_1007a_cumulative_pattern`, `build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write`; companion metal-block check: `metal_block_bounce_y_deltas_loc_11196_match_asm_four_up_four_down`. Verification: `cargo test -p kidcli build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write -- --nocapture`, `cargo test -p kid-core bounce_y -- --nocapture`, and `mise run verify-slice-fast`. |
 
