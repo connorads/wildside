@@ -1508,6 +1508,17 @@ pub(crate) fn lion_roar_wait_dispatch_loc_3e09e(
     // clear. Non-damaging frames loop until the roar animation reaches its
     // fire sprite; then the Lion faces Kid, allocates selector `$8000`, installs
     // the projectile worker, and increments `$5B(a5)`.
+    //
+    // The `ReadyToFire` branch below implements the facing decision and child
+    // allocation that the ROM splits across two labels:
+    // - ASM Lion.asm loc_3E0D6 is the `st x_direction(a3)` arm taken when Kid is
+    //   to the Lion's right (`x_pos(a4) > x_pos(a3)`), giving `facing = Right`;
+    //   the fall-through `sf x_direction(a3)` arm gives `facing = Left`.
+    // - ASM Lion.asm loc_3E0DA then `exg a0,a1; Allocate_ObjectSlot;
+    //   move.l #loc_3E12A,4(a0)` allocates the linked child GfxObject running
+    //   the projectile worker (selector `$8000`) and bumps `$5B(a5)` —
+    //   captured here as `projectile_worker_selector`/`projectile_worker`/
+    //   `active_projectile_count_delta`.
     if matches!(collision_type, LION_COLID_HURT | LION_COLID_KIDABOVE) {
         return LionRoarWaitDispatch::Damage;
     }
@@ -1675,6 +1686,14 @@ pub(crate) fn lion_projectile_launch_tail_loc_3e180(
     // before the label; set parent `x_direction` keeps `+$A` and `+$60000`.
     // The label applies `d7` to `x_pos(a3)`, stores `d6` in `x_vel(a3)`, then
     // initialises `stru_3DF34`.
+    //
+    // This is the tail of the linked-child worker installed at loc_3E0DA.
+    // TODO(fidelity): ASM Lion.asm loc_3E12A — the worker's init prologue runs
+    // `Load_GfxObjectSlot`, copies the parent's `$71`, sets `palette_line=2`,
+    // `vram_tile=$2FB`, `st $13(a3)`, `st is_moved`/`st has_level_collision`,
+    // then seeds `x_pos`/`y_pos` from the parent (`-$18` y) before reaching
+    // loc_3E180. Only the offset/velocity launch tail is modelled as typed
+    // native logic here; the prologue art/flag fields are not yet ported.
     match parent_facing {
         Direction::Left => LionProjectileLaunchTail {
             x_offset_pixels: -(LION_PROJECTILE_X_OFFSET as i16),

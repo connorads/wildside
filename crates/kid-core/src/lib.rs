@@ -274,6 +274,22 @@ pub struct NativeRuntime {
     /// Title screen phase timer: counts down to demo playback in both the
     /// pre-menu attract phase and the interactive title menu. The interactive
     /// loop resets this on Up/Down navigation, matching the ASM.
+    ///
+    // TODO(fidelity): ASM loc_1BAB4 (kid.asm) — the pre-menu intro bridge runs
+    // a `jsr Hibernate_Object_1Frame; bsr sub_1C246; dbf d0,loc_1BAB4` loop for
+    // d0=$B8 (184) frames (set at loc_1BAB0) before Obj_TitleMenu's setup, with
+    // each frame polling Start via sub_1C246. Native folds intro→title timing
+    // into intro-sequence duration overrides and this attract timer rather than
+    // simulating that 184-frame per-object hibernate-wait loop directly; the
+    // sub_1C246 Start-poll path it calls is modelled, but the loop itself is not.
+    //
+    // TODO(fidelity): ASM loc_1C5A4 (kid.asm) — the shared init tail for the two
+    // title intro slide-in GfxObjects (sub_1C572 enters from x=$3A moving +1,
+    // loc_1C58C from x=$DE moving -1). loc_1C5A4 sets `st $13(a3)`, y_pos=$C8,
+    // vram_tile=$140, then `Hibernate_Object $3C` before a per-frame
+    // `add.w d0,x_pos` slide loop (loc_1C5BE). Native renders the title via a
+    // VDP tilemap snapshot rather than simulating these two decorative sliding
+    // objects, so their per-frame motion is not ported.
     title_idle_frames: u16,
     /// Title screen local elapsed frames, used for diagnostics and demo timing.
     title_screen_elapsed_frames: usize,
