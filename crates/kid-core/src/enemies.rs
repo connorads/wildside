@@ -21944,6 +21944,14 @@ fn step_dragon_walking_walk(
 
         let floor = floor_support.selected;
         if !floor.on_ground {
+            // ORIGINAL_QUIRK (#239): ASM Lion.asm loc_3E682 (shared with the
+            // walking dragon) has NO horizontal arena clamp and NO ledge
+            // turnaround. With no floor ahead the ROM sets the airborne flag
+            // `$5C(a5)`, keeps the walk velocity, nudges y down a pixel and
+            // hands off to the gravity-fall loop (loc_3E6AE/loc_3E77E). The
+            // walker therefore walks off the level edge and falls — the
+            // "dragon falls off the end of the level and respawns" the
+            // 2026-06-03 playtest saw. Oracle-matched; not a missing clamp.
             enemy.on_ground = false;
             enemy.x_velocity = walk_delta;
             enemy.y_velocity = 0;

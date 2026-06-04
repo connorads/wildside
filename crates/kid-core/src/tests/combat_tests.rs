@@ -11321,6 +11321,89 @@ mod chunk_03 {
     }
 
     #[test]
+    fn issue_239_walking_dragon_walks_off_a_ledge_and_falls_with_no_arena_clamp() {
+        // ORIGINAL_QUIRK (#239): the shared Dragon/Lion grounded walker has NO
+        // horizontal arena clamp. When the floor probe ahead reports no support
+        // (`sub_36972`/`sub_36A58` return d6<0), the ROM does not stop or turn
+        // around — `loc_3E682` sets the airborne flag, keeps x_vel, and
+        // `loc_3E77E` accumulates gravity (`y_vel += $4000`, clamped to
+        // `$180000`). The dragon therefore walks straight off the level edge and
+        // falls, which is exactly the "falls off the end of the level" the
+        // 2026-06-03 playtest reported. Verified byte-exact against the jgenesis
+        // oracle: in scenario .cache/debug/issue239_l0_walkright.json the level-0
+        // walking dragon's x_pos/state/lifecycle match the oracle on every
+        // cleanly-compared frame (the only divergences are an unrelated Kid
+        // combat/physics bug that derails Kid's trajectory, never the dragon).
+        //
+        // This test locks the no-clamp fall so a future session does not
+        // "fix" #239 by inventing an arena clamp or ledge turnaround the ROM
+        // does not have.
+        //
+        // Platform spans cols 0..8 (last solid col 7 => x 112..127). A dragon
+        // walking right past that edge must lose hitbox support and go airborne.
+        let grid = grid_with_platform(17, 0, 8);
+        let mut enemy = test_enemy(EnemyFamily::DragonWalking, 118 << 16, 272 << 16, 2);
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
+        enemy.shared_walker_patrol_timer = 0x7FFF;
+        let mut projectiles = Vec::new();
+
+        // Walk until the dragon leaves the platform. The half-pixel walk step
+        // means it takes several frames to clear the lip's hitbox support.
+        let mut went_airborne = false;
+        let mut x_at_takeoff = 0u32;
+        for _ in 0..64 {
+            step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
+            if !enemy.on_ground {
+                went_airborne = true;
+                x_at_takeoff = enemy.x_pos;
+                break;
+            }
+        }
+
+        assert!(
+            went_airborne,
+            "ASM loc_3E682: the walker must walk off the ledge instead of clamping or turning around",
+        );
+        assert!(
+            x_at_takeoff >> 16 >= 120,
+            "no arena clamp: the dragon advanced past the platform edge before falling (x={}px)",
+            x_at_takeoff >> 16,
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "walking off a ledge does not reverse facing (no ledge turnaround in the ROM)",
+        );
+
+        // Once airborne, gravity must accumulate downward (ASM loc_3E77E:
+        // y_vel += $4000) and the dragon must keep falling, not hover at the
+        // edge.
+        let y_before = enemy.y_pos;
+        let mut y_vel_grew = false;
+        let mut last_y_vel = enemy.y_velocity;
+        for _ in 0..16 {
+            step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
+            if enemy.y_velocity > last_y_vel {
+                y_vel_grew = true;
+            }
+            last_y_vel = enemy.y_velocity;
+            if enemy.on_ground {
+                break;
+            }
+        }
+        assert!(
+            y_vel_grew,
+            "ASM loc_3E77E: airborne walker accumulates downward y-velocity from gravity",
+        );
+        assert!(
+            enemy.y_pos > y_before,
+            "the dragon must fall (descend) after walking off the ledge",
+        );
+    }
+
+    #[test]
     fn dragon_walking_grounded_patrol_moves_without_populating_x_velocity() {
         let grid = grid_with_platform(17, 0, 4);
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 23 << 16, 272 << 16, 2);
