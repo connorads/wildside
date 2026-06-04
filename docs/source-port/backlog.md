@@ -1696,6 +1696,16 @@ as `walk_right_00_case_00000_00120`, but `case verify` reports
 the source recording replay drifted at frame 0. Re-record a current natural
 Level 00 slope route before using this bundle for #211 render/frame-selection
 work.
+
+Follow-up 2026-06-04 selector replay for #211: `issue-211-slope-frames` is
+malformed/stale before oracle comparison. Fresh full and native-only
+`verify-recording` both fail with `missing native frame first_slope@430`, leave
+no `verify/report.json`, and only write native state/trace artefacts. The
+requested `0..120` case derives as `walk_right_00_case_00000_00120`, but
+`case verify` reports `likely_subsystems=["recording verification"]`, and
+`case reduce` refuses because the source recording replay drifted at frame 0.
+Re-record a current slope-frame route before using this bundle for #211
+render/frame-selection work.
 | 212 | [x] | P1 | player/combat | 2026-05-30 playtest: Helmet/IronKnight seems to lose all HP and revert to Kid on a single dragon hit | Closed 2026-05-31 as already covered by the live damage route: `loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp` sets Iron Knight to `HelmetHitpoint_Table[IronKnight]=5`, resolves Dragon contact through `Check_for_recent_damge -> loc_B700`, and proves the first hit leaves `current_form=IronKnight`, `number_hitpoints=4`, no pending Kid transform, and the 66-frame damage latch armed. `loc_b722_hp_cap_to_max_for_current_helmet` separately pins the ASM HP cap table plus extra-slot calculation. Gate: both focused tests pass. |
 
 Note 2026-05-31 for #212: found and fixed a transform-HP table conflation while tracing the report. ASM `sub_7EB2` seeds `Number_Hitpoints` from `unk_7EC2` (TheKid=2, Skycutter/Cyclone/RedStealth/Eyeclops/Juggernaut=3, IronKnight=$0C, Berzerker=4, Maniaxe=8, Micromax=$10), whereas `Check_for_recent_damge -> loc_B700` and `Make_SpriteAttr_HUD/sub_BDC0` use `HelmetHitpoint_Table` (IronKnight damage/HUD cap 5, most helmets 3). Native had reused `PlayerForm::max_hitpoints()` for transform HP, so IronKnight/Berzerker/Maniaxe/Micromax started too low compared with ROM. `transform_hitpoints_sub_7eb2` now mirrors `unk_7EC2`, with regression `sub_7eb2_uses_transform_hp_table_not_damage_cap_table`; existing `loc_B700` damage tests prove the first damage frame caps oversized IronKnight HP to 5 before subtracting to 4. Follow-up triage closed the live DragonWalking part with `loc_b700_iron_knight_survives_first_dragon_contact_with_four_hp`; the human-visible "first pip does not change" is consistent with the ROM's separate transform HP seed and damage/HUD cap rather than a one-hit form-loss bug.
