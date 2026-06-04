@@ -3750,6 +3750,18 @@ refuses because the source recording replay drifted at frame 4. Treat the
 cached `issue-214-highwater-dense-` recording family as stale selector input
 until the dense Highwater slices are re-recorded on current native.
 
+Note 2026-06-04 selector follow-up for #214: selector-picked recording
+`issue-214-highwater-jump-overlap-current` is current and green for the
+selected gameplay prefix. Native-only replay passes, full `verify-recording`
+now reports `trace_match=true`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no frame diffs, and matching 421-frame
+recorded/replay traces. The requested `0..120` case derives as
+`stomp_enemy_02_case_00000_00120` and passes with matching
+`world.game_mode`, camera, player position, entities, and events; `case reduce`
+correctly reports the case is already passing. Do not patch #214 gameplay from
+this clean prefix. The live jump-overlap / launch report still needs a longer
+current route that actually reproduces the overlap response.
+
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
 recording scenario for the first Highwater Pass 1 shooter/barrier route. The
 scenario warps to Level 02, applies Berzerker (`playtest_form=7`), holds Right
