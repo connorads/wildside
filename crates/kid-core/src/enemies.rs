@@ -41019,5 +41019,23 @@ impl NativeRuntime {
                 .collect();
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
+
+        // ASM Hand.asm: the grabbing Hand object writes the global
+        // `KidGrabbedByHand` flag ($FFFFFA28) — `st` on grab entry
+        // (loc_32906), held through the follow loop (loc_3292E), and `sf` on
+        // release (loc_32970). Native models the grab as `HandState::Grabbing`,
+        // so the flag is true exactly while some active Hand is grabbing Kid.
+        // The player jump/crawl/climb paths read this off the slice this same
+        // frame because the enemy step (which sets it) runs in
+        // `refresh_active_roster` before `refresh_opening_slice` (the player
+        // step). Default-false is preserved whenever no Hand is grabbing, so
+        // normal play is byte-identical.
+        let kid_grabbed_by_hand = self.active_enemies.iter().any(|enemy| {
+            matches!(enemy.family, EnemyFamily::Hand)
+                && matches!(enemy.hand_state, HandState::Grabbing)
+        });
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.set_kid_grabbed_by_hand(kid_grabbed_by_hand);
+        }
     }
 }

@@ -2643,9 +2643,9 @@ pub(crate) struct OpeningSliceState {
     /// launch by `+$20000`), crawl entry (`loc_8C70`/`loc_7772`: suppresses
     /// crawl while Down is held), and the climb B-jump-off (`kid_flip`: skips
     /// the wall jump-off). Defaults `false` so normal play is unaffected; only
-    /// behaves differently while a live Hand is grabbing. Wiring the Hand AI to
-    /// set this field needs the live enemy step loop (#205); see
-    /// `set_kid_grabbed_by_hand` for the integration point.
+    /// behaves differently while a live Hand is grabbing. The live enemy step
+    /// loop (`NativeRuntime::refresh_active_roster`) sets it true whenever any
+    /// active Hand is `HandState::Grabbing`; see `set_kid_grabbed_by_hand`.
     pub(crate) kid_grabbed_by_hand: bool,
 }
 

@@ -2663,17 +2663,18 @@ impl OpeningSliceState {
         }
     }
 
-    /// Integration point for the Hand enemy AI (#205).
+    /// Integration point for the Hand enemy AI.
     ///
     /// ASM `KidGrabbedByHand` ($FFFFFA28) is a global flag the Hand object sets
     /// while it is grabbing Kid (`Hand.asm loc_32906: st (KidGrabbedByHand).w`)
     /// and clears on release (`loc_32970: sf (KidGrabbedByHand).w`). The native
     /// Hand state machine models the same grab window as
-    /// `HandState::Grabbing`. Once the live enemy step loop exists (#205), it
-    /// should call this each frame with `enemy.hand_state == HandState::Grabbing`
-    /// for any active Hand so the player jump/crawl/climb paths read the flag.
-    /// Until then the field stays `false` and player behaviour is unchanged.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// `HandState::Grabbing`. The live enemy step loop
+    /// (`NativeRuntime::refresh_active_roster`) calls this each frame: true when
+    /// any active Hand is `HandState::Grabbing`, false otherwise. The player
+    /// jump/crawl/climb paths read the flag the same frame because the enemy
+    /// step runs before the player step. When no Hand is grabbing the field
+    /// stays `false` and player behaviour is byte-identical to normal play.
     pub(crate) fn set_kid_grabbed_by_hand(&mut self, grabbed: bool) {
         self.kid_grabbed_by_hand = grabbed;
     }
@@ -4560,6 +4561,16 @@ impl OpeningSliceState {
             return false;
         }
 
+        // ASM kid_flip (kid.asm:13411): immediately after the The_Kid helmet
+        // check (loc_AC42 guard at 13409), the B-press wall pull-up is gated by
+        // `tst.b (KidGrabbedByHand).w; bne.w loc_AC42` — a grabbing Hand
+        // suppresses the pull-up just like crawl/jump-init. Default-false keeps
+        // normal play byte-identical; only changes while a live Hand is
+        // grabbing.
+        if self.kid_grabbed_by_hand {
+            return false;
+        }
+
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let (probe_x_px, direct_probe, snap_x_px) = if self.player.right_wall_sticky {
@@ -4761,7 +4772,13 @@ impl OpeningSliceState {
                     self.player.facing,
                     h_input,
                 )
-            } else if input.down {
+            } else if input.down && !self.kid_grabbed_by_hand {
+                // ASM loc_8C70 (kid.asm:10084) / loc_7772 (kid.asm:7832):
+                // both crawl-entry sites guard the `MoveID_Crawling` transition
+                // with `tst.b (KidGrabbedByHand).w; bne ...` — a grabbing Hand
+                // suppresses crawl entry, so Down keeps walking velocity instead
+                // of the crawl air-control table. Default-false keeps normal
+                // play byte-identical; the branch only changes while grabbed.
                 let air_table = match self.terrain.floor_terrain_type {
                     TerrainType::Normal => &physics::AIR_NORMAL,
                     TerrainType::Ice => &physics::AIR_ICE,

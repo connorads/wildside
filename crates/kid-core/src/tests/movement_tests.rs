@@ -4138,6 +4138,88 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8C70 (kid.asm:10084) / loc_7772 (kid.asm:7832): both crawl-entry
+    /// sites guard `MoveID_Crawling` with `tst.b (KidGrabbedByHand).w; bne ...`.
+    /// While grabbed, Down must NOT take the crawl air-control table — Kid keeps
+    /// the walking ground-speed table instead. Drive the live grounded velocity
+    /// selection (`update_horizontal_velocity_only`) on flat ground with Down
+    /// held and assert the grabbed result differs from (and is the walking value
+    /// of) the not-grabbed crawl result. Default-false leaves crawl intact.
+    #[test]
+    fn loc_8c70_crawl_entry_suppressed_while_grabbed_by_hand() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let grid = grid_with_floor_at_row(14);
+        let start_x_vel = 0x0001_0000;
+        let down_input = FrameInput {
+            down: true,
+            right: true,
+            ..FrameInput::default()
+        };
+
+        let setup = |grabbed: bool| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.on_ground = true;
+            slice.player.x_pos = 60 << 16;
+            slice.player.y_pos = (14 * 16 - 16) << 16;
+            slice.player.x_velocity = start_x_vel;
+            slice.player.facing = Direction::Right;
+            slice.set_kid_grabbed_by_hand(grabbed);
+            slice.update_horizontal_velocity_only(
+                down_input,
+                false,
+                PlayerForm::TheKid,
+                Some(&grid),
+                false,
+            );
+            slice.player.x_velocity
+        };
+
+        let crawl_vel = setup(false);
+
+        // Reference: not-grabbed Down uses the crawl air-control table directly.
+        let expected_crawl = physics::update_air_horizontal_velocity(
+            start_x_vel,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: false,
+            },
+            &physics::AIR_NORMAL,
+        )
+        .0;
+        assert_eq!(
+            crawl_vel, expected_crawl,
+            "loc_83B4: not-grabbed Down keeps the crawl air-control velocity (normal play unaffected)",
+        );
+
+        let grabbed_vel = setup(true);
+
+        // Reference: grabbed Down falls through to the walking ground-speed table.
+        let expected_walk = physics::update_horizontal_velocity(
+            start_x_vel,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: false,
+            },
+            PlayerForm::TheKid.ground_speed_table(TerrainType::Normal),
+        )
+        .0;
+        assert_eq!(
+            grabbed_vel, expected_walk,
+            "loc_8C70 loc_7772: a grabbing Hand suppresses crawl entry so Down keeps walking velocity",
+        );
+        assert_ne!(
+            grabbed_vel, crawl_vel,
+            "the grab gate must actually change the Down branch (crawl vs walk velocity differ)",
+        );
+    }
+
     /// ASM loc_8270 (kid.asm:9025): `cmpi.w #Skycutter,(Current_Helmet).w;
     /// beq.w loc_82D8` — Skycutter cannot stand up from crawl even when the
     /// ceiling is clear and floor is present. It stays in the crawling loop.
@@ -18690,6 +18772,105 @@ mod chunk_12 {
         );
     }
 
+    /// ASM Hand.asm loc_32906 (`st (KidGrabbedByHand).w`) / loc_32970
+    /// (`sf (KidGrabbedByHand).w`): the grabbing Hand object sets the global
+    /// flag while it follows Kid and clears it on release. Native models the
+    /// grab window as `HandState::Grabbing`, so the live enemy step loop
+    /// (`refresh_active_roster`, called from `step_frame`) must surface that
+    /// onto the player slice's `kid_grabbed_by_hand` field — true while a Hand
+    /// is grabbing, false otherwise.
+    ///
+    /// This is the live grab SOURCE that the jump-init consumer
+    /// (`loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump`) reads. It
+    /// closes the previously-blocked gap: the headless `step_frame` DOES step
+    /// enemies via `step_active_enemies_with_rng`, so the Hand grab is reachable
+    /// in live play. The test drives the real `refresh_active_roster` path (not
+    /// the test-only `step_active_enemies`) with an active grabbing Hand and
+    /// asserts the slice flag flips true; with a walking Hand it stays false so
+    /// normal play is byte-identical.
+    #[test]
+    fn refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906() {
+        // Place a Hand in the level-0 layout near Kid so the live activation
+        // pipeline (the same one `step_frame` drives) loads it into the roster.
+        fn manifest_with_hand() -> AssetManifest {
+            let mut m = manifest();
+            if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
+                enemy.objects[0] = kid_data::EnemyLayoutObject {
+                    object_type: 0x17, // objid_Hand (constants.asm)
+                    flags: 0,
+                    hit_points_plus_one: 4,
+                    x: 0x0120,
+                    y: 0x00E0,
+                };
+            }
+            m
+        }
+
+        fn runtime_with_active_hand() -> NativeRuntime {
+            let mut runtime = NativeRuntime::new(manifest_with_hand());
+            runtime.set_block_grid(grid_with_floor_at_row(14));
+            start_level(&mut runtime);
+            if let Some(ref mut slice) = runtime.opening_slice {
+                slice.player.x_pos = 0x0120_0000;
+                slice.player.y_pos = 0x00E0_0000;
+                slice.camera.x_pos = 0;
+                slice.camera.y_pos = 0;
+            }
+            // Live activation: step_frame -> refresh_active_roster ->
+            // activate_enemies_with_rng loads the Hand into active_enemies.
+            runtime.step_frame(FrameInput::default());
+            assert!(
+                runtime
+                    .active_enemies
+                    .iter()
+                    .any(|enemy| matches!(enemy.family, EnemyFamily::Hand)),
+                "the layout Hand must be live in active_enemies after step_frame",
+            );
+            runtime
+        }
+
+        // A live grabbing Hand sets the slice flag true.
+        let mut grabbed_runtime = runtime_with_active_hand();
+        for enemy in &mut grabbed_runtime.active_enemies {
+            if matches!(enemy.family, EnemyFamily::Hand) {
+                enemy.hand_state = HandState::Grabbing;
+                enemy.wait_timer = HAND_GRAB_DURATION;
+            }
+        }
+        // Drive the live enemy step loop again so the grabbing Hand surfaces
+        // its state onto the slice.
+        grabbed_runtime.step_frame(FrameInput::default());
+
+        assert!(
+            grabbed_runtime
+                .active_enemies
+                .iter()
+                .any(|enemy| matches!(enemy.hand_state, HandState::Grabbing)),
+            "Hand.asm loc_3292E: with wait_timer = HAND_GRAB_DURATION the grab \
+             follow loop keeps the Hand in HandState::Grabbing after one step",
+        );
+        assert!(
+            grabbed_runtime
+                .opening_slice
+                .expect("in-game slice present")
+                .kid_grabbed_by_hand,
+            "Hand.asm loc_32906: a live grabbing Hand must set the slice's \
+             kid_grabbed_by_hand (st KidGrabbedByHand)",
+        );
+
+        // A walking Hand (no grab) leaves the flag false — normal play intact.
+        let mut walking_runtime = runtime_with_active_hand();
+        walking_runtime.step_frame(FrameInput::default());
+        assert!(
+            !walking_runtime
+                .opening_slice
+                .expect("in-game slice present")
+                .kid_grabbed_by_hand,
+            "Hand.asm loc_32970: with no Hand grabbing, kid_grabbed_by_hand must \
+             stay false (default-false keeps normal play byte-identical)",
+        );
+    }
+
     /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches grounded jumps before
     /// vertical position is applied. Native's buffered edge must take that same
     /// launch-and-step path in the legacy vertical-motion helper.
@@ -19393,6 +19574,68 @@ mod chunk_12 {
             assert!(!slice.player.on_ground);
             assert!(slice.player.right_wall_sticky);
         }
+    }
+
+    /// ASM kid_flip (kid.asm:13411): after the The_Kid helmet gate, the B-press
+    /// wall pull-up is suppressed while grabbed —
+    /// `tst.b (KidGrabbedByHand).w; bne.w loc_AC42`. With the same geometry that
+    /// pulls up successfully in `loc_aba4_buffered_jump_can_snap_wall_sticky_ledge`,
+    /// setting the live grab flag must reject the snap and leave Kid clinging.
+    /// Default-false (not grabbed) keeps that positive path byte-identical.
+    #[test]
+    fn kid_flip_pullup_suppressed_while_grabbed_by_hand_loc_13411() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+        slice.set_kid_grabbed_by_hand(true);
+
+        let snapped =
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH, PlayerForm::TheKid);
+
+        assert!(
+            !snapped,
+            "kid_flip loc_13411: a grabbing Hand must suppress the B-press pull-up \
+             (bne.w loc_AC42)",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            68 << 16,
+            "suppressed pull-up must not move x_pos"
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            64 << 16,
+            "suppressed pull-up must not move y_pos"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "suppressed pull-up must leave Kid airborne/clinging"
+        );
+        assert!(
+            slice.player.right_wall_sticky,
+            "suppressed pull-up keeps the wall cling"
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 3,
+            "suppressed pull-up must not consume the buffered jump edge",
+        );
     }
 
     /// ASM loc_ABA4 mirrors the ledge probe offset when `$FA72` marks a left
