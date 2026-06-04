@@ -1693,10 +1693,15 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::JUMP_ON_ENEMY);
     }
 
-    // Diamond collected
-    if curr.diamond_count > prev.diamond_count {
-        sound_ids.push(gems_sfx::DIAMOND_PRIZE);
-    }
+    // Diamond collected: the cue is now driven authoritatively by the core
+    // trace, not by the visible count. ASM PrizeDiamondCollected_Init
+    // (kid.asm:21103) plays `sfx_Diamond_prize` ($2D) on the *contact* frame,
+    // which the core queues via `queue_prize_diamond_award`. The visible
+    // `diamond_count` only rises ~33 frames later, after the fly-to-counter
+    // loop (kid.asm:21149-21162), so the previous `diamond_count > prev`
+    // heuristic emitted the cue that late and is what #216 heard as the diamond
+    // sound lagging. The contact cue arrives through `queued_sound_ids` above,
+    // so no count-based fallback is needed.
 
     // Damage taken (HP decreased). ASM loc_B73C/loc_B750/loc_B764/loc_B778
     // can queue enemy-family-specific ouch takes; keep the heuristic only for
@@ -1743,6 +1748,19 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     if curr.level_complete
         && curr.level_complete_score_counter_elapsed_frames > 0
         && prev.level_complete_score_counter_elapsed_frames == 0
+    {
+        sound_ids.push(gems_sfx::SCORE_COUNTER);
+    }
+
+    // ASM loc_D7F4 (kid.asm:16906-16908): when the counter finishes draining,
+    // the ROM replays `sfx_Score_counter` ($0C) a *second* time via
+    // `j_PlaySound2` before hibernating and routing to Teleport/End_Credits.
+    // Native previously only emitted the drain-start cue, so the level-complete
+    // tally ended without the closing chime (#216 "level-complete sound does
+    // not finish cleanly").
+    if curr.level_complete
+        && curr.level_complete_score_counter_drained
+        && !prev.level_complete_score_counter_drained
     {
         sound_ids.push(gems_sfx::SCORE_COUNTER);
     }
@@ -2132,6 +2150,7 @@ mod tests {
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
+            level_complete_score_counter_drained: false,
             level_complete_initial_score: 0,
             level_complete_score_rows_started: 0,
             level_completion_time: 0,
@@ -12081,6 +12100,65 @@ mod tests {
             gems_event_sound_ids(&scoreboard_setup, &counter_started),
             vec![gems_sfx::SCORE_COUNTER],
             "ASM loc_D752 queues `sfx_Score_counter` immediately before loc_D770 starts draining the score rows"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_eol_score_counter_sfx_again_at_loc_d7f4() {
+        // ASM loc_D7F4 (kid.asm:16906-16908): once the score-counter drain
+        // completes, the ROM replays `sfx_Score_counter` ($0C) a second time
+        // via `j_PlaySound2` before hibernating and routing to Teleport. The
+        // drain-start cue alone left the level-complete jingle ending abruptly
+        // (#216 "level-complete sound does not finish cleanly").
+        let mut draining = sample_trace(GameMode::InGame);
+        draining.level_complete = true;
+        draining.level_complete_score_counter_elapsed_frames = 10;
+        draining.level_complete_score_counter_drained = false;
+
+        let mut drained = draining.clone();
+        drained.level_complete_score_counter_elapsed_frames = 11;
+        drained.level_complete_score_counter_drained = true;
+
+        assert_eq!(
+            gems_event_sound_ids(&draining, &drained),
+            vec![gems_sfx::SCORE_COUNTER],
+            "ASM loc_D7F4 replays sfx_Score_counter when the EOL counter finishes draining"
+        );
+
+        // The cue must fire exactly once: the next frame is still drained.
+        let mut still_drained = drained.clone();
+        still_drained.level_complete_score_counter_elapsed_frames = 12;
+        assert!(
+            !gems_event_sound_ids(&drained, &still_drained).contains(&gems_sfx::SCORE_COUNTER),
+            "the loc_D7F4 cue is a single replay, not a per-frame repeat"
+        );
+    }
+
+    #[test]
+    fn play_native_emits_diamond_prize_sfx_from_contact_frame_not_count_increase() {
+        // ASM PrizeDiamondCollected_Init (kid.asm:21103) plays
+        // `sfx_Diamond_prize` ($2D) on the contact frame; Number_Diamonds only
+        // rises ~33 frames later after the fly-to-counter loop. The core now
+        // queues the cue at contact, so the native player must replay it from
+        // the trace and must NOT add a second, late cue when the visible count
+        // finally increments (#216 diamond delay).
+        let mut contact = sample_trace(GameMode::InGame);
+        let mut prev = sample_trace(GameMode::InGame);
+        contact.played_sound_effect_ids = vec![gems_sfx::DIAMOND_PRIZE];
+        assert_eq!(
+            gems_event_sound_ids(&prev, &contact),
+            vec![gems_sfx::DIAMOND_PRIZE],
+            "ASM loc_2510C plays sfx_Diamond_prize on the diamond-prize contact frame"
+        );
+
+        // 33 frames later the visible count rises, but the SFX already played at
+        // contact; no late duplicate cue should be emitted.
+        prev.diamond_count = 0;
+        let mut count_increment = sample_trace(GameMode::InGame);
+        count_increment.diamond_count = 1;
+        assert!(
+            gems_event_sound_ids(&prev, &count_increment).is_empty(),
+            "the diamond cue is anchored to the ASM contact frame, not the delayed Number_Diamonds increment"
         );
     }
 

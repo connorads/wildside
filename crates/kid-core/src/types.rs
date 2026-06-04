@@ -1185,6 +1185,13 @@ pub struct NativeTraceFrame {
     /// Elapsed frames inside ASM `loc_D770` score-counter drain.
     #[serde(default)]
     pub level_complete_score_counter_elapsed_frames: usize,
+    /// True once the ASM `loc_D770` drain has finished its final score-changing
+    /// transfer and reached `loc_D7F4`, where the ROM replays
+    /// `sfx_Score_counter` ($0C) via `j_PlaySound2` (kid.asm:16906). Lets the
+    /// native audio layer emit the closing level-complete cue, not just the one
+    /// at drain start.
+    #[serde(default)]
+    pub level_complete_score_counter_drained: bool,
     /// ASM loc_D17E copied score value preserved for EOL score rendering.
     #[serde(default)]
     pub level_complete_initial_score: u32,
@@ -1410,6 +1417,7 @@ impl Default for NativeTraceFrame {
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
             level_complete_score_counter_elapsed_frames: 0,
+            level_complete_score_counter_drained: false,
             level_complete_initial_score: 0,
             level_complete_score_rows_started: 0,
             level_completion_time: 0,

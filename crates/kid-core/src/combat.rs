@@ -48,6 +48,7 @@ pub(crate) enum QueuedSoundEffect {
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
+    DiamondPrize,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -80,6 +81,11 @@ impl QueuedSoundEffect {
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,
             Self::RedStealthAttackDown => 0x13,
+            // ASM PrizeDiamondCollected_Init loc_2510C (kid.asm:21103): the
+            // diamond-prize pickup plays `sfx_Diamond_prize = $2D` on the
+            // contact frame, *before* the 32-step fly-to-counter loop that
+            // later increments Number_Diamonds.
+            Self::DiamondPrize => 0x2D,
             // constants.asm: sfx_Thunderstorm = $77.
             Self::Thunderstorm => 0x77,
             // constants.asm: sfx_Navigate_jingle = $2D.
@@ -7613,10 +7619,38 @@ impl NativeRuntime {
         .score
     }
 
+    /// True once the EOL score-counter drain at ASM `loc_D770` has finished its
+    /// final score-changing transfer, i.e. the coroutine has reached
+    /// `loc_D7F4`. The ROM plays `sfx_Score_counter` ($0C) a *second* time there
+    /// via `j_PlaySound2` (kid.asm:16906-16908), in addition to the cue at
+    /// drain start (kid.asm:16850-16852). The transfer-frame count is derived
+    /// from `eol_score_counter_duration_loc_D770` so the boundary stays in lock
+    /// step with the live score the renderer already replays.
+    #[allow(non_snake_case)]
+    pub(crate) fn level_complete_score_counter_drained_loc_D7F4(
+        &self,
+        elapsed_counter_frames: usize,
+    ) -> bool {
+        let tally = self.level_completion_bonus_tally_loc_D468();
+        if tally.amounts().is_empty() {
+            // ASM loc_D770: with no bonus rows the counter loop never runs, so
+            // the second `j_PlaySound2` cue is never reached.
+            return false;
+        }
+        let counter = crate::level::eol_score_counter_duration_loc_D770(
+            self.level_complete_initial_score,
+            tally.amounts(),
+        );
+        let transfer_frames = crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(
+            elapsed_counter_frames,
+        );
+        transfer_frames >= counter.counter_frames
+    }
+
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
     // the contact frame, so the queued native award needs to survive 33 frame
     // starts before the diamond count increments.
-    const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
+    pub(crate) const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
     const MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES: u8 = 15;
 
     pub(crate) fn apply_pending_stomp_bounce(&mut self, slice: &mut OpeningSliceState) {
@@ -8390,6 +8424,15 @@ impl NativeRuntime {
     }
 
     pub(crate) fn queue_prize_diamond_award(&mut self) {
+        // ASM PrizeDiamondCollected_Init (kid.asm:21101-21104): the diamond
+        // pickup plays `sfx_Diamond_prize` ($2D) on the contact frame, then
+        // `Increase_Diamonds` (kid.asm:21149-21162) runs a 32-frame
+        // fly-to-counter loop before `Number_Diamonds` increments. Emitting the
+        // cue here keeps the SFX aligned with the contact frame instead of the
+        // delayed count increment (#216 "diamond collection sounds are
+        // delayed").
+        self.played_sound_effects
+            .push(QueuedSoundEffect::DiamondPrize);
         self.pending_prize_diamond_awards
             .push(Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES);
     }

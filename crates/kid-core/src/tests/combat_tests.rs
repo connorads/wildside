@@ -8076,6 +8076,49 @@ mod chunk_03 {
         );
     }
 
+    /// ASM PrizeDiamondCollected_Init (kid.asm:21101-21162): the diamond-prize
+    /// pickup plays `sfx_Diamond_prize` ($2D) on the contact frame, then runs a
+    /// 32-frame fly-to-counter loop before `Number_Diamonds` increments. The
+    /// SFX must be queued at contact, not at the delayed count increase.
+    #[test]
+    fn queue_prize_diamond_award_plays_sfx_on_contact_frame_loc_21103() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let diamonds_before = runtime.progression.diamond_count;
+
+        runtime.queue_prize_diamond_award();
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::DiamondPrize],
+            "ASM loc_2510C plays sfx_Diamond_prize ($2D) on the contact frame",
+        );
+        assert_eq!(
+            QueuedSoundEffect::DiamondPrize.sound_id(),
+            0x2D,
+            "constants.asm sfx_Diamond_prize = $2D",
+        );
+        assert_eq!(
+            runtime.progression.diamond_count, diamonds_before,
+            "Number_Diamonds must not rise until the fly-to-counter loop completes (kid.asm:21162)",
+        );
+
+        // Step through the fly-to-counter delay: the count rises, but no extra
+        // cue is queued (the contact cue already played).
+        for _ in 0..NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES {
+            runtime.step_pending_prize_diamond_awards();
+        }
+        assert_eq!(
+            runtime.progression.diamond_count,
+            diamonds_before + 1,
+            "the delayed award still increments Number_Diamonds after the loop",
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::DiamondPrize],
+            "the delayed count increase must not queue a second diamond cue",
+        );
+    }
+
     /// ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14693):
     /// damage voice dispatch compares object_meta d5 against `$50`, `$40`,
     /// and `$30`; enemy init stores object type * 4 in that word.

@@ -5756,6 +5756,13 @@ impl NativeRuntime {
             level_complete_score_rows_elapsed_frames,
             level_complete_score_rows_started,
             level_complete_score_counter_elapsed_frames,
+            level_complete_score_counter_drained: matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ) && self
+                .level_complete_score_counter_drained_loc_D7F4(
+                    level_complete_score_counter_elapsed_frames,
+                ),
             level_complete_initial_score: match self.player_lifecycle {
                 PlayerLifecycle::LevelComplete { .. } => self.level_complete_initial_score,
                 _ => 0,
