@@ -4229,6 +4229,28 @@ Level BGM frame 0, jump frame 22, block-hit frame 31, and diamond-prize frame
 `likely_subsystems=["recording verification"]`, and `case reduce` blocks on the
 same frame-99 source replay drift. Re-record this prize-audio route on current
 native before using it for #216 gameplay, waveform, or event-timing work.
+Follow-up 2026-06-04: selector-picked `issue-216-prize-audio-probe` exposed two
+real current gameplay misses before returning to the usual #216 renderer/audio
+lane. First, ASM `sub_8F26 -> sub_922C` scans the whole leading wall column from
+Kid's feet through the adjusted head row; native sampled only three body points,
+missed the top-row right wall in the reducer, and advanced to x=`$006C2000`
+instead of oracle x=`$006A0000`. Native now uses the existing
+`probe_wall_column` path for live wall hits, covered by
+`sub_8f26_right_wall_scan_reaches_top_row_loc_922c_issue_216`. Second, the
+same refreshed route exposed DragonWalking contact timing: steady grounded
+contact must use the exact ASM box and the normal next-object-pass pending
+queue, while the #245 landing-graze route keeps its separate one-frame landing
+latch and consumes on the following grounded frame. Regressions
+`steady_grounded_dragon_contact_defers_to_next_frame_loc_3a6_issue_216` and
+`landing_dragon_graze_consumes_after_existing_landing_defer_loc_b700_issue_245`
+pin that split. Fresh bundle
+`issue-216-prize-audio-probe-columnscan-contact2-current` is trace/state green
+(`trace_match=true`, `oracle_state_match=true`) and strict-pixel red only from
+broad renderer drift; audio windows are Level BGM frame 0, jump frame 22, and
+hurt `PlaySound(97)` frame 64. The derived 0..120 case
+`issue-216-prize-audio-probe-columnscan-contact2-current_case_00000_00120`
+passes. Do not reselect this recording as a gameplay case; remaining #216 work
+is rendered pixel/waveform alignment and the level-complete cut-off report.
 Note 2026-06-02 for #216: delegated x140 prize-audio probe
 `issue-216-prize-audio-probe-x140-refresh` first exposed a real native-only
 gameplay bug: Kid idled at x=`$008C` while the first Level 00 Dragon approached,

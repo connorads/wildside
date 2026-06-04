@@ -1487,7 +1487,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit() {
+    fn airborne_wall_column_scan_latches_top_row_contact_loc_922c() {
         let w = 5u16;
         let h = 5u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -1497,9 +1497,9 @@ mod chunk_04 {
 
         let mut slice = OpeningSliceState {
             player: PlayerState {
-                // ASM sub_8F26 only sees the direct wall probe here. At y=56 the
-                // right-side probe has already cleared the overhang, so a top-edge-
-                // only contact must not create a fresh wall-cling latch.
+                // ASM sub_8F26 -> sub_922C scans the leading wall column from
+                // the foot row up through the adjusted head row. At y=56 this
+                // still includes row 1, so the overhang is a fresh side hit.
                 x_pos: 27 << 16,
                 y_pos: 56 << 16,
                 x_velocity: 0x0001_0000,
@@ -1548,10 +1548,10 @@ mod chunk_04 {
         };
 
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
-        assert_eq!(slice.player.x_pos, 27 << 16);
-        assert_eq!(slice.player.x_velocity, 0x0001_0000);
-        assert!(!slice.player.right_wall_sticky);
-        assert_eq!(slice.player.wall_cling_direction, None);
+        assert_eq!(slice.player.x_pos, 26 << 16);
+        assert_eq!(slice.player.x_velocity, 0);
+        assert!(slice.player.right_wall_sticky);
+        assert_eq!(slice.player.wall_cling_direction, Some(Direction::Right));
     }
 
     #[test]

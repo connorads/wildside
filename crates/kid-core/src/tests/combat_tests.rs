@@ -107,6 +107,126 @@ fn pending_contact_damage_spends_before_motion_loc_b700() {
     ));
 }
 
+#[test]
+fn steady_grounded_dragon_contact_defers_to_next_frame_loc_3a6_issue_216() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.number_hitpoints = 2;
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::DragonWalking,
+        0x008B_0000,
+        0x0110_0000,
+        1,
+    )];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0077_B000;
+    slice.player.y_pos = 0x010F_0000;
+    slice.player.x_velocity = 0x0001_0000;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+
+    let consumed = runtime.resolve_frame_hazards(
+        &mut slice,
+        FrameInput::default(),
+        0,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(
+        !consumed,
+        "ASM Mode_Level loc_3A6 consumes GfxObjects_CollisionKid contact on the next object pass; steady grounded DragonWalking contact must not spend HP in-frame"
+    );
+    assert_eq!(runtime.progression.number_hitpoints, 2);
+    assert!(
+        matches!(
+            runtime.pending_player_contact_damage,
+            Some(PendingPlayerContactDamage {
+                enemy_family: EnemyFamily::DragonWalking,
+                ..
+            })
+        ),
+        "steady grounded contact should route through the normal pending-contact queue"
+    );
+
+    let consumed = runtime.resolve_frame_hazards(
+        &mut slice,
+        FrameInput::default(),
+        0,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(consumed);
+    assert_eq!(
+        runtime.progression.number_hitpoints, 1,
+        "ASM Check_for_recent_damge loc_B700 spends the queued contact on the following frame"
+    );
+}
+
+#[test]
+fn landing_dragon_graze_consumes_after_existing_landing_defer_loc_b700_issue_245() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.number_hitpoints = 2;
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::DragonWalking,
+        0x008B_8000,
+        0x0110_0000,
+        1,
+    )];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0075_F000;
+    slice.player.y_pos = 0x010F_0000;
+    slice.player.x_velocity = 0x0001_0000;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+
+    let consumed = runtime.resolve_frame_hazards(
+        &mut slice,
+        FrameInput::default(),
+        0x0002_0000,
+        frame_start_y - 0x0002_0000,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(
+        !consumed,
+        "ASM Character_CheckCollision writes the fresh falling-to-ground DragonWalking graze before Check_for_recent_damge can consume it"
+    );
+    assert_eq!(runtime.progression.number_hitpoints, 2);
+    assert!(
+        runtime.pending_player_contact_damage.is_none(),
+        "the landing-graze guard is a separate one-frame latch, not a normal two-frame contact delay"
+    );
+
+    let consumed = runtime.resolve_frame_hazards(
+        &mut slice,
+        FrameInput::default(),
+        0,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(consumed);
+    assert_eq!(
+        runtime.progression.number_hitpoints, 1,
+        "the #245 landing route already paid the landing defer, so loc_B700 must consume on the following grounded frame"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

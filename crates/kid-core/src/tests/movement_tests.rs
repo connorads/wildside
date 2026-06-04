@@ -7426,6 +7426,47 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_922C (kid.asm:10699): `sub_8F26` scans the whole leading wall
+    /// column from Kid's feet up through the adjusted head row. The
+    /// `issue-216-prize-audio-probe` reducer hits a right wall at x=$70 only
+    /// in that top row; sampling three body points misses it and lets native
+    /// advance to x=$006C2000 instead of the oracle's x=$006A0000 snap.
+    #[test]
+    fn sub_8f26_right_wall_scan_reaches_top_row_loc_922c_issue_216() {
+        let w: u16 = 10;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Wall at x=$70..$7F, row 12 only. For The Kid at foot y=233,
+        // sub_922C scans rows 14,13,12; the older three-point probe samples
+        // rows 14,13,13 and misses this cell.
+        data[(12 * usize::from(w) + 7) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 0x006C_2000;
+        slice.player.y_pos = 0x00E9_0000;
+        slice.player.x_velocity = 0x0001_D900;
+
+        slice.apply_wall_collision(Some(&grid), PlayerForm::TheKid.half_width());
+
+        assert_eq!(
+            slice.player.x_pos, 0x006A_0000,
+            "ASM sub_8F26 -> sub_922C should snap to wall_x $70 - (half_width + 1)"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM sub_8F26 should clear x_vel on the top-row wall hit"
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction,
+            Some(Direction::Right),
+            "ASM loc_A8DE should enter right wall-cling for the airborne hit"
+        );
+    }
+
     /// ASM sub_8F26 wall hit returns NE for a side collision, but wall-cling
     /// entry is an airborne Kid-flip behaviour (`loc_A8DE`). Grounded side hits
     /// must zero x_vel without setting either sticky latch.
