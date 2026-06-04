@@ -70,6 +70,8 @@ rubber→brick SFX bug (#242) was state-level fixable. New non-playtest finding
 noted: Kid's L0 traversal/combat physics diverges from oracle ~frame 54-60
 (separate, #211-adjacent frontier).
 
+Proactive-verification 2026-06-04 (per CLAUDE.md exhausted-backlog protocol): full state-tier oracle sweep `sweep --levels 0-104 --tier state` = **69 passed, 0 failed, 0 errors**; all 846 diffs are known `oracle_limitations` (warp-state advisory gaps), every top diff field (camera_y/kid_y/current_level_id/game_paused/kid_x) flagged oracle-limitation — ZERO authoritative state divergences across all sweepable levels (incl. the now-decoder-loadable bonus levels). Empirically confirms no hidden actionable state bugs remain; the remaining path to a finished game is human validation of the `[?]` queue + real-device audio + the modelled-but-unwired feature long-tail (#206/#217 already largely wired).
+
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
