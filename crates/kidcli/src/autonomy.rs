@@ -5960,22 +5960,25 @@ fn load_rejected_recording_slugs(repo_root: &Path) -> Result<RejectedRecordingFi
     let state = load_source_port_frontier_state(repo_root)?;
     let mut filters = RejectedRecordingFilters::default();
     for hypothesis in &state.active_frontier.rejected_hypotheses {
-        if hypothesis
+        let reason_lower = hypothesis.reason.to_ascii_lowercase();
+        let stale_recording_rejection = hypothesis
             .reason
             .contains("before treating this case as gameplay-authoritative")
             || hypothesis.reason.contains("Do not use this recording")
+            || (reason_lower.contains("re-record")
+                && (reason_lower.contains("against current native")
+                    || reason_lower.contains("before using")));
+        if stale_recording_rejection
+            && let Some(rest) = hypothesis.name.strip_prefix("Recording `")
+            && let Some((slug, _)) = rest.split_once('`')
         {
-            if let Some(rest) = hypothesis.name.strip_prefix("Recording `")
-                && let Some((slug, _)) = rest.split_once('`')
-            {
-                filters.slugs.insert(slug.to_owned());
-            }
-            if let Some((_, rest)) = hypothesis.reason.split_once("case queue keeps selecting `")
-                && let Some((prefix, suffix)) = rest.split_once('`')
-                && suffix.trim_start().starts_with("variants")
-            {
-                filters.prefixes.insert(prefix.to_owned());
-            }
+            filters.slugs.insert(slug.to_owned());
+        }
+        if let Some((_, rest)) = hypothesis.reason.split_once("case queue keeps selecting `")
+            && let Some((prefix, suffix)) = rest.split_once('`')
+            && suffix.trim_start().starts_with("variants")
+        {
+            filters.prefixes.insert(prefix.to_owned());
         }
     }
     Ok(filters)
@@ -15690,6 +15693,46 @@ strategies:
                 .untriaged_recordings
                 .iter()
                 .all(|recording| !recording.slug.starts_with("issue-161"))
+        );
+        let recording = queue
+            .selected_recording
+            .expect("fresh recording should be selected");
+        assert_eq!(recording.slug, "level1-tree-break");
+    }
+
+    #[test]
+    fn case_queue_skips_stale_recording_wrapper_families() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(temp_dir.path(), "issue-210-title-frame-widths", true);
+        write_recording(temp_dir.path(), "issue-210-title-logo-art-fix", true);
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let mut state: serde_json::Value = serde_json::from_slice(
+            &fs::read(temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH))
+                .expect("frontier state should read"),
+        )
+        .expect("frontier state should parse");
+        state["active_frontier"]["rejected_hypotheses"]
+            .as_array_mut()
+            .expect("rejected hypotheses should be an array")
+            .push(serde_json::json!({
+                "name": "Recording `issue-210-title-frame-widths` exposes a reduced title/menu gameplay mismatch",
+                "reason": "Rejected 2026-06-04. The requested 0..120 case passes and case reduce reports the case is already passing. Do not patch #210 gameplay or title/menu state from this clean prefix; re-record this wrapper against current native before using the later title-frame-widths tail. If the case queue keeps selecting `issue-210-title-` variants, first refresh the title wrappers against current native."
+            }));
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            serde_json::to_vec_pretty(&state).expect("frontier state should serialise"),
+        )
+        .expect("frontier state should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(
+            queue
+                .untriaged_recordings
+                .iter()
+                .all(|recording| !recording.slug.starts_with("issue-210-title-"))
         );
         let recording = queue
             .selected_recording
