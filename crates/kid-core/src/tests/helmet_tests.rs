@@ -1908,6 +1908,60 @@ mod chunk_08 {
     }
 
     #[test]
+    fn respawn_hold_resumes_on_start_edge_loc_6e2() {
+        // #248: after a non-game-over death the engine sits in the long
+        // `Respawning` settle that mirrors the oracle's idle `Game_Mode=8`
+        // bootstrap (lose_life -> move.w #8,(Game_Mode) -> jmp j_loc_6E2,
+        // kid.asm:14787/823 — the same Start-waiting level-load path #238 models
+        // for first entry). The old fixed countdown ignored input, so live play
+        // sat on a black LevelTransition frame for the whole ~7210-frame settle
+        // and "press start did nothing". A Start edge must resume to Alive.
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.progression.number_lives = 2;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 5_000,
+        };
+        runtime.boot_state = BootState::InGame;
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "a Start edge during the respawn hold must resume gameplay (got {:?})",
+            runtime.player_lifecycle
+        );
+    }
+
+    #[test]
+    fn respawn_hold_without_start_keeps_counting_down_for_state_parity() {
+        // The #245 idle death-respawn STATE window never presses Start, so with no
+        // Start edge the Respawning settle must keep counting down unchanged, so
+        // the `death_respawn_level1_window_*` oracle-parity window stays green.
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.progression.number_lives = 2;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 5_000,
+        };
+        runtime.boot_state = BootState::InGame;
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::Respawning { remaining_frames } if remaining_frames == 4_999
+            ),
+            "without a Start edge the respawn hold must keep counting down (got {:?})",
+            runtime.player_lifecycle
+        );
+    }
+
+    #[test]
     fn save_load_player_slot_round_trips() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.current_player_index = 0;

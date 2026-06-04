@@ -7627,7 +7627,26 @@ impl NativeRuntime {
                 return false;
             }
             PlayerLifecycle::Respawning { remaining_frames } => {
-                if remaining_frames > 1 {
+                // #248: the real death-respawn re-enters via `lose_life` ->
+                // `move.w #8,(Game_Mode)` -> `jmp (j_loc_6E2)` (kid.asm:14787,823),
+                // i.e. the SAME `Game_Mode=8` title-card/level-load path as a
+                // normal level entry. That path waits for a Start edge to release
+                // live gameplay (`Game_Mode=$0C`), exactly as the `StartingLevel`
+                // hand-off already models for first entry (#238). The old fixed
+                // `Respawning` countdown ignored input, so live play sat on a
+                // black `LevelTransition` frame for the whole ~7210-frame settle
+                // and the player's Start press did nothing ("press start —
+                // nothing"). Accept a Start edge to resume immediately: the death
+                // tumble (DeathWindup) and hidden window (Dying) have already
+                // played by the time we reach Respawning, and the level runtime
+                // was reset for respawn at the Dying->Respawning hand-off.
+                //
+                // The #245 `death_respawn_level1_window_*` STATE tests compare
+                // against an IDLE oracle trace that never presses Start during the
+                // hold, so they keep running the full countdown and are unaffected
+                // (edge is false without a Start press).
+                let start_edge = input.start && !self.previous_input.start;
+                if remaining_frames > 1 && !start_edge {
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: remaining_frames - 1,
                     };
