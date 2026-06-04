@@ -13106,6 +13106,7 @@ mod chunk_05 {
                 floor_y_pos: (3 * 16 - 1) << 16,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -13176,6 +13177,7 @@ mod chunk_05 {
                 floor_y_pos: 0,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -13311,6 +13313,7 @@ mod chunk_05 {
                 floor_y_pos: (3 * 16 - 1) << 16,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -13392,6 +13395,7 @@ mod chunk_05 {
                 floor_y_pos: (3 * 16 - 1) << 16,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -13643,6 +13647,7 @@ mod chunk_05 {
                 floor_y_pos: (3 * 16 - 1) << 16,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,

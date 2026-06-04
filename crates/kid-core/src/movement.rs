@@ -2573,6 +2573,7 @@ impl OpeningSliceState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -2635,6 +2636,7 @@ impl OpeningSliceState {
                 floor_y_pos: pose.kid_y_pos,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -3077,6 +3079,7 @@ impl OpeningSliceState {
                 };
 
                 if on_ground_before
+                    && !self.terrain.slope_sliding
                     && let Some(grid) = block_grid.as_deref()
                     && matches!(
                         self.grounded_slope_probe_result_loc_9386(grid),
@@ -3093,6 +3096,21 @@ impl OpeningSliceState {
                     // slopes return a negative d7. Helmets outside bitmask
                     // $2C5 skip loc_9D22, tile-snap x_pos, and branch through
                     // loc_8EC8 to the standing path instead of slope-walking.
+                    //
+                    // BUT only when the Kid is NOT already in the MoveID 6
+                    // slope-walk state (`slope_sliding`). The ROM reaches
+                    // `loc_8E98` only from the MoveID 2 walking dispatch on the
+                    // first slope contact (where `sub_9386` reports the slope in
+                    // the *next* row, d7=+1, and falls through to `loc_9D22`
+                    // SLIDE). Once descending, MoveID 6 owns the dispatch and
+                    // never re-runs `loc_8E3E`. Without this gate, a non-`$2C5`
+                    // form's `y_pos` oscillating into the slope's own row would
+                    // re-trigger the tile-snap and zero `y_vel` every few
+                    // frames — the #204 "jitter, no net descent" limit cycle.
+                    // Oracle (jgenesis, Red Stealth, Level 0 SlopeDown @ col
+                    // 113): MoveID 6, x/y descend ~3px/frame; native pre-fix:
+                    // MoveID 2, x/y pinned ±2px. Verified frame-identical entry
+                    // state at frame 38, divergence onset frame 39.
                     self.player.x_pos = x_pos;
                     self.player.y_velocity = 0;
                     self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
@@ -4612,6 +4630,9 @@ impl OpeningSliceState {
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
         if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
+            // ASM loc_7828: held standing returns the Kid to MoveID 0; any
+            // active MoveID 6 slope-walk has ended.
+            self.terrain.slope_sliding = false;
             return false;
         }
         if self.player.on_ground && !input.b {
@@ -4643,6 +4664,9 @@ impl OpeningSliceState {
                 self.player.x_velocity = new_vel;
                 self.player.facing = new_facing;
             }
+            // Jumping off a slope leaves MoveID 6 for the jump state; clear the
+            // slide latch so it does not suppress a later fresh-contact tile-snap.
+            self.terrain.slope_sliding = false;
             return false;
         }
 
@@ -4750,6 +4774,19 @@ impl OpeningSliceState {
             // reaches solid; the terminal gate decides when it affects flat
             // walking again.
             self.terrain.slope_walk_kind = Some(live_slope);
+            // ASM loc_9D22 sets MoveID 6 (slope-walk). While in MoveID 6 the
+            // ROM never re-enters the MoveID 2 `loc_8E3E` dispatch, so its
+            // `loc_8E98` current-row tile-snap cannot run. Latch the
+            // equivalent native state so the per-frame step bypasses that
+            // tile-snap for non-`$2C5` forms mid-descent (#204).
+            self.terrain.slope_sliding = self.player.on_ground;
+        } else if !self.player.on_ground || cached_slope_continuation.is_none() {
+            // Left the slope: onto flat/solid ground (ASM sub_A254 reaches the
+            // solid tile and the slope-walk loop returns to MoveID 2 walking),
+            // or airborne (a jump leaves MoveID 6 for MoveID 3). Either way the
+            // slope-walk state has ended, so the `loc_8E98` tile-snap gate must
+            // re-arm for the next fresh ground contact.
+            self.terrain.slope_sliding = false;
         }
         self.advance_juggernaut_walk_visual_accumulator_loc_9484(form);
         true
@@ -5053,7 +5090,7 @@ impl OpeningSliceState {
         }
     }
 
-    fn grounded_slope_probe_result_loc_9386(
+    pub(crate) fn grounded_slope_probe_result_loc_9386(
         &self,
         grid: &terrain::BlockGrid,
     ) -> Option<(terrain::CollisionKind, bool)> {

@@ -4768,6 +4768,7 @@ mod chunk_11 {
                 floor_y_pos: 48 << 16,
                 floor_terrain_type: TerrainType::Normal,
                 slope_walk_kind: None,
+                slope_sliding: false,
             },
             level_bounds: physics::LevelBounds {
                 width_pixels: 64,
@@ -16137,6 +16138,122 @@ mod chunk_12 {
             );
             previous_x = slice.player.x_pos;
         }
+    }
+
+    /// Regression for #204 (oracle-verified): once Red Stealth is in the ROM's
+    /// MoveID 6 slope-walk state, the per-frame `step` must NOT re-run the
+    /// `loc_8E98` current-row tile-snap that drops non-`$2C5` forms back to
+    /// standing. Doing so produces the #204 limit cycle (slide one frame, snap
+    /// back the next → zero net descent / jitter).
+    ///
+    /// Ground truth: jgenesis, Red Stealth (helmet 3), Level 0 Blue Lake Woods
+    /// 1 SlopeDown at col 113 (px 1808), holding Right from the flat plateau.
+    /// `tas-diff` (settle_oracle_warp, frame-identical entry at frame 38) shows
+    /// the oracle entering `character_movement=6` at frame 39 and descending
+    /// ~3px/frame in BOTH axes (x 1813→2025, y 197→335 over the run). Native
+    /// before the `slope_sliding` gate stayed in `character_movement=2`, pinned
+    /// at x≈1808/y≈193. After the fix native tracks the oracle in
+    /// position-lockstep through the descent.
+    ///
+    /// `step` runs `step_with_order_inner`, which is where the `loc_8E98`
+    /// tile-snap guard lives (the unit `update_horizontal_*` helpers bypass
+    /// it), so this exercises the exact routine the gate fixes.
+    #[test]
+    fn asm_faithful_red_stealth_current_slopedown_slide_latch_gates_loc_8e98_tilesnap_issue_204() {
+        // Single SlopeDown cell at (4,3) with solid directly below so the foot
+        // is grounded on the slope's own (current) row — the state where
+        // `sub_9386` returns d7=-1 and the MoveID 2 dispatch reaches `loc_8E98`.
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(3usize * usize::from(w) + 4) * 2] = 0x50; // SlopeDown (4,3)
+        for row in 4..h {
+            data[(usize::from(row) * usize::from(w) + 4) * 2] = 0x60; // solid below
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let make = |sliding: bool| {
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.on_ground = true;
+            slice.player.facing = Direction::Right;
+            // Mid-tile so `(x & $FFF0) - 1` is a visible left snap if it fires.
+            slice.player.x_pos = 0x48 << 16; // col 4 (px 72)
+            slice.player.y_pos = 0x38 << 16; // row 3 (px 56) — current-row slope
+            slice.terrain.floor_y_pos = slice.player.y_pos;
+            slice.player.x_velocity = 0x0001_0000;
+            slice.player.y_velocity = 0; // grounded, not the airborne recontact path
+            slice.terrain.slope_sliding = sliding;
+            slice
+        };
+
+        // Sanity: the probe must classify this as a CURRENT-row slope (d7=-1)
+        // and the dispatch must be the non-`$2C5` tile-snap, so the `loc_8E98`
+        // guard is genuinely reachable — otherwise the test is vacuous.
+        let probe = make(false);
+        assert!(
+            matches!(
+                probe.grounded_slope_probe_result_loc_9386(&grid),
+                Some((terrain::CollisionKind::SlopeDown, true)),
+            ),
+            "test setup: Red Stealth must sit on a CURRENT-row SlopeDown so loc_8E98 is reachable",
+        );
+        assert!(
+            matches!(
+                negative_slope_dispatch_loc_8E98(
+                    PlayerForm::RedStealth,
+                    probe.player.x_pos,
+                    probe.player.x_velocity,
+                ),
+                NegativeSlopeDispatchLoc8E98::TileSnapToStanding { .. },
+            ),
+            "test setup: Red Stealth is outside $2C5 so loc_8E98 dispatches a tile-snap",
+        );
+
+        // The `loc_8E98` tile-snap guard lives in the AsmFaithful physics
+        // order (the live-game / oracle path). The default GravityFirst `step`
+        // uses a different dispatch that never reaches it, so drive
+        // AsmFaithful explicitly.
+        let step_once = |slice: &mut OpeningSliceState, grid: &mut terrain::BlockGrid| {
+            slice.step_with_order(
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::RedStealth,
+                Some(grid),
+                None,
+                false,
+                0,
+                PhysicsOrder::AsmFaithful,
+                false,
+                &[],
+            );
+        };
+
+        // NOT sliding (fresh MoveID 2 contact): ASM `loc_8E98` tile-snaps the
+        // x_pos back to the 16px boundary `(x & $FFF0) - 1` = 0x3F (px 63),
+        // pulling the Kid LEFT from its px-72 start.
+        let mut fresh = make(false);
+        step_once(&mut fresh, &mut grid);
+        let fresh_x = (fresh.player.x_pos >> 16) as i32;
+
+        // Sliding (MoveID 6): the gate skips the tile-snap, so x is NOT yanked
+        // back to the 0x3F boundary — the slide continues. This is the #204
+        // fix: oracle (jgenesis, Red Stealth, L0 SlopeDown @ col 113) stays in
+        // character_movement=6 and descends; pre-fix native re-ran loc_8E98
+        // every current-row frame and pinned in place.
+        let mut sliding = make(true);
+        step_once(&mut sliding, &mut grid);
+        let sliding_x = (sliding.player.x_pos >> 16) as i32;
+
+        assert!(
+            sliding_x > fresh_x,
+            "issue #204: the slide latch must suppress the loc_8E98 tile-snap so x stays ahead of the tile-snapped fresh-contact x (sliding={sliding_x} fresh={fresh_x})",
+        );
     }
 
     /// ASM loc_779C/loc_77E6 (kid.asm:7846): the blocked standing wall probes

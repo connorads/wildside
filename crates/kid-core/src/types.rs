@@ -2061,6 +2061,17 @@ pub(crate) struct TerrainState {
     /// ASM `$FFFFFA26`: cached slope-walk kind kept after the live floor probe
     /// stops seeing the slope tile.
     pub(crate) slope_walk_kind: Option<terrain::CollisionKind>,
+    /// True while the Kid is in the ROM's MoveID 6 slope-walk state (`loc_9D22`
+    /// → `loc_9D58`/`loc_9E6C`). The ROM enters this state from the MoveID 2
+    /// walking dispatch on first slope contact (`sub_9386` d7=+1 next-row →
+    /// `loc_8E80` fall-through → `loc_9D22`), then dispatches the slope-walk
+    /// loop every subsequent frame *without* re-running `loc_8E3E`/`loc_8E98`.
+    /// Native re-evaluates the walking dispatch each frame, so this flag lets
+    /// the per-frame step skip the `loc_8E98` current-row tile-snap once the
+    /// slide is committed — otherwise non-`$2C5` forms (Red Stealth/Eyeclops/
+    /// Maniaxe) get yanked back to standing every time their oscillating
+    /// `y_pos` dips into the slope's own row, producing the #204 limit cycle.
+    pub(crate) slope_sliding: bool,
 }
 
 /// Movement script execution state for a platform.
