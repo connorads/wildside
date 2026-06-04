@@ -10555,10 +10555,40 @@ impl NativeRuntime {
         if !self.stomped_this_frame
             && let Some((enemy_x, enemy_family)) = self.find_contact_damage_source(slice)
         {
-            if matches!(enemy_family, EnemyFamily::DragonWalking)
-                && slice.player.on_ground
-                && pre_physics_y_velocity > 0
-            {
+            if matches!(enemy_family, EnemyFamily::DragonWalking) && slice.player.on_ground {
+                if pre_physics_y_velocity > 0 {
+                    // ASM Character_CheckCollision: the fresh landing frame
+                    // (still falling) writes the dragon overlap into Kid's
+                    // collision word but does not yet consume it. Defer the
+                    // grounded graze to the following frame's consume.
+                    return false;
+                }
+                // ASM Mode_Level loc_3A6 / Check_for_recent_damge loc_B700:
+                // the dragon overlap written on the landing frame is consumed
+                // on this following grounded-graze frame, which is the death
+                // frame the oracle reports (death-respawn Level 1: f1684, not
+                // f1685). The shared `pending_player_contact_damage` queue would
+                // add a second frame of delay on top of this one-frame landing
+                // defer, drifting the entire death->tumble->lose_life->respawn
+                // sequence one frame late (#245). Apply this consume in-frame
+                // instead so the tumble launches on the oracle's frame.
+                if self.progression.invulnerable_frames == 0
+                    && !self.kid_is_invulnerable
+                    && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+                {
+                    self.apply_damage_with_knockback(slice, enemy_x, enemy_family);
+                    if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+                        // Mirror the fatal-contact pose restore from the pending
+                        // queue: Death branches before Character_Movement spends
+                        // this frame's velocity, so hold the frame-entry pose.
+                        slice.player.x_pos = frame_start_x_pos;
+                        slice.player.y_pos = frame_start_y_pos;
+                    }
+                    self.opening_slice = Some(*slice);
+                    self.last_kid_frame_post_motion_mutator =
+                        KidFramePostMotionMutator::ContactDamage;
+                    return true;
+                }
                 return false;
             }
             self.pending_player_contact_damage = Some(PendingPlayerContactDamage {

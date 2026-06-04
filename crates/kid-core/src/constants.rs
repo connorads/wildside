@@ -368,17 +368,25 @@ pub(crate) const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 // fixed hold. Keep a generous cap here and let the runtime end the arc early.
 pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 // Oracle death traces switch from the hidden death shell into the respawn
-// bootstrap after the mode-8 Teleport hand-off stays blank for eight more
-// frames than the older lower-floor death probe exposed.
-pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 40;
+// bootstrap 32 frames after lose_life. The death-respawn Level 1 oracle window
+// `death_respawn_level1_window_01700_01855_step_1` fires lose_life on frame
+// 1759 and exposes the respawn bootstrap pose on frame 1791 (32 frames later).
+// The earlier 40-frame value was an 8-frame over-compensation that masked a
+// one-frame-late death-arc launch (#245); once the death lands on the oracle's
+// frame (1684, not 1685) the hidden window is 32 frames, not 40.
+pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
 // Oracle-backed `lose_life` / `Teleport` traces keep the frozen post-Death
-// shell pose visible through the 27th hidden frame before Kid's WRAM
-// coordinates clear while the transition camera remains latched.
-pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 27;
+// shell pose visible until 13 frames remain (Level 1 oracle clears Kid's WRAM
+// pose on frame 1780 = lose_life + 21), then Kid's coordinates clear while the
+// transition camera remains latched. `HIDE - SHELL = 13`, the pose-clear point
+// the loc_b8de Level 2 probe also pins (remaining 14 visible -> 13 cleared).
+pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 19;
 // Oracle-backed `lose_life -> Teleport -> loc_6E2` traces keep the frozen
-// shell camera for five extra hidden frames after Kid's WRAM pose clears, then
-// zero Camera_X/Y before the later respawn bootstrap takes over.
-pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 31;
+// shell camera until 9 frames remain (Level 1 oracle zeroes Camera_X/Y on frame
+// 1785 = lose_life + 26), then clears it before the respawn bootstrap takes
+// over. `HIDE - CAMERA = 9`, matching the loc_b8de Level 2 probe (remaining 10
+// visible -> 9 cleared).
+pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold
