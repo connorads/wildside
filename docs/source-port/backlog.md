@@ -50,6 +50,26 @@ fucked in general" (#160/#216/#003). Treat the reopened rows as
 `not human-play-stable` until a deterministic native recording proves the
 human path.
 
+Resolution summary 2026-06-04: the actionable playtest feedback is
+comprehensively addressed. FIXED (regression-tested, oracle/byte/visual
+verified): #238 (skip floor-snap + native terrain decoder), #229+#247+#246
+(native level-terrain decoder fully built byte-exact — removes the
+emulator-fixture dependency; the 4 unreachable bonus levels now load+render
+with real floors, verified by capturing logical 5A/5D/5E/63), #242 (metal
+SFX), #145 (tank turret z), #210 (intro stray sprite), #243 (Tar Monster
+projectile art), #245 (death→black-screen regression), #147 (wall-grab —
+regression from 708e663c, oracle-verified), #204 (Red Stealth slope-slide
+MoveID-6 latch, oracle-verified). NOT A BUG / ORIGINAL_QUIRK (oracle-verified):
+#240 (dragon breath facing follows ROM patrol facing), #239 (walking dragon
+walks off ledges + respawns, no ROM arena clamp). PROVEN CORRECT: #241 (lives
+HUD), #215 (sprite-vs-plane priority pipeline). Two wrong ASM-only hypotheses
+(#147 loc_ADAC re-stick, #204 current-row edge-snap) were DISPROVEN by the
+oracle before any bad fix shipped. REMAINING (real-device-blocked, not
+verifiable here by listening): audio #160/#216/#003 — only the concrete
+rubber→brick SFX bug (#242) was state-level fixable. New non-playtest finding
+noted: Kid's L0 traversal/combat physics diverges from oracle ~frame 54-60
+(separate, #211-adjacent frontier).
+
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
