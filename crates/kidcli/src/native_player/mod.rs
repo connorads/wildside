@@ -1375,6 +1375,7 @@ mod gems_sfx {
     pub const BLOCK_HIT: u8 = 0x0D;
     pub const CLOCK_PRIZE: u8 = 0x0E;
     pub const DESTROY_BLOCK: u8 = 0x11;
+    pub const METAL_BLOCK: u8 = 0x12;
     pub const REVEAL_HIDDEN: u8 = 0x12;
     pub const EVANESCENT: u8 = 0x14;
     pub const SHIFTING: u8 = 0x15;
@@ -1668,6 +1669,10 @@ fn is_ouch_sound_id(sound_id: u8) -> bool {
     )
 }
 
+fn is_explicit_block_sound_id(sound_id: u8) -> bool {
+    matches!(sound_id, gems_sfx::METAL_BLOCK | gems_sfx::RUBBER_BLOCK)
+}
+
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
     let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
     let mut sound_ids = queued_sound_ids.to_vec();
@@ -1765,10 +1770,16 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::SCORE_COUNTER);
     }
 
-    // Block headbutt. ASM loc_10DA4 queues rubber blocks separately as
-    // `sfx_Rubber_block`, so this heuristic is only for remaining block-hit
-    // paths that still expose the old headbutt counter.
-    if curr.blocks_hit_this_frame > 0 {
+    // Block headbutt. ASM loc_10DA4 queues rubber blocks as
+    // `sfx_Rubber_block` and loc_110D0 queues metal/springy blocks as
+    // `sfx_Metal_block`; when an exact block cue is present for this frame,
+    // do not layer the generic `sfx_Block_hit` brick crunch over it.
+    if curr.blocks_hit_this_frame > 0
+        && !queued_sound_ids
+            .iter()
+            .copied()
+            .any(is_explicit_block_sound_id)
+    {
         sound_ids.push(gems_sfx::BLOCK_HIT);
     }
 
@@ -1946,8 +1957,14 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(294.0, 55, 0.08);
         sfx.play(196.0, 70, 0.06);
     }
-    // Block hit SFX (metallic clang for block headbutts)
-    if curr.blocks_hit_this_frame > 0 {
+    // Block hit SFX (metallic clang for block headbutts). ASM loc_10DA4 and
+    // loc_110D0 already supplied exact rubber/metal block cues for this frame.
+    if curr.blocks_hit_this_frame > 0
+        && !queued_sound_ids
+            .iter()
+            .copied()
+            .any(is_explicit_block_sound_id)
+    {
         sfx.play(1100.0, 30, 0.08); // metallic ping
         sfx.play(550.0, 40, 0.06); // lower thud
     }
@@ -12039,6 +12056,16 @@ mod tests {
             "ASM loc_10DA4 queues sfx_Rubber_block=$56; rubber contacts must not fall back to sfx_Block_hit=$0D brick crunch"
         );
 
+        prev.played_sound_effect_ids = Vec::new();
+        curr.blocks_hit_this_frame = 1;
+        curr.played_sound_effect_ids = vec![gems_sfx::RUBBER_BLOCK];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::RUBBER_BLOCK],
+            "ASM loc_10DA4's explicit rubber cue must suppress any generic block-hit counter visible on the same frame"
+        );
+
         prev.played_sound_effect_ids = vec![gems_sfx::RUBBER_BLOCK];
         curr.blocks_hit_this_frame = 1;
         curr.played_sound_effect_ids = vec![gems_sfx::RUBBER_BLOCK];
@@ -12047,6 +12074,20 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::BLOCK_HIT],
             "the old headbutt counter still drives non-rubber block-hit paths when no new ASM-backed rubber id was queued"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_metal_block_without_generic_block_crunch() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.blocks_hit_this_frame = 1;
+        curr.played_sound_effect_ids = vec![gems_sfx::METAL_BLOCK];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::METAL_BLOCK],
+            "ASM loc_110D0 queues sfx_Metal_block=$12 for springy block bounces; do not layer sfx_Block_hit=$0D over it"
         );
     }
 
