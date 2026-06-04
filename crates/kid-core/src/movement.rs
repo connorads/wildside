@@ -3298,28 +3298,56 @@ impl OpeningSliceState {
                 }
 
                 // ASM sub_A4EE (kid.asm:12867) runs here (between sub_B168 and
-                // sub_902A). It tentatively applies both velocities to position,
-                // calls j_GfxObjects_Collision, then dispatches on collision_type:
-                //   - loc_A532 (kid.asm:12888): collision_type == 0 or unrecognised
-                //     → restore old x_pos/y_pos and return (position update deferred
-                //     to the subsequent sub_902A + sub_8F26 passes).
-                //   - loc_A53C (kid.asm:12894): collision_type == $14 (floor+right-wall
-                //     compound) → kill Kid unless Juggernaut or Skycutter.
-                //   - loc_A556 (kid.asm:12903): Juggernaut/Skycutter survive $14 —
-                //     clear collision_type, set x_vel=y_vel=$FFFE0000, reposition
-                //     Kid from the tile address cached in $FFFFFB6C.
-                //   - loc_A594: collision_type == $18 (floor+left-wall compound) →
-                //     same kill/bounce logic mirrored for the left side.
-                //   - loc_A5AE (kid.asm:12932): Juggernaut/Skycutter survive $18 —
-                //     clear collision_type, keep y_vel=$FFFE0000, negate d7 so
-                //     x_vel=+$00020000, then reposition from $FFFFFB6C.
-                // Native: the decomposed probe architecture (separate floor/ceiling
-                // and wall passes) eliminates the compound collision_type. The
-                // loc_A532 restore is implicit — position is applied incrementally
-                // in each axis. The $14/$18 crush paths are not yet ported (they
-                // require GfxObjects_Collision compound detection).
+                // sub_902A). It tentatively applies BOTH velocities to position
+                // (`add.l x_vel,x_pos; add.l y_vel,y_pos` — the compound diagonal
+                // integration), calls j_GfxObjects_Collision over the gfx-object
+                // table (`a2 = Addr_FirstGfxObjectSlot+2`), then dispatches on the
+                // Kid object's collision_type word ($38):
+                //   - loc_A532 (kid.asm:12888): collision_type == 0 → restore old
+                //     x_pos/y_pos and return (position update deferred to the later
+                //     sub_902A + sub_8F26 per-axis passes).
+                //   - loc_A53C (kid.asm:12894): collision_type == $14 (colid_slopeup,
+                //     constants.asm:169). NOT Juggernaut/Skycutter → `bra loc_B9A2`
+                //     (grid-aligned recovery snap). Juggernaut/Skycutter → loc_A556
+                //     (diagonal bounce-out: clear collision_type, x_vel=y_vel=
+                //     $FFFE0000, snap y from the $FFFFFB6C tile address, loc_A6F8
+                //     jump state).
+                //   - loc_A594 (kid.asm:12923): collision_type == $18 (colid_slopedown,
+                //     constants.asm:170) — left-side mirror; non-Jugg/Sky → loc_BA5A,
+                //     Jugg/Sky → loc_A5AE (y_vel=$FFFE0000, x_vel=+$20000).
+                //   loc_B9A2/loc_BA5A snap Kid onto the slope surface: `Get_XY_From_
+                //   LevelLayoutAddress` decodes the cached contact tile to (col,row),
+                //   `asl #4` both, `add d2,d1; addi #$F,d1; sub x_pos,d1 → y_pos`
+                //   i.e. y = (col+row)*16+15-x_pos = row*16+15-(x&$F) = the SlopeUp
+                //   surface (terrain::slope_floor_y), then sub_B55C re-probes for
+                //   land vs wall-cling (loc_AA22). loc_BB08/loc_BB30 are the
+                //   Juggernaut velocity-reset bypasses inside loc_B9A2/loc_BA5A.
                 //
-                // ASM loc_B9A2 (kid.asm:14935): right-facing IK climb dismount entry.
+                // NOT PORTED — DELIBERATELY (issue #224, investigated 2026-06-04).
+                // GfxObjects_Collision only writes $14/$18 to the Kid object
+                // (ChkUpSlope/ChkDownSlope, loc_1A94/loc_1AB8) when Kid's hitbox
+                // simultaneously straddles a SOLID tile (feet/side contact) AND an
+                // adjacent SLOPE tile after the compound diagonal integration has
+                // already embedded Kid inside that solid+slope junction — i.e. the
+                // engine's "stuck inside solid" recovery. Oracle probes against
+                // jgenesis (level 0 hill at cells ~(48..54, 11..16)) reproduce it
+                // ONLY by patching Kid's live x_pos/y_pos into the hollow interior
+                // of a fully-enclosed solid pyramid (col 50 row 13, walled on all
+                // four sides): the oracle then snaps Kid ~40px up onto the slope
+                // surface (y 222→182) — the loc_B9A2 recovery. Approaching the same
+                // slope-meets-wall corners from OPEN AIR (the only way reachable in
+                // normal play) never forms $14/$18: collision_type stays 0, the
+                // oracle walks the slope normally, and native (decomposed per-axis
+                // passes) tracks it within the 6px tolerance. The per-axis pipeline
+                // never embeds Kid in solid, so the precondition for $14/$18 cannot
+                // arise without the artificial probe teleport. There is therefore
+                // no normal-play divergence to fix here; porting the recovery snap
+                // would add a stuck-in-solid branch that no reachable input path
+                // exercises. The loc_A532 restore is implicit — position is applied
+                // incrementally per axis.
+                //
+                // ASM loc_B9A2 (kid.asm:14935): $14 slope-corner recovery-snap entry
+                // (reached ONLY from sub_A4EE loc_A53C — no IK-climb caller exists).
                 // Calls sub_DB22, clears collision_type/$1C/$20, then checks helmet:
                 //   - loc_BB08 (kid.asm:15044): Juggernaut bypass — sets
                 //     x_vel=y_vel=$FFFE0000 (-$20000) and returns immediately.
@@ -3344,11 +3372,12 @@ impl OpeningSliceState {
                 //     re-probe sub_B55C. $6000 → land. Else: st $FFFFFA72 (approach
                 //     from left), st has_level_collision, sub_B270 + bra loc_AA22.
                 //
-                // Native: IK climb dismount is folded into the decomposed collision
-                // passes. The Juggernaut velocity overrides (loc_BB08/loc_BB30) map
-                // to the compound collision bounce constants already documented at
-                // loc_A556. The wall-hit grid-snap paths (loc_BA1C/loc_BAD2) are
-                // handled by apply_wall_collision's tile-boundary alignment.
+                // Native: not ported — see the issue #224 reachability note above.
+                // These recovery-snap paths only run after $14/$18 forms, which the
+                // decomposed per-axis pipeline never produces in normal play (Kid is
+                // never embedded in solid+slope). The Juggernaut velocity overrides
+                // (loc_BB08/loc_BB30) and the wall-hit grid-snap paths (loc_BA1C/
+                // loc_BAD2) are unreachable for the same reason.
                 //
                 // ASM loc_B978 (kid.asm:14919): sub_A4EE solid-floor landing path —
                 //   reached when sub_B55C returns $6000 (solid) after the compound
