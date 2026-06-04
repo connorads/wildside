@@ -1968,13 +1968,26 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
 }
 
 fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
+    // Fixture-first: pre-dumped `level-layout/<id>.bin` is the fast, exact path
+    // for every level the dumper reached. No change/regression for those.
     if let Some(grid) = try_load_generated_level_layout(manifest, level_id)? {
+        return Ok(grid);
+    }
+
+    // Fixture absent (the unreachable bonus levels, e.g. logical 0x5A): fall back
+    // to the engine's native terrain decoder via the same fixture-first-then-
+    // decoder path the engine uses internally (`load_block_grid_for_level`),
+    // instead of bailing. The render visuals for these levels exist in the
+    // bundle; only the layout fixture was missing. Closes the "failed to load
+    // visuals" half of #246.
+    let runtime = NativeRuntime::new(manifest.clone());
+    if let Some(grid) = runtime.block_grid_for_level(LevelId(level_id)) {
         return Ok(grid);
     }
 
     let resource_level = resource_level_id(manifest, level_id);
     bail!(
-        "missing generated level layout for logical level 0x{level_id:02X} (resource level 0x{resource_level:02X}); run `mise run extract-assets` before using play-native debug warp"
+        "missing generated level layout for logical level 0x{level_id:02X} (resource level 0x{resource_level:02X}) and native terrain decode failed; run `mise run extract-assets` before using play-native debug warp"
     )
 }
 
@@ -8079,6 +8092,43 @@ mod tests {
         assert!(
             error.to_string().contains("missing generated level layout"),
             "play-native must not reinterpret raw BLOCK resources as collision cells: {error:#}"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn try_load_block_grid_decodes_bonus_level_without_fixture_loc_11c34() {
+        // #246: the unreachable bonus levels (logical 0x5A/0x5D/0x5E/0x63) have no
+        // pre-dumped `level-layout/<id>.bin` fixture, so the player's fixture-only
+        // loader used to bail ("failed to load visuals"). With the engine decoder
+        // fallback wired into `try_load_block_grid`, the native player now decodes
+        // the collision terrain natively (ASM Load_Level loc_11C34 chain) and
+        // returns a real, non-empty floor for these levels.
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        // Sanity: this level genuinely has no fixture, so the fallback is exercised.
+        let layout_dir = manifest.output_root.join("level-layout");
+        assert!(
+            !layout_dir.join("5A.bin").is_file(),
+            "test premise broken: bonus level 0x5A now has a fixture; pick another fixture-less bonus level"
+        );
+
+        let grid =
+            try_load_block_grid(&manifest, 0x5A).expect("bonus level 0x5A decodes via fallback");
+
+        assert!(
+            grid.width_cells > 0 && grid.height_cells > 0,
+            "decoded bonus grid must have real dimensions"
+        );
+        let solid_cells = (0..grid.height_cells)
+            .flat_map(|y| (0..grid.width_cells).map(move |x| (x, y)))
+            .filter(|&(x, y)| grid.cell_at(x, y).collision != CollisionKind::Empty)
+            .count();
+        assert!(
+            solid_cells > 0,
+            "decoded bonus grid must contain a real floor (non-empty collision cells), not an empty void"
         );
     }
 

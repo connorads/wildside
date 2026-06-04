@@ -18344,6 +18344,17 @@ impl NativeRuntime {
         }
     }
 
+    /// Public accessor for the decoded collision `BlockGrid` of a level, using
+    /// the SAME fixture-first-then-decoder path as the engine's internal
+    /// `load_block_grid_for_level`. Exposed so the native player (kidcli) can
+    /// reuse the engine's terrain decoder for levels that have no pre-dumped
+    /// `level-layout/<id>.bin` fixture (the unreachable bonus levels), instead of
+    /// maintaining its own fixture-only loader that bails for those levels
+    /// (closes the "failed to load visuals" half of #246).
+    pub fn block_grid_for_level(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
+        self.load_block_grid_for_level(level_id)
+    }
+
     pub(crate) fn load_block_grid_for_level(
         &self,
         level_id: LevelId,
