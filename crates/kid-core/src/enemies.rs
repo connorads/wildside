@@ -22085,6 +22085,17 @@ pub(crate) fn step_dragon_walking(
             // ASM loc_3D02A: breath is a stationary animated hitbox at
             // the dragon's mouth (±28px). No velocity — the GfxObject
             // stays in place for the animation duration (stru_3CCC8, 68f).
+            //
+            // ORIGINAL_QUIRK (#240): the breath hitbox sits on the dragon's
+            // FACING side only (loc_3D070: d0=-$1C, negated when x_direction
+            // is set). The facing follows the shared-walker FacePlayer/patrol
+            // state, so a dragon mid-patrol can momentarily face away from Kid
+            // and "breathe the wrong way" — this is ROM-accurate, not a bug.
+            // Oracle proof: tas-diff .cache/debug/issue240_l0_dragon_settle.json
+            // (warp L0 + settle_oracle_warp) frame 241 (breath spawn): native
+            // AND jgenesis dragon @x=50px face=Left, breath child @x=22px
+            // (50-$1C) — byte-exact MATCH. The breath direction is the parent's
+            // x_direction, copied to the child at loc_3D02A `$16(a0)`.
             let child_position = dragon_walking_breath_child_position_loc_3d070(
                 enemy.x_pos,
                 enemy.y_pos,

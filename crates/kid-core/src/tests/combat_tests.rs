@@ -11181,6 +11181,53 @@ mod chunk_03 {
         );
     }
 
+    /// Issue #240 (2026-06-04): playtester reported the Level 0 dragon
+    /// "breathes fire facing the wrong direction". Level 0 (Blue Lake Woods 1)
+    /// places only WALKING dragons (kind 0x0D); the flying dragon (0x0C) is in
+    /// the slot table but never instanced. So the relevant path is the walking
+    /// dragon breath (ASM loc_3D02A/loc_3D070), NOT the flying-dragon descent
+    /// fire (loc_34BE6).
+    ///
+    /// Oracle proof: `tas-diff .cache/debug/issue240_l0_dragon_settle.json`
+    /// (warp L0 + settle_oracle_warp) at the breath-spawn frame 241 — native
+    /// AND jgenesis dragon @x=50px face=Left, breath child @x=22px (50-$1C).
+    /// Byte-exact MATCH. Native is ROM-faithful; the "wrong direction" report
+    /// is the ROM's own facing-side breath (the dragon mid-patrol can face away
+    /// from Kid — the #006 quirk, oracle-matched). This test locks the exact
+    /// oracle-verified offset so a future "blind flip" is rejected.
+    #[test]
+    fn issue_240_level0_walking_dragon_breath_matches_oracle_facing_side() {
+        // Reproduce the oracle frame-241 dragon: x=50px, facing Left.
+        let mut enemy = test_enemy(EnemyFamily::DragonWalking, 50 << 16, 272 << 16, 2);
+        enemy.on_ground = true;
+        enemy.wait_timer = 1;
+        enemy.facing = Direction::Left;
+        let mut projectiles = Vec::new();
+        step_dragon_walking(&mut enemy, None, &mut projectiles, None);
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "breath child spawns on the trigger frame"
+        );
+        // ASM loc_3D070: d0=-$1C, negated only when x_direction is set; facing
+        // Left keeps the negative offset → child x = 50 - 28 = 22px (oracle).
+        assert_eq!(
+            projectiles[0].x_pos,
+            (22u32) << 16,
+            "oracle frame 241: breath child @x=22px (dragon 50 - $1C, Left facing)"
+        );
+        // ASM loc_3D02A: breath is a stationary hitbox (no velocity) — oracle
+        // slot 0x03d086 stays at @22,272 across frames 241-243.
+        assert_eq!(
+            projectiles[0].x_velocity, 0,
+            "breath is stationary (oracle: no drift)"
+        );
+        assert_eq!(
+            projectiles[0].y_velocity, 0,
+            "breath is stationary (oracle: no drift)"
+        );
+    }
+
     /// ASM Dragon.asm loc_3CD70: dragon faces TOWARD the player at spawn.
     /// `cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
     /// kid.x < dragon.x → x_direction stays 0 → LEFT (toward kid).
