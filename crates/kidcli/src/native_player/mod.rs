@@ -8169,6 +8169,25 @@ mod tests {
     }
 
     #[test]
+    fn highwater_pass2_real_grid_contains_loc_11430_e919_touch_shooter_cells() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let (_visuals, grid) = load_session_assets(&manifest, 0x03)
+            .expect("level 0x03 generated layout should decode");
+        let e919_cells: Vec<(u16, u16)> = (0..grid.height_cells)
+            .flat_map(|row| (0..grid.width_cells).map(move |col| (col, row)))
+            .filter(|&(col, row)| grid.cell_at(col, row) == Cell::from_be_bytes(0xE9, 0x19))
+            .collect();
+        assert_eq!(
+            e919_cells,
+            vec![(20, 9), (23, 9)],
+            "ASM loc_11430/sub_114F4 restores Highwater Pass 2 touch-shooter cells as $E919"
+        );
+    }
+
+    #[test]
     fn try_load_block_grid_rejects_mapped_decoded_layout_without_generated_dump() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");

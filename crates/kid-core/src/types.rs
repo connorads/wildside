@@ -637,6 +637,10 @@ pub(crate) struct ShooterBlockEntry {
     pub(crate) row: u16,
     pub(crate) directions: u8,
     pub(crate) supported_by_neighbour: bool,
+    /// ASM `sub_114F4` restores touch-block support cells as `$E919`. Those
+    /// restored cells are shooter-live through their queued slot, but baseline
+    /// level `$E919` Mushroom cells are not accepted by `sub_F096`.
+    pub(crate) restored_touch_shooter: bool,
     pub(crate) age: u16,
 }
 

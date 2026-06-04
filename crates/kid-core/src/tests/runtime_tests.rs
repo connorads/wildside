@@ -8683,11 +8683,12 @@ mod chunk_09 {
     }
 
     #[test]
-    fn level3_type9_mushroom_block_uses_shooter_slot_path_after_touch() {
-        // ASM off_BB80[9] -> loc_BBC2 -> loc_11430 restores Level 3's
-        // touch-grown block cells as `$E919`. Native must keep those type-9
-        // cells in the same shooter slot path as visible shooter blocks, or
-        // the first Highwater Pass 2 touch-then-shoot blocks never fire.
+    fn baseline_level3_e919_mushroom_block_is_not_scanned_as_shooter_sub_f096() {
+        // ASM sub_F096 loc_F106/loc_F1DE scans visible shooter/drill layout
+        // words, while ASM off_BB80[9] -> loc_BBC2 -> loc_11430 reaches type-9
+        // `$E919` cells only through the touch-block worker path. Baseline
+        // Highwater Pass 2 `$E919` terrain must not fire before `sub_114F4`
+        // restores a support cell and explicitly queues a native shooter slot.
         let mut rt = NativeRuntime::new(manifest());
         let w = 40u16;
         let h = 8u16;
@@ -8706,29 +8707,23 @@ mod chunk_09 {
 
         assert_eq!(
             rt.projectiles.len(),
-            2,
-            "ASM loc_11430-restored `$E919` should use low byte $19 as shooter direction bits"
+            0,
+            "ASM sub_F096 should not treat untouched `$E919` Mushroom terrain as a visible shooter candidate"
         );
-        assert_eq!(rt.block_state.shooter_blocks.len(), 1);
-        let velocities: Vec<(i32, i32)> = rt
-            .projectiles
-            .iter()
-            .map(|p| (p.x_velocity, p.y_velocity))
-            .collect();
-        let speed: i32 = 4 << 16;
-        assert!(velocities.contains(&(0, -speed)), "missing up projectile");
-        assert!(velocities.contains(&(-speed, 0)), "missing left projectile");
+        assert!(
+            rt.block_state.shooter_blocks.is_empty(),
+            "only `sub_114F4`-restored `$E919` support cells are native shooter-live"
+        );
     }
 
     #[test]
     fn highwater_pass_2_first_e919_touch_block_spawns_shooter_projectiles() {
         // ASM off_BB80[9] -> loc_BBC2 -> loc_11430: Highwater Pass 2's first
         // `$E919` touch blocks queue sub_1149C support workers; sub_114F4
-        // restores the empty cells above as `$E919`, which sub_F096 then treats
-        // as shooter direction bits. This guards the real level-3 route the
-        // synthetic type-9 cell test can miss.
+        // restores the empty cells above as `$E919`. Baseline `$E919` terrain
+        // is not a sub_F096 shooter candidate; only the restored support cell's
+        // queued native slot fires.
         let mut rt = NativeRuntime::new(manifest());
-        rt.boot_state = BootState::InGame;
         let mut data = vec![0u8; 40 * 16 * 2];
         let offset = (9usize * 40 + 20usize) * 2;
         data[offset] = 0xE9;
@@ -8739,15 +8734,13 @@ mod chunk_09 {
         rt.projectiles.clear();
 
         let mut slice = OpeningSliceState::new(default_bounds());
-        slice.player.x_pos = ((20 * 16 + 8) as u32) << 16;
-        slice.player.y_pos = ((9 * 16 - 1) as u32) << 16;
-        slice.player.y_velocity = 0x0002_0000;
-        slice.player.on_ground = false;
-        rt.opening_slice = Some(slice);
+        slice.shooter_block_hit = Some((20, 9));
+        rt.process_block_effects(&mut slice);
 
-        for _ in 0..24 {
-            rt.step_frame(FrameInput::default());
+        for _ in 0..=16 {
+            rt.step_shooter_headbutt_workers();
         }
+        rt.step_shooter_blocks(&slice);
 
         assert!(
             rt.projectiles

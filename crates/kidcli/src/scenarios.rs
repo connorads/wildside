@@ -1057,6 +1057,48 @@ pub fn highwater_pass2_juggernaut_flag_transition_audit_scenario() -> DynamicSce
     }
 }
 
+/// Focused #250 Highwater Pass 2 touch-grown shooter block audit.
+///
+/// Level 0x03's decoded layout contains `$E919` cells at `(20,9)` and `(23,9)`.
+/// This starts Juggernaut just above the first cell so native/oracle can compare
+/// ASM `loc_11430/sub_114F4`'s touch-block restore path before any flag or
+/// traversal logic muddies the evidence.
+pub fn highwater_pass2_grow_shooter_touch_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 180;
+
+    let script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+
+    DynamicScenario {
+        slug: "highwater_pass2_grow_shooter_touch_audit_03".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "touch_probe_start_loc_11430".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "worker_wake_window_sub_114f4".into(),
+                frame_index: 24,
+            },
+            DynamicCheckpoint {
+                label: "shooter_scan_window_sub_f096".into(),
+                frame_index: 60,
+            },
+            DynamicCheckpoint {
+                label: "touch_probe_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 328, y: 143 }),
+        camera_position: Some(DynamicStartPosition { x: 176, y: 0 }),
+        playtest_form: Some(5),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x03),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Focused #147 wall-grab "zoom to top" / "can't jump off a wall" audit.
 ///
 /// A non-Kid form (Red Stealth, helmet 3) warps to Highwater Pass 1 (Level 0x02)

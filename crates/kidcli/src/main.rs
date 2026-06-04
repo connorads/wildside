@@ -67,6 +67,7 @@ use scenarios::{
     diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
     diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
     enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
+    highwater_pass2_grow_shooter_touch_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
@@ -128,6 +129,8 @@ enum RecordScenarioKind {
     HighwaterFlagTransitionAudit,
     /// start at Highwater Pass 2's flag as Juggernaut and audit the normal level-4 hand-off.
     HighwaterPass2JuggernautFlagTransitionAudit,
+    /// start above Highwater Pass 2's first `$E919` touch-grown shooter block.
+    HighwaterPass2GrowShooterTouchAudit,
     /// drive Red Stealth into a Level 02 wall and jump (#147 wall-grab "zoom to top" audit).
     Issue147WallSideJumpAudit,
 }
@@ -2532,6 +2535,9 @@ fn build_record_scenario(
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             highwater_pass2_juggernaut_flag_transition_audit_scenario()
         }
+        RecordScenarioKind::HighwaterPass2GrowShooterTouchAudit => {
+            highwater_pass2_grow_shooter_touch_audit_scenario()
+        }
         RecordScenarioKind::Issue147WallSideJumpAudit => issue_147_wall_side_jump_audit_scenario(),
     }
 }
@@ -2589,6 +2595,9 @@ fn record_scenario_command(
         RecordScenarioKind::HighwaterFlagTransitionAudit => "highwater-flag-transition-audit",
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             "highwater-pass2-juggernaut-flag-transition-audit"
+        }
+        RecordScenarioKind::HighwaterPass2GrowShooterTouchAudit => {
+            "highwater-pass2-grow-shooter-touch-audit"
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
     };
@@ -4633,6 +4642,42 @@ AddrTbl_LevelNames:
                 .iter()
                 .any(|checkpoint| checkpoint.label == "next_level_survival_tail"),
             "the audit needs evidence after Level 0x04 becomes playable, not just flag touch"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_highwater_pass2_grow_shooter_touch_audit_starts_at_real_e919_cell() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::HighwaterPass2GrowShooterTouchAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "highwater_pass2_grow_shooter_touch_audit_03");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x03),
+            "issue #250 needs the real Highwater Pass 2 level, not the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((328, 143)),
+            "level 0x03 decoded `$E919` touch-shooter cells start at grid col 20 row 9"
+        );
+        assert_eq!(
+            scenario.playtest_form,
+            Some(5),
+            "latest playtest reported the grow/shooter confusion while carrying Rhino/Juggernaut"
+        );
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "worker_wake_window_sub_114f4"),
+            "the audit must sample the delayed loc_11430/sub_114F4 worker window"
         );
     }
 

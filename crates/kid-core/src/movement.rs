@@ -6225,13 +6225,6 @@ impl OpeningSliceState {
                         let tp_row = (probe.floor_y_px / 16).max(0) as u16;
                         self.teleporter_contact = Some((tp_col, tp_row));
                     }
-                    if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Mushroom
-                    {
-                        // ASM off_BB80 -> loc_BBC2 -> loc_11430:
-                        // type 9 floor contact routes into the timed
-                        // shooter-style block worker when $FFFFFA6A is clear.
-                        self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
-                    }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =
                         grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);

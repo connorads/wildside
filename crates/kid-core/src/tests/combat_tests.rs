@@ -14034,6 +14034,7 @@ mod chunk_05 {
                 row: 4,
                 directions: 0x0A,
                 supported_by_neighbour: false,
+                restored_touch_shooter: false,
                 age: 1,
             }],
             "ASM loc_F106 should allocate the candidate shooter slot with its column, row, and direction bits before sub_F730 ticks it"
@@ -14101,6 +14102,7 @@ mod chunk_05 {
                 row: 0,
                 directions: 0x02,
                 supported_by_neighbour: false,
+                restored_touch_shooter: false,
                 age: 1,
             })
             .collect();
@@ -14374,6 +14376,7 @@ mod chunk_05 {
             row: 3,
             directions: 0x02,
             supported_by_neighbour: false,
+            restored_touch_shooter: false,
             age: 21,
         }];
         runtime.block_state.shooter_last_scanned_col = 2;
