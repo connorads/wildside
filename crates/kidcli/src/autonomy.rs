@@ -605,6 +605,23 @@ impl RejectedRecordingFilters {
     }
 }
 
+fn recording_slugs_from_command_mentions(reason: &str) -> impl Iterator<Item = String> + '_ {
+    reason
+        .split_whitespace()
+        .scan(false, |previous_was_slug_flag, token| {
+            if *previous_was_slug_flag {
+                *previous_was_slug_flag = false;
+                let slug = token.trim_matches(|c: char| {
+                    matches!(c, '`' | '"' | '\'' | ',' | '.' | ';' | ')' | '(')
+                });
+                return Some(slug.split('/').next_back().unwrap_or(slug).to_owned());
+            }
+            *previous_was_slug_flag = token == "--slug";
+            Some(String::new())
+        })
+        .filter(|slug| !slug.is_empty())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BacklogIssueFocus {
     Playability,
@@ -5967,12 +5984,18 @@ fn load_rejected_recording_slugs(repo_root: &Path) -> Result<RejectedRecordingFi
             || hypothesis.reason.contains("Do not use this recording")
             || (reason_lower.contains("re-record")
                 && (reason_lower.contains("against current native")
-                    || reason_lower.contains("before using")));
+                    || reason_lower.contains("before using")))
+            || (reason_lower.contains("stale") && reason_lower.contains("verify-recording --slug"));
         if stale_recording_rejection
             && let Some(rest) = hypothesis.name.strip_prefix("Recording `")
             && let Some((slug, _)) = rest.split_once('`')
         {
             filters.slugs.insert(slug.to_owned());
+        }
+        if stale_recording_rejection {
+            filters
+                .slugs
+                .extend(recording_slugs_from_command_mentions(&hypothesis.reason));
         }
         if let Some((_, rest)) = hypothesis.reason.split_once("case queue keeps selecting `")
             && let Some((prefix, suffix)) = rest.split_once('`')
@@ -15733,6 +15756,50 @@ strategies:
                 .untriaged_recordings
                 .iter()
                 .all(|recording| !recording.slug.starts_with("issue-210-title-"))
+        );
+        let recording = queue
+            .selected_recording
+            .expect("fresh recording should be selected");
+        assert_eq!(recording.slug, "level1-tree-break");
+    }
+
+    #[test]
+    fn case_queue_skips_slugs_from_stale_recording_evidence() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(
+            temp_dir.path(),
+            "issue-211-level00-walk-right-live-refresh",
+            true,
+        );
+        write_recording(temp_dir.path(), "issue-211-level00-slope-right-probe", true);
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let mut state: serde_json::Value = serde_json::from_slice(
+            &fs::read(temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH))
+                .expect("frontier state should read"),
+        )
+        .expect("frontier state should parse");
+        state["active_frontier"]["rejected_hypotheses"]
+            .as_array_mut()
+            .expect("rejected hypotheses should be an array")
+            .push(serde_json::json!({
+                "name": "Current #211 slope evidence can rely on the old refreshed Level 00 recordings or the green slope helper tests",
+                "reason": "Rejected 2026-06-02. Both old #211 cache bundles are stale on current `main`: `verify-recording --slug issue-211-level00-walk-right-live-refresh --native-only` fails with native trace drift at frame 61, and `verify-recording --slug issue-211-level00-slope-right-probe --native-only` fails at frame 0. Do not use either stale #211 bundle as slope-render proof."
+            }));
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            serde_json::to_vec_pretty(&state).expect("frontier state should serialise"),
+        )
+        .expect("frontier state should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(
+            queue
+                .untriaged_recordings
+                .iter()
+                .all(|recording| !recording.slug.starts_with("issue-211-level00-"))
         );
         let recording = queue
             .selected_recording
