@@ -235,7 +235,6 @@ pub struct GroundedWalkerTerrainScan {
     pub column_span_d3: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidBlockInteractionProbeSubBBE2 {
     pub(crate) selected_layout_addr: u16,
@@ -245,7 +244,6 @@ pub(crate) struct KidBlockInteractionProbeSubBBE2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn kid_block_interaction_probe_sub_BBE2(
     grid: &BlockGrid,
     layout_addr: u16,
@@ -406,7 +404,6 @@ impl BlockGrid {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn blank_top_rows_from_height_flag_bits_sub_140F6(height_flag_bits: u8) -> u16 {
     // ASM sub_140F6 relies on Number_blank_top_rows, which Load_LevelData
     // seeds from the header's top two height bits as `height_flag_bits * 2`.
@@ -637,6 +634,7 @@ pub(crate) struct HiddenBlockRevealSubE3C6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HiddenBlockPrizeRevealScanStartLocE3E4 {
     pub(crate) target_layout_addr: u16,
     pub(crate) preincrement_cursor_addr: u32,
@@ -651,6 +649,7 @@ pub(crate) struct HiddenBlockPrizeRevealMatchLocE3EE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) layout_addr: u16,
     pub(crate) col: u16,
@@ -829,7 +828,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_by_layout_addr_sub_E37A(
         &self,
         layout_addr: u16,
@@ -865,7 +863,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_reveal_sub_E3C6(
         &self,
         entry: &HiddenBlockEntry,
@@ -920,7 +917,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_prize_reveal_metadata_scan_loc_E3EE(
         &self,
         prize_block_list_base_addr: u32,
@@ -939,7 +935,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_prize_reveal_cell_loc_E40A(
         disguised: bool,
         block_setting: u8,
@@ -1444,7 +1439,6 @@ pub fn probe_iron_knight_climb_resume_wall(
 /// pixel coordinates into a block-row pointer plus cell offset, and `loc_331D2`
 /// returns the raw collision nibble for exactly that cell.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_mask_loc_331D2(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -1462,7 +1456,6 @@ pub(crate) fn relative_collision_mask_loc_331D2(
 
 /// Mirror the final collision-nibble mask in `loc_33280`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_nibble_loc_33280(tile_word: u16) -> u16 {
     // ASM loc_33280 (kid.asm:37690): the third sampled word skips any further
     // block-type tests here and keeps only `andi.w #$7000,d7`.
@@ -1480,7 +1473,6 @@ fn relative_collision_word_mask_shared_disguised_block(tile_word: u16) -> u16 {
 /// Mirror the disguised-block filter shared by `loc_331F6`, `loc_33248`, and
 /// the later horizontal scan at `loc_33286`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
     // ASM loc_33248 (kid.asm:37670): `bclr #$F,dN` only enters the block-type
     // check when bit 15 was set. A surviving `$300` block-type nibble means a
@@ -1491,7 +1483,6 @@ pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
 
 /// Mirror the middle-word disguised-block filter in `loc_33264`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_word_mask_loc_33264(tile_word: u16) -> u16 {
     // ASM loc_33264 (kid.asm:37680): after `bclr #$F,d6`, the second sampled
     // word follows the same disguised-block gate as `loc_33248` before falling
@@ -1501,7 +1492,6 @@ pub(crate) fn relative_collision_word_mask_loc_33264(tile_word: u16) -> u16 {
 
 /// Mirror the first horizontal-word disguised-block filter in `loc_332D0`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_word_mask_loc_332D0(tile_word: u16) -> u16 {
     // ASM loc_332D0 (kid.asm:37723): after `bclr #$F,d5`, the horizontal scan's
     // first sampled word uses the same disguised-block gate before falling
@@ -1511,7 +1501,6 @@ pub(crate) fn relative_collision_word_mask_loc_332D0(tile_word: u16) -> u16 {
 
 /// Mirror the second horizontal-word disguised-block filter in `loc_332EC`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_word_mask_loc_332EC(tile_word: u16) -> u16 {
     // ASM loc_332EC (kid.asm:37733): after `bclr #$F,d6`, the second
     // horizontal-scan word applies the same disguised-block gate before
@@ -1521,7 +1510,6 @@ pub(crate) fn relative_collision_word_mask_loc_332EC(tile_word: u16) -> u16 {
 
 /// Mirror the final horizontal-word collision mask in `loc_33308`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_nibble_loc_33308(tile_word: u16) -> u16 {
     // ASM loc_33308 (kid.asm:37743): after the `d7` disguised-block gate at
     // loc_332EC, the horizontal scan ends with `andi.w #$7000,d7`.
@@ -1530,7 +1518,6 @@ pub(crate) fn relative_collision_nibble_loc_33308(tile_word: u16) -> u16 {
 
 /// Mirror the single-cell relative lookup in `loc_3330E`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_mask_loc_3330E(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -1553,7 +1540,6 @@ pub(crate) struct RelativeCollisionColumnLoc331F6 {
 
 /// Mirror the three-row relative probe in `loc_331F6`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_column_loc_331F6(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -1610,7 +1596,6 @@ pub(crate) struct RelativeCollisionRowLoc33286 {
 
 /// Mirror the three-cell horizontal probe in `loc_33286`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn relative_collision_row_loc_33286(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -1741,7 +1726,6 @@ fn horizontal_collision_scan_column_mask_loc_369CE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_right_lead_column_mask_loc_36BB2(
     grid: &BlockGrid,
     column: i32,
@@ -1762,7 +1746,6 @@ fn horizontal_collision_scan_hitbox_mask_seed_loc_369F6() -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_rect_mask_loc_369F8(
     grid: &BlockGrid,
     left_col: i32,
@@ -1784,7 +1767,6 @@ fn horizontal_collision_scan_rect_mask_loc_369F8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_right_hitbox_mask_loc_36BBE(
     grid: &BlockGrid,
     left_col: i32,
@@ -1804,7 +1786,6 @@ fn horizontal_collision_scan_right_hitbox_mask_loc_36BBE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(
     grid: &BlockGrid,
     left_col: i32,
@@ -1822,7 +1803,6 @@ fn horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16 {
     // ASM loc_36A10 (kid.asm:38183): after the body rectangle scan, inspect the
     // following row from left to right. If the first cell already carries bit
@@ -1863,7 +1843,6 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col: i32) -> Option<i32> {
     // ASM loc_36AA6 (kid.asm:38263): once `tst.w d0` proves the hitbox is not
     // already on the level's left edge, `lea -2(a1),a4` retargets the scan to
@@ -1877,7 +1856,6 @@ fn horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col: i32) -> 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
     grid: &BlockGrid,
     lead_col: i32,
@@ -1899,7 +1877,6 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -> i16 {
     // ASM loc_36AF0 (kid.asm:38306): after the leftward body scan, retarget
     // `a1` to the rightmost word of the following row and seed `d6=0`. The
@@ -1942,7 +1919,6 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(word: u16) -> bool {
     let collision_nibble = word & 0x7000;
 
@@ -1953,7 +1929,6 @@ fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(word: u1
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u16) -> bool {
     let collision_nibble = word & 0x7000;
 
@@ -1965,7 +1940,6 @@ fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u1
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
     grid: &BlockGrid,
     left_col: i32,
@@ -1989,7 +1963,6 @@ fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_hitbox_row_mask_loc_36C56(
     grid: &BlockGrid,
     left_col: i32,
