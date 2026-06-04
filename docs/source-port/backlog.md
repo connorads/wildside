@@ -4065,6 +4065,20 @@ because the source recording replay drifted at frame 63. Re-record this
 Berzerker water-priority route on current native before using it as #215
 evidence.
 
+Note 2026-06-04 selector follow-up for #215: selector-picked recording
+`issue-215-highwater-water-berzerker-rightonly` is stale before any current
+Highwater water/foreground priority conclusion, matching the stale Berzerker
+water-priority probe family. Fresh full and native-only `verify-recording` both
+fail at frame 3 with `recording replay drifted at frame 3 (native trace frame
+mismatch)`. The cached report has `trace_match=false`,
+`oracle_state_match=true`, `oracle_frame_match=true`, no frame diffs, and
+matching 1861-frame recorded/replay traces. The requested `0..120` case derives
+as `highwater_water_priority_audit_02_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 3. Treat cached
+`issue-215-highwater-water-berzerker-` recordings as stale selector input until
+the Berzerker water-priority route is re-recorded on current native.
+
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
 Note 2026-06-01 for #215: added named `highwater-water-priority-audit` scenario (cache slug `issue-215-highwater-water-priority-audit`) so the Level 02 water/foreground route is no longer only an ignored `.cache` artefact. Fresh verify result: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; `level_settle@60` and `waterfall_overlap_loc_300BA@960` are pixel-perfect, while `water_hole_entry_loc_12910@510` differs by 205 pixels and `waterfall_palette_tail_loc_1223C@1859` by 18 pixels. Current evidence points at residual Mountain Plane B/waterfall tile row or palette phase drift, not a broad gameplay replay mismatch.
 Note 2026-06-01 for #215: oracle-probed `water_hole_entry_loc_12910@510` and found the largest 205px diff was not water priority at all: the same diamond object is alive in oracle WRAM at `$FFFF2610` (`x=$78`, `y=$681`, `object_meta=$64`), but `addroffset_sprite(a3)=0`, so ASM `Make_SpriteFromGfxObject` returns before emitting VDP sprite attrs. Native rendered every `floating_items` trace entry unconditionally. Matching `PrizeDiamond_Init loc_103B2` / `stru_10D80` null blink frames removes that false terrain-overdraw and reduces the frame-510 diff to 121px with `trace_match=true` and `oracle_state_match=true`. Remaining strict pixel drift is now HUD diamond animation/palette phase at `(288..299,34..45)` plus the small life-icon/HUD drift at frame 1859, not the player/water priority route.
