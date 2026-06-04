@@ -71,9 +71,10 @@ use scenarios::{
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
-    issue_216_prize_audio_audit_scenario, lava_weather_audit_scenario,
-    level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-    walk_right_scenario,
+    issue_216_prize_audio_audit_scenario, issue_249_juggernaut_wall_jump_audit_scenario,
+    issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
+    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -133,6 +134,12 @@ enum RecordScenarioKind {
     HighwaterPass2GrowShooterTouchAudit,
     /// drive Red Stealth into a Level 02 wall and jump (#147 wall-grab "zoom to top" audit).
     Issue147WallSideJumpAudit,
+    /// drive The Kid into a Level 02 wall without jump/climb input (#249).
+    Issue249WallNoJumpAudit,
+    /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
+    Issue249JuggernautWallNoJumpAudit,
+    /// drive Juggernaut/Rhino into a Level 02 wall while pulsing jump (#249).
+    Issue249JuggernautWallJumpAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2539,6 +2546,13 @@ fn build_record_scenario(
             highwater_pass2_grow_shooter_touch_audit_scenario()
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => issue_147_wall_side_jump_audit_scenario(),
+        RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
+        RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
+            issue_249_juggernaut_wall_no_jump_audit_scenario()
+        }
+        RecordScenarioKind::Issue249JuggernautWallJumpAudit => {
+            issue_249_juggernaut_wall_jump_audit_scenario()
+        }
     }
 }
 
@@ -2600,6 +2614,13 @@ fn record_scenario_command(
             "highwater-pass2-grow-shooter-touch-audit"
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
+        RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
+        RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
+            "issue249-juggernaut-wall-no-jump-audit"
+        }
+        RecordScenarioKind::Issue249JuggernautWallJumpAudit => {
+            "issue249-juggernaut-wall-jump-audit"
+        }
     };
     let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
@@ -4678,6 +4699,75 @@ AddrTbl_LevelNames:
                 .iter()
                 .any(|checkpoint| checkpoint.label == "worker_wake_window_sub_114f4"),
             "the audit must sample the delayed loc_11430/sub_114F4 worker window"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_issue249_wall_no_jump_audit_holds_right_without_jump() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::Issue249WallNoJumpAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "issue_249_wall_no_jump_audit_02");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x02),
+            "issue #249 repro uses the known Highwater Pass 1 wall route"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.playtest_form, None,
+            "base Kid isolates the loc_ABA4 jump-edge pull-up gate before helmet-specific variants"
+        );
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[60], RIGHT);
+        assert_eq!(
+            scenario.script.iter().any(|buttons| buttons & JUMP != 0),
+            false,
+            "the audit must reproduce wall contact without any jump edge"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_issue249_juggernaut_wall_no_jump_audit_uses_rhino_form() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::Issue249JuggernautWallNoJumpAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "issue_249_juggernaut_wall_no_jump_audit_02");
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+        assert_eq!(
+            scenario.playtest_form,
+            Some(5),
+            "the latest playtest mentioned Rhino/Juggernaut wall cheating"
+        );
+        const JUMP: u8 = 1 << 4;
+        assert!(
+            scenario.script.iter().all(|buttons| buttons & JUMP == 0),
+            "the no-jump audit must not produce a B edge"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_issue249_juggernaut_wall_jump_audit_pulses_jump() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::Issue249JuggernautWallJumpAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "issue_249_juggernaut_wall_jump_audit_02");
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+        assert_eq!(scenario.playtest_form, Some(5));
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[120] & (RIGHT | JUMP), RIGHT | JUMP);
+        assert_eq!(
+            scenario.script[122] & JUMP,
+            0,
+            "jump release creates the next rising edge"
         );
     }
 

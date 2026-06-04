@@ -1160,6 +1160,105 @@ pub fn issue_147_wall_side_jump_audit_scenario() -> DynamicScenario {
     }
 }
 
+/// Focused #249 no-input wall-contact audit.
+///
+/// Starts from the same Highwater Pass 1 wall route as #147, but never presses
+/// B/C. ASM `kid_flip -> loc_ABA4` gates The Kid's ledge pull-up on a fresh
+/// `Ctrl_Pressed` B edge, so simply holding Right into the wall must not launch
+/// Kid up the column.
+fn issue_249_wall_no_jump_audit_scenario_for(
+    slug: &str,
+    playtest_form: Option<u16>,
+) -> DynamicScenario {
+    const FRAME_COUNT: usize = 240;
+    const RIGHT: u8 = 1 << 3;
+    const WALK_END: usize = 180;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, WALK_END.saturating_sub(1), RIGHT);
+
+    DynamicScenario {
+        slug: slug.into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "reach_wall_no_jump".into(),
+                frame_index: 119,
+            },
+            DynamicCheckpoint {
+                label: "hold_wall_no_jump".into(),
+                frame_index: 180,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x02),
+        settle_oracle_warp: true,
+    }
+}
+
+pub fn issue_249_wall_no_jump_audit_scenario() -> DynamicScenario {
+    issue_249_wall_no_jump_audit_scenario_for("issue_249_wall_no_jump_audit_02", None)
+}
+
+pub fn issue_249_juggernaut_wall_no_jump_audit_scenario() -> DynamicScenario {
+    issue_249_wall_no_jump_audit_scenario_for("issue_249_juggernaut_wall_no_jump_audit_02", Some(5))
+}
+
+/// #249 variant for the user's Rhino/Juggernaut "jump on the wall to climb"
+/// report. This mirrors the #147 jump pulse pattern but runs with helmet 5 so
+/// we can compare the helmet-specific wall response against the oracle.
+pub fn issue_249_juggernaut_wall_jump_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 240;
+    const RIGHT: u8 = 1 << 3;
+    const JUMP: u8 = 1 << 4;
+    const WALK_END: usize = 120;
+    const JUMP_START: usize = 120;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, WALK_END.saturating_sub(1), RIGHT);
+    let mut frame = JUMP_START;
+    while frame + 2 < FRAME_COUNT {
+        script[frame] = RIGHT | JUMP;
+        script[frame + 1] = RIGHT | JUMP;
+        script[frame + 2] = RIGHT;
+        frame += 3;
+    }
+
+    DynamicScenario {
+        slug: "issue_249_juggernaut_wall_jump_audit_02".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "reach_wall".into(),
+                frame_index: WALK_END.saturating_sub(1),
+            },
+            DynamicCheckpoint {
+                label: "jump_into_wall".into(),
+                frame_index: 180,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: None,
+        camera_position: None,
+        playtest_form: Some(5),
+        initial_diamond_count: None,
+        warp_to_level: Some(0x02),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1514,6 +1613,8 @@ mod tests {
         diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
         idle_level_full_frame_scenario, idle_level_scenario,
         issue_147_wall_side_jump_audit_scenario, issue_216_prize_audio_audit_scenario,
+        issue_249_juggernaut_wall_jump_audit_scenario,
+        issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
         stomp_enemy_scenario, walk_right_scenario,
     };
@@ -1539,6 +1640,66 @@ mod tests {
             scenario.script[122] & JUMP,
             0,
             "jump released for one frame so the next press is a rising edge",
+        );
+    }
+
+    #[test]
+    fn issue_249_wall_no_jump_audit_drives_the_kid_into_level2_wall_without_jump() {
+        let scenario = issue_249_wall_no_jump_audit_scenario();
+        assert_eq!(scenario.slug, "issue_249_wall_no_jump_audit_02");
+        assert_eq!(scenario.playtest_form, None);
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+        assert!(scenario.settle_oracle_warp);
+
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        const SPECIAL: u8 = 1 << 5;
+        assert_eq!(scenario.script[60], RIGHT, "walks into the wall");
+        assert_eq!(
+            scenario.script[180] & (JUMP | SPECIAL),
+            0,
+            "ASM kid_flip -> loc_ABA4 needs a fresh B edge; this audit must not press jump or special"
+        );
+        assert_eq!(
+            scenario.script[220] & RIGHT,
+            0,
+            "the tail samples post-contact settling after the held-right window"
+        );
+    }
+
+    #[test]
+    fn issue_249_juggernaut_wall_no_jump_audit_uses_rhino_form_without_jump() {
+        let scenario = issue_249_juggernaut_wall_no_jump_audit_scenario();
+        assert_eq!(scenario.slug, "issue_249_juggernaut_wall_no_jump_audit_02");
+        assert_eq!(scenario.playtest_form, Some(5));
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+
+        const JUMP: u8 = 1 << 4;
+        const SPECIAL: u8 = 1 << 5;
+        assert!(
+            scenario
+                .script
+                .iter()
+                .all(|buttons| buttons & (JUMP | SPECIAL) == 0),
+            "the Juggernaut/Rhino variant must isolate wall contact from jump/special input"
+        );
+    }
+
+    #[test]
+    fn issue_249_juggernaut_wall_jump_audit_uses_rhino_form_with_jump_edges() {
+        let scenario = issue_249_juggernaut_wall_jump_audit_scenario();
+        assert_eq!(scenario.slug, "issue_249_juggernaut_wall_jump_audit_02");
+        assert_eq!(scenario.playtest_form, Some(5));
+        assert_eq!(scenario.warp_to_level, Some(0x02));
+
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[119], RIGHT);
+        assert_eq!(scenario.script[120] & (RIGHT | JUMP), RIGHT | JUMP);
+        assert_eq!(
+            scenario.script[122] & JUMP,
+            0,
+            "jump is pulsed to create repeated B edges on the wall"
         );
     }
 
