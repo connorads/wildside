@@ -748,9 +748,19 @@ pub(crate) fn verify_recording(
             )
         })?;
 
+        // Probe recordings may patch the camera only to put a mid-level target
+        // on screen. Keep Kid/movement/form/object checks authoritative while
+        // allowing those diagnostic camera coordinates to drift independently.
+        let comparison_options = StateComparisonOptions {
+            ignore_camera_position: recording.manifest.scenario.camera_position.is_some(),
+        };
         let (oracle_state_match, oracle_state_error) =
-            match compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states)
-            {
+            match compare_native_states_against_oracle_with_options(
+                &record_dir,
+                &native_states,
+                &oracle.states,
+                comparison_options,
+            ) {
                 Ok(()) => (true, None),
                 Err(error) => (false, Some(error.to_string())),
             };

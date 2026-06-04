@@ -1137,6 +1137,25 @@ pub(crate) fn compare_native_states_against_oracle(
     native_states: &[OracleState],
     oracle_states: &[OracleState],
 ) -> Result<()> {
+    compare_native_states_against_oracle_with_options(
+        run_dir,
+        native_states,
+        oracle_states,
+        StateComparisonOptions::default(),
+    )
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct StateComparisonOptions {
+    pub(crate) ignore_camera_position: bool,
+}
+
+pub(crate) fn compare_native_states_against_oracle_with_options(
+    run_dir: &Path,
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+    options: StateComparisonOptions,
+) -> Result<()> {
     const ENEMY_POSITION_TOLERANCE: u32 = 0x0010_0000;
     const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
     let compare_enemy_snapshots = oracle_states.iter().any(|state| {
@@ -1230,7 +1249,9 @@ pub(crate) fn compare_native_states_against_oracle(
 
         let camera_delta_x = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
         let camera_delta_y = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
-        if camera_delta_x > CAMERA_POSITION_TOLERANCE || camera_delta_y > CAMERA_POSITION_TOLERANCE
+        if !options.ignore_camera_position
+            && (camera_delta_x > CAMERA_POSITION_TOLERANCE
+                || camera_delta_y > CAMERA_POSITION_TOLERANCE)
         {
             bail!(
                 "state {}@{} diverged in camera position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
@@ -1643,6 +1664,51 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("state level_entry@520 diverged in game mode"));
         assert!(message.contains("native 000C, oracle 0008"));
+    }
+
+    #[test]
+    fn compare_native_states_keeps_camera_strict_by_default() {
+        let run_dir = Path::new("/tmp/strict-camera");
+        let native = vec![oracle_state("wall_probe", 30, 0x000C)];
+        let mut oracle = native.clone();
+        oracle[0].camera_x_pos = 0x0020_0000;
+
+        let error = compare_native_states_against_oracle(run_dir, &native, &oracle)
+            .expect_err("ordinary state comparison must keep camera authoritative");
+
+        assert!(error.to_string().contains("diverged in camera position"));
+    }
+
+    #[test]
+    fn compare_native_states_can_ignore_probe_camera_without_hiding_kid_drift() {
+        let run_dir = Path::new("/tmp/probe-camera");
+        let native = vec![oracle_state("wall_probe", 30, 0x000C)];
+        let mut oracle = native.clone();
+        oracle[0].camera_x_pos = 0x0020_0000;
+        oracle[0].camera_y_pos = 0x0010_0000;
+
+        compare_native_states_against_oracle_with_options(
+            run_dir,
+            &native,
+            &oracle,
+            StateComparisonOptions {
+                ignore_camera_position: true,
+            },
+        )
+        .expect("probe camera drift should not block Kid-state comparison");
+
+        oracle[0].kid_y_pos = 0x0020_0000;
+        let error = compare_native_states_against_oracle_with_options(
+            run_dir,
+            &native,
+            &oracle,
+            StateComparisonOptions {
+                ignore_camera_position: true,
+            },
+        )
+        .expect_err("ignoring probe camera must not hide Kid movement drift");
+
+        assert!(error.to_string().contains("diverged in kid position"));
     }
 
     #[test]
