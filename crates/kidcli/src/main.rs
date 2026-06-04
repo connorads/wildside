@@ -627,6 +627,29 @@ enum Commands {
         #[arg(long)]
         layer: Option<String>,
     },
+    /// Render NATIVE engine frames while replaying a recording's DynamicScenario
+    /// (per-frame inputs + warp/settle). Native counterpart to `render-frame`
+    /// (which renders the oracle ROM); use both to compare native vs oracle
+    /// sprites on a scripted route (e.g. the #211 slope-walk render probe).
+    CaptureScenarioFrames {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON (e.g. a recording's scenario.json)
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Comma-separated frame indices to capture
+        #[arg(long, default_value = "30,60,120,240,360")]
+        frames: String,
+        /// Output directory for PNGs
+        #[arg(long, default_value = ".cache/captures")]
+        output: PathBuf,
+        /// Optional layer filter: only render this layer (background, terrain,
+        /// block_overrides, platforms, enemies, player, effects, hud)
+        #[arg(long)]
+        layer: Option<String>,
+    },
     /// Verify a TAS scenario against the oracle (native vs emulator comparison).
     VerifyTas {
         #[arg(long)]
@@ -1633,6 +1656,28 @@ fn main() -> Result<()> {
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
             sweep::capture_frames(&manifest, level_id, &frame_indices, &output, filter)?;
+        }
+        Commands::CaptureScenarioFrames {
+            rom,
+            dir,
+            scenario,
+            frames,
+            output,
+            layer,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let frame_indices: Vec<usize> = frames
+                .split(',')
+                .map(|s| s.trim().parse::<usize>().context("invalid frame index"))
+                .collect::<Result<_>>()?;
+            let filter = layer
+                .as_deref()
+                .map(native_player::LayerFilter::solo)
+                .unwrap_or_default();
+            sweep::capture_scenario_frames(&manifest, &scenario, &frame_indices, &output, filter)?;
         }
         Commands::DumpEnemySheet {
             rom,

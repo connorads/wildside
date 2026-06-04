@@ -1,6 +1,7 @@
 use super::*;
 use scenarios::{
-    idle_level_scenario, prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+    DynamicScenario, NativeDynamicRunOptions, idle_level_scenario, prize_block_scenario,
+    run_native_dynamic_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
 
 pub(crate) fn capture_frames(
@@ -51,6 +52,84 @@ pub(crate) fn capture_frames(
         render_scene(&scene, &mut rgb);
 
         let filename = format!("level_{level_id:02x}_frame_{frame_idx:05}.png");
+        let path = output_dir.join(&filename);
+        image::save_buffer_with_format(
+            &path,
+            &rgb,
+            w as u32,
+            h as u32,
+            image::ColorType::Rgb8,
+            image::ImageFormat::Png,
+        )
+        .with_context(|| format!("failed to write {}", path.display()))?;
+        println!("  saved {}", path.display());
+    }
+
+    Ok(())
+}
+
+/// Render the NATIVE engine's frames at specific indices while replaying a
+/// recording's `DynamicScenario` (per-frame button masks + warp/settle/probe
+/// state), saving each as a PNG.
+///
+/// This complements `capture_frames` (which is idle-only) and `render-frame`
+/// (which renders the ORACLE ROM via the emulator). It is the native side of a
+/// native-vs-oracle visual comparison on a scripted route — e.g. the #211
+/// slope-walk render probe, where the gameplay-state facing already matches the
+/// oracle and the remaining complaint is renderer sprite-frame selection.
+pub(crate) fn capture_scenario_frames(
+    manifest: &AssetManifest,
+    scenario_path: &Path,
+    frame_indices: &[usize],
+    output_dir: &Path,
+    filter: native_player::LayerFilter,
+) -> Result<()> {
+    use native_player::{
+        NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
+        render_scene,
+    };
+
+    let scenario_json = fs::read_to_string(scenario_path)
+        .with_context(|| format!("failed to read scenario {}", scenario_path.display()))?;
+    let scenario: DynamicScenario = serde_json::from_str(&scenario_json)
+        .with_context(|| format!("failed to parse scenario {}", scenario_path.display()))?;
+
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("failed to create {}", output_dir.display()))?;
+
+    // The warp target drives which level's visuals/block grid to load; default
+    // to level 0 (the boot level) when the scenario does not warp.
+    let level_id = scenario.warp_to_level.unwrap_or(0);
+
+    let native_trace = run_native_dynamic_scenario(
+        manifest.clone(),
+        &scenario,
+        NativeDynamicRunOptions::default(),
+    )?;
+
+    let (level_visuals, block_grid) = load_session_assets(manifest, level_id)?;
+    let w = NATIVE_FRAME_WIDTH as usize;
+    let h = NATIVE_FRAME_HEIGHT as usize;
+
+    for &frame_idx in frame_indices {
+        let Some(frame) = native_trace.get(frame_idx) else {
+            println!(
+                "  frame {frame_idx}: not in trace (len={})",
+                native_trace.len()
+            );
+            continue;
+        };
+        let scene = build_scene_filtered(
+            frame,
+            false,
+            Some(&level_visuals),
+            Some(&block_grid),
+            filter,
+        );
+        let mut rgb = vec![0u8; w * h * 3];
+        render_scene(&scene, &mut rgb);
+
+        let filename = format!("{}_frame_{frame_idx:05}.png", scenario.slug);
         let path = output_dir.join(&filename);
         image::save_buffer_with_format(
             &path,

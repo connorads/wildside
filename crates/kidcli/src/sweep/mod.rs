@@ -4,7 +4,8 @@ mod pixel_rank;
 mod release_gate;
 
 pub(crate) use frames::{
-    capture_frames, diagnose_frame, dump_enemy_sheet, golden_capture, golden_diff,
+    capture_frames, capture_scenario_frames, diagnose_frame, dump_enemy_sheet, golden_capture,
+    golden_diff,
 };
 pub(crate) use gameplay::run_gameplay_sweep;
 pub(crate) use pixel_rank::run_rank_pixel_diffs;
