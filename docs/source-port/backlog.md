@@ -4217,6 +4217,18 @@ windows for the queued cues: jump `PlaySound(23)` at frame 22 (`rms=0.0346`,
 `peak=0.1109`), and diamond prize `PlaySound(45)` at frame 132 (`rms=0.0629`,
 `peak=0.1509`). Remaining #216 work is oracle/native waveform alignment and
 the human report that level-complete audio cuts off.
+Follow-up 2026-06-04: selector-picked `issue-216-prize-audio-audit` is no
+longer current enough to reduce into gameplay-authoritative #216 evidence.
+Fresh full and native-only verification both fail with `recording replay
+drifted at frame 99 (native trace frame mismatch)`, with matching 181-frame
+recorded/replay traces, `oracle_state_match=true`, `oracle_frame_match=true`,
+and no frame diffs. The cached report still shows audible event windows for
+Level BGM frame 0, jump frame 22, block-hit frame 31, and diamond-prize frame
+132, but the requested `0..120` case
+`issue-216-prize-audio-audit_02_case_00000_00120` fails with
+`likely_subsystems=["recording verification"]`, and `case reduce` blocks on the
+same frame-99 source replay drift. Re-record this prize-audio route on current
+native before using it for #216 gameplay, waveform, or event-timing work.
 Note 2026-06-02 for #216: delegated x140 prize-audio probe
 `issue-216-prize-audio-probe-x140-refresh` first exposed a real native-only
 gameplay bug: Kid idled at x=`$008C` while the first Level 00 Dragon approached,
