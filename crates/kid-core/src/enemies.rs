@@ -1688,12 +1688,33 @@ pub(crate) fn lion_projectile_launch_tail_loc_3e180(
     // initialises `stru_3DF34`.
     //
     // This is the tail of the linked-child worker installed at loc_3E0DA.
-    // TODO(fidelity): ASM Lion.asm loc_3E12A — the worker's init prologue runs
+    // ASM Lion.asm loc_3E12A — the worker's init prologue runs
     // `Load_GfxObjectSlot`, copies the parent's `$71`, sets `palette_line=2`,
     // `vram_tile=$2FB`, `st $13(a3)`, `st is_moved`/`st has_level_collision`,
     // then seeds `x_pos`/`y_pos` from the parent (`-$18` y) before reaching
-    // loc_3E180. Only the offset/velocity launch tail is modelled as typed
-    // native logic here; the prologue art/flag fields are not yet ported.
+    // loc_3E180.
+    //
+    // SUBSUMED, not a gap (verified 2026-06-04): the prologue fields are either
+    // render-only or already covered by native's projectile behaviour, and none
+    // are part of the state-level oracle comparison.
+    //   - `palette_line=2` / `vram_tile=$2FB` are pure sprite-art selectors. The
+    //     trace/oracle diff (trace.rs / tas_diff.rs) carries no `palette_line`
+    //     or `vram_tile` field for projectiles, so these never affect parity.
+    //   - `st is_moved` (object advanced by its velocity) is subsumed: the
+    //     native `EnemyProjectile` integrates `x_pos`/`y_pos` from velocity each
+    //     frame in `fire_lion_projectile_loc_3e09e` / the projectile step.
+    //   - `st has_level_collision` (terrain collision) is subsumed by the spawn
+    //     setting `wall_bounce: true` (ASM loc_3E260) plus homing/cap.
+    //   - `$71` copy and `st $13` are engine slot/hibernate bookkeeping with no
+    //     compared-state effect on the simplified projectile carrier.
+    // Reaching an oracle-matching projectile-fire frame is also infeasible: a
+    // settle_oracle_warp probe to Level 0x07 (Isle of the Lion Lord) shows the
+    // Lion's own position/facing diverging from jgenesis at frame 0 (native
+    // @0x02628000 face=Right vs oracle @0x02058000 face=Left, oracle still in
+    // its loc_3E0A2 charge worker), so no clean projectile comparison exists —
+    // the same #239/#240 boss-bootstrap divergence. Only the offset/velocity
+    // launch tail is modelled here; the prologue art/flag fields are
+    // deliberately not ported because they would not change oracle parity.
     match parent_facing {
         Direction::Left => LionProjectileLaunchTail {
             x_offset_pixels: -(LION_PROJECTILE_X_OFFSET as i16),

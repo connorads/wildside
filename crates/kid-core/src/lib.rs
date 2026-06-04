@@ -275,21 +275,46 @@ pub struct NativeRuntime {
     /// pre-menu attract phase and the interactive title menu. The interactive
     /// loop resets this on Up/Down navigation, matching the ASM.
     ///
-    // TODO(fidelity): ASM loc_1BAB4 (kid.asm) — the pre-menu intro bridge runs
-    // a `jsr Hibernate_Object_1Frame; bsr sub_1C246; dbf d0,loc_1BAB4` loop for
+    // NOTE (was TODO, resolved 2026-06-04 — timing subsumed, not a gap):
+    // ASM loc_1BAB4 (kid.asm) is the pre-menu intro bridge — a
+    // `jsr Hibernate_Object_1Frame; bsr sub_1C246; dbf d0,loc_1BAB4` loop for
     // d0=$B8 (184) frames (set at loc_1BAB0) before Obj_TitleMenu's setup, with
-    // each frame polling Start via sub_1C246. Native folds intro→title timing
-    // into intro-sequence duration overrides and this attract timer rather than
-    // simulating that 184-frame per-object hibernate-wait loop directly; the
-    // sub_1C246 Start-poll path it calls is modelled, but the loop itself is not.
+    // each frame polling Start via sub_1C246.
     //
-    // TODO(fidelity): ASM loc_1C5A4 (kid.asm) — the shared init tail for the two
-    // title intro slide-in GfxObjects (sub_1C572 enters from x=$3A moving +1,
-    // loc_1C58C from x=$DE moving -1). loc_1C5A4 sets `st $13(a3)`, y_pos=$C8,
-    // vram_tile=$140, then `Hibernate_Object $3C` before a per-frame
-    // `add.w d0,x_pos` slide loop (loc_1C5BE). Native renders the title via a
-    // VDP tilemap snapshot rather than simulating these two decorative sliding
-    // objects, so their per-frame motion is not ported.
+    // Native folds intro→title timing into oracle-calibrated duration constants
+    // rather than simulating the per-object hibernate loop, and the resulting
+    // transition timing is frame-exact vs jgenesis. The $B8 wait is captured by
+    // `INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES` (constants.rs): oracle frame
+    // probes for the cold IntroSequence6 route show the Start latch is not
+    // consumed by sub_1C246 until cold frame 2634 — 237 local frames after
+    // Game_Mode first becomes $28 at frame 2396 (the $B8 wait plus the
+    // surrounding loc_1B37C/sub_1B43A worker overhead). The full
+    // `Load_IntroSequence6 -> loc_1BAB0 -> loc_1BAEA -> loc_1BB02` cold path is
+    // locked to enter DemoPlay on global frame 3270 by
+    // `cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270`, with the
+    // sub_1C246 Start-poll modelled and verified by
+    // `cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce`.
+    // So the loop body itself is intentionally not simulated frame-by-frame; its
+    // observable timing is oracle-verified through these constants and tests.
+    //
+    // NOTE (was TODO, resolved 2026-06-04 — NOT a gap): ASM loc_1C5A4 (kid.asm)
+    // is the shared init tail for the two slide-in GfxObjects (sub_1C572 enters
+    // from x=$3A moving +1, loc_1C58C from x=$DE moving -1). loc_1C5A4 sets
+    // `st $13(a3)`, y_pos=$C8, vram_tile=$140, then `Hibernate_Object $3C`
+    // before a per-frame `add.w d0,x_pos` slide loop (loc_1C5BE).
+    //
+    // These objects are allocated ONLY by Load_IntroSequence3 (kid.asm:29085-
+    // 29088), not by Obj_TitleMenu — they are the Wild Side intro's sliding door
+    // halves, not a title-screen decoration (the earlier wording on this field
+    // was wrong). Native ALREADY simulates them per-frame: `boot.rs`
+    // `title_menu_sliding_sprites_sub_1C572` seeds both halves with the exact
+    // loc_1C5A4 values (y_pos=$C8, vram_tile=$140, hibernate=$3C, moving=$42 =
+    // $41+1, x=$3A/+1 and x=$DE/-1) and `vdp.rs`
+    // `push_intro_sequence_3_sliding_sprites_sub_1C572` advances their x_pos one
+    // pixel per frame into the IntroSequence3 VDP sprite table. So this is NOT
+    // rendered from a static tilemap snapshot and is NOT a gap. Covered by
+    // `boot.rs` sub_1c572_* tests and `vdp.rs`
+    // intro_sequence_3_sub_1C572_draws_and_slides_door_halves.
     title_idle_frames: u16,
     /// Title screen local elapsed frames, used for diagnostics and demo timing.
     title_screen_elapsed_frames: usize,
