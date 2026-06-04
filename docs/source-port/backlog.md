@@ -1478,6 +1478,16 @@ entries `$00BC..$00BE` / tiles `188..190`, source `(5,3)`, palette-line 0 colour
 reveal experiment regressed the frame to `2086` changed pixels, so the broad
 `loc_1BA02` phase is correct; continue from ASM `sub_1C1A2/sub_1C1D2` nibble
 mask or `DecompressToVRAM_Special` art parity for those plane-A nibbles.
+Follow-up 2026-06-04: the delegated case-queue window around the visible
+`demo_boot@700` miss also fails to produce an actionable gameplay reducer.
+`case derive --recording-slug issue-210-cold-idle-2600 --frame-start 640
+--frame-end 760` wrote
+`issue_210_cold_boot_idle_demo_loop_case_00640_00760`; `case verify` passed with
+`matching_fields=["world.game_mode","camera","entities","events"]`, and
+`case reduce` reported the case is already passing. The oracle VDP sample label
+`AC` was also clarified to `AC000`: it samples the Plane A nametable at `$C000`,
+not the active/window candidate plane. Continue #210 from visual/VDP plane-A
+boot nametable `$0000` special art/mask parity, not gameplay case reduction.
 Follow-up 2026-06-03: rejected two broader #210 intro-2 hypotheses. Changing
 `unk_1C336` nibble `0` from `2` to transparent `0` regressed `demo_boot@700` to
 `26575` changed pixels, so ASM `DecompressToVRAM_Special`'s `0 -> 2` mapping is

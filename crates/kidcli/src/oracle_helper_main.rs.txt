@@ -1789,7 +1789,7 @@ fn vdp_pixel_samples_debug(
             let rendered_pixel = rendered_frame
                 .and_then(|(width, height, rgb)| rendered_frame_rgb(width, height, rgb, x, y));
             format!(
-                "{x}/{y}:FB={},vsA={vs_a:04X},vsB={vs_b:04X},hA={h_a:04X},hB={h_b:04X},A0={};AC={};B={};S={}",
+                "{x}/{y}:FB={},vsA={vs_a:04X},vsB={vs_b:04X},hA={h_a:04X},hB={h_b:04X},A0000={};AC000={};B={};S={}",
                 rendered_pixel
                     .map(|rgb| format!("{:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2]))
                     .unwrap_or_else(|| "none".to_string()),
