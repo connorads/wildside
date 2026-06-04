@@ -3774,6 +3774,20 @@ reports `likely_subsystems=["recording verification"]`, and `case reduce`
 refuses because the source recording replay drifted at frame 1. Re-record this
 Highwater shooter route on current native before using it as #214 evidence.
 
+Note 2026-06-04 selector follow-up for #214: selector-picked recording
+`issue-214-highwater-shooter-barrier-audit` is stale before any current
+shooter/barrier conclusion, matching the stale `issue-214-highwater-shooter`
+family shape. Fresh full and native-only `verify-recording` both fail at frame
+3 with `recording replay drifted at frame 3 (native trace frame mismatch)`. The
+cached report has `trace_match=false`, `oracle_state_match=true`,
+`oracle_frame_match=true`, no frame diffs, and matching 151-frame
+recorded/replay traces. The requested `0..120` case derives as
+`highwater_shooter_barrier_audit_02_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+refuses because the source recording replay drifted at frame 3. Treat cached
+`issue-214-highwater-shooter` recording variants as stale selector input until
+the shooter/barrier audit route is re-recorded on current native.
+
 Note 2026-05-31 for #214: added committed `highwater-shooter-barrier-audit`
 recording scenario for the first Highwater Pass 1 shooter/barrier route. The
 scenario warps to Level 02, applies Berzerker (`playtest_form=7`), holds Right
