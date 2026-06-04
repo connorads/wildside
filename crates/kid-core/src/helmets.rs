@@ -1,37 +1,37 @@
 use super::*;
 use crate::constants::SINE_TABLE_WORD_402B0;
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
     pub(crate) beam_counter: u16,
     pub(crate) x_offset_px: i16,
     pub(crate) y_offset_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
     pub(crate) screen_x_word: u16,
     pub(crate) screen_y_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
     pub(crate) anchor_x_word: u16,
     pub(crate) tile_flip_bit: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamTableDispatchLocE512 {
     pub(crate) pc_table_byte_offset: u16,
     pub(crate) table_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamSpriteLocE51A {
     pub(crate) y: u16,
     pub(crate) size_link: u16,
@@ -39,8 +39,8 @@ pub(crate) struct EyeclopsBeamSpriteLocE51A {
     pub(crate) x: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamSpritesLocE51A {
     pub(crate) sprites: Vec<EyeclopsBeamSpriteLocE51A>,
     pub(crate) number_sprites: u8,
@@ -187,8 +187,8 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(not(test), allow(dead_code))]
 struct EyeclopsBeamTableEntryLocE51A {
     y_offset: i16,
     size_word: u16,
@@ -196,6 +196,7 @@ struct EyeclopsBeamTableEntryLocE51A {
     x_offset: i16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
     EyeclopsBeamTableEntryLocE51A {
         y_offset: -0x10,
@@ -222,9 +223,12 @@ const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
         x_offset: 0,
     },
 ];
+#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E570_TOP_Y: i16 = -0x08;
+#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E570_BOTTOM_Y: i16 = 0x10;
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn i16_bits(value: i16) -> u16 {
     u16::from_ne_bytes(value.to_ne_bytes())
 }
@@ -246,7 +250,6 @@ fn replace_long_high_word(long: u32, hi: u16) -> u32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {
     // ASM sub_868E (kid.asm:9522): the spawned sword worker copies Kid's
     // position, subtracts 10px from Y, then offsets X by 28px toward the
@@ -270,7 +273,6 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     (x_px << 16, y_px << 16)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RedStealthFloorImpactKindSubB000 {
     None,
@@ -281,7 +283,6 @@ pub(crate) enum RedStealthFloorImpactKindSubB000 {
     MetalBounce,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RedStealthFloorImpactSubB000 {
     pub(crate) kind: RedStealthFloorImpactKindSubB000,
@@ -291,7 +292,6 @@ pub(crate) struct RedStealthFloorImpactSubB000 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn red_stealth_floor_impact_sub_B000(
     current_form: PlayerForm,
     sword_swing_active: bool,
@@ -363,19 +363,21 @@ fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         && !projectile.terrain_kill
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 const MOVE_ID_STANDINGSTILL: u16 = 0;
+#[cfg_attr(not(test), allow(dead_code))]
 const MOVE_ID_WALKING: u16 = 2;
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct JuggernautCompanionStateSub975C {
     pub(crate) byte_15_active: bool,
     pub(crate) byte_18_active: bool,
     pub(crate) blocked_latch: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum JuggernautCompanionVisualSub975C {
     PreserveCurrent,
     InitAnimation(&'static str),
@@ -383,8 +385,8 @@ pub(crate) enum JuggernautCompanionVisualSub975C {
     None,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct JuggernautCompanionStepSub975C {
     pub(crate) byte_15_active: bool,
     pub(crate) blocked_latch: bool,
@@ -492,8 +494,8 @@ pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u
     (x_px << 16, y_px << 16, x_vel)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SkycutterVisualStateSub98F2 {
     pub(crate) flipboard_counter: u8,
     pub(crate) on_board: bool,
@@ -504,8 +506,8 @@ pub(crate) struct SkycutterVisualStateSub98F2 {
     pub(crate) roll_accum: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SkycutterVisualStepSub98F2 {
     pub(crate) state: SkycutterVisualStateSub98F2,
     pub(crate) player_sprite_mapping: Option<&'static str>,
@@ -514,7 +516,6 @@ pub(crate) struct SkycutterVisualStepSub98F2 {
     pub(crate) board_y_offset_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum KidAirborneVisualKindSubB270 {
     PreserveCurrent,
@@ -522,7 +523,6 @@ pub(crate) enum KidAirborneVisualKindSubB270 {
     UseMapping(&'static str),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidAirborneVisualInputSubB270 {
     pub(crate) helmet_id: u16,
@@ -541,7 +541,6 @@ pub(crate) struct KidAirborneVisualInputSubB270 {
     pub(crate) red_stealth_sword_swing: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidAirborneVisualStepSubB270 {
     pub(crate) visual: KidAirborneVisualKindSubB270,
@@ -567,7 +566,6 @@ fn red_stealth_downward_slash_swing_loc_B380(current_swing: u8) -> u8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn kid_airborne_visual_sub_B270(
     input: KidAirborneVisualInputSubB270,
 ) -> KidAirborneVisualStepSubB270 {
@@ -736,7 +734,6 @@ pub(crate) fn kid_airborne_visual_sub_B270(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IronKnightClimbVisualSubA3BC {
     pub(crate) pose_accum: u16,
@@ -864,7 +861,6 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn iron_knight_climb_visual_sub_A3BC(
     pose_accum: u16,
     y_velocity: i32,
@@ -1189,7 +1185,6 @@ pub(crate) fn diamond_power_compile_sprites_sub_3F798(
 /// ASM fields: $3E(a0)=radius (longword), $40(a0)=shrink flag (word),
 /// $42(a0)=angle (longword), $38(a0)=status (word).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CircleOfDoomSlot {
     /// ASM $3E(a0): radius in 8.8 fixed point (longword). Upper word is the
     /// integer radius used for position calculation; lower 16 bits are fractional.
@@ -1217,7 +1212,6 @@ pub(crate) struct CircleOfDoomSlot {
 ///   `add.l d2,d3` advances angle by step;
 ///   `dbf d1,loc_3F7E6` loops 8 times (d1=7 after subq).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_circle_of_doom_sub_3F7D0() -> Vec<CircleOfDoomSlot> {
     let count: u16 = 8;
     // ASM: divu.w d1,d2 → $10000 / 8 = $2000; lsl.l #8,d2 → $200000
@@ -1241,7 +1235,6 @@ pub(crate) fn diamond_power_init_circle_of_doom_sub_3F7D0() -> Vec<CircleOfDoomS
 /// Radius-to-sprite-size lookup table.
 /// ASM byte_3F8B4 (kid.asm:44560): 28 entries indexed by `$3E(a0).w >> 1`.
 /// Each entry is the pixel half-size for the diamond sprite at that radius.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const CIRCLE_OF_DOOM_SIZE_TABLE: [u8; 28] = [
     0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
 ];
@@ -1264,7 +1257,6 @@ pub(crate) const CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E: [(u16, u16); 10] = [
 
 /// Per-slot position and size result from DiamondPower_Main_CircleOfDoom.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CircleOfDoomSpriteResult {
     /// $1A(a0) world X before camera offset.
     pub(crate) world_x: i16,
@@ -1297,7 +1289,6 @@ pub(crate) struct CircleOfDoomSpriteResult {
 ///   angle -= 4 ($42 subq.w #4);
 ///   next slot via 4(a0).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_main_circle_of_doom_slot(
     slot: &mut CircleOfDoomSlot,
     kid_x: i16,
@@ -1400,7 +1391,6 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
 ///   $3E(a0): timer $40 (word, first slot only)
 ///   $40(a0)-$4A(a0): 3 trail positions (x,y,x,y,x,y)
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SnakeSlot {
     pub(crate) x_pos: i16,
     pub(crate) y_pos: i16,
@@ -1416,7 +1406,6 @@ pub(crate) struct SnakeSlot {
 
 /// Result of `diamond_power_init_snake`: the full snake state.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SnakeInitResult {
     pub(crate) slots: Vec<SnakeSlot>,
     /// Timer stored at $3E(a0) of the head slot ($40).
@@ -1435,9 +1424,7 @@ pub(crate) struct SnakeInitResult {
 ///      DiamondPower_InitData_DeathSnake (kid.asm:44651).
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SNAKE_INIT_DATA_SWIFT_MINI: [u16; 6] = [5, 4, 3, 2, 1, 1];
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SNAKE_INIT_DATA_MINI: [u16; 6] = [4, 3, 2, 1, 1, 1];
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
 
 /// ASM DiamondPower_Init_Snake (kid.asm:44621, loc_3F91C).
@@ -1454,7 +1441,6 @@ pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
 ///   power_timer = value for (Diamond_power_timer).w
 ///   kid_x, kid_y = Kid's current position
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_snake(
     wander_speed: u16,
     movement_speed: u16,
@@ -1521,7 +1507,6 @@ pub(crate) fn diamond_power_init_snake(
 ///   move.w $1A(a1),(a3)+; move.w $1E(a1),(a3)+
 ///   — copy next slot's current position → trail[2]
 ///   bra.s loc_3F978
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_update_trails(slots: &mut [SnakeSlot]) {
     // ASM loc_3F978: iterate pairs (current, next) in order
     for i in 0..slots.len().saturating_sub(1) {
@@ -1545,7 +1530,6 @@ pub(crate) fn diamond_power_snake_update_trails(slots: &mut [SnakeSlot]) {
 
 /// An on-screen enemy position for the snake target scan.
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SnakeTargetCandidate {
     pub(crate) x_pos: i16,
     pub(crate) y_pos: i16,
@@ -1553,7 +1537,6 @@ pub(crate) struct SnakeTargetCandidate {
 
 /// Result of `diamond_power_snake_find_target`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SnakeTarget {
     /// Target x_pos (from nearest enemy, or Kid if none on-screen).
     pub(crate) x: i16,
@@ -1576,7 +1559,6 @@ pub(crate) struct SnakeTarget {
 /// If no on-screen enemy found (d3 remains $FFFF), defaults to Kid.
 ///
 /// Returns the target position (enemy or Kid).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_find_target(
     head_x: i16,
     head_y: i16,
@@ -1646,7 +1628,6 @@ pub(crate) fn diamond_power_snake_find_target(
 
 /// Result of `diamond_power_rain_find_nearest_enemy`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct RainNearestEnemy {
     /// Manhattan distance to nearest on-screen enemy.
     pub(crate) distance: u16,
@@ -1657,7 +1638,6 @@ pub(crate) struct RainNearestEnemy {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerRainSpawnSlotLoc3FDFE {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -1668,7 +1648,6 @@ pub(crate) struct DiamondPowerRainSpawnSlotLoc3FDFE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
     diamond_power_timer: i16,
     active_rain_count: usize,
@@ -1683,7 +1662,6 @@ pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_spawn_slot_loc_3FDFE(
     camera_x_pos: u32,
     camera_y_pos: u32,
@@ -1716,7 +1694,6 @@ pub(crate) fn diamond_power_rain_spawn_slot_loc_3FDFE(
 ///     then add.w d5,d6 for Manhattan distance, cmp.w d6,d7 tracks nearest
 ///
 /// Returns the nearest on-screen enemy, or None if no enemies visible.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_find_nearest_enemy(
     rain_x: i16,
     rain_y: i16,
@@ -1782,7 +1759,6 @@ pub(crate) fn diamond_power_rain_find_nearest_enemy(
 
 /// Result of `diamond_power_rain_compute_tracking_velocity`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct RainTrackingVelocity {
     /// 32-bit x velocity toward the enemy.
     pub(crate) x_vel: i32,
@@ -1809,7 +1785,6 @@ pub(crate) struct RainTrackingVelocity {
 ///
 /// Returns `None` if distance is outside [8, $40) (loc_3FF2C branches
 /// to loc_3FF6E, resetting the frame counter without engaging tracking).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_compute_tracking_velocity(
     distance: u16,
     enemy_x_pos: u32,
@@ -1881,7 +1856,6 @@ pub(crate) fn diamond_power_rain_non_tracking_move(
 
 /// Result of rain sprite screen-cull and compilation at loc_3FF90.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum RainSlotSpriteAction {
     /// Slot on-screen — sprite compiled into a2 buffer.
     /// ASM loc_3FFCA: writes (Y, size_byte, link, pattern, X).
@@ -1926,7 +1900,6 @@ pub(crate) enum RainSlotSpriteAction {
 ///
 /// Returns the VRAM attribute word ($22) as a side-effect field, plus the
 /// sprite action.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_screen_cull_and_compile(
     screen_x: i16,
     screen_y: i16,
@@ -1981,7 +1954,6 @@ pub(crate) fn diamond_power_rain_screen_cull_and_compile(
 
 /// Single slot from WallOfDeath init.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct WallOfDeathSlot {
     /// $3E(a0) — x offset relative to camera. Starts at 0 for slot 0,
     /// decreases by 8 for each subsequent slot.
@@ -1997,7 +1969,6 @@ pub(crate) struct WallOfDeathSlot {
 
 /// Result of `diamond_power_init_wall_of_death`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct WallOfDeathInitResult {
     pub(crate) slots: Vec<WallOfDeathSlot>,
     /// Diamond_power_timer set to $4B0 (1200).
@@ -2022,7 +1993,6 @@ pub(crate) struct WallOfDeathInitResult {
 /// loc_40006 (kid.asm:45384): `dbf d1,loc_3FFEA` — loop 10 times.
 ///   `move.w #$4B0,(Diamond_power_timer).w` — set timer to 1200.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
     // ASM: moveq #9,d1 — 10 slots via dbf
     let count = 10u16;
@@ -2056,7 +2026,6 @@ pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
 
 /// Result of processing a single WallOfDeath slot in the main loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum WallOfDeathSlotAction {
     /// Slot on-screen — sprite compiled into a2 buffer.
     /// ASM loc_4009C: writes (Y, size_byte, link, pattern, X).
@@ -2082,7 +2051,6 @@ pub(crate) enum WallOfDeathSlotAction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerCollisionRectLoc1D84 {
     pub(crate) left_px: i32,
     pub(crate) right_px: i32,
@@ -2092,7 +2060,6 @@ pub(crate) struct DiamondPowerCollisionRectLoc1D84 {
 
 const DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0: u16 = 0x0004;
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn diamond_power_collision_rect_loc_1d84(
     world_x: i16,
     world_y: i16,
@@ -2123,7 +2090,6 @@ fn wall_of_death_collision_rect_loc_1d84(
     diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn diamond_power_rects_overlap_loc_1d84(
     target: DiamondPowerCollisionRectLoc1D84,
     candidate: DiamondPowerCollisionRectLoc1D84,
@@ -2166,7 +2132,6 @@ fn diamond_power_rects_overlap_loc_1d84(
 /// loc_4006E: sprite compilation — screen coords from d0 + camera, centre
 ///   by size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_main_wall_of_death_slot(
     slot: &mut WallOfDeathSlot,
     camera_x: i16,
@@ -2219,7 +2184,6 @@ pub(crate) fn diamond_power_main_wall_of_death_slot(
 /// Shared sprite compilation for WallOfDeath slots (ASM loc_4006E through loc_4009C).
 ///
 /// d0 = old x_offset, d1 = y_offset, d3 = Camera_X_pos, d4 = Camera_Y_pos.
-#[cfg_attr(not(test), allow(dead_code))]
 fn wall_of_death_compile_sprite(
     slot: &WallOfDeathSlot,
     d0: i16,
@@ -2277,7 +2241,6 @@ const FIVE_WAY_SHOT_VELOCITY_TABLE: [(i16, i16); 5] = [
 
 /// Single slot from FiveWayShot init.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FiveWayShotSlot {
     /// $3E(a0) — screen-relative x position (Kid x - camera x + offset).
     pub(crate) screen_x: i16,
@@ -2293,7 +2256,6 @@ pub(crate) struct FiveWayShotSlot {
 
 /// Result of `diamond_power_init_five_way_shot`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FiveWayShotInitResult {
     pub(crate) slots: Vec<FiveWayShotSlot>,
     /// Diamond_power_timer set to $50 (80).
@@ -2325,7 +2287,6 @@ pub(crate) struct FiveWayShotInitResult {
 ///   `dbf d1,loc_400F4` — loop 5 times
 ///   `move.w #$50,(Diamond_power_timer).w` — timer = 80.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_five_way_shot(
     kid_x: i16,
     kid_y: i16,
@@ -2372,7 +2333,6 @@ pub(crate) fn diamond_power_init_five_way_shot(
 
 /// Result of processing a single FiveWayShot slot in the main loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FiveWayShotSlotAction {
     /// Slot on-screen — sprite compiled into a2 buffer.
     /// ASM loc_401BA: writes (Y, size_byte, link, pattern, X).
@@ -2424,7 +2384,6 @@ pub(crate) enum FiveWayShotSlotAction {
 /// loc_401BA: sprite compilation — world coords = screen + camera, centre by
 ///   size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_main_five_way_shot_slot(
     slot: &mut FiveWayShotSlot,
     camera_x: i16,
@@ -2491,7 +2450,6 @@ pub(crate) fn diamond_power_main_five_way_shot_slot(
 /// Shared sprite compilation for FiveWayShot slots (ASM loc_401BA through loc_401FC).
 ///
 /// d0 = screen_x, d1 = screen_y, d3 = Camera_X_pos, d4 = Camera_Y_pos.
-#[cfg_attr(not(test), allow(dead_code))]
 fn five_way_shot_compile_sprite(
     slot: &FiveWayShotSlot,
     d0: i16,
@@ -2552,7 +2510,6 @@ fn five_way_shot_compile_sprite(
 /// — when bit 1 is clear, flip bit 0 (corrects axis alignment encoding).
 ///
 /// Returns a 3-bit octant index (0–7).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_octant(
     target_x: i16,
     target_y: i16,
@@ -2598,7 +2555,6 @@ pub(crate) fn diamond_power_snake_octant(
 
 /// Angle-steering result from `diamond_power_snake_steer`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SnakeSteerResult {
     /// Angle was adjusted (turn toward target or speed-based correction).
     Adjusted(u16),
@@ -2631,7 +2587,6 @@ pub(crate) enum SnakeSteerResult {
 ///
 /// Returns the updated angle word, or `Unchanged` when loc_3FAD4 is reached
 /// without modification (same octant, zero displacement).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_steer(
     target_octant: u16,
     abs_dx: u16,
@@ -2759,7 +2714,6 @@ pub(crate) fn diamond_power_snake_steer(
 /// The ROM stores `$1A/$1E` as longwords. Most Snake code reads/writes only
 /// the high word, but the head movement uses `add.l`/`sub.l`, so the low word
 /// must survive between frames or slow fractional motion truncates away.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_move_head_loc_3fad4(
     slot: &mut SnakeSlot,
     angle: u16,
@@ -3693,7 +3647,6 @@ mod tests {
 ///
 /// Each entry's first byte is the VDP sprite size field and the word at
 /// offset +2 is the base pattern index.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
     (0x00, 0x86EA), // d6=0x00
     (0x00, 0x86EB), // d6=0x04
@@ -3707,7 +3660,6 @@ pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
     (0x05, 0xE6FA), // d6=0x24
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_sprite_attr_for_word_4020e_index(entry_index: usize) -> (u8, u16) {
     match entry_index.cmp(&DIAMOND_SPRITE_ATTR_TABLE.len()) {
         std::cmp::Ordering::Less => DIAMOND_SPRITE_ATTR_TABLE[entry_index],
@@ -3724,7 +3676,6 @@ pub(crate) fn diamond_sprite_attr_for_word_4020e_index(entry_index: usize) -> (u
 
 /// Result of processing a single snake slot in the sprite compilation loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SnakeSlotSpriteAction {
     /// Slot produced a visible sprite entry (Y, size_byte, pattern, X).
     Visible {
@@ -3753,7 +3704,6 @@ pub(crate) enum SnakeSlotSpriteAction {
 ///
 /// loc_3FB88: linked-list traversal tail — `move.l 4(a0),d0; bne.s loc_3FB20;
 /// rts`. In native code the caller iterates the slot Vec, so this is implicit.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_snake_slot_sprite(
     slot: &mut SnakeSlot,
     camera_x: i16,
@@ -3827,7 +3777,6 @@ pub(crate) fn diamond_power_snake_slot_sprite(
 /// ASM fields: $3E(a0)=radius (longword), $42(a0)=angle (longword),
 /// $24(a0)=power_type (word: 8=ExtraHP, 7=ExtraLife), $22(a0)=unused (word).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ExtraHPLifeSlot {
     /// ASM $3E(a0): radius in 16.16 fixed-point (longword). Initial $400000.
     pub(crate) radius: u32,
@@ -3839,7 +3788,6 @@ pub(crate) struct ExtraHPLifeSlot {
 
 /// Result of `diamond_power_init_extra_hp_life`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ExtraHPLifeInitResult {
     pub(crate) slots: Vec<ExtraHPLifeSlot>,
 }
@@ -3862,7 +3810,6 @@ pub(crate) struct ExtraHPLifeInitResult {
 ///   `dbf d1,loc_3FB9A` — loop 10 times
 ///   `clr.w (Diamond_power_timer).w` — reset timer to 0
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLifeInitResult {
     // ASM loc_3FB90/loc_3FB94: d2 = 8 (ExtraHP) or 7 (ExtraLife)
     let d2: u16 = if is_extra_life { 7 } else { 8 };
@@ -3889,7 +3836,6 @@ pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLi
 
 /// Single slot from Invulnerability / SamuraiHaze init.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct InvulnHazeSlot {
     pub(crate) radius: u16,         // $3E(a0) — byte from init data
     pub(crate) radius_frac: u16,    // $40(a0) — always 0
@@ -3900,7 +3846,6 @@ pub(crate) struct InvulnHazeSlot {
 
 /// Result of `diamond_power_init_invuln_haze`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct InvulnHazeInitResult {
     pub(crate) slots: Vec<InvulnHazeSlot>,
     pub(crate) diamond_power_timer: u16,
@@ -3925,7 +3870,6 @@ pub(crate) struct InvulnHazeInitResult {
 ///   `dbf d1,loc_3FC8C` — loop 10 times
 ///   `move.w #$1E0,(Diamond_power_timer).w` — timer = 480
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_init_invuln_haze(is_invulnerability: bool) -> InvulnHazeInitResult {
     // ASM DiamondPower_InitData_Invulnerability (kid.asm:45043) /
     //     DiamondPower_InitData_SamuraiHaze (kid.asm:45030):
@@ -4001,7 +3945,6 @@ pub(crate) fn diamond_power_init_invuln_haze(is_invulnerability: bool) -> Invuln
 
 /// Per-slot update action from `diamond_power_main_extra_hp_life_slot`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ExtraHPLifeSlotAction {
     /// Slot produced a visible sprite. ASM loc_3FC56: sprite compiled into buffer.
     Visible {
@@ -4039,7 +3982,6 @@ pub(crate) enum ExtraHPLifeSlotAction {
 ///     if radius < 0: award HP/life, bra.w sub_3F63C (remove)
 ///   loc_3FC56: compile sprite from word_4020E
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_main_extra_hp_life_slot(
     slot: &mut ExtraHPLifeSlot,
     kid_x: i16,
@@ -4127,7 +4069,6 @@ pub(crate) fn diamond_power_main_extra_hp_life_slot(
 
 /// Result of the per-frame timer check in `DiamondPower_Main_InvulnAndHaze`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum InvulnHazeFrameAction {
     /// Timer < -$1B → call sub_3F63C (dealloc all slots). ASM `bsr.w sub_3F63C; rts`.
     Expired,
@@ -4149,7 +4090,6 @@ pub(crate) enum InvulnHazeFrameAction {
 ///   The fade is 0 while timer is positive (diamonds are fully visible and
 ///   rotating); once timer goes negative the fade grows, shrinking sprites
 ///   until the power expires.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_invuln_haze_frame(timer: &mut i16) -> InvulnHazeFrameAction {
     // ASM: subq.w #1,(Diamond_power_timer).w
     *timer = timer.wrapping_sub(1);
@@ -4177,7 +4117,6 @@ pub(crate) fn diamond_power_invuln_haze_frame(timer: &mut i16) -> InvulnHazeFram
 
 /// Per-slot sprite result from `diamond_power_invuln_haze_slot_sprite`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum InvulnHazeSpriteAction {
     /// Small sprite (table index < $C / entry < 3): write to a4 buffer.
     /// 4 words: Y, size_link word, pattern word, X.
@@ -4203,7 +4142,6 @@ pub(crate) enum InvulnHazeSpriteAction {
 /// ASM byte_3FDDC (kid.asm:45148): 12 entries indexed by the clamped
 /// `(sin_offset + $18) >> 2` value (0–11). Maps depth-based sin offset
 /// to sprite half-size.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const INVULN_HAZE_SIZE_TABLE: [u8; 12] = [1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5];
 
 /// ASM loc_3FD4C through loc_3FDD2 (kid.asm:45082–45146): per-slot sprite
@@ -4224,7 +4162,6 @@ pub(crate) const INVULN_HAZE_SIZE_TABLE: [u8; 12] = [1, 1, 2, 2, 3, 3, 3, 3, 4, 
 ///   - d6 * 4 → index into word_4020E:
 ///     < $C → SmallSprite (a4 buffer); >= $C → LargeSprite (a2 buffer).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_invuln_haze_slot_sprite(
     slot: &mut InvulnHazeSlot,
     fade: u16,
@@ -6395,7 +6332,6 @@ impl NativeRuntime {
     const BERZERKER_CHARGE_POSE_FRAMES_LOC_9564: u8 = 6;
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn berzerker_regular_walk_visual_accumulator_loc_95DA(
         current_accumulator: u16,
         x_velocity: i32,
