@@ -4180,6 +4180,21 @@ and `case reduce` blocks with settled-recording oracle bootstrap reaching Level
 `camera x_pos`). Re-record the flag-transition route or fix settled-recording
 oracle bootstrap before treating this cache wrapper as current #216 gameplay or
 waveform evidence.
+
+Note 2026-06-04 selector follow-up for #216: selector-picked recording
+`issue-216-highwater-flag-audio-events` has the same blocker as the older
+flag-transition wrapper. Fresh full and native-only `verify-recording` both
+drift at frame 299 with `recording replay drifted at frame 299 (native trace
+frame mismatch)`, matching 2401-frame recorded/replay traces and no frame
+diffs. The requested `0..120` case derives as
+`highwater_flag_transition_audit_02_case_00000_00120`, but `case verify`
+reports `likely_subsystems=["recording verification"]`, and `case reduce`
+blocks because settled-recording oracle bootstrap reaches Level 02 gameplay
+with a different initial state (`player x_velocity|y_velocity`, camera
+`x_pos`). Re-record this flag/audio route or fix settled-recording oracle
+bootstrap before treating it as current #216 gameplay, audio-event, or waveform
+evidence.
+
 Note 2026-06-02 for #216: added a committed clean repro builder,
 `record-scenario --scenario issue216-prize-audio-audit --level 00`, because
 the old generic `prize-block` route walked through an enemy before the audio
