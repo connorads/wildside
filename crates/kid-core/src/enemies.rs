@@ -5416,12 +5416,18 @@ pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// hibernate window before loc_3B4BA resumes the shared walker.
 pub(crate) const TANK_HURT_HIBERNATE_FRAMES: u8 = 5;
 /// ASM Tank.asm loc_3B49A seeds the mouth-child recoil before hibernating.
-/// Native trace snapshots include the surrounding collision/sample frames, so
-/// the parent must stay parked longer than the raw `j_Hibernate_Object(5)`.
-pub(crate) const TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES * 2;
-/// ASM Tank.asm loc_3B49A writes child `$46=6` for the visible `stru_3B294`
-/// recoil tail after the pre-visible collision frames.
-const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES;
+/// Native trace snapshots include the surrounding collision/sample frames; the
+/// Issue #213 metal-block contact route keeps the parent parked through the
+/// exported recoil frames after the raw `j_Hibernate_Object(5)` window.
+pub(crate) const TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES + 9;
+/// ASM Tank.asm loc_3B49A clears shared walker motion `$50(a5)` and
+/// loc_3B4BA resumes through loc_3C0FA without restoring it.
+pub(crate) const TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A: i32 = i32::MIN;
+/// ASM Tank.asm loc_3B49A writes child `$46=6` before `j_Hibernate_Object(5)`.
+/// The object-list trace samples the linked GfxObject across the collision and
+/// hibernate boundary, so the visible `stru_3B294` recoil spans the last nine
+/// countdown frames and then persists because loc_3B4BA never restores `$46`.
+const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES + 4;
 /// ASM Tank_Shooting.asm loc_3B700 mirrors the same linked-child recoil timing
 /// through `stru_3B294`.
 const TANK_SHOOTING_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B700: u8 =
@@ -8710,6 +8716,7 @@ impl ActiveEnemy {
             if route.clears_parent_motion_speed {
                 self.x_velocity = 0;
                 self.y_velocity = 0;
+                self.walk_speed_override = TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A;
             }
             return matches!(route.route, TankUpdateRouteLoc3B41C::Death);
         }
@@ -8939,6 +8946,7 @@ impl ActiveEnemy {
                             self.family,
                             self.damage_flash_frames,
                             self.wait_timer,
+                            self.walk_speed_override == TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A,
                         ),
                         robot_parent_state: 0,
                         robot_child_mapping: 0,
@@ -9001,11 +9009,13 @@ fn tank_child_y_offset_loc_3b372_3b49a(
     family: EnemyFamily,
     damage_flash_frames: u8,
     wait_timer: u16,
+    parent_motion_cleared_loc_3b49a: bool,
 ) -> i16 {
     match family {
         EnemyFamily::Tank
             if (1..=u16::from(TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A))
-                .contains(&wait_timer) =>
+                .contains(&wait_timer)
+                || (wait_timer == 0 && parent_motion_cleared_loc_3b49a) =>
         {
             6
         }
@@ -16202,6 +16212,16 @@ fn shared_walker_grounded_scan_requests_turn(
     edge_bit_set || !wall_bit_set
 }
 
+fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
+    if enemy.walk_speed_override == TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A {
+        0
+    } else if enemy.walk_speed_override != 0 {
+        enemy.walk_speed_override
+    } else {
+        pacer_walk_speed(enemy.family, enemy.hit_points)
+    }
+}
+
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
 /// floor edge. Matches the shared walker subroutines in the disassembly
 /// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
@@ -16210,11 +16230,7 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     };
 
-    let walk_speed = if enemy.walk_speed_override != 0 {
-        enemy.walk_speed_override
-    } else {
-        pacer_walk_speed(enemy.family, enemy.hit_points)
-    };
+    let walk_speed = shared_walker_walk_speed(enemy);
     let probe_half_width = pacer_probe_half_width(enemy.family);
     let probe_height = pacer_probe_height(enemy.family);
 
@@ -35679,6 +35695,15 @@ mod tests {
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
         };
 
+        assert_eq!(
+            TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A, 9,
+            "Issue #213 route frames 363-372 cover nine Tank.asm loc_3B49A countdown recoil frames",
+        );
+        assert_eq!(
+            TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A, 14,
+            "Issue #213 route samples the Tank.asm loc_3B49A hibernate tail before the shared walker resumes with `$50(a5)=0`",
+        );
+
         let child = tank
             .child_attachment_snapshot()
             .expect("ASM Tank.asm loc_3B372 allocates a linked turret child");
@@ -35690,6 +35715,15 @@ mod tests {
             .child_attachment_snapshot()
             .expect("ASM Tank.asm loc_3B49A hibernates before the recoil pose is visible");
         assert_eq!(hibernate_child.y_pos, 0x0248_0000);
+
+        tank.wait_timer = (TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A + 1).into();
+        let pre_recoil_child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B49A keeps the linked turret child visible before recoil");
+        assert_eq!(
+            pre_recoil_child.y_pos, 0x0248_0000,
+            "ASM Tank.asm loc_3B49A should not expose the `stru_3B294` recoil offset until the exported hibernate tail reaches the recoil window",
+        );
 
         tank.wait_timer = TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A.into();
         let recoiled_child = tank
@@ -35704,10 +35738,38 @@ mod tests {
         );
 
         tank.wait_timer = 0;
+        tank.walk_speed_override = TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A;
+        tank.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        let stopped_child = tank
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B49A leaves the linked child recoiled after hibernate");
+        assert_eq!(
+            stopped_child.y_pos, 0x024A_0000,
+            "ASM Tank.asm loc_3B4BA resumes the shared walker without restoring child `$46` from loc_3B49A",
+        );
+
+        tank.wait_timer = 0;
+        tank.walk_speed_override = 0;
         let recovered_child = tank
             .child_attachment_snapshot()
-            .expect("ASM Tank.asm loc_3B4BA resumes the normal child sync path");
+            .expect("normal Tank child sync uses the loc_3B372 eight-pixel offset");
         assert_eq!(recovered_child.y_pos, 0x0248_0000);
+
+        let mut data = vec![0u8; 16 * 16 * 2];
+        for col in 0..16 {
+            let offset = ((15 * 16) + col) * 2;
+            data[offset] = 0x60;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, 16, 16);
+        tank.walk_speed_override = TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A;
+        tank.wait_timer = 0;
+        tank.on_ground = true;
+        tank.x_velocity = -0x8000;
+        step_pacer(&mut tank, Some(&grid));
+        assert_eq!(
+            tank.x_velocity, 0,
+            "ASM Tank.asm loc_3B49A clears `$50(a5)` and loc_3B4BA does not restore it before loc_3C0FA",
+        );
     }
 
     #[test]

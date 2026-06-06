@@ -7782,6 +7782,7 @@ impl NativeRuntime {
                         if route.clears_parent_motion_speed {
                             enemy.x_velocity = 0;
                             enemy.y_velocity = 0;
+                            enemy.walk_speed_override = TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A;
                         }
                         changed_enemy_state = true;
                     }
