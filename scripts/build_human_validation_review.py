@@ -47,6 +47,59 @@ def repo_path(path: str) -> Path:
 # rows are closed by stronger tests/evidence, so they must not block this gate.
 REVIEW_ITEMS = (
     ReviewItem(
+        backlog_row="#249",
+        title="BLW2 left-wall no-jump probe",
+        verifier=(
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-249-blw2-left-pit-wall-no-jump-current-20260606 "
+            "--native-only; "
+            "cargo test -q -p kidcli "
+            "issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut "
+            "-- --nocapture"
+        ),
+        decision=(
+            "Inspect the reported Blue Lake Woods 2 left-wall contact with no "
+            "jump input: current native stays grounded at the wall instead of "
+            "auto-launching, but the route still needs a natural repro or richer "
+            "oracle-equivalent seed before closing."
+        ),
+        images=(
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-249-blw2-left-pit-wall-no-jump-current-20260606/verify/native/000030_left_pit_wall_contact_loc_a8de.png"
+                ),
+                "First wall-contact checkpoint with no jump input",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-249-blw2-left-pit-wall-no-jump-current-20260606/verify/native/000090_left_pit_wall_hold_loc_aba4.png"
+                ),
+                "Held against the reported left wall without launch",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-249-blw2-left-pit-wall-no-jump-current-20260606/verify/native/000179_tail.png"
+                ),
+                "Tail checkpoint remains grounded at the wall",
+            ),
+        ),
+        transcripts=(
+            repo_path(
+                ".cache/recordings/issue-249-blw2-left-pit-wall-no-jump-current-20260606/transcript.txt"
+            ),
+        ),
+        evidence_files=(
+            repo_path(
+                ".cache/recordings/issue-249-blw2-left-pit-wall-no-jump-current-20260606/verify/report.json"
+            ),
+        ),
+        note=(
+            "This is native-review evidence only. Full oracle verification is "
+            "blocked by the direct WRAM start-position seed diverging before "
+            "wall logic; see the report for the frame-30 pose mismatch."
+        ),
+    ),
+    ReviewItem(
         backlog_row="#248",
         title="Death respawn Start handoff",
         verifier=(

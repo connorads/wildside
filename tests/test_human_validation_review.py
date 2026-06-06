@@ -20,6 +20,7 @@ class HumanValidationReviewTests(unittest.TestCase):
         self.assertIn("#160", review_rows)
         self.assertIn("#210", review_rows)
         self.assertIn("#248", review_rows)
+        self.assertIn("#249", review_rows)
 
     def test_rel_from_output_supports_sibling_cache_paths(self) -> None:
         output_dir = REPO_ROOT / ".cache" / "human-validation"

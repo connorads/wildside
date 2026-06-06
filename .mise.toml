@@ -110,6 +110,8 @@ done
 cargo test -q -p kid-core respawn_hold -- --nocapture
 cargo test -q -p kid-core spike_death_triggers_death_and_respawn -- --nocapture
 cargo test -q -p kid-core continue_restores_lives_and_respawns -- --nocapture
+cargo run -q -p kidcli -- verify-recording --slug issue-249-blw2-left-pit-wall-no-jump-current-20260606 --native-only
+cargo test -q -p kidcli issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture
 '
 """
 description = "Replay all recording bundles that still require human validation/repro decisions"
