@@ -242,6 +242,9 @@ enum Commands {
         walk_frames: Option<usize>,
         #[arg(long, default_value_t = false)]
         trace_physics: bool,
+        /// Include verbose gameplay debug fields in frame-range output.
+        #[arg(long, default_value_t = false)]
+        debug_fields: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -260,6 +263,9 @@ enum Commands {
         scenario: PathBuf,
         #[arg(long, default_value_t = false)]
         trace_physics: bool,
+        /// Include verbose gameplay debug fields in frame-range output.
+        #[arg(long, default_value_t = false)]
+        debug_fields: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -1098,6 +1104,7 @@ fn main() -> Result<()> {
             level,
             walk_frames,
             trace_physics,
+            debug_fields,
             frame_start,
             frame_end,
             rom,
@@ -1115,6 +1122,7 @@ fn main() -> Result<()> {
                 &manifest,
                 &dynamic,
                 trace_physics,
+                debug_fields,
                 frame_start,
                 frame_end,
             )?;
@@ -1122,6 +1130,7 @@ fn main() -> Result<()> {
         Commands::ProbeRecordScenarioFile {
             scenario,
             trace_physics,
+            debug_fields,
             frame_start,
             frame_end,
             rom,
@@ -1139,6 +1148,7 @@ fn main() -> Result<()> {
                 &manifest,
                 &dynamic,
                 trace_physics,
+                debug_fields,
                 frame_start,
                 frame_end,
             )?;

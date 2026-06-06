@@ -598,6 +598,7 @@ fn print_trace_frames_in_range(
     trace: &[NativeTraceFrame],
     script: &[u8],
     trace_physics: bool,
+    debug_fields: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) {
@@ -636,7 +637,7 @@ fn print_trace_frames_in_range(
                 frame.active_platform_object_count,
                 describe_active_objects(frame)
             );
-            if !frame.gameplay_debug_fields.is_empty() {
+            if debug_fields && !frame.gameplay_debug_fields.is_empty() {
                 println!(
                     "  gameplay: {}",
                     format_debug_fields(&frame.gameplay_debug_fields)
@@ -746,7 +747,7 @@ pub(crate) fn probe_native_scenario(
         }
     }
 
-    print_trace_frames_in_range(&trace, &script, false, frame_start, frame_end);
+    print_trace_frames_in_range(&trace, &script, false, true, frame_start, frame_end);
 
     Ok(())
 }
@@ -829,7 +830,7 @@ pub(crate) fn probe_native_gameplay_scenario(
         }
     }
 
-    print_trace_frames_in_range(&trace, &script, trace_physics, frame_start, frame_end);
+    print_trace_frames_in_range(&trace, &script, trace_physics, true, frame_start, frame_end);
 
     Ok(())
 }
@@ -838,6 +839,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     manifest: &AssetManifest,
     scenario: &DynamicScenario,
     trace_physics: bool,
+    debug_fields: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
@@ -918,6 +920,7 @@ pub(crate) fn probe_dynamic_record_scenario(
         &trace,
         &scenario.script,
         trace_physics,
+        debug_fields,
         frame_start,
         frame_end,
     );
