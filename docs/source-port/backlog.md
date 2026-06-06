@@ -3877,6 +3877,21 @@ pins the Highwater `$EA1E` source moving from `$00b8` to `$00bc` on the trigger
 frame. Verification: focused Highwater shooter tests, `tas-diff` frames 88..94
 for `issue-214-highwater-shooter-barrier-audit`, and `mise run verify-slice-fast`.
 
+Note 2026-06-06 current-route refresh for #214: re-recorded the committed
+`highwater-shooter-barrier-audit` scenario as cache-local slug
+`issue-214-highwater-shooter-barrier-current-20260606` on current native. Fresh
+`verify-recording` now reports `trace_match=true` and
+`oracle_state_match=true`: the Level 02 Berzerker route spawns shooter
+projectiles from frames 92-117, clears the ice barrier cells by frame 117, and
+does not reproduce the original "projectile fails to clear barrier" gameplay
+drift. Full verification still fails `oracle_frame_match=false`: the largest
+current deltas are checkpoint-pixel differences around the shooter/ice destroy
+visuals (`projectile_barrier_window@90` through `barrier_clear_check@120`) plus
+the pre-existing Berzerker palette/pose differences visible from
+`route_start`. Treat #214's live shooter/barrier state path as current-green;
+keep the row open for render/debris pixel parity and a longer route that
+actually reproduces the reported shooter-block overlap launch.
+
 Note 2026-06-01 diagnostic follow-up for #214: refreshed
 `issue-214-highwater-shooter-barrier-audit` exposed that the recording native
 path was feeding settled-warp input one frame earlier than the oracle helper.
