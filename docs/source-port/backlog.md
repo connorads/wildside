@@ -1718,6 +1718,17 @@ from different player/camera/movement fields, and `case reduce` refuses for the
 same reason. Do not patch slope gameplay from this direct seeded bundle; use
 the natural Red Stealth route or fix settled-recording oracle bootstrap first.
 
+Follow-up 2026-06-06 for #211: the selector-picked natural Red Stealth route
+`issue-211-level00-slope-red-stealth-natural-20260606` has a clean requested
+0..120 prefix. Native-only replay passes; full `verify-recording` reaches the
+late `walk_end@759` checkpoint before diverging only on camera position
+(`native=$037E0000,$00000000`, `oracle=$03310000,$00200000`). The requested
+case derives as `walk_right_red_stealth_00_case_00000_00120` and passes with
+matching `world.game_mode`, `camera`, `player.position`, `entities`, and
+`events`; `case reduce` reports it is already passing. Do not patch #211 from
+this clean prefix. Continue from a later natural-window case around the first
+slope/pixel divergence, or investigate the late camera drift separately.
+
 Note 2026-06-02 for #211: current `main` invalidates the old #211 cache
 evidence. `verify-recording --slug issue-211-level00-walk-right-live-refresh
 --native-only` drifts at frame 61, and
