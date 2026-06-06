@@ -8158,6 +8158,26 @@ mod chunk_02 {
         let (expected_kid_x, expected_kid_y) = expected_level0_respawn_bootstrap_pose();
         assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
         assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
+
+        // #248 regression: the real non-dragon death path must accept the same
+        // Start edge as ASM `lose_life -> loc_6E2`, otherwise play can sit on a
+        // black `Game_Mode=8` respawn frame until the long idle parity timeout.
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        let resumed_trace = runtime.trace_frame();
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "Start during spike-death Respawning should resume gameplay (got {:?})",
+            runtime.player_lifecycle
+        );
+        assert_eq!(resumed_trace.game_mode, GameMode::InGame);
+        assert_eq!(runtime.boot_state, BootState::InGame);
+        assert_eq!(resumed_trace.number_lives, pre_lives - 1);
+        assert!(resumed_trace.kid_x_pos.is_some());
+        assert!(resumed_trace.kid_y_pos.is_some());
     }
 
     #[test]
