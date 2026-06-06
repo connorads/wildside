@@ -1706,6 +1706,18 @@ the reported rapid flicker. Next step: run the same natural form route through
 oracle/pixel comparison and inspect selected Red Stealth/Iron Knight slope
 frame IDs rather than patching from native-only screenshots.
 
+Follow-up 2026-06-06 for #211: the direct settled Red Stealth slope probe
+`issue-211-level00-slope-red-stealth-current-20260606` is native-replayable but
+not gameplay-authoritative against oracle. Full `verify-recording` fails at
+checkpoint `slope_probe_start@0`: native starts at
+`x=$02EF0000,y=$00E70000`, while oracle starts at
+`x=$02F80000,y=$00E80000`. Native-only replay passes. The requested 0..120
+case derives as `level_00_slope_right_probe_red_stealth_case_00000_00120`, but
+`case verify` blocks with settled-recording oracle bootstrap reaching gameplay
+from different player/camera/movement fields, and `case reduce` refuses for the
+same reason. Do not patch slope gameplay from this direct seeded bundle; use
+the natural Red Stealth route or fix settled-recording oracle bootstrap first.
+
 Note 2026-06-02 for #211: current `main` invalidates the old #211 cache
 evidence. `verify-recording --slug issue-211-level00-walk-right-live-refresh
 --native-only` drifts at frame 61, and
