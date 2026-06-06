@@ -10107,9 +10107,8 @@ mod tests {
 
     #[test]
     fn build_scene_keeps_rock_tank_death_body_visible_loc_3b480() {
-        let mut trace = sample_trace(GameMode::InGame);
-        trace.active_objects = vec![NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+        let tank_death_object = |object_type, wait_timer| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
             x_pos: 0x0040_0000,
             y_pos: 0x0030_0000,
             layout_index: Some(0),
@@ -10125,10 +10124,12 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
-            wait_timer: Some(0x10 + 0x08 + 0x3C),
+            wait_timer: Some(wait_timer),
             debug_fields: std::collections::BTreeMap::new(),
-        }];
+        };
 
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_objects = vec![tank_death_object(0x0A, 0x10 + 0x08 + 0x3C)];
         let scene = build_ingame_scene(&trace, false, None);
         let tank_death_command = scene
             .commands
@@ -10148,6 +10149,28 @@ mod tests {
                 "ASM Tank.asm loc_3B480 should render the first stru_3B29A body frame instead of disappearing on the fatal hit frame"
             ),
             other => panic!("expected Tank death sprite command, got {other:?}"),
+        }
+
+        trace.active_objects = vec![tank_death_object(0x0B, 0x3C)];
+        let scene = build_ingame_scene(&trace, false, None);
+        let tank_shooting_death_command = scene
+            .commands
+            .iter()
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles.first().is_some_and(|tile| tile.pixels[0] == 87)
+                )
+            })
+            .expect("ASM Tank_Shooting.asm loc_3B6E6 keeps stru_3B518 visible before deletion");
+
+        match tank_shooting_death_command {
+            DrawCommand::Sprite { tile_sheet, .. } => assert_eq!(
+                tile_sheet.tiles[0].pixels[0], 87,
+                "ASM Tank_Shooting.asm loc_3B6E6 should render the final stru_3B518 body frame instead of disappearing on the fatal hit frame"
+            ),
+            other => panic!("expected Tank_Shooting death sprite command, got {other:?}"),
         }
     }
 
