@@ -4303,6 +4303,24 @@ Level BGM frame 0, jump frame 22, block-hit frame 31, and diamond-prize frame
 `likely_subsystems=["recording verification"]`, and `case reduce` blocks on the
 same frame-99 source replay drift. Re-record this prize-audio route on current
 native before using it for #216 gameplay, waveform, or event-timing work.
+Follow-up 2026-06-06: re-recorded the clean #216 prize-audio route on current
+native as `issue-216-prize-audio-audit-current-20260606`, plus the old generic
+`issue-216-prize-block-audio-events-current-20260606` route for comparison. The
+old cached generic route is stale: fresh `verify-recording` on
+`issue-216-prize-block-audio-events` drifts at frame 162, and its `120..180`
+case is blocked by recording verification. The current focused route is the
+usable evidence: native-only replay passes, full oracle verification has
+`trace_match=true` and `oracle_state_match=true`, but remains strict-pixel red
+(`oracle_frame_match=false`). `audio-events.txt` records Level BGM frame 0,
+jump `PlaySound(23)` frame 22, block hit `PlaySound(13)` frame 31, and diamond
+prize `PlaySound(45)` frame 99; event-window RMS/peak are audible immediately
+for the queued cues (`0.0346/0.0951`, `0.0365/0.1109`, `0.0549/0.1609`). The
+fresh semantic case
+`issue_216_prize_audio_audit_00_case_00000_00120` passes with matching
+`world.game_mode`, camera, player position, entities, and events. Do not
+reselect the stale `issue-216-prize-audio-audit` cache bundle; remaining #216
+work is rendered-pixel/waveform alignment and the level-complete playback
+quality report, not block/diamond event timing.
 Follow-up 2026-06-04: selector-picked `issue-216-prize-audio-probe` exposed two
 real current gameplay misses before returning to the usual #216 renderer/audio
 lane. First, ASM `sub_8F26 -> sub_922C` scans the whole leading wall column from
