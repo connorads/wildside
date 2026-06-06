@@ -5986,13 +5986,23 @@ fn load_rejected_recording_slugs(repo_root: &Path) -> Result<RejectedRecordingFi
                 && (reason_lower.contains("against current native")
                     || reason_lower.contains("before using")))
             || (reason_lower.contains("stale") && reason_lower.contains("verify-recording --slug"));
-        if stale_recording_rejection
+        let clean_recording_rejection = (reason_lower.contains("oracle-clean")
+            || reason_lower.contains("oracle clean")
+            || reason_lower.contains("already passing")
+            || reason_lower.contains("no failing behaviour")
+            || reason_lower.contains("does not expose a reduced gameplay mismatch")
+            || reason_lower.contains("exposes no audio or gameplay mismatch"))
+            && (reason_lower.contains("verify-recording")
+                || reason_lower.contains("case reduce")
+                || reason_lower.contains("reduced window"));
+        let skip_recording = stale_recording_rejection || clean_recording_rejection;
+        if skip_recording
             && let Some(rest) = hypothesis.name.strip_prefix("Recording `")
             && let Some((slug, _)) = rest.split_once('`')
         {
             filters.slugs.insert(slug.to_owned());
         }
-        if stale_recording_rejection {
+        if skip_recording {
             filters
                 .slugs
                 .extend(recording_slugs_from_command_mentions(&hypothesis.reason));
@@ -15800,6 +15810,49 @@ strategies:
                 .untriaged_recordings
                 .iter()
                 .all(|recording| !recording.slug.starts_with("issue-211-level00-"))
+        );
+        let recording = queue
+            .selected_recording
+            .expect("fresh recording should be selected");
+        assert_eq!(recording.slug, "level1-tree-break");
+    }
+
+    #[test]
+    fn case_queue_skips_recordings_rejected_as_clean_non_actionable() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(
+            temp_dir.path(),
+            "issue-playtest-cold-boot-audio-current",
+            true,
+        );
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let mut state: serde_json::Value = serde_json::from_slice(
+            &fs::read(temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH))
+                .expect("frontier state should read"),
+        )
+        .expect("frontier state should parse");
+        state["active_frontier"]["rejected_hypotheses"]
+            .as_array_mut()
+            .expect("rejected hypotheses should be an array")
+            .push(serde_json::json!({
+                "name": "Recording `issue-playtest-cold-boot-audio-current` exposes an actionable early cold-boot intro mismatch",
+                "reason": "Rejected 2026-06-02. Fresh verification shows this power-on 600-frame bundle is current and oracle-clean. `cargo run -p kidcli -- verify-recording --slug issue-playtest-cold-boot-audio-current` passes with trace, oracle state, and oracle frame matches. Reduced windows `0..120`, `120..240`, and `480..600` all pass. Transcript reaches IntroSequence1 at frame 173 and IntroSequence2 at frame 534, so this route covers early boot/intro transitions but does not expose a reduced gameplay mismatch."
+            }));
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            serde_json::to_vec_pretty(&state).expect("frontier state should serialise"),
+        )
+        .expect("frontier state should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(
+            queue
+                .untriaged_recordings
+                .iter()
+                .all(|recording| recording.slug != "issue-playtest-cold-boot-audio-current")
         );
         let recording = queue
             .selected_recording
