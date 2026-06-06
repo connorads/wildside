@@ -4244,6 +4244,16 @@ The requested `0..120` case derives as
 correctly reports the case is already passing. Do not patch #215 gameplay from
 this clean prefix, and do not use the post-frame-140 recording tail until it is
 re-recorded on current native.
+Note 2026-06-06 selector follow-up for #215: selector-picked recording
+`issue-playtest-highwater-water-current` has the same current shape. Fresh full
+and native-only `verify-recording` both drift at frame 140 with matching
+1861-frame recorded/replay lengths; the full report still has
+`oracle_state_match=true` and `oracle_frame_match=false` from the known
+Highwater water/palette pixel diffs. The requested `0..120` prefix derives as
+`walk_right_02_case_00000_00120` and passes with matching `world.game_mode`,
+camera, player position, entities, and events; `case reduce` reports it is
+already passing. Do not patch #215 from this clean prefix, and re-record this
+playtest Highwater route on current native before using the later tail.
 
 Note 2026-06-01 for #215: cache-local `issue-playtest-highwater-water-current` now has oracle frame artefacts. The recording is still not a clean gameplay gate because replay trace comparison drifts at frame 0 and later checkpoints diverge after player motion changes, but the first two frames are oracle-state aligned enough to isolate the waterfall palette phase. Native `foreground_palette_for_scene` had the Mountain/Highwater `RotatePalette_Lava_Water loc_1223A/loc_1223C` phase one rotation late for the direct level-skip lineage; pre-advancing by two rotations improves the early strict diffs from 249/386 changed pixels to 72/209. Remaining #215 work is true foreground priority/player layering around the later water section, after a replayable non-drifting scenario is captured.
 Note 2026-06-01 for #215: added named `highwater-water-priority-audit` scenario (cache slug `issue-215-highwater-water-priority-audit`) so the Level 02 water/foreground route is no longer only an ignored `.cache` artefact. Fresh verify result: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; `level_settle@60` and `waterfall_overlap_loc_300BA@960` are pixel-perfect, while `water_hole_entry_loc_12910@510` differs by 205 pixels and `waterfall_palette_tail_loc_1223C@1859` by 18 pixels. Current evidence points at residual Mountain Plane B/waterfall tile row or palette phase drift, not a broad gameplay replay mismatch.
