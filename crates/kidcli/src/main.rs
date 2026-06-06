@@ -75,8 +75,10 @@ use scenarios::{
     issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
-    lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-    stomp_enemy_scenario, walk_right_scenario,
+    lava_weather_audit_scenario, level_00_slope_right_probe_iron_knight_scenario,
+    level_00_slope_right_probe_juggernaut_scenario,
+    level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
+    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -107,6 +109,12 @@ enum RecordScenarioKind {
     Issue216PrizeAudioAudit,
     /// start on Blue Lake Woods 1's first `$4000` slope and hold Right.
     Level00SlopeRightProbe,
+    /// start Red Stealth/Samurai on Blue Lake Woods 1's first `$4000` slope and hold Right.
+    Level00SlopeRightProbeRedStealth,
+    /// start Iron Knight on Blue Lake Woods 1's first `$4000` slope and hold Right.
+    Level00SlopeRightProbeIronKnight,
+    /// start Juggernaut/Rhino on Blue Lake Woods 1's first `$4000` slope and hold Right.
+    Level00SlopeRightProbeJuggernaut,
     /// run + aggressive jumps to maximise enemy stomps.
     StompEnemy,
     /// idle 10 s in-arena to sample enemy roster across the spawn window —
@@ -2524,6 +2532,15 @@ fn build_record_scenario(
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
         RecordScenarioKind::Issue216PrizeAudioAudit => issue_216_prize_audio_audit_scenario(),
         RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
+        RecordScenarioKind::Level00SlopeRightProbeRedStealth => {
+            level_00_slope_right_probe_red_stealth_scenario()
+        }
+        RecordScenarioKind::Level00SlopeRightProbeIronKnight => {
+            level_00_slope_right_probe_iron_knight_scenario()
+        }
+        RecordScenarioKind::Level00SlopeRightProbeJuggernaut => {
+            level_00_slope_right_probe_juggernaut_scenario()
+        }
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
         RecordScenarioKind::LavaWeatherAudit => lava_weather_audit_scenario(level),
@@ -2606,6 +2623,15 @@ fn record_scenario_command(
         RecordScenarioKind::PrizeBlock => "prize-block",
         RecordScenarioKind::Issue216PrizeAudioAudit => "issue216-prize-audio-audit",
         RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
+        RecordScenarioKind::Level00SlopeRightProbeRedStealth => {
+            "level00-slope-right-probe-red-stealth"
+        }
+        RecordScenarioKind::Level00SlopeRightProbeIronKnight => {
+            "level00-slope-right-probe-iron-knight"
+        }
+        RecordScenarioKind::Level00SlopeRightProbeJuggernaut => {
+            "level00-slope-right-probe-juggernaut"
+        }
         RecordScenarioKind::StompEnemy => "stomp-enemy",
         RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
         RecordScenarioKind::LavaWeatherAudit => "lava-weather-audit",
@@ -2923,14 +2949,15 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, RecordScenarioKind,
-        ReferenceName, analyse_audio_samples, audio_envelope_similarity, build_controller_script,
-        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
-        compare_native_gameplay_with, compare_native_states_against_oracle,
-        ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
-        gameplay_checkpoint_window, native_trace_to_oracle_state, oracle_probe_watch_row_in_range,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
+        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, PlayerForm,
+        RecordScenarioKind, ReferenceName, analyse_audio_samples, audio_envelope_similarity,
+        build_controller_script, build_record_scenario, capture_native_gameplay_run,
+        capture_native_gameplay_scenario, compare_native_gameplay_with,
+        compare_native_states_against_oracle, ensure_gameplay_level_layouts_with,
+        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
+        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
+        record_scenario_file_command, recording_scenario_manifest,
         recording_start_for_dynamic_scenario, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
@@ -4470,16 +4497,55 @@ AddrTbl_LevelNames:
         );
         assert!(scenario.settle_oracle_warp);
         assert_eq!(
-            scenario.script.get(1_100),
-            Some(&(1 << 7)),
-            "ASM loc_1AE2E consumes Start on the title-card shell before the next level becomes live"
+            scenario.script.first(),
+            Some(&(1 << 3)),
+            "ASM loc_9D22/loc_9F18 consume held Right while slope collision is active"
         );
+        assert_eq!(scenario.playtest_form, None);
         assert_eq!(
             scenario
                 .start_position
                 .map(|position| (position.x, position.y)),
             Some((760, 231))
         );
+    }
+
+    #[test]
+    fn build_record_scenario_level_00_slope_probe_form_variants_use_same_window() {
+        let cases = [
+            (
+                RecordScenarioKind::Level00SlopeRightProbeRedStealth,
+                "level_00_slope_right_probe_red_stealth",
+                PlayerForm::RedStealth.helmet_id(),
+            ),
+            (
+                RecordScenarioKind::Level00SlopeRightProbeIronKnight,
+                "level_00_slope_right_probe_iron_knight",
+                PlayerForm::IronKnight.helmet_id(),
+            ),
+            (
+                RecordScenarioKind::Level00SlopeRightProbeJuggernaut,
+                "level_00_slope_right_probe_juggernaut",
+                PlayerForm::Juggernaut.helmet_id(),
+            ),
+        ];
+
+        for (kind, slug, helmet_id) in cases {
+            let scenario = build_record_scenario(kind, 0x05, None);
+
+            assert_eq!(scenario.slug, slug);
+            assert_eq!(scenario.warp_to_level, Some(0x00));
+            assert!(scenario.settle_oracle_warp);
+            assert_eq!(scenario.playtest_form, Some(helmet_id));
+            assert_eq!(
+                scenario
+                    .start_position
+                    .map(|position| (position.x, position.y)),
+                Some((760, 231)),
+                "form probes must reuse the same ASM GfxObjects_Collision_UpSlope window"
+            );
+            assert_eq!(scenario.script.first(), Some(&(1 << 3)));
+        }
     }
 
     #[test]

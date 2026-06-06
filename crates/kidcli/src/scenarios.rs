@@ -467,7 +467,10 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
 /// probe-shaped, not a broad traversal route: state checkpoints include frame
 /// 0 so native/oracle can prove whether the patched live object and camera
 /// begin from the same gameplay window before slope animation/facing diverges.
-pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
+fn level_00_slope_right_probe_scenario_for(
+    slug: &str,
+    playtest_form: Option<PlayerForm>,
+) -> DynamicScenario {
     const FRAME_COUNT: usize = 120;
     const RIGHT: u8 = 1 << 3;
 
@@ -475,7 +478,7 @@ pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
     apply_range(&mut script, 0, FRAME_COUNT.saturating_sub(1), RIGHT);
 
     DynamicScenario {
-        slug: "level_00_slope_right_probe".into(),
+        slug: slug.into(),
         script,
         frame_count: FRAME_COUNT,
         checkpoints: vec![
@@ -502,11 +505,39 @@ pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
         ],
         start_position: Some(DynamicStartPosition { x: 760, y: 231 }),
         camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
-        playtest_form: None,
+        playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
         warp_to_level: Some(0x00),
         settle_oracle_warp: true,
     }
+}
+
+pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
+    level_00_slope_right_probe_scenario_for("level_00_slope_right_probe", None)
+}
+
+/// ASM GfxObjects_Collision_UpSlope (`$4000` cells) feeds Kid movement through
+/// loc_9D22/loc_9F18; these form variants keep that exact window but seed the
+/// playtest helmet IDs so animation latches can be compared per form.
+pub fn level_00_slope_right_probe_red_stealth_scenario() -> DynamicScenario {
+    level_00_slope_right_probe_scenario_for(
+        "level_00_slope_right_probe_red_stealth",
+        Some(PlayerForm::RedStealth),
+    )
+}
+
+pub fn level_00_slope_right_probe_iron_knight_scenario() -> DynamicScenario {
+    level_00_slope_right_probe_scenario_for(
+        "level_00_slope_right_probe_iron_knight",
+        Some(PlayerForm::IronKnight),
+    )
+}
+
+pub fn level_00_slope_right_probe_juggernaut_scenario() -> DynamicScenario {
+    level_00_slope_right_probe_scenario_for(
+        "level_00_slope_right_probe_juggernaut",
+        Some(PlayerForm::Juggernaut),
+    )
 }
 
 /// Walk right and jump to headbutt prize blocks on level 0x00.
