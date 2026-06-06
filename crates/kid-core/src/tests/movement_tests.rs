@@ -14173,6 +14173,242 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9FBC (kid.asm:12277): the slope-to-solid exit tail is only used
+    /// for walking-speed slope exits. At the native boundary this means the
+    /// current foot span still covers a slope, the projected foot probe lands on
+    /// plain solid support, and `abs(x_vel) <= $18000`.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_accepts_walk_speed_boundary() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (1, 3, 0x40, 0x00), // current span still touches SlopeUp
+                (2, 3, 0x60, 0x00), // projected centre lands on plain Solid
+            ],
+        );
+
+        let floor_y = movement::slope_to_solid_exit_floor_y_loc_9fbc(
+            &grid,
+            31 << 16,
+            47 << 16,
+            0x0001_8000,
+            8,
+        );
+
+        assert_eq!(
+            floor_y,
+            Some(47),
+            "ASM loc_9FBC: x_vel=$18000 is still eligible, then solid row top $30 stores y=$2F"
+        );
+    }
+
+    /// ASM loc_9FBC is the walking tail after slope motion. Native keeps the
+    /// helper out of stationary frames and high-speed rubber/death paths.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_rejects_zero_and_too_fast_velocity() {
+        let grid = grid_with_cells(6, 5, &[(1, 3, 0x40, 0x00), (2, 3, 0x60, 0x00)]);
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(&grid, 31 << 16, 47 << 16, 0, 8),
+            None,
+            "ASM loc_9FBC is not entered for zero walking velocity"
+        );
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                31 << 16,
+                47 << 16,
+                0x0001_8001,
+                8
+            ),
+            None,
+            "native loc_9FBC guard: speeds above $18000 stay on rebound/death paths"
+        );
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                33 << 16,
+                47 << 16,
+                -0x0001_8001,
+                8
+            ),
+            None,
+            "native loc_9FBC guard: negative speeds below -$18000 stay on rebound/death paths"
+        );
+    }
+
+    /// ASM loc_9FBC follows the slope walker, so the native guard must prove the
+    /// current tile span still includes a slope before projecting onto the solid
+    /// row. This locks the `x_pos - half_width` left edge column.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_requires_left_edge_slope_span() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (0, 3, 0x40, 0x00), // outside the real span for x=49,h=$8
+                (3, 3, 0x60, 0x00), // projected centre support
+            ],
+        );
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                49 << 16,
+                47 << 16,
+                0x0001_0000,
+                8
+            ),
+            None,
+            "ASM loc_9FBC native guard: current columns 2..3 do not include the off-left slope"
+        );
+    }
+
+    /// ASM loc_9FBC also depends on the right foot column of the current slope
+    /// span. If the right edge is computed from the left edge, the slope tile is
+    /// missed and the walking tail is skipped.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_uses_right_edge_slope_span() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (1, 3, 0x60, 0x00), // projected centre support
+                (2, 3, 0x40, 0x00), // only the right edge sees the slope
+            ],
+        );
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                30 << 16,
+                47 << 16,
+                0x0001_0000,
+                2
+            ),
+            Some(47),
+            "ASM loc_9FBC native guard: current columns 1..2 must include the right-edge slope"
+        );
+    }
+
+    /// ASM loc_9FBC is only applicable while the current foot span is actually
+    /// leaving a slope. The span's right edge is `(x_pos + half_width) >> 4`;
+    /// slopes farther right must not be pulled in by overlarge edge arithmetic.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_excludes_distant_right_slope() {
+        let grid = grid_with_cells(
+            8,
+            5,
+            &[
+                (2, 3, 0x60, 0x00), // projected centre support
+                (4, 3, 0x40, 0x00), // outside current columns 1..2
+            ],
+        );
+
+        assert_eq!(
+            slope_to_solid_exit_floor_y_loc_9fbc(&grid, 31 << 16, 47 << 16, 0x0001_0000, 1),
+            None,
+            "ASM loc_9FBC native guard: current columns 1..2 must exclude the distant right slope"
+        );
+    }
+
+    /// ASM loc_9FBC native guard also needs the exact addition on the right edge.
+    /// Multiplying `x_pos` by `half_width` would pull in column 3 even though
+    /// the real current span is only columns 1..2.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_right_edge_addition_not_multiplication() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (2, 3, 0x60, 0x00), // projected centre support
+                (3, 3, 0x40, 0x00), // outside real current columns 1..2
+            ],
+        );
+
+        assert_eq!(
+            slope_to_solid_exit_floor_y_loc_9fbc(&grid, 31 << 16, 47 << 16, 0x0001_0000, 2),
+            None,
+            "ASM loc_9FBC native guard: right edge must use x+2, not x*2"
+        );
+    }
+
+    /// ASM loc_9FBC is reached after collision code has found actual support.
+    /// Native must not reinterpret a probe that is still above the support row
+    /// as the solid-exit tail.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_requires_grounded_projected_probe() {
+        let grid = grid_with_cells(6, 5, &[(1, 2, 0x40, 0x00), (2, 3, 0x60, 0x00)]);
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                31 << 16,
+                46 << 16,
+                0x0001_0000,
+                8
+            ),
+            None,
+            "ASM loc_9FBC native guard: projected solid support at y=$30 is not grounded from foot y=$2E"
+        );
+    }
+
+    /// ASM loc_9FBC exits onto plain terrain. Block cells are handled by the
+    /// block collision/effect paths, so the native solid-exit helper rejects
+    /// solid cells with bit 15 set.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_rejects_block_support() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (1, 3, 0x40, 0x00),
+                (2, 3, 0xE1, 0x00), // Solid with Prize block flag
+            ],
+        );
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                31 << 16,
+                47 << 16,
+                0x0001_0000,
+                8
+            ),
+            None,
+            "ASM loc_9FBC native guard: block support must stay out of the plain solid tail"
+        );
+    }
+
+    /// ASM loc_9FBC stores a plain walking y-position before `sub_942A`.
+    /// Native requires `sub_8600` to report Normal terrain for the projected span
+    /// so rubber/ice block spans keep their specialised terrain handling.
+    #[test]
+    fn loc_9fbc_slope_to_solid_exit_rejects_non_normal_surface_span() {
+        let grid = grid_with_cells(
+            6,
+            5,
+            &[
+                (0, 3, 0x40, 0x00), // current span still touches a slope
+                (2, 3, 0x60, 0x00), // projected centre support
+                (3, 3, 0xE6, 0x00), // rubber block makes sub_8600 return Rubber
+            ],
+        );
+
+        assert_eq!(
+            movement::slope_to_solid_exit_floor_y_loc_9fbc(
+                &grid,
+                31 << 16,
+                47 << 16,
+                0x0001_0000,
+                16
+            ),
+            None,
+            "ASM sub_8600/loc_8688: Rubber projected span must not enter the plain loc_9FBC tail"
+        );
+    }
+
     // --- loc_9FE4: SlopeUp right-edge pixel threshold check ---
 
     /// ASM loc_9FE4 (kid.asm:12293): when current tile is SlopeUp ($4000) and

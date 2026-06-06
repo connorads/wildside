@@ -7005,7 +7005,7 @@ pub(crate) fn grounded_surface_type_sub_8600(
     terrain_type
 }
 
-fn slope_to_solid_exit_floor_y_loc_9fbc(
+pub(crate) fn slope_to_solid_exit_floor_y_loc_9fbc(
     grid: &terrain::BlockGrid,
     x_pos: u32,
     y_pos: u32,
