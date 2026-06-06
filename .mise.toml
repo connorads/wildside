@@ -103,7 +103,8 @@ run = """
 scripts/strict-rust.sh sh -ec '
 for slug in \
   issue-210-title-menu-tail \
-  issue-160-audio-latest-validation
+  issue-160-audio-latest-validation \
+  issue-238-highwater-flag-transition-current-20260606
 do
   cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
 done

@@ -19,6 +19,7 @@ class HumanValidationReviewTests(unittest.TestCase):
 
         self.assertIn("#160", review_rows)
         self.assertIn("#210", review_rows)
+        self.assertIn("#238", review_rows)
         self.assertIn("#248", review_rows)
         self.assertIn("#249", review_rows)
 

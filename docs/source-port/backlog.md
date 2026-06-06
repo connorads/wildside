@@ -1066,6 +1066,15 @@ is blocked before oracle comparison because manifest camera=`$05700000,$03800000
 disagrees with replay frame 0 camera=`$05000000,$037E0000`; `case reduce`
 refuses with the same blocker. The cached #238 Pass 2 flag-transition family is
 now exhausted as recording-verification evidence until re-recorded.
+Fresh Pass 1 review evidence 2026-06-06: re-recorded
+`issue-238-highwater-flag-transition-current-20260606` on current main. It starts
+at Highwater Pass 1's real flag, transitions Level 02 -> 03 at frame 648,
+returns to `InGame` at frame 1101, and survives to frame 2399 in Highwater Pass
+2. Unlike the stale older bundle, fresh verification reports
+`trace_match=true`, `oracle_state_match=true`, and `oracle_frame_match=true`.
+`mise run human-validation-review` now includes this route for human re-test.
+This supersedes only the Pass 1 flag evidence; the Pass 2/Juggernaut route still
+needs a fresh current recording before it can close #238.
 Follow-up 2026-06-06 for #238/#229: delegated case-queue route
 `issue-level03-instant-death-current` is not yet gameplay-authoritative. Fresh
 native-only replay passes and full `verify-recording` reports

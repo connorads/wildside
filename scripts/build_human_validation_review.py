@@ -47,6 +47,61 @@ def repo_path(path: str) -> Path:
 # rows are closed by stronger tests/evidence, so they must not block this gate.
 REVIEW_ITEMS = (
     ReviewItem(
+        backlog_row="#238",
+        title="Highwater Pass 1 flag transition",
+        verifier=(
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-238-highwater-flag-transition-current-20260606"
+        ),
+        decision=(
+            "Confirm the Highwater Pass 1 flag hand-off no longer drops Kid "
+            "into an instant-death or empty-level state: the fresh current "
+            "recording reaches Highwater Pass 2 and survives the tail checkpoint."
+        ),
+        images=(
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/native/000000_flag_touch.png"
+                ),
+                "Real Highwater Pass 1 flag touch",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/native/001200_transition_window.png"
+                ),
+                "Title-card transition window after Start",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/native/001800_next_level_entry.png"
+                ),
+                "Highwater Pass 2 entry after the hand-off",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/native/002399_next_level_survival_tail.png"
+                ),
+                "Tail checkpoint survives in Highwater Pass 2",
+            ),
+        ),
+        transcripts=(
+            repo_path(
+                ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/transcript.txt"
+            ),
+        ),
+        evidence_files=(
+            repo_path(
+                ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/report.json"
+            ),
+        ),
+        note=(
+            "Fresh current evidence recorded from commit 1f7d3782: trace, "
+            "oracle state, and oracle frame comparison all pass. This only "
+            "covers the Pass 1 flag route; Pass 2/Juggernaut stale recordings "
+            "still need a fresh current route before they can close #238."
+        ),
+    ),
+    ReviewItem(
         backlog_row="#249",
         title="BLW2 left-wall no-jump probe",
         verifier=(
