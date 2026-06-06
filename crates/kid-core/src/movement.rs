@@ -7220,7 +7220,8 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 #[cfg(test)]
 mod tests {
     use super::{
-        airborne_slope_landing_handoff_x_velocity_loc_a99e, level_entry_title_advance_x,
+        airborne_slope_landing_handoff_x_velocity_loc_a99e, cached_slope_walk_exit_gate_loc_a13a,
+        cached_slope_walk_exit_velocity_loc_a13a, level_entry_title_advance_x,
         level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
@@ -7228,6 +7229,8 @@ mod tests {
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
     };
+    use crate::physics::Direction;
+    use crate::terrain;
     use crate::types::{FrameInput, PlayerForm, RomRandomState};
 
     #[test]
@@ -7545,6 +7548,117 @@ mod tests {
         assert_eq!(
             left_at_cap, None,
             "ASM loc_A99E should use the ordinary advance once leftward cap bleed has already reached the cap",
+        );
+    }
+
+    #[test]
+    fn loc_a13a_cached_slope_down_exit_crossing_forces_positive_step() {
+        let (x_velocity, facing) = cached_slope_walk_exit_velocity_loc_a13a(
+            -0x0000_2000,
+            terrain::CollisionKind::SlopeDown,
+        );
+        let (already_positive_x_velocity, already_positive_facing) =
+            cached_slope_walk_exit_velocity_loc_a13a(
+                0x0000_2000,
+                terrain::CollisionKind::SlopeDown,
+            );
+
+        assert_eq!(
+            (x_velocity, facing),
+            (0x0000_1000, Direction::Right),
+            "ASM loc_A13A -> loc_9E6C should force SlopeDown zero-crossing to +$1000 before loc_9F32",
+        );
+        assert_eq!(
+            (already_positive_x_velocity, already_positive_facing),
+            (0x0000_3000, Direction::Right),
+            "ASM loc_A13A -> loc_9E6C should keep a naturally positive SlopeDown advance",
+        );
+    }
+
+    #[test]
+    fn loc_a13a_cached_slope_up_exit_crossing_forces_negative_step() {
+        let (x_velocity, facing) =
+            cached_slope_walk_exit_velocity_loc_a13a(0x0000_2000, terrain::CollisionKind::SlopeUp);
+        let (already_negative_x_velocity, already_negative_facing) =
+            cached_slope_walk_exit_velocity_loc_a13a(-0x0000_2000, terrain::CollisionKind::SlopeUp);
+        let (exact_zero_x_velocity, exact_zero_facing) =
+            cached_slope_walk_exit_velocity_loc_a13a(0x0000_1000, terrain::CollisionKind::SlopeUp);
+
+        assert_eq!(
+            (x_velocity, facing),
+            (-0x0000_1000, Direction::Left),
+            "ASM loc_A13A -> loc_9E94 should force SlopeUp zero-crossing to -$1000 before loc_9F32",
+        );
+        assert_eq!(
+            (already_negative_x_velocity, already_negative_facing),
+            (-0x0000_3000, Direction::Left),
+            "ASM loc_A13A -> loc_9E94 should keep a naturally negative SlopeUp advance",
+        );
+        assert_eq!(
+            (exact_zero_x_velocity, exact_zero_facing),
+            (-0x0000_1000, Direction::Left),
+            "ASM loc_A13A -> loc_9E94 uses `bmi`, so exact-zero SlopeUp advance is forced to -$1000",
+        );
+    }
+
+    #[test]
+    fn loc_a13a_cached_slope_exit_gate_requires_direction_and_terminal_velocity() {
+        let right_held = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
+        let left_held = FrameInput {
+            left: true,
+            ..FrameInput::default()
+        };
+
+        assert!(
+            cached_slope_walk_exit_gate_loc_a13a(
+                -0x0000_2000,
+                right_held,
+                terrain::CollisionKind::SlopeDown,
+            ),
+            "ASM loc_A13A terminal SlopeDown handoff should require right-held x_vel=-$2000",
+        );
+        assert!(
+            cached_slope_walk_exit_gate_loc_a13a(
+                0x0000_2000,
+                left_held,
+                terrain::CollisionKind::SlopeUp,
+            ),
+            "ASM loc_A13A terminal SlopeUp handoff should require left-held x_vel=+$2000",
+        );
+        assert!(
+            !cached_slope_walk_exit_gate_loc_a13a(
+                -0x0000_2000,
+                FrameInput::default(),
+                terrain::CollisionKind::SlopeDown,
+            ),
+            "ASM loc_A13A should not consume cached SlopeDown without the held right direction",
+        );
+        assert!(
+            !cached_slope_walk_exit_gate_loc_a13a(
+                -0x0000_1000,
+                right_held,
+                terrain::CollisionKind::SlopeDown,
+            ),
+            "ASM loc_A13A should leave ordinary flat braking alone until SlopeDown reaches -$2000",
+        );
+        assert!(
+            !cached_slope_walk_exit_gate_loc_a13a(
+                0x0000_2000,
+                right_held,
+                terrain::CollisionKind::SlopeUp,
+            ),
+            "ASM loc_A13A should not consume cached SlopeUp from the wrong held direction",
+        );
+        assert!(
+            !cached_slope_walk_exit_gate_loc_a13a(
+                -0x0000_2000,
+                left_held,
+                terrain::CollisionKind::SlopeDown,
+            ),
+            "ASM loc_A13A should not consume cached SlopeDown from the wrong held direction",
         );
     }
 
