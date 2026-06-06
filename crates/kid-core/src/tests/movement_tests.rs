@@ -17446,6 +17446,162 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A99E -> loc_8BF0 -> loc_9D22: the immediate slope recontact
+    /// path advances by the preserved airborne handoff velocity before the
+    /// normal slope table velocity is installed. The floor probe row is the
+    /// row below Kid's current high word (`y+1`), so the SlopeUp/Solid edge at
+    /// that lower row applies the loc_9F18 low-word handoff.
+    #[test]
+    fn loc_a99e_direct_slope_up_recontact_uses_air_handoff_and_lower_probe_row() {
+        let w: u16 = 12;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 4, 4, 0x40, 0x5C);
+        set(&mut data, 5, 4, 0x60, 0x5D);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0040_9000;
+        slice.player.y_pos = 0x003f_0000;
+        slice.player.x_velocity = 0x0000_9000;
+
+        slice.apply_immediate_slope_recontact(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+            terrain::CollisionKind::SlopeUp,
+            &grid,
+            0,
+            SlopeRecontactHandoff {
+                x_velocity: Some(0x0001_0000),
+                post_vertical_y_pos: Some(0x003f_5000),
+            },
+        );
+
+        assert_eq!(
+            slice.player.x_velocity, 0x0000_5000,
+            "ASM loc_9D22 should install the slope-table velocity after the airborne handoff step",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x0040_0000,
+            "ASM loc_A99E/loc_8BF0: direct SlopeUp/Solid recontact should advance by the airborne handoff, then keep the loc_9F18 high word and compose the low word from the slope velocity",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x004f_0000,
+            "ASM loc_9D22 should snap to the lower-row SlopeUp surface selected by the `(y+1)` probe row",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0000_5000,
+            "ASM loc_9D22: SlopeUp direct recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM loc_A99E -> loc_9F18 only applies the special high-word borrow at
+    /// low post-vertical fractions on the specific `$4082/$6024`
+    /// SlopeUp/Solid seam. Other SlopeUp/Solid seams at the same fraction keep
+    /// the unborrowed high word while still taking the low-word handoff.
+    #[test]
+    fn loc_a99e_low_fraction_slope_up_handoff_requires_exact_4082_6024_seam() {
+        let w: u16 = 12;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 4, 4, 0x40, 0x5C);
+        set(&mut data, 5, 4, 0x60, 0x24);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0040_9000;
+        slice.player.y_pos = 0x003f_0000;
+        slice.player.x_velocity = 0x0000_9000;
+
+        slice.apply_immediate_slope_recontact(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+            terrain::CollisionKind::SlopeUp,
+            &grid,
+            0,
+            SlopeRecontactHandoff {
+                x_velocity: Some(0x0001_0000),
+                post_vertical_y_pos: Some(0x003f_0800),
+            },
+        );
+
+        assert_eq!(
+            slice.player.x_velocity, 0x0000_5000,
+            "ASM loc_9D22 should install the slope-table velocity before the low-fraction seam correction",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x0041_0000,
+            "ASM loc_A99E/loc_9F18: low-fraction SlopeUp/Solid handoff should not borrow the high word unless the seam is exactly $4082/$6024",
+        );
+    }
+
+    /// ASM loc_A99E/loc_9D22 leaves the final ground-contact classification to
+    /// the post-handoff floor probe. A same-frame recontact that lands on a
+    /// spike row must preserve the spike flag for the runtime damage path.
+    #[test]
+    fn loc_a99e_direct_slope_recontact_preserves_spike_floor_contact() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let spike_offset = (4usize * usize::from(w) + 2) * 2;
+        data[spike_offset] = 0x70;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+
+        slice.apply_immediate_slope_recontact(
+            FrameInput::default(),
+            PlayerForm::TheKid,
+            terrain::CollisionKind::SlopeDown,
+            &grid,
+            0,
+            SlopeRecontactHandoff::default(),
+        );
+
+        assert!(
+            slice.player.on_spikes,
+            "ASM sub_902A/loc_92B6 should leave collision_type=$28 when the recontact floor probe lands on spikes",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            63 << 16,
+            "ASM loc_92BC should use the solid/spike contact row minus one as the grounded Y position",
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> sub_9386 -> loc_9D22:
     /// when an airborne rightward frame lands by the leading edge on SlopeUp,
     /// the same frame must enter the slope-walk handoff and mirror x_vel into
