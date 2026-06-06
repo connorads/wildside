@@ -9178,9 +9178,14 @@ mod tests {
         match commands.as_slice() {
             [
                 DrawCommand::Sprite {
-                    tiles: body_tiles, ..
+                    x: body_x,
+                    y: body_y,
+                    tiles: body_tiles,
+                    ..
                 },
                 DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
                     tiles: turret_tiles,
                     ..
                 },
@@ -9189,6 +9194,15 @@ mod tests {
                 assert_eq!(
                     turret_tiles[0].tile.tile_index, 0x060,
                     "ASM Tank_Shooting.asm `stru_3B4D8` reaches `LnkTo_unk_C7F10` on the muzzle-open frame"
+                );
+                assert_eq!(
+                    *turret_x, *body_x,
+                    "ASM Tank_Shooting.asm loc_3B5FA copies the parent X into the linked turret child"
+                );
+                assert_eq!(
+                    *body_y - *turret_y,
+                    24,
+                    "ASM Tank_Shooting.asm loc_3B5FA stores child Y at body_y-8 for top-anchored hardware sprites; native must compensate that child offset so the muzzle-open turret shares the tread baseline instead of rendering as a second stacked body"
                 );
             }
             other => panic!("expected body + turret sprite commands, got {other:?}"),
