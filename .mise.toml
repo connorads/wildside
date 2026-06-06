@@ -107,6 +107,9 @@ for slug in \
 do
   cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
 done
+cargo test -q -p kid-core respawn_hold -- --nocapture
+cargo test -q -p kid-core spike_death_triggers_death_and_respawn -- --nocapture
+cargo test -q -p kid-core continue_restores_lives_and_respawns -- --nocapture
 '
 """
 description = "Replay all recording bundles that still require human validation/repro decisions"
@@ -115,6 +118,7 @@ description = "Replay all recording bundles that still require human validation/
 run = """
 sh -ec '
 mise run verify-human-validation
+cargo run -q -p kidcli -- capture-scenario-frames --scenario .cache/recordings/issue-248-death-start-resume-settled.json --frames 555,561,563,575 --output .cache/debug/issue248-start-resume-review
 python3 scripts/build_human_validation_review.py
 '
 """
