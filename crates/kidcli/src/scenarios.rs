@@ -1395,6 +1395,57 @@ pub fn issue_249_blw2_left_pit_wall_jump_audit_scenario() -> DynamicScenario {
     issue_249_blw2_left_pit_wall_scenario_for("issue_249_blw2_left_pit_wall_jump_audit_01", true)
 }
 
+/// Current #155/#213 Drips/metal-block probe.
+///
+/// This is intentionally not marked as the final human-visible repro: frontier
+/// notes record that the direct Level 01 lower-floor start does not prove the
+/// reported slime/metal-block interaction. It preserves the current
+/// oracle-clean blocker window so future work has a durable named route while
+/// a natural camera transition route is built.
+pub fn issue_213_drips_metal_block_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 1_200;
+    const B: u8 = 1 << 4;
+    const JUMP_START: usize = 340;
+    const JUMP_END: usize = 375;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, JUMP_START, JUMP_END, B);
+
+    DynamicScenario {
+        slug: "issue_213_drips_metal_block_audit_01".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "direct_probe_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "pre_jump".into(),
+                frame_index: JUMP_START.saturating_sub(1),
+            },
+            DynamicCheckpoint {
+                label: "jump_peak_window".into(),
+                frame_index: 380,
+            },
+            DynamicCheckpoint {
+                label: "contact_window".into(),
+                frame_index: 460,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 568, y: 575 }),
+        camera_position: Some(DynamicStartPosition { x: 240, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1748,8 +1799,8 @@ mod tests {
         diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
         diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
         idle_level_full_frame_scenario, idle_level_scenario,
-        issue_147_wall_side_jump_audit_scenario, issue_216_prize_audio_audit_scenario,
-        issue_249_juggernaut_wall_jump_audit_scenario,
+        issue_147_wall_side_jump_audit_scenario, issue_213_drips_metal_block_audit_scenario,
+        issue_216_prize_audio_audit_scenario, issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
         stomp_enemy_scenario, walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
@@ -1777,6 +1828,48 @@ mod tests {
             scenario.script[122] & JUMP,
             0,
             "jump released for one frame so the next press is a rising edge",
+        );
+    }
+
+    #[test]
+    fn issue_213_drips_metal_block_audit_preserves_current_direct_probe() {
+        let scenario = issue_213_drips_metal_block_audit_scenario();
+
+        assert_eq!(scenario.slug, "issue_213_drips_metal_block_audit_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 568, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 240, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 1_200);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert!(scenario.script[..340].iter().all(|buttons| *buttons == 0));
+        assert!(
+            scenario.script[340..=375]
+                .iter()
+                .all(|buttons| *buttons == 1 << 4),
+            "the route holds B over the verified jump window"
+        );
+        assert!(scenario.script[376..].iter().all(|buttons| *buttons == 0));
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "direct_probe_start",
+                "pre_jump",
+                "jump_peak_window",
+                "contact_window",
+                "tail"
+            ]
         );
     }
 

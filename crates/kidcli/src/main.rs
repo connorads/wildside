@@ -71,7 +71,8 @@ use scenarios::{
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
-    issue_216_prize_audio_audit_scenario, issue_249_blw2_left_pit_wall_jump_audit_scenario,
+    issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
+    issue_249_blw2_left_pit_wall_jump_audit_scenario,
     issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
@@ -151,6 +152,8 @@ enum RecordScenarioKind {
     HighwaterPass2GrowShooterTouchAudit,
     /// drive Red Stealth into a Level 02 wall and jump (#147 wall-grab "zoom to top" audit).
     Issue147WallSideJumpAudit,
+    /// preserve the current #155/#213 direct Drips/metal-block blocker probe.
+    Issue213DripsMetalBlockAudit,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
     Issue249WallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
@@ -2613,6 +2616,9 @@ fn build_record_scenario(
             highwater_pass2_grow_shooter_touch_audit_scenario()
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => issue_147_wall_side_jump_audit_scenario(),
+        RecordScenarioKind::Issue213DripsMetalBlockAudit => {
+            issue_213_drips_metal_block_audit_scenario()
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             issue_249_juggernaut_wall_no_jump_audit_scenario()
@@ -2699,6 +2705,7 @@ fn record_scenario_command(
             "highwater-pass2-grow-shooter-touch-audit"
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
+        RecordScenarioKind::Issue213DripsMetalBlockAudit => "issue213-drips-metal-block-audit",
         RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             "issue249-juggernaut-wall-no-jump-audit"
@@ -4920,6 +4927,43 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn build_record_scenario_issue213_drips_metal_block_audit_preserves_direct_probe() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::Issue213DripsMetalBlockAudit, 0x00, None);
+
+        assert_eq!(scenario.slug, "issue_213_drips_metal_block_audit_01");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x01),
+            "the named #155/#213 route targets Blue Lake Woods 2 regardless of the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 568, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 240, y: 352 })
+        );
+        assert_eq!(scenario.script[339], 0);
+        assert_eq!(
+            scenario.script[340] & (1 << 4),
+            1 << 4,
+            "B is held over the current oracle-clean jump window"
+        );
+        assert_eq!(scenario.script[376], 0);
+        assert!(
+            scenario
+                .checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "contact_window"
+                    && checkpoint.frame_index == 460),
+            "preserve the old Drips/RockTank contact sampling point while a natural route is built"
+        );
+    }
+
+    #[test]
     fn build_record_scenario_issue249_juggernaut_wall_no_jump_audit_uses_rhino_form() {
         let scenario = build_record_scenario(
             RecordScenarioKind::Issue249JuggernautWallNoJumpAudit,
@@ -5109,6 +5153,21 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-216-prize-audio-audit --scenario issue216-prize-audio-audit --level 00"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_issue213_drips_metal_block_audit() {
+        let command = record_scenario_command(
+            "issue-213-drips-metal-block-audit",
+            RecordScenarioKind::Issue213DripsMetalBlockAudit,
+            0x01,
+            None,
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-213-drips-metal-block-audit --scenario issue213-drips-metal-block-audit --level 01"
         );
     }
 
