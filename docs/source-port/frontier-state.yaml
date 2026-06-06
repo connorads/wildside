@@ -123,6 +123,10 @@
         "reason": "Rejected 2026-06-06. This settled Level 00 walk-right route is native-replayable and oracle state-clean, but the requested semantic gameplay case is already clean. Full `verify-recording --slug l0_walk_right_pure_probe` reports `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, with strict pixel diffs from frame 0 (forest colour swaps, `f0` MAE 1.7273113 / 3,609 changed pixels). The requested 0..120 case derives as `level00_walk_right_pure_case_00000_00120` and passes with matching `world.game_mode`, `camera`, `player.position`, `entities`, and `events`; `case reduce` reports it is already passing. Do not patch gameplay from this clean prefix. Track the strict-pixel colour mismatch as render evidence, not a reduced gameplay case."
       },
       {
+        "name": "Recording `record-frames-smoke` is ready to reduce into gameplay evidence",
+        "reason": "Rejected 2026-06-06. This is a two-frame record-frames tooling smoke bundle, not a gameplay repro, and it is stale on current main. `verify-recording --slug record-frames-smoke` fails with native recorded-vs-replayed trace drift at frame 0 (`recorded_trace_len=2`, `replay_trace_len=2`) while oracle state matches and strict pixels show the same Level 00 forest colour mismatch shape (`start` MAE 1.7273113 / 3,609 changed pixels). Do not patch gameplay from this smoke bundle."
+      },
+      {
         "name": "Recording `phase-1e-smoke` is ready to reduce into a LevelTransition gameplay case",
         "reason": "Rejected 2026-06-06. This old LevelTransition-to-InGame smoke route is stale on current main before any gameplay conclusion. `verify-recording --slug phase-1e-smoke` fails with native recorded-vs-replayed trace drift at frame 0 (`recorded_trace_len=120`, `replay_trace_len=121`) while oracle state still matches and strict pixels fail at `level_settle` with the same title-card colour mismatch shape (MAE 7.8519764 / 13,158 changed pixels). Do not patch level-entry gameplay or title-card rendering from this stale smoke bundle; re-record the LevelTransition smoke route on current main before using it as evidence."
       },
