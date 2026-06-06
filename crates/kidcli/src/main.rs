@@ -4808,12 +4808,12 @@ AddrTbl_LevelNames:
         );
         assert_eq!(
             scenario.start_position,
-            Some(DynamicStartPosition { x: 352, y: 560 }),
-            "block-grid scan pins the left pit wall at x=320, y=160..576"
+            Some(DynamicStartPosition { x: 352, y: 192 }),
+            "block-grid scan pins the left pit wall at x=320, y=160..576; use a top-shaft seed to avoid the lower rubber/bridge bounce"
         );
         assert_eq!(
             scenario.camera_position,
-            Some(DynamicStartPosition { x: 240, y: 448 })
+            Some(DynamicStartPosition { x: 240, y: 80 })
         );
         assert_eq!(scenario.playtest_form, Some(5));
         const LEFT: u8 = 1 << 2;

@@ -1297,10 +1297,11 @@ fn issue_249_blw2_left_pit_wall_scenario_for(slug: &str, pulse_jump: bool) -> Dy
             },
         ],
         // Level 01's rubber-block drop pit has a long left wall at block col
-        // 20, rows 10..35 (x=320, y=160..576). Spawn beside the wall so #249
-        // probes the reported pit, not the older Highwater right-wall route.
-        start_position: Some(DynamicStartPosition { x: 352, y: 560 }),
-        camera_position: Some(DynamicStartPosition { x: 240, y: 448 }),
+        // 20, rows 10..35 (x=320, y=160..576). Seed near the top of that same
+        // shaft: the lower y=560 probe lands on the rubber/bridge area and
+        // immediately diverges before reaching the wall-cling logic.
+        start_position: Some(DynamicStartPosition { x: 352, y: 192 }),
+        camera_position: Some(DynamicStartPosition { x: 240, y: 80 }),
         playtest_form: Some(5),
         initial_diamond_count: None,
         warp_to_level: Some(0x01),
