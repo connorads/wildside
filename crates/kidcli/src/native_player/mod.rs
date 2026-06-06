@@ -9559,6 +9559,24 @@ mod tests {
     }
 
     #[test]
+    fn red_stealth_zero_velocity_slope_still_selects_loc_a13a_frame() {
+        let mut trace = trace_with_player(4, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.kid_x_velocity = Some(0);
+        trace.kid_on_ground = Some(true);
+        trace.kid_on_slope = 1;
+        trace.kid_facing = Some(Direction::Right);
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(40),
+            "ASM loc_A13A/off_A190 writes a slope sprite even when x_vel is zero; native must not fall back to idle on wedged Samurai slope frames"
+        );
+    }
+
+    #[test]
     fn red_stealth_slope_render_flip_accounts_for_predrawn_loc_a13a_banks() {
         let selected_flip = |slope: i8, facing: Direction| {
             let mut trace = trace_with_player(4, 0);

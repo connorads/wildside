@@ -572,11 +572,11 @@ pub(super) fn select_player_frame<'a>(
             let frame_index =
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
             &player_visuals.walk[frame_index]
-        } else if x_velocity == 0 {
-            &player_visuals.idle
         } else if trace.kid_on_slope != 0 {
             // ASM loc_A13A / off_A190: non-Berzerker slope animation table
-            // selection follows the same `$FFFFF8F0 >> 8` phase.
+            // selection follows the same `$FFFFF8F0 >> 8` phase and happens
+            // before the standing-still draw state, so wedged forms do not
+            // flicker between idle and slope art when x_vel reaches zero.
             let facing = trace.kid_facing.unwrap_or(Direction::Right);
             let canonical_reverse = match (trace.kid_on_slope < 0, facing) {
                 (false, Direction::Right) | (true, Direction::Left) => false,
@@ -591,6 +591,8 @@ pub(super) fn select_player_frame<'a>(
             };
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
+        } else if x_velocity == 0 {
+            &player_visuals.idle
         } else {
             let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id()
                 || trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
