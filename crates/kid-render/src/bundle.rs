@@ -352,11 +352,15 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             murder_wall_flags: header.murder_wall_flags,
             background_scroll: level_bundle.parsed_bgscroll.clone(),
             foreground_layout: parsed_foreground_layout,
-            foreground_layout_bytes: foreground_layout,
+            foreground_layout_bytes: foreground_layout.clone(),
             block_layout_bytes: block_layout,
             background_layout_bytes: background_layout,
-            block_mapping: BlockVisualMapping::new(terrain_quads, block_quads)
-                .context("failed to build Level 1 block visual mapping")?,
+            block_mapping: BlockVisualMapping::new_with_level_terrain_tail(
+                terrain_quads,
+                block_quads,
+                &foreground_layout,
+            )
+            .context("failed to build Level 1 block visual mapping")?,
         },
         hud: HudVisuals {
             digits: hud_digits,

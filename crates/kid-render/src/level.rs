@@ -1,8 +1,9 @@
-use crate::tiles::TileQuad;
+use crate::tiles::{TileQuad, TileRef};
 use anyhow::{Result, bail};
 use kid_data::BgscrollProfile;
 
 const BLOCK_MAPPING_QUAD_COUNT: usize = 81;
+const FULL_BLOCK_MAPPING_QUAD_COUNT: usize = 256;
 const FOREGROUND_CELLS_PER_SCREEN_X: u16 = 20;
 const FOREGROUND_CELLS_PER_SCREEN_Y: u16 = 14;
 
@@ -123,6 +124,25 @@ impl BlockVisualMapping {
         })
     }
 
+    pub fn new_with_level_terrain_tail(
+        terrain_by_skin: Vec<TileQuad>,
+        block_quads: Vec<TileQuad>,
+        terrain_layout_bytes: &[u8],
+    ) -> Result<Self> {
+        let mut mapping = Self::new(terrain_by_skin, block_quads)?;
+        // ASM sub_302F6/loc_30336 and sub_3034A/loc_3037C (kid.asm:33895,
+        // 33929): block cells use `(cell & $00FF) << 3` as an unchecked byte
+        // offset from RAM `Block_Mappings`. That RAM table is only `$288`
+        // bytes, followed immediately by `Level_terrain_layout`, so high block
+        // skins deliberately read words made from the current level's terrain
+        // bytes rather than falling back to mapping entry zero.
+        mapping.block_quads.extend(
+            (BLOCK_MAPPING_QUAD_COUNT..FULL_BLOCK_MAPPING_QUAD_COUNT)
+                .map(|skin| block_mapping_overread_quad_loc_3037C(skin, terrain_layout_bytes)),
+        );
+        Ok(mapping)
+    }
+
     pub fn resolve(&self, skin: u8, block_type: Option<u8>) -> Option<ResolvedBlockVisual<'_>> {
         let index = usize::from(skin);
         match block_type {
@@ -137,10 +157,36 @@ impl BlockVisualMapping {
                 let kind = block_visual_kind(block_type);
                 self.block_quads
                     .get(index)
-                    .or(self.block_quads.first())
                     .map(|quad| ResolvedBlockVisual { kind, quad })
             }
         }
+    }
+}
+
+#[allow(non_snake_case)]
+fn block_mapping_overread_quad_loc_3037C(skin: usize, terrain_layout_bytes: &[u8]) -> TileQuad {
+    let tail_offset = skin
+        .saturating_mul(8)
+        .saturating_sub(BLOCK_MAPPING_QUAD_COUNT * 8);
+    let word = |offset: usize| -> u16 {
+        u16::from_be_bytes([
+            terrain_layout_bytes
+                .get(tail_offset + offset)
+                .copied()
+                .unwrap_or(0),
+            terrain_layout_bytes
+                .get(tail_offset + offset + 1)
+                .copied()
+                .unwrap_or(0),
+        ])
+    };
+    TileQuad {
+        tiles: [
+            TileRef::from_attr_word(word(0)),
+            TileRef::from_attr_word(word(2)),
+            TileRef::from_attr_word(word(4)),
+            TileRef::from_attr_word(word(6)),
+        ],
     }
 }
 

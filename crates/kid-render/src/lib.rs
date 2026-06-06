@@ -158,6 +158,11 @@ mod tests {
             .block_mapping
             .resolve(1, Some(7))
             .expect("shifting block mapping");
+        let high_skin = visuals
+            .level
+            .block_mapping
+            .resolve(0xEA, Some(10))
+            .expect("type-10 high skin block mapping");
 
         assert_eq!(terrain.kind, BlockVisualKind::Terrain);
         assert_eq!(terrain.quad.tiles[0].tile_index, 10);
@@ -177,6 +182,15 @@ mod tests {
         assert_eq!(
             shifting.quad.tiles[0].tile_index, 0x0204,
             "ASM sub_30194 sets d4=$FF, so sub_302F6/loc_30336 and sub_3034A/loc_3037C use the skin byte directly for all block types"
+        );
+        assert_eq!(high_skin.kind, BlockVisualKind::GenericBlock);
+        assert_eq!(
+            high_skin.quad.tiles[0].tile_index, 0x0009,
+            "ASM loc_3037C indexes past the 81 static Block_Mappings quads into Level_terrain_layout for high skins instead of falling back to entry zero"
+        );
+        assert!(
+            high_skin.quad.tiles[0].flip_x,
+            "the over-read bytes are interpreted as raw VDP attribute words"
         );
     }
 
