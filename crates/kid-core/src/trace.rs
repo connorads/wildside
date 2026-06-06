@@ -5771,6 +5771,9 @@ impl NativeRuntime {
                 let elapsed_secs = LEVEL_TIMER_START_SECONDS
                     .saturating_sub(self.level_timer.seconds)
                     .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                // ASM loc_C10A (kid.asm:15707): after loc_C0CC computes the
+                // remaining-time bonus, clamp the byte stored in
+                // `Level_completion_time` to `$FF`.
                 elapsed_secs.min(255) as u8
             },
             level_skip_cheat_enabled: 0,

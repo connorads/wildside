@@ -1843,10 +1843,12 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
     let intro_sequence_5_text_art =
         intro_sequence_5_text_art_loc_1B0F4(&data.intro_text_letters_art);
     vdp.write_vram(0xFA60, &intro_sequence_5_text_art);
+    // ASM sub_1C512 -> loc_1C51E (kid.asm:31257-31264): copy all
+    // 64 words from Pal_1C346 into Palette_Buffer_2 before any region overlay.
     vdp.write_cram_words(0, &data.palette_segment_2);
-    // ASM sub_1C512 (kid.asm:31257-31278): non-zero `$FFFFFC82` overlays
-    // 14 words at Palette_Buffer_2+$62, using Pal_1C3C6 for 1 and Pal_1C3D4
-    // for every other non-zero variant.
+    // ASM loc_1C540/loc_1C542 (kid.asm:31273-31278): non-zero `$FFFFFC82`
+    // overlays 14 words at Palette_Buffer_2+$62, using Pal_1C3C6 for 1 and
+    // Pal_1C3D4 for every other non-zero variant.
     match title_variant {
         0 => {}
         1 => vdp.write_cram_words(0x31, &data.intro_sequence_5_palette_variant_1_overlay),

@@ -6426,6 +6426,9 @@ impl NativeRuntime {
                 ((scaled >> 16) & 0xFFFF) as u16
             };
             let mut visual_accumulator = slice.walk_visual_accumulator.wrapping_add(delta);
+            // ASM loc_955A (kid.asm:11007): both ice and velocity-derived
+            // increments wrap the shared `$FFFFF8F0` phase once at `$600`
+            // before loc_9564 stores it and selects the charge pose.
             if visual_accumulator >= 0x0600 {
                 visual_accumulator = visual_accumulator.wrapping_sub(0x0600);
             }
