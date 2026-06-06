@@ -16662,6 +16662,11 @@ fn driller_drilled_cells_loc_3be78(
 ) -> Vec<DrilledBlockLoc3BE78> {
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
+    // ASM Driller.asm loc_3BE8E gates drilling on the selected linked child
+    // collision word (`d1=8` left child / `d1=4` right child), clears it,
+    // then probes that child's x position and y-16 cell before dispatching to
+    // loc_3BEDE/loc_3BEF2. Native has the child wall-contact gate in the
+    // object-step shell; this helper preserves the child-space cell probe.
     let probe_x = if enemy.facing == Direction::Right {
         cx + DRILLER_DRILL_CHILD_X_OFFSET
     } else {
