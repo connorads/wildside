@@ -63,11 +63,11 @@ use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
-    DynamicScenario, GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
-    diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
-    diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
-    enemy_spawn_audit_scenario, highwater_flag_transition_audit_scenario,
-    highwater_pass2_grow_shooter_touch_audit_scenario,
+    DynamicScenario, GameplayScenario, NativeDynamicRunOptions, Scenario,
+    diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
+    diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
+    diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
+    highwater_flag_transition_audit_scenario, highwater_pass2_grow_shooter_touch_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
@@ -79,8 +79,9 @@ use scenarios::{
     lava_weather_audit_scenario, level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
-    prize_block_scenario, stomp_enemy_scenario, walk_right_iron_knight_scenario,
-    walk_right_juggernaut_scenario, walk_right_red_stealth_scenario, walk_right_scenario,
+    prize_block_scenario, run_native_dynamic_scenario, stomp_enemy_scenario,
+    walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+    walk_right_red_stealth_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -221,6 +222,48 @@ enum Commands {
         /// Path to the DynamicScenario JSON to replay.
         #[arg(long)]
         scenario: PathBuf,
+        /// Optional ROM path (defaults to repo-root resolution).
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Optional upstream-dir path.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Probe a scripted recording scenario without writing a recording bundle.
+    ProbeRecordScenario {
+        /// Scenario kind.
+        #[arg(long, value_enum, default_value_t = RecordScenarioKind::WalkRight)]
+        scenario: RecordScenarioKind,
+        /// Level to warp into.
+        #[arg(long)]
+        level: u8,
+        /// Override the default scenario frame count (post-settle frames).
+        #[arg(long)]
+        walk_frames: Option<usize>,
+        #[arg(long, default_value_t = false)]
+        trace_physics: bool,
+        #[arg(long)]
+        frame_start: Option<usize>,
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Optional ROM path (defaults to repo-root resolution).
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Optional upstream-dir path.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Probe a DynamicScenario JSON without writing a recording bundle.
+    ProbeRecordScenarioFile {
+        /// Path to the DynamicScenario JSON to replay.
+        #[arg(long)]
+        scenario: PathBuf,
+        #[arg(long, default_value_t = false)]
+        trace_physics: bool,
+        #[arg(long)]
+        frame_start: Option<usize>,
+        #[arg(long)]
+        frame_end: Option<usize>,
         /// Optional ROM path (defaults to repo-root resolution).
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -1049,6 +1092,56 @@ fn main() -> Result<()> {
                     .unwrap_or(&record_to)
                     .display()
             );
+        }
+        Commands::ProbeRecordScenario {
+            scenario,
+            level,
+            walk_frames,
+            trace_physics,
+            frame_start,
+            frame_end,
+            rom,
+            dir,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let dynamic = build_record_scenario(scenario, level, walk_frames);
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            probe_dynamic_record_scenario(
+                &manifest,
+                &dynamic,
+                trace_physics,
+                frame_start,
+                frame_end,
+            )?;
+        }
+        Commands::ProbeRecordScenarioFile {
+            scenario,
+            trace_physics,
+            frame_start,
+            frame_end,
+            rom,
+            dir,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let dynamic = load_record_scenario_file(&scenario)?;
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            probe_dynamic_record_scenario(
+                &manifest,
+                &dynamic,
+                trace_physics,
+                frame_start,
+                frame_end,
+            )?;
         }
         Commands::PlayNative {
             rom,

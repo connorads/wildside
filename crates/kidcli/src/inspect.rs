@@ -603,17 +603,19 @@ fn print_trace_frames_in_range(
 ) {
     if let Some(start) = frame_start {
         let end = frame_end.unwrap_or(start);
-        for frame in trace
+        for (trace_index, frame) in trace
             .iter()
-            .filter(|frame| (start..=end).contains(&frame.frame_index))
+            .enumerate()
+            .filter(|(index, _)| (start..=end).contains(index))
         {
             let input = script
-                .get(frame.frame_index)
+                .get(trace_index)
                 .copied()
                 .map(kid_core::FrameInput::from_mask)
                 .unwrap_or_default();
             println!(
-                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                "frame {} (trace {:08X}): input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                trace_index,
                 frame.frame_index,
                 describe_frame_input(input),
                 frame.game_mode,
@@ -828,6 +830,97 @@ pub(crate) fn probe_native_gameplay_scenario(
     }
 
     print_trace_frames_in_range(&trace, &script, trace_physics, frame_start, frame_end);
+
+    Ok(())
+}
+
+pub(crate) fn probe_dynamic_record_scenario(
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    trace_physics: bool,
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+) -> Result<()> {
+    let trace = run_native_dynamic_scenario(
+        manifest.clone(),
+        scenario,
+        NativeDynamicRunOptions {
+            settled_warp: false,
+            trace_physics,
+        },
+    )?;
+    let final_frame = trace.last().ok_or_else(|| {
+        anyhow!(
+            "native trace was empty for dynamic scenario {}",
+            scenario.slug
+        )
+    })?;
+
+    println!("scenario: {}", scenario.slug);
+    println!("frames: {}", trace.len());
+    println!(
+        "final mode: {:?} (0x{:04X})",
+        final_frame.game_mode, final_frame.game_mode_value
+    );
+    println!("current level: 0x{:02X}", final_frame.current_level.0);
+    if let Some(level_name) = &final_frame.current_level_name {
+        println!("current level name: {level_name}");
+    }
+    println!(
+        "lives/hp: {}/{}",
+        final_frame.number_lives, final_frame.number_hitpoints
+    );
+    println!(
+        "active enemy objects: {}",
+        final_frame.active_enemy_object_count
+    );
+    println!(
+        "active platform objects: {}",
+        final_frame.active_platform_object_count
+    );
+    if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
+        println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
+    }
+    println!(
+        "camera: {:08X},{:08X}",
+        final_frame.camera_x_pos, final_frame.camera_y_pos
+    );
+    println!("active roster: {}", describe_active_objects(final_frame));
+
+    for checkpoint in &scenario.checkpoints {
+        if let Some(frame) =
+            native_trace_at_checkpoint(&trace, &checkpoint.label, checkpoint.frame_index)
+        {
+            println!(
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
+                checkpoint.label,
+                checkpoint.frame_index,
+                frame.game_mode,
+                frame.current_level.0,
+                frame.current_level_name.as_deref().unwrap_or(""),
+                frame.camera_x_pos,
+                frame.camera_y_pos,
+                frame.kid_x_pos.unwrap_or_default(),
+                frame.kid_y_pos.unwrap_or_default(),
+                frame.death_windup_elapsed,
+                frame.number_lives,
+                frame.number_hitpoints,
+                frame.number_objects,
+                frame.number_gfx_objects,
+                frame.active_enemy_object_count,
+                frame.active_platform_object_count,
+                describe_active_objects(frame)
+            );
+        }
+    }
+
+    print_trace_frames_in_range(
+        &trace,
+        &scenario.script,
+        trace_physics,
+        frame_start,
+        frame_end,
+    );
 
     Ok(())
 }
