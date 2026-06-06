@@ -248,6 +248,18 @@ passing. This route exposes no audio or gameplay mismatch. Remaining
 title/menu/options audio work needs a route that actually reaches those modes,
 or a real-device/output-path repro.
 
+Follow-up 2026-06-06 case-queue triage for #003/#160:
+`issue-playtest-title-menu-current-long-fixed` reaches DemoPlay at frame 3270 and
+Skydragon Castle 1 at frame 3301, but is stale rather than gameplay-authoritative
+on current main. Full `verify-recording` fails because oracle state diverges at
+`frame_003360@3360` on `player_1_level_id` (`native 0x1B`, oracle 0), and native
+recorded-vs-replayed trace first drifts at frame 3456. A focused `3300..3600`
+case derives as
+`issue-playtest-title-menu-current-long-fixed_case_03300_03600` and fails, but
+`case reduce` blocks with `source recording replay drifted at frame 3456`.
+Re-record this long title/demo route on current main before using it for
+title/menu/options audio or Skydragon gameplay work.
+
 Follow-up 2026-06-02 title-route case triage for #003: the older
 `issue-003-title-audio-current` bundle is native-replayable and its early
 audio windows pass (`0..120`, `120..240`), but full recording verification is
