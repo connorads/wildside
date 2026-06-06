@@ -879,16 +879,21 @@ fn recording_probe_metadata_mismatch_reason(
     recording: &NativeRecording,
     replay: &[NativeTraceFrame],
 ) -> Option<String> {
-    let expected_camera = recording.manifest.scenario.camera_position?;
+    recording.manifest.scenario.camera_position?;
+    let recorded_first_frame = recording.trace.first()?;
     let first_frame = replay.first()?;
-    let expected_x = u32::from(expected_camera.x) << 16;
-    let expected_y = u32::from(expected_camera.y) << 16;
-    if first_frame.camera_x_pos == expected_x && first_frame.camera_y_pos == expected_y {
+    if first_frame.camera_x_pos == recorded_first_frame.camera_x_pos
+        && first_frame.camera_y_pos == recorded_first_frame.camera_y_pos
+    {
         return None;
     }
     Some(format!(
-        "source recording probe metadata disagrees with replay frame 0 for `{}`: manifest camera={expected_x:08X},{expected_y:08X} replay camera={:08X},{:08X}; re-record or repair the recording manifest before treating this case as gameplay-authoritative",
-        recording.manifest.slug, first_frame.camera_x_pos, first_frame.camera_y_pos,
+        "source recording probe metadata disagrees with replay frame 0 for `{}`: recorded camera={:08X},{:08X} replay camera={:08X},{:08X}; re-record or repair the recording manifest before treating this case as gameplay-authoritative",
+        recording.manifest.slug,
+        recorded_first_frame.camera_x_pos,
+        recorded_first_frame.camera_y_pos,
+        first_frame.camera_x_pos,
+        first_frame.camera_y_pos,
     ))
 }
 
@@ -3014,7 +3019,11 @@ mod tests {
                     settle_oracle_warp: true,
                 },
             },
-            trace: vec![NativeTraceFrame::default()],
+            trace: vec![NativeTraceFrame {
+                camera_x_pos: 0x0570_0000,
+                camera_y_pos: 0x0380_0000,
+                ..NativeTraceFrame::default()
+            }],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
             legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
@@ -3028,7 +3037,7 @@ mod tests {
             .expect("stale probe metadata should block recording cases");
 
         assert!(reason.contains("level3-flag-stale-camera"));
-        assert!(reason.contains("manifest camera=05700000,03800000"));
+        assert!(reason.contains("recorded camera=05700000,03800000"));
         assert!(reason.contains("replay camera=05000000,03800000"));
     }
 
@@ -3070,13 +3079,78 @@ mod tests {
                     settle_oracle_warp: true,
                 },
             },
-            trace: vec![NativeTraceFrame::default()],
+            trace: vec![NativeTraceFrame {
+                camera_x_pos: 0x0500_0000,
+                camera_y_pos: 0x0380_0000,
+                ..NativeTraceFrame::default()
+            }],
             legacy_block_destroy_direction_frames: BTreeSet::default(),
             legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
         };
         let replay_frame = NativeTraceFrame {
             camera_x_pos: 0x0500_0000,
             camera_y_pos: 0x0380_0000,
+            ..NativeTraceFrame::default()
+        };
+
+        assert!(recording_probe_metadata_mismatch_reason(&recording, &[replay_frame]).is_none());
+    }
+
+    #[test]
+    fn recording_probe_metadata_mismatch_accepts_effective_settled_camera_seed() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("blw2-direct-probe-effective-camera"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(1),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("blw2-direct-probe-effective-camera"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: Some(DynamicStartPosition {
+                        x: 0x0157,
+                        y: 0x00a0,
+                    }),
+                    camera_position: Some(DynamicStartPosition {
+                        x: 0x00f0,
+                        y: 0x0050,
+                    }),
+                    playtest_form: None,
+                    initial_diamond_count: None,
+                    warp_to_level: Some(1),
+                    settle_oracle_warp: true,
+                },
+            },
+            trace: vec![NativeTraceFrame {
+                camera_x_pos: 0x00ea_0000,
+                camera_y_pos: 0x004a_0000,
+                ..NativeTraceFrame::default()
+            }],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let replay_frame = NativeTraceFrame {
+            camera_x_pos: 0x00ea_0000,
+            camera_y_pos: 0x004a_0000,
             ..NativeTraceFrame::default()
         };
 
