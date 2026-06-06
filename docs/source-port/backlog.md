@@ -4302,6 +4302,17 @@ hurt `PlaySound(97)` frame 64. The derived 0..120 case
 `issue-216-prize-audio-probe-columnscan-contact2-current_case_00000_00120`
 passes. Do not reselect this recording as a gameplay case; remaining #216 work
 is rendered pixel/waveform alignment and the level-complete cut-off report.
+Follow-up 2026-06-06: the delegated case-queue target
+`issue-216-prize-audio-probe-columnscan-contact-current_case_00000_00120` is
+not current gameplay evidence. Fresh `case verify` rewrote it to blocked with
+`source recording replay drifted at frame 63`; direct native-only source
+verification fails at the same frame. The sibling
+`issue-216-prize-audio-probe-columnscan-current_case_00000_00120` is also
+blocked, with source replay drift at frame 62. Do not patch combat from either
+stale queue entry; keep using the later
+`issue-216-prize-audio-probe-columnscan-contact2-current_case_00000_00120`
+green result and continue #216 from waveform/rendered-pixel parity or a fresh
+level-complete audio route.
 Note 2026-06-02 for #216: delegated x140 prize-audio probe
 `issue-216-prize-audio-probe-x140-refresh` first exposed a real native-only
 gameplay bug: Kid idled at x=`$008C` while the first Level 00 Dragon approached,
