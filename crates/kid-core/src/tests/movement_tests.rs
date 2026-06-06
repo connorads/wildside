@@ -6900,6 +6900,16 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E98: exact-zero x_vel also takes the `bpl.w loc_8EC8` branch.
+    #[test]
+    fn loc_8e98_zero_velocity_keeps_left_snap() {
+        assert_eq!(
+            crate::movement::negative_slope_dispatch_loc_8E98(PlayerForm::Skycutter, 0x37_0000, 0,),
+            crate::movement::NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos: 0x2F_0000 },
+            "ASM loc_8E98: zero vel is plus/non-negative, so it keeps left-edge snap at $2F"
+        );
+    }
+
     /// ASM loc_8E3E -> sub_9386 -> loc_8E98: a current-row slope returns
     /// negative, so non-bitmask helmets tile-snap into the standing path instead
     /// of entering the loc_9D22 slope-walk velocity path.
