@@ -7220,15 +7220,15 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 #[cfg(test)]
 mod tests {
     use super::{
-        level_entry_title_advance_x, level_entry_title_axis_step,
-        level_entry_title_deferred_number_indices_loc_1ABF4,
+        airborne_slope_landing_handoff_x_velocity_loc_a99e, level_entry_title_advance_x,
+        level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
     };
-    use crate::types::RomRandomState;
+    use crate::types::{FrameInput, PlayerForm, RomRandomState};
 
     #[test]
     fn level_entry_title_space_token_adds_10_pixels_loc_1abea() {
@@ -7419,6 +7419,132 @@ mod tests {
             level_entry_title_worker_axis_pos(0xFFE0_0000, 0x0080_0000, y_step, 32),
             0x0030_0000,
             "ASM loc_1AD3A should keep the other axis moving until its own compare matches",
+        );
+    }
+
+    #[test]
+    fn loc_a99e_airborne_handoff_uses_rightward_cap_bleed_tail() {
+        let handoff = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            0x0004_2000,
+            0x0004_1000,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(
+            handoff,
+            Some(0x0002_7300),
+            "ASM loc_A99E -> loc_8BF0 should carry the rightward sub_B084 cap-bleed tail into the first walking advance",
+        );
+    }
+
+    #[test]
+    fn loc_a99e_airborne_handoff_uses_leftward_cap_bleed_tail() {
+        let handoff = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            -0x0004_2000,
+            -0x0004_1000,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(
+            handoff,
+            Some(-0x0002_7300),
+            "ASM loc_A99E -> loc_8BF0 should mirror the cap-bleed handoff for leftward airborne landings",
+        );
+    }
+
+    #[test]
+    fn loc_a99e_airborne_handoff_requires_crossing_back_toward_cap() {
+        let unchanged = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            0x0004_1000,
+            0x0004_1000,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+        let unchanged_left = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            -0x0004_1000,
+            -0x0004_1000,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+        let accelerating_right = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            0x0004_0000,
+            0x0004_1000,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+        let accelerating_left = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            -0x0004_0000,
+            -0x0004_1000,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(
+            unchanged, None,
+            "ASM loc_A99E should not take the cap-bleed handoff when sub_B084 leaves x_vel unchanged",
+        );
+        assert_eq!(
+            unchanged_left, None,
+            "ASM loc_A99E should not take the mirrored cap-bleed handoff when leftward sub_B084 leaves x_vel unchanged",
+        );
+        assert_eq!(
+            accelerating_right, None,
+            "ASM loc_A99E should not treat normal rightward acceleration as a cap-bleed handoff",
+        );
+        assert_eq!(
+            accelerating_left, None,
+            "ASM loc_A99E should not treat normal leftward acceleration as a cap-bleed handoff",
+        );
+    }
+
+    #[test]
+    fn loc_a99e_airborne_handoff_requires_remaining_over_cap_tail() {
+        let right_at_cap = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            0x0002_8000,
+            0x0002_7500,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+        let left_at_cap = airborne_slope_landing_handoff_x_velocity_loc_a99e(
+            -0x0002_8000,
+            -0x0002_7500,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(
+            right_at_cap, None,
+            "ASM loc_A99E should use the ordinary advance once rightward cap bleed has already reached the cap",
+        );
+        assert_eq!(
+            left_at_cap, None,
+            "ASM loc_A99E should use the ordinary advance once leftward cap bleed has already reached the cap",
         );
     }
 
