@@ -4571,7 +4571,7 @@ Note 2026-06-04 for #249: added named Blue Lake Woods 2 pit audits
 `issue249-blw2-left-pit-wall-jump-audit`. The block-grid scan pins the reported
 rubber-block drop pit's left wall at level 0x01 block col 20 rows 10..35
 (x=320, y=160..576), and both scenarios seed Juggernaut/Rhino beside it at
-(352,560) with camera (240,448). Builder tests guard the level, coordinates,
+(352,192) with camera (240,80). Builder tests guard the level, coordinates,
 helmet, and jump/no-jump masks. Fresh recording
 `.cache/recordings/issue-249-blw2-left-pit-wall-jump-audit` is native-replay
 deterministic, but full oracle verification still blocks at checkpoint 30 on
@@ -4582,6 +4582,14 @@ probe.
 Follow-up 2026-06-04: recording verification now keeps ordinary state compares
 camera-strict but ignores camera position for explicit `camera_position` probe
 recordings so those mid-level visual patches do not hide Kid-state feedback.
+Follow-up 2026-06-06: added cache-backed native regression
+`issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut`, running
+the BLW2 no-jump scenario with generated level data. Native stays on level
+0x01 as helmet 5, grounded at y=$00A00000 with y_velocity=0, ledge snap
+cooldown=0, `jump_buffer=0`, and `wall_cling=none` at scenario frames 30/90/179.
+This confirms the current direct BLW2 left-wall probe does not reproduce the
+reported no-input launch; keep #249 open pending a natural route or richer probe
+that reproduces the live playtest failure.
 Re-running the pit jump audit now gets past the camera false-blocker and fails
 on the actual probe-state mismatch at frame 30: native has already bounced/moved
 from the rubber pit seed (`kid=(348,139)`, moving up-left), while oracle remains

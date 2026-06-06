@@ -2936,7 +2936,9 @@ mod tests {
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
     use crate::recording;
-    use crate::scenarios::DynamicStartPosition;
+    use crate::scenarios::{
+        DynamicStartPosition, NativeDynamicRunOptions, run_native_dynamic_scenario,
+    };
     use crate::verify::verify_soak_level_10m;
     use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
     use kid_data::{
@@ -2945,11 +2947,36 @@ mod tests {
     use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
     use std::cell::{Cell, RefCell};
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempfile::TempDir;
 
     const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
     const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
+
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(Path::parent)
+                .expect("kidcli crate should live under <repo>/crates/kidcli")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed kidcli test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+    }
 
     fn write_generated_asset_source_fixture(source_root: &Path) {
         fs::create_dir_all(source_root.join("code/enemy")).expect("enemy dir");
@@ -4829,6 +4856,62 @@ AddrTbl_LevelNames:
                 .iter()
                 .any(|checkpoint| checkpoint.label == "left_pit_wall_hold_loc_aba4"),
             "ASM loc_ABA4 is the pull-up gate this scenario is meant to audit"
+        );
+    }
+
+    #[test]
+    fn issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = build_record_scenario(
+            RecordScenarioKind::Issue249Blw2LeftPitWallNoJumpAudit,
+            0x00,
+            None,
+        );
+
+        let trace = run_native_dynamic_scenario(
+            manifest,
+            &scenario,
+            NativeDynamicRunOptions {
+                settled_warp: false,
+                trace_physics: true,
+            },
+        )
+        .expect("native BLW2 left-pit wall probe should run");
+
+        assert_eq!(trace.len(), scenario.frame_count);
+        let frame = |index: usize| {
+            trace
+                .get(index)
+                .unwrap_or_else(|| panic!("missing native scenario frame {index}"))
+        };
+        let contact = frame(30);
+        let hold = frame(90);
+        let tail = frame(179);
+
+        // ASM kid_flip -> loc_ABA4 gates the ledge pull-up to The Kid.  The
+        // reported no-jump Rhino/Juggernaut wall contact must therefore stay
+        // out of the ledge snap path unless a separate form-specific path is
+        // found.
+        for checkpoint in [contact, hold, tail] {
+            assert_eq!(checkpoint.current_level, LevelId(0x01));
+            assert_eq!(checkpoint.current_helmet_id, 5);
+            assert_eq!(checkpoint.kid_y_velocity, Some(0));
+            assert_eq!(checkpoint.ledge_snap_cooldown, 0);
+            assert_eq!(checkpoint.kid_on_ground, Some(true));
+        }
+        assert_eq!(contact.kid_y_pos, Some(0x00A0_0000));
+        assert_eq!(hold.kid_y_pos, contact.kid_y_pos);
+        assert_eq!(tail.kid_y_pos, contact.kid_y_pos);
+        let collision_probe = tail
+            .gameplay_debug_fields
+            .get("kid_collision_handoff_probe")
+            .expect("tail collision handoff probe");
+        assert!(
+            collision_probe.contains("jump_buffer=0")
+                && collision_probe.contains("wall_cling=none"),
+            "no-jump BLW2 left-pit wall probe should not carry jump buffer or wall cling: {collision_probe}"
         );
     }
 
