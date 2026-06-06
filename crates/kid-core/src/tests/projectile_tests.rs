@@ -340,6 +340,82 @@ mod chunk_06 {
         );
     }
 
+    /// ASM off_AFD8[2] (kid.asm:13845): Iron Knight ice-block break jumps to
+    /// `IceBlock_SmashAndLoadBullets`, which calls `IceBlock_LoadBullets`
+    /// before spawning the cosmetic sub_10F9C effect.
+    #[test]
+    fn loc_af96_iron_knight_ice_block_loads_bullets_loc_11052() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        runtime.progression.invulnerable_frames = 10;
+
+        let mut grid = grid_with_floor_at_row(14);
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE2, 0x01));
+        let ice_cell = grid.cell_at(5, 14);
+        assert_eq!(ice_cell.block_type, terrain::BlockType::Ice);
+        assert!(
+            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 2, 120, 56).is_some_and(
+                |target| target == (5, 13)
+                    && NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(
+                        grid.cell_at(target.0, target.1)
+                    )
+            ),
+            "ASM sub_11006 should find an open upward target cell for this fixture"
+        );
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+        assert!(
+            !cell_after.has_block,
+            "ASM IceBlock_SmashAndLoadBullets should still delete the contacted ice block"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects.len(),
+            1,
+            "ASM IceBlock_SmashAndLoadBullets should still spawn the sub_10F9C ice effect"
+        );
+        assert_eq!(
+            (
+                runtime.block_destroy_effects[0].x_px,
+                runtime.block_destroy_effects[0].y_px,
+            ),
+            (80, 224),
+            "fixture should exercise the ice block at col 5 row 14"
+        );
+        assert_eq!(
+            runtime
+                .projectiles
+                .iter()
+                .map(|p| (
+                    p.kind,
+                    p.x_pos >> 16,
+                    p.y_pos >> 16,
+                    p.x_velocity,
+                    p.y_velocity,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (EnemyProjectileKind::ShooterBlock, 88, 228, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, -(4 << 16)),
+            ],
+            "ASM IceBlock_LoadBullets remaps Iron-Knight above-hit d6=2 to upward d6=0 and native's later projectile pass advances the loaded centre, left-lower, then right-lower shooter objects once",
+        );
+        assert_eq!(runtime.opening_slice.unwrap().player.y_velocity, -0x8000);
+    }
+
     /// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
     /// After `sub_B55C` finds a smash block, `off_B058 -> loc_B070` loads
     /// smash bits and `sub_B000` rebounds Kid with `move.l #$FFFC8000,y_vel`.

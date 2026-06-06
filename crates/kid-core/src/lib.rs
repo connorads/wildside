@@ -3194,6 +3194,31 @@ impl NativeRuntime {
                                 slice.player.on_ground = false;
                             }
                             blocks::IronKnightBlockEffectSubAF7A::Ice => {
+                                // ASM off_AFD8[2] -> IceBlock_SmashAndLoadBullets
+                                // (kid.asm:13845, 22849): Iron Knight ice
+                                // breaks load bullets through sub_11006 before
+                                // the sub_10F9C cosmetic worker is spawned.
+                                let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    grid.width_cells,
+                                    grid.height_cells,
+                                )
+                                .is_some_and(
+                                    |(target_col, target_row)| {
+                                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                                            grid.cell_at(target_col, target_row),
+                                        )
+                                    },
+                                );
+                                if target_open {
+                                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                                        probe.cell_x,
+                                        probe.cell_y,
+                                        Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    ));
+                                }
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,
