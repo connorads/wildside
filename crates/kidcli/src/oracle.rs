@@ -34,6 +34,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vsram_dump_frames: Option<String>,
     pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) capture_cpu_state: bool,
+    pub(crate) capture_settle_trace: bool,
 }
 
 /// Abstraction over emulator backends for oracle comparison.
@@ -103,12 +104,30 @@ pub struct OracleManifest {
     pub memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default)]
     pub vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
+    #[serde(default)]
+    pub settle_trace: Vec<OracleSettleTraceRow>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
 pub struct OracleVdpPixelSampleRow {
     pub frame: usize,
     pub samples: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+pub struct OracleSettleTraceRow {
+    pub phase: String,
+    pub step: usize,
+    pub game_mode: u16,
+    pub current_level_id: u16,
+    pub paused: bool,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub kid_x_vel: i32,
+    pub kid_y_vel: i32,
+    pub number_objects: u16,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -402,6 +421,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");
     }
+    if options.capture_settle_trace {
+        cmd.arg("--capture-settle-trace");
+    }
     let stdout = capture_stdout(&mut cmd, None)?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
 }
@@ -637,7 +659,7 @@ fn quote_argument(value: &OsStr) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::HELPER_TEMPLATE;
+    use super::{HELPER_TEMPLATE, OracleManifest};
 
     #[test]
     fn helper_settles_level_zero_recording_oracles() {
@@ -669,6 +691,45 @@ mod tests {
                 && HELPER_TEMPLATE.contains("Some(read_wram_i32(&work_ram, KID_Y_VEL_ADDR))"),
             "oracle Kid velocity must come from $FFFF24E0 + x_vel/y_vel, not the stale first gfx slot"
         );
+    }
+
+    #[test]
+    fn oracle_manifest_deserialises_hidden_settle_trace_rows() {
+        let manifest: OracleManifest = serde_json::from_str(
+            r#"{
+                "sample_rate": 44100,
+                "audio_path": "audio.wav",
+                "frames": [],
+                "states": [],
+                "settle_trace": [
+                    {
+                        "phase": "target_live",
+                        "step": 34,
+                        "game_mode": 12,
+                        "current_level_id": 1,
+                        "paused": false,
+                        "camera_x_pos": 0,
+                        "camera_y_pos": 1835008,
+                        "kid_x_pos": 2097152,
+                        "kid_y_pos": 12517376,
+                        "kid_x_vel": 0,
+                        "kid_y_vel": 0,
+                        "number_objects": 4
+                    }
+                ]
+            }"#,
+        )
+        .expect("manifest should accept diagnostic hidden settle rows");
+
+        let row = &manifest.settle_trace[0];
+        assert_eq!(row.phase, "target_live");
+        assert_eq!(row.step, 34);
+        assert_eq!(row.game_mode, 0x000C);
+        assert_eq!(row.current_level_id, 0x0001);
+        assert_eq!(row.camera_y_pos, 0x001C_0000);
+        assert_eq!(row.kid_x_pos, 0x0020_0000);
+        assert_eq!(row.kid_y_pos, 0x00BF_0000);
+        assert_eq!(row.number_objects, 4);
     }
 
     #[test]

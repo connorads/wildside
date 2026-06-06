@@ -856,6 +856,9 @@ enum Commands {
         /// Capture M68K CPU registers (PC, D0-D7, A0-A6, SR) at each checkpoint
         #[arg(long, default_value_t = false)]
         capture_cpu_state: bool,
+        /// Capture hidden oracle target-level settle rows before scenario frame 0
+        #[arg(long, default_value_t = false)]
+        capture_settle_trace: bool,
     },
     /// Compare sweep results between three physics orderings.
     SweepCompare {
@@ -1934,6 +1937,7 @@ fn main() -> Result<()> {
             vdp_pixel_samples,
             when,
             capture_cpu_state,
+            capture_settle_trace,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1980,6 +1984,7 @@ fn main() -> Result<()> {
                 vsram_dump_frames: vsram_dump_frames.clone(),
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 capture_cpu_state,
+                capture_settle_trace,
             };
             let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
                 &env,
@@ -2050,6 +2055,29 @@ fn main() -> Result<()> {
                     eprintln!(
                         "  --when filter: {shown}/{} rows shown",
                         watch_rows_in_range.len()
+                    );
+                }
+            }
+
+            if !oracle_manifest.settle_trace.is_empty() {
+                println!(
+                    "settle_phase,settle_step,game_mode,current_level_id,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects"
+                );
+                for row in &oracle_manifest.settle_trace {
+                    println!(
+                        "{},{},0x{:04X},0x{:04X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{}",
+                        row.phase,
+                        row.step,
+                        row.game_mode,
+                        row.current_level_id,
+                        row.paused,
+                        row.camera_x_pos,
+                        row.camera_y_pos,
+                        row.kid_x_pos,
+                        row.kid_y_pos,
+                        row.kid_x_vel as u32,
+                        row.kid_y_vel as u32,
+                        row.number_objects,
                     );
                 }
             }

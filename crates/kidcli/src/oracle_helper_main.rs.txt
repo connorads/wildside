@@ -127,6 +127,22 @@ struct OracleVdpPixelSampleRow {
     samples: String,
 }
 
+#[derive(Debug, Serialize)]
+struct OracleSettleTraceRow {
+    phase: &'static str,
+    step: usize,
+    game_mode: u16,
+    current_level_id: u16,
+    paused: bool,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    kid_x_vel: i32,
+    kid_y_vel: i32,
+    number_objects: u16,
+}
+
 fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
     if spec.is_empty() {
         return Ok(Vec::new());
@@ -197,6 +213,8 @@ struct OracleManifest {
     memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    settle_trace: Vec<OracleSettleTraceRow>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -519,6 +537,7 @@ fn main() -> Result<()> {
     let mut vsram_dump_frames_spec = String::new();
     let mut vdp_pixel_samples_spec = String::new();
     let mut capture_cpu_state = false;
+    let mut capture_settle_trace = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -535,6 +554,7 @@ fn main() -> Result<()> {
             "--vsram-dump-frames" => vsram_dump_frames_spec = args.next().unwrap_or_default(),
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
+            "--capture-settle-trace" => capture_settle_trace = true,
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -556,7 +576,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, capture_cpu_state)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, capture_cpu_state, capture_settle_trace)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -622,7 +642,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool, capture_settle_trace: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -635,9 +655,11 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut frame_crcs: Vec<u32> = Vec::with_capacity(resolved.frame_count);
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
+    let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
     if let Some(target_level) = resolved.warp_to_level {
+        let settle_trace_out = capture_settle_trace.then_some(&mut settle_trace);
         boot_and_warp_oracle(
             &mut emulator,
             &mut renderer,
@@ -645,6 +667,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
             &mut save_writer,
             target_level,
             resolved.settle_oracle_warp,
+            settle_trace_out,
         )?;
     }
     if let Some(position) = resolved.start_position {
@@ -802,6 +825,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frame_crcs,
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
+        settle_trace,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())
@@ -850,6 +874,7 @@ fn run_enemy_layout_trace(rom: &[u8], resolved: &ResolvedScenario) -> Result<()>
             &mut save_writer,
             target_level,
             resolved.settle_oracle_warp,
+            None,
         )?;
     }
 
@@ -2110,6 +2135,7 @@ fn boot_and_warp_oracle(
     save_writer: &mut NullSaveWriter,
     target_level: u8,
     settle_oracle_warp: bool,
+    mut settle_trace: Option<&mut Vec<OracleSettleTraceRow>>,
 ) -> Result<()> {
     let no_input = GenesisInputs::default();
 
@@ -2132,6 +2158,7 @@ fn boot_and_warp_oracle(
                 audio,
                 save_writer,
                 target_level,
+                settle_trace.as_deref_mut(),
             )?;
         }
         return Ok(());
@@ -2276,7 +2303,8 @@ fn boot_and_warp_oracle(
             // pausing is enabled, and direct warp fallback must also prove it
             // reached the requested level instead of the pre-warp level.
             let mut stable_target_frames = 0usize;
-            for _ in 0..900 {
+            for step in 0..900 {
+                capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "target_live", step);
                 if target_level_is_live(emulator, target_level) {
                     stable_target_frames += 1;
                     if stable_target_frames >= 60 {
@@ -2317,6 +2345,7 @@ fn settle_title_card_target_level(
     audio: &mut AudioCollector,
     save_writer: &mut NullSaveWriter,
     target_level: u8,
+    mut settle_trace: Option<&mut Vec<OracleSettleTraceRow>>,
 ) -> Result<()> {
     let no_input = GenesisInputs::default();
 
@@ -2346,7 +2375,8 @@ fn settle_title_card_target_level(
     clear_input_latches(emulator);
 
     let mut stable_target_frames = 0usize;
-    for _ in 0..900 {
+    for step in 0..900 {
+        capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "title_target_live", step);
         if target_level_is_live(emulator, target_level) {
             stable_target_frames += 1;
             if stable_target_frames >= 60 {
@@ -2490,6 +2520,31 @@ fn target_level_is_live(emulator: &mut GenesisEmulator, target_level: u8) -> boo
         && read_number_objects(emulator) != 0
 }
 
+fn capture_settle_trace_row(
+    trace: Option<&mut Vec<OracleSettleTraceRow>>,
+    emulator: &mut GenesisEmulator,
+    phase: &'static str,
+    step: usize,
+) {
+    let Some(trace) = trace else {
+        return;
+    };
+    trace.push(OracleSettleTraceRow {
+        phase,
+        step,
+        game_mode: read_emulator_wram_u16(emulator, GAME_MODE_ADDR),
+        current_level_id: read_emulator_wram_u16(emulator, CURRENT_LEVEL_ID_ADDR),
+        paused: read_emulator_wram_u8(emulator, GAME_PAUSED_ADDR) != 0,
+        camera_x_pos: read_emulator_wram_u32(emulator, CAMERA_X_POS_ADDR),
+        camera_y_pos: read_emulator_wram_u32(emulator, CAMERA_Y_POS_ADDR),
+        kid_x_pos: read_emulator_wram_u32(emulator, KID_X_POS_ADDR),
+        kid_y_pos: read_emulator_wram_u32(emulator, KID_Y_POS_ADDR),
+        kid_x_vel: read_emulator_wram_i32(emulator, KID_X_VEL_ADDR),
+        kid_y_vel: read_emulator_wram_i32(emulator, KID_Y_VEL_ADDR),
+        number_objects: read_emulator_wram_u16(emulator, NUMBER_OBJECTS_ADDR),
+    });
+}
+
 fn read_kid_x_pos(emulator: &mut GenesisEmulator) -> u32 {
     let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
     u32::from_be_bytes([
@@ -2506,6 +2561,33 @@ fn read_number_objects(emulator: &mut GenesisEmulator) -> u16 {
         mem.read(work_ram_index(NUMBER_OBJECTS_ADDR)),
         mem.read(work_ram_index(NUMBER_OBJECTS_ADDR) + 1),
     ])
+}
+
+fn read_emulator_wram_u8(emulator: &mut GenesisEmulator, address: usize) -> u8 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    mem.read(work_ram_index(address))
+}
+
+fn read_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize) -> u16 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    u16::from_be_bytes([
+        mem.read(work_ram_index(address)),
+        mem.read(work_ram_index(address) + 1),
+    ])
+}
+
+fn read_emulator_wram_u32(emulator: &mut GenesisEmulator, address: usize) -> u32 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    u32::from_be_bytes([
+        mem.read(work_ram_index(address)),
+        mem.read(work_ram_index(address) + 1),
+        mem.read(work_ram_index(address) + 2),
+        mem.read(work_ram_index(address) + 3),
+    ])
+}
+
+fn read_emulator_wram_i32(emulator: &mut GenesisEmulator, address: usize) -> i32 {
+    i32::from_be_bytes(read_emulator_wram_u32(emulator, address).to_be_bytes())
 }
 
 fn write_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize, value: u16) {

@@ -127,6 +127,7 @@ pub fn test_hypothesis(
             vsram_dump_frames: None,
             vdp_pixel_samples: None,
             capture_cpu_state: false,
+            capture_settle_trace: false,
         };
         let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
             &env,
