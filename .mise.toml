@@ -102,6 +102,7 @@ description = "Refresh human-review evidence, then fail until all source-port va
 run = """
 scripts/strict-rust.sh sh -ec '
 for slug in \
+  issue-210-title-menu-tail \
   issue-160-audio-latest-validation
 do
   cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only

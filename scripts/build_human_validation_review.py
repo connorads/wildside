@@ -47,6 +47,57 @@ def repo_path(path: str) -> Path:
 # rows are closed by stronger tests/evidence, so they must not block this gate.
 REVIEW_ITEMS = (
     ReviewItem(
+        backlog_row="#210",
+        title="Intro title and menu return",
+        verifier=(
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-210-title-menu-tail"
+        ),
+        decision=(
+            "Inspect whether the Start-skipped intro/title path shows readable "
+            "title and menu graphics without the earlier green shell or demo "
+            "re-entry corruption."
+        ),
+        images=(
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-210-title-menu-tail/verify/native/002599_pre_start.png"
+                ),
+                "IntroSequence6 just before pressing Start",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-210-title-menu-tail/verify/native/002700_menu_wait.png"
+                ),
+                "Title art restored while waiting for the second Start",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-210-title-menu-tail/verify/native/002720_menu_visible.png"
+                ),
+                "Readable title menu after the second Start",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-210-title-menu-tail/verify/native/003299_tail.png"
+                ),
+                "Tail checkpoint remains on the title/menu path",
+            ),
+        ),
+        transcripts=(
+            repo_path(".cache/recordings/issue-210-title-menu-tail/transcript.txt"),
+        ),
+        evidence_files=(
+            repo_path(".cache/recordings/issue-210-title-menu-tail/verify/report.json"),
+        ),
+        note=(
+            "Mechanical recheck on 2026-06-06: trace, oracle state, and oracle "
+            "frame comparison all pass for this focused Start/menu slice; the "
+            "remaining #210 decision is whether a broader manual route still "
+            "reproduces the playtest symptoms."
+        ),
+    ),
+    ReviewItem(
         backlog_row="#160",
         title="Native music and sound effects",
         verifier=(

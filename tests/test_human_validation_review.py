@@ -14,6 +14,12 @@ import build_human_validation_review as review  # noqa: E402
 
 
 class HumanValidationReviewTests(unittest.TestCase):
+    def test_review_items_cover_current_open_review_rows(self) -> None:
+        review_rows = {item.backlog_row for item in review.REVIEW_ITEMS}
+
+        self.assertIn("#160", review_rows)
+        self.assertIn("#210", review_rows)
+
     def test_rel_from_output_supports_sibling_cache_paths(self) -> None:
         output_dir = REPO_ROOT / ".cache" / "human-validation"
         image_path = (
