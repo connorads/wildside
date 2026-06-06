@@ -34,6 +34,7 @@ class ReviewItem:
     images: tuple[ReviewImage, ...]
     audio: tuple[ReviewAudio, ...] = ()
     transcripts: tuple[Path, ...] = ()
+    evidence_files: tuple[Path, ...] = ()
     note: str | None = None
 
 
@@ -68,10 +69,18 @@ REVIEW_ITEMS = (
         transcripts=(
             repo_path(".cache/recordings/issue-160-audio-latest-validation/transcript.txt"),
         ),
+        evidence_files=(
+            repo_path(
+                ".cache/recordings/issue-160-audio-latest-validation/audio-events.txt"
+            ),
+            repo_path(
+                ".cache/recordings/issue-160-audio-latest-validation/audio-diagnostics.txt"
+            ),
+        ),
         note=(
-            "Mechanical check on 2026-05-25: the WAV is 10.00s stereo at "
-            "44.1 kHz, RMS 0.052095, peak 0.367125, with all 100 0.1s "
-            "windows above 0.001 RMS."
+            "Mechanical check on 2026-06-06: the WAV is 10.00s stereo at "
+            "44.1 kHz, and the live SDL/GEMS diagnostics report 600 generated "
+            "and queued frames, no queue errors, and no skipped full frames."
         ),
     ),
 )
@@ -97,6 +106,9 @@ def validate_inputs() -> list[Path]:
         for transcript in item.transcripts:
             if not transcript.is_file():
                 missing.append(transcript)
+        for evidence_file in item.evidence_files:
+            if not evidence_file.is_file():
+                missing.append(evidence_file)
     return missing
 
 
@@ -130,7 +142,24 @@ def render_item(item: ReviewItem, output_dir: Path) -> str:
             f'<li><a href="{href}"><code>{rel_from_repo(transcript)}</code></a></li>'
         )
 
+    evidence_links = []
+    for evidence_file in item.evidence_files:
+        href = rel_from_output(evidence_file, output_dir)
+        evidence_links.append(
+            f'<li><a href="{href}"><code>{rel_from_repo(evidence_file)}</code></a></li>'
+        )
+
     note = f"<p><strong>Note:</strong> {html.escape(item.note)}</p>" if item.note else ""
+    transcripts = (
+        f"<h3>Transcript</h3><ul>{''.join(transcript_links)}</ul>"
+        if transcript_links
+        else ""
+    )
+    evidence = (
+        f"<h3>Evidence files</h3><ul>{''.join(evidence_links)}</ul>"
+        if evidence_links
+        else ""
+    )
 
     return f"""
 <section>
@@ -144,8 +173,8 @@ def render_item(item: ReviewItem, output_dir: Path) -> str:
   <div class="audio">
     {''.join(audio_html)}
   </div>
-  <h3>Transcript</h3>
-  <ul>{''.join(transcript_links)}</ul>
+  {transcripts}
+  {evidence}
 </section>
 """
 
