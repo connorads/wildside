@@ -13501,6 +13501,29 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9E08: if the downhill acceleration crosses below the cap,
+    /// clamp back to `8(a1)` before the shared slope tail.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_downhill_decel_crossing_clamps_to_cap_loc_9E08() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            -0x0001_7000,
+            Direction::Left,
+            HorizontalInput {
+                left: true,
+                right: false,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            vel, -0x0001_8000,
+            "ASM loc_9E08: -$17000-$2000 crosses below walk downhill cap -$18000, so clamp back"
+        );
+    }
+
     // --- loc_9E1E: downhill, below downhill_cap → brake towards -max_speed ---
 
     /// ASM loc_9E1E (kid.asm:12047): downhill path when canonical vel is below the
