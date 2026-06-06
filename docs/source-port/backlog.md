@@ -260,6 +260,16 @@ case derives as
 Re-record this long title/demo route on current main before using it for
 title/menu/options audio or Skydragon gameplay work.
 
+Follow-up 2026-06-06 case-queue triage for #003/#160:
+`issue-playtest-title-start-2800` is also stale on current main. The transcript
+reaches IntroSequence6 at frame 2396 but never reaches DemoPlay or title/menu
+interaction. Full `verify-recording` reports `oracle_state_match=true` and
+`oracle_frame_match=true`, but `trace_match=false` because native
+recorded-vs-replayed trace first drifts at frame 2800. A focused `2800..3400`
+case derives as `title_start_2800_case_02800_03400` and fails; `case reduce`
+blocks with `source recording replay drifted at frame 2800`. Re-record this
+title-start route on current main before using it for #003/#160 audio work.
+
 Follow-up 2026-06-02 title-route case triage for #003: the older
 `issue-003-title-audio-current` bundle is native-replayable and its early
 audio windows pass (`0..120`, `120..240`), but full recording verification is
