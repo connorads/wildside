@@ -4654,6 +4654,11 @@ settled-recording oracle bootstrap reaches Level 03 with different player
 the reported Level 03→04 hand-off, but it cannot drive gameplay patches until
 the settled-recording bootstrap seeds native/oracle from the same camera/motion
 state.
+Tooling correction 2026-06-06: the case verifier now detects the more precise
+root cause for this bundle before running oracle comparison: source recording
+probe metadata disagrees with replay frame 0 (`manifest camera=$05700000,$03800000`
+but replay camera=`$05000000,$037E0000`). Treat this as stale/dirty recording
+metadata, not an authoritative oracle-bootstrap gameplay mismatch.
 Follow-up 2026-06-06 for #229: selector then tried dirty-cache route
 `issue-229-level03-flag-to-level04-boundary`. Fresh native-only verification
 drifts at frame 308 (`recording replay drifted`, matching 1800-frame
@@ -4664,6 +4669,11 @@ gameplay work. The requested `0..120` prefix case passes with matching
 route on current native after fixing/seeding settled bootstrap, or build a
 longer non-synthetic route that remains replay-stable through the reported
 Level 04 entry death.
+Tooling correction 2026-06-06: after adding the same probe-metadata guard, the
+boundary prefix is no longer treated as clean semantic evidence: its manifest
+camera y=`$03800000` also disagrees with replay frame 0 camera y=`$037E0000`.
+The stale-tail conclusion still stands, but the prefix should be treated as
+recording-verification blocked until the route is re-recorded cleanly.
 | 230 | [?] | P1 | weather | Weather/environment fidelity: storm machine, hail worker, and geyser state machine modelled but dead; only weather 1 dispatched | Advanced 2026-06-02: live storm+hail spawn now respects ASM `sub_61CA`'s five falling-weather slots. `step_weather` refreshes `$FFFFFB3D` from the live hail particle count, consumes only the cooldown RNG before `loc_625E`, skips the spawn-position RNG and spawn when all five slots are active, and decrements the free-slot count on `loc_62C2` spawn. Regressions `hail_spawns_projectiles_after_35_seconds` and `hail_spawn_respects_five_falling_slot_cap_loc_625e` failed before the patch and now pass. Still open: weather fidelity audit 2026-05-31 (`docs/source-port/weather-fidelity-audit.md`, same workflow) found 12 units, 33 gaps (15 high, 10 medium, 8 low). The remaining live gaps include applying palette ops from `sub_6048`, visible weather 2 thunder/storm effects, collision-map splash/impact slots, `$28` Kid push timer, lava geyser discrete row-script cadence, palette/art upload workers, and post-load palette worker spawns. Evidence: ASM-vs-native, adversarially verified. Gate: per-unit regression + storm/geyser scenario + `mise run verify-slice-fast`. |
 Note 2026-06-01 for #230: first live storm slices landed. `NativeRuntime::init_weather` now seeds weather 2/3 storm worker scalars from ASM `loc_14DAC` (`$FFFFFB3C/$FB3D/$FAD6/$FADA/$FADC/$FB52/$FB54`), live weather 2/3 now enters the shared `sub_6048` state update path, and live hail timing now uses ASM `loc_6172/loc_619C` frame-counter gate `Frame_Counter > $873` plus ROM active-period reloads (`$4B0` inactive→active, `$258` active→inactive) instead of the coarse level-timer/flat-600 approximation. The full 5-slot `sub_61CA` worker, applying palette ops from `sub_6048`, visible weather 2 thunder/storm effects, lava geyser state machine, and palette/shore worker spawns remain open.
 Follow-up 2026-06-01: live hail projectile spawn cadence and initial position now use ASM `sub_61CA` `loc_623A`/`loc_626C` values: `$FFFFFB3C` decrements as an 8-bit cooldown, reloads to `$25 - (Get_RandomNumber_byte&$0F)`, and the spawn X is `Camera_X_pos + Get_RandomNumber_byte + $28` with spawn Y at `Camera_Y_pos`. This removes the native fixed 30-frame timer and `(frame_index*7+13)%320` X approximation. Remaining hail gap: generic projectile storage still stands in for the ROM's five falling slots, collision-map splash/impact slots, and `$28` Kid push timer.

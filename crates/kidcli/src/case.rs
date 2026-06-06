@@ -753,6 +753,28 @@ fn run_case_verification(
                         },
                     });
                 }
+                if let Some(blocked_reason) =
+                    recording_probe_metadata_mismatch_reason(&recording, &replay_trace)
+                {
+                    let native_states = extract_semantic_native_states(
+                        &replay_trace,
+                        &verification.scenario.checkpoints,
+                    )?;
+                    let frame_count = native_states.len();
+                    return Ok(VerificationOutput {
+                        native_states,
+                        oracle_states: Vec::new(),
+                        verify: CaseVerifyReport {
+                            case_id: verification.case_id.clone(),
+                            passed: false,
+                            frame_count,
+                            first_failure: None,
+                            matching_fields: Vec::new(),
+                            likely_subsystems: vec![String::from("recording verification")],
+                            blocked_reason: Some(blocked_reason),
+                        },
+                    });
+                }
                 replay_trace
             } else {
                 run_native_dynamic_scenario(
@@ -851,6 +873,23 @@ fn recording_replay_drift_reason(
             drift.frame_index, recording.manifest.slug
         )
     })
+}
+
+fn recording_probe_metadata_mismatch_reason(
+    recording: &NativeRecording,
+    replay: &[NativeTraceFrame],
+) -> Option<String> {
+    let expected_camera = recording.manifest.scenario.camera_position?;
+    let first_frame = replay.first()?;
+    let expected_x = u32::from(expected_camera.x) << 16;
+    let expected_y = u32::from(expected_camera.y) << 16;
+    if first_frame.camera_x_pos == expected_x && first_frame.camera_y_pos == expected_y {
+        return None;
+    }
+    Some(format!(
+        "source recording probe metadata disagrees with replay frame 0 for `{}`: manifest camera={expected_x:08X},{expected_y:08X} replay camera={:08X},{:08X}; re-record or repair the recording manifest before treating this case as gameplay-authoritative",
+        recording.manifest.slug, first_frame.camera_x_pos, first_frame.camera_y_pos,
+    ))
 }
 
 fn recording_oracle_bootstrap_block_reason(
@@ -2233,6 +2272,7 @@ fn format_option<T: ToString>(value: Option<T>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scenarios::DynamicStartPosition;
 
     fn sample_case_manifest() -> CaseBundleManifest {
         CaseBundleManifest {
@@ -2934,6 +2974,113 @@ mod tests {
         let reason = recording_replay_drift_reason(&recording, &[replay_frame]);
 
         assert_eq!(reason, None);
+    }
+
+    #[test]
+    fn recording_probe_metadata_mismatch_blocks_stale_camera_seed() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level3-flag-stale-camera"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(3),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: Some(true),
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level3-flag-stale-camera"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: Some(DynamicStartPosition { x: 1552, y: 1040 }),
+                    camera_position: Some(DynamicStartPosition { x: 1392, y: 896 }),
+                    playtest_form: None,
+                    initial_diamond_count: None,
+                    warp_to_level: Some(3),
+                    settle_oracle_warp: true,
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let replay_frame = NativeTraceFrame {
+            camera_x_pos: 0x0500_0000,
+            camera_y_pos: 0x0380_0000,
+            ..NativeTraceFrame::default()
+        };
+
+        let reason = recording_probe_metadata_mismatch_reason(&recording, &[replay_frame])
+            .expect("stale probe metadata should block recording cases");
+
+        assert!(reason.contains("level3-flag-stale-camera"));
+        assert!(reason.contains("manifest camera=05700000,03800000"));
+        assert!(reason.contains("replay camera=05000000,03800000"));
+    }
+
+    #[test]
+    fn recording_probe_metadata_mismatch_accepts_matching_camera_seed() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level3-flag-current-camera"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(3),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level3-flag-current-camera"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: Some(DynamicStartPosition { x: 1552, y: 1040 }),
+                    camera_position: Some(DynamicStartPosition { x: 1280, y: 896 }),
+                    playtest_form: None,
+                    initial_diamond_count: None,
+                    warp_to_level: Some(3),
+                    settle_oracle_warp: true,
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        };
+        let replay_frame = NativeTraceFrame {
+            camera_x_pos: 0x0500_0000,
+            camera_y_pos: 0x0380_0000,
+            ..NativeTraceFrame::default()
+        };
+
+        assert!(recording_probe_metadata_mismatch_reason(&recording, &[replay_frame]).is_none());
     }
 
     #[test]
