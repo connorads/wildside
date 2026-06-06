@@ -7630,27 +7630,36 @@ impl NativeRuntime {
                 // #248: the real death-respawn re-enters via `lose_life` ->
                 // `move.w #8,(Game_Mode)` -> `jmp (j_loc_6E2)` (kid.asm:14787,823),
                 // i.e. the SAME `Game_Mode=8` title-card/level-load path as a
-                // normal level entry. That path waits for a Start edge to release
-                // live gameplay (`Game_Mode=$0C`), exactly as the `StartingLevel`
-                // hand-off already models for first entry (#238). The old fixed
+                // normal level entry. Settled oracle probe
+                // `issue-248-death-start-resume-settled` keeps `Game_Mode=$0008`
+                // on the first two Start-held frames after death (560/561) and
+                // returns to live `Game_Mode=$000C` on the third (562). The old fixed
                 // `Respawning` countdown ignored input, so live play sat on a
                 // black `LevelTransition` frame for the whole ~7210-frame settle
                 // and the player's Start press did nothing ("press start —
-                // nothing"). Accept a Start edge to resume immediately: the death
-                // tumble (DeathWindup) and hidden window (Dying) have already
+                // nothing"). Hold Start through the ROM-observed hand-off delay
+                // before resuming: the death tumble (DeathWindup) and hidden window (Dying) have already
                 // played by the time we reach Respawning, and the level runtime
                 // was reset for respawn at the Dying->Respawning hand-off.
                 //
                 // The #245 `death_respawn_level1_window_*` STATE tests compare
                 // against an IDLE oracle trace that never presses Start during the
                 // hold, so they keep running the full countdown and are unaffected
-                // (edge is false without a Start press).
-                let start_edge = input.start && !self.previous_input.start;
-                if remaining_frames > 1 && !start_edge {
+                // (the held-frame latch is zero without a Start press).
+                if input.start {
+                    self.respawn_start_held_frames =
+                        self.respawn_start_held_frames.saturating_add(1);
+                } else {
+                    self.respawn_start_held_frames = 0;
+                }
+                let release_respawn =
+                    self.respawn_start_held_frames >= PLAYER_DEATH_RESPAWN_START_HELD_FRAMES;
+                if remaining_frames > 1 && !release_respawn {
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
+                    self.respawn_start_held_frames = 0;
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
                     self.just_received_damage = false;

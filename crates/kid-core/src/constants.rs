@@ -394,6 +394,10 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
 // lower bound; the later visible `Load_InGame` return is still a separate
 // frontier.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 7_210;
+// Settled oracle probe `issue-248-death-start-resume-settled` keeps
+// `Game_Mode=$0008` for the first two Start-held frames after death (560/561)
+// and returns to live `Game_Mode=$000C` on the third frame (562).
+pub(crate) const PLAYER_DEATH_RESPAWN_START_HELD_FRAMES: u8 = 3;
 // ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
 // bootstrap before `Load_InGame` later restores the grounded respawn pose.
 // Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose

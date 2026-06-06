@@ -8159,9 +8159,22 @@ mod chunk_02 {
         assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
         assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
 
-        // #248 regression: the real non-dragon death path must accept the same
-        // Start edge as ASM `lose_life -> loc_6E2`, otherwise play can sit on a
-        // black `Game_Mode=8` respawn frame until the long idle parity timeout.
+        // #248 regression: ASM `lose_life -> loc_6E2` routes through the same
+        // hidden mode-8 shell as level entry. Settled oracle probe
+        // `issue-248-death-start-resume-settled` keeps it hidden for the first
+        // two Start-held frames and resumes live gameplay on the third.
+        for handoff_frame in 1..=2 {
+            runtime.step_frame(FrameInput {
+                start: true,
+                ..FrameInput::default()
+            });
+            assert!(
+                matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+                "Start handoff frame {handoff_frame} should stay hidden (got {:?})",
+                runtime.player_lifecycle
+            );
+            assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+        }
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
@@ -8170,7 +8183,7 @@ mod chunk_02 {
         let resumed_trace = runtime.trace_frame();
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
-            "Start during spike-death Respawning should resume gameplay (got {:?})",
+            "third Start-held frame during spike-death Respawning should resume gameplay (got {:?})",
             runtime.player_lifecycle
         );
         assert_eq!(resumed_trace.game_mode, GameMode::InGame);
@@ -8343,9 +8356,21 @@ mod chunk_02 {
         );
 
         // ASM Use_Continue resumes through lose_life's `loc_6E2` reload path; native
-        // keeps the hidden state-parity countdown but Start releases the live
-        // playtest hold once the player has consumed a continue.
+        // keeps the hidden state-parity countdown but the settled oracle requires
+        // two hidden Start-held frames before live gameplay returns.
         runtime.step_frame(FrameInput::default());
+        for handoff_frame in 1..=2 {
+            runtime.step_frame(FrameInput {
+                start: true,
+                ..FrameInput::default()
+            });
+            assert!(
+                matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+                "continue Start handoff frame {handoff_frame} should stay hidden (got {:?})",
+                runtime.player_lifecycle
+            );
+            assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+        }
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
@@ -8354,7 +8379,7 @@ mod chunk_02 {
         assert_eq!(
             runtime.player_lifecycle,
             PlayerLifecycle::Alive,
-            "Start after continue respawn should release live gameplay"
+            "third Start-held frame after continue respawn should release live gameplay"
         );
         assert_eq!(
             runtime.trace_frame().game_mode,
