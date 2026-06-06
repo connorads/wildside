@@ -2378,8 +2378,12 @@ fn force_warp_level_registers(emulator: &mut GenesisEmulator, target_level: u8) 
 fn apply_probe_start_position(emulator: &mut GenesisEmulator, position: ScenarioStartPosition) {
     // ASM flag check path loc_BC4C -> loc_BC74 samples the live Kid object
     // x_pos/y_pos words. Probe scenarios patch only that live object position.
+    // Match native `set_player_probe_position`: the direct live-state seed is
+    // stationary, so clear ASM GfxObject offsets `x_vel=$26`/`y_vel=$2A`.
     write_emulator_wram_u32(emulator, KID_X_POS_ADDR, u32::from(position.x) << 16);
     write_emulator_wram_u32(emulator, KID_Y_POS_ADDR, u32::from(position.y) << 16);
+    write_emulator_wram_u32(emulator, KID_X_VEL_ADDR, 0);
+    write_emulator_wram_u32(emulator, KID_Y_VEL_ADDR, 0);
 }
 
 fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: ScenarioStartPosition) {

@@ -1002,10 +1002,13 @@ fn player_mismatch_fields(native: &SemanticPlayerState, oracle: &SemanticPlayerS
     if native.y_pos != oracle.y_pos {
         fields.push("y_pos");
     }
-    if native.x_velocity != oracle.x_velocity {
+    // Oracle-helper WRAM captures intentionally mark some live player metadata
+    // as unknown for helper-backed cases. Keep this summary aligned with
+    // `compare_opt_field` so blocked diagnostics point at real blockers.
+    if !optional_entity_field_matches(native.x_velocity.as_ref(), oracle.x_velocity.as_ref()) {
         fields.push("x_velocity");
     }
-    if native.y_velocity != oracle.y_velocity {
+    if !optional_entity_field_matches(native.y_velocity.as_ref(), oracle.y_velocity.as_ref()) {
         fields.push("y_velocity");
     }
     if native.on_ground.is_some()
@@ -3438,10 +3441,14 @@ mod tests {
         let mut native = semantic_state_at_level(0x03, false);
         native.player.facing = Some(String::from("right"));
         native.player.on_ground = Some(true);
+        native.player.x_velocity = Some(0);
+        native.player.y_velocity = Some(0);
         native.player.collision_type = None;
         let mut oracle = semantic_state_at_level(0x03, false);
         oracle.player.facing = None;
         oracle.player.on_ground = None;
+        oracle.player.x_velocity = None;
+        oracle.player.y_velocity = None;
         oracle.player.collision_type = Some(0);
 
         let reason =
