@@ -240,6 +240,9 @@ enum Commands {
         /// Override the default scenario frame count (post-settle frames).
         #[arg(long)]
         walk_frames: Option<usize>,
+        /// Overlay input ranges, e.g. `60-600:right+c` or `120:b`.
+        #[arg(long)]
+        input: Vec<String>,
         #[arg(long, default_value_t = false)]
         trace_physics: bool,
         /// Include verbose gameplay debug fields in frame-range output.
@@ -261,6 +264,9 @@ enum Commands {
         /// Path to the DynamicScenario JSON to replay.
         #[arg(long)]
         scenario: PathBuf,
+        /// Overlay input ranges, e.g. `60-600:right+c` or `120:b`.
+        #[arg(long)]
+        input: Vec<String>,
         #[arg(long, default_value_t = false)]
         trace_physics: bool,
         /// Include verbose gameplay debug fields in frame-range output.
@@ -1103,6 +1109,7 @@ fn main() -> Result<()> {
             scenario,
             level,
             walk_frames,
+            input,
             trace_physics,
             debug_fields,
             frame_start,
@@ -1114,7 +1121,10 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            let dynamic = build_record_scenario(scenario, level, walk_frames);
+            let dynamic = apply_dynamic_scenario_input_overlays(
+                build_record_scenario(scenario, level, walk_frames),
+                &input,
+            )?;
             if let Some(level) = dynamic.warp_to_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
             }
@@ -1129,6 +1139,7 @@ fn main() -> Result<()> {
         }
         Commands::ProbeRecordScenarioFile {
             scenario,
+            input,
             trace_physics,
             debug_fields,
             frame_start,
@@ -1140,7 +1151,10 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            let dynamic = load_record_scenario_file(&scenario)?;
+            let dynamic = apply_dynamic_scenario_input_overlays(
+                load_record_scenario_file(&scenario)?,
+                &input,
+            )?;
             if let Some(level) = dynamic.warp_to_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
             }
@@ -2595,6 +2609,29 @@ fn build_controller_script(
     Ok(script)
 }
 
+fn apply_dynamic_scenario_input_overlays(
+    mut scenario: DynamicScenario,
+    input_specs: &[String],
+) -> Result<DynamicScenario> {
+    for spec in input_specs {
+        let range = parse_input_spec(spec)?;
+        let required_len = range.end.saturating_add(2);
+        if scenario.script.len() < required_len {
+            scenario.script.resize(required_len, 0);
+        }
+        scenario.frame_count = scenario.frame_count.max(range.end.saturating_add(1));
+        for frame_buttons in scenario
+            .script
+            .iter_mut()
+            .take(range.end.saturating_add(1))
+            .skip(range.start)
+        {
+            *frame_buttons |= range.buttons;
+        }
+    }
+    Ok(scenario)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct FrameInputRange {
     start: usize,
@@ -3107,14 +3144,14 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 mod tests {
     use super::{
         DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, PlayerForm,
-        RecordScenarioKind, ReferenceName, analyse_audio_samples, audio_envelope_similarity,
-        build_controller_script, build_record_scenario, capture_native_gameplay_run,
-        capture_native_gameplay_scenario, compare_native_gameplay_with,
-        compare_native_states_against_oracle, ensure_gameplay_level_layouts_with,
-        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
-        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_scenario_manifest,
+        RecordScenarioKind, ReferenceName, analyse_audio_samples,
+        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
+        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
+        compare_native_gameplay_with, compare_native_states_against_oracle,
+        ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
+        gameplay_checkpoint_window, native_trace_to_oracle_state, oracle_probe_watch_row_in_range,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
         recording_start_for_dynamic_scenario, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
@@ -3355,6 +3392,53 @@ AddrTbl_LevelNames:
         assert_eq!(script[120], 0x80);
         assert_eq!(script[122], 1 << 3);
         assert_eq!(script[123], 1 << 3);
+    }
+
+    #[test]
+    fn dynamic_record_scenario_input_overlays_or_buttons_into_existing_script() {
+        let scenario = DynamicScenario {
+            slug: String::from("test-overlay"),
+            script: vec![0, 0, 1 << 3, 1 << 3],
+            frame_count: 4,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            warp_to_level: Some(0x01),
+            settle_oracle_warp: false,
+        };
+
+        let scenario = apply_dynamic_scenario_input_overlays(scenario, &[String::from("1-2:b")])
+            .expect("overlay should apply");
+
+        assert_eq!(scenario.script[1], 1 << 4);
+        assert_eq!(scenario.script[2], (1 << 3) | (1 << 4));
+        assert_eq!(scenario.frame_count, 4);
+    }
+
+    #[test]
+    fn dynamic_record_scenario_input_overlays_extend_script_and_frame_count() {
+        let scenario = DynamicScenario {
+            slug: String::from("test-overlay-extend"),
+            script: vec![0, 0],
+            frame_count: 2,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            warp_to_level: Some(0x01),
+            settle_oracle_warp: false,
+        };
+
+        let scenario =
+            apply_dynamic_scenario_input_overlays(scenario, &[String::from("5:right+c")])
+                .expect("overlay should extend");
+
+        assert!(scenario.script.len() >= 7);
+        assert_eq!(scenario.frame_count, 6);
+        assert_eq!(scenario.script[5], (1 << 3) | (1 << 5));
     }
 
     #[test]
