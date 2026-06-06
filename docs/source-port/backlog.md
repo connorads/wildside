@@ -86,6 +86,18 @@ Proactive-verification 2026-06-04 (per CLAUDE.md exhausted-backlog protocol): fu
 | 010 | [x] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
 | 011 | [x] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Resolved by palette fix (#004) |
 
+Follow-up 2026-06-06 for #004:
+`issue-title-card-colour-current` is not gameplay-authoritative on current main.
+The 90-frame direct LevelTransition warp recording drifts at frame 0 on native
+recorded-vs-replayed trace, so the derived
+`issue-title-card-colour-current_case_00000_00090` case fails but `case reduce`
+blocks with `source recording replay drifted at frame 0`. Current
+native-vs-oracle frame comparison still shows a title-card visual mismatch
+(`start`: MAE 7.8519764, 13,158 changed pixels, bounds x=33..235/y=16..199;
+dominant diffs are native black pixels where oracle has coloured title-card
+pixels). Re-record this title-card colour route on current main before reopening
+#004 or changing rendering.
+
 Note 2026-06-01 for #003: latest playtest still reported missing intro/title
 music on the attract-loop path while options music could start. ASM
 `Load_SegaScreen` (`kid.asm:25444-25445`) calls `StopMusic`, then
