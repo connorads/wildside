@@ -235,6 +235,19 @@ IntroSequence1 at frame 173 and IntroSequence2 at frame 534, so this bundle
 covers the early boot/intro transitions but does not expose a reduced gameplay
 mismatch.
 
+Follow-up 2026-06-06 case-queue triage for #003/#160:
+`issue-playtest-title-menu-current` is clean and non-actionable on current main.
+Despite the slug, the transcript only reaches IntroSequence2 at frame 534 and
+never reaches title/menu/options interaction. Full `verify-recording` passes
+with `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`,
+matching 900-frame recorded/replay traces, and no first drift. The requested
+`0..120` case derives as
+`issue-playtest-title-menu-current_case_00000_00120` and passes with matching
+world/camera/player/motion/entities/events; `case reduce` reports it is already
+passing. This route exposes no audio or gameplay mismatch. Remaining
+title/menu/options audio work needs a route that actually reaches those modes,
+or a real-device/output-path repro.
+
 Follow-up 2026-06-02 title-route case triage for #003: the older
 `issue-003-title-audio-current` bundle is native-replayable and its early
 audio windows pass (`0..120`, `120..240`), but full recording verification is
