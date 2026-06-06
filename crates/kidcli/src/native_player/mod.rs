@@ -607,15 +607,18 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let level_changed = trace.current_level.0 != current_level_id;
         if level_changed {
             let new_level = trace.current_level.0;
-            // Reload presentation assets only — engine already set up the new level
-            // (advance_level calls reload_block_grid_for_level internally)
-            match load_native_session_assets(manifest, new_level) {
-                Ok(new_assets) => {
+            match load_level_change_session_assets(manifest, LevelId(new_level)) {
+                Ok((resolved_level, new_assets)) => {
+                    if resolved_level.0 != new_level {
+                        trace = runtime.enter_level_playtest(resolved_level);
+                    }
                     session_assets = new_assets;
-                    current_level_id = new_level;
+                    current_level_id = resolved_level.0;
                 }
                 Err(error) => {
-                    eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
+                    eprintln!(
+                        "failed to load visuals for level 0x{new_level:02X} or any later playable level: {error:#}"
+                    );
                 }
             }
             fade_alpha = 255;
@@ -982,6 +985,49 @@ fn load_debug_warp_session_assets(
         direction,
         load_native_session_assets,
     )
+}
+
+fn load_level_change_session_assets(
+    manifest: &AssetManifest,
+    target_level: LevelId,
+) -> Result<(LevelId, NativeSessionAssets)> {
+    load_level_change_session_assets_with(manifest, target_level, load_native_session_assets)
+}
+
+fn load_level_change_session_assets_with<F>(
+    manifest: &AssetManifest,
+    target_level: LevelId,
+    mut load_session_assets: F,
+) -> Result<(LevelId, NativeSessionAssets)>
+where
+    F: FnMut(&AssetManifest, u8) -> Result<NativeSessionAssets>,
+{
+    match load_session_assets(manifest, target_level.0) {
+        Ok(assets) => return Ok((target_level, assets)),
+        Err(first_error) => {
+            eprintln!(
+                "skipping level-change target 0x{:02X}: {first_error:#}",
+                target_level.0
+            );
+        }
+    }
+
+    for candidate in debug_warp_candidate_ids(manifest, target_level, DebugWarpDirection::Next) {
+        match load_session_assets(manifest, candidate.0) {
+            Ok(assets) => return Ok((candidate, assets)),
+            Err(error) => {
+                eprintln!(
+                    "skipping level-change target 0x{:02X}: {error:#}",
+                    candidate.0
+                );
+            }
+        }
+    }
+
+    Err(anyhow!(
+        "no playable level with generated visuals and block layout after 0x{:02X}",
+        target_level.0
+    ))
 }
 
 fn load_debug_warp_session_assets_with<F>(
@@ -8507,6 +8553,31 @@ mod tests {
             level_id,
             LevelId(2),
             "N/P debug warp should not enter a level that cannot load visuals and collision"
+        );
+    }
+
+    #[test]
+    fn live_level_change_skips_targets_without_loadable_session_assets() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = vec![0x4A, 0x4B, 0x2D];
+        let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("fixture grid");
+
+        let (level_id, _) =
+            load_level_change_session_assets_with(&fixture.manifest, LevelId(1), |_, level_id| {
+                if level_id == 1 {
+                    bail!("missing generated visuals for runtime target")
+                }
+                Ok(NativeSessionAssets {
+                    level_visuals: sample_level_visuals(),
+                    block_grid: grid.clone(),
+                })
+            })
+            .expect("next loadable level-change target");
+
+        assert_eq!(
+            level_id,
+            LevelId(2),
+            "ASM loc_74E0 advances Current_LevelID directly, but play-native must keep live level changes on levels with generated visuals and collision"
         );
     }
 
