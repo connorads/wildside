@@ -8341,6 +8341,35 @@ mod chunk_02 {
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
             "should be respawning after continue"
         );
+
+        // ASM Use_Continue resumes through lose_life's `loc_6E2` reload path; native
+        // keeps the hidden state-parity countdown but Start releases the live
+        // playtest hold once the player has consumed a continue.
+        runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::Alive,
+            "Start after continue respawn should release live gameplay"
+        );
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::InGame,
+            "continued respawn should render the level again"
+        );
+        assert_eq!(
+            runtime.boot_state,
+            BootState::InGame,
+            "continued respawn should leave the runtime in gameplay"
+        );
+        assert!(
+            runtime.trace_frame().kid_x_pos.is_some(),
+            "continued respawn should expose a live Kid pose"
+        );
     }
 
     #[test]
