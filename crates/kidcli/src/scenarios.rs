@@ -414,7 +414,12 @@ pub fn idle_level_full_frame_scenario(level_id: u8) -> DynamicScenario {
 
 /// Walk right for `walk_frames` with periodic jumps. Useful for verifying
 /// movement, enemy encounters, and basic traversal on any level.
-pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+fn walk_right_scenario_for(
+    slug: String,
+    level_id: u8,
+    walk_frames: usize,
+    playtest_form: Option<PlayerForm>,
+) -> DynamicScenario {
     let settle_frames: usize = 60;
     let total_frames = settle_frames + walk_frames;
     let walk_start = settle_frames;
@@ -446,17 +451,56 @@ pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario 
     ];
 
     DynamicScenario {
-        slug: format!("walk_right_{level_id:02x}"),
+        slug,
         script,
         frame_count: total_frames,
         checkpoints,
         start_position: None,
         camera_position: None,
-        playtest_form: None,
+        playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
+}
+
+pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    walk_right_scenario_for(
+        format!("walk_right_{level_id:02x}"),
+        level_id,
+        walk_frames,
+        None,
+    )
+}
+
+/// Natural Level 00 approach for #211 form animation capture. Unlike the
+/// direct mid-slope probe, this route lets ASM loc_9D22/loc_9F18 enter the
+/// `$4000` slope path through ordinary rightward movement from the level spawn.
+pub fn walk_right_red_stealth_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    walk_right_scenario_for(
+        format!("walk_right_red_stealth_{level_id:02x}"),
+        level_id,
+        walk_frames,
+        Some(PlayerForm::RedStealth),
+    )
+}
+
+pub fn walk_right_iron_knight_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    walk_right_scenario_for(
+        format!("walk_right_iron_knight_{level_id:02x}"),
+        level_id,
+        walk_frames,
+        Some(PlayerForm::IronKnight),
+    )
+}
+
+pub fn walk_right_juggernaut_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    walk_right_scenario_for(
+        format!("walk_right_juggernaut_{level_id:02x}"),
+        level_id,
+        walk_frames,
+        Some(PlayerForm::Juggernaut),
+    )
 }
 
 /// Focused 2026-05-30 playtest repro for the first Blue Lake Woods 1
@@ -1708,7 +1752,8 @@ mod tests {
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_scenario,
+        stomp_enemy_scenario, walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+        walk_right_red_stealth_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -2326,6 +2371,23 @@ mod tests {
         assert_eq!(scenario.checkpoints.len(), 4);
         assert_eq!(scenario.checkpoints[0].label, "level_settle");
         assert_eq!(scenario.checkpoints[3].label, "walk_end");
+    }
+
+    #[test]
+    fn walk_right_form_scenarios_seed_playtest_forms() {
+        let red_stealth = walk_right_red_stealth_scenario(0x00, 700);
+        assert_eq!(red_stealth.slug, "walk_right_red_stealth_00");
+        assert_eq!(red_stealth.playtest_form, Some(3));
+        assert_eq!(red_stealth.frame_count, 760);
+        assert_eq!(red_stealth.script[60] & (1 << 3), 1 << 3);
+
+        let iron_knight = walk_right_iron_knight_scenario(0x00, 700);
+        assert_eq!(iron_knight.slug, "walk_right_iron_knight_00");
+        assert_eq!(iron_knight.playtest_form, Some(6));
+
+        let juggernaut = walk_right_juggernaut_scenario(0x00, 700);
+        assert_eq!(juggernaut.slug, "walk_right_juggernaut_00");
+        assert_eq!(juggernaut.playtest_form, Some(5));
     }
 
     #[test]

@@ -78,7 +78,8 @@ use scenarios::{
     lava_weather_audit_scenario, level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
-    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
+    prize_block_scenario, stomp_enemy_scenario, walk_right_iron_knight_scenario,
+    walk_right_juggernaut_scenario, walk_right_red_stealth_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -103,6 +104,12 @@ enum RecordScenarioKind {
     Idle,
     /// walk right (+ periodic jumps) for 5 seconds.
     WalkRight,
+    /// walk right as Red Stealth/Samurai for natural form animation probes.
+    WalkRightRedStealth,
+    /// walk right as Iron Knight for natural form animation probes.
+    WalkRightIronKnight,
+    /// walk right as Juggernaut/Rhino for natural form animation probes.
+    WalkRightJuggernaut,
     /// walk right and jump under prize blocks.
     PrizeBlock,
     /// start under the Level 0 prize cluster to audit block/diamond SFX without damage.
@@ -2529,6 +2536,15 @@ fn build_record_scenario(
     match kind {
         RecordScenarioKind::Idle => idle_level_scenario(level, walk_frames),
         RecordScenarioKind::WalkRight => walk_right_scenario(level, walk_frames.unwrap_or(300)),
+        RecordScenarioKind::WalkRightRedStealth => {
+            walk_right_red_stealth_scenario(level, walk_frames.unwrap_or(700))
+        }
+        RecordScenarioKind::WalkRightIronKnight => {
+            walk_right_iron_knight_scenario(level, walk_frames.unwrap_or(700))
+        }
+        RecordScenarioKind::WalkRightJuggernaut => {
+            walk_right_juggernaut_scenario(level, walk_frames.unwrap_or(700))
+        }
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
         RecordScenarioKind::Issue216PrizeAudioAudit => issue_216_prize_audio_audit_scenario(),
         RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
@@ -2620,6 +2636,9 @@ fn record_scenario_command(
     let scenario = match kind {
         RecordScenarioKind::Idle => "idle",
         RecordScenarioKind::WalkRight => "walk-right",
+        RecordScenarioKind::WalkRightRedStealth => "walk-right-red-stealth",
+        RecordScenarioKind::WalkRightIronKnight => "walk-right-iron-knight",
+        RecordScenarioKind::WalkRightJuggernaut => "walk-right-juggernaut",
         RecordScenarioKind::PrizeBlock => "prize-block",
         RecordScenarioKind::Issue216PrizeAudioAudit => "issue216-prize-audio-audit",
         RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
@@ -4461,6 +4480,39 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn build_record_scenario_walk_right_form_routes_use_natural_level_path() {
+        let cases = [
+            (
+                RecordScenarioKind::WalkRightRedStealth,
+                "walk_right_red_stealth_00",
+                PlayerForm::RedStealth.helmet_id(),
+            ),
+            (
+                RecordScenarioKind::WalkRightIronKnight,
+                "walk_right_iron_knight_00",
+                PlayerForm::IronKnight.helmet_id(),
+            ),
+            (
+                RecordScenarioKind::WalkRightJuggernaut,
+                "walk_right_juggernaut_00",
+                PlayerForm::Juggernaut.helmet_id(),
+            ),
+        ];
+
+        for (kind, slug, helmet_id) in cases {
+            let scenario = build_record_scenario(kind, 0x00, Some(700));
+
+            assert_eq!(scenario.slug, slug);
+            assert_eq!(scenario.warp_to_level, Some(0x00));
+            assert_eq!(scenario.playtest_form, Some(helmet_id));
+            assert_eq!(scenario.frame_count, 760);
+            assert_eq!(scenario.start_position, None);
+            assert_eq!(scenario.script[60] & (1 << 3), 1 << 3);
+            assert_eq!(scenario.script[90] & (1 << 4), 1 << 4);
+        }
+    }
+
+    #[test]
     fn build_record_scenario_kinds_warp_to_distinct_levels() {
         // Sanity: every kind targets the level it was given, not a default.
         for level in [0x00u8, 0x05u8, 0x10u8] {
@@ -5029,6 +5081,21 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-216-prize-audio-audit --scenario issue216-prize-audio-audit --level 00"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_form_walk_routes() {
+        let command = record_scenario_command(
+            "issue-211-samurai-natural-slope",
+            RecordScenarioKind::WalkRightRedStealth,
+            0x00,
+            Some(700),
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-211-samurai-natural-slope --scenario walk-right-red-stealth --level 00 --walk-frames 700"
         );
     }
 
