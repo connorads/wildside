@@ -17601,12 +17601,17 @@ mod chunk_12 {
         left_supported.player.on_ground = true;
         left_supported.player.x_pos = 37 << 16;
         left_supported.player.y_pos = 78 << 16;
+        left_supported.player.y_velocity = 0x0001_8000;
         left_supported.apply_floor_collision(Some(&left_grid), false, false, 13, true);
 
         assert_eq!(
             left_supported.player.y_pos,
             79 << 16,
             "ASM loc_B4A0/loc_B4B2: left edge support at x-half_width must keep Kid on the deeper flat floor",
+        );
+        assert_eq!(
+            left_supported.player.y_velocity, 0x0001_8000,
+            "ASM loc_9D22 -> sub_902A/sub_A254 preserves slope-walk y_vel when the hitbox probe is still on the slope but the edge support snaps to flat ground",
         );
 
         let mut right_supported = OpeningSliceState::new(LevelBounds {
@@ -17684,6 +17689,40 @@ mod chunk_12 {
         assert_eq!(slice.player.y_pos, 64 << 16);
     }
 
+    /// ASM `sub_902A -> loc_A984 -> loc_A99E -> loc_8BF0` keeps the landing as
+    /// plain walking while the trailing flat edge is still on the previous floor.
+    #[test]
+    fn airborne_slope_recontact_is_suppressed_while_trailing_edge_still_on_solid() {
+        let w: u16 = 6;
+        let h: u16 = 7;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+        };
+        set(&mut data, 1, 5, 0x60);
+        set(&mut data, 2, 4, 0x40);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 75 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0001_0000;
+
+        let collision = slice.apply_floor_collision(Some(&grid), false, false, 13, true);
+
+        assert_eq!(
+            collision, None,
+            "ASM loc_A99E should not report an airborne slope recontact while the trailing flat edge still carries the landing",
+        );
+        assert!(slice.player.on_ground);
+    }
+
     /// ASM `sub_914A` scans every floor cell from `x_pos-half_width` through
     /// `x_pos+half_width` and calls `loc_10DA4` for each Rubber block it sees.
     #[test]
@@ -17718,6 +17757,40 @@ mod chunk_12 {
         assert!(!slice.player.on_ground);
     }
 
+    /// ASM sub_914A's rubber effect path is entered only after loc_91C0 sees a
+    /// block whose type nibble is Rubber and whose collision bits are floor/solid.
+    #[test]
+    fn sub_914a_floor_rubber_effect_skips_non_rubber_blocks_in_spanned_cells() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 1, 4, 0xE1, 0x0A);
+        set(&mut data, 2, 4, 0xE6, 0x0C);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+
+        slice.apply_floor_collision(Some(&grid), false, false, 13, true);
+
+        assert_eq!(
+            slice.rubber_block_hit,
+            Some((2, 4)),
+            "ASM sub_914A/loc_91C0 should skip the left Prize block and anchor the rubber jiggle to the first actual Rubber floor cell",
+        );
+    }
+
     /// ASM sub_902A upward slope recontact is only for a gentle upward movement:
     /// zero vertical speed and over-tolerance upward speed must both stay airborne.
     #[test]
@@ -17748,11 +17821,26 @@ mod chunk_12 {
             "ASM sub_902A upward slope recontact requires y_vel < 0; zero velocity above the slope must remain airborne",
         );
 
+        let mut zero_velocity_edge_supported = make_slice(0);
+        zero_velocity_edge_supported.player.y_pos = 72 << 16;
+        zero_velocity_edge_supported.apply_floor_collision(Some(&grid), false, true, 4, true);
+        assert!(
+            zero_velocity_edge_supported.player.on_ground,
+            "ASM sub_902A zero-velocity slope contact must keep using the landed edge probe rather than treating the centre as an upward recontact candidate",
+        );
+
         let mut too_fast_upward = make_slice(-0x0004_0000);
         too_fast_upward.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
         assert!(
             !too_fast_upward.player.on_ground,
             "ASM sub_902A upward slope recontact only accepts velocities within SLOPE_AIR_SNAP_TOLERANCE_FP",
+        );
+
+        let mut exact_limit_upward = make_slice(-0x0003_0000);
+        exact_limit_upward.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
+        assert!(
+            exact_limit_upward.player.on_ground,
+            "ASM sub_902A upward slope recontact accepts the exact SLOPE_AIR_SNAP_TOLERANCE_FP boundary",
         );
 
         let mut on_surface_upward = make_slice(-0x0001_0000);
