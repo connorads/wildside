@@ -871,6 +871,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     trace_physics: bool,
     debug_fields: bool,
     target_enemy: Option<u8>,
+    target_projectile: Option<ActiveProjectileKind>,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
@@ -921,6 +922,9 @@ pub(crate) fn probe_dynamic_record_scenario(
     println!("active roster: {}", describe_active_objects(final_frame));
     if let Some(object_type) = target_enemy {
         println!("{}", describe_target_enemy_activation(&trace, object_type));
+    }
+    if let Some(kind) = target_projectile {
+        println!("{}", describe_target_projectile_activation(&trace, kind));
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -1167,6 +1171,131 @@ pub(crate) fn describe_target_enemy_activation(
         trace.get(activation.first_replay_frame).map_or_else(
             || String::from("<none>"),
             |frame| describe_target_enemy_details(frame, object_type),
+        ),
+    )
+}
+
+fn describe_target_projectile_details(
+    frame: &NativeTraceFrame,
+    kind: ActiveProjectileKind,
+) -> String {
+    let details = frame
+        .active_projectile_details
+        .iter()
+        .filter(|projectile| projectile.kind == kind)
+        .map(|projectile| {
+            format!(
+                "{:?}@{:08X},{:08X}/vel{:08X},{:08X}/remaining{}",
+                projectile.kind,
+                projectile.x_pos,
+                projectile.y_pos,
+                projectile.x_velocity,
+                projectile.y_velocity,
+                projectile.remaining_frames
+            )
+        })
+        .collect::<Vec<_>>();
+    if details.is_empty() {
+        String::from("<none>")
+    } else {
+        details.join(", ")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetProjectileActivation {
+    first_replay_frame: usize,
+    last_replay_frame: usize,
+    frame_count: usize,
+    sighting_count: usize,
+    min_x: u32,
+    max_x: u32,
+    min_y: u32,
+    max_y: u32,
+    min_y_velocity: i32,
+    max_y_velocity: i32,
+}
+
+fn target_projectile_activation(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+) -> Option<TargetProjectileActivation> {
+    let mut activation: Option<TargetProjectileActivation> = None;
+    let mut previous_active_frame = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+
+        let mut sightings_this_frame = 0usize;
+        for projectile in &frame.active_projectile_details {
+            if projectile.kind != kind {
+                continue;
+            }
+
+            sightings_this_frame = sightings_this_frame.saturating_add(1);
+            match &mut activation {
+                Some(existing) => {
+                    existing.last_replay_frame = replay_frame;
+                    existing.sighting_count = existing.sighting_count.saturating_add(1);
+                    existing.min_x = existing.min_x.min(projectile.x_pos);
+                    existing.max_x = existing.max_x.max(projectile.x_pos);
+                    existing.min_y = existing.min_y.min(projectile.y_pos);
+                    existing.max_y = existing.max_y.max(projectile.y_pos);
+                    existing.min_y_velocity = existing.min_y_velocity.min(projectile.y_velocity);
+                    existing.max_y_velocity = existing.max_y_velocity.max(projectile.y_velocity);
+                }
+                None => {
+                    activation = Some(TargetProjectileActivation {
+                        first_replay_frame: replay_frame,
+                        last_replay_frame: replay_frame,
+                        frame_count: 0,
+                        sighting_count: 1,
+                        min_x: projectile.x_pos,
+                        max_x: projectile.x_pos,
+                        min_y: projectile.y_pos,
+                        max_y: projectile.y_pos,
+                        min_y_velocity: projectile.y_velocity,
+                        max_y_velocity: projectile.y_velocity,
+                    });
+                }
+            }
+        }
+
+        if sightings_this_frame > 0 && previous_active_frame != Some(replay_frame) {
+            if let Some(existing) = &mut activation {
+                existing.frame_count = existing.frame_count.saturating_add(1);
+            }
+            previous_active_frame = Some(replay_frame);
+        }
+    }
+
+    activation
+}
+
+pub(crate) fn describe_target_projectile_activation(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+) -> String {
+    let Some(activation) = target_projectile_activation(trace, kind) else {
+        return format!("target projectile {kind:?}: absent");
+    };
+    format!(
+        "target projectile {kind:?}: first replay frame {} last replay frame {} active frames {} sightings {} x {:08X}..{:08X} y {:08X}..{:08X} y_vel {:08X}..{:08X} first details [{}]",
+        activation.first_replay_frame,
+        activation.last_replay_frame,
+        activation.frame_count,
+        activation.sighting_count,
+        activation.min_x,
+        activation.max_x,
+        activation.min_y,
+        activation.max_y,
+        activation.min_y_velocity,
+        activation.max_y_velocity,
+        trace.get(activation.first_replay_frame).map_or_else(
+            || String::from("<none>"),
+            |frame| describe_target_projectile_details(frame, kind),
         ),
     )
 }
@@ -1478,7 +1607,10 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kid_core::{GameMode, NativeObjectKind, NativeObjectSnapshot};
+    use kid_core::{
+        ActiveProjectileKind, ActiveProjectileSnapshot, GameMode, NativeObjectKind,
+        NativeObjectSnapshot,
+    };
     use std::path::PathBuf;
 
     fn manifest_with_drips_definition() -> AssetManifest {
@@ -1621,6 +1753,121 @@ mod tests {
         assert_eq!(
             describe_target_enemy_activation(&[transition], 0x16),
             "target enemy 0x16: absent"
+        );
+    }
+
+    fn target_projectile_frame(
+        frame_index: usize,
+        kind: ActiveProjectileKind,
+        x_pos: u32,
+        y_pos: u32,
+        y_velocity: i32,
+        remaining_frames: u16,
+    ) -> NativeTraceFrame {
+        let mut frame = NativeTraceFrame {
+            frame_index,
+            game_mode: GameMode::InGame,
+            ..NativeTraceFrame::default()
+        };
+        frame
+            .active_projectile_details
+            .push(ActiveProjectileSnapshot {
+                x_pos,
+                y_pos,
+                x_velocity: 0,
+                y_velocity,
+                friendly: false,
+                remaining_frames,
+                animation_elapsed_frames: 0,
+                kind,
+            });
+        frame
+    }
+
+    #[test]
+    fn target_projectile_activation_summary_reports_absent_projectile() {
+        let trace = vec![target_projectile_frame(
+            4,
+            ActiveProjectileKind::DripsSurfaceCrawler,
+            0x0010_0000,
+            0x0020_0000,
+            0x0000_2000,
+            9,
+        )];
+
+        assert_eq!(
+            describe_target_projectile_activation(&trace, ActiveProjectileKind::DripsDrop),
+            "target projectile DripsDrop: absent"
+        );
+    }
+
+    #[test]
+    fn target_projectile_activation_summary_uses_authoritative_projectile_details() {
+        let mut trace = vec![
+            NativeTraceFrame {
+                frame_index: 10,
+                game_mode: GameMode::InGame,
+                ..NativeTraceFrame::default()
+            },
+            target_projectile_frame(
+                11,
+                ActiveProjectileKind::DripsDrop,
+                0x001C_0000,
+                0x003F_0000,
+                0x0000_2000,
+                0,
+            ),
+            target_projectile_frame(
+                12,
+                ActiveProjectileKind::DripsSurfaceCrawler,
+                0x0030_0000,
+                0x0040_0000,
+                0,
+                8,
+            ),
+            target_projectile_frame(
+                13,
+                ActiveProjectileKind::DripsDrop,
+                0x0020_0000,
+                0x0041_0000,
+                0x0000_4000,
+                0,
+            ),
+        ];
+        trace[3]
+            .active_projectile_details
+            .push(ActiveProjectileSnapshot {
+                x_pos: 0x0018_0000,
+                y_pos: 0x0040_0000,
+                x_velocity: 0,
+                y_velocity: 0x0000_3000,
+                friendly: false,
+                remaining_frames: 0,
+                animation_elapsed_frames: 0,
+                kind: ActiveProjectileKind::DripsDrop,
+            });
+
+        assert_eq!(
+            describe_target_projectile_activation(&trace, ActiveProjectileKind::DripsDrop),
+            "target projectile DripsDrop: first replay frame 1 last replay frame 3 active frames 2 sightings 3 x 00180000..00200000 y 003F0000..00410000 y_vel 00002000..00004000 first details [DripsDrop@001C0000,003F0000/vel00000000,00002000/remaining0]"
+        );
+    }
+
+    #[test]
+    fn target_projectile_activation_summary_ignores_transition_stale_details() {
+        let mut transition = target_projectile_frame(
+            21,
+            ActiveProjectileKind::DripsDrop,
+            0x001C_0000,
+            0x003F_0000,
+            0x0000_2000,
+            0,
+        );
+        transition.game_mode = GameMode::LevelTransition;
+
+        assert_eq!(
+            describe_target_projectile_activation(&[transition], ActiveProjectileKind::DripsDrop),
+            "target projectile DripsDrop: absent"
         );
     }
 }

@@ -43,8 +43,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
 use kid_core::{
-    FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm,
-    run_script,
+    ActiveProjectileKind, FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime,
+    NativeTraceFrame, PlayerForm, run_script,
 };
 use kid_data::{AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id};
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
@@ -91,6 +91,21 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 use ymfm_sys::Ym2612;
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum TargetProjectileKind {
+    DripsDrop,
+    DripsSurfaceCrawler,
+}
+
+impl From<TargetProjectileKind> for ActiveProjectileKind {
+    fn from(value: TargetProjectileKind) -> Self {
+        match value {
+            TargetProjectileKind::DripsDrop => ActiveProjectileKind::DripsDrop,
+            TargetProjectileKind::DripsSurfaceCrawler => ActiveProjectileKind::DripsSurfaceCrawler,
+        }
+    }
+}
 
 #[derive(Debug, Parser)]
 #[command(name = "kidcli")]
@@ -251,6 +266,9 @@ enum Commands {
         /// Summarise activation windows for one enemy object type, e.g. 16 for Drips.
         #[arg(long, value_parser = parse_level_id)]
         target_enemy: Option<u8>,
+        /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
+        #[arg(long)]
+        target_projectile: Option<TargetProjectileKind>,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -278,6 +296,9 @@ enum Commands {
         /// Summarise activation windows for one enemy object type, e.g. 16 for Drips.
         #[arg(long, value_parser = parse_level_id)]
         target_enemy: Option<u8>,
+        /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
+        #[arg(long)]
+        target_projectile: Option<TargetProjectileKind>,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -1119,6 +1140,7 @@ fn main() -> Result<()> {
             trace_physics,
             debug_fields,
             target_enemy,
+            target_projectile,
             frame_start,
             frame_end,
             rom,
@@ -1141,6 +1163,7 @@ fn main() -> Result<()> {
                 trace_physics,
                 debug_fields,
                 target_enemy,
+                target_projectile.map(Into::into),
                 frame_start,
                 frame_end,
             )?;
@@ -1151,6 +1174,7 @@ fn main() -> Result<()> {
             trace_physics,
             debug_fields,
             target_enemy,
+            target_projectile,
             frame_start,
             frame_end,
             rom,
@@ -1173,6 +1197,7 @@ fn main() -> Result<()> {
                 trace_physics,
                 debug_fields,
                 target_enemy,
+                target_projectile.map(Into::into),
                 frame_start,
                 frame_end,
             )?;
