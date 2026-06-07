@@ -269,6 +269,9 @@ enum Commands {
         /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
         #[arg(long)]
         target_projectile: Option<TargetProjectileKind>,
+        /// Summarise live player movement bounds and first transition frame.
+        #[arg(long)]
+        player_motion: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -299,6 +302,9 @@ enum Commands {
         /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
         #[arg(long)]
         target_projectile: Option<TargetProjectileKind>,
+        /// Summarise live player movement bounds and first transition frame.
+        #[arg(long)]
+        player_motion: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -1141,6 +1147,7 @@ fn main() -> Result<()> {
             debug_fields,
             target_enemy,
             target_projectile,
+            player_motion,
             frame_start,
             frame_end,
             rom,
@@ -1164,6 +1171,7 @@ fn main() -> Result<()> {
                 debug_fields,
                 target_enemy,
                 target_projectile.map(Into::into),
+                player_motion,
                 frame_start,
                 frame_end,
             )?;
@@ -1175,6 +1183,7 @@ fn main() -> Result<()> {
             debug_fields,
             target_enemy,
             target_projectile,
+            player_motion,
             frame_start,
             frame_end,
             rom,
@@ -1198,6 +1207,7 @@ fn main() -> Result<()> {
                 debug_fields,
                 target_enemy,
                 target_projectile.map(Into::into),
+                player_motion,
                 frame_start,
                 frame_end,
             )?;

@@ -872,6 +872,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     debug_fields: bool,
     target_enemy: Option<u8>,
     target_projectile: Option<ActiveProjectileKind>,
+    player_motion: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
@@ -925,6 +926,9 @@ pub(crate) fn probe_dynamic_record_scenario(
     }
     if let Some(kind) = target_projectile {
         println!("{}", describe_target_projectile_activation(&trace, kind));
+    }
+    if player_motion {
+        println!("{}", describe_player_motion(&trace));
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -1297,6 +1301,94 @@ pub(crate) fn describe_target_projectile_activation(
             || String::from("<none>"),
             |frame| describe_target_projectile_details(frame, kind),
         ),
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PlayerMotionSummary {
+    first_replay_frame: usize,
+    last_replay_frame: usize,
+    frame_count: usize,
+    min_x: u32,
+    max_x: u32,
+    min_y: u32,
+    max_y: u32,
+    last_x: u32,
+    last_y: u32,
+    transition_replay_frame: Option<usize>,
+}
+
+fn player_motion_summary(trace: &[NativeTraceFrame]) -> Option<PlayerMotionSummary> {
+    let mut summary: Option<PlayerMotionSummary> = None;
+    let mut transition_replay_frame = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if transition_replay_frame.is_none()
+            && !matches!(frame.game_mode, kid_core::GameMode::InGame)
+        {
+            transition_replay_frame = Some(replay_frame);
+        }
+
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        let (Some(x), Some(y)) = (frame.kid_x_pos, frame.kid_y_pos) else {
+            continue;
+        };
+
+        match &mut summary {
+            Some(existing) => {
+                existing.last_replay_frame = replay_frame;
+                existing.frame_count = existing.frame_count.saturating_add(1);
+                existing.min_x = existing.min_x.min(x);
+                existing.max_x = existing.max_x.max(x);
+                existing.min_y = existing.min_y.min(y);
+                existing.max_y = existing.max_y.max(y);
+                existing.last_x = x;
+                existing.last_y = y;
+            }
+            None => {
+                summary = Some(PlayerMotionSummary {
+                    first_replay_frame: replay_frame,
+                    last_replay_frame: replay_frame,
+                    frame_count: 1,
+                    min_x: x,
+                    max_x: x,
+                    min_y: y,
+                    max_y: y,
+                    last_x: x,
+                    last_y: y,
+                    transition_replay_frame,
+                });
+            }
+        }
+    }
+
+    summary.map(|mut summary| {
+        summary.transition_replay_frame = transition_replay_frame;
+        summary
+    })
+}
+
+pub(crate) fn describe_player_motion(trace: &[NativeTraceFrame]) -> String {
+    let Some(summary) = player_motion_summary(trace) else {
+        return String::from("player motion: absent");
+    };
+    let transition = summary
+        .transition_replay_frame
+        .map_or_else(|| String::from("<none>"), |frame| frame.to_string());
+    format!(
+        "player motion: first replay frame {} last replay frame {} live frames {} x {:08X}..{:08X} y {:08X}..{:08X} last live kid {:08X},{:08X} first non-InGame replay frame {}",
+        summary.first_replay_frame,
+        summary.last_replay_frame,
+        summary.frame_count,
+        summary.min_x,
+        summary.max_x,
+        summary.min_y,
+        summary.max_y,
+        summary.last_x,
+        summary.last_y,
+        transition,
     )
 }
 
@@ -1869,5 +1961,65 @@ mod tests {
             describe_target_projectile_activation(&[transition], ActiveProjectileKind::DripsDrop),
             "target projectile DripsDrop: absent"
         );
+    }
+
+    fn player_frame(
+        frame_index: usize,
+        game_mode: GameMode,
+        x_pos: Option<u32>,
+        y_pos: Option<u32>,
+    ) -> NativeTraceFrame {
+        NativeTraceFrame {
+            frame_index,
+            game_mode,
+            kid_x_pos: x_pos,
+            kid_y_pos: y_pos,
+            ..NativeTraceFrame::default()
+        }
+    }
+
+    #[test]
+    fn player_motion_summary_reports_live_bounds_and_transition_frame() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x0010_0000), Some(0x0040_0000)),
+            player_frame(11, GameMode::InGame, Some(0x0018_0000), Some(0x003F_0000)),
+            player_frame(12, GameMode::InGame, Some(0x0014_0000), Some(0x0041_0000)),
+            player_frame(
+                13,
+                GameMode::LevelTransition,
+                Some(0x0000_0000),
+                Some(0x0000_0000),
+            ),
+        ];
+
+        assert_eq!(
+            describe_player_motion(&trace),
+            "player motion: first replay frame 0 last replay frame 2 live frames 3 x 00100000..00180000 y 003F0000..00410000 last live kid 00140000,00410000 first non-InGame replay frame 3"
+        );
+    }
+
+    #[test]
+    fn player_motion_summary_ignores_transition_reset_position() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x0010_0000), Some(0x0040_0000)),
+            player_frame(
+                11,
+                GameMode::LevelTransition,
+                Some(0x0000_0000),
+                Some(0x0000_0000),
+            ),
+        ];
+
+        assert_eq!(
+            describe_player_motion(&trace),
+            "player motion: first replay frame 0 last replay frame 0 live frames 1 x 00100000..00100000 y 00400000..00400000 last live kid 00100000,00400000 first non-InGame replay frame 1"
+        );
+    }
+
+    #[test]
+    fn player_motion_summary_reports_absent_without_live_player_position() {
+        let trace = vec![player_frame(10, GameMode::LevelTransition, None, None)];
+
+        assert_eq!(describe_player_motion(&trace), "player motion: absent");
     }
 }
