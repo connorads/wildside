@@ -172,6 +172,66 @@ fn drips_falling_drop_stomp_routes_through_loc_33550() {
 }
 
 #[test]
+fn drips_surface_crawler_stomp_allocates_loc_325b6_helper_via_loc_338f8() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.projectiles = vec![EnemyProjectile {
+        kind: EnemyProjectileKind::DripsSurfaceCrawler,
+        x_pos: 0x0080_0000,
+        y_pos: 0x0100_0000,
+        x_velocity: 0x3000,
+        y_velocity: 0,
+        lifetime: DRIPS_DROP_LIFETIME,
+        drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+        ..Default::default()
+    }];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x00F8_0000;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.y_velocity = 0x0003_0000;
+    slice.player.on_ground = false;
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        0x0003_0000,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(
+        stomped,
+        "ASM Drips.asm loc_33650 calls loc_33550 before terrain probes; `$2C` Kid-above contact enters loc_338F8"
+    );
+    assert!(
+        runtime
+            .projectiles
+            .iter()
+            .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
+        "ASM Drips.asm loc_3392C deletes the contacted crawler after the finish animation"
+    );
+    let helper = runtime
+        .projectiles
+        .iter()
+        .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst)
+        .expect("ASM Drips.asm loc_338F8 should allocate Tar_Monster.asm loc_325B6 before deleting the crawler");
+    assert_eq!(helper.x_pos, 0x0080_0000);
+    assert_eq!(
+        helper.y_pos, 0x00F8_0000,
+        "ASM Drips.asm loc_33650 seeds d6=0,d7=-8 before loc_338F8 adjusts the helper origin"
+    );
+    assert_eq!(
+        helper.x_velocity, 0x6000,
+        "ASM Tar_Monster.asm loc_325B6 doubles the copied `$48(a5)` x velocity"
+    );
+}
+
+#[test]
 fn attached_drips_controller_is_not_a_stomp_candidate_loc_33424() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

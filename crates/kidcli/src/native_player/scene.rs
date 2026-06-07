@@ -3966,7 +3966,8 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::TarMonsterGlob
-                | ActiveProjectileKind::TarMonsterBurstChild => {
+                | ActiveProjectileKind::TarMonsterBurstChild
+                | ActiveProjectileKind::DripsSurfaceCrawlerBurst => {
                     let pushed_sprite = level_visuals
                         .enemies
                         .families
@@ -3977,6 +3978,9 @@ fn build_game_scene_filtered(
                                     tar_monster_glob_child_frame(tar_visuals)?
                                 }
                                 ActiveProjectileKind::TarMonsterBurstChild => {
+                                    tar_monster_burst_child_frame(tar_visuals)?
+                                }
+                                ActiveProjectileKind::DripsSurfaceCrawlerBurst => {
                                     tar_monster_burst_child_frame(tar_visuals)?
                                 }
                                 _ => return None,

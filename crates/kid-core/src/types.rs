@@ -86,6 +86,9 @@ pub enum ActiveProjectileKind {
     /// Drips surface crawler: ASM `Drips.asm loc_335D8` allocates a hostile
     /// child after selected splash cycles.
     DripsSurfaceCrawler,
+    /// Drips surface-crawler burst helper: ASM `Drips.asm loc_338F8` allocates
+    /// `Tar_Monster.asm loc_325B6`, retaining Drips `object_meta=$16`.
+    DripsSurfaceCrawlerBurst,
     /// Shooter block bullet: ASM `Process_ShooterObjects` (kid.asm:19394)
     /// emits a hostile 1x1 sprite from the shooter-object slot.
     ShooterBlock,
@@ -2417,6 +2420,9 @@ pub(crate) enum EnemyProjectileKind {
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,
+    /// Drips.asm loc_338F8 allocates the shared `Tar_Monster.asm loc_325B6`
+    /// collision helper after crawler contact.
+    DripsSurfaceCrawlerBurst,
     Hail,
     TankBullet,
     RobotShot,

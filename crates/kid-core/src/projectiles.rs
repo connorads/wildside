@@ -353,6 +353,48 @@ fn drips_surface_crawler_from_drop_loc_335d8(
     }
 }
 
+pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
+    crawler: &EnemyProjectile,
+    x_offset: i16,
+    y_offset: i16,
+) -> EnemyProjectile {
+    let x_word = ((crawler.x_pos >> 16) as u16).wrapping_add(x_offset as u16);
+    let y_word = ((crawler.y_pos >> 16) as u16).wrapping_add(y_offset as u16);
+    EnemyProjectile {
+        kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        x_pos: u32::from(x_word) << 16,
+        y_pos: u32::from(y_word) << 16,
+        x_velocity: crawler.x_velocity.wrapping_shl(1),
+        y_velocity: 0,
+        lifetime: 60,
+        gravity: 0x1000,
+        friendly: false,
+        terrain_kill: false,
+        tar_monster_collision_response_budget: 2,
+        ..Default::default()
+    }
+}
+
+pub(crate) fn drips_surface_crawler_burst_offset_loc_33550(
+    state: DripsSurfaceCrawlerState,
+) -> Option<(i16, i16)> {
+    match state {
+        // ASM Drips.asm loc_33650: `moveq #0,d6; moveq #-8,d7`
+        // before loc_33550 and the support-probe loc_338F8 exit.
+        DripsSurfaceCrawlerState::HorizontalLoc33650 => Some((0, -8)),
+        // ASM Drips.asm loc_336D0: `moveq #0,d6; moveq #8,d7`.
+        DripsSurfaceCrawlerState::VerticalLoc336D0 => Some((0, 8)),
+        // ASM Drips.asm loc_33730: `moveq #8,d6; moveq #0,d7`.
+        DripsSurfaceCrawlerState::VerticalLoc33730 => Some((8, 0)),
+        // ASM Drips.asm loc_337A0/loc_33810/loc_33892 seed these offsets
+        // immediately before the contact/bounds guard.
+        DripsSurfaceCrawlerState::VerticalLoc337A0 => Some((-8, 0)),
+        DripsSurfaceCrawlerState::DiagonalLoc33810 => Some((-8, -8)),
+        DripsSurfaceCrawlerState::DiagonalLoc33892 => Some((8, -8)),
+        DripsSurfaceCrawlerState::IdleLoc33A7C => None,
+    }
+}
+
 #[cfg(test)]
 mod drips_surface_crawler_tests {
     use super::*;
@@ -2052,7 +2094,9 @@ impl NativeRuntime {
             {
                 // ASM Drips.asm loc_33650 routes a non-solid `loc_331D2`
                 // support probe through loc_338F8, then loc_3392C deletes the
-                // crawler after the finish animation.
+                // crawler after the finish animation. Native keeps this broad
+                // terrain-exit path conservative until the crawler support
+                // probes match oracle tightly enough to avoid early helpers.
                 return false;
             }
 
@@ -2260,8 +2304,11 @@ impl NativeRuntime {
                 return false;
             }
 
-            if p.kind == EnemyProjectileKind::TarMonsterBurstChild
-                && let Some(g) = grid
+            if matches!(
+                p.kind,
+                EnemyProjectileKind::TarMonsterBurstChild
+                    | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+            ) && let Some(g) = grid
                 && !apply_tar_monster_burst_child_collision_loc_32682(p, g)
             {
                 return false;

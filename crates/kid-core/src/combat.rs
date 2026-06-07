@@ -1,4 +1,7 @@
 use super::*;
+use crate::projectiles::{
+    drips_surface_crawler_burst_helper_loc_338f8, drips_surface_crawler_burst_offset_loc_33550,
+};
 
 const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
 const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
@@ -8225,15 +8228,31 @@ impl NativeRuntime {
             });
         }
         for (projectile_index, projectile) in self.projectiles.iter().enumerate() {
-            if projectile.kind != EnemyProjectileKind::DripsDrop {
+            if !matches!(
+                projectile.kind,
+                EnemyProjectileKind::DripsDrop
+                    | EnemyProjectileKind::DripsSurfaceCrawler
+                    | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+            ) {
                 continue;
             }
-            // ASM Drips.asm loc_33424/loc_3345C drives the falling drop as a
-            // real GfxObject child with `object_meta=$16` and Kid collision
-            // enabled. Native stores that child in `projectiles`, so feed it
-            // into the Jump_On_Enemy classifier explicitly.
+            // ASM Drips.asm loc_33424/loc_335D8/loc_338F8 drives the falling
+            // drop, surface crawler, and burst helper as real GfxObject
+            // children with `object_meta=$16` and Kid collision enabled.
+            let target = match projectile.kind {
+                EnemyProjectileKind::DripsDrop => {
+                    StompContactTarget::DripsDropProjectile(projectile_index)
+                }
+                EnemyProjectileKind::DripsSurfaceCrawler => {
+                    StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index)
+                }
+                EnemyProjectileKind::DripsSurfaceCrawlerBurst => {
+                    StompContactTarget::DripsSurfaceCrawlerBurstProjectile(projectile_index)
+                }
+                _ => continue,
+            };
             candidates.push(StompContactCandidate {
-                target: StompContactTarget::DripsDropProjectile(projectile_index),
+                target,
                 snapshot: NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0x16 },
                     x_pos: projectile.x_pos,
@@ -8273,7 +8292,9 @@ impl NativeRuntime {
             .map(|candidate| {
                 let debug_index = match candidate.target {
                     StompContactTarget::ActiveEnemy(index)
-                    | StompContactTarget::DripsDropProjectile(index) => index,
+                    | StompContactTarget::DripsDropProjectile(index)
+                    | StompContactTarget::DripsSurfaceCrawlerProjectile(index)
+                    | StompContactTarget::DripsSurfaceCrawlerBurstProjectile(index) => index,
                 };
                 stomp_contact_candidate_debug_summary(
                     debug_index,
@@ -8314,6 +8335,8 @@ impl NativeRuntime {
 
         let mut stomped_indices = Vec::new();
         let mut stomped_drips_drop_indices = Vec::new();
+        let mut stomped_drips_surface_crawler_indices = Vec::new();
+        let mut stomped_drips_surface_crawler_burst_indices = Vec::new();
         for candidate in self.stomp_contact_candidates() {
             if classify_enemy_contact_with_half_width(
                 slice.player,
@@ -8330,6 +8353,12 @@ impl NativeRuntime {
                     StompContactTarget::DripsDropProjectile(projectile_index) => {
                         stomped_drips_drop_indices.push(projectile_index);
                     }
+                    StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index) => {
+                        stomped_drips_surface_crawler_indices.push(projectile_index);
+                    }
+                    StompContactTarget::DripsSurfaceCrawlerBurstProjectile(projectile_index) => {
+                        stomped_drips_surface_crawler_burst_indices.push(projectile_index);
+                    }
                 }
             }
         }
@@ -8337,10 +8366,52 @@ impl NativeRuntime {
         stomped_indices.dedup();
         stomped_drips_drop_indices.sort_unstable();
         stomped_drips_drop_indices.dedup();
+        stomped_drips_surface_crawler_indices.sort_unstable();
+        stomped_drips_surface_crawler_indices.dedup();
+        stomped_drips_surface_crawler_burst_indices.sort_unstable();
+        stomped_drips_surface_crawler_burst_indices.dedup();
 
-        if stomped_indices.is_empty() && stomped_drips_drop_indices.is_empty() {
+        if stomped_indices.is_empty()
+            && stomped_drips_drop_indices.is_empty()
+            && stomped_drips_surface_crawler_indices.is_empty()
+            && stomped_drips_surface_crawler_burst_indices.is_empty()
+        {
             return false;
         }
+
+        let mut stomped_drips_projectile_indices = stomped_drips_surface_crawler_burst_indices
+            .into_iter()
+            .map(|index| (index, None))
+            .collect::<Vec<_>>();
+        stomped_drips_projectile_indices.extend(
+            stomped_drips_surface_crawler_indices
+                .into_iter()
+                .map(|index| {
+                    let helper = self.projectiles.get(index).and_then(|crawler| {
+                        drips_surface_crawler_burst_offset_loc_33550(
+                            crawler.drips_surface_crawler_state,
+                        )
+                        .map(|(x_offset, y_offset)| {
+                            drips_surface_crawler_burst_helper_loc_338f8(
+                                crawler, x_offset, y_offset,
+                            )
+                        })
+                    });
+                    (index, helper)
+                }),
+        );
+        stomped_drips_projectile_indices.sort_unstable_by_key(|(index, _)| *index);
+        stomped_drips_projectile_indices.dedup_by_key(|(index, _)| *index);
+        let mut spawned_drips_helpers = Vec::new();
+        for (projectile_index, helper) in stomped_drips_projectile_indices.into_iter().rev() {
+            if projectile_index < self.projectiles.len() {
+                self.projectiles.remove(projectile_index);
+                if let Some(helper) = helper {
+                    spawned_drips_helpers.push(helper);
+                }
+            }
+        }
+        self.projectiles.extend(spawned_drips_helpers);
 
         let mut stomped_drips_drops = Vec::new();
         for projectile_index in stomped_drips_drop_indices.into_iter().rev() {

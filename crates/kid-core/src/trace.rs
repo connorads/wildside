@@ -43,6 +43,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler {
         return ActiveProjectileKind::DripsSurfaceCrawler;
     }
+    if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
+        return ActiveProjectileKind::DripsSurfaceCrawlerBurst;
+    }
     if projectile.kind == EnemyProjectileKind::ShooterBlock {
         return ActiveProjectileKind::ShooterBlock;
     }
