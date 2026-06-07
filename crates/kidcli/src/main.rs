@@ -71,8 +71,8 @@ use scenarios::{
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
-    issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
-    issue_249_blw2_left_pit_wall_jump_audit_scenario,
+    issue_213_drips_delayed_b_drop_audit_scenario, issue_213_drips_metal_block_audit_scenario,
+    issue_216_prize_audio_audit_scenario, issue_249_blw2_left_pit_wall_jump_audit_scenario,
     issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
@@ -170,6 +170,8 @@ enum RecordScenarioKind {
     Issue147WallSideJumpAudit,
     /// preserve the current #155/#213 direct Drips/metal-block blocker probe.
     Issue213DripsMetalBlockAudit,
+    /// delayed Level 01 B-jump that activates Drips drops before the fall tail (#155/#213).
+    Issue213DripsDelayedBDropAudit,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
     Issue249WallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
@@ -2826,6 +2828,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue213DripsMetalBlockAudit => {
             issue_213_drips_metal_block_audit_scenario()
         }
+        RecordScenarioKind::Issue213DripsDelayedBDropAudit => {
+            issue_213_drips_delayed_b_drop_audit_scenario()
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             issue_249_juggernaut_wall_no_jump_audit_scenario()
@@ -2913,6 +2918,7 @@ fn record_scenario_command(
         }
         RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
         RecordScenarioKind::Issue213DripsMetalBlockAudit => "issue213-drips-metal-block-audit",
+        RecordScenarioKind::Issue213DripsDelayedBDropAudit => "issue213-drips-delayed-b-drop-audit",
         RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             "issue249-juggernaut-wall-no-jump-audit"
