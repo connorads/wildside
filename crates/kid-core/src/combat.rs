@@ -8210,6 +8210,41 @@ impl NativeRuntime {
         candidates
     }
 
+    pub(crate) fn stomp_contact_candidates_debug(
+        &self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) -> Option<String> {
+        const LIMIT: usize = 4;
+
+        let player = slice.player;
+        let mut candidates = self
+            .stomp_contact_candidates()
+            .into_iter()
+            .map(|(active_index, enemy)| {
+                stomp_contact_candidate_debug_summary(
+                    active_index,
+                    player,
+                    &enemy,
+                    pre_physics_y_velocity,
+                    self.progression.current_form.half_width() as i64,
+                )
+            })
+            .filter(|candidate| candidate.distance_score <= 160)
+            .collect::<Vec<_>>();
+        if candidates.is_empty() {
+            return None;
+        }
+
+        candidates.sort_by_key(|candidate| (candidate.distance_score, candidate.summary.clone()));
+        let summaries = candidates
+            .into_iter()
+            .take(LIMIT)
+            .map(|candidate| candidate.summary)
+            .collect::<Vec<_>>();
+        Some(summaries.join("; "))
+    }
+
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     pub(crate) fn process_stomps(
@@ -10365,6 +10400,90 @@ pub(crate) fn classify_enemy_contact_with_half_width(
     }
 
     EnemyContactResult::Damage
+}
+
+struct StompContactCandidateDebug {
+    distance_score: i32,
+    summary: String,
+}
+
+fn stomp_contact_candidate_debug_summary(
+    active_index: usize,
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    pre_physics_y_velocity: i32,
+    player_contact_half_width: i64,
+) -> StompContactCandidateDebug {
+    let px = player.x_pos as i64;
+    let py = player.y_pos as i64;
+    let p_left = px - (player_contact_half_width << 16);
+    let p_right = px + (player_contact_half_width << 16);
+    let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
+    let p_bottom = py;
+
+    let ex = enemy.x_pos as i64;
+    let ey = enemy.y_pos as i64;
+    let bounds = enemy_contact_bounds(enemy);
+    let e_left = ex + (bounds.left_px << 16);
+    let e_right = ex + (bounds.right_px << 16);
+    let e_top = ey + (bounds.top_px << 16);
+    let e_bottom = ey + (bounds.bottom_px << 16);
+
+    let kid_left = (p_left >> 16) as i32;
+    let kid_right = (p_right >> 16) as i32;
+    let kid_top = (p_top >> 16) as i32;
+    let kid_bottom = (p_bottom >> 16) as i32;
+    let object_left = (e_left >> 16) as i32;
+    let object_right = (e_right >> 16) as i32;
+    let object_top = (e_top >> 16) as i32;
+    let object_bottom = (e_bottom >> 16) as i32;
+    let object_type = match enemy.kind {
+        NativeObjectKind::Enemy { object_type } => object_type,
+        _ => 0,
+    };
+    let label = match enemy.layout_index {
+        Some(layout_index) => format!("enemy_{object_type:02X}#{layout_index:02}"),
+        None => format!("enemy_{object_type:02X}@active{active_index:02}"),
+    };
+
+    let x_overlap_px = object_right.min(kid_right) - object_left.max(kid_left);
+    let y_overlap_px = object_bottom.min(kid_bottom) - object_top.max(kid_top);
+    let separated = object_left > kid_right
+        || object_right < kid_left
+        || object_top > kid_bottom
+        || object_bottom < kid_top;
+    let min_overlap_px = (enemy_contact_min_overlap_fp(enemy) >> 16) as i32;
+    let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
+    let object_y_delta = enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity;
+    let result = classify_enemy_contact_with_half_width(
+        player,
+        enemy,
+        pre_physics_y_velocity,
+        player.y_pos,
+        player_contact_half_width,
+    );
+    let result_label = match result {
+        EnemyContactResult::None => "none",
+        EnemyContactResult::Stomp => "stomp",
+        EnemyContactResult::Damage => "damage",
+    };
+    let gate = if separated {
+        "separated"
+    } else if x_overlap_px < min_overlap_px {
+        "min_overlap"
+    } else {
+        "classify"
+    };
+    let kid_centre_x = kid_left.midpoint(kid_right);
+    let object_centre_x = object_left.midpoint(object_right);
+    let distance_score = (kid_bottom - object_top).abs() + (kid_centre_x - object_centre_x).abs();
+
+    StompContactCandidateDebug {
+        distance_score,
+        summary: format!(
+            "{label} gate={gate}/result={result_label}/kid=[{kid_left},{kid_right},{kid_top},{kid_bottom}]/obj=[{object_left},{object_right},{object_top},{object_bottom}]/overlap={x_overlap_px},{y_overlap_px}/delta={object_x_delta:#010x},{object_y_delta:#010x}",
+        ),
+    }
 }
 
 pub(crate) fn player_touches_enemy_with_half_width(

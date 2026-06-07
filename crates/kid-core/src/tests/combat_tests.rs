@@ -12699,6 +12699,46 @@ mod chunk_03 {
     }
 
     #[test]
+    fn trace_frame_reports_kid_stomp_contact_candidates() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 200 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+        runtime.progression.current_form = PlayerForm::TheKid;
+
+        let mut stomp_enemy = test_enemy(EnemyFamily::MiniHoppingSkull, 100 << 16, 204 << 16, 1);
+        stomp_enemy.on_ground = true;
+        stomp_enemy.y_velocity = 0x0001_0000;
+        let separated_enemy = test_enemy(EnemyFamily::DragonWalking, 130 << 16, 204 << 16, 1);
+        runtime.active_enemies = vec![stomp_enemy, separated_enemy];
+
+        let trace = runtime.trace_frame();
+        let candidate_debug = trace
+            .gameplay_debug_fields
+            .get("kid_stomp_contact_candidates")
+            .unwrap_or_else(|| panic!("trace frame should emit stomp contact diagnostics"));
+
+        assert!(
+            candidate_debug.contains("enemy_1C#00 gate=classify/result=stomp"),
+            "ASM loc_1C76/Jump_On_Enemy diagnostics should expose the accepted stomp candidate, got {candidate_debug}",
+        );
+        assert!(
+            candidate_debug.contains("enemy_0D#00 gate=separated/result=none"),
+            "near misses should report the separation gate so frame-612-style bounce gaps can be ruled out, got {candidate_debug}",
+        );
+        assert!(
+            candidate_debug.contains("/delta=0xffff0000,0xfffe0000"),
+            "candidate diagnostics should include object-vs-Kid velocity deltas used by GfxObjects_CollisionKid, got {candidate_debug}",
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_kid_iron_knight_attach_probe() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;

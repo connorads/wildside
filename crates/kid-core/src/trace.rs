@@ -5566,6 +5566,12 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_collision_handoff_probe_debug() {
             gameplay_debug_fields.insert("kid_collision_handoff_probe".into(), summary);
         }
+        if let Some(slice) = self.opening_slice
+            && let Some(summary) =
+                self.stomp_contact_candidates_debug(&slice, slice.player.y_velocity)
+        {
+            gameplay_debug_fields.insert("kid_stomp_contact_candidates".into(), summary);
+        }
         if let Some(summary) = self.kid_same_frame_stomp_probe_debug() {
             gameplay_debug_fields.insert("kid_same_frame_stomp_probe".into(), summary);
         }
