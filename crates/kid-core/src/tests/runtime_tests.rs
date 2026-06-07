@@ -11407,8 +11407,8 @@ mod chunk_09 {
             "ASM loc_335D8 queues `$44(a0)=drop_x+1` for the surface crawler"
         );
         assert_eq!(
-            crawler.y_pos, 0x0020_0000,
-            "ASM loc_335D8 queues `$46(a0)=(drop_y+$A)&$FFF0` for the surface crawler"
+            crawler.y_pos, 0x0030_0000,
+            "ASM Drips.asm loc_33488 adds `$A` to the falling child before loc_335D8 queues `$46(a0)=(drop_y+$A)&$FFF0` for the surface crawler"
         );
         assert_eq!(
             crawler.x_velocity.abs(),
@@ -11456,18 +11456,118 @@ mod chunk_09 {
             .find(|enemy| enemy.family == EnemyFamily::Drips)
             .expect("Drips parent remains active after child splash");
         assert_eq!(
+            drips.drips_surface_table_index, 0,
+            "ASM Drips.asm loc_33488 enters stru_33332 before consuming off_33520"
+        );
+        assert_eq!(
+            drips_splash_animation_remaining_loc_33488(drips.wait_timer),
+            Some(DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488),
+            "ASM Drips.asm loc_33488 hibernates through the splash animation before loc_3350E reseeds"
+        );
+        assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
+        assert_eq!(drips.drips_pending_splash_y_pos, 0x002A_0000);
+
+        let mut drilled_blocks = Vec::new();
+        step_active_enemies(
+            &mut rt.active_enemies,
+            rt.block_grid.as_ref(),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut rt.projectiles),
+            &mut drilled_blocks,
+        );
+        rt.step_projectiles();
+
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active during splash animation");
+        assert_eq!(
+            drips.drips_surface_table_index, 0,
+            "ASM Drips.asm loc_33488 must not consume off_33520 during the visible stru_33332 splash frame"
+        );
+        assert_eq!(
+            drips_splash_animation_remaining_loc_33488(drips.wait_timer),
+            Some(1),
+            "ASM Drips.asm loc_33488 is still hibernating before the j_Hibernate_UntilAnimFinished resume frame"
+        );
+
+        step_active_enemies(
+            &mut rt.active_enemies,
+            rt.block_grid.as_ref(),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut rt.projectiles),
+            &mut drilled_blocks,
+        );
+        rt.step_projectiles();
+
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after splash animation");
+        assert_eq!(
             drips.drips_surface_table_index, 1,
-            "ASM Drips.asm loc_33488 should consume off_33520 entry 0 only when the falling child splashes"
+            "ASM Drips.asm loc_33488 should consume off_33520 entry 0 only after the splash animation hibernates"
         );
         assert_ne!(
             drips.wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
             "ASM Drips.asm loc_3350E should reseed the dormant timer after loc_33488 finishes"
         );
+        assert_eq!(drips.drips_pending_splash_x_pos, 0);
+        assert_eq!(drips.drips_pending_splash_y_pos, 0);
         assert!(
             rt.projectiles
                 .iter()
                 .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
             "ASM off_33520 entry 0 is pool growth, not loc_335D8 crawler allocation"
+        );
+    }
+
+    #[test]
+    fn drips_burst_helper_still_counts_against_surface_cap_loc_3392c() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = drips_splash_animation_timer_loc_33488(0);
+        drips.drips_surface_table_index = 2;
+        drips.drips_pending_splash_x_pos = 0x0020_0000;
+        drips.drips_pending_splash_y_pos = 0x002A_0000;
+        rt.active_enemies.push(drips);
+        for index in 0..crate::projectiles::DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488 {
+            rt.projectiles.push(EnemyProjectile {
+                kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+                x_pos: (0x0040 + index as u32) << 16,
+                y_pos: 0x0040_0000,
+                lifetime: 1,
+                ..Default::default()
+            });
+        }
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
+            "ASM Drips.asm loc_33488 checks `$FFFFFB42 < 5`; loc_3392C decrements it only after the loc_338F8 burst-helper animation finishes"
+        );
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after capped splash");
+        assert_eq!(
+            drips.drips_surface_table_index, 0,
+            "ASM Drips.asm loc_33506 still rewinds the off_33520 cursor when the allocation cap blocks loc_335D8"
         );
     }
 
@@ -11547,7 +11647,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_surface_crawler_deletes_when_right_probe_reaches_level_width_loc_33588() {
+    fn drips_surface_crawler_enters_finish_when_right_probe_reaches_level_width_loc_33588() {
         let mut rt = NativeRuntime::new(manifest());
         let level_width = rt.level_bounds(rt.current_level).width_pixels;
         rt.projectiles.push(EnemyProjectile {
@@ -11562,10 +11662,12 @@ mod chunk_09 {
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_33588 treats `x_pos(a3)+8 >= Level_width_pixels` as contact and routes the crawler to its delete animation"
+        let finish = rt.projectiles.first().expect(
+            "ASM Drips.asm loc_33588 routes contact to loc_338EA/loc_3392C before deletion",
         );
+        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerBurst);
+        assert_eq!(finish.x_velocity, 0);
+        assert_eq!(finish.y_velocity, 0);
     }
 
     #[test]
@@ -11902,7 +12004,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_surface_crawler_vertical_loc_33730_deletes_without_upper_support() {
+    fn drips_surface_crawler_vertical_loc_33730_enters_finish_without_upper_support() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
         data[(5 + 1) * 2] = 0x60;
@@ -11921,10 +12023,12 @@ mod chunk_09 {
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_33730 routes non-$6000 loc_331D2 upper support to loc_338F8"
-        );
+        let finish = rt
+            .projectiles
+            .first()
+            .expect("ASM Drips.asm loc_33730 routes non-$6000 loc_331D2 upper support to loc_338F8, then loc_3392C");
+        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerBurst);
+        assert_eq!(finish.x_velocity, 0);
     }
 
     #[test]
@@ -12491,7 +12595,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_surface_crawler_deletes_when_left_probe_crosses_zero_loc_335aa() {
+    fn drips_surface_crawler_enters_finish_when_left_probe_crosses_zero_loc_335aa() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsSurfaceCrawler,
@@ -12505,10 +12609,12 @@ mod chunk_09 {
 
         rt.step_projectiles();
 
-        assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_335AA treats `x_pos(a3)-8` becoming negative as contact and routes the crawler to deletion"
+        let finish = rt.projectiles.first().expect(
+            "ASM Drips.asm loc_335AA routes `x_pos(a3)-8` contact through loc_338EA/loc_3392C",
         );
+        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerBurst);
+        assert_eq!(finish.x_velocity, 0);
+        assert_eq!(finish.y_velocity, 0);
     }
 
     #[test]
@@ -12527,10 +12633,15 @@ mod chunk_09 {
 
         upward.step_projectiles();
 
-        assert!(
-            upward.projectiles.is_empty(),
-            "ASM Drips.asm loc_335B0/loc_335CA treats `y_pos(a3)-8` becoming negative as contact"
+        let upward_finish = upward.projectiles.first().expect(
+            "ASM Drips.asm loc_335B0/loc_335CA routes upper contact through loc_338EA/loc_3392C",
         );
+        assert_eq!(
+            upward_finish.kind,
+            EnemyProjectileKind::DripsSurfaceCrawlerBurst
+        );
+        assert_eq!(upward_finish.x_velocity, 0);
+        assert_eq!(upward_finish.y_velocity, 0);
 
         let mut downward = NativeRuntime::new(manifest());
         let level_height = downward.level_bounds(downward.current_level).height_pixels;
@@ -12547,10 +12658,16 @@ mod chunk_09 {
 
         downward.step_projectiles();
 
-        assert!(
-            downward.projectiles.is_empty(),
-            "ASM Drips.asm loc_335B0 treats `y_pos(a3)+8 >= Level_height_pixels` as contact"
+        let downward_finish = downward
+            .projectiles
+            .first()
+            .expect("ASM Drips.asm loc_335B0 routes lower contact through loc_338EA/loc_3392C");
+        assert_eq!(
+            downward_finish.kind,
+            EnemyProjectileKind::DripsSurfaceCrawlerBurst
         );
+        assert_eq!(downward_finish.x_velocity, 0);
+        assert_eq!(downward_finish.y_velocity, 0);
     }
 
     #[test]

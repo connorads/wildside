@@ -1191,6 +1191,11 @@ fn capture_state(
         if !object_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_object_slots_loc_e1e".into(), object_debug);
         }
+        let drips_object_debug = drips_object_slots_debug_loc_33488(&work_ram);
+        if !drips_object_debug.is_empty() {
+            gameplay_debug_fields
+                .insert("oracle_drips_object_slots_loc_33488".into(), drips_object_debug);
+        }
     }
     OracleState {
         label: label.to_string(),
@@ -1392,6 +1397,62 @@ fn object_slots_debug_loc_e1e(work_ram: &[u8]) -> String {
         slots.push(format!(
             "{object_addr:#08x}:code={code:#08x},hib={hibernate}{gfx}"
         ));
+        object_addr = read_wram_u32(work_ram, object_addr) as usize;
+        guard += 1;
+    }
+    slots.join(";")
+}
+
+fn drips_object_slots_debug_loc_33488(work_ram: &[u8]) -> String {
+    // ASM Drips.asm loc_33488/loc_335D8 and Tar_Monster.asm loc_325B6:
+    // Drips stores pending helper handoff values in Object_RAM offsets
+    // $44/$46/$48 before converting them into gfx-object x/y/x velocity.
+    let mut slots = Vec::new();
+    let mut object_addr = read_wram_u32(work_ram, ADDR_FIRST_OBJECT_SLOT_ADDR) as usize;
+    let mut guard = 0usize;
+    while object_addr != 0
+        && (OBJECT_RAM_ADDR..OBJECT_RAM_END_ADDR).contains(&object_addr)
+        && guard < 0x32
+    {
+        let code = read_wram_u32(work_ram, object_addr + 4);
+        let relevant_code = (0x033400..=0x0339FF).contains(&code)
+            || (0x032500..=0x0326FF).contains(&code)
+            || code == 0x001066;
+        if relevant_code {
+            let hibernate = read_wram_u16(work_ram, object_addr + 8);
+            let child_a = read_wram_u32(work_ram, object_addr + 0x3E);
+            let child_b = read_wram_u32(work_ram, object_addr + 0x42);
+            let reg_d0 = read_wram_u32(work_ram, object_addr + 0x16);
+            let reg_d3 = read_wram_u32(work_ram, object_addr + 0x22);
+            let reg_a0 = read_wram_u32(work_ram, object_addr + 0x26);
+            let reg_a1 = read_wram_u32(work_ram, object_addr + 0x2A);
+            let reg_a2 = read_wram_u32(work_ram, object_addr + 0x2E);
+            let reg_a3 = read_wram_u32(work_ram, object_addr + 0x32);
+            let obj44 = read_wram_u16(work_ram, object_addr + 0x44);
+            let obj46 = read_wram_u16(work_ram, object_addr + 0x46);
+            let obj48 = read_wram_i32(work_ram, object_addr + 0x48);
+            let gfx_addr = read_wram_u32(work_ram, object_addr + 0x36) as usize;
+            let gfx = if (GFX_OBJECT_RAM_ADDR
+                ..GFX_OBJECT_RAM_ADDR + GFX_OBJECT_SLOT_SIZE * GFX_OBJECT_SLOT_COUNT)
+                .contains(&gfx_addr)
+            {
+                format!(
+                    "gfx={gfx_addr:#08x}:disp={:#04x},xy={},{} vel={:#010x},{:#010x} col={:#06x} src={:#06x}",
+                    read_wram_u8(work_ram, gfx_addr + DISPLAY_FLAG_OFFSET),
+                    read_wram_u16(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
+                    read_wram_u16(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
+                    read_wram_i32(work_ram, gfx_addr + OBJECT_X_VEL_OFFSET),
+                    read_wram_i32(work_ram, gfx_addr + OBJECT_Y_VEL_OFFSET),
+                    read_wram_u16(work_ram, gfx_addr + OBJECT_COLLISION_TYPE_OFFSET),
+                    read_wram_u16(work_ram, gfx_addr + OBJECT_COLLISION_SOURCE_OFFSET),
+                )
+            } else {
+                String::from("gfx=-")
+            };
+            slots.push(format!(
+                "{object_addr:#08x}:code={code:#08x},hib={hibernate},regs=d0:{reg_d0:#010x}/d3:{reg_d3:#010x}/a0:{reg_a0:#010x}/a1:{reg_a1:#010x}/a2:{reg_a2:#010x}/a3:{reg_a3:#010x},child={child_a:#08x}/{child_b:#08x},obj44/46/48={obj44:#06x}/{obj46:#06x}/{obj48:#010x},{gfx}"
+            ));
+        }
         object_addr = read_wram_u32(work_ram, object_addr) as usize;
         guard += 1;
     }

@@ -257,6 +257,15 @@ pub struct NativeRuntime {
     level_damage_taken: bool,
     /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
     just_received_damage: bool,
+    /// Debug-only attribution for the hostile projectile that triggered Kid
+    /// damage during the current frame.
+    last_projectile_damage_probe: Option<String>,
+    /// ASM Drips.asm loc_33488/loc_3392C mirror of `$FFFFFB42`: incremented
+    /// when loc_335D8 allocates a surface crawler and decremented only after
+    /// the crawler's finish animation reaches loc_3392C. Native cannot derive
+    /// this from visible helper projectiles because loc_338F8 also spawns a
+    /// separate Tar-style visual worker.
+    drips_surface_crawler_count_loc_fffffb42: usize,
     /// Set to true when player collects any prize from a block (disqualifies no-prize bonus).
     level_prize_collected: bool,
     /// Set to true when `apply_level_completion_bonuses` awarded the
@@ -1226,7 +1235,6 @@ struct PendingEnemyCollision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StompContactTarget {
     ActiveEnemy(usize),
-    DripsDropProjectile(usize),
     DripsSurfaceCrawlerProjectile(usize),
     DripsSurfaceCrawlerBurstProjectile(usize),
 }
@@ -1354,6 +1362,8 @@ impl NativeRuntime {
             camera_last_kid_y: 0,
             level_damage_taken: false,
             just_received_damage: false,
+            last_projectile_damage_probe: None,
+            drips_surface_crawler_count_loc_fffffb42: 0,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,
             level_path_bonus_amount: 0,

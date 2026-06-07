@@ -1483,6 +1483,8 @@ mod tests {
             wall_pinned: false,
             drips_attached: true,
             drips_surface_table_index,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -5569,6 +5571,11 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_collision_handoff_probe_debug() {
             gameplay_debug_fields.insert("kid_collision_handoff_probe".into(), summary);
         }
+        if let Some(player_state) = player_state
+            && let Some(summary) = self.kid_projectile_damage_probe_debug(player_state)
+        {
+            gameplay_debug_fields.insert("kid_projectile_damage_probe".into(), summary);
+        }
         if let Some(summary) = self.drips_lifecycle_probe_debug() {
             gameplay_debug_fields.insert("drips_lifecycle_probe".into(), summary);
         }
@@ -6109,6 +6116,10 @@ impl NativeRuntime {
             .map(|enemy| {
                 let wait = if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
                     String::from("in_flight")
+                } else if let Some(frames) =
+                    drips_splash_animation_remaining_loc_33488(enemy.wait_timer)
+                {
+                    format!("splash:{frames:#06x}")
                 } else if (enemy.wait_timer & 0x8000) != 0 {
                     format!("pre_drop:{:#06x}", enemy.wait_timer)
                 } else {
@@ -6171,7 +6182,8 @@ impl NativeRuntime {
         }
 
         Some(format!(
-            "parents=[{}] children=[{}]",
+            "count_loc_fffffb42={} parents=[{}] children=[{}]",
+            self.drips_surface_crawler_count_loc_fffffb42,
             parents.join(";"),
             children.join(";")
         ))
@@ -6412,6 +6424,93 @@ impl NativeRuntime {
             probe.anchor_x_pos,
             probe.anchor_y_pos,
         ))
+    }
+
+    fn kid_projectile_damage_probe_debug(&self, player: PlayerState) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let px = (player.x_pos >> 16) as i32;
+        let py = (player.y_pos >> 16) as i32;
+        let half = PROJECTILE_HITBOX_HALF;
+        let mut closest: Option<(i32, String)> = None;
+        if let Some(summary) = &self.last_projectile_damage_probe {
+            return Some(summary.clone());
+        }
+
+        for (index, projectile) in self.projectiles.iter().enumerate() {
+            if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                || projectile.friendly
+            {
+                continue;
+            }
+            let prx = (projectile.x_pos >> 16) as i32;
+            let pry = (projectile.y_pos >> 16) as i32;
+            let dx = prx - px;
+            let dy = pry - py;
+            let overlaps = dx.abs() < half + 8 && dy.abs() < half + 16;
+            let distance = dx.abs() + dy.abs();
+            let owner = projectile.owner.map_or_else(
+                || String::from("none"),
+                |owner| {
+                    format!(
+                        "{}:{}:{:#04x}",
+                        owner.segment_index, owner.layout_index, owner.token
+                    )
+                },
+            );
+            let summary = format!(
+                "#{index:02}:{:?}@{:#010x},{:#010x} vel={:#010x},{:#010x} life={} owner={} dx={dx} dy={dy} overlap={}",
+                active_projectile_kind(projectile),
+                projectile.x_pos,
+                projectile.y_pos,
+                projectile.x_velocity as u32,
+                projectile.y_velocity as u32,
+                projectile.lifetime,
+                owner,
+                u8::from(overlaps),
+            );
+            if overlaps {
+                return Some(summary);
+            }
+            if closest
+                .as_ref()
+                .is_none_or(|(closest_distance, _)| distance < *closest_distance)
+            {
+                closest = Some((distance, summary));
+            }
+        }
+
+        for (index, trail) in self.fire_demon_trails.iter().enumerate() {
+            let prx = (trail.x_pos >> 16) as i32;
+            let pry = (trail.y_pos >> 16) as i32;
+            let dx = prx - px;
+            let dy = pry - py;
+            let overlaps = dx.abs() < half + 8 && dy.abs() < half + 16;
+            let distance = dx.abs() + dy.abs();
+            let summary = format!(
+                "trail#{index:02}:FireDemonDeathTrail@{:#010x},{:#010x} life={} dx={dx} dy={dy} overlap={}",
+                trail.x_pos,
+                trail.y_pos,
+                trail.remaining_frames,
+                u8::from(overlaps),
+            );
+            if overlaps {
+                return Some(summary);
+            }
+            if closest
+                .as_ref()
+                .is_none_or(|(closest_distance, _)| distance < *closest_distance)
+            {
+                closest = Some((distance, summary));
+            }
+        }
+
+        closest.map(|(_, summary)| summary)
     }
 
     fn kid_same_frame_stomp_probe_debug(&self) -> Option<String> {

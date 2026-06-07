@@ -5688,6 +5688,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.current_form = PlayerForm::TheKid;
@@ -5901,6 +5902,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.enemy_death_effects.clear();
         self.pending_dragon_death_children.clear();
@@ -5958,6 +5960,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);

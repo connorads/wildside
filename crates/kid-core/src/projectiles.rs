@@ -10,8 +10,10 @@ use crate::enemies::{
     TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
     archer_angle_to_player, archer_reaim_loc_3432E, dragon_flying_descent_fire_cleanup_loc_34C4A,
     dragon_flying_descent_fire_first_loop_loc_34C26,
-    dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_left_bounds_gate_loc_335aa,
-    drips_right_bounds_gate_loc_33588, drips_surface_crawler_init_loc_335d8,
+    dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
+    drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
+    drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
+    drips_splash_reset_loc_33488, drips_surface_crawler_init_loc_335d8,
     drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
     drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
     drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
@@ -91,7 +93,7 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
         && (support.right & 0x7000) == 0x6000
 }
 
-const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
+pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
@@ -313,17 +315,35 @@ fn drips_surface_crawler_from_drop_loc_335d8(
     drop: &EnemyProjectile,
     random_byte: u8,
 ) -> EnemyProjectile {
-    let drop_x_word = (drop.x_pos >> 16) as u16;
-    let drop_y_word = (drop.y_pos >> 16) as u16;
+    let splash_reset = drips_splash_reset_loc_33488(drop.x_pos, drop.y_pos);
+    drips_surface_crawler_from_splash_loc_335d8(
+        splash_reset.surface_child_x_pos,
+        splash_reset.surface_child_y_pos,
+        drop.drips_child_byte_44,
+        drop.drips_child_byte_45,
+        random_byte,
+    )
+}
+
+fn drips_surface_crawler_from_splash_loc_335d8(
+    splash_x_pos: u32,
+    splash_y_pos: u32,
+    child_byte_44: u8,
+    child_byte_45: u8,
+    random_byte: u8,
+) -> EnemyProjectile {
+    let drop_x_word = (splash_x_pos >> 16) as u16;
+    let drop_y_word = (splash_y_pos >> 16) as u16;
     let queued_x_word = drop_x_word.wrapping_add(1);
     let queued_y_word = drop_y_word.wrapping_add(0x000A) & 0xFFF0;
-    // ASM loc_335D8 copies `$44/$45` from the parent Drips state into the
-    // crawler before loc_33630 tails through loc_33526.
+    // ASM Drips.asm loc_33488 first adds `$A` to the falling child Y, then
+    // the negative off_33520 sentinel queues loc_335D8 with another `$A`
+    // aligned into `$46(a0)` before loc_33630 tails through loc_33526.
     let init = drips_surface_crawler_init_loc_335d8(
         queued_x_word,
         queued_y_word,
-        drop.drips_child_byte_44,
-        drop.drips_child_byte_45,
+        child_byte_44,
+        child_byte_45,
         random_byte,
     );
     let startup_deltas =
@@ -375,6 +395,28 @@ pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
     }
 }
 
+fn drips_surface_crawler_finish_animation_loc_3392c(crawler: &EnemyProjectile) -> EnemyProjectile {
+    EnemyProjectile {
+        kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        x_pos: crawler.x_pos,
+        y_pos: crawler.y_pos,
+        x_velocity: 0,
+        y_velocity: 0,
+        lifetime: 60,
+        gravity: 0,
+        friendly: false,
+        terrain_kill: false,
+        ..Default::default()
+    }
+}
+
+fn drips_surface_crawler_exit_via_loc_338f8(crawler: &mut EnemyProjectile) {
+    let (x_offset, y_offset) =
+        drips_surface_crawler_burst_offset_loc_33550(crawler.drips_surface_crawler_state)
+            .unwrap_or((0, 0));
+    *crawler = drips_surface_crawler_burst_helper_loc_338f8(crawler, x_offset, y_offset);
+}
+
 pub(crate) fn drips_surface_crawler_burst_offset_loc_33550(
     state: DripsSurfaceCrawlerState,
 ) -> Option<(i16, i16)> {
@@ -418,6 +460,23 @@ mod drips_surface_crawler_tests {
         );
         assert_eq!(crawler.drips_child_byte_44, 0xFF);
         assert_eq!(crawler.drips_child_byte_45, 0xFF);
+    }
+
+    #[test]
+    fn drips_surface_crawler_spawn_uses_post_splash_y_loc_33488() {
+        let drop = EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0247_0000,
+            y_pos: 0x023E_0000,
+            ..Default::default()
+        };
+
+        let crawler = drips_surface_crawler_from_drop_loc_335d8(&drop, 0);
+
+        assert_eq!(
+            crawler.y_pos, 0x0250_0000,
+            "ASM Drips.asm loc_33488 adds 10px to the falling child before the loc_335D8 queue adds another 10px and aligns down into `$46(a0)`"
+        );
     }
 }
 
@@ -1683,13 +1742,7 @@ impl NativeRuntime {
         }
     }
 
-    fn resolve_drips_splashes(
-        &mut self,
-        splashes: Vec<PendingDripsSplash>,
-        drips_surface_crawler_count: &mut usize,
-        player_x: Option<u32>,
-        spawned_projectiles: &mut Vec<EnemyProjectile>,
-    ) {
+    fn resolve_drips_splashes(&mut self, splashes: Vec<PendingDripsSplash>) {
         for splash in splashes {
             let Some(enemy) = self.active_enemies.iter_mut().find(|enemy| {
                 enemy.family == EnemyFamily::Drips
@@ -1698,6 +1751,24 @@ impl NativeRuntime {
             }) else {
                 continue;
             };
+            drips_enter_splash_animation_loc_33488(enemy, splash.drop.x_pos, splash.drop.y_pos);
+        }
+    }
+
+    fn resolve_ready_drips_splash_animations(
+        &mut self,
+        drips_surface_crawler_count: &mut usize,
+        player_x: Option<u32>,
+        spawned_projectiles: &mut Vec<EnemyProjectile>,
+    ) {
+        for enemy in self
+            .active_enemies
+            .iter_mut()
+            .filter(|enemy| enemy.family == EnemyFamily::Drips)
+        {
+            if drips_splash_animation_remaining_loc_33488(enemy.wait_timer) != Some(0) {
+                continue;
+            }
             let spawn_crawler_on_splash = if enemy.drips_surface_table_index < 2 {
                 enemy.drips_surface_table_index += 1;
                 false
@@ -1711,49 +1782,24 @@ impl NativeRuntime {
             if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
             {
-                spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(
-                    &splash.drop,
+                let (drips_child_byte_44, drips_child_byte_45) =
+                    drips_child_state_bytes_loc_3333e(enemy.enemy_level);
+                spawned_projectiles.push(drips_surface_crawler_from_splash_loc_335d8(
+                    enemy.drips_pending_splash_x_pos,
+                    enemy.drips_pending_splash_y_pos,
+                    drips_child_byte_44,
+                    drips_child_byte_45,
                     self.rom_random.next_byte(),
                 ));
                 *drips_surface_crawler_count += 1;
+                self.drips_surface_crawler_count_loc_fffffb42 += 1;
             }
             // ASM loc_3350E branches back to loc_3340E after the splash path.
             enemy.wait_timer =
                 drips_wait_timer_with_rng_loc_3340e(&mut self.rom_random, player_x.unwrap_or(0));
+            enemy.drips_pending_splash_x_pos = 0;
+            enemy.drips_pending_splash_y_pos = 0;
         }
-    }
-
-    pub(crate) fn resolve_drips_stomped_drops_loc_33550(
-        &mut self,
-        drops: Vec<EnemyProjectile>,
-        player_x: Option<u32>,
-    ) {
-        if drops.is_empty() {
-            return;
-        }
-
-        let mut drips_surface_crawler_count = self
-            .projectiles
-            .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
-            .count();
-        let splashes = drops
-            .into_iter()
-            .filter_map(|drop| {
-                // ASM Drips.asm loc_33550 maps Kid-above `$2C` to d5=1;
-                // callers then branch to loc_338F8, which spawns the splash
-                // helper and deletes the falling object after its animation.
-                drop.owner.map(|owner| PendingDripsSplash { owner, drop })
-            })
-            .collect::<Vec<_>>();
-        let mut spawned_projectiles = Vec::new();
-        self.resolve_drips_splashes(
-            splashes,
-            &mut drips_surface_crawler_count,
-            player_x,
-            &mut spawned_projectiles,
-        );
-        self.projectiles.extend(spawned_projectiles);
     }
 
     pub(crate) fn step_fire_demon_trails(&mut self) {
@@ -1869,7 +1915,6 @@ impl NativeRuntime {
             .as_ref()
             .map_or(0, |s| s.player.x_velocity);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
-        let grid = self.block_grid.as_ref();
         let level_bounds = self.level_bounds(self.current_level);
         let current_frame_index = self.frame_index;
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
@@ -1884,15 +1929,36 @@ impl NativeRuntime {
             })
             .collect();
         let mut released_owners = Vec::new();
-        let mut drips_surface_crawler_count = self
+        // ASM Drips.asm loc_33488 increments `$FFFFFB42` when loc_335D8 is
+        // allocated. The count is decremented only at loc_3392C, after the
+        // crawler has entered its loc_338F8/loc_338EA finish animation, so
+        // native must include the burst-helper lifetime in the allocation cap.
+        let visible_drips_surface_crawler_count = self
             .projectiles
             .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .filter(|projectile| {
+                matches!(
+                    projectile.kind,
+                    EnemyProjectileKind::DripsSurfaceCrawler
+                        | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                )
+            })
             .count();
+        self.drips_surface_crawler_count_loc_fffffb42 = self
+            .drips_surface_crawler_count_loc_fffffb42
+            .max(visible_drips_surface_crawler_count);
+        let mut drips_surface_crawler_count = self.drips_surface_crawler_count_loc_fffffb42;
         let mut spawned_projectiles = Vec::new();
+        self.resolve_ready_drips_splash_animations(
+            &mut drips_surface_crawler_count,
+            player_x,
+            &mut spawned_projectiles,
+        );
+        let grid = self.block_grid.as_ref();
         let mut pending_drips_splashes = Vec::new();
         let mut pending_tar_monster_bursts = Vec::new();
         let mut pending_shooter_layout_interactions = Vec::new();
+        let mut expired_drips_surface_crawler_finishes = 0usize;
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
@@ -1911,6 +1977,11 @@ impl NativeRuntime {
                 && !is_maniaxe_axe
                 && p.lifetime == 0
             {
+                if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
+                    // ASM Drips.asm loc_3392C decrements `$FFFFFB42` after
+                    // the original crawler's finish animation completes.
+                    expired_drips_surface_crawler_finishes += 1;
+                }
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
@@ -2001,7 +2072,13 @@ impl NativeRuntime {
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
                     }
-                    DripsSurfaceCrawlerVerticalStepLoc336D0::Exit => return false,
+                    DripsSurfaceCrawlerVerticalStepLoc336D0::Exit => {
+                        // ASM Drips.asm loc_336D0 exits through loc_338F8,
+                        // then loc_3392C delays the `$FFFFFB42` decrement
+                        // until the finish animation completes.
+                        drips_surface_crawler_exit_via_loc_338f8(p);
+                        return true;
+                    }
                 }
             } else {
                 false
@@ -2019,7 +2096,12 @@ impl NativeRuntime {
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
                     }
-                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => {
+                        // ASM Drips.asm loc_33730 exits through loc_338F8 and
+                        // keeps the crawler counted until loc_3392C.
+                        drips_surface_crawler_exit_via_loc_338f8(p);
+                        return true;
+                    }
                 }
             } else {
                 drips_movement_state_handled
@@ -2037,7 +2119,12 @@ impl NativeRuntime {
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
                     }
-                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => return false,
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Exit => {
+                        // ASM Drips.asm loc_337A0 exits through loc_338F8 and
+                        // keeps the crawler counted until loc_3392C.
+                        drips_surface_crawler_exit_via_loc_338f8(p);
+                        return true;
+                    }
                 }
             } else {
                 drips_movement_state_handled
@@ -2055,7 +2142,12 @@ impl NativeRuntime {
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
                     }
-                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => return false,
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => {
+                        // ASM Drips.asm loc_33810 exits through loc_338F8 and
+                        // keeps the crawler counted until loc_3392C.
+                        drips_surface_crawler_exit_via_loc_338f8(p);
+                        return true;
+                    }
                 }
             } else {
                 drips_movement_state_handled
@@ -2073,7 +2165,12 @@ impl NativeRuntime {
                         drips_surface_crawler_apply_turn_script_loc_33af6(p, script);
                         return true;
                     }
-                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => return false,
+                    DripsSurfaceCrawlerDiagonalStepLoc33810::Exit => {
+                        // ASM Drips.asm loc_33892 exits through loc_338F8 and
+                        // keeps the crawler counted until loc_3392C.
+                        drips_surface_crawler_exit_via_loc_338f8(p);
+                        return true;
+                    }
                 }
             } else {
                 drips_movement_state_handled
@@ -2095,10 +2192,11 @@ impl NativeRuntime {
                 // ASM Drips.asm loc_33650 leaves d6=0,d7=-8 from loc_33550;
                 // a non-$6000 loc_331D2 support probe branches to loc_338F8,
                 // which shifts the crawler before allocating the loc_325B6
-                // helper. Native models the helper as the remaining visible
-                // lifecycle and removes the crawler immediately.
-                spawned_projectiles.push(drips_surface_crawler_burst_helper_loc_338f8(p, 0, -8));
-                return false;
+                // helper. Native keeps that helper in-place as the remaining
+                // non-damaging lifecycle, preserving the `$FFFFFB42` cap until
+                // loc_3392C would delete it.
+                *p = drips_surface_crawler_burst_helper_loc_338f8(p, 0, -8);
+                return true;
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
@@ -2111,8 +2209,10 @@ impl NativeRuntime {
             {
                 // ASM Drips.asm loc_33588/loc_335B0 route out-of-level edge
                 // probes through loc_338EA/loc_338F8, then loc_3392C deletes
-                // the crawler after its finish animation.
-                return false;
+                // the crawler after its finish animation and decrements
+                // `$FFFFFB42`.
+                *p = drips_surface_crawler_finish_animation_loc_3392c(p);
+                return true;
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
@@ -2387,6 +2487,7 @@ impl NativeRuntime {
                     {
                         spawned_projectiles.push(drips_surface_crawler_from_drop_loc_335d8(p, 0));
                         drips_surface_crawler_count += 1;
+                        self.drips_surface_crawler_count_loc_fffffb42 += 1;
                     }
                     return false;
                 }
@@ -2488,12 +2589,10 @@ impl NativeRuntime {
             }
             true
         });
-        self.resolve_drips_splashes(
-            pending_drips_splashes,
-            &mut drips_surface_crawler_count,
-            player_x,
-            &mut spawned_projectiles,
-        );
+        self.resolve_drips_splashes(pending_drips_splashes);
+        self.drips_surface_crawler_count_loc_fffffb42 = self
+            .drips_surface_crawler_count_loc_fffffb42
+            .saturating_sub(expired_drips_surface_crawler_finishes);
         for interaction in pending_shooter_layout_interactions {
             self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
         }
@@ -2509,6 +2608,7 @@ impl NativeRuntime {
         let half = PROJECTILE_HITBOX_HALF;
         let mut hit = false;
         let mut released_owners = Vec::new();
+        self.last_projectile_damage_probe = None;
         self.projectiles.retain(|p| {
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
                 // ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6
@@ -2525,6 +2625,29 @@ impl NativeRuntime {
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
             if overlaps {
                 hit = true;
+                if self.last_projectile_damage_probe.is_none() {
+                    let dx = prx - px;
+                    let dy = pry - py;
+                    let owner = p.owner.map_or_else(
+                        || String::from("none"),
+                        |owner| {
+                            format!(
+                                "{}:{}:{:#04x}",
+                                owner.segment_index, owner.layout_index, owner.token
+                            )
+                        },
+                    );
+                    self.last_projectile_damage_probe = Some(format!(
+                        "hit:{:?}@{:#010x},{:#010x} vel={:#010x},{:#010x} life={} owner={} dx={dx} dy={dy}",
+                        p.kind,
+                        p.x_pos,
+                        p.y_pos,
+                        p.x_velocity as u32,
+                        p.y_velocity as u32,
+                        p.lifetime,
+                        owner,
+                    ));
+                }
                 if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
                     || p.kind == EnemyProjectileKind::DragonWalkingBreath
@@ -2547,7 +2670,16 @@ impl NativeRuntime {
         hit |= self.fire_demon_trails.iter().any(|trail| {
             let prx = (trail.x_pos >> 16) as i32;
             let pry = (trail.y_pos >> 16) as i32;
-            (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16
+            let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
+            if overlaps && self.last_projectile_damage_probe.is_none() {
+                let dx = prx - px;
+                let dy = pry - py;
+                self.last_projectile_damage_probe = Some(format!(
+                    "hit:FireDemonDeathTrail@{:#010x},{:#010x} life={} dx={dx} dy={dy}",
+                    trail.x_pos, trail.y_pos, trail.remaining_frames,
+                ));
+            }
+            overlaps
         });
         self.release_lion_projectile_owners(released_owners);
         hit

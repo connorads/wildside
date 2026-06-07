@@ -108,7 +108,7 @@ fn pending_contact_damage_spends_before_motion_loc_b700() {
 }
 
 #[test]
-fn drips_falling_drop_stomp_routes_through_loc_33550() {
+fn drips_falling_drop_kid_above_does_not_advance_crawler_table_loc_3345c() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     runtime.progression.current_form = PlayerForm::TheKid;
@@ -152,22 +152,29 @@ fn drips_falling_drop_stomp_routes_through_loc_33550() {
     );
 
     assert!(
-        stomped,
-        "ASM Drips.asm loc_33424/loc_3345C uses a falling GfxObject child with Kid collision; loc_33550 maps `$2C` Kid-above contact to the loc_338F8 splash/delete route"
+        !stomped,
+        "ASM Drips.asm loc_3345C is the falling child loop; only surface crawler states call loc_33550, so Kid-above overlap must not take the loc_338F8 crawler exit"
     );
     assert!(
-        runtime.projectiles.is_empty(),
-        "stomped Drips drop should be consumed as the loc_338F8 splash path"
+        runtime
+            .projectiles
+            .iter()
+            .any(|projectile| projectile.kind == EnemyProjectileKind::DripsDrop),
+        "ASM Drips.asm loc_3345C keeps the falling child alive until floor collision `$0C`, not until Kid-above contact"
     );
-    assert_ne!(
+    assert_eq!(
         runtime.active_enemies[0].wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
-        "loc_3350E returns the Drips parent to loc_3340E after the child contact"
+        "ASM Drips.asm loc_33488/off_33520 must not run from a Kid-above falling-drop overlap"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].drips_surface_table_index, 0,
+        "ASM Drips.asm off_33520 advances only from the loc_33488 floor-splash path"
     );
 
     runtime.apply_pending_stomp_bounce(&mut slice);
     assert_eq!(
-        slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
-        "ASM Jump_On_Enemy loc_B6DA should apply the standard stomp bounce after the Drips child contact"
+        slice.player.y_velocity, 0x0003_0000,
+        "ASM Jump_On_Enemy loc_B6DA is not reached because the falling Drips child did not produce a stomp contact"
     );
 }
 
@@ -7865,6 +7872,8 @@ mod chunk_03 {
             wall_pinned: false,
             drips_attached: false,
             drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -8621,6 +8630,8 @@ mod chunk_03 {
             wall_pinned: false,
             drips_attached: false,
             drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,

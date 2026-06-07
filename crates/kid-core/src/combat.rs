@@ -8230,21 +8230,17 @@ impl NativeRuntime {
         for (projectile_index, projectile) in self.projectiles.iter().enumerate() {
             if !matches!(
                 projectile.kind,
-                EnemyProjectileKind::DripsDrop
-                    | EnemyProjectileKind::DripsSurfaceCrawler
+                EnemyProjectileKind::DripsSurfaceCrawler
                     | EnemyProjectileKind::DripsSurfaceCrawlerBurst
             ) {
                 continue;
             }
-            // ASM Drips.asm loc_33424/loc_335D8 drives the falling drop and
-            // surface crawler as real GfxObject children with `object_meta=$16`
-            // and Kid collision enabled. loc_338F8 allocates Tar_Monster.asm
-            // loc_325B6, whose loc_3261C also sets `has_kid_collision`; the
-            // helper remains a bounce source while its own loop owns deletion.
+            // ASM Drips.asm loc_335D8 drives the surface crawler as a real
+            // GfxObject child with `object_meta=$16` and Kid collision
+            // enabled. Only crawler states call loc_33550 before branching to
+            // loc_338F8; the falling loc_3345C drop loop never touches the
+            // off_33520 splash table on Kid collision.
             let target = match projectile.kind {
-                EnemyProjectileKind::DripsDrop => {
-                    StompContactTarget::DripsDropProjectile(projectile_index)
-                }
                 EnemyProjectileKind::DripsSurfaceCrawler => {
                     StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index)
                 }
@@ -8294,7 +8290,6 @@ impl NativeRuntime {
             .map(|candidate| {
                 let debug_index = match candidate.target {
                     StompContactTarget::ActiveEnemy(index)
-                    | StompContactTarget::DripsDropProjectile(index)
                     | StompContactTarget::DripsSurfaceCrawlerProjectile(index)
                     | StompContactTarget::DripsSurfaceCrawlerBurstProjectile(index) => index,
                 };
@@ -8336,7 +8331,6 @@ impl NativeRuntime {
         }
 
         let mut stomped_indices = Vec::new();
-        let mut stomped_drips_drop_indices = Vec::new();
         let mut stomped_drips_surface_crawler_indices = Vec::new();
         let mut stomped_drips_surface_crawler_burst_indices = Vec::new();
         for candidate in self.stomp_contact_candidates() {
@@ -8352,9 +8346,6 @@ impl NativeRuntime {
                     StompContactTarget::ActiveEnemy(active_index) => {
                         stomped_indices.push(active_index);
                     }
-                    StompContactTarget::DripsDropProjectile(projectile_index) => {
-                        stomped_drips_drop_indices.push(projectile_index);
-                    }
                     StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index) => {
                         stomped_drips_surface_crawler_indices.push(projectile_index);
                     }
@@ -8366,15 +8357,12 @@ impl NativeRuntime {
         }
         stomped_indices.sort_unstable();
         stomped_indices.dedup();
-        stomped_drips_drop_indices.sort_unstable();
-        stomped_drips_drop_indices.dedup();
         stomped_drips_surface_crawler_indices.sort_unstable();
         stomped_drips_surface_crawler_indices.dedup();
         stomped_drips_surface_crawler_burst_indices.sort_unstable();
         stomped_drips_surface_crawler_burst_indices.dedup();
 
         if stomped_indices.is_empty()
-            && stomped_drips_drop_indices.is_empty()
             && stomped_drips_surface_crawler_indices.is_empty()
             && stomped_drips_surface_crawler_burst_indices.is_empty()
         {
@@ -8407,20 +8395,6 @@ impl NativeRuntime {
             }
         }
         self.projectiles.extend(spawned_drips_helpers);
-
-        let mut stomped_drips_drops = Vec::new();
-        for projectile_index in stomped_drips_drop_indices.into_iter().rev() {
-            if projectile_index < self.projectiles.len() {
-                let projectile = self.projectiles.remove(projectile_index);
-                if projectile.kind == EnemyProjectileKind::DripsDrop
-                    && drips_collision_dispatch_loc_33550(DRAGON_COLID_KIDABOVE, false).contact_flag
-                        != 0
-                {
-                    stomped_drips_drops.push(projectile);
-                }
-            }
-        }
-        self.resolve_drips_stomped_drops_loc_33550(stomped_drips_drops, Some(slice.player.x_pos));
 
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
@@ -8880,6 +8854,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.enemy_death_effects.clear();
     }
 

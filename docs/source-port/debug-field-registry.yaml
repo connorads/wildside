@@ -222,6 +222,15 @@
       "promotion_trigger": "Promote if repeated parity work depends on typed stomp candidate rejection reasons or the field starts driving regression assertions."
     },
     {
+      "key": "kid_projectile_damage_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-213-drips-rocktank-route",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native projectile or fire-trail overlap candidate using the same hitbox predicate as projectile_hits_player, used to attribute the issue #213 early projectile-damage divergence after Drips crawler Y correction.",
+      "promotion_trigger": "Promote if repeated parity work depends on typed projectile/Kid damage-candidate attribution or the field starts driving regression assertions."
+    },
+    {
       "key": "drips_lifecycle_probe",
       "scope": "frame",
       "status": "exploratory",
@@ -427,6 +436,15 @@
       "first_added_commit": "pending",
       "intended_meaning": "Oracle-side active Object_RAM linked-list dump from ASM Execute_Objects loc_E1E: object address, code pointer, hibernate counter, and owned gfx x/y when present.",
       "promotion_trigger": "Promote if #214 parity or checked-in regressions start depending on exact ROM block-destroy worker object lifetime."
+    },
+    {
+      "key": "oracle_drips_object_slots_loc_33488",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-213-drips-rocktank-route",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle-side filtered Object_RAM dump for Drips.asm loc_33488/loc_335D8 and Tar_Monster.asm loc_325B6 helper handoff fields: object code, hibernate, child pointers, $44/$46/$48 scratch words, and owned gfx position/velocity/collision.",
+      "promotion_trigger": "Promote if Drips lifecycle parity or checked-in regressions start depending on typed ROM object handoff fields."
     }
   ]
 }

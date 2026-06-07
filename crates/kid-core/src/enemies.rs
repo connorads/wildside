@@ -6495,6 +6495,12 @@ pub(crate) struct ActiveEnemy {
     /// entries 0 and 1 are pool-growth sprites; entry 2 is the negative
     /// sentinel that resets via loc_33506 and may allocate loc_335D8.
     pub(crate) drips_surface_table_index: u8,
+    /// Drips.asm loc_33488 hibernates on `stru_33332` before copying the
+    /// falling child's adjusted position into the surface child and advancing
+    /// `off_33520`. Native stores that adjusted child position until the
+    /// projectile shell consumes the splash state.
+    pub(crate) drips_pending_splash_x_pos: u32,
+    pub(crate) drips_pending_splash_y_pos: u32,
     pub(crate) tar_monster_state: TarMonsterState,
     pub(crate) spinning_twins_phase: SpinningTwinsPhase,
     pub(crate) spinning_twins_orbit_index: u8,
@@ -8346,6 +8352,8 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         wall_pinned: false,
         drips_attached: false,
         drips_surface_table_index: 0,
+        drips_pending_splash_x_pos: 0,
+        drips_pending_splash_y_pos: 0,
         tar_monster_state: TarMonsterState::default(),
         spinning_twins_phase: SpinningTwinsPhase::default(),
         spinning_twins_orbit_index: 0,
@@ -9445,6 +9453,8 @@ fn activate_enemies_with_rng_inner(
                 wall_pinned: false,
                 drips_attached: false,
                 drips_surface_table_index: 0,
+                drips_pending_splash_x_pos: 0,
+                drips_pending_splash_y_pos: 0,
                 tar_monster_state: TarMonsterState::default(),
                 spinning_twins_phase: SpinningTwinsPhase::default(),
                 spinning_twins_orbit_index: 0,
@@ -22102,6 +22112,10 @@ pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
 /// frame durations `$A,$A,8,6,1`.
 pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
+/// ASM Drips.asm loc_33488 initialises `stru_33332`, whose single display
+/// frame is followed by the resume frame from `j_Hibernate_UntilAnimFinished`.
+pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 2;
+const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
     DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424 | frames_remaining
@@ -22112,6 +22126,18 @@ fn drips_pre_drop_animation_remaining_loc_33424(wait_timer: u16) -> Option<u16> 
         None
     } else {
         Some(wait_timer & !DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424)
+    }
+}
+
+pub(crate) fn drips_splash_animation_timer_loc_33488(frames_remaining: u16) -> u16 {
+    DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488 | frames_remaining
+}
+
+pub(crate) fn drips_splash_animation_remaining_loc_33488(wait_timer: u16) -> Option<u16> {
+    if wait_timer & DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488 == 0 {
+        None
+    } else {
+        Some(wait_timer & !DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488)
     }
 }
 #[cfg_attr(not(test), allow(dead_code))]
@@ -22191,6 +22217,20 @@ pub(crate) fn drips_splash_reset_loc_33488(
         surface_child_x_pos: drop_x_pos,
         surface_child_y_pos: adjusted_drop_y_pos,
     }
+}
+
+pub(crate) fn drips_enter_splash_animation_loc_33488(
+    enemy: &mut ActiveEnemy,
+    drop_x_pos: u32,
+    drop_y_pos: u32,
+) {
+    let splash_reset = drips_splash_reset_loc_33488(drop_x_pos, drop_y_pos);
+    enemy.drips_pending_splash_x_pos = splash_reset.surface_child_x_pos;
+    enemy.drips_pending_splash_y_pos = splash_reset.surface_child_y_pos;
+    // ASM Drips.asm loc_33488 initialises `stru_33332`, hibernates until it
+    // finishes, and only then advances `d3/a0` through `off_33520`.
+    enemy.wait_timer =
+        drips_splash_animation_timer_loc_33488(DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488);
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -23553,6 +23593,12 @@ pub(crate) fn step_drips(
     }
 
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
+        return;
+    }
+    if let Some(frames_remaining) = drips_splash_animation_remaining_loc_33488(enemy.wait_timer) {
+        if frames_remaining > 0 {
+            enemy.wait_timer = drips_splash_animation_timer_loc_33488(frames_remaining - 1);
+        }
         return;
     }
     if let Some(frames_remaining) = drips_pre_drop_animation_remaining_loc_33424(enemy.wait_timer) {
@@ -26323,6 +26369,8 @@ mod tests {
             wall_pinned: false,
             drips_attached: false,
             drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -32906,6 +32954,52 @@ mod tests {
     }
 
     #[test]
+    fn drips_splash_animation_hibernates_before_table_advance_loc_33488() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            wait_timer: DRIPS_DROP_IN_FLIGHT_TIMER,
+            drips_attached: true,
+            ..mini_hopping_skull_test_enemy()
+        };
+        drips_enter_splash_animation_loc_33488(&mut enemy, 0x0123_0000, 0x00F6_0000);
+
+        assert_eq!(
+            enemy.drips_pending_splash_x_pos, 0x0123_0000,
+            "ASM Drips.asm loc_33488 preserves the falling child x word for the surface child before off_33520 is consumed"
+        );
+        assert_eq!(
+            enemy.drips_pending_splash_y_pos, 0x0100_0000,
+            "ASM Drips.asm loc_33488 adds 10px to the falling child y word before the surface child copy"
+        );
+
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+
+        assert_eq!(
+            drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
+            Some(1),
+            "ASM Drips.asm loc_33488 keeps the parent hibernating for the visible stru_33332 splash frame"
+        );
+        assert!(
+            projectiles.is_empty(),
+            "loc_33488 must not start the next loc_33424 drop during the visible splash frame"
+        );
+
+        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+
+        assert_eq!(
+            drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
+            Some(0),
+            "ASM Drips.asm loc_33488 resumes from j_Hibernate_UntilAnimFinished one frame after the visible splash frame"
+        );
+        assert!(
+            projectiles.is_empty(),
+            "loc_33488 must not start the next loc_33424 drop during the splash hibernate frame"
+        );
+    }
+
+    #[test]
     fn drips_surface_table_reset_matches_loc_33506() {
         assert_eq!(
             drips_surface_table_reset_loc_33506(),
@@ -35592,6 +35686,8 @@ mod tests {
             wall_pinned: false,
             drips_attached: false,
             drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -35674,6 +35770,8 @@ mod tests {
             wall_pinned: false,
             drips_attached: false,
             drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
