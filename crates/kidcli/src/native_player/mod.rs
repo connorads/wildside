@@ -382,6 +382,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
     let mut suppress_level_card_for_debug_warp = false;
+    let mut wait_for_live_input_release = false;
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
@@ -476,6 +477,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         );
                     }
                     reset_runtime = true;
+                    wait_for_live_input_release = true;
                 }
                 // Debug: N = next level, P = previous level
                 Event::KeyDown {
@@ -500,6 +502,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = true;
+                        wait_for_live_input_release = true;
                     } else {
                         eprintln!("no playable next level with generated visuals and block layout");
                     }
@@ -526,6 +529,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = true;
+                        wait_for_live_input_release = true;
                     } else {
                         eprintln!(
                             "no playable previous level with generated visuals and block layout"
@@ -558,6 +562,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             if level_card_frames_remaining == 0 {
                 let live_buttons =
                     keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+                let live_buttons = live_buttons_after_debug_release(
+                    live_buttons,
+                    &mut wait_for_live_input_release,
+                );
                 let buttons = native_frame_buttons(
                     options.scripted_input.as_deref(),
                     recorded_trace.len(),
@@ -829,6 +837,16 @@ fn native_frame_buttons(scripted_input: Option<&[u8]>, frame_index: usize, live_
     scripted_input.map_or(live_buttons, |script| {
         script.get(frame_index).copied().unwrap_or(0)
     })
+}
+
+fn live_buttons_after_debug_release(live_buttons: u8, waiting_for_release: &mut bool) -> u8 {
+    if !*waiting_for_release {
+        return live_buttons;
+    }
+    if live_buttons == 0 {
+        *waiting_for_release = false;
+    }
+    0
 }
 
 fn should_start_native_level_card_overlay(
@@ -8724,6 +8742,36 @@ mod tests {
             native_frame_buttons(Some(&script), 3, 1 << 4),
             0,
             "scripted live-player routes should become idle after the supplied DynamicScenario ends instead of leaking keyboard/controller input"
+        );
+    }
+
+    #[test]
+    fn play_native_debug_warp_waits_for_live_input_release() {
+        let mut waiting_for_release = true;
+
+        assert_eq!(
+            live_buttons_after_debug_release(1 << 4, &mut waiting_for_release),
+            0,
+            "debug level warps should not turn held select/jump input into gameplay SFX"
+        );
+        assert!(waiting_for_release);
+
+        assert_eq!(
+            live_buttons_after_debug_release((1 << 3) | (1 << 4), &mut waiting_for_release),
+            0,
+            "held movement after a level warp should not move Kid before input is released"
+        );
+        assert!(waiting_for_release);
+
+        assert_eq!(
+            live_buttons_after_debug_release(0, &mut waiting_for_release),
+            0
+        );
+        assert!(!waiting_for_release);
+
+        assert_eq!(
+            live_buttons_after_debug_release(1 << 3, &mut waiting_for_release),
+            1 << 3
         );
     }
 

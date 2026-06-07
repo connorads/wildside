@@ -590,6 +590,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
     }
 
     let mut screen = initial_screen(&launch);
+    let mut wait_for_gameplay_input_release = false;
     let mut last_frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
     'running: loop {
@@ -721,7 +722,10 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                 }
                 if confirm {
                     match main_menu_action(*selected) {
-                        MainMenuAction::StartGame => screen = ScreenState::Playing,
+                        MainMenuAction::StartGame => {
+                            screen = ScreenState::Playing;
+                            wait_for_gameplay_input_release = true;
+                        }
                         MainMenuAction::OpenOptions => {
                             screen = ScreenState::Options {
                                 origin: OptionsOrigin::MainMenu,
@@ -755,7 +759,10 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                 }
                 if confirm {
                     match pause_menu_action(*selected) {
-                        PauseMenuAction::Resume => screen = ScreenState::Playing,
+                        PauseMenuAction::Resume => {
+                            screen = ScreenState::Playing;
+                            wait_for_gameplay_input_release = true;
+                        }
                         PauseMenuAction::RestartRun => {
                             runtime = match &launch {
                                 LaunchState::Ready { rom_bytes, .. } => {
@@ -767,6 +774,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                                 runtime.set_audio_levels(settings.audio_levels());
                             }
                             screen = ScreenState::Playing;
+                            wait_for_gameplay_input_release = true;
                             status_toast = Some(StatusToast {
                                 text: String::from("Run restarted"),
                                 frames_remaining: TOAST_DURATION_FRAMES / 2,
@@ -783,6 +791,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                                 runtime.set_audio_levels(settings.audio_levels());
                             }
                             screen = ScreenState::Playing;
+                            wait_for_gameplay_input_release = true;
                         }
                         PauseMenuAction::OpenOptions => {
                             screen = ScreenState::Options {
@@ -796,6 +805,7 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                 }
                 if back || pause_pressed {
                     screen = ScreenState::Playing;
+                    wait_for_gameplay_input_release = true;
                 }
             }
             ScreenState::Options {
@@ -928,9 +938,11 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                         });
                     }
                     screen = ScreenState::Playing;
+                    wait_for_gameplay_input_release = true;
                 }
                 if back || debug_menu_pressed {
                     screen = ScreenState::Playing;
+                    wait_for_gameplay_input_release = true;
                 }
             }
             ScreenState::Error => {
@@ -953,8 +965,12 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
             if let Some(runtime) = runtime.as_mut() {
                 let buttons = match screen {
                     ScreenState::Playing => {
-                        keyboard_buttons(&events, &settings.bindings)
-                            | controller_buttons(controller.as_ref())
+                        let live_buttons = keyboard_buttons(&events, &settings.bindings)
+                            | controller_buttons(controller.as_ref());
+                        gameplay_buttons_after_ui_release(
+                            live_buttons,
+                            &mut wait_for_gameplay_input_release,
+                        )
                     }
                     _ => 0,
                 };
@@ -1668,12 +1684,22 @@ fn controller_buttons(controller: Option<&GameController>) -> u8 {
     buttons
 }
 
+fn gameplay_buttons_after_ui_release(live_buttons: u8, waiting_for_release: &mut bool) -> u8 {
+    if !*waiting_for_release {
+        return live_buttons;
+    }
+    if live_buttons == 0 {
+        *waiting_for_release = false;
+    }
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         BindingAction, DisplayScale, ErrorView, KeyboardBindings, LaunchState, MainMenuAction,
         PauseMenuAction, PlayerSettings, PlayerSettingsFile, ScreenState, adjust_volume,
-        initial_screen, main_menu_action, pause_menu_action,
+        gameplay_buttons_after_ui_release, initial_screen, main_menu_action, pause_menu_action,
     };
     use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
     use std::path::PathBuf;
@@ -1732,6 +1758,36 @@ mod tests {
         assert_eq!(main_menu_action(0), MainMenuAction::StartGame);
         assert_eq!(main_menu_action(1), MainMenuAction::OpenOptions);
         assert_eq!(main_menu_action(99), MainMenuAction::Quit);
+    }
+
+    #[test]
+    fn gameplay_input_waits_for_release_after_shell_menu_transition() {
+        let mut waiting_for_release = true;
+
+        assert_eq!(
+            gameplay_buttons_after_ui_release(1 << 4, &mut waiting_for_release),
+            0,
+            "confirm/jump held while applying the Level debug menu must not leak into gameplay"
+        );
+        assert!(waiting_for_release);
+
+        assert_eq!(
+            gameplay_buttons_after_ui_release((1 << 3) | (1 << 4), &mut waiting_for_release),
+            0,
+            "held movement after selection should also remain suppressed"
+        );
+        assert!(waiting_for_release);
+
+        assert_eq!(
+            gameplay_buttons_after_ui_release(0, &mut waiting_for_release),
+            0
+        );
+        assert!(!waiting_for_release);
+
+        assert_eq!(
+            gameplay_buttons_after_ui_release(1 << 3, &mut waiting_for_release),
+            1 << 3
+        );
     }
 
     #[test]
