@@ -17585,6 +17585,48 @@ mod chunk_02 {
     }
 
     #[test]
+    fn visible_prize_ceiling_clears_left_adjacent_smash_from_sub_914a_width_scan() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE0, 0x01);
+        set_cell(&mut data, 3, 2, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Diamond, 48, 32)),
+            "ASM sub_914A/loc_9188 scans both ceiling columns across Kid's width before sub_BB54 dispatches the selected Prize block",
+        );
+        assert_eq!(
+            grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM sub_914A sees the left-edge Smash block during the same full-width scan, so j_Block_LoadSmashBits clears it even though sub_BBE2 dispatches the right Prize",
+        );
+        assert_eq!(grid.cell_at(3, 2), terrain::Cell::from_be_bytes(0x6F, 0x01));
+    }
+
+    #[test]
     fn visible_prize_ceiling_dispatches_right_adjacent_prize_after_sub_bbe2_selection() {
         let w = 6u16;
         let h = 5u16;

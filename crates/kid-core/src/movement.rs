@@ -5860,7 +5860,9 @@ impl OpeningSliceState {
                         let tile_row = (top_y / 16).max(0) as u16;
                         for &edge_x in &[x_px - collision_hw, x_px + collision_hw] {
                             let col = (edge_x / 16).max(0) as u16;
-                            if col == probe.cell_x && tile_row == probe.cell_y {
+                            if col == block_dispatch_probe.cell_x
+                                && tile_row == block_dispatch_probe.cell_y
+                            {
                                 continue;
                             }
                             let cell = grid.cell_at(col, tile_row);
@@ -7220,18 +7222,79 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 #[cfg(test)]
 mod tests {
     use super::{
-        airborne_slope_landing_handoff_x_velocity_loc_a99e, cached_slope_walk_exit_gate_loc_a13a,
-        cached_slope_walk_exit_velocity_loc_a13a, level_entry_title_advance_x,
-        level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
+        OpeningSliceState, airborne_slope_landing_handoff_x_velocity_loc_a99e,
+        cached_slope_walk_exit_gate_loc_a13a, cached_slope_walk_exit_velocity_loc_a13a,
+        level_entry_title_advance_x, level_entry_title_axis_step,
+        level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
     };
-    use crate::physics::Direction;
+    use crate::physics::{Direction, LevelBounds};
     use crate::terrain;
     use crate::types::{FrameInput, PlayerForm, RomRandomState};
+
+    #[test]
+    fn loc_9114_physics_step_wrapper_routes_skycutter_custom_gravity_to_board_bounce() {
+        let w: u16 = 6;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 10 << 16;
+        slice.player.y_velocity = -0x0005_0000;
+
+        slice.apply_ceiling_collision_for_physics_step(
+            Some(&mut grid),
+            None,
+            PlayerForm::Skycutter,
+            5,
+            &[],
+            true,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0x0003_0000,
+            "ASM loc_90F6/loc_9114: Skycutter with $FA6A/custom gravity should take the mounted top-boundary bounce instead of the normal ceiling stop",
+        );
+    }
+
+    #[test]
+    fn loc_90f6_physics_step_wrapper_keeps_non_skycutter_custom_gravity_on_normal_stop() {
+        let w: u16 = 6;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 10 << 16;
+        slice.player.y_velocity = -0x0005_0000;
+
+        slice.apply_ceiling_collision_for_physics_step(
+            Some(&mut grid),
+            None,
+            PlayerForm::Cyclone,
+            5,
+            &[],
+            true,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_90F6/loc_9114: $FA6A/custom gravity only means mounted top-boundary bounce for Skycutter; other helmets take the normal ceiling stop",
+        );
+    }
 
     #[test]
     fn level_entry_title_space_token_adds_10_pixels_loc_1abea() {

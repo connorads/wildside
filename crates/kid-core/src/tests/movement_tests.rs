@@ -8223,12 +8223,12 @@ mod chunk_11 {
         }
     }
 
-    /// ASM sub_914A returns the first ceiling contact in `$FFFFFB6C`; if
-    /// `sub_BBE2` dispatches a Prize block immediately to its right, the cached
-    /// first-contact cell still must not be cleared by native's adjacent-Smash
-    /// cleanup.
+    /// ASM sub_914A scans every ceiling cell across Kid's width before sub_BB54
+    /// dispatches the selected block. If `sub_BBE2` dispatches a Prize block
+    /// immediately to the right of the first contact, the cached left-edge Smash
+    /// still clears through the same frame's j_Block_LoadSmashBits route.
     #[test]
-    fn sub_914a_prize_ceiling_keeps_cached_left_probe_smash_cell() {
+    fn sub_914a_prize_ceiling_clears_cached_left_probe_smash_cell() {
         let w: u16 = 8;
         let h: u16 = 8;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -8259,8 +8259,8 @@ mod chunk_11 {
 
         assert_eq!(
             grid.cell_at(2, 2),
-            terrain::Cell::from_be_bytes(0xE0, 0),
-            "adjacent cleanup must skip the cached first-contact cell from sub_914A",
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM sub_914A/loc_9188 scans the cached first-contact Smash cell before sub_BBE2 dispatches the right-hand Prize",
         );
         assert_eq!(
             grid.cell_at(3, 2),
