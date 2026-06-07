@@ -13443,6 +13443,7 @@ mod chunk_12 {
         slice.terrain.floor_y_pos = slice.player.y_pos;
         slice.terrain.floor_terrain_type = TerrainType::Normal;
         slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+        slice.terrain.slope_sliding = true;
         slice.player.x_velocity = -0x2000;
 
         let stepped = slice.update_horizontal_velocity_only(
@@ -13468,6 +13469,89 @@ mod chunk_12 {
             slice.terrain.slope_walk_kind,
             Some(terrain::CollisionKind::SlopeDown),
             "ROM $FA26 remains stale after the terminal loc_A13A zero-crossing"
+        );
+        assert!(
+            slice.terrain.slope_sliding,
+            "cached loc_A13A continuation on flat support must keep the loc_8E98 tile-snap gate armed",
+        );
+    }
+
+    /// ASM loc_A13A is a slope-walk coroutine path, not an airborne
+    /// sub_B084 path. A stale `$FA26` cache must not affect jump-air control
+    /// once Kid has left the ground.
+    #[test]
+    fn loc_a13a_stale_slope_cache_does_not_override_airborne_sub_b084() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = -0x2000;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Berzerker,
+            None,
+            false,
+        );
+
+        assert!(stepped, "airborne sub_B084 still updates jump-air velocity");
+        assert_eq!(
+            slice.player.x_velocity, 0x0B00,
+            "ASM sub_B084 jump-air path should add Berzerker accel $2B00; stale loc_A13A would produce $1000",
+        );
+        assert_eq!(
+            slice.terrain.slope_walk_kind,
+            Some(terrain::CollisionKind::SlopeDown),
+            "$FA26 may remain stale, but it is ignored while airborne",
+        );
+    }
+
+    /// ASM sub_A254 reaching flat/solid support leaves MoveID 6 slope-walk; the
+    /// native `slope_sliding` latch must clear when there is neither current
+    /// slope support nor a valid loc_A13A cached terminal continuation.
+    #[test]
+    fn loc_a13a_flat_ground_without_cached_continuation_clears_slope_sliding() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.terrain.slope_sliding = true;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Berzerker,
+            None,
+            false,
+        );
+
+        assert!(stepped, "flat support should run ordinary sub_B084 walking");
+        assert!(
+            !slice.terrain.slope_sliding,
+            "leaving MoveID 6 onto flat support should re-arm the loc_8E98 tile-snap gate",
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "ordinary flat support should accelerate right instead of using cached loc_A13A",
         );
     }
 
@@ -17021,6 +17105,42 @@ mod chunk_12 {
         assert!(
             slice.player.x_pos > 32 << 16,
             "full grounded walking motion should advance x_pos",
+        );
+    }
+
+    /// ASM loc_779C -> sub_B084 also runs in the velocity-only position-first
+    /// half when no native pending jump buffer is present. This guards the
+    /// helper-level suppression gate before sub_8F26 applies x_pos.
+    #[test]
+    fn loc_779c_velocity_only_grounded_no_buffer_allows_walking() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(
+            stepped,
+            "grounded loc_779C velocity-only frame with no buffer should run sub_B084",
+        );
+        assert_eq!(slice.player.jump_buffer_frames, 0);
+        assert!(
+            slice.player.x_velocity > 0,
+            "sub_B084 should accelerate grounded right input in the velocity-only half",
         );
     }
 
