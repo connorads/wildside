@@ -437,7 +437,7 @@ fn projectile_terrain_contact_loc_3345c(
             py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C,
             DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C,
         );
-        return probe.on_ground || probe.cell.is_solid_floor();
+        return probe.on_ground;
     }
 
     {
