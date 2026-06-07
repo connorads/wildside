@@ -6190,6 +6190,47 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E16/loc_8DFC -> loc_7606: zero-speed flat walking re-enters
+    /// the standing dispatcher in the same object update. If a direction is
+    /// still held, loc_77C2/loc_77FC immediately returns to walking and runs
+    /// sub_9A0A again instead of showing a one-frame zero-velocity stall.
+    #[test]
+    fn loc_8dfc_zero_flat_walk_redispatches_with_held_left() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0x3000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        let player = runtime
+            .opening_slice
+            .expect("refresh should keep the level slice active")
+            .player;
+        assert_eq!(
+            player.x_velocity, -0x3000,
+            "ASM loc_8E16/loc_8DFC: $3000 + held-left first reaches zero, then same-frame loc_7606 re-dispatch runs sub_9A0A again"
+        );
+    }
+
     /// ASM loc_8C70: TheKid (no helmet) can enter crawl.
     #[test]
     fn loc_8c70_thekid_allowed_to_crawl() {

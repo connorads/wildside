@@ -2332,6 +2332,62 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_keeps_held_left_wall_snap_walking_loc_8e74() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 0x0175_0000;
+        player.y_pos = 0x024f_0000;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.trace_input.left = true;
+        runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+            branch: KidFlipBranchSelection::NoButtonBranch,
+            motion_branch: KidFrameMotionBranch::NormalPhysics,
+            post_motion_mutator: KidFramePostMotionMutator::None,
+            stages: KidFlipFollowOnStages {
+                entry: KidFlipFollowOnStageState {
+                    x_velocity: -0x0000_c000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_press_away: KidFlipFollowOnStageState {
+                    x_velocity: -0x0000_c000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_jump_gravity: KidFlipFollowOnStageState {
+                    x_velocity: -0x0000_b000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_floor: KidFlipFollowOnStageState {
+                    x_velocity: -0x0000_b000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_wall: KidFlipFollowOnStageState {
+                    x_velocity: 0,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+            },
+        });
+
+        assert_eq!(
+            runtime.current_character_movement(player),
+            2,
+            "ASM loc_8E16 -> sub_8F26 -> loc_8E74 keeps MoveID_Walking when held-left walking is clamped by a wall after a non-zero floor-stage velocity"
+        );
+    }
+
+    #[test]
     fn current_character_movement_holds_wall_jump_trace_only_inside_playback_window() {
         fn runtime_at(frame_counter: u16, probe: KidJumpGravityProbe) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -5095,7 +5151,7 @@ impl NativeRuntime {
             && (player.x_pos >> 16) as i32 <= self.progression.current_form.half_width();
         if player.x_velocity == 0
             && self.progression.current_form != PlayerForm::Skycutter
-            && !self.current_frame_kept_walking_after_rubber_wall_snap_loc_8e74()
+            && !self.current_frame_kept_walking_after_wall_snap_loc_8e74()
             && !held_left_boundary_clamp_kept_walking_loc_8ff8
         {
             return MOVE_STANDINGSTILL;
@@ -5135,18 +5191,21 @@ impl NativeRuntime {
         MOVE_WALKING
     }
 
-    fn current_frame_kept_walking_after_rubber_wall_snap_loc_8e74(&self) -> bool {
+    fn current_frame_kept_walking_after_wall_snap_loc_8e74(&self) -> bool {
         let Some(probe) = self.last_kid_frame_kid_flip_follow_on_probe else {
             return false;
         };
 
         probe.motion_branch == KidFrameMotionBranch::NormalPhysics
+            && matches!(self.boot_state, BootState::InGame)
             && probe.post_motion_mutator == KidFramePostMotionMutator::None
             && probe.stages.after_floor.on_ground
             && probe.stages.after_floor.x_velocity != 0
             && probe.stages.after_wall.on_ground
             && probe.stages.after_wall.x_velocity == 0
-            && !self.block_state.rubber_block_animations.is_empty()
+            && (self.trace_input.left
+                || self.trace_input.right
+                || !self.block_state.rubber_block_animations.is_empty())
     }
 
     fn demo_trace_wall_jump_movement_hold_active(&self, player: PlayerState) -> bool {

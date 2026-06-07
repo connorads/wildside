@@ -4830,6 +4830,39 @@ impl OpeningSliceState {
                 jump_profile,
             )
         };
+        let mut new_vel = new_vel;
+        let mut new_facing = new_facing;
+        if self.player.on_ground
+            && grounded_slope.is_none()
+            && cached_slope_continuation.is_none()
+            && form != PlayerForm::Skycutter
+            && self.player.x_velocity != 0
+            && new_vel == 0
+            && (input.left || input.right)
+        {
+            // ASM loc_8E16/loc_8DFC (kid.asm:10210-10219): a zero result from
+            // sub_9A0A stores MoveID_Standingstill, then `bra.w loc_7606`
+            // re-enters the character dispatcher in the same object update. If
+            // a horizontal direction is still held, loc_77C2/loc_77FC immediately
+            // falls back into the walking path and runs sub_9A0A again. Without
+            // this same-frame re-dispatch, native stalls for one frame at zero
+            // velocity during flat turnarounds.
+            (new_vel, new_facing) = if input.down && !self.kid_grabbed_by_hand {
+                let air_table = match self.terrain.floor_terrain_type {
+                    TerrainType::Normal => &physics::AIR_NORMAL,
+                    TerrainType::Ice => &physics::AIR_ICE,
+                    TerrainType::Rubber => &physics::AIR_RUBBER,
+                };
+                physics::update_air_horizontal_velocity(new_vel, new_facing, h_input, air_table)
+            } else {
+                physics::update_horizontal_velocity(
+                    new_vel,
+                    new_facing,
+                    h_input,
+                    form.ground_speed_table(self.terrain.floor_terrain_type),
+                )
+            };
+        }
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
         if let Some(live_slope) = grounded_slope {
