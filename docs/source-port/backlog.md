@@ -2137,6 +2137,23 @@ and later walks the lower shelf toward the drop. Treat x `$01D1..$01E1` as the
 current non-death/death boundary for this route family; it still does not climb
 to the row-32 Drips/metal cells.
 
+Follow-up 2026-06-07 route-sweep for #213/#260: refreshed the current healthy
+prefix `.cache/recordings/issue-213-drips-delayed-b-drop-healthy-prefix-535-20260607/scenario.json`.
+`verify-tas --frame-start 480 --frame-end 545 --checkpoint-interval 1
+--frontier-kind enemy` still passes all 56 checkpoints, so the prefix remains
+valid evidence. `probe-record-scenario-file --target-projectile
+drips-surface-crawler --player-motion` shows the crawler is visible for only one
+replay frame (`486`) at `$02490000,$02400000`; the preserved tail at frame 535
+keeps Kid alive at `$01C81A00,$024F0000` with hp 1. A no-late-brake extension
+holding Right plus a post-tail B jump falls into `LevelTransition` at frame 572
+and still only sees that same one-frame crawler, so removing the late-left brake
+does not make a useful Drips/metal route. Decoded `dump-level-layout --level 01`
+rows 31..38 confirm the relevant geometry: the two Drips controllers are around
+cells `(28,33)`/`(36,33)` on upper block rows with metal/touch cells on row 32,
+while the current safe route and crawler contact sit on row 36/37 (`$00FA` floor
+under `$0249,$0240`). Next route work should change the pre-480 approach or use
+a different climb path; do not retry the simple no-brake/right-jump extension.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
