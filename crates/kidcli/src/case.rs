@@ -1223,6 +1223,7 @@ fn semantic_from_native(
                     .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. })),
             )
             .filter(|object| !native_object_is_uninitialised_tank_gfx_proxy(snapshot, object))
+            .filter(|object| !native_object_is_hidden_drips_controller_loc_333f6(object))
             .filter_map(semantic_entity_from_native)
             .collect::<Vec<_>>()
     } else {
@@ -1372,6 +1373,7 @@ fn semantic_from_oracle(
             .active_enemies
             .iter()
             .filter(|enemy| !oracle_enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
+            .filter(|enemy| !oracle_enemy_is_drips_setup_gfx_proxy_loc_333f6(enemy))
             .filter(|enemy| !oracle_enemy_parent_object_is_orphaned_loc_e1e(state, enemy))
             .map(semantic_entity_from_oracle)
             .collect::<Vec<_>>()
@@ -1458,6 +1460,17 @@ fn native_object_is_uninitialised_tank_gfx_proxy(
     !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
 }
 
+fn native_object_is_hidden_drips_controller_loc_333f6(object: &NativeObjectSnapshot) -> bool {
+    // ASM Drips.asm Enemy16_Drip_Init/loc_333F6 uses the parent Object as a
+    // hidden coroutine controller and allocates separate GfxObject children for
+    // the visible drip/surface crawler. Case semantics compare visible
+    // gameplay entities, so do not treat the native parent-only trace detail as
+    // an oracle-visible spawn.
+    matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x16 })
+        && object.hit_points == Some(1)
+        && object.on_ground == Some(false)
+}
+
 fn semantic_entity_from_oracle(enemy: &OracleEnemyState) -> SemanticEntity {
     let object_type = oracle_enemy_semantic_type(enemy);
     SemanticEntity {
@@ -1516,6 +1529,15 @@ fn oracle_enemy_is_uninitialised_tank_gfx_proxy(
     // loc_368A8 activation box, it is a helper artefact rather than a
     // comparable gameplay entity.
     !(-0x80..=0x1C0).contains(&dx) || !(-0x80..=0x160).contains(&dy)
+}
+
+fn oracle_enemy_is_drips_setup_gfx_proxy_loc_333f6(enemy: &OracleEnemyState) -> bool {
+    // ASM Drips.asm Enemy16_Drip_Init exposes the main GfxObject while the
+    // controller enters loc_333F6 and waits for ceiling collision. The helper
+    // samples during VBlank and can see that zero-HP setup slot for one frame;
+    // native case semantics only expose the hidden parent controller, so this
+    // is not a stable gameplay entity.
+    oracle_enemy_semantic_type(enemy) == 0x16 && enemy.current_hp == Some(0)
 }
 
 fn oracle_enemy_parent_object_is_orphaned_loc_e1e(
@@ -3906,8 +3928,8 @@ mod tests {
             wait_timer: None,
             debug_fields: BTreeMap::new(),
         };
-        let hidden_drips = NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+        let hidden_enemy = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x17 },
             x_pos: 0x01c8_0000,
             y_pos: 0x021f_0000,
             layout_index: Some(7),
@@ -3931,7 +3953,7 @@ mod tests {
             game_mode_value: 0x000c,
             current_level: kid_core::LevelId(1),
             active_objects: vec![visible_object],
-            active_enemy_details: vec![hidden_drips],
+            active_enemy_details: vec![hidden_enemy],
             ..NativeTraceFrame::default()
         };
 
@@ -3940,12 +3962,118 @@ mod tests {
         assert_eq!(
             semantic.entities.len(),
             1,
-            "Drips.asm Enemy16_Drip_Init keeps the controller hidden from the visible gfx roster, but case semantics need the authoritative internal enemy detail"
+            "case semantics need authoritative internal enemy details when the visible roster misses an active non-proxy enemy"
         );
-        assert_eq!(semantic.entities[0].object_type, Some(0x16));
+        assert_eq!(semantic.entities[0].object_type, Some(0x17));
         assert_eq!(
             semantic.entities[0].identity,
-            "enemy:16:7:01c80000:021f0000"
+            "enemy:17:7:01c80000:021f0000"
+        );
+    }
+
+    #[test]
+    fn semantic_from_native_ignores_hidden_drips_controller_loc_333f6() {
+        let hidden_drips = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+            x_pos: 0x01c8_0000,
+            y_pos: 0x021f_0000,
+            layout_index: Some(7),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(kid_core::physics::Direction::Right),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        };
+        let trace = NativeTraceFrame {
+            frame_index: 384,
+            game_mode_value: 0x000c,
+            current_level: kid_core::LevelId(1),
+            active_enemy_details: vec![hidden_drips],
+            ..NativeTraceFrame::default()
+        };
+
+        let semantic = semantic_from_native(&trace, None);
+
+        assert!(
+            semantic.entities.is_empty(),
+            "ASM Drips.asm Enemy16_Drip_Init/loc_333F6 keeps a hidden parent Object as the coroutine controller; case semantics should wait for visible drip/crawler children"
+        );
+    }
+
+    #[test]
+    fn semantic_from_oracle_ignores_drips_setup_gfx_proxy_loc_333f6() {
+        let drips_setup = OracleEnemyState {
+            object_type: 0x16,
+            x_pos: 0x0230_0000,
+            y_pos: 0x0202_0000,
+            x_velocity: 0,
+            y_velocity: -0x0001_0000,
+            facing: crate::oracle::EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0),
+            layout_index: Some(7),
+            layout_ptr: Some(0x0007_9894),
+            parent_object_ptr: Some(0xffff_0f70),
+            gfx_slot_index: Some(4),
+            on_ground: None,
+            current_hp: Some(0),
+            debug_fields: BTreeMap::new(),
+        };
+        let state = OracleState {
+            label: String::from("frame_00383"),
+            frame_index: 383,
+            game_mode: 0x000c,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x0148_0000,
+            camera_y_pos: 0x0160_0000,
+            kid_x_pos: 0x029c_5d00,
+            kid_y_pos: 0x024f_0000,
+            number_objects: 5,
+            number_gfx_objects: 8,
+            game_paused: false,
+            active_enemies: vec![drips_setup],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: Some(0),
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: None,
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0),
+            level_special_effects: Some(0),
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        };
+
+        let semantic = semantic_from_oracle(&state, None);
+
+        assert!(
+            semantic.entities.is_empty(),
+            "ASM Drips.asm Enemy16_Drip_Init exposes a zero-HP setup GfxObject before loc_333F6 hibernates the controller; the helper's VBlank slot is not a stable gameplay entity"
         );
     }
 
