@@ -2075,6 +2075,20 @@ row-32 upper Drips/metal cells. Continue by building a non-death route that
 climbs or otherwise crosses this gap before using #213 as Drips/block evidence;
 do not patch from the named direct audit's RockTank-only checkpoints.
 
+Follow-up 2026-06-07 route-boundary scan for #213: enhanced
+`capture-scenario-frames --input` plus `probe-record-scenario-file
+--player-motion` shows the durable floor-probe jump variants are still lower
+shelf/fall-boundary probes, not Drips/metal-block contact. High-jump route
+`0-120:right 0-100:b 120-160:left` remains live with peak height at frame 34
+(`y=$01F8E000`) and max x only at frame 131 (`x=$01D11100`); the matching
+farther route `0-128:right 0-100:b 128-170:left` reaches max x at frame 139
+(`x=$01E11100`) but then falls into `LevelTransition` at frame 897. Captures in
+`.cache/debug/issue213-boundary-capture/` and
+`.cache/debug/issue213-boundary-fall-capture/` show Kid peaks near the left wall
+and later walks the lower shelf toward the drop. Treat x `$01D1..$01E1` as the
+current non-death/death boundary for this route family; it still does not climb
+to the row-32 Drips/metal cells.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
