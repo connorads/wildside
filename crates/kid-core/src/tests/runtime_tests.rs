@@ -11621,8 +11621,25 @@ mod chunk_09 {
         rt.step_projectiles();
 
         assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_33650 routes non-$6000 support from loc_331D2 to loc_338F8/loc_3392C"
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.kind != EnemyProjectileKind::DripsSurfaceCrawler),
+            "ASM Drips.asm loc_33650 routes non-$6000 support from loc_331D2 out of the crawler loop"
+        );
+        let helper = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst)
+            .expect(
+                "ASM Drips.asm loc_33650 branches to loc_338F8, which allocates Tar_Monster.asm loc_325B6 before loc_3392C deletes the crawler",
+            );
+        assert_eq!(
+            helper.x_pos, 0x0020_0000,
+            "ASM Drips.asm loc_338F8 adds d6=0 before copying x_pos to the loc_325B6 helper"
+        );
+        assert_eq!(
+            helper.y_pos, 0x0018_0000,
+            "ASM Drips.asm loc_338F8 preserves d7=-8 from loc_33650/loc_33550 before copying y_pos"
         );
     }
 
@@ -12683,6 +12700,35 @@ mod chunk_09 {
             rt.projectiles.len(),
             1,
             "friendly projectile should survive"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_burst_helper_does_not_hit_player_loc_338f8() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 60,
+            friendly: false,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6 after crawler contact/terrain exit; the helper animation must not be a second generic Kid-hit source"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_3392C keeps the helper animation alive until its own lifecycle deletes it"
         );
     }
 

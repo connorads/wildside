@@ -2092,11 +2092,12 @@ impl NativeRuntime {
                 && let Some(g) = grid
                 && !drips_surface_crawler_supported_below_loc_33650(g, p)
             {
-                // ASM Drips.asm loc_33650 routes a non-solid `loc_331D2`
-                // support probe through loc_338F8, then loc_3392C deletes the
-                // crawler after the finish animation. Native keeps this broad
-                // terrain-exit path conservative until the crawler support
-                // probes match oracle tightly enough to avoid early helpers.
+                // ASM Drips.asm loc_33650 leaves d6=0,d7=-8 from loc_33550;
+                // a non-$6000 loc_331D2 support probe branches to loc_338F8,
+                // which shifts the crawler before allocating the loc_325B6
+                // helper. Native models the helper as the remaining visible
+                // lifecycle and removes the crawler immediately.
+                spawned_projectiles.push(drips_surface_crawler_burst_helper_loc_338f8(p, 0, -8));
                 return false;
             }
 
@@ -2509,6 +2510,13 @@ impl NativeRuntime {
         let mut hit = false;
         let mut released_owners = Vec::new();
         self.projectiles.retain(|p| {
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
+                // ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6
+                // after the crawler has already resolved contact or terrain
+                // exit. The helper carries the finish animation, not another
+                // independent Kid damage check.
+                return true;
+            }
             if p.friendly {
                 return true; // player-fired projectiles don't damage player
             }
