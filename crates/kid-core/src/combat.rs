@@ -7657,7 +7657,6 @@ impl NativeRuntime {
         let Some(pending) = self.pending_stomp_bounce.take() else {
             return;
         };
-
         // ASM loc_B6DA (kid.asm:14621): Jump_On_Enemy bounce tail.
         //   move.l  d7,y_vel(a3)        — store bounce y_vel (d7 is $FFFC0000
         //     unless $FA6A on-board, then 0; native always uses STOMP_BOUNCE_VELOCITY)
@@ -8178,6 +8177,12 @@ impl NativeRuntime {
         let mut candidates = Vec::new();
         for (active_index, enemy) in self.active_enemies.iter().enumerate() {
             if matches!(enemy.family, EnemyFamily::Diamond) {
+                continue;
+            }
+            if matches!(enemy.family, EnemyFamily::Drips) && enemy.drips_attached {
+                // ASM Drips.asm loc_33424/loc_3345C routes Kid collision
+                // through the linked falling child `a1`; the attached
+                // parent/controller is hidden from Kid-facing collision.
                 continue;
             }
             if !enemy.is_vulnerable() {
