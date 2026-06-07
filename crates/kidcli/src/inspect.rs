@@ -870,6 +870,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     scenario: &DynamicScenario,
     trace_physics: bool,
     debug_fields: bool,
+    target_enemy: Option<u8>,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
@@ -918,6 +919,9 @@ pub(crate) fn probe_dynamic_record_scenario(
         final_frame.camera_x_pos, final_frame.camera_y_pos
     );
     println!("active roster: {}", describe_active_objects(final_frame));
+    if let Some(object_type) = target_enemy {
+        println!("{}", describe_target_enemy_activation(&trace, object_type));
+    }
 
     for checkpoint in &scenario.checkpoints {
         if let Some(frame) =
@@ -1018,6 +1022,153 @@ pub(crate) fn describe_active_objects(frame: &NativeTraceFrame) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn describe_target_enemy_details(frame: &NativeTraceFrame, object_type: u8) -> String {
+    let details = frame
+        .active_enemy_details
+        .iter()
+        .filter_map(|object| {
+            let kid_core::NativeObjectKind::Enemy {
+                object_type: active_type,
+            } = object.kind
+            else {
+                return None;
+            };
+            (active_type == object_type).then(|| {
+                format!(
+                    "enemy_{active_type:02X}@{:08X},{:08X}/layout{}",
+                    object.x_pos,
+                    object.y_pos,
+                    object
+                        .layout_index
+                        .map_or_else(|| String::from("?"), |layout| layout.to_string())
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    if details.is_empty() {
+        String::from("<none>")
+    } else {
+        details.join(", ")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetEnemyActivation {
+    first_replay_frame: usize,
+    last_replay_frame: usize,
+    frame_count: usize,
+    sighting_count: usize,
+    min_x: u32,
+    max_x: u32,
+    min_y: u32,
+    max_y: u32,
+    layout_indices: Vec<usize>,
+}
+
+fn target_enemy_activation(
+    trace: &[NativeTraceFrame],
+    object_type: u8,
+) -> Option<TargetEnemyActivation> {
+    let mut activation: Option<TargetEnemyActivation> = None;
+    let mut previous_active_frame = None;
+    let mut layout_indices = std::collections::BTreeSet::new();
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+
+        let mut sightings_this_frame = 0usize;
+        for object in &frame.active_enemy_details {
+            let kid_core::NativeObjectKind::Enemy {
+                object_type: active_type,
+            } = object.kind
+            else {
+                continue;
+            };
+            if active_type != object_type {
+                continue;
+            }
+
+            sightings_this_frame = sightings_this_frame.saturating_add(1);
+            if let Some(layout_index) = object.layout_index {
+                layout_indices.insert(layout_index);
+            }
+
+            match &mut activation {
+                Some(existing) => {
+                    existing.last_replay_frame = replay_frame;
+                    existing.sighting_count = existing.sighting_count.saturating_add(1);
+                    existing.min_x = existing.min_x.min(object.x_pos);
+                    existing.max_x = existing.max_x.max(object.x_pos);
+                    existing.min_y = existing.min_y.min(object.y_pos);
+                    existing.max_y = existing.max_y.max(object.y_pos);
+                }
+                None => {
+                    activation = Some(TargetEnemyActivation {
+                        first_replay_frame: replay_frame,
+                        last_replay_frame: replay_frame,
+                        frame_count: 0,
+                        sighting_count: 1,
+                        min_x: object.x_pos,
+                        max_x: object.x_pos,
+                        min_y: object.y_pos,
+                        max_y: object.y_pos,
+                        layout_indices: Vec::new(),
+                    });
+                }
+            }
+        }
+
+        if sightings_this_frame > 0 && previous_active_frame != Some(replay_frame) {
+            if let Some(existing) = &mut activation {
+                existing.frame_count = existing.frame_count.saturating_add(1);
+            }
+            previous_active_frame = Some(replay_frame);
+        }
+    }
+
+    activation.map(|mut activation| {
+        activation.layout_indices = layout_indices.into_iter().collect();
+        activation
+    })
+}
+
+pub(crate) fn describe_target_enemy_activation(
+    trace: &[NativeTraceFrame],
+    object_type: u8,
+) -> String {
+    let Some(activation) = target_enemy_activation(trace, object_type) else {
+        return format!("target enemy 0x{object_type:02X}: absent");
+    };
+    let layouts = if activation.layout_indices.is_empty() {
+        String::from("<none>")
+    } else {
+        activation
+            .layout_indices
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    format!(
+        "target enemy 0x{object_type:02X}: first replay frame {} last replay frame {} active frames {} sightings {} x {:08X}..{:08X} y {:08X}..{:08X} layouts {} first details [{}]",
+        activation.first_replay_frame,
+        activation.last_replay_frame,
+        activation.frame_count,
+        activation.sighting_count,
+        activation.min_x,
+        activation.max_x,
+        activation.min_y,
+        activation.max_y,
+        layouts,
+        trace.get(activation.first_replay_frame).map_or_else(
+            || String::from("<none>"),
+            |frame| describe_target_enemy_details(frame, object_type),
+        ),
+    )
 }
 
 pub(crate) fn trace_oracle_enemy_layout(
@@ -1327,6 +1478,7 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kid_core::{GameMode, NativeObjectKind, NativeObjectSnapshot};
     use std::path::PathBuf;
 
     fn manifest_with_drips_definition() -> AssetManifest {
@@ -1368,6 +1520,107 @@ mod tests {
         assert_eq!(
             describe_enemy_layout_objects(&manifest, &objects),
             vec!["enemy object 00: kind 0x16 Drip at 456,1567 flags 0x80 hp+1 1"]
+        );
+    }
+
+    fn target_enemy_frame(
+        frame_index: usize,
+        object_type: u8,
+        layout_index: Option<usize>,
+        x_pos: u32,
+        y_pos: u32,
+    ) -> NativeTraceFrame {
+        let mut frame = NativeTraceFrame {
+            frame_index,
+            game_mode: GameMode::InGame,
+            ..NativeTraceFrame::default()
+        };
+        frame.active_enemy_details.push(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos,
+            y_pos,
+            layout_index,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        });
+        frame
+    }
+
+    #[test]
+    fn target_enemy_activation_summary_reports_absent_enemy() {
+        let trace = vec![target_enemy_frame(
+            4,
+            0x0A,
+            Some(9),
+            0x0010_0000,
+            0x0020_0000,
+        )];
+
+        assert_eq!(
+            describe_target_enemy_activation(&trace, 0x16),
+            "target enemy 0x16: absent"
+        );
+    }
+
+    #[test]
+    fn target_enemy_activation_summary_uses_authoritative_enemy_details() {
+        let mut trace = vec![
+            NativeTraceFrame {
+                frame_index: 10,
+                game_mode: GameMode::InGame,
+                ..NativeTraceFrame::default()
+            },
+            target_enemy_frame(11, 0x16, Some(7), 0x001C_0000, 0x003F_0000),
+            target_enemy_frame(12, 0x0A, Some(9), 0x0030_0000, 0x0040_0000),
+            target_enemy_frame(13, 0x16, Some(8), 0x0020_0000, 0x0041_0000),
+        ];
+        trace[3].active_enemy_details.push(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+            x_pos: 0x0018_0000,
+            y_pos: 0x0040_0000,
+            layout_index: Some(7),
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        });
+
+        assert_eq!(
+            describe_target_enemy_activation(&trace, 0x16),
+            "target enemy 0x16: first replay frame 1 last replay frame 3 active frames 2 sightings 3 x 00180000..00200000 y 003F0000..00410000 layouts 7,8 first details [enemy_16@001C0000,003F0000/layout7]"
+        );
+    }
+
+    #[test]
+    fn target_enemy_activation_summary_ignores_transition_stale_details() {
+        let mut transition = target_enemy_frame(21, 0x16, Some(7), 0x001C_0000, 0x003F_0000);
+        transition.game_mode = GameMode::LevelTransition;
+
+        assert_eq!(
+            describe_target_enemy_activation(&[transition], 0x16),
+            "target enemy 0x16: absent"
         );
     }
 }

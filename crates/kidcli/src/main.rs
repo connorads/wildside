@@ -248,6 +248,9 @@ enum Commands {
         /// Include verbose gameplay debug fields in frame-range output.
         #[arg(long, default_value_t = false)]
         debug_fields: bool,
+        /// Summarise activation windows for one enemy object type, e.g. 16 for Drips.
+        #[arg(long, value_parser = parse_level_id)]
+        target_enemy: Option<u8>,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -272,6 +275,9 @@ enum Commands {
         /// Include verbose gameplay debug fields in frame-range output.
         #[arg(long, default_value_t = false)]
         debug_fields: bool,
+        /// Summarise activation windows for one enemy object type, e.g. 16 for Drips.
+        #[arg(long, value_parser = parse_level_id)]
+        target_enemy: Option<u8>,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -1112,6 +1118,7 @@ fn main() -> Result<()> {
             input,
             trace_physics,
             debug_fields,
+            target_enemy,
             frame_start,
             frame_end,
             rom,
@@ -1133,6 +1140,7 @@ fn main() -> Result<()> {
                 &dynamic,
                 trace_physics,
                 debug_fields,
+                target_enemy,
                 frame_start,
                 frame_end,
             )?;
@@ -1142,6 +1150,7 @@ fn main() -> Result<()> {
             input,
             trace_physics,
             debug_fields,
+            target_enemy,
             frame_start,
             frame_end,
             rom,
@@ -1163,6 +1172,7 @@ fn main() -> Result<()> {
                 &dynamic,
                 trace_physics,
                 debug_fields,
+                target_enemy,
                 frame_start,
                 frame_end,
             )?;
