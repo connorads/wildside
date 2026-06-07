@@ -1076,6 +1076,16 @@ returns to `InGame` at frame 1101, and survives to frame 2399 in Highwater Pass
 `mise run human-validation-review` now includes this route for human re-test.
 This supersedes only the Pass 1 flag evidence; the Pass 2/Juggernaut route still
 needs a fresh current recording before it can close #238.
+Fresh Pass 1 recheck 2026-06-07: re-recorded
+`issue-238-highwater-flag-transition-current-20260607` after retiring the stale
+direct-warp camera lead. Native-only replay is deterministic, full
+`verify-recording` reports `trace_match=true`, `oracle_state_match=true`,
+`first_trace_drift=null`, and matching 2401-frame traces. The route starts at
+the real Level 02 flag, returns to live Level 03 at frame 1101, and survives to
+frame 2399; the only full-verification failure is `oracle_frame_match=false`
+from broad pixel drift, while early camera deltas (`$0280` vs `$02E8`) are
+classified out of the state gate for this settled-recording route. Treat this as
+current gameplay-transition evidence, not pixel-parity closure.
 Fresh Pass 2/Juggernaut review evidence 2026-06-06: re-recorded
 `issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606` on
 current main. Native-only replay is deterministic; full verification reports
