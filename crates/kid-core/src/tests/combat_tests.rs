@@ -108,6 +108,70 @@ fn pending_contact_damage_spends_before_motion_loc_b700() {
 }
 
 #[test]
+fn drips_falling_drop_stomp_routes_through_loc_33550() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.active_enemies = vec![{
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0300_0000, 0x0100_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = DRIPS_DROP_IN_FLIGHT_TIMER;
+        drips.layout_index = 8;
+        drips
+    }];
+    runtime.projectiles = vec![EnemyProjectile {
+        kind: EnemyProjectileKind::DripsDrop,
+        x_pos: 0x0080_0000,
+        y_pos: 0x0100_0000,
+        y_velocity: DRIPS_DROP_GRAVITY,
+        lifetime: DRIPS_DROP_LIFETIME,
+        terrain_kill: true,
+        owner: Some(EnemyProjectileOwner {
+            segment_index: 0,
+            layout_index: 8,
+            token: 0,
+        }),
+        ..Default::default()
+    }];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x00F8_0000;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.y_velocity = 0x0003_0000;
+    slice.player.on_ground = false;
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        0x0003_0000,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(
+        stomped,
+        "ASM Drips.asm loc_33424/loc_3345C uses a falling GfxObject child with Kid collision; loc_33550 maps `$2C` Kid-above contact to the loc_338F8 splash/delete route"
+    );
+    assert!(
+        runtime.projectiles.is_empty(),
+        "stomped Drips drop should be consumed as the loc_338F8 splash path"
+    );
+    assert_ne!(
+        runtime.active_enemies[0].wait_timer, DRIPS_DROP_IN_FLIGHT_TIMER,
+        "loc_3350E returns the Drips parent to loc_3340E after the child contact"
+    );
+
+    runtime.apply_pending_stomp_bounce(&mut slice);
+    assert_eq!(
+        slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
+        "ASM Jump_On_Enemy loc_B6DA should apply the standard stomp bounce after the Drips child contact"
+    );
+}
+
+#[test]
 fn steady_grounded_dragon_contact_defers_to_next_frame_loc_3a6_issue_216() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

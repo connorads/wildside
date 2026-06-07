@@ -1681,6 +1681,39 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn resolve_drips_stomped_drops_loc_33550(
+        &mut self,
+        drops: Vec<EnemyProjectile>,
+        player_x: Option<u32>,
+    ) {
+        if drops.is_empty() {
+            return;
+        }
+
+        let mut drips_surface_crawler_count = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .count();
+        let splashes = drops
+            .into_iter()
+            .filter_map(|drop| {
+                // ASM Drips.asm loc_33550 maps Kid-above `$2C` to d5=1;
+                // callers then branch to loc_338F8, which spawns the splash
+                // helper and deletes the falling object after its animation.
+                drop.owner.map(|owner| PendingDripsSplash { owner, drop })
+            })
+            .collect::<Vec<_>>();
+        let mut spawned_projectiles = Vec::new();
+        self.resolve_drips_splashes(
+            splashes,
+            &mut drips_surface_crawler_count,
+            player_x,
+            &mut spawned_projectiles,
+        );
+        self.projectiles.extend(spawned_projectiles);
+    }
+
     pub(crate) fn step_fire_demon_trails(&mut self) {
         let grid = self.block_grid.as_ref();
         self.fire_demon_trails.retain_mut(|trail| {

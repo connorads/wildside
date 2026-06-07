@@ -1224,6 +1224,18 @@ struct PendingEnemyCollision {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StompContactTarget {
+    ActiveEnemy(usize),
+    DripsDropProjectile(usize),
+}
+
+#[derive(Debug, Clone)]
+struct StompContactCandidate {
+    target: StompContactTarget,
+    snapshot: NativeObjectSnapshot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PendingEnemyCollisionTarget {
     Parent,
     ChildAttachment,

@@ -8174,7 +8174,7 @@ impl NativeRuntime {
         }
     }
 
-    fn stomp_contact_candidates(&self) -> Vec<(usize, NativeObjectSnapshot)> {
+    fn stomp_contact_candidates(&self) -> Vec<StompContactCandidate> {
         let mut candidates = Vec::new();
         for (active_index, enemy) in self.active_enemies.iter().enumerate() {
             if matches!(enemy.family, EnemyFamily::Diamond) {
@@ -8189,7 +8189,10 @@ impl NativeRuntime {
                 // collision word `$38(a2)` and applies the result to the
                 // parent. The parent body is not the plain Tank stomp target.
                 if let Some(child) = enemy.child_attachment_snapshot() {
-                    candidates.push((active_index, child));
+                    candidates.push(StompContactCandidate {
+                        target: StompContactTarget::ActiveEnemy(active_index),
+                        snapshot: child,
+                    });
                 }
                 continue;
             }
@@ -8198,14 +8201,55 @@ impl NativeRuntime {
                 // ASM Robot.asm loc_3A8AE checks parent `collision_type(a3)`
                 // first, then the linked head `$38(a2)`, and either `$1C`
                 // or `$2C` enters the shared loc_3A8FC hit reaction.
-                candidates.push((active_index, enemy.snapshot()));
+                candidates.push(StompContactCandidate {
+                    target: StompContactTarget::ActiveEnemy(active_index),
+                    snapshot: enemy.snapshot(),
+                });
                 if let Some(child) = enemy.child_attachment_snapshot() {
-                    candidates.push((active_index, child));
+                    candidates.push(StompContactCandidate {
+                        target: StompContactTarget::ActiveEnemy(active_index),
+                        snapshot: child,
+                    });
                 }
                 continue;
             }
 
-            candidates.push((active_index, enemy.snapshot()));
+            candidates.push(StompContactCandidate {
+                target: StompContactTarget::ActiveEnemy(active_index),
+                snapshot: enemy.snapshot(),
+            });
+        }
+        for (projectile_index, projectile) in self.projectiles.iter().enumerate() {
+            if projectile.kind != EnemyProjectileKind::DripsDrop {
+                continue;
+            }
+            // ASM Drips.asm loc_33424/loc_3345C drives the falling drop as a
+            // real GfxObject child with `object_meta=$16` and Kid collision
+            // enabled. Native stores that child in `projectiles`, so feed it
+            // into the Jump_On_Enemy classifier explicitly.
+            candidates.push(StompContactCandidate {
+                target: StompContactTarget::DripsDropProjectile(projectile_index),
+                snapshot: NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy { object_type: 0x16 },
+                    x_pos: projectile.x_pos,
+                    y_pos: projectile.y_pos,
+                    layout_index: projectile.owner.map(|owner| owner.layout_index),
+                    x_velocity: Some(projectile.x_velocity),
+                    y_velocity: Some(projectile.y_velocity),
+                    facing: None,
+                    on_ground: Some(false),
+                    hit_points: Some(1),
+                    damage_flash: false,
+                    palette_variant: 0,
+                    stationary: false,
+                    shared_walker_state: None,
+                    shared_walker_patrol_timer: None,
+                    shared_walker_patrol_short_next: None,
+                    walk_phase: None,
+                    wait_timer: Some(projectile.lifetime),
+                    debug_fields: std::collections::BTreeMap::new(),
+                },
+            });
         }
         candidates
     }
@@ -8221,11 +8265,15 @@ impl NativeRuntime {
         let mut candidates = self
             .stomp_contact_candidates()
             .into_iter()
-            .map(|(active_index, enemy)| {
+            .map(|candidate| {
+                let debug_index = match candidate.target {
+                    StompContactTarget::ActiveEnemy(index)
+                    | StompContactTarget::DripsDropProjectile(index) => index,
+                };
                 stomp_contact_candidate_debug_summary(
-                    active_index,
+                    debug_index,
                     player,
-                    &enemy,
+                    &candidate.snapshot,
                     pre_physics_y_velocity,
                     self.progression.current_form.half_width() as i64,
                 )
@@ -8260,24 +8308,48 @@ impl NativeRuntime {
         }
 
         let mut stomped_indices = Vec::new();
-        for (active_index, enemy) in self.stomp_contact_candidates() {
+        let mut stomped_drips_drop_indices = Vec::new();
+        for candidate in self.stomp_contact_candidates() {
             if classify_enemy_contact_with_half_width(
                 slice.player,
-                &enemy,
+                &candidate.snapshot,
                 pre_physics_y_velocity,
                 pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
             ) == EnemyContactResult::Stomp
             {
-                stomped_indices.push(active_index);
+                match candidate.target {
+                    StompContactTarget::ActiveEnemy(active_index) => {
+                        stomped_indices.push(active_index);
+                    }
+                    StompContactTarget::DripsDropProjectile(projectile_index) => {
+                        stomped_drips_drop_indices.push(projectile_index);
+                    }
+                }
             }
         }
         stomped_indices.sort_unstable();
         stomped_indices.dedup();
+        stomped_drips_drop_indices.sort_unstable();
+        stomped_drips_drop_indices.dedup();
 
-        if stomped_indices.is_empty() {
+        if stomped_indices.is_empty() && stomped_drips_drop_indices.is_empty() {
             return false;
         }
+
+        let mut stomped_drips_drops = Vec::new();
+        for projectile_index in stomped_drips_drop_indices.into_iter().rev() {
+            if projectile_index < self.projectiles.len() {
+                let projectile = self.projectiles.remove(projectile_index);
+                if projectile.kind == EnemyProjectileKind::DripsDrop
+                    && drips_collision_dispatch_loc_33550(DRAGON_COLID_KIDABOVE, false).contact_flag
+                        != 0
+                {
+                    stomped_drips_drops.push(projectile);
+                }
+            }
+        }
+        self.resolve_drips_stomped_drops_loc_33550(stomped_drips_drops, Some(slice.player.x_pos));
 
         // Decrement HP; collect indices of enemies that should be removed
         let mut kill_indices = Vec::new();
@@ -8382,16 +8454,16 @@ impl NativeRuntime {
             return None;
         }
 
-        for (_active_index, enemy) in self.stomp_contact_candidates() {
+        for candidate in self.stomp_contact_candidates() {
             if classify_enemy_contact_with_half_width(
                 slice.player,
-                &enemy,
+                &candidate.snapshot,
                 pre_physics_y_velocity,
                 pre_physics_y_pos,
                 self.progression.current_form.half_width() as i64,
             ) == EnemyContactResult::Stomp
             {
-                return Some(enemy);
+                return Some(candidate.snapshot);
             }
         }
 
