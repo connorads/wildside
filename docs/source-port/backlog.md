@@ -1608,6 +1608,18 @@ reports `likely_subsystems=["recording verification"]`, and `case reduce`
 refuses because the source recording replay drifted at frame 0. Re-record the
 Invulnerability audit from the committed scenario builder before using it as
 #206 gate evidence.
+Note 2026-06-07 for #206: selector re-recorded the Invulnerability audit from
+the committed Level 02 scenario builder as
+`.cache/recordings/issue-206-diamond-power-invulnerability-audit-current-20260607`.
+`verify-recording --slug issue-206-diamond-power-invulnerability-audit-current-20260607`
+now has `trace_match=true`, `oracle_state_match=true`, no first trace/state
+drift, recorded/replay trace lengths `121/121`, and `oracle_frame_match=false`
+over 22 sampled checkpoints. The verifier warned that oracle captured no enemy
+snapshots for this route, so per-enemy comparison was skipped. The first
+strict-pixel diff is `diamond_power_input@0` with `changed_pixel_count=603`,
+MAE `0.9727167`, bounds `x=31..299,y=13..163`, and top colour swaps including
+`[182,182,73]<->[255,255,255]`; this refreshes the Invulnerability replay/state
+gate but still leaves a non-Forest strict-pixel gap.
 Note 2026-06-03 for #206: selector rechecked
 `issue-206-diamond-power-samurai-haze-audit`; it is stale in the same way.
 Fresh full and native-only verification both drift at native replay frame 0,
@@ -1659,8 +1671,9 @@ The first strict-pixel diff is `diamond_power_input@0` with
 `changed_pixel_count=4212`, MAE `2.6393974`, bounds `x=0..319,y=16..156`, and
 top colour swaps `[0,109,36]<->[0,146,36]`, i.e. the broad Forest
 palette/background mismatch rather than a fresh Wall state/replay failure. This
-refreshes a third #206 gate alongside Circle and Snake; Invulnerability and
-Samurai Haze still need current re-recorded bundles before #206 can leave `[?]`.
+refreshes a fourth #206 gate alongside Circle, Snake, and Invulnerability;
+Samurai Haze still needs a current re-recorded bundle before #206 can leave
+`[?]`.
 | 207 | [?] | P1 | architecture | Generic collision primitives unwired (engine-wide); relates to #139/#140/#143 | Current 2026-06-02 status: evidence-needed, not closed. ASM `Mode_Level` runs the global collision pass in order: `sub_21F8` builds Kid's hitbox after `Execute_Objects`, then after platform/projectile/enemy collision it runs `sub_1F52`, `sub_219C`, `sub_226A`, `GfxObjects_CollisionKid`, `sub_1D76`, and `sub_1FA2` before sprite compilation. Native still has no non-test callers for the modelled `combat.rs` helpers (`kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, `first_solid_overlap_resolution_sub_1FA2`); live movement resolves wall/ceiling/floor collisions through bespoke `movement.rs` probes, and `lib.rs` only wires the separate platform collision pass. Focused model tests are green (`cargo test -q -p kid-core sub_1f52 -- --nocapture`, `sub_21f8`, `sub_1fa2`), so the helper models remain good candidates, but direct wiring needs a fresh oracle-visible block/object-active scenario first. Gate: block-collision #205 scenario that reaches the ROM global pass + helper wiring patch + `mise run verify-slice-fast`. |
 Note 2026-06-02 for #207: rechecked the ASM and live call graph before changing code. `kid.asm:909` calls `sub_21F8` during `Mode_Level`; `kid.asm:940` calls `sub_1F52`; `kid.asm:948` calls `sub_1FA2`. The native definitions in `crates/kid-core/src/combat.rs` still carry `cfg_attr(not(test), allow(dead_code))` and `rg` finds no non-test caller for `kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, or `first_solid_overlap_resolution_sub_1FA2`. Focused verification passed 13 helper tests across the three ASM labels. Proposed implementation path: build a #205 block-collision scenario that exercises the post-object `Mode_Level` collision phase, translate native player/platform/enemy collision state into the existing `CollisionRectSub1F52`/`SolidOverlapTileSub1FA2` values, then wire `first_solid_overlap_action_sub_1FA2` as a global post-movement correction instead of replacing the already-TAS-sensitive `apply_wall_collision`/`apply_ceiling_collision`/`apply_floor_collision` paths blindly.
 | 208 | [?] | P1 | player | All platform physics unwired (collision / carry / landing / overlap-resolution) | Current 2026-06-02 status: partially corrected, still evidence-needed. The thin row was stale: `lib.rs` already calls `apply_platform_collision_with_ceiling_probe`, so the issue is not zero live platform collision. The remaining gap is that live platform collision still uses the snap-tolerance/top-landing approximation instead of the ROM `Platforms_CheckCollision` exact AABB escape/carry loop (`loc_257E` through `loc_2720`) and the modelled `loc_2686`-`loc_26FE` helpers remain non-test-only definitions with no live callers. Narrow fix 2026-06-02: live carry/support now passes `current_form.half_width()` and `current_form` into `platform_support_check_sub_8ED0` instead of hardcoding The Kid's 5px support, so non-Kid forms such as Red Stealth keep platform support at the ROM edge. Gate for the larger item: moving-platform #205 scenario vs oracle + exact `Platforms_CheckCollision` wiring patch + `mise run verify-slice-fast`. |
