@@ -1492,6 +1492,9 @@ fn oracle_enemy_is_uninitialised_tank_gfx_proxy(
     if !matches!(object_type, 0x0A | 0x0B) || enemy.current_hp != Some(0) {
         return false;
     }
+    if oracle_enemy_has_live_tank_body_sibling(state, enemy) {
+        return false;
+    }
 
     let dx = (enemy.x_pos >> 16) as i32 - (state.camera_x_pos >> 16) as i32;
     let dy = (enemy.y_pos >> 16) as i32 - (state.camera_y_pos >> 16) as i32;
@@ -1521,8 +1524,27 @@ fn oracle_enemy_parent_object_is_orphaned_loc_e1e(
     // ASM Execute_Objects loc_E1E is the authoritative active object list.
     // GfxObject slots can retain display and parent/layout pointers after
     // Deallocate_GfxObject loc_10C6 has unlinked the owning parent object.
+    if oracle_enemy_has_live_tank_body_sibling(state, enemy) {
+        return false;
+    }
     let parent_marker = format!("{parent_object_ptr:#08x}:");
     !object_slots.contains(&parent_marker)
+}
+
+fn oracle_enemy_has_live_tank_body_sibling(state: &OracleState, enemy: &OracleEnemyState) -> bool {
+    let object_type = oracle_enemy_semantic_type(enemy);
+    if !matches!(object_type, 0x0A | 0x0B) || enemy.current_hp != Some(0) {
+        return false;
+    }
+
+    state.active_enemies.iter().any(|candidate| {
+        !std::ptr::eq(candidate, enemy)
+            && oracle_enemy_semantic_type(candidate) == object_type
+            && candidate.current_hp.is_some_and(|hp| hp > 0)
+            && candidate.parent_object_ptr == enemy.parent_object_ptr
+            && candidate.layout_ptr == enemy.layout_ptr
+            && candidate.layout_index == enemy.layout_index
+    })
 }
 
 fn semantic_events(
@@ -3710,6 +3732,97 @@ mod tests {
         );
         assert_eq!(semantic.entities[0].x_pos, 0x0288_0000);
         assert_eq!(semantic.entities[0].y_pos, 0x0087_0000);
+    }
+
+    #[test]
+    fn semantic_from_oracle_keeps_tank_child_when_live_body_sibling_exists_loc_e1e() {
+        let body = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x00C4_8000,
+            y_pos: 0x00E0_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Right,
+            collision_type: Some(0),
+            collision_source: Some(0x800A),
+            layout_index: Some(1),
+            layout_ptr: Some(0x0007_9864),
+            parent_object_ptr: Some(0xffff_0f70),
+            gfx_slot_index: Some(4),
+            on_ground: None,
+            current_hp: Some(2),
+            debug_fields: BTreeMap::new(),
+        };
+        let child = OracleEnemyState {
+            x_pos: 0x00C4_0000,
+            y_pos: 0x00D8_0000,
+            current_hp: Some(0),
+            gfx_slot_index: Some(5),
+            ..body.clone()
+        };
+        let mut gameplay_debug_fields = BTreeMap::new();
+        gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            // Include the live parent marker. The zero-HP Tank child still
+            // depends on its non-zero-HP body sibling to avoid the stale proxy
+            // filters.
+            "0xffff0f70:code=0x03c0f4,hib=1@196,224".into(),
+        );
+        let state = OracleState {
+            label: String::from("frame_00300"),
+            frame_index: 300,
+            game_mode: 0x000c,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 1,
+            player_1_level_id: 1,
+            camera_x_pos: 0x0195_0000,
+            camera_y_pos: 0x01ac_0000,
+            kid_x_pos: 0x0238_0000,
+            kid_y_pos: 0x024f_0000,
+            number_objects: 5,
+            number_gfx_objects: 8,
+            game_paused: false,
+            active_enemies: vec![child, body],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: Some(0),
+            just_received_damage: Some(false),
+            kid_collision_type: Some(0),
+            kid_collision_source: None,
+            kid_x_direction: Some(0),
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: Some(0),
+            level_special_effects: Some(0),
+            gameplay_debug_fields,
+            cpu_registers: None,
+        };
+
+        let semantic = semantic_from_oracle(&state, None);
+
+        assert_eq!(
+            semantic.entities.len(),
+            2,
+            "ASM Execute_Objects loc_E1E is authoritative for orphaned gfx slots, but Tank.asm loc_3B31E/loc_3B40A body+child pairs are live when the same oracle capture contains the non-zero-HP body sibling"
+        );
+        assert!(
+            semantic
+                .entities
+                .iter()
+                .any(|entity| entity.x_pos == 0x00C4_0000 && entity.y_pos == 0x00D8_0000),
+            "case semantics should keep the visible zero-HP Tank child when the live body sibling is present"
+        );
     }
 
     #[test]

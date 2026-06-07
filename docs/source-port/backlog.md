@@ -2234,6 +2234,25 @@ been unlinked by `Deallocate_GfxObject loc_10C6`. Verification:
 `issue213-x568-y575-w340-jump_b_hold-1200.json` is enemy-frontier clean through
 frames `0..560`, `560..700`, and `700..1200`.
 
+Note 2026-06-07 follow-up for #213: selector-picked recording
+`issue213-current-existing-x568-w340-b-hold-native` is stale under current
+native (`verify-recording` drifts at frame 368), so I re-recorded the same
+scenario as `issue213-current-rerecord-x568-w340-b-hold-native-20260607`.
+The fresh recording is native-replayable (`trace_match=true`) but full oracle
+verification still fails at `pre_jump@339` on object/gfx counts (`native 7/7`,
+`oracle 5/8`) and frame output. The reduced `300..360` case initially blocked
+on case-tool semantics: the helper dropped a live zero-HP RockTank child when
+the same oracle capture contained its non-zero-HP body sibling. Case semantics
+now preserve those `Tank.asm loc_3B31E` / shared-walker `loc_3B40A` body-child
+pairs, and `case verify --case
+issue213-current-rerecord-x568-w340-b-hold-native-0300-0360` passes. The next
+reduced window, `issue213-current-rerecord-x568-w340-b-hold-native-0320-0440`,
+is the current actionable failure: first bad frame 363, field `entities`,
+with player/camera/events matching and only the layout-9 RockTank child Y one
+frame ahead in native (`$024A0000`) versus oracle (`$02480000`); oracle reaches
+the same child Y at frame 364. Continue from `Tank.asm loc_3B49A` child
+recoil/hibernate phase before using this route for Drips/slime conclusions.
+
 Note 2026-06-02 follow-up for #213: retired the delegated case-queue
 `walk_right_01_case_00000_00600` entries as stale recording blockers, not
 current RockTank/Drips bugs. Fresh verifies for
