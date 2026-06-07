@@ -234,6 +234,66 @@ REVIEW_ITEMS = (
     ),
     ReviewItem(
         backlog_row="#210",
+        title="Long intro demo route",
+        verifier=(
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-playtest-title-menu-current-long-20260607 --native-only; "
+            "cargo run -q -p kidcli -- case verify --case "
+            "issue-playtest-title-menu-current-long-20260607_case_03300_03600"
+        ),
+        decision=(
+            "Use this fresh current long route to inspect the broader no-input "
+            "intro-to-demo path. It reaches DemoPlay and Skydragon Castle 1; "
+            "full recording verification still reports a checkpoint-level "
+            "player_1_level_id mismatch at frame 3360, while the focused "
+            "3300..3600 semantic case passes."
+        ),
+        images=(
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-playtest-title-menu-current-long-20260607/verify/native/003300_frame_003300.png"
+                ),
+                "DemoPlay level hand-off begins",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-playtest-title-menu-current-long-20260607/verify/native/003360_frame_003360.png"
+                ),
+                "Skydragon Castle demo checkpoint",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-playtest-title-menu-current-long-20260607/verify/native/003599_end.png"
+                ),
+                "Long-route tail remains in the demo level",
+            ),
+        ),
+        transcripts=(
+            repo_path(
+                ".cache/recordings/issue-playtest-title-menu-current-long-20260607/transcript.txt"
+            ),
+        ),
+        evidence_files=(
+            repo_path(
+                ".cache/recordings/issue-playtest-title-menu-current-long-20260607/verify/report.json"
+            ),
+            repo_path(
+                ".cache/cases/issue-playtest-title-menu-current-long-20260607_case_03300_03600/verify.json"
+            ),
+            repo_path(
+                ".cache/cases/issue-playtest-title-menu-current-long-20260607_case_03300_03600/summary.md"
+            ),
+        ),
+        note=(
+            "Fresh current replacement for the stale `issue-playtest-title-menu-current-long-fixed` "
+            "route. Native replay is stable. Full recording verification still fails "
+            "at frame 3360 on `player_1_level_id` (native 0x1B, oracle 0), but "
+            "the reduced 3300..3600 semantic case passes; treat this as a verifier/"
+            "state-export lead rather than a reduced gameplay regression."
+        ),
+    ),
+    ReviewItem(
+        backlog_row="#210",
         title="Intro title and menu return",
         verifier=(
             "cargo run -q -p kidcli -- verify-recording "

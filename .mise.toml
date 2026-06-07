@@ -105,10 +105,12 @@ for slug in \
   issue-210-title-menu-tail \
   issue-160-audio-latest-validation \
   issue-238-highwater-flag-transition-current-20260606 \
-  issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606
+  issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606 \
+  issue-playtest-title-menu-current-long-20260607
 do
   cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
 done
+cargo run -q -p kidcli -- case verify --case issue-playtest-title-menu-current-long-20260607_case_03300_03600
 cargo test -q -p kid-core respawn_hold -- --nocapture
 cargo test -q -p kid-core spike_death_triggers_death_and_respawn -- --nocapture
 cargo test -q -p kid-core continue_restores_lives_and_respawns -- --nocapture

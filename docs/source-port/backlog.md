@@ -1806,6 +1806,17 @@ and zero changed pixels at checkpoints 2599, 2600, 2601, 2640, 2700, 2701,
 `.cache/human-validation/index.html` so humans can judge whether the broader
 playtest report still reproduces outside this now-green slice; do not reopen
 the old frame-2599/2720/3299 pixel debt without a fresh failing route.
+Fresh long-route evidence 2026-06-07 for #210/#141: re-recorded
+`issue-playtest-title-menu-current-long-20260607` on current main as the
+replacement for stale `issue-playtest-title-menu-current-long-fixed`. Native
+replay is deterministic and the transcript reaches DemoPlay at frame 3270, then
+Skydragon Castle 1 at frame 3301. Full `verify-recording` still fails at
+`frame_003360@3360` on `player_1_level_id` (native current/p1=`0x1B`, oracle
+current=`0x1B` but p1=`0`), with no recorded-vs-replay drift. The derived
+`issue-playtest-title-menu-current-long-20260607_case_03300_03600` semantic case
+passes, so this is a verifier/state-export lead for the demo bootstrap rather
+than a reduced gameplay regression. `mise run human-validation-review` now links
+the late demo frames and case artefacts for human review.
 Note 2026-06-02 selector follow-up for #210: queued
 `codex-intro-frame-probe` is not an actionable intro/title mismatch. Fresh
 `verify-recording` passes with `trace_match=true`, `oracle_state_match=true`,
