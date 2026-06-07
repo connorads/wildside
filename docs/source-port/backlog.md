@@ -2057,6 +2057,24 @@ case derives as `issue-213-drips-camera-only_case_00000_00064`, but
 Re-record a longer current Level 01 Drips/slime/metal-block route before using
 this camera-only bundle as #213 evidence.
 
+Note 2026-06-07 follow-up for #213: the durable named direct audit
+`issue_213_drips_metal_block_audit_01` is confirmed to be RockTank-only
+evidence, not a Drips/slime/metal-block repro. Fresh probes with
+`probe-record-scenario --scenario issue213-drips-metal-block-audit --level 01`
+reported both `DripsDrop: absent` and `DripsSurfaceCrawler: absent`; checkpoints
+`direct_probe_start`, `pre_jump`, `jump_peak_window`, `contact_window`, and
+`tail` showed only RockTank (`enemy_0A`) roster entries. `--player-motion`
+also showed Kid fixed at x `$02380000`, y `$022F0000..$024F0000`, so the B-jump
+route preserves a clean lower-floor blocker window but never exercises the
+right Drips controller at `(584,543)`. Natural route sweeps around
+`0-68:right` and `0-72:right` showed the safe route tops out around x
+`$01D7E300`; inputs that cross x `$0200....` fall into `LevelTransition`.
+Fresh `dump-level-layout --level 01` terrain evidence explains that boundary:
+the route is on row 37 (`y=592..607`) with a gap across rows 33..36 before the
+row-32 upper Drips/metal cells. Continue by building a non-death route that
+climbs or otherwise crosses this gap before using #213 as Drips/block evidence;
+do not patch from the named direct audit's RockTank-only checkpoints.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
