@@ -79,7 +79,7 @@ pub(crate) fn capture_frames(
 /// oracle and the remaining complaint is renderer sprite-frame selection.
 pub(crate) fn capture_scenario_frames(
     manifest: &AssetManifest,
-    scenario_path: &Path,
+    scenario: &DynamicScenario,
     frame_indices: &[usize],
     output_dir: &Path,
     filter: native_player::LayerFilter,
@@ -88,11 +88,6 @@ pub(crate) fn capture_scenario_frames(
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
         render_scene,
     };
-
-    let scenario_json = fs::read_to_string(scenario_path)
-        .with_context(|| format!("failed to read scenario {}", scenario_path.display()))?;
-    let scenario: DynamicScenario = serde_json::from_str(&scenario_json)
-        .with_context(|| format!("failed to parse scenario {}", scenario_path.display()))?;
 
     fs::create_dir_all(output_dir)
         .with_context(|| format!("failed to create {}", output_dir.display()))?;
@@ -103,7 +98,7 @@ pub(crate) fn capture_scenario_frames(
 
     let native_trace = run_native_dynamic_scenario(
         manifest.clone(),
-        &scenario,
+        scenario,
         NativeDynamicRunOptions::default(),
     )?;
 

@@ -761,6 +761,9 @@ enum Commands {
         /// Path to the DynamicScenario JSON (e.g. a recording's scenario.json)
         #[arg(long)]
         scenario: PathBuf,
+        /// Overlay input ranges, e.g. `60-600:right+c` or `120:b`.
+        #[arg(long)]
+        input: Vec<String>,
         /// Comma-separated frame indices to capture
         #[arg(long, default_value = "30,60,120,240,360")]
         frames: String,
@@ -1860,6 +1863,7 @@ fn main() -> Result<()> {
             rom,
             dir,
             scenario,
+            input,
             frames,
             output,
             layer,
@@ -1876,7 +1880,14 @@ fn main() -> Result<()> {
                 .as_deref()
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
-            sweep::capture_scenario_frames(&manifest, &scenario, &frame_indices, &output, filter)?;
+            let dynamic = apply_dynamic_scenario_input_overlays(
+                load_record_scenario_file(&scenario)?,
+                &input,
+            )?;
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            sweep::capture_scenario_frames(&manifest, &dynamic, &frame_indices, &output, filter)?;
         }
         Commands::DumpEnemySheet {
             rom,
