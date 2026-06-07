@@ -1228,6 +1228,7 @@ enum StompContactTarget {
     ActiveEnemy(usize),
     DripsDropProjectile(usize),
     DripsSurfaceCrawlerProjectile(usize),
+    DripsSurfaceCrawlerBurstProjectile(usize),
 }
 
 #[derive(Debug, Clone)]

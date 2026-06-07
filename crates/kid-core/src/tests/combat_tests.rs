@@ -232,6 +232,60 @@ fn drips_surface_crawler_stomp_allocates_loc_325b6_helper_via_loc_338f8() {
 }
 
 #[test]
+fn drips_surface_crawler_burst_helper_stomp_bounces_without_deleting_loc_325b6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.projectiles = vec![EnemyProjectile {
+        kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        x_pos: 0x0080_0000,
+        y_pos: 0x0100_0000,
+        x_velocity: 0x6000,
+        y_velocity: 0,
+        lifetime: 60,
+        friendly: false,
+        ..Default::default()
+    }];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x00F8_0000;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.y_velocity = 0x0003_0000;
+    slice.player.on_ground = false;
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        0x0003_0000,
+        frame_start_y,
+        frame_start_x,
+        frame_start_y,
+    );
+
+    assert!(
+        stomped,
+        "ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6; loc_3261C sets `has_kid_collision`, so the helper can trigger Jump_On_Enemy"
+    );
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM Tar_Monster.asm loc_3263C keeps the helper alive until its own terrain/lifecycle path reaches loc_32652"
+    );
+    assert_eq!(
+        runtime.projectiles[0].kind,
+        EnemyProjectileKind::DripsSurfaceCrawlerBurst
+    );
+
+    runtime.apply_pending_stomp_bounce(&mut slice);
+    assert_eq!(
+        slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
+        "ASM Jump_On_Enemy loc_B6DA should apply the standard stomp bounce after the loc_325B6 helper contact"
+    );
+}
+
+#[test]
 fn attached_drips_controller_is_not_a_stomp_candidate_loc_33424() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
