@@ -1628,6 +1628,18 @@ as `diamond_power_snake_audit_00_case_00000_00120`, but `case verify` reports
 `likely_subsystems=["recording verification"]`, and `case reduce` refuses
 because the source recording replay drifted at frame 0. Re-record the Snake
 audit from the committed scenario builder before using it as #206 gate evidence.
+Note 2026-06-07 for #206: selector re-recorded the Snake audit from the
+committed scenario builder as
+`.cache/recordings/issue-206-diamond-power-snake-audit-current-20260607`.
+`verify-recording --slug issue-206-diamond-power-snake-audit-current-20260607`
+now has `trace_match=true`, `oracle_state_match=true`, no first trace/state
+drift, recorded/replay trace lengths `121/121`, and `oracle_frame_match=false`
+over 22 sampled checkpoints. The first strict-pixel diff is
+`diamond_power_input@0` with `changed_pixel_count=4101`, MAE `2.4353747`,
+bounds `x=0..319,y=16..156`, and top colour swaps
+`[0,109,36]<->[0,146,36]`, matching the same broad Forest
+palette/background mismatch shape as Circle and Wall rather than a Snake
+replay/state failure.
 Note 2026-06-03 for #206: selector rechecked
 `issue-206-diamond-power-wall-audit`; it is stale in the same way. Fresh full
 and native-only verification both drift at native replay frame 0, with
@@ -1647,7 +1659,7 @@ The first strict-pixel diff is `diamond_power_input@0` with
 `changed_pixel_count=4212`, MAE `2.6393974`, bounds `x=0..319,y=16..156`, and
 top colour swaps `[0,109,36]<->[0,146,36]`, i.e. the broad Forest
 palette/background mismatch rather than a fresh Wall state/replay failure. This
-refreshes a second #206 gate alongside Circle; Snake, Invulnerability, and
+refreshes a third #206 gate alongside Circle and Snake; Invulnerability and
 Samurai Haze still need current re-recorded bundles before #206 can leave `[?]`.
 | 207 | [?] | P1 | architecture | Generic collision primitives unwired (engine-wide); relates to #139/#140/#143 | Current 2026-06-02 status: evidence-needed, not closed. ASM `Mode_Level` runs the global collision pass in order: `sub_21F8` builds Kid's hitbox after `Execute_Objects`, then after platform/projectile/enemy collision it runs `sub_1F52`, `sub_219C`, `sub_226A`, `GfxObjects_CollisionKid`, `sub_1D76`, and `sub_1FA2` before sprite compilation. Native still has no non-test callers for the modelled `combat.rs` helpers (`kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, `first_solid_overlap_resolution_sub_1FA2`); live movement resolves wall/ceiling/floor collisions through bespoke `movement.rs` probes, and `lib.rs` only wires the separate platform collision pass. Focused model tests are green (`cargo test -q -p kid-core sub_1f52 -- --nocapture`, `sub_21f8`, `sub_1fa2`), so the helper models remain good candidates, but direct wiring needs a fresh oracle-visible block/object-active scenario first. Gate: block-collision #205 scenario that reaches the ROM global pass + helper wiring patch + `mise run verify-slice-fast`. |
 Note 2026-06-02 for #207: rechecked the ASM and live call graph before changing code. `kid.asm:909` calls `sub_21F8` during `Mode_Level`; `kid.asm:940` calls `sub_1F52`; `kid.asm:948` calls `sub_1FA2`. The native definitions in `crates/kid-core/src/combat.rs` still carry `cfg_attr(not(test), allow(dead_code))` and `rg` finds no non-test caller for `kid_hitbox_from_collision_size_sub_21F8`, `support_overlap_detected_sub_1F52`, `first_solid_overlap_action_sub_1FA2`, or `first_solid_overlap_resolution_sub_1FA2`. Focused verification passed 13 helper tests across the three ASM labels. Proposed implementation path: build a #205 block-collision scenario that exercises the post-object `Mode_Level` collision phase, translate native player/platform/enemy collision state into the existing `CollisionRectSub1F52`/`SolidOverlapTileSub1FA2` values, then wire `first_solid_overlap_action_sub_1FA2` as a global post-movement correction instead of replacing the already-TAS-sensitive `apply_wall_collision`/`apply_ceiling_collision`/`apply_floor_collision` paths blindly.
