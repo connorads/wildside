@@ -19730,20 +19730,34 @@ mod chunk_12 {
             slice.player.on_ground = false;
             slice.player.y_velocity = y_velocity;
             slice.apply_jump_and_gravity_vel_only(b_held, false, PlayerForm::TheKid, false);
-            slice
+            let branch = slice
                 .kid_jump_gravity_probe
                 .expect("sub_B168 probe should record the airborne gravity branch")
-                .branch
+                .branch;
+            (branch, slice.player.y_velocity)
         };
 
         assert_eq!(
             run_case(-0x0001_0000),
-            KidJumpGravityBranch::AirborneHeldJumpGravity,
+            (
+                KidJumpGravityBranch::AirborneHeldJumpGravity,
+                -0x0001_0000 + crate::physics::GRAVITY_JUMP_HELD
+            ),
         );
-        assert_eq!(run_case(0), KidJumpGravityBranch::AirborneDefaultGravity,);
+        assert_eq!(
+            run_case(0),
+            (
+                KidJumpGravityBranch::AirborneDefaultGravity,
+                crate::physics::GRAVITY_NORMAL
+            ),
+        );
         assert_eq!(
             run_case(0x0001_0000),
-            KidJumpGravityBranch::AirborneDefaultGravity,
+            (
+                KidJumpGravityBranch::AirborneDefaultGravity,
+                0x0001_0000 + crate::physics::GRAVITY_NORMAL
+            ),
+            "loc_B1D4 bpl sends descending B-held frames to loc_B1E0 default gravity",
         );
     }
 
