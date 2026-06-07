@@ -1597,12 +1597,18 @@ fn semantic_events(
         if movement_started_jump || ground_started_jump {
             events.push(String::from("jump_started"));
         }
-        let movement_landed = previous.player.movement_state.as_deref() == Some("movement_0003")
+        let player_was_alive = previous
+            .player
+            .hitpoints
+            .is_none_or(|hitpoints| hitpoints > 0);
+        let movement_landed = player_was_alive
+            && previous.player.movement_state.as_deref() == Some("movement_0003")
             && player
                 .movement_state
                 .as_deref()
                 .is_some_and(|movement| movement != "movement_0003");
-        let ground_landed = previous.player.on_ground == Some(false)
+        let ground_landed = player_was_alive
+            && previous.player.on_ground == Some(false)
             && player.on_ground == Some(true)
             && player
                 .movement_state
@@ -2735,6 +2741,53 @@ mod tests {
         assert!(
             events.is_empty(),
             "the x190-L prize-audio case has matching native/oracle positions after lethal damage, but native-only ground metadata drops on the death arc; that is not a jump event"
+        );
+    }
+
+    #[test]
+    fn semantic_events_do_not_report_landing_when_death_handoff_sets_ground() {
+        let previous = SemanticGameState {
+            frame_index: 763,
+            player: SemanticPlayerState {
+                x_pos: Some(0x0344_8000),
+                y_pos: Some(0x032f_8000),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(String::from("right")),
+                on_ground: Some(false),
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(0),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState {
+                x_pos: 0x027c_0000,
+                y_pos: 0x01ac_0000,
+            },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: 1,
+                player_1_level_id: 1,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: None,
+            },
+            entities: vec![],
+            events: vec![],
+        };
+        let mut player = previous.player.clone();
+        player.on_ground = Some(true);
+        player.hitpoints = Some(2);
+
+        let events = semantic_events(Some(&previous), &player, &[]);
+
+        assert!(
+            events.is_empty(),
+            "ASM Death/loc_B80C falls through lose_life/Teleport, so the mode-8 restart shell ground flag is not a gameplay landing"
         );
     }
 
