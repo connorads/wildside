@@ -1095,6 +1095,14 @@ The route starts at Highwater Pass 2's real flag as helmet 5, transitions Level
 2399 in Under Skull Mountain 1. `oracle_frame_match=false` remains from visual
 pixel drift at the checkpoints, so treat this as gameplay-transition evidence,
 not pixel-parity closure.
+Fresh Pass 2/Juggernaut recheck 2026-06-07:
+`issue-238-highwater-pass2-juggernaut-flag-transition-current-20260607` is
+native-replay deterministic and full `verify-recording` reports
+`trace_match=true`, `oracle_state_match=true`, `first_trace_drift=null`, and
+matching 2401-frame traces. The route still carries helmet 5 from the real Level
+03 flag, returns to live Level 04 at frame 1101, and survives to frame 2399.
+`oracle_frame_match=false` remains from broad visual drift; no gameplay-state
+transition failure is reproduced.
 Follow-up 2026-06-06 for #238/#229: delegated case-queue route
 `issue-level03-instant-death-current` is not yet gameplay-authoritative. Fresh
 native-only replay passes and full `verify-recording` reports
