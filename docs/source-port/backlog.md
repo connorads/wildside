@@ -1075,6 +1075,15 @@ returns to `InGame` at frame 1101, and survives to frame 2399 in Highwater Pass
 `mise run human-validation-review` now includes this route for human re-test.
 This supersedes only the Pass 1 flag evidence; the Pass 2/Juggernaut route still
 needs a fresh current recording before it can close #238.
+Fresh Pass 2/Juggernaut review evidence 2026-06-06: re-recorded
+`issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606` on
+current main. Native-only replay is deterministic; full verification reports
+`trace_match=true`, `oracle_state_match=true`, and no checkpoint state deltas.
+The route starts at Highwater Pass 2's real flag as helmet 5, transitions Level
+03 -> 04 at frame 656, returns to `InGame` at frame 1101, and survives to frame
+2399 in Under Skull Mountain 1. `oracle_frame_match=false` remains from visual
+pixel drift at the checkpoints, so treat this as gameplay-transition evidence,
+not pixel-parity closure.
 Follow-up 2026-06-06 for #238/#229: delegated case-queue route
 `issue-level03-instant-death-current` is not yet gameplay-authoritative. Fresh
 native-only replay passes and full `verify-recording` reports

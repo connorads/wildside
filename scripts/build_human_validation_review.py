@@ -48,15 +48,19 @@ def repo_path(path: str) -> Path:
 REVIEW_ITEMS = (
     ReviewItem(
         backlog_row="#238",
-        title="Highwater Pass 1 flag transition",
+        title="Highwater flag transitions",
         verifier=(
             "cargo run -q -p kidcli -- verify-recording "
-            "--slug issue-238-highwater-flag-transition-current-20260606"
+            "--slug issue-238-highwater-flag-transition-current-20260606; "
+            "cargo run -q -p kidcli -- verify-recording "
+            "--slug issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606 "
+            "--native-only"
         ),
         decision=(
-            "Confirm the Highwater Pass 1 flag hand-off no longer drops Kid "
-            "into an instant-death or empty-level state: the fresh current "
-            "recording reaches Highwater Pass 2 and survives the tail checkpoint."
+            "Confirm the Highwater flag hand-offs no longer drop Kid into an "
+            "instant-death or empty-level state: fresh current recordings reach "
+            "Highwater Pass 2 and Under Skull Mountain 1, then survive their "
+            "tail checkpoints."
         ),
         images=(
             ReviewImage(
@@ -83,22 +87,47 @@ REVIEW_ITEMS = (
                 ),
                 "Tail checkpoint survives in Highwater Pass 2",
             ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606/verify/native/000000_flag_touch.png"
+                ),
+                "Juggernaut at the real Highwater Pass 2 flag",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606/verify/native/001800_next_level_entry.png"
+                ),
+                "Under Skull Mountain 1 entry after Pass 2 hand-off",
+            ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606/verify/native/002399_next_level_survival_tail.png"
+                ),
+                "Tail checkpoint survives in Under Skull Mountain 1",
+            ),
         ),
         transcripts=(
             repo_path(
                 ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/transcript.txt"
+            ),
+            repo_path(
+                ".cache/recordings/issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606/transcript.txt"
             ),
         ),
         evidence_files=(
             repo_path(
                 ".cache/recordings/issue-238-highwater-flag-transition-current-20260606/verify/report.json"
             ),
+            repo_path(
+                ".cache/recordings/issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606/verify/report.json"
+            ),
         ),
         note=(
-            "Fresh current evidence recorded from commit 1f7d3782: trace, "
-            "oracle state, and oracle frame comparison all pass. This only "
-            "covers the Pass 1 flag route; Pass 2/Juggernaut stale recordings "
-            "still need a fresh current route before they can close #238."
+            "Fresh Pass 1 evidence is trace/oracle-state/oracle-frame clean. "
+            "Fresh Pass 2/Juggernaut evidence is trace/oracle-state clean and "
+            "native-replay stable; full oracle frame comparison still has visual "
+            "pixel drift, so use it as gameplay-transition evidence rather than "
+            "pixel-parity closure."
         ),
     ),
     ReviewItem(
