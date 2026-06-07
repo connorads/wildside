@@ -5540,6 +5540,14 @@ impl OpeningSliceState {
         }
 
         if probe.hit {
+            if self.terrain.slope_sliding && self.grounded_slope_collision(Some(grid)).is_some() {
+                // ASM loc_9D22 -> loc_9F18 owns slope-walk edge handling
+                // while sub_A254 still sees live slope support. The generic
+                // sub_8F26-style side clamp must not stop Kid at the adjacent
+                // solid cell on Blue Lake Woods 1's 4082/6024 SlopeUp/Solid
+                // seam; oracle frame 431 keeps MoveID 6 and x_vel=$19000.
+                return;
+            }
             if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Rubber {
                 // ASM sub_8F26 -> sub_922C -> off_933E index 6 -> loc_10DA4:
                 // side contact with a rubber block takes sub_8F26's special
@@ -6297,12 +6305,14 @@ impl OpeningSliceState {
                 .min(grid.width_cells.saturating_sub(1));
             let next_cell = grid.cell_at(next_col, row);
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
+            let is_4082_6024_seam = current_cell.skin == 0x82 && next_cell.skin == 0x24;
             let applies_solid_edge_low_word_handoff =
                 post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
-            let applies_solid_edge_high_borrow = post_vertical_frac >= 0x4000
-                || (post_vertical_frac <= 0x0800
-                    && current_cell.skin == 0x82
-                    && next_cell.skin == 0x24);
+            let applies_solid_edge_high_borrow = if is_4082_6024_seam {
+                post_vertical_frac <= 0x0800
+            } else {
+                post_vertical_frac >= 0x4000
+            };
             if applies_solid_edge_low_word_handoff
                 && matches!(current_cell.collision, terrain::CollisionKind::SlopeUp)
                 && !next_cell.has_block
@@ -6320,9 +6330,9 @@ impl OpeningSliceState {
                 // 4082/6024 seam. Blue Lake Woods 2 frame 181 hits the
                 // 405C/605D seam at 0x0800 and only takes the low-word
                 // handoff, keeping the airborne handoff's high word. Earlier
-                // frame 428 has post-vertical fraction 0xAC00 and also keeps
-                // the unborrowed high word because it does not satisfy this
-                // SlopeUp/Solid edge probe.
+                // frame 428 hits the 4082/6024 seam at post-vertical fraction
+                // 0xAC00 and also keeps the unborrowed high word; only the
+                // low-word handoff applies there.
                 let corrected_high = if applies_solid_edge_high_borrow {
                     (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
                 } else {

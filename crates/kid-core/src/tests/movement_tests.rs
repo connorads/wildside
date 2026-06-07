@@ -18151,6 +18151,10 @@ mod chunk_12 {
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
         let slope_offset = (15usize * usize::from(w) + 44) * 2;
         data[slope_offset] = 0x40;
+        data[slope_offset + 1] = 0x82;
+        let solid_offset = (15usize * usize::from(w) + 45) * 2;
+        data[solid_offset] = 0x60;
+        data[solid_offset + 1] = 0x24;
         let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
         let mut slice = OpeningSliceState::new(LevelBounds {
