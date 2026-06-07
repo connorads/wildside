@@ -478,6 +478,173 @@ mod drips_surface_crawler_tests {
             "ASM Drips.asm loc_33488 adds 10px to the falling child before the loc_335D8 queue adds another 10px and aligns down into `$46(a0)`"
         );
     }
+
+    #[test]
+    fn drips_surface_crawler_spawn_persists_as_hostile_loc_335d8() {
+        let crawler =
+            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0);
+
+        assert_eq!(
+            crawler.kind,
+            EnemyProjectileKind::DripsSurfaceCrawler,
+            "ASM Drips.asm loc_335D8 allocates the surface-crawler child object"
+        );
+        assert_eq!(
+            crawler.lifetime, DRIPS_SURFACE_CRAWLER_LIFETIME,
+            "ASM Drips.asm loc_335D8 enters the crawler coroutine; lifetime must not expire before loc_3392C"
+        );
+        assert!(
+            !crawler.friendly,
+            "ASM Drips.asm loc_335D8 creates a hostile object_meta `$16` child"
+        );
+        assert_eq!(
+            crawler.y_velocity, 0,
+            "ASM Drips.asm loc_335D8 seeds x_vel only; loc_33630 has no Y delta when `$44` is zero"
+        );
+        assert!(!crawler.terrain_kill);
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650
+        );
+
+        let flipped =
+            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0x04);
+        assert!(
+            flipped.drips_surface_crawler_x_direction_flipped,
+            "ASM Drips.asm loc_335D8 uses `bclr #2,d7` to set flipped x_direction when random bit 2 was set"
+        );
+        assert_eq!(
+            flipped.x_velocity, -0x0000_3000,
+            "ASM Drips.asm loc_335D8 negates the initial crawler x_vel on the flipped random branch"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_burst_helper_shell_matches_loc_338f8() {
+        let crawler = EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0248_0000,
+            y_pos: 0x0220_0000,
+            x_velocity: 0x0000_3000,
+            y_velocity: 0x0000_5000,
+            lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
+            ..Default::default()
+        };
+
+        let helper = drips_surface_crawler_burst_helper_loc_338f8(&crawler, 0, -8);
+
+        assert_eq!(
+            helper.kind,
+            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+            "ASM Drips.asm loc_338F8 allocates the shared Tar_Monster.asm loc_325B6 helper shell"
+        );
+        assert_eq!(helper.x_pos, 0x0248_0000);
+        assert_eq!(
+            helper.y_pos, 0x0218_0000,
+            "ASM Drips.asm loc_33650 passes d6=0,d7=-8 before the loc_338F8 helper allocation"
+        );
+        assert_eq!(
+            helper.x_velocity, 0x0000_6000,
+            "ASM Tar_Monster.asm loc_325B6 doubles the copied x_vel for the helper shell"
+        );
+        assert_eq!(
+            helper.y_velocity, 0,
+            "ASM Tar_Monster.asm loc_325B6/loc_3261C does not copy crawler y_vel into this helper"
+        );
+        assert_eq!(
+            helper.lifetime, 60,
+            "native helper lifetime stands in for the loc_3261C/loc_32682 finish animation window"
+        );
+        assert_eq!(
+            helper.gravity, 0x1000,
+            "native helper gravity models the falling loc_32682 collision-response shell"
+        );
+        assert!(!helper.friendly);
+        assert_eq!(helper.tar_monster_collision_response_budget, 2);
+    }
+
+    #[test]
+    fn drips_surface_crawler_finish_shell_matches_loc_3392c() {
+        let crawler = EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 0x0248_0000,
+            y_pos: 0x0220_0000,
+            x_velocity: -0x0000_3000,
+            y_velocity: 0x0000_5000,
+            lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
+            ..Default::default()
+        };
+
+        let finish = drips_surface_crawler_finish_animation_loc_3392c(&crawler);
+
+        assert_eq!(
+            finish.kind,
+            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+            "ASM Drips.asm loc_3392C keeps an animation shell alive until the finish animation completes"
+        );
+        assert_eq!(finish.x_pos, crawler.x_pos);
+        assert_eq!(finish.y_pos, crawler.y_pos);
+        assert_eq!(
+            finish.x_velocity, 0,
+            "ASM Drips.asm loc_3392C stops the crawler before hibernating through the finish animation"
+        );
+        assert_eq!(finish.y_velocity, 0);
+        assert_eq!(
+            finish.lifetime, 60,
+            "native finish-shell lifetime stands in for `Hibernate_UntilAnimFinished` before `$FFFFFB42` decrements"
+        );
+        assert_eq!(finish.gravity, 0);
+        assert!(!finish.friendly);
+    }
+
+    #[test]
+    fn drips_surface_crawler_burst_offsets_match_loc_33550_callers() {
+        let cases = [
+            (
+                DripsSurfaceCrawlerState::HorizontalLoc33650,
+                Some((0, -8)),
+                "ASM Drips.asm loc_33650 sets d6=0,d7=-8",
+            ),
+            (
+                DripsSurfaceCrawlerState::VerticalLoc336D0,
+                Some((0, 8)),
+                "ASM Drips.asm loc_336D0 sets d6=0,d7=8",
+            ),
+            (
+                DripsSurfaceCrawlerState::VerticalLoc33730,
+                Some((8, 0)),
+                "ASM Drips.asm loc_33730 sets d6=8,d7=0",
+            ),
+            (
+                DripsSurfaceCrawlerState::VerticalLoc337A0,
+                Some((-8, 0)),
+                "ASM Drips.asm loc_337A0 sets d6=-8,d7=0",
+            ),
+            (
+                DripsSurfaceCrawlerState::DiagonalLoc33810,
+                Some((-8, -8)),
+                "ASM Drips.asm loc_33810 sets d6=-8,d7=-8",
+            ),
+            (
+                DripsSurfaceCrawlerState::DiagonalLoc33892,
+                Some((8, -8)),
+                "ASM Drips.asm loc_33892 sets d6=8,d7=-8",
+            ),
+            (
+                DripsSurfaceCrawlerState::IdleLoc33A7C,
+                None,
+                "ASM Drips.asm loc_33A7C idles instead of calling loc_33550",
+            ),
+        ];
+
+        for (state, expected, reason) in cases {
+            assert_eq!(
+                drips_surface_crawler_burst_offset_loc_33550(state),
+                expected,
+                "{reason}"
+            );
+        }
+    }
 }
 
 fn projectile_terrain_contact_loc_3345c(

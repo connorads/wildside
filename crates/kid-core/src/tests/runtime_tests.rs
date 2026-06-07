@@ -11091,6 +11091,95 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_death_trail_misses_player_on_separate_axis_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 100 << 16,
+            y_pos: 122 << 16,
+            remaining_frames: 0x96,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Fire_Demon loc_3A63C trail collision still requires both X and Y overlap; Y at the exclusive boundary misses"
+        );
+        assert!(rt.last_projectile_damage_probe.is_none());
+    }
+
+    #[test]
+    fn fire_demon_death_trail_misses_player_at_x_boundary_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 114 << 16,
+            y_pos: 100 << 16,
+            remaining_frames: 0x96,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Fire_Demon loc_3A63C trail collision uses the generic projectile x threshold; the 14px exclusive boundary misses"
+        );
+        assert!(rt.last_projectile_damage_probe.is_none());
+    }
+
+    #[test]
+    fn fire_demon_death_trail_misses_player_far_left_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 53 << 16,
+            y_pos: 100 << 16,
+            remaining_frames: 0x96,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Fire_Demon loc_3A63C trail collision compares projectile-minus-Kid distance before abs; a trail 47px left is outside the hostile hitbox"
+        );
+        assert!(rt.last_projectile_damage_probe.is_none());
+    }
+
+    #[test]
+    fn fire_demon_death_trail_damage_probe_reports_signed_delta_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 87 << 16,
+            y_pos: 79 << 16,
+            remaining_frames: 0x96,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM Fire_Demon loc_3A63C trail collision uses the same centred overlap as generic hostile projectile damage"
+        );
+        assert!(
+            rt.last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.contains("dx=-13 dy=-21")),
+            "fire-demon trail diagnostics must preserve signed projectile-minus-Kid deltas"
+        );
+    }
+
+    #[test]
     fn dragon_walking_breath_hits_player_without_consuming_child_loc_3d082() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
@@ -11568,6 +11657,82 @@ mod chunk_09 {
         assert_eq!(
             drips.drips_surface_table_index, 0,
             "ASM Drips.asm loc_33506 still rewinds the off_33520 cursor when the allocation cap blocks loc_335D8"
+        );
+    }
+
+    #[test]
+    fn drips_ready_splash_sentinel_allocates_and_counts_crawler_loc_33488() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = drips_splash_animation_timer_loc_33488(0);
+        drips.drips_surface_table_index = 2;
+        drips.drips_pending_splash_x_pos = 0x0020_0000;
+        drips.drips_pending_splash_y_pos = 0x002A_0000;
+        rt.active_enemies.push(drips);
+
+        rt.step_projectiles();
+
+        let crawler = rt
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+            .expect("ASM Drips.asm loc_33488 negative off_33520 sentinel allocates loc_335D8 while `$FFFFFB42 < 5`");
+        assert_eq!(
+            crawler.x_pos, 0x0021_0000,
+            "ASM Drips.asm loc_33488 queues `$44(a0)=drop_x+1` for loc_335D8"
+        );
+        assert_eq!(
+            crawler.y_pos, 0x0030_0000,
+            "ASM Drips.asm loc_33488 queues `$46(a0)=(drop_y+$A)&$FFF0` for loc_335D8"
+        );
+        assert_eq!(
+            rt.drips_surface_crawler_count_loc_fffffb42, 1,
+            "ASM Drips.asm loc_33488 increments `$FFFFFB42` immediately after allocating loc_335D8"
+        );
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after sentinel splash");
+        assert_eq!(
+            drips.drips_surface_table_index, 0,
+            "ASM Drips.asm loc_33506 rewinds the off_33520 cursor after the negative sentinel"
+        );
+    }
+
+    #[test]
+    fn drips_same_frame_ready_splashes_share_surface_cap_loc_33488() {
+        let mut rt = NativeRuntime::new(manifest());
+        for index in 0..6 {
+            let mut drips = test_enemy(
+                EnemyFamily::Drips,
+                (0x0020 + index) << 16,
+                0x0020_0000,
+                index as u8,
+            );
+            drips.drips_attached = true;
+            drips.wait_timer = drips_splash_animation_timer_loc_33488(0);
+            drips.drips_surface_table_index = 2;
+            drips.drips_pending_splash_x_pos = (0x0020 + index) << 16;
+            drips.drips_pending_splash_y_pos = 0x002A_0000;
+            rt.active_enemies.push(drips);
+        }
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler)
+                .count(),
+            crate::projectiles::DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488,
+            "ASM Drips.asm loc_33488 checks the shared `$FFFFFB42 < 5` counter for every same-frame sentinel splash"
+        );
+        assert_eq!(
+            rt.drips_surface_crawler_count_loc_fffffb42,
+            crate::projectiles::DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488,
+            "ASM Drips.asm loc_33488 increments `$FFFFFB42` once per allocated loc_335D8 crawler"
         );
     }
 
@@ -12811,6 +12976,34 @@ mod chunk_09 {
         assert!(
             rt.projectile_hits_player(&slice),
             "projectile 13px left and 21px above should hit"
+        );
+        assert!(
+            rt.last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.contains("dx=-13 dy=-21")),
+            "native projectile damage diagnostics must preserve signed projectile-minus-Kid deltas"
+        );
+    }
+
+    #[test]
+    fn projectile_misses_player_far_left_asymmetric_offset() {
+        let mut rt = runtime_with_projectile_and_player(0, 100, 100, 100);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "generic projectile overlap uses signed subtraction before abs; a projectile 100px left of Kid is outside the ASM-sized hitbox"
+        );
+    }
+
+    #[test]
+    fn projectile_misses_player_far_above_asymmetric_offset() {
+        let mut rt = runtime_with_projectile_and_player(100, 0, 100, 100);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "generic projectile overlap uses signed subtraction before abs on Y as well as X"
         );
     }
 
