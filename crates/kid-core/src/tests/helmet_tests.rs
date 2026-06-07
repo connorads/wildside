@@ -1986,6 +1986,34 @@ mod chunk_08 {
     }
 
     #[test]
+    fn respawn_hold_without_start_covers_oracle_frame_9000_lower_bound_loc_6e2() {
+        // Oracle-backed `compare-native-gameplay-window --scenario
+        // death-respawn-level1 --frame-start 8950 --frame-end 9000` keeps
+        // Game_Mode=$0008 through frame 9000 when Start is never pressed.
+        // Native must not let the fallback countdown release earlier and run
+        // Kid into a second death before that lower bound.
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.progression.number_lives = 2;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+        runtime.boot_state = BootState::InGame;
+
+        for _ in 0..=9_000 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "without Start, loc_6E2 respawn should remain hidden through the oracle frame-9000 lower bound (got {:?})",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+        assert_eq!(runtime.progression.number_lives, 2);
+    }
+
+    #[test]
     fn save_load_player_slot_round_trips() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.current_player_index = 0;

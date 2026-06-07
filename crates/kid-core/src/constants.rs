@@ -391,9 +391,9 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold
 // pose through frame 9000. Keep the shared respawn shell alive through that
-// lower bound; the later visible `Load_InGame` return is still a separate
-// frontier.
-pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 7_210;
+// lower bound on the real `GameplayScenario` route; the later visible
+// `Load_InGame` return is still a separate frontier.
+pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 10_000;
 // Settled oracle probe `issue-248-death-start-resume-settled` keeps
 // `Game_Mode=$0008` for the first two Start-held frames after death (560/561)
 // and returns to live `Game_Mode=$000C` on the third frame (562).
