@@ -272,6 +272,9 @@ enum Commands {
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
+        /// Print scenario/checkpoint/target summaries without per-frame trace rows.
+        #[arg(long, default_value_t = false)]
+        summary_only: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -305,6 +308,9 @@ enum Commands {
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
+        /// Print scenario/checkpoint/target summaries without per-frame trace rows.
+        #[arg(long, default_value_t = false)]
+        summary_only: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -1151,6 +1157,7 @@ fn main() -> Result<()> {
             target_enemy,
             target_projectile,
             player_motion,
+            summary_only,
             frame_start,
             frame_end,
             rom,
@@ -1175,6 +1182,7 @@ fn main() -> Result<()> {
                 target_enemy,
                 target_projectile.map(Into::into),
                 player_motion,
+                summary_only,
                 frame_start,
                 frame_end,
             )?;
@@ -1187,6 +1195,7 @@ fn main() -> Result<()> {
             target_enemy,
             target_projectile,
             player_motion,
+            summary_only,
             frame_start,
             frame_end,
             rom,
@@ -1211,6 +1220,7 @@ fn main() -> Result<()> {
                 target_enemy,
                 target_projectile.map(Into::into),
                 player_motion,
+                summary_only,
                 frame_start,
                 frame_end,
             )?;

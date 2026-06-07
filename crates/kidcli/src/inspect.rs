@@ -873,6 +873,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_enemy: Option<u8>,
     target_projectile: Option<ActiveProjectileKind>,
     player_motion: bool,
+    summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
@@ -958,14 +959,16 @@ pub(crate) fn probe_dynamic_record_scenario(
         }
     }
 
-    print_trace_frames_in_range(
-        &trace,
-        &scenario.script,
-        trace_physics,
-        debug_fields,
-        frame_start,
-        frame_end,
-    );
+    if !summary_only {
+        print_trace_frames_in_range(
+            &trace,
+            &scenario.script,
+            trace_physics,
+            debug_fields,
+            frame_start,
+            frame_end,
+        );
+    }
 
     Ok(())
 }
