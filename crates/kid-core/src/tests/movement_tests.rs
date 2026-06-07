@@ -4048,6 +4048,67 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8270 (kid.asm:9029): `moveq #-$11,d7; bsr.w sub_B43A`.
+    /// sub_B43A probes `(y_pos + 1 - $11) >> 4`, so solids on other rows do
+    /// not block the crawl stand-up.
+    #[test]
+    fn loc_8270_head_block_uses_y_minus_16_probe_row() {
+        let grid = grid_with_cells(8, 8, &[(2, 0, 0x60, 0x00), (2, 4, 0x60, 0x00)]);
+
+        assert!(
+            !movement::crawl_standup_head_blocked_loc_8270(&grid, 40u32 << 16, 48u32 << 16, 14),
+            "ASM loc_8270/sub_B43A: crawl stand-up checks row (48-$10)>>4 = 2, not row 0 or row 4"
+        );
+    }
+
+    /// ASM loc_8270 -> sub_B43A scans across the restored standing width, so a
+    /// solid at `x-restored_half_width` blocks stand-up.
+    #[test]
+    fn loc_8270_head_block_includes_restored_left_edge() {
+        let grid = grid_with_cells(8, 8, &[(1, 2, 0x60, 0x00)]);
+
+        assert!(
+            movement::crawl_standup_head_blocked_loc_8270(&grid, 40u32 << 16, 48u32 << 16, 14),
+            "ASM loc_8270/sub_B43A: restored left edge (40-$E)>>4 = col 1 must block stand-up"
+        );
+    }
+
+    /// ASM loc_8270 -> sub_B43A includes the restored right edge in the support
+    /// scan, so a solid at `x+restored_half_width` blocks stand-up.
+    #[test]
+    fn loc_8270_head_block_includes_restored_right_edge() {
+        let grid = grid_with_cells(8, 8, &[(3, 2, 0x60, 0x00)]);
+
+        assert!(
+            movement::crawl_standup_head_blocked_loc_8270(&grid, 40u32 << 16, 48u32 << 16, 14),
+            "ASM loc_8270/sub_B43A: restored right edge (40+$E)>>4 = col 3 must block stand-up"
+        );
+    }
+
+    /// ASM loc_8270 -> sub_B43A clamps the scan to the restored width, not to
+    /// every tile left of Kid.
+    #[test]
+    fn loc_8270_head_block_excludes_column_left_of_restored_width() {
+        let grid = grid_with_cells(8, 8, &[(0, 2, 0x60, 0x00)]);
+
+        assert!(
+            !movement::crawl_standup_head_blocked_loc_8270(&grid, 40u32 << 16, 48u32 << 16, 14),
+            "ASM loc_8270/sub_B43A: col 0 is outside restored standing span cols 1..3"
+        );
+    }
+
+    /// ASM loc_8270 -> sub_B43A also clamps the right side to the restored
+    /// width rather than scanning every tile to the level edge.
+    #[test]
+    fn loc_8270_head_block_excludes_column_right_of_restored_width() {
+        let grid = grid_with_cells(8, 8, &[(7, 2, 0x60, 0x00)]);
+
+        assert!(
+            !movement::crawl_standup_head_blocked_loc_8270(&grid, 40u32 << 16, 48u32 << 16, 14),
+            "ASM loc_8270/sub_B43A: col 7 is outside restored standing span cols 1..3"
+        );
+    }
+
     /// ASM sub_DAA6: loc_8270 blocks crawl stand-up when any platform overlaps
     /// the restored standing-width box from x±unk_B408 and y-$1F..y.
     #[test]
