@@ -2247,11 +2247,20 @@ now preserve those `Tank.asm loc_3B31E` / shared-walker `loc_3B40A` body-child
 pairs, and `case verify --case
 issue213-current-rerecord-x568-w340-b-hold-native-0300-0360` passes. The next
 reduced window, `issue213-current-rerecord-x568-w340-b-hold-native-0320-0440`,
-is the current actionable failure: first bad frame 363, field `entities`,
-with player/camera/events matching and only the layout-9 RockTank child Y one
-frame ahead in native (`$024A0000`) versus oracle (`$02480000`); oracle reaches
-the same child Y at frame 364. Continue from `Tank.asm loc_3B49A` child
-recoil/hibernate phase before using this route for Drips/slime conclusions.
+then isolated a real `Tank.asm loc_3B49A` child recoil phase bug: first bad
+frame 363, field `entities`, with player/camera/events matching and only the
+layout-9 RockTank child Y one frame ahead in native (`$024A0000`) versus
+oracle (`$02480000`); oracle reached the same child Y at frame 364.
+Follow-up fixed the exported plain RockTank recoil window to keep child
+`$46=8` through the oracle-confirmed pre-recoil frame and expose `$46=6` from
+the next frame. The pre-fix 0320..0440 case now correctly blocks as stale at
+frame 363, so I re-recorded current native as
+`issue213-current-rerecord-x568-w340-b-hold-native-20260607-post-tank-recoil`,
+derived `issue213-current-rerecord-x568-w340-b-hold-native-post-tank-recoil-0320-0440`,
+and that refreshed case passes. `issue213-current-rerecord-x568-w340-b-hold-native-0300-0360`
+still passes. Continue #213 by finding a non-death upward-contact route that
+actually reaches the reported Drips/slime/metal-block interaction; do not
+patch Drips from the superseded Tank child case.
 
 Note 2026-06-02 follow-up for #213: retired the delegated case-queue
 `walk_right_01_case_00000_00600` entries as stale recording blockers, not

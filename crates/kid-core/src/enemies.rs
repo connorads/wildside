@@ -5425,9 +5425,10 @@ pub(crate) const TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBE
 pub(crate) const TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A: i32 = i32::MIN;
 /// ASM Tank.asm loc_3B49A writes child `$46=6` before `j_Hibernate_Object(5)`.
 /// The object-list trace samples the linked GfxObject across the collision and
-/// hibernate boundary, so the visible `stru_3B294` recoil spans the last nine
-/// countdown frames and then persists because loc_3B4BA never restores `$46`.
-const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES + 4;
+/// hibernate boundary, so the visible `stru_3B294` recoil starts after the
+/// oracle-confirmed pre-recoil frame and then persists because loc_3B4BA never
+/// restores `$46`.
+const TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A: u8 = TANK_HURT_HIBERNATE_FRAMES + 3;
 /// ASM Tank_Shooting.asm loc_3B700 mirrors the same linked-child recoil timing
 /// through `stru_3B294`.
 const TANK_SHOOTING_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B700: u8 =
@@ -35696,8 +35697,8 @@ mod tests {
         };
 
         assert_eq!(
-            TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A, 9,
-            "Issue #213 route frames 363-372 cover nine Tank.asm loc_3B49A countdown recoil frames",
+            TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A, 8,
+            "Issue #213 oracle route keeps Tank.asm loc_3B49A child `$46=8` through frame 363 and exposes `$46=6` from frame 364",
         );
         assert_eq!(
             TANK_HURT_TRACE_HIBERNATE_FRAMES_LOC_3B49A, 14,
@@ -35722,7 +35723,7 @@ mod tests {
             .expect("ASM Tank.asm loc_3B49A keeps the linked turret child visible before recoil");
         assert_eq!(
             pre_recoil_child.y_pos, 0x0248_0000,
-            "ASM Tank.asm loc_3B49A should not expose the `stru_3B294` recoil offset until the exported hibernate tail reaches the recoil window",
+            "ASM Tank.asm loc_3B49A should not expose the `stru_3B294` recoil offset until the exported hibernate tail reaches the oracle-confirmed recoil window",
         );
 
         tank.wait_timer = TANK_CHILD_RECOIL_VISIBLE_FRAMES_LOC_3B49A.into();
