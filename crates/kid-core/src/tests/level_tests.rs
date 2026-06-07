@@ -6416,6 +6416,34 @@ mod chunk_02 {
     }
 
     #[test]
+    fn death_windup_hibernates_enemy_scheduler_loc_b80c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+
+        let mut tank = make_pacer(EnemyFamily::Tank, 2, 0xA9, 0xE0);
+        tank.x_velocity = -0x0000_8000;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+        let before_enemy_x = runtime.active_enemies[0].x_pos;
+        let before_player_x = runtime.opening_slice.expect("pre-death slice").player.x_pos;
+
+        runtime.progression.number_hitpoints = 0;
+        runtime.begin_death_windup();
+        runtime.step_frame(FrameInput::default());
+
+        let after_slice = runtime.opening_slice.expect("death windup slice");
+        assert_eq!(
+            runtime.active_enemies[0].x_pos, before_enemy_x,
+            "ASM Death/loc_B80C loops inside the death routine instead of returning to Mode_Level loc_80C enemy execution"
+        );
+        assert!(
+            after_slice.player.x_pos > before_player_x,
+            "ASM loc_B80C should still advance Kid's visible tumble while objects are hibernated"
+        );
+    }
+
+    #[test]
     fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));

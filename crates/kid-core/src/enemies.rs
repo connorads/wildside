@@ -40674,6 +40674,13 @@ impl NativeRuntime {
         ) {
             return;
         }
+        if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+            // ASM Death/loc_B80C loops inside the death routine until the
+            // sprite exits, so Mode_Level loc_80C does not resume object
+            // execution or enemy loading during the visible tumble.
+            self.rebuild_active_enemy_roster();
+            return;
+        }
 
         let Some(slice) = self.opening_slice else {
             return;
