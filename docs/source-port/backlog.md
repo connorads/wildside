@@ -2151,8 +2151,13 @@ does not make a useful Drips/metal route. Decoded `dump-level-layout --level 01`
 rows 31..38 confirm the relevant geometry: the two Drips controllers are around
 cells `(28,33)`/`(36,33)` on upper block rows with metal/touch cells on row 32,
 while the current safe route and crawler contact sit on row 36/37 (`$00FA` floor
-under `$0249,$0240`). Next route work should change the pre-480 approach or use
-a different climb path; do not retry the simple no-brake/right-jump extension.
+under `$0249,$0240`). Rechecked after adding `probe-record-scenario --input
+...:none` clearing support: `--input 480-530:none --input 536-900:right --input
+560-620:b` reaches the same `LevelTransition` at frame 572, with the old
+tail-checkpoint already in death windup (`death_windup 38`, hp 0), so this can
+now be reproduced without scratch JSON. Next route work should change the
+pre-480 approach or use a different climb path; do not retry the simple
+no-brake/right-jump extension.
 
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime

@@ -2695,7 +2695,11 @@ fn apply_dynamic_scenario_input_overlays(
             .take(range.end.saturating_add(1))
             .skip(range.start)
         {
-            *frame_buttons |= range.buttons;
+            if range.buttons == 0 {
+                *frame_buttons = 0;
+            } else {
+                *frame_buttons |= range.buttons;
+            }
         }
     }
     Ok(scenario)
@@ -3512,6 +3516,28 @@ AddrTbl_LevelNames:
         assert!(scenario.script.len() >= 7);
         assert_eq!(scenario.frame_count, 6);
         assert_eq!(scenario.script[5], (1 << 3) | (1 << 5));
+    }
+
+    #[test]
+    fn dynamic_record_scenario_input_none_clears_existing_script_range() {
+        let scenario = DynamicScenario {
+            slug: String::from("test-overlay-clear"),
+            script: vec![1 << 3, 1 << 3, (1 << 3) | (1 << 4), 1 << 2],
+            frame_count: 4,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            warp_to_level: Some(0x01),
+            settle_oracle_warp: false,
+        };
+
+        let scenario = apply_dynamic_scenario_input_overlays(scenario, &[String::from("1-2:none")])
+            .expect("none overlay should clear scripted buttons");
+
+        assert_eq!(scenario.script, vec![1 << 3, 0, 0, 1 << 2]);
+        assert_eq!(scenario.frame_count, 4);
     }
 
     #[test]
