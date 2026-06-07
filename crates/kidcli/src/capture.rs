@@ -388,6 +388,7 @@ pub(crate) fn capture_native_gameplay_scenario(
         scenario,
         GameplayScenario::PauseResumeLevel1
             | GameplayScenario::DeathRespawnLevel1
+            | GameplayScenario::DeathRespawnStartResumeLevel1
             | GameplayScenario::ProgressTwoTransitions
             | GameplayScenario::SoakLevel10m
     ) {

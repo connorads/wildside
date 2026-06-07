@@ -190,6 +190,7 @@ fn run_one_player_playable_gate(
         GameplayScenario::PauseResumeLevel1,
         GameplayScenario::ProgressTwoTransitions,
         GameplayScenario::DeathRespawnLevel1,
+        GameplayScenario::DeathRespawnStartResumeLevel1,
         GameplayScenario::SoakLevel10m,
     ] {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
@@ -206,6 +207,7 @@ fn run_one_player_playable_gate(
     for scenario in [
         GameplayScenario::PauseResumeLevel1,
         GameplayScenario::DeathRespawnLevel1,
+        GameplayScenario::DeathRespawnStartResumeLevel1,
     ] {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
         let step_name = format!("gameplay_compare:{}", scenario.slug());
@@ -399,6 +401,7 @@ fn run_one_player_accurate_gate(
     for scenario in [
         GameplayScenario::PauseResumeLevel1,
         GameplayScenario::DeathRespawnLevel1,
+        GameplayScenario::DeathRespawnStartResumeLevel1,
         GameplayScenario::ProgressTwoTransitions,
     ] {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;

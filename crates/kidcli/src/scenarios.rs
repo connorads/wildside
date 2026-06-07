@@ -19,6 +19,7 @@ pub enum Scenario {
 pub enum GameplayScenario {
     PauseResumeLevel1,
     DeathRespawnLevel1,
+    DeathRespawnStartResumeLevel1,
     ProgressTwoTransitions,
     SoakLevel10m,
 }
@@ -184,6 +185,29 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 5] = [
     GameplayCheckpoint {
         label: "respawn_bootstrap_tail",
         frame_index: 9_000,
+    },
+];
+
+const DEATH_RESPAWN_START_RESUME_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 5] = [
+    GameplayCheckpoint {
+        label: "level_settle",
+        frame_index: 719,
+    },
+    GameplayCheckpoint {
+        label: "pre_death",
+        frame_index: 1_254,
+    },
+    GameplayCheckpoint {
+        label: "respawn_hidden",
+        frame_index: 1_919,
+    },
+    GameplayCheckpoint {
+        label: "start_release",
+        frame_index: 1_922,
+    },
+    GameplayCheckpoint {
+        label: "resumed_tail",
+        frame_index: 1_950,
     },
 ];
 
@@ -1588,6 +1612,7 @@ impl GameplayScenario {
         match self {
             Self::PauseResumeLevel1 => "pause_resume_level1",
             Self::DeathRespawnLevel1 => "death_respawn_level1",
+            Self::DeathRespawnStartResumeLevel1 => "death_respawn_start_resume_level1",
             Self::ProgressTwoTransitions => "progress_two_transitions",
             Self::SoakLevel10m => "soak_level_10m",
         }
@@ -1597,6 +1622,7 @@ impl GameplayScenario {
         match self {
             Self::PauseResumeLevel1 => 1_120,
             Self::DeathRespawnLevel1 => 9_001,
+            Self::DeathRespawnStartResumeLevel1 => 1_951,
             Self::ProgressTwoTransitions => 3_301,
             Self::SoakLevel10m => 36_720,
         }
@@ -1606,6 +1632,7 @@ impl GameplayScenario {
         match self {
             Self::PauseResumeLevel1 => &PAUSE_RESUME_LEVEL_1_CHECKPOINTS,
             Self::DeathRespawnLevel1 => &DEATH_RESPAWN_LEVEL_1_CHECKPOINTS,
+            Self::DeathRespawnStartResumeLevel1 => &DEATH_RESPAWN_START_RESUME_LEVEL_1_CHECKPOINTS,
             Self::ProgressTwoTransitions => &PROGRESS_TWO_TRANSITIONS_CHECKPOINTS,
             Self::SoakLevel10m => &SOAK_LEVEL_10M_CHECKPOINTS,
         }
@@ -1617,7 +1644,9 @@ impl GameplayScenario {
 
     pub fn required_level_layout_range(self) -> (u8, u8) {
         match self {
-            Self::PauseResumeLevel1 | Self::DeathRespawnLevel1 => (0x00, 0x00),
+            Self::PauseResumeLevel1
+            | Self::DeathRespawnLevel1
+            | Self::DeathRespawnStartResumeLevel1 => (0x00, 0x00),
             Self::ProgressTwoTransitions => (0x00, 0x02),
             Self::SoakLevel10m => (0x00, 0x1F),
         }
@@ -1642,6 +1671,19 @@ impl GameplayScenario {
                 apply_range(&mut script, 1_351, 1_559, 1 << 3);
                 apply_range(&mut script, 1_560, 3_000, 1 << 3);
                 add_periodic_jump(&mut script, 1_600, 3_000, 28, 3);
+            }
+            Self::DeathRespawnStartResumeLevel1 => {
+                apply_range(&mut script, 600, 899, 1 << 3);
+                apply_range(&mut script, 900, 1_350, (1 << 3) | (1 << 6));
+                add_periodic_jump(&mut script, 940, 1_350, 24, 4);
+                apply_range(&mut script, 1_351, 1_559, 1 << 3);
+                apply_range(&mut script, 1_560, 1_950, 1 << 3);
+                add_periodic_jump(&mut script, 1_600, 1_950, 28, 3);
+                // ASM lose_life -> loc_6E2 re-enters the level-load shell.
+                // Oracle probe `issue-248-death-start-resume-settled` shows
+                // two Start-held frames in mode $0008 before live gameplay
+                // resumes on the third.
+                apply_range(&mut script, 1_920, 1_922, 0x80);
             }
             Self::ProgressTwoTransitions => {
                 apply_range(&mut script, 600, 899, 1 << 3);
@@ -2258,6 +2300,34 @@ mod tests {
                 ("death_tail", 1_762),
                 ("respawn_tail", 1_919),
                 ("respawn_bootstrap_tail", 9_000),
+            ]
+        );
+    }
+
+    #[test]
+    fn gameplay_death_start_resume_scenario_holds_start_during_respawn_shell() {
+        let script = GameplayScenario::DeathRespawnStartResumeLevel1.script();
+        assert_eq!(
+            GameplayScenario::DeathRespawnStartResumeLevel1.frame_count(),
+            1_951
+        );
+        assert_eq!(script[1_919] & 0x80, 0);
+        assert_eq!(script[1_920] & 0x80, 0x80);
+        assert_eq!(script[1_921] & 0x80, 0x80);
+        assert_eq!(script[1_922] & 0x80, 0x80);
+        assert_eq!(script[1_923] & 0x80, 0);
+        assert_eq!(
+            GameplayScenario::DeathRespawnStartResumeLevel1
+                .checkpoints()
+                .iter()
+                .map(|checkpoint| (checkpoint.label, checkpoint.frame_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("level_settle", 719),
+                ("pre_death", 1_254),
+                ("respawn_hidden", 1_919),
+                ("start_release", 1_922),
+                ("resumed_tail", 1_950),
             ]
         );
     }

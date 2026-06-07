@@ -198,6 +198,9 @@ pub(crate) fn verify_gameplay_scenario(
     match scenario {
         GameplayScenario::PauseResumeLevel1 => verify_pause_resume_level_1(&capture),
         GameplayScenario::DeathRespawnLevel1 => verify_death_respawn_level_1(&capture),
+        GameplayScenario::DeathRespawnStartResumeLevel1 => {
+            verify_death_respawn_start_resume_level_1(&capture)
+        }
         GameplayScenario::ProgressTwoTransitions => verify_progress_two_transitions(&capture),
         GameplayScenario::SoakLevel10m => verify_soak_level_10m(&capture),
     }
@@ -213,6 +216,9 @@ pub(crate) fn verify_native_gameplay_scenario(
     match scenario {
         GameplayScenario::PauseResumeLevel1 => verify_pause_resume_level_1(&capture),
         GameplayScenario::DeathRespawnLevel1 => verify_death_respawn_level_1(&capture),
+        GameplayScenario::DeathRespawnStartResumeLevel1 => {
+            verify_death_respawn_start_resume_level_1(&capture)
+        }
         GameplayScenario::ProgressTwoTransitions => verify_progress_two_transitions(&capture),
         GameplayScenario::SoakLevel10m => verify_soak_level_10m(&capture),
     }
@@ -384,6 +390,55 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
     }
     if final_state.kid_x_pos == 0 && final_state.kid_y_pos == 0 {
         bail!("death_respawn_level1 respawned into an invalid position");
+    }
+
+    Ok(())
+}
+
+pub(crate) fn verify_death_respawn_start_resume_level_1(capture: &GameplayCapture) -> Result<()> {
+    if capture.missed_vblank_frames != 0 {
+        bail!(
+            "death_respawn_start_resume_level1 missed {} vblank frames; artefacts in .cache/gameplay-runs/{}",
+            capture.missed_vblank_frames,
+            capture.scenario
+        );
+    }
+    let level_settle = gameplay_checkpoint(capture, "level_settle")?;
+    let pre_death = gameplay_checkpoint(capture, "pre_death")?;
+    let respawn_hidden = gameplay_checkpoint(capture, "respawn_hidden")?;
+    let start_release = gameplay_checkpoint(capture, "start_release")?;
+    let resumed_tail = gameplay_checkpoint(capture, "resumed_tail")?;
+
+    if level_settle.game_mode != 0x000C || pre_death.game_mode != 0x000C {
+        bail!("death_respawn_start_resume_level1 never reached live gameplay before death");
+    }
+    if respawn_hidden.game_mode != 0x0008 {
+        bail!(
+            "death_respawn_start_resume_level1 was not hidden in the respawn shell before Start: 0x{:04X}",
+            respawn_hidden.game_mode
+        );
+    }
+    if start_release.game_mode != 0x000C {
+        bail!(
+            "death_respawn_start_resume_level1 did not return to live gameplay on the third Start-held frame: 0x{:04X}",
+            start_release.game_mode
+        );
+    }
+    if resumed_tail.game_mode != 0x000C {
+        bail!(
+            "death_respawn_start_resume_level1 did not stay live after Start resume: 0x{:04X}",
+            resumed_tail.game_mode
+        );
+    }
+    if resumed_tail.number_lives >= pre_death.number_lives {
+        bail!(
+            "death_respawn_start_resume_level1 did not spend a life (before {}, after {})",
+            pre_death.number_lives,
+            resumed_tail.number_lives
+        );
+    }
+    if start_release.kid_x_pos == 0 || start_release.kid_y_pos == 0 {
+        bail!("death_respawn_start_resume_level1 resumed with an invalid Kid position");
     }
 
     Ok(())

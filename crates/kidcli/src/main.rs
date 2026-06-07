@@ -1360,6 +1360,7 @@ fn main() -> Result<()> {
                 Vec::from([
                     GameplayScenario::PauseResumeLevel1,
                     GameplayScenario::DeathRespawnLevel1,
+                    GameplayScenario::DeathRespawnStartResumeLevel1,
                     GameplayScenario::ProgressTwoTransitions,
                     GameplayScenario::SoakLevel10m,
                 ])
