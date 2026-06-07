@@ -1295,11 +1295,12 @@ mod chunk_03 {
         runtime.progression.diamond_power_frames =
             helmets::diamond_power_duration(helmets::DiamondPowerType::FiveWayShot);
         let mut slice = combat_slice();
-        slice.player.x_pos = 0x0040_0000;
-        slice.player.y_pos = 0x0050_0000;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
+        slice.player.x_pos = 0x0140_0000;
+        slice.player.y_pos = 0x00D0_0000;
+        slice.camera.x_pos = 0x0100_0000;
+        slice.camera.y_pos = 0x0080_0000;
         runtime.opening_slice = Some(slice);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0166_0000, 0x00CC_0000, 1)];
 
         runtime.step_diamond_power(FrameInput::default());
 
@@ -1317,6 +1318,27 @@ mod chunk_03 {
             runtime.diamond_power_sprites.len(),
             expected_spreads.len(),
             "ASM loc_401BA compiles one sprite for each live FiveWayShot slot"
+        );
+        assert_eq!(
+            runtime.pending_enemy_collisions.len(),
+            1,
+            "ASM loc_401BA writes world coords from screen+Camera_X/Y_pos before sub_1D84 collision checks"
+        );
+        let first_sprite = runtime
+            .diamond_power_sprites
+            .first()
+            .expect("ASM loc_401BA should compile the first FiveWayShot sprite");
+        assert_eq!(
+            first_sprite.screen_x, 0x00E0,
+            "ASM loc_401BA: sprite_x = screen_x + $7F - size after the first word_40124 x step"
+        );
+        assert_eq!(
+            first_sprite.screen_y, 0x00C6,
+            "ASM loc_401BA: sprite_y = screen_y + $7F - size after the first word_40124 y step"
+        );
+        assert_eq!(
+            first_sprite.size_word, 0x0500,
+            "ASM loc_401BA/word_4020E: move.b size into the sprite size byte, stored natively as the high byte"
         );
         for (slot, (expected_xv, expected_yv)) in runtime
             .diamond_power_five_way_slots
