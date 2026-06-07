@@ -141,6 +141,9 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
             "enemy objects: {}",
             summarise_enemy_object_types(&enemy_layout.objects)
         );
+        for line in describe_enemy_layout_objects(manifest, &enemy_layout.objects) {
+            println!("{line}");
+        }
     }
     print_loaded_asset("platform", bundle.platform_script.as_ref());
     print_loaded_asset("bgscroll", bundle.bgscroll.as_ref());
@@ -274,6 +277,33 @@ pub(crate) fn summarise_enemy_object_types(objects: &[kid_data::EnemyLayoutObjec
         .map(|(object_type, count)| format!("0x{object_type:02X}x{count}"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+pub(crate) fn describe_enemy_layout_objects(
+    manifest: &AssetManifest,
+    objects: &[kid_data::EnemyLayoutObject],
+) -> Vec<String> {
+    objects
+        .iter()
+        .enumerate()
+        .map(|(index, object)| {
+            let enemy_name =
+                find_enemy_definition(manifest, &format!("{:02X}", object.object_type))
+                    .map_or_else(
+                        || String::from("<unknown>"),
+                        |definition| definition.symbolic_name,
+                    );
+            format!(
+                "enemy object {:02}: kind 0x{:02X} {enemy_name} at {},{} flags 0x{:02X} hp+1 {}",
+                index,
+                object.object_type,
+                object.x,
+                object.y,
+                object.flags,
+                object.hit_points_plus_one
+            )
+        })
+        .collect()
 }
 
 pub(crate) fn parse_level_id(value: &str) -> Result<u8> {
@@ -1292,4 +1322,52 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
         layout_path.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn manifest_with_drips_definition() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: vec![kid_data::NamedValue {
+                name: "objid_Drip".into(),
+                value: 0x16,
+                comment: None,
+            }],
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn enemy_layout_object_listing_includes_exact_kind_name_and_position() {
+        let manifest = manifest_with_drips_definition();
+        let objects = vec![kid_data::EnemyLayoutObject {
+            object_type: 0x16,
+            flags: 0x80,
+            hit_points_plus_one: 1,
+            x: 456,
+            y: 1567,
+        }];
+
+        assert_eq!(
+            describe_enemy_layout_objects(&manifest, &objects),
+            vec!["enemy object 00: kind 0x16 Drip at 456,1567 flags 0x80 hp+1 1"]
+        );
+    }
 }
