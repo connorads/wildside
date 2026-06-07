@@ -2262,6 +2262,23 @@ still passes. Continue #213 by finding a non-death upward-contact route that
 actually reaches the reported Drips/slime/metal-block interaction; do not
 patch Drips from the superseded Tank child case.
 
+Note 2026-06-07 follow-up for #213: autonomy selected the stale
+`issue213-current-existing-x568-w340-jump-right-b-native` recording; current
+native replay drifts at frame 363, so I re-recorded the same scenario as
+`issue213-current-rerecord-x568-w340-jump-right-b-native-20260607-post-tank-recoil`
+and derived
+`issue213-current-rerecord-x568-w340-jump-right-b-native-post-tank-recoil-0320-0440`.
+The refreshed reduced case is gameplay-authoritative again and fails at frame
+383 on oracle `spawned_entity`: the oracle helper sees a transient Drips
+GfxObject for layout 7 at `$0230,$0202` one frame before native's hidden
+controller becomes semantically visible at frame 384 from layout-anchor
+`$01C8,$021F`. `active_enemy_details` now exposes hidden native enemy
+controllers to case semantics without breaking legacy recording replay
+comparison, so future Drips reducers can distinguish "not exported" from
+"not spawned". This does not fix #213; next pass should trace
+`Drips.asm Enemy16_Drip_Init`'s linked GfxObject position/hibernate timing
+against the oracle helper before changing loader timing.
+
 Note 2026-06-02 follow-up for #213: retired the delegated case-queue
 `walk_right_01_case_00000_00600` entries as stale recording blockers, not
 current RockTank/Drips bugs. Fresh verifies for

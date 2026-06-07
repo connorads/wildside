@@ -3638,6 +3638,7 @@ AddrTbl_LevelNames:
                     debug_fields: std::collections::BTreeMap::new(),
                 },
             ],
+            active_enemy_details: Vec::new(),
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,
             number_objects: 3,

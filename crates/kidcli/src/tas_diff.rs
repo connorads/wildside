@@ -912,6 +912,7 @@ mod tests {
                 wait_timer: Some(0x01df),
                 debug_fields: std::collections::BTreeMap::new(),
             }],
+            active_enemy_details: Vec::new(),
             block_bounces: Vec::new(),
             floating_items: Vec::new(),
             block_destroy_effects: Vec::new(),

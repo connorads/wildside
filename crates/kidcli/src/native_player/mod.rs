@@ -2204,6 +2204,7 @@ mod tests {
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
+            active_enemy_details: Vec::new(),
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,
             number_objects: 3,

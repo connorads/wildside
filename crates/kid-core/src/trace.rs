@@ -5496,6 +5496,15 @@ impl NativeRuntime {
         let player_state = self.current_player_state();
         let camera_state = self.current_camera_state();
         let active_objects = self.active_objects();
+        let active_enemy_details = self
+            .active_enemies
+            .iter()
+            .flat_map(|enemy| {
+                let mut snapshots = vec![enemy.snapshot()];
+                snapshots.extend(enemy.child_attachment_snapshot());
+                snapshots
+            })
+            .collect::<Vec<_>>();
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
             .or_else(|| self.demo_1_late_controller_sample_counts())
@@ -5782,6 +5791,7 @@ impl NativeRuntime {
                 })
                 .unwrap_or(0),
             active_objects,
+            active_enemy_details,
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
             number_objects,

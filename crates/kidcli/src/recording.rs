@@ -13,6 +13,8 @@ use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
 use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
+#[cfg(test)]
+use kid_core::{NativeObjectKind, NativeObjectSnapshot};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -2030,6 +2032,15 @@ fn trace_frames_match(
         normalised_expected.hud_diamond_frame_offset = actual.hud_diamond_frame_offset;
     }
 
+    if expected.active_enemy_details.is_empty() {
+        // `active_enemy_details` is additive trace telemetry for semantic case
+        // comparison. Legacy recordings predate it, so absence must not make a
+        // replay drift when the authoritative frame state still matches.
+        normalised_expected
+            .active_enemy_details
+            .clone_from(&actual.active_enemy_details);
+    }
+
     &normalised_expected == actual
 }
 
@@ -2505,6 +2516,7 @@ mod tests {
             ledge_snap_cooldown: 0,
             kid_on_slope: 0,
             active_objects: Vec::new(),
+            active_enemy_details: Vec::new(),
             camera_x_pos: 0,
             camera_y_pos: 0,
             number_objects: 0,
@@ -2778,6 +2790,45 @@ mod tests {
         assert_eq!(
             drift, None,
             "older recording bundles predate the HUD diamond animation diagnostic, so replay verification should not treat the added trace field as gameplay drift"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_active_enemy_details() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.active_enemy_details = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+            x_pos: 0x01c8_0000,
+            y_pos: 0x021f_0000,
+            layout_index: Some(7),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(NativeDirection::Right),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "active_enemy_details is additive telemetry for hidden controller semantics; legacy recording replay must not drift when current traces populate it"
         );
     }
 

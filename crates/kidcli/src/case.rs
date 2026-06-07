@@ -1208,9 +1208,20 @@ fn semantic_from_native(
         boot_phase: snapshot.boot_phase.clone(),
     };
     let entities = if snapshot.game_mode_value == 0x000c {
-        snapshot
-            .active_objects
+        let enemy_source = if snapshot.active_enemy_details.is_empty() {
+            &snapshot.active_objects
+        } else {
+            &snapshot.active_enemy_details
+        };
+        enemy_source
             .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
+            .chain(
+                snapshot
+                    .active_objects
+                    .iter()
+                    .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. })),
+            )
             .filter(|object| !native_object_is_uninitialised_tank_gfx_proxy(snapshot, object))
             .filter_map(semantic_entity_from_native)
             .collect::<Vec<_>>()
@@ -3871,6 +3882,71 @@ mod tests {
         assert_eq!(semantic.entities[0].x_pos, 0x0298_0000);
         assert_eq!(semantic.entities[0].y_pos, 0x0090_0000);
         assert_eq!(semantic.entities[0].hit_points, Some(2));
+    }
+
+    #[test]
+    fn semantic_from_native_uses_hidden_enemy_details_when_present() {
+        let visible_object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x00bd_0000,
+            y_pos: 0x00e0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(kid_core::physics::Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        };
+        let hidden_drips = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x16 },
+            x_pos: 0x01c8_0000,
+            y_pos: 0x021f_0000,
+            layout_index: Some(7),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(kid_core::physics::Direction::Right),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        };
+        let trace = NativeTraceFrame {
+            frame_index: 383,
+            game_mode_value: 0x000c,
+            current_level: kid_core::LevelId(1),
+            active_objects: vec![visible_object],
+            active_enemy_details: vec![hidden_drips],
+            ..NativeTraceFrame::default()
+        };
+
+        let semantic = semantic_from_native(&trace, None);
+
+        assert_eq!(
+            semantic.entities.len(),
+            1,
+            "Drips.asm Enemy16_Drip_Init keeps the controller hidden from the visible gfx roster, but case semantics need the authoritative internal enemy detail"
+        );
+        assert_eq!(semantic.entities[0].object_type, Some(0x16));
+        assert_eq!(
+            semantic.entities[0].identity,
+            "enemy:16:7:01c80000:021f0000"
+        );
     }
 
     #[test]
