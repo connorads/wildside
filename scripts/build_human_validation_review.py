@@ -244,9 +244,9 @@ REVIEW_ITEMS = (
         decision=(
             "Use this fresh current long route to inspect the broader no-input "
             "intro-to-demo path. It reaches DemoPlay and Skydragon Castle 1; "
-            "full recording verification still reports a checkpoint-level "
-            "player_1_level_id mismatch at frame 3360, while the focused "
-            "3300..3600 semantic case passes."
+            "native replay and oracle state now stay clean through the demo "
+            "tail, while full pixel comparison still reports visual drift once "
+            "the demo level renders. The focused 3300..3600 semantic case passes."
         ),
         images=(
             ReviewImage(
@@ -286,10 +286,12 @@ REVIEW_ITEMS = (
         ),
         note=(
             "Fresh current replacement for the stale `issue-playtest-title-menu-current-long-fixed` "
-            "route. Native replay is stable. Full recording verification still fails "
-            "at frame 3360 on `player_1_level_id` (native 0x1B, oracle 0), but "
-            "the reduced 3300..3600 semantic case passes; treat this as a verifier/"
-            "state-export lead rather than a reduced gameplay regression."
+            "route. Native replay is stable, and the demo `player_1_level_id` "
+            "trace export now mirrors the saved player slot, so full verification "
+            "reaches `trace_match=true` and `oracle_state_match=true`. Pixel "
+            "comparison still fails on demo-level frames where oracle checkpoints "
+            "are black; treat this as visual-rendering debt rather than a reduced "
+            "gameplay regression."
         ),
     ),
     ReviewItem(

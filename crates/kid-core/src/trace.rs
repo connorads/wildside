@@ -2893,6 +2893,32 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_demo_play_keeps_player_1_level_slot_until_rom_saves_it() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.player_slots[0].level_id = LevelId(0);
+        runtime.begin_demo_gameplay(LevelId(demo::DEMO_2_LEVEL));
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_LEVEL_SWITCH_FRAME + 1,
+            data_index: 0,
+            use_demo_2: true,
+        };
+
+        let frame = runtime.trace_frame();
+
+        assert_eq!(frame.game_mode, GameMode::DemoPlay);
+        assert_eq!(
+            frame.current_level,
+            LevelId(demo::DEMO_2_LEVEL),
+            "ASM Load_DemoPlay loc_119B6 updates Current_LevelID for the demo"
+        );
+        assert_eq!(
+            frame.player_1_level_id,
+            LevelId(0),
+            "Player_1_LevelID is a saved-slot field and remains unchanged on the demo VBlank checkpoint"
+        );
+    }
+
+    #[test]
     fn trace_frame_playback_transient_workers_count_each_live_gfx_pair() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::DemoPlay {
@@ -5663,7 +5689,17 @@ impl NativeRuntime {
                 && self.title_screen_ready(),
             current_player: self.current_player_index,
             current_level: self.current_level,
-            player_1_level_id: self.current_level,
+            player_1_level_id: if matches!(game_mode, GameMode::DemoPlay) {
+                // ASM Load_DemoPlay updates Current_LevelID for the demo load,
+                // but Player_1_LevelID remains the saved slot value on the
+                // VBlank checkpoint path. The authoritative CRC already
+                // excludes this demo timing artefact; keep the trace export
+                // byte-level honest so native trace verification does not
+                // fail on a field the semantic case layer correctly ignores.
+                self.player_slots[0].level_id
+            } else {
+                self.current_level
+            },
             current_level_name,
             player_start_x: level_header.map(|header| header.player_start_x),
             player_start_y: level_header.map(|header| header.player_start_y),
