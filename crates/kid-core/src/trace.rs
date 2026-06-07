@@ -5569,6 +5569,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_collision_handoff_probe_debug() {
             gameplay_debug_fields.insert("kid_collision_handoff_probe".into(), summary);
         }
+        if let Some(summary) = self.drips_lifecycle_probe_debug() {
+            gameplay_debug_fields.insert("drips_lifecycle_probe".into(), summary);
+        }
         if let Some(slice) = self.opening_slice
             && let Some(summary) =
                 self.stomp_contact_candidates_debug(&slice, slice.player.y_velocity)
@@ -6095,6 +6098,82 @@ impl NativeRuntime {
             projectiles,
             shooter_cells,
             barrier_cells
+        ))
+    }
+
+    fn drips_lifecycle_probe_debug(&self) -> Option<String> {
+        let parents = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Drips)
+            .map(|enemy| {
+                let wait = if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
+                    String::from("in_flight")
+                } else if (enemy.wait_timer & 0x8000) != 0 {
+                    format!("pre_drop:{:#06x}", enemy.wait_timer)
+                } else {
+                    format!("{:#06x}", enemy.wait_timer)
+                };
+                format!(
+                    "#{:02}@{:#010x},{:#010x} attached={} wait={} table={} level={:#04x}",
+                    enemy.layout_index,
+                    enemy.x_pos,
+                    enemy.y_pos,
+                    u8::from(enemy.drips_attached),
+                    wait,
+                    enemy.drips_surface_table_index,
+                    enemy.enemy_level
+                )
+            })
+            .collect::<Vec<_>>();
+        let children = self
+            .projectiles
+            .iter()
+            .enumerate()
+            .filter(|(_, projectile)| {
+                matches!(
+                    projectile.kind,
+                    EnemyProjectileKind::DripsDrop
+                        | EnemyProjectileKind::DripsSurfaceCrawler
+                        | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                )
+            })
+            .map(|(index, projectile)| {
+                let owner = projectile.owner.map_or_else(
+                    || String::from("none"),
+                    |owner| {
+                        format!(
+                            "{}:{}:{:#04x}",
+                            owner.segment_index, owner.layout_index, owner.token
+                        )
+                    },
+                );
+                format!(
+                    "#{index:02}:{:?}@{:#010x},{:#010x} vel={:#010x},{:#010x} life={} owner={} spawn={} state={:?} xflip={} b44={:#04x} b45={:#04x}",
+                    projectile.kind,
+                    projectile.x_pos,
+                    projectile.y_pos,
+                    projectile.x_velocity as u32,
+                    projectile.y_velocity as u32,
+                    projectile.lifetime,
+                    owner,
+                    u8::from(projectile.drips_spawn_crawler_on_splash),
+                    projectile.drips_surface_crawler_state,
+                    u8::from(projectile.drips_surface_crawler_x_direction_flipped),
+                    projectile.drips_child_byte_44,
+                    projectile.drips_child_byte_45
+                )
+            })
+            .collect::<Vec<_>>();
+
+        if parents.is_empty() && children.is_empty() {
+            return None;
+        }
+
+        Some(format!(
+            "parents=[{}] children=[{}]",
+            parents.join(";"),
+            children.join(";")
         ))
     }
 
