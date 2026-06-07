@@ -1470,17 +1470,17 @@ pub fn issue_213_drips_metal_block_audit_scenario() -> DynamicScenario {
     }
 }
 
-/// Current #155/#213 Drips-drop route window.
+/// Current #155/#213 Drips-drop healthy-prefix route window.
 ///
 /// This route starts from the oracle-clean lower-floor probe, walks right,
 /// delays the real B jump until Kid is close enough to activate the Drips,
-/// brakes before the Tank contact, then resumes with a second B jump to keep
-/// the route alive beyond the first Drips drop cycle. The committed tail stops
-/// at the last oracle-clean frame before a later camera mismatch. It is not
-/// the final slime/metal-block repro; it preserves a narrower oracle-backed
-/// Drips projectile window.
+/// and brakes before the Tank contact. The committed tail stops on the last
+/// healthy frame before an ASM `Drips.asm loc_335D8`/`loc_33650` surface
+/// crawler damages Kid. It is not the final slime/metal-block repro; it
+/// preserves a narrower oracle-backed Drips projectile window without carrying
+/// a death-windup tail.
 pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
-    const FRAME_COUNT: usize = 611;
+    const FRAME_COUNT: usize = 536;
     const LEFT: u8 = 1 << 2;
     const RIGHT: u8 = 1 << 3;
     const B: u8 = 1 << 4;
@@ -1490,8 +1490,6 @@ pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
     apply_range(&mut script, 60, 120, B);
     apply_range(&mut script, 190, 300, LEFT);
     apply_range(&mut script, 480, 530, LEFT);
-    apply_range(&mut script, 550, 611, RIGHT);
-    apply_range(&mut script, 580, 611, B);
 
     DynamicScenario {
         slug: "issue_213_drips_delayed_b_drop_audit_01".into(),
@@ -1519,12 +1517,8 @@ pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
                 frame_index: 497,
             },
             DynamicCheckpoint {
-                label: "second_jump_press".into(),
-                frame_index: 580,
-            },
-            DynamicCheckpoint {
-                label: "extended_live_tail".into(),
-                frame_index: FRAME_COUNT,
+                label: "pre_crawler_contact_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
@@ -1997,7 +1991,7 @@ mod tests {
             scenario.camera_position,
             Some(DynamicStartPosition { x: 192, y: 352 })
         );
-        assert_eq!(scenario.frame_count, 611);
+        assert_eq!(scenario.frame_count, 536);
         assert_eq!(scenario.script.len(), scenario.frame_count + 1);
 
         assert_eq!(scenario.script[0], 1 << 3);
@@ -2008,10 +2002,10 @@ mod tests {
         assert_eq!(scenario.script[301], 0);
         assert_eq!(scenario.script[480], 1 << 2);
         assert_eq!(scenario.script[497], 1 << 2);
-        assert_eq!(scenario.script[531], 0);
-        assert_eq!(scenario.script[550], 1 << 3);
-        assert_eq!(scenario.script[580], (1 << 3) | (1 << 4));
-        assert_eq!(scenario.script[611], (1 << 3) | (1 << 4));
+        assert_eq!(
+            scenario.script[535], 0,
+            "ASM Drips.asm loc_335D8/loc_33650: frame 535 is the last recorded healthy prefix frame before crawler damage at 537"
+        );
 
         let labels: Vec<_> = scenario
             .checkpoints
@@ -2026,8 +2020,7 @@ mod tests {
                 "first_drips_drop_window",
                 "drop_tail_window",
                 "tank_evade_window",
-                "second_jump_press",
-                "extended_live_tail"
+                "pre_crawler_contact_tail"
             ]
         );
     }

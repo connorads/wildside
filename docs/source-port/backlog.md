@@ -972,6 +972,24 @@ blocks with `source recording replay drifted at frame 0`. Re-record this
 Level 01 sweep route on current main before using it for #213 damage, Drips, or
 RockTank recoil work.
 
+Follow-up 2026-06-07 for #155/#213: narrowed the checked-in
+`issue213-drips-delayed-b-drop-audit` route to a healthy Drips prefix instead
+of carrying the old death-windup tail. Debug-field probe frames 532..538 showed
+the first zero-HP frame is 537, with `kid_gameplay_path_probe post=projectile_damage`
+from a hostile `DripsSurfaceCrawler@0x01c90000,0x02400000`, matching the
+intended ASM `Drips.asm loc_335D8`/`loc_33650` hostile-crawler lineage rather
+than a RockTank blocker. The scenario now stops at frame 536 and checkpoints
+`pre_crawler_contact_tail@535`: native summary remains live (`lives/hp 3/1`,
+`death_windup 0`) and still has Drips drops active through frame 535.
+Verification: focused route unit test, native probe, recording bundle
+`.cache/recordings/issue-213-drips-delayed-b-drop-healthy-prefix-535-20260607`,
+native-only `verify-recording`, and enemy-frontier `tas-diff --scenario
+.cache/recordings/issue-213-drips-delayed-b-drop-healthy-prefix-535-20260607/scenario.json
+--frame-start 0 --frame-end 535 --frontier-kind enemy --only-divergent` reports
+535 match / 0 diverge. Full `verify-recording` is still too strict for this
+lane because early object-count exports diverge at `delayed_jump_press@60`;
+use enemy-frontier diff for the next route extension.
+
 | 156 | [x] | P3 | render | Block destruction still uses a small placeholder rect instead of ROM fragment sprites | Fixed on 2026-05-19: native traces now carry ASM `sub_292E` direction in `block_destroy_effects`, with legacy three-field recordings loading as the upward floor-smash branch. The native player resolves ROM tile `$8228` through block art and emits the five `unk_29E8`/`unk_29F2` debris rows with direction-selected `unk_29FC`..`unk_2A42` velocities; the centre rect remains only as an asset-missing fallback. Regression tests: `native_trace_frame_reads_legacy_three_field_block_destroy_entries`, `native_trace_frame_reads_current_four_field_block_destroy_entries`, `block_effect_sub_10*`, and `block_destroy_effect_uses_sub_292e_rom_debris_tiles`. Verification: focused tests plus `cargo fmt --check`, `git diff --check`, and `mise run verify-slice-fast`. |
 | 157 | [?] | P3 | render | Level-complete bonus overlay uses typed text instead of EOL sprite workers | Fixed 2026-05-19: `kid-render` now loads `scenes/artcomp/End_level_stats_text.bin` plus `scenes/palette/Score_screen.bin` into `EolScoreVisuals`, using ASM `Spr_EOL_*` descriptors (`kid.asm:49214-49237`). Native level-complete rendering now uses settled `Load_Object_EOL_Text` / `Load_Object_EOL_Number` style sprite rows for Time/Bonus, No-Hit Bonus, No-Prize Bonus, Path Bonus, Speed Bonus, Under/Seconds, Score, and seven-slot digit workers instead of the typed text overlay when assets are available. The original off-screen fly-in timing is not yet modelled in trace state, but the invented text presentation is gone from the normal asset-backed path. Verification: `cargo test -p kid-render load_eol_score_visuals_returns_rom_label_and_digit_frames -- --nocapture`; `cargo test -p kidcli level_complete_overlay_uses_eol_sprite_workers_loc_d55e -- --nocapture`; `mise run verify-slice-fast`. STATUS 2026-06-04: agent implementation complete and gate-verified (both cited tests re-run green); moved [~] to [?] — only off-screen fly-in timing (advisory) and human visual sign-off remain. |
 | 158 | [x] | P1 | player | Berzerker/rhino head charge does not hit enemies in front while jumping | FIXED 2026-05-24 in commit `907dbc33`: native had an extra grounded-or-held-input gate in `step_berzerker_charge` that ASM `loc_9512 -> loc_9564` does not have on non-Ice surfaces. Removing that native-only gate lets forward-speed airborne Berzerker set `Berzerker_charging`, then `loc_B678` side contact damages the front-edge enemy. Regression: `berzerker_airborne_charge_hits_front_enemy_without_held_input`; verification: `cargo test -p kid-core berzerker_charge -- --nocapture` and `mise run verify-slice-fast`. |
