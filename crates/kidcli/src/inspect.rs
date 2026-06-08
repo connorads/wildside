@@ -1,5 +1,5 @@
 use super::*;
-use kid_core::ActiveProjectileSnapshot;
+use kid_core::{ActiveProjectileSnapshot, terrain};
 
 pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
     let level_id = parse_level_id(level_spec)?;
@@ -146,6 +146,13 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
             println!("{line}");
         }
     }
+    if let Some(block_list) =
+        load_inspect_block_list(manifest, level_id, effective_resource_level_id, &bundle)
+    {
+        for line in describe_block_list(&block_list) {
+            println!("{line}");
+        }
+    }
     print_loaded_asset("platform", bundle.platform_script.as_ref());
     print_loaded_asset("bgscroll", bundle.bgscroll.as_ref());
     print_loaded_asset("header", bundle.header.as_ref());
@@ -154,6 +161,89 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
     print_loaded_asset("block", bundle.block.as_ref());
     print_loaded_asset("background", bundle.background.as_ref());
     Ok(())
+}
+
+fn load_inspect_block_list(
+    manifest: &AssetManifest,
+    level_id: u8,
+    effective_resource_level_id: u8,
+    bundle: &kid_data::LevelAssetBundle,
+) -> Option<terrain::BlockList> {
+    let layout_dir = manifest.output_root.join("level-layout");
+    let logical_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
+    let path = if logical_path.is_file() {
+        logical_path
+    } else {
+        let fallback_path =
+            layout_dir.join(format!("{effective_resource_level_id:02X}.blocklist.bin"));
+        if !fallback_path.is_file() {
+            return None;
+        }
+        fallback_path
+    };
+
+    std::fs::read(path).ok().map(|bytes| {
+        let layout_width = bundle
+            .parsed_header
+            .as_ref()
+            .map_or(256, |header| u16::from(header.width_screens) * 40);
+        terrain::BlockList::from_raw(&bytes, layout_width)
+    })
+}
+
+fn describe_block_list(block_list: &terrain::BlockList) -> Vec<String> {
+    let mut lines = vec![format!(
+        "block list: {} prize{}, {} ghost group{}, {} teleporter{}, {} hidden{}",
+        block_list.prize_blocks.len(),
+        if block_list.prize_blocks.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+        block_list.ghost_blocks.len(),
+        if block_list.ghost_blocks.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+        block_list.teleporters.len(),
+        if block_list.teleporters.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+        block_list.hidden_blocks.len(),
+        if block_list.hidden_blocks.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+    )];
+
+    for (index, prize) in block_list.prize_blocks.iter().enumerate() {
+        lines.push(format!(
+            "prize block {index:02}: col {}, row {}, {:?} id 0x{:X}{} layout 0x{:04X}",
+            prize.col,
+            prize.row,
+            prize.content,
+            prize.content.to_id(),
+            if prize.disguised { " disguised" } else { "" },
+            prize.layout_addr,
+        ));
+    }
+
+    for (index, hidden) in block_list.hidden_blocks.iter().enumerate() {
+        lines.push(format!(
+            "hidden block {index:02}: col {}, row {}, type 0x{:02X}, setting 0x{:02X}, layout 0x{:04X}",
+            hidden.col,
+            hidden.row,
+            hidden.block_type,
+            hidden.block_setting,
+            hidden.layout_addr,
+        ));
+    }
+
+    lines
 }
 
 pub(crate) fn inspect_respawn_settle(
@@ -1921,6 +2011,48 @@ mod tests {
             ingame_assets: Vec::new(),
             decoded_levels: Vec::new(),
         }
+    }
+
+    #[test]
+    fn block_list_summary_reports_helmet_prize_entries() {
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![
+                terrain::PrizeBlockEntry {
+                    layout_addr: 0xA742,
+                    col: 116,
+                    row: 10,
+                    content: terrain::PrizeContent::Juggernaut,
+                    disguised: false,
+                },
+                terrain::PrizeBlockEntry {
+                    layout_addr: 0xC1A0,
+                    col: 4,
+                    row: 29,
+                    content: terrain::PrizeContent::Micromax,
+                    disguised: true,
+                },
+            ],
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: vec![terrain::HiddenBlockEntry {
+                layout_addr: 0xC1A0,
+                col: 4,
+                row: 29,
+                block_type: 0x09,
+                block_setting: 0x0A,
+            }],
+        };
+
+        assert_eq!(
+            describe_block_list(&block_list),
+            vec![
+                "block list: 2 prizes, 0 ghost groups, 0 teleporters, 1 hidden".to_owned(),
+                "prize block 00: col 116, row 10, Juggernaut id 0x6 layout 0xA742".to_owned(),
+                "prize block 01: col 4, row 29, Micromax id 0xA disguised layout 0xC1A0".to_owned(),
+                "hidden block 00: col 4, row 29, type 0x09, setting 0x0A, layout 0xC1A0".to_owned(),
+            ],
+            "later-level helmet prize audits need inspect-level to show parsed Block List records directly",
+        );
     }
 
     #[test]
