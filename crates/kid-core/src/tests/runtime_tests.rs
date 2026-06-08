@@ -11127,6 +11127,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_falling_drop_overlap_does_not_damage_player_loc_3345c_issue_260() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            y_velocity: DRIPS_DROP_GRAVITY,
+            lifetime: DRIPS_DROP_LIFETIME,
+            terrain_kill: true,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 7,
+                token: 0,
+            }),
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+        let slice = rt.opening_slice.unwrap();
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_3345C falling child waits for floor collision `$0C`; issue-260 oracle keeps Kid HP unchanged while the child overlaps before loc_33650 crawler collision"
+        );
+        assert_eq!(rt.projectiles.len(), 1);
+        assert_eq!(rt.projectiles[0].kind, EnemyProjectileKind::DripsDrop);
+        assert!(rt.last_projectile_damage_probe.is_none());
+    }
+
+    #[test]
     fn fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca() {
         let mut rt = NativeRuntime::new(manifest());
         rt.fire_demon_trails.push(FireDemonTrailChild {

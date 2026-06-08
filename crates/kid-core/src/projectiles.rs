@@ -2848,6 +2848,12 @@ impl NativeRuntime {
         let mut released_owners = Vec::new();
         self.last_projectile_damage_probe = None;
         self.projectiles.retain(|p| {
+            if p.kind == EnemyProjectileKind::DripsDrop {
+                // ASM Drips.asm loc_3345C only advances the falling child and
+                // waits for floor collision `$0C`; live Kid collision starts
+                // later when loc_33650 calls loc_33550 for the surface crawler.
+                return true;
+            }
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
                 // ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6
                 // after the crawler has already resolved contact or terrain
