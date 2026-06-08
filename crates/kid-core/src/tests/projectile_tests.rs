@@ -6686,6 +6686,30 @@ mod chunk_06 {
     }
 
     #[test]
+    fn drips_drop_gravity_applies_after_hibernated_movement_loc_3345c() {
+        let mut rt = NativeRuntime::new(manifest());
+
+        let mut projectile = make_projectile(0x0120, 0x0080);
+        projectile.kind = EnemyProjectileKind::DripsDrop;
+        projectile.y_velocity = DRIPS_DROP_INITIAL_Y_SPEED;
+        projectile.gravity = DRIPS_DROP_GRAVITY;
+        projectile.lifetime = DRIPS_DROP_LIFETIME;
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].y_pos,
+            0x0080 << 16,
+            "ASM Drips.asm loc_3345C hibernates/moves with the previous `$2A(a1)` y-velocity before adding gravity; a fresh drop must not advance on its first frame"
+        );
+        assert_eq!(
+            rt.projectiles[0].y_velocity, DRIPS_DROP_GRAVITY,
+            "ASM Drips.asm loc_3345C applies `addi.l #$2000,$2A(a1)` after movement so the new velocity affects the next frame"
+        );
+    }
+
+    #[test]
     #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE: the camera box reaches negative screen offsets
     /// down to -$40 on both axes (the lion's "still on screen" margin).

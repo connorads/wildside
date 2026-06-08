@@ -11624,6 +11624,70 @@ mod chunk_04 {
     }
 
     #[test]
+    fn drips_dispatch_pauses_outside_object_check_in_range_loc_333f6() {
+        // ASM Drips.asm loc_333F6/loc_3345C calls `Object_CheckInRange` before
+        // the attach and falling-child loops. The object is outside
+        // Object_CheckInRange_NormalRange X high edge (`camera+$2E4`) here, so
+        // the native dispatcher must not advance the wait/drop cycle.
+        let mut enemies = [test_enemy(EnemyFamily::Drips, 0x02E5 << 16, 20 << 16, 1)];
+        enemies[0].drips_attached = true;
+        enemies[0].wait_timer = 5;
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(0),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            enemies[0].wait_timer, 5,
+            "ASM Object_CheckInRange should stop off-window Drips from consuming its dormant timer",
+        );
+        assert!(
+            projectiles.is_empty(),
+            "off-window Drips must not spawn falling children early",
+        );
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(0),
+            Some(0),
+            Some(1),
+            Some(0),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            enemies[0].wait_timer, 4,
+            "once inside the ROM range window, Drips should resume the loc_3340E wait cycle",
+        );
+    }
+
+    #[test]
     fn drips_drop_uses_dedicated_child_slot_not_generic_projectile_cap_loc_33424() {
         let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
         enemy.wait_timer = 0;

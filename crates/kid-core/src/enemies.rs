@@ -9526,6 +9526,7 @@ pub(crate) fn step_active_enemies(
         player_x_pos,
         player_y_pos,
         None,
+        None,
         player_facing,
         player_x_velocity,
         None,
@@ -9545,6 +9546,7 @@ pub(crate) fn step_active_enemies_with_rng(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     camera_x_px: Option<u32>,
+    camera_y_px: Option<u32>,
     player_facing: Option<Direction>,
     player_x_velocity: Option<i32>,
     player_y_velocity: Option<i32>,
@@ -9833,13 +9835,15 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
-                        step_drips(
-                            enemy,
-                            projs,
-                            player_x_pos.unwrap_or(enemy.x_pos),
-                            rng,
-                            block_grid,
-                        );
+                        if drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px) {
+                            step_drips(
+                                enemy,
+                                projs,
+                                player_x_pos.unwrap_or(enemy.x_pos),
+                                rng,
+                                block_grid,
+                            );
+                        }
                     }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -23717,6 +23721,26 @@ pub(crate) fn step_drips(
     enemy.wait_timer = DRIPS_DROP_IN_FLIGHT_TIMER;
 }
 
+pub(crate) fn drips_object_check_in_range_loc_333f6(
+    enemy: &ActiveEnemy,
+    camera_x_px: Option<u32>,
+    camera_y_px: Option<u32>,
+) -> bool {
+    let (Some(camera_x_px), Some(camera_y_px)) = (camera_x_px, camera_y_px) else {
+        return true;
+    };
+    // ASM Drips.asm loc_333F6/loc_3345C calls `Object_CheckInRange` before the
+    // attach and falling-child loops. Native retains layout-backed active
+    // enemies instead of deleting the object, so an out-of-range controller
+    // pauses here rather than consuming `off_33520` and spawning loc_335D8 early.
+    let object_x_pos = (enemy.x_pos >> 16) as i16;
+    let object_y_pos = (enemy.y_pos >> 16) as i16;
+    let camera_x_pos = camera_x_px.min(u32::from(u16::MAX)) as i16;
+    let camera_y_pos = camera_y_px.min(u32::from(u16::MAX)) as i16;
+    crate::level::object_check_in_range_normal_x_loc_320C0(object_x_pos, camera_x_pos)
+        && crate::level::object_check_in_range_normal_y_loc_320D8(object_y_pos, camera_y_pos)
+}
+
 // SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
 // Applied relative to spawn position during orbit phase.
 pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
@@ -26488,6 +26512,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             PlayerForm::TheKid,
             1,
             true,
@@ -26504,6 +26529,7 @@ mod tests {
 
         step_active_enemies_with_rng(
             &mut enemies,
+            None,
             None,
             None,
             None,
@@ -26628,6 +26654,7 @@ mod tests {
             None,
             Some(112 << 16),
             Some(112 << 16),
+            None,
             None,
             None,
             None,
@@ -40915,6 +40942,7 @@ impl NativeRuntime {
                     Some(slice.player.x_pos),
                     Some(slice.player.y_pos),
                     Some(camera_x_px),
+                    Some(camera_y_px),
                     Some(slice.player.facing),
                     Some(slice.player.x_velocity),
                     Some(slice.player.y_velocity),

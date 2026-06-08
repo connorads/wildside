@@ -2194,6 +2194,7 @@ impl NativeRuntime {
             let is_hail = p.kind == EnemyProjectileKind::Hail;
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
+            let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
@@ -2241,7 +2242,9 @@ impl NativeRuntime {
                 // first support/collision probe runs on the next native frame.
                 return true;
             }
-            p.y_velocity += p.gravity;
+            if !is_drips_drop {
+                p.y_velocity += p.gravity;
+            }
 
             // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,
             // compute target angle toward player, adjust current_angle by ±1,
@@ -2528,6 +2531,12 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            if is_drips_drop {
+                // ASM Drips.asm loc_3345C: the hibernated object movement and
+                // collision probe use the previous `$2A(a1)` y-velocity; the
+                // `addi.l #$2000,$2A(a1)` gravity step prepares the next frame.
+                p.y_velocity += p.gravity;
+            }
 
             if is_dragon_flying_descent_fire
                 && !step_dragon_flying_descent_fire_loc_34c26(p, grid, camera)
