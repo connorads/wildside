@@ -7579,6 +7579,45 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_922C loc_9274..loc_9288: Juggernaut takes the short-body branch
+    /// and scans only from `y_pos` down to `y_pos-$F`. The Level 00 natural
+    /// slope route frame 102 has a Smash block at column 7 row 12; a normal
+    /// 31px scan catches it, but the ROM's Juggernaut scan covers rows 14..13
+    /// and keeps x_vel live.
+    #[test]
+    fn sub_922c_juggernaut_wall_scan_uses_short_body_issue_258() {
+        let w: u16 = 10;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Level 00 route frame 102: right edge probes column 7. Row 12 is a
+        // Smash/Solid block, rows 13 and 14 are clear for the short scan.
+        data[(12 * usize::from(w) + 7) * 2] = 0xE0;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 0x0059_D900;
+        slice.player.y_pos = 0x00E7_BF00;
+        slice.player.x_velocity = 0x0002_7600;
+
+        slice.apply_wall_collision_for_form(Some(&grid), PlayerForm::Juggernaut);
+
+        assert_eq!(
+            slice.player.x_pos, 0x0059_D900,
+            "ASM sub_922C loc_9288: Juggernaut short scan should not snap to row-12 Smash wall"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_7600,
+            "ASM sub_8F26 clean EQ exit should keep Juggernaut's rightward x_vel live"
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_A8DE should not enter wall-cling when sub_922C finds no wall"
+        );
+    }
+
     /// ASM sub_8F26 wall hit returns NE for a side collision, but wall-cling
     /// entry is an airborne Kid-flip behaviour (`loc_A8DE`). Grounded side hits
     /// must zero x_vel without setting either sticky latch.

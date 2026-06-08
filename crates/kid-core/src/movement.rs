@@ -2849,7 +2849,7 @@ impl OpeningSliceState {
 
                 let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_wall_collision(Some(grid), collision_hw);
+                    self.apply_wall_collision_for_form(Some(grid), form);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
                     {
@@ -2929,7 +2929,7 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_wall_collision(Some(grid), collision_hw);
+                    self.apply_wall_collision_for_form(Some(grid), form);
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
@@ -3921,7 +3921,7 @@ impl OpeningSliceState {
 
                 let pre_collision_x = self.player.x_pos;
                 if let Some(grid) = block_grid {
-                    self.apply_wall_collision(Some(grid), collision_hw);
+                    self.apply_wall_collision_for_form(Some(grid), form);
                     let wall_hit = self.player.x_pos != pre_collision_x;
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
@@ -5622,6 +5622,27 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         collision_hw: i32,
     ) {
+        self.apply_wall_collision_with_height(block_grid, collision_hw, PLAYER_HEIGHT);
+    }
+
+    pub(crate) fn apply_wall_collision_for_form(
+        &mut self,
+        block_grid: Option<&terrain::BlockGrid>,
+        form: PlayerForm,
+    ) {
+        self.apply_wall_collision_with_height(
+            block_grid,
+            form.half_width(),
+            form.ceiling_probe_height(),
+        );
+    }
+
+    fn apply_wall_collision_with_height(
+        &mut self,
+        block_grid: Option<&terrain::BlockGrid>,
+        collision_hw: i32,
+        wall_scan_height: i32,
+    ) {
         let Some(grid) = block_grid else {
             self.player.right_wall_sticky = false;
             self.player.left_wall_sticky = false;
@@ -5713,13 +5734,25 @@ impl OpeningSliceState {
         // the leading tile column from the foot row up to Kid's adjusted head
         // row. `probe_wall_top_edge` is only the later sticky-overhang retention
         // path, not a separate fresh collision source.
-        let mut probe =
-            terrain::probe_wall_column(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT, moving_right);
+        let mut probe = terrain::probe_wall_column(
+            grid,
+            x_px,
+            y_px,
+            collision_hw,
+            wall_scan_height,
+            moving_right,
+        );
 
         // Right wall top-edge retention (overhang sticky)
         if !probe.hit && moving_right && self.player.right_wall_sticky {
-            let top_edge_probe =
-                terrain::probe_wall_top_edge(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT, true);
+            let top_edge_probe = terrain::probe_wall_top_edge(
+                grid,
+                x_px,
+                y_px,
+                collision_hw,
+                wall_scan_height,
+                true,
+            );
             if top_edge_probe.hit {
                 probe = top_edge_probe;
             } else {
@@ -5732,8 +5765,14 @@ impl OpeningSliceState {
 
         // Left wall top-edge retention (overhang sticky)
         if !probe.hit && moving_left && self.player.left_wall_sticky {
-            let top_edge_probe =
-                terrain::probe_wall_top_edge(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT, false);
+            let top_edge_probe = terrain::probe_wall_top_edge(
+                grid,
+                x_px,
+                y_px,
+                collision_hw,
+                wall_scan_height,
+                false,
+            );
             if top_edge_probe.hit {
                 probe = top_edge_probe;
             } else {
