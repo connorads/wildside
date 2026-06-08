@@ -7056,6 +7056,64 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E3E -> sub_8F26 -> sub_9386: when the horizontal step carries
+    /// Red Stealth from flat support into a current-row SlopeUp, sub_9386
+    /// returns d7=-1.  Because helmet 3 is outside bitmask `$2C5`, loc_8E98
+    /// tile-snaps to standing instead of entering loc_9D22.
+    #[test]
+    fn asm_faithful_red_stealth_fresh_current_row_slopeup_entry_tilesnaps_loc_8e98() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..w {
+            let offset = (4usize * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let slope_offset = (3usize * usize::from(w) + 3) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x2F << 16;
+        slice.player.y_pos = 0x3F << 16;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = 0x0002_0000;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x2F_0000,
+            "ASM loc_8E98 snaps x=(0x31) to `(x&$FFF0)-1`, matching the Red Stealth frame-504 route"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM loc_8E98 -> loc_8EC8 returns to standing, so the next held-right frame must not keep walking velocity"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_8E98 -> loc_8EC8 must not install loc_9D22 diagonal SlopeUp velocity for Red Stealth"
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4` —
     // refresh grounded helmet state then transition to standing still.

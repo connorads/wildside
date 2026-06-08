@@ -3984,13 +3984,38 @@ impl OpeningSliceState {
                         && on_ground_before
                         && grounded_slope_for_loc_9d22.is_none()
                         && !wall_hit
-                        && let Some((slope, _)) = self.grounded_slope_probe_result_loc_9386(grid)
+                        && let Some((slope, current_row)) =
+                            self.grounded_slope_probe_result_loc_9386(grid)
                     {
-                        // ASM loc_8E3E -> sub_8F26 -> sub_9386 -> loc_9D22
-                        // (kid.asm:10222-10256,11942): fresh walking-to-slope
-                        // entry happens after the horizontal step, then
-                        // `loc_9D22` stores the diagonal velocity and hibernates
-                        // before the `loc_9F18` slope-position tail can run.
+                        // ASM loc_8E3E -> sub_8F26 -> sub_9386. Current-row
+                        // slope hits return d7=-1 and enter loc_8E98; only
+                        // next-row hits return d7=+1 and enter loc_9D22 for
+                        // non-Skycutter/non-Juggernaut helmets.
+                        if current_row {
+                            match negative_slope_dispatch_loc_8E98(
+                                form,
+                                self.player.x_pos,
+                                self.player.x_velocity,
+                            ) {
+                                NegativeSlopeDispatchLoc8E98::SlopeWalk => {}
+                                NegativeSlopeDispatchLoc8E98::TileSnapToStanding { x_pos } => {
+                                    self.player.x_pos = x_pos;
+                                    self.player.x_velocity = 0;
+                                    self.player.y_velocity = 0;
+                                    kid_flip_follow_on_stages.after_wall =
+                                        self.kid_flip_follow_on_stage_state();
+                                    self.kid_flip_follow_on_stages =
+                                        Some(kid_flip_follow_on_stages);
+                                    self.finalise_trace();
+                                    self.update_camera_follow(y_look_offset);
+                                    return;
+                                }
+                            }
+                        }
+                        // ASM loc_9D22 (kid.asm:11942): fresh walking-to-slope
+                        // entry happens after the horizontal step; the slope
+                        // coroutine stores diagonal velocity and hibernates
+                        // before the loc_9F18 position tail can run.
                         self.player.y_velocity = match slope {
                             terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
                             terrain::CollisionKind::SlopeDown => self.player.x_velocity,
