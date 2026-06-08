@@ -710,6 +710,10 @@ pub(crate) struct HelmetState {
     /// native keeps a dedicated field so the ground swing timer's
     /// 12→0 semantics never overlap with this counter's 0→$7F semantics.
     pub(crate) red_stealth_airborne_slash_counter: u8,
+    /// ASM loc_A466 stores the current jump launch y velocity in `$FFFFFAAA`.
+    /// Red Stealth's airborne downward slash gate reads that value in
+    /// sub_B270 loc_B334/loc_B350 instead of using a fixed threshold.
+    pub(crate) red_stealth_jump_threshold_y_velocity: Option<i32>,
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,

@@ -2309,6 +2309,34 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_airborne_slash_uses_loc_a466_dynamic_jump_threshold() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        // ASM loc_A466 stores the jump launch y velocity in `$FFFFFAAA`.
+        // Because this value is negative for an ordinary jump, sub_B270
+        // loc_B350 should enter the downward slash branch even on a gentle
+        // positive descent. The old fixed `0x10000` threshold missed this.
+        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0000_1000;
+
+        rt.step_red_stealth_airborne_slash(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert_eq!(
+            rt.helmet.red_stealth_airborne_slash_counter, 0x10,
+            "ASM sub_B270 loc_B350 compares `y_vel<<2` against `$FFFFFAAA`, not a fixed positive threshold"
+        );
+    }
+
+    #[test]
     fn red_stealth_airborne_slash_counter_resets_when_c_released() {
         // ASM loc_B3A8 (kid.asm:14254): the C-released branch jumps to
         // `sf (Red_Stealth_sword_swing).w`. Native `kid_airborne_visual_sub_B270`

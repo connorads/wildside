@@ -2477,6 +2477,10 @@ impl NativeRuntime {
             probe.branch,
             KidJumpGravityBranch::JumpPressed | KidJumpGravityBranch::JumpBuffered
         ) {
+            // ASM sub_A432 loc_A466 stores the launch y velocity in
+            // `$FFFFFAAA`; Red Stealth's sub_B270 downward slash compares
+            // against that dynamic threshold on later airborne frames.
+            self.helmet.red_stealth_jump_threshold_y_velocity = Some(probe.y_velocity_after);
             // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
             // is stored and x_vel is scaled by 3/4.
             self.played_sound_effects.push(QueuedSoundEffect::Jump);

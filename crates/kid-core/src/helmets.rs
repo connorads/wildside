@@ -5691,14 +5691,14 @@ impl NativeRuntime {
             return;
         }
 
-        // ASM `$FFFFFAAA` is the stored launch y-velocity used as the
-        // fast-fall threshold. Native physics treats it as a constant pending
-        // proper jump-velocity capture; the unit tests at
-        // `crates/kid-core/src/tests/projectile_tests.rs:2657` confirm
-        // `0x0001_0000` is the canonical value driving the state-3 slash
-        // branch. Centralising it here keeps the wiring honest about the
-        // pending refinement.
-        const RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FP: i32 = 0x0001_0000;
+        // ASM loc_A466 writes the jump launch y velocity to `$FFFFFAAA`;
+        // sub_B270 loc_B334/loc_B350 reads it as the dynamic fast-fall
+        // threshold for Red Stealth's airborne downward slash.
+        const RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP: i32 = 0x0001_0000;
+        let jump_threshold = self
+            .helmet
+            .red_stealth_jump_threshold_y_velocity
+            .unwrap_or(RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP);
 
         let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
             helmet_id: self.progression.current_form.helmet_id(),
@@ -5716,7 +5716,7 @@ impl NativeRuntime {
             juggernaut_companion_animation_active: false,
             maniaxe_throwing_axe: false,
             y_velocity: slice.player.y_velocity,
-            jump_threshold: RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FP,
+            jump_threshold,
             c_held: input.c,
             red_stealth_sword_swing: self.helmet.red_stealth_airborne_slash_counter,
         });
