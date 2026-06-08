@@ -492,7 +492,6 @@ pub(crate) const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 66;
 
 // === Collision / activation ===
 
-pub(crate) const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
 // ASM Manage_EnemyLoading (kid.asm loc_368A8): spawn window is
 // x=[camera-0x80, camera+0x1C0], y=[camera-0x80, camera+0x160].
 pub(crate) const ACTIVATION_WINDOW_X_LEAD: u32 = 0x1C0;

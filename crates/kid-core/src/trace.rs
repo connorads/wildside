@@ -4277,12 +4277,12 @@ mod tests {
             "goal probe should convert the FP16.16 Y delta to pixels, got {goal_debug}",
         );
         assert!(
-            goal_debug.contains("touch=0"),
-            "9px/9px distance should sit outside the 8px goal hit box, got {goal_debug}",
+            goal_debug.contains("touch=1"),
+            "ASM GfxObjects_CollisionKid compares Kid's full hitbox with flag row unk_31D7A, so 9px/9px point distance can still touch: {goal_debug}",
         );
 
         let slice = runtime.opening_slice.as_mut().unwrap();
-        slice.player.x_pos = (0x0128 << 16) | 1;
+        slice.player.x_pos = (0x012b << 16) | 1;
         slice.player.y_pos = (0x0049 << 16) | 1;
         let one_axis_outside = runtime
             .trace_frame()
@@ -4291,10 +4291,10 @@ mod tests {
             .cloned()
             .unwrap_or_else(|| panic!("trace frame should emit kid-goal probe diagnostics"));
         assert!(
-            one_axis_outside.contains("dx_px=8")
+            one_axis_outside.contains("dx_px=11")
                 && one_axis_outside.contains("dy_px=9")
                 && one_axis_outside.contains("touch=0"),
-            "both axes must be inside the 8px goal hit box, got {one_axis_outside}",
+            "trace touch should drop once Kid's hitbox no longer overlaps flag row unk_31D7A, got {one_axis_outside}",
         );
     }
 
@@ -6362,7 +6362,12 @@ impl NativeRuntime {
         let flag_y_fp = u32::from(header.flag_y) << 16;
         let dx_px = player.x_pos.abs_diff(flag_x_fp) >> 16;
         let dy_px = player.y_pos.abs_diff(flag_y_fp) >> 16;
-        let touching_flag = dx_px <= FLAG_HIT_HALF_SIZE && dy_px <= FLAG_HIT_HALF_SIZE;
+        let touching_flag = crate::combat::flagpole_bottom_touches_kid_loc_31d7a(
+            player,
+            self.progression.current_form,
+            header.flag_x,
+            header.flag_y,
+        );
 
         Some(format!(
             "lifecycle={}/level_complete={}/touch={}/flag=({}, {})/dx_px={}/dy_px={}",

@@ -8823,12 +8823,12 @@ impl NativeRuntime {
         let Some(header) = self.level_header(self.current_level) else {
             return false;
         };
-        let flag_x_fp = u32::from(header.flag_x) << 16;
-        let flag_y_fp = u32::from(header.flag_y) << 16;
-        let half_fp = FLAG_HIT_HALF_SIZE << 16;
-        let dx = slice.player.x_pos.abs_diff(flag_x_fp);
-        let dy = slice.player.y_pos.abs_diff(flag_y_fp);
-        dx <= half_fp && dy <= half_fp
+        flagpole_bottom_touches_kid_loc_31d7a(
+            slice.player,
+            self.progression.current_form,
+            header.flag_x,
+            header.flag_y,
+        )
     }
 
     /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
@@ -9740,6 +9740,33 @@ impl NativeRuntime {
         self.current_player_index = 0;
         self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
     }
+}
+
+pub(crate) fn flagpole_bottom_touches_kid_loc_31d7a(
+    player: PlayerState,
+    form: PlayerForm,
+    flag_x: u16,
+    flag_y: u16,
+) -> bool {
+    let kid_x_px = (player.x_pos >> 16) as i32;
+    let kid_foot_y_px = (player.y_pos >> 16) as i32;
+    let kid_left = kid_x_px - form.half_width();
+    let kid_right = kid_x_px + form.half_width();
+    let kid_top = kid_foot_y_px - form.ceiling_probe_height();
+    let kid_bottom = kid_foot_y_px;
+
+    // ASM Flagpole_Boss loc_BFD6 assigns LnkTo_unk_E0FDE to the pole-bottom
+    // gfx object. Its Data_Index entry 1099 selects CollisionSize_Index row
+    // `unk_31D7A`: left=-$5, width=$A, top=-$A, height=$A.
+    let flag_left = i32::from(flag_x) - 5;
+    let flag_right = flag_left + 0x0A;
+    let flag_top = i32::from(flag_y) - 0x0A;
+    let flag_bottom = flag_top + 0x0A;
+
+    flag_left <= kid_right
+        && flag_right >= kid_left
+        && flag_top <= kid_bottom
+        && flag_bottom >= kid_top
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

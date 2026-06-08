@@ -8505,6 +8505,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn flag_floor_contact_uses_rom_pole_bottom_hitbox_loc_31d7a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(49));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            // ASM Flagpole_Boss loc_BFD6 gives the pole-bottom gfx object
+            // `LnkTo_unk_E0FDE`; its collision row is `unk_31D7A`
+            // (left=-$5,width=$A,top=-$A,height=$A). Kid's foot anchor can sit
+            // outside the old native 16x16 point window while his full hitbox
+            // still overlaps that ROM box during a floor-level walk-in.
+            slice.player.x_pos = 0x0759_0000;
+            slice.player.y_pos = 0x0314_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ),
+            "ASM GfxObjects_CollisionKid should route floor-level flag overlap through CharacterCollision_TouchFlagpole loc_C070"
+        );
+
+        let trace = runtime.trace_frame();
+        let goal_debug = trace
+            .gameplay_debug_fields
+            .get("kid_goal_probe")
+            .unwrap_or_else(|| panic!("trace frame should emit kid-goal probe diagnostics"));
+        assert!(
+            goal_debug.contains("touch=1"),
+            "goal probe should use the same loc_31D7A hitbox as gameplay: {goal_debug}"
+        );
+    }
+
+    #[test]
     fn flag_touch_deletes_non_kid_objects_before_eol_workers_loc_c070() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(48));
