@@ -3097,6 +3097,40 @@ impl OpeningSliceState {
                 };
 
                 if on_ground_before
+                    && self.terrain.slope_sliding
+                    && self.terrain.slope_walk_kind == Some(terrain::CollisionKind::SlopeDown)
+                    && grounded_slope_before.is_none()
+                    && grounded_edge_slope_before == Some(terrain::CollisionKind::SlopeDown)
+                    && self.player.y_velocity != 0
+                {
+                    let preserved_y_velocity = self.player.y_velocity;
+                    let slope = terrain::CollisionKind::SlopeDown;
+                    // ASM loc_BA5A -> loc_B978/loc_B996 hands off to
+                    // loc_8BF0 using the normal-terrain table (`unk_9C0A`)
+                    // before the slope latch fully settles. Issue #258 frame
+                    // 550 proves the first follow-up frame decelerates
+                    // rightward Iron Knight by `$2800` while preserving the
+                    // diagonal y_vel from the compound dismount.
+                    self.player.x_velocity = self.player.x_velocity.saturating_sub(0x0000_2800);
+                    self.player.facing = if self.player.x_velocity >= 0 {
+                        Direction::Right
+                    } else {
+                        Direction::Left
+                    };
+                    self.player.y_velocity = preserved_y_velocity;
+                    self.player.x_pos = (i64::from(self.player.x_pos)
+                        + i64::from(self.player.x_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+                    self.terrain.slope_walk_kind = Some(slope);
+                    self.terrain.slope_sliding = true;
+                    kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
+                }
+
+                if on_ground_before
                     && !self.terrain.slope_sliding
                     && let Some(grid) = block_grid.as_deref()
                     && matches!(
@@ -3531,6 +3565,7 @@ impl OpeningSliceState {
                 }
 
                 let mut compound_slope_recontact_loc_a4ee = false;
+                let mut direct_compound_landing_loc_a4ee = false;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3540,18 +3575,23 @@ impl OpeningSliceState {
                         deferred_prize_ceiling_cells,
                         custom_gravity,
                     );
-                    let compound_recontact =
-                        self.try_compound_slope_recontact_loc_a4ee(grid, form, collision_hw);
-                    compound_slope_recontact_loc_a4ee = compound_recontact.is_some();
-                    compound_recontact.or_else(|| {
-                        self.apply_floor_collision(
+                    match self.try_compound_slope_recontact_loc_a4ee(grid, form, collision_hw) {
+                        Some(CompoundRecontactLocA4ee::Slope(collision)) => {
+                            compound_slope_recontact_loc_a4ee = true;
+                            Some(collision)
+                        }
+                        Some(CompoundRecontactLocA4ee::DirectLanding) => {
+                            direct_compound_landing_loc_a4ee = true;
+                            None
+                        }
+                        None => self.apply_floor_collision(
                             Some(grid),
                             horizontal_step_applied,
                             !jump_pressed,
                             collision_hw,
                             allow_asm_faithful_solid_touch_snap,
-                        )
-                    })
+                        ),
+                    }
                 } else {
                     self.apply_floor_collision(
                         None,
@@ -3614,6 +3654,13 @@ impl OpeningSliceState {
                             compound_loc_a4ee: compound_slope_recontact_loc_a4ee,
                         },
                     );
+                }
+                if direct_compound_landing_loc_a4ee {
+                    kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
                 }
                 if let Some(grid) = block_grid.as_deref() {
                     self.record_wall_cling_release_probe(input, form, grid, pre_vertical_y_px);
@@ -6029,6 +6076,11 @@ impl OpeningSliceState {
             let was_on_ground = self.player.on_ground;
             let x_px = (self.player.x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
+            let crossed_descending_floor_scan_boundary =
+                descending_floor_scan_crossed_sub_902a_boundary(
+                    self.player.y_pos,
+                    self.player.y_velocity,
+                );
             let left_edge_probe = terrain::probe_floor(grid, x_px - collision_hw, y_px);
             let right_edge_probe = terrain::probe_floor(grid, x_px + collision_hw, y_px);
             let mut probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
@@ -6126,7 +6178,18 @@ impl OpeningSliceState {
                             self.player.y_pos.abs_diff(floor_y_fp) <= 0x0001_0000;
                         let downward_motion_reached_slope =
                             self.player.y_velocity > 0 && self.player.y_pos >= floor_y_fp;
+                        let downward_scan_allowed = was_on_ground
+                            || crossed_descending_floor_scan_boundary
+                            || center_slope_snap_candidate
+                            || probe.cell.collision != terrain::CollisionKind::SlopeDown;
+                        // ASM sub_902A (kid.asm:10437) calls sub_914A for a
+                        // fresh downward floor scan only after the integer Y
+                        // step crosses the next 16px row boundary. Level 00
+                        // issue #258 frame 548 proves a trailing-edge
+                        // SlopeDown overlap before that boundary must remain
+                        // airborne.
                         (self.player.y_velocity >= 0
+                            && downward_scan_allowed
                             && (downward_motion_reached_slope || within_slope_touch_snap))
                             || (allow_upward_slope_snap
                                 && center_slope_snap_candidate
@@ -6315,7 +6378,7 @@ impl OpeningSliceState {
         grid: &terrain::BlockGrid,
         form: PlayerForm,
         collision_hw: i32,
-    ) -> Option<terrain::CollisionKind> {
+    ) -> Option<CompoundRecontactLocA4ee> {
         if self.player.on_ground || form != PlayerForm::IronKnight || self.player.y_velocity < 0 {
             return None;
         }
@@ -6323,7 +6386,7 @@ impl OpeningSliceState {
         let old_x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let old_probe = terrain::probe_floor_hitbox(grid, old_x_px, y_px, collision_hw);
-        if old_probe.on_ground {
+        if old_probe.on_ground && old_probe.cell.collision != terrain::CollisionKind::SlopeDown {
             return None;
         }
 
@@ -6334,6 +6397,36 @@ impl OpeningSliceState {
         let collision = match compound_probe.cell.collision {
             terrain::CollisionKind::SlopeUp if compound_probe.on_ground => {
                 compound_probe.cell.collision
+            }
+            terrain::CollisionKind::SlopeDown if compound_probe.on_ground => {
+                let center_probe = terrain::probe_floor(grid, compound_x_px, y_px);
+                if matches!(
+                    center_probe.cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                ) {
+                    // ASM sub_A4EE -> loc_BA5A -> loc_B978
+                    // (kid.asm:12867, 14992, 14913): Iron Knight's tentative
+                    // both-axis collision can resolve the Level 00 SlopeDown
+                    // edge into the adjacent solid landing chunk before
+                    // loc_A75A/sub_902A would scan the row. That path snaps
+                    // both coordinates to integer words and keeps the
+                    // post-sub_B168 y_vel for the following walking frame.
+                    self.player.x_pos = compound_x_pos & 0xFFFF_0000;
+                    self.player.y_pos =
+                        (center_probe.floor_y_px.saturating_sub(1).max(0) as u32) << 16;
+                    self.player.on_ground = true;
+                    self.player.wall_cling_direction = None;
+                    self.player.on_spikes =
+                        center_probe.cell.collision == terrain::CollisionKind::Spikes;
+                    self.player.jump_buffer_frames = 0;
+                    self.terrain.floor_y_pos = self.player.y_pos;
+                    self.terrain.floor_terrain_type =
+                        grounded_surface_type_sub_8600(grid, compound_x_px, y_px, collision_hw);
+                    self.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+                    self.terrain.slope_sliding = true;
+                    return Some(CompoundRecontactLocA4ee::DirectLanding);
+                }
+                return None;
             }
             _ => return None,
         };
@@ -6350,7 +6443,7 @@ impl OpeningSliceState {
         self.terrain.floor_y_pos = (compound_probe.floor_y_px.max(0) as u32) << 16;
         self.terrain.floor_terrain_type =
             grounded_surface_type_sub_8600(grid, compound_x_px, y_px, collision_hw);
-        Some(collision)
+        Some(CompoundRecontactLocA4ee::Slope(collision))
     }
 
     pub(crate) fn apply_immediate_slope_recontact(
@@ -6555,6 +6648,12 @@ pub(crate) struct SlopeRecontactHandoff {
     pub(crate) x_velocity: Option<i32>,
     pub(crate) post_vertical_y_pos: Option<u32>,
     pub(crate) compound_loc_a4ee: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CompoundRecontactLocA4ee {
+    Slope(terrain::CollisionKind),
+    DirectLanding,
 }
 
 fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {
@@ -7106,6 +7205,20 @@ pub(crate) fn grounded_surface_type_sub_8600(
     }
     // ASM loc_8688 (kid.asm:9513): move.w d0,($FFFFFA0A).w — store result.
     terrain_type
+}
+
+fn descending_floor_scan_crossed_sub_902a_boundary(y_pos_after_step: u32, y_velocity: i32) -> bool {
+    if y_velocity <= 0 {
+        return false;
+    }
+
+    let y_pos_before_step = (i64::from(y_pos_after_step) - i64::from(y_velocity)).max(0) as u32;
+    let pre_y_px = (y_pos_before_step >> 16) as i32;
+    let post_y_px = (y_pos_after_step >> 16) as i32;
+    let crossed_pixels = post_y_px - pre_y_px;
+    let pixels_to_next_row = (-(pre_y_px + 1)) & 0xF;
+
+    crossed_pixels > pixels_to_next_row
 }
 
 pub(crate) fn slope_to_solid_exit_floor_y_loc_9fbc(

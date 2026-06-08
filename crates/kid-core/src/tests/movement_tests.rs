@@ -18401,6 +18401,213 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A75A/sub_902A: Iron Knight's left edge can overlap the later
+    /// Level 00 SlopeDown tile while the centre and leading edge are still
+    /// above open/solid cells. The ROM does not accept that trailing-edge
+    /// SlopeDown as a fresh airborne landing at frame 548; it keeps the
+    /// post-vertical jump state and lets the next frames handle the descent.
+    #[test]
+    fn level00_frame_548_iron_knight_trailing_slopedown_stays_airborne_loc_a75a() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(
+            w,
+            h,
+            &[
+                (52, 11, 0x50, 0x95),
+                (52, 12, 0x60, 0x24),
+                (53, 12, 0x50, 0x3C),
+                (53, 13, 0x60, 0x83),
+                (54, 13, 0x60, 0x4E),
+                (55, 13, 0x60, 0x28),
+            ],
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x035e_d600;
+        slice.player.y_pos = 0x00c3_9c00;
+        slice.player.x_velocity = 0x0002_7900;
+        slice.player.y_velocity = 0x0004_1f00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "ASM sub_902A should not land Iron Knight on the trailing-edge SlopeDown at issue #258 frame 548",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x0361_4e00,
+            "Oracle frame 548 keeps only the jump-loop horizontal position from sub_8F26",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00c7_fb00,
+            "Oracle frame 548 keeps the post-vertical airborne Y position",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_7800,
+            "Oracle frame 548 keeps the post-sub_B084 airborne X velocity",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0004_5f00,
+            "Oracle frame 548 keeps the post-sub_B168 airborne Y velocity",
+        );
+    }
+
+    /// ASM sub_A4EE -> loc_BA5A -> loc_9D58: one frame after the trailing
+    /// SlopeDown overlap is ignored by sub_902A, Iron Knight's tentative
+    /// both-axis GfxObjects_Collision path resolves the Level 00 SlopeDown/
+    /// Solid edge into the walking slope branch.
+    #[test]
+    fn level00_frame_549_iron_knight_compound_slopedown_lands_loc_ba5a() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(
+            w,
+            h,
+            &[
+                (52, 11, 0x50, 0x95),
+                (52, 12, 0x60, 0x24),
+                (53, 12, 0x50, 0x3C),
+                (53, 13, 0x60, 0x83),
+                (54, 13, 0x60, 0x4E),
+                (55, 13, 0x60, 0x28),
+            ],
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0361_4e00;
+        slice.player.y_pos = 0x00c7_fb00;
+        slice.player.x_velocity = 0x0002_7800;
+        slice.player.y_velocity = 0x0004_5f00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "ASM loc_BA5A should land Iron Knight on issue #258 frame 549's SlopeDown/Solid edge",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x0363_0000,
+            "Oracle frame 549 snaps the compound SlopeDown handoff to the integer X coordinate",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00cf_0000,
+            "Oracle frame 549 lands on the row-13 solid surface after the SlopeDown handoff",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_7700,
+            "Oracle frame 549 keeps the post-sub_B084 x velocity through the compound handoff",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0004_9f00,
+            "Oracle frame 549 keeps the post-sub_B168 y velocity until the next frame's flat floor snap",
+        );
+    }
+
+    /// ASM loc_BA5A -> loc_9D58: the frame after Iron Knight's compound
+    /// SlopeDown dismount runs the slope-walk velocity update directly and
+    /// preserves the diagonal y_vel from the dismount frame.
+    #[test]
+    fn level00_frame_550_iron_knight_compound_slopedown_continues_loc_9d58() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(
+            w,
+            h,
+            &[
+                (52, 11, 0x50, 0x95),
+                (52, 12, 0x60, 0x24),
+                (53, 12, 0x50, 0x3C),
+                (53, 13, 0x60, 0x83),
+                (54, 13, 0x60, 0x4E),
+                (55, 13, 0x60, 0x28),
+            ],
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0363_0000;
+        slice.player.y_pos = 0x00cf_0000;
+        slice.player.x_velocity = 0x0002_7700;
+        slice.player.y_velocity = 0x0004_9f00;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeDown);
+        slice.terrain.slope_sliding = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x0365_4f00,
+            "Oracle frame 550 applies loc_9D58's SlopeDown horizontal step after the loc_BA5A dismount",
+        );
+        assert_eq!(slice.player.y_pos, 0x00cf_0000);
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_4f00,
+            "Oracle frame 550 uses the SlopeDown velocity table, not flat-ground acceleration",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0004_9f00,
+            "ASM loc_9D58 continuation preserves the compound dismount y_vel on this frame",
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the next natural
     /// Level 00 SlopeUp/Solid edge lands from above with a lower incoming
     /// x_vel than frame 478. Oracle frame 601 proves this seam still needs the
