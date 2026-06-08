@@ -104,6 +104,9 @@ pub enum ActiveProjectileKind {
     /// Flying Dragon descent fire child: ASM `Dragon_Flying.asm loc_34BAC`
     /// runs a startup sprite, travel loop, and two-stage cleanup.
     DragonFlyingDescentFire,
+    /// Lion roar projectile: ASM `Lion.asm loc_3E12A`/`loc_3E192` allocates a
+    /// hostile homing child worker from the parent roar loop.
+    LionProjectile,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
@@ -2445,6 +2448,9 @@ pub(crate) enum EnemyProjectileKind {
     ManiaxeAxe,
     DiamondPowerRain,
     FireDemonDeathTrail,
+    /// Lion.asm loc_3E12A/loc_3E192 homing roar child. The ROM allocates this
+    /// as a separate object worker and decrements parent `$5B` on delete.
+    LionProjectile,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.

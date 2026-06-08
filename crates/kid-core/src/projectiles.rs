@@ -2847,7 +2847,8 @@ impl NativeRuntime {
         let mut hit = false;
         let mut released_owners = Vec::new();
         self.last_projectile_damage_probe = None;
-        self.projectiles.retain(|p| {
+        self.lion_projectile_object_only_tail_count = 0;
+        self.projectiles.retain_mut(|p| {
             if p.kind == EnemyProjectileKind::DripsDrop {
                 // ASM Drips.asm loc_3345C only advances the falling child and
                 // waits for floor collision `$0C`; live Kid collision starts
@@ -2900,7 +2901,18 @@ impl NativeRuntime {
                         owner,
                     ));
                 }
-                if p.kind == EnemyProjectileKind::FireDemonDeathTrail
+                if p.kind == EnemyProjectileKind::LionProjectile {
+                    // ASM Lion.asm loc_3E192 -> sub_3E2CE keeps the child
+                    // object count-visible for the current collision frame;
+                    // native removes and releases parent `$5B` during the
+                    // following projectile step when this zero lifetime is
+                    // observed.
+                    self.lion_projectile_object_only_tail_count = self
+                        .lion_projectile_object_only_tail_count
+                        .saturating_add(1);
+                    p.lifetime = 0;
+                    true
+                } else if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
                     || p.kind == EnemyProjectileKind::DragonWalkingBreath
                 {

@@ -3745,17 +3745,18 @@ fn build_game_scene_filtered(
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
-                ActiveProjectileKind::Generic => commands.push(DrawCommand::Rect {
-                    x: sx - 2,
-                    y: sy - 2,
-                    width: 4,
-                    height: 4,
-                    colour: if projectile.friendly {
-                        FRIENDLY_PROJECTILE_COLOUR
-                    } else {
-                        ENEMY_PROJECTILE_COLOUR
-                    },
-                }),
+                ActiveProjectileKind::Generic | ActiveProjectileKind::LionProjectile => commands
+                    .push(DrawCommand::Rect {
+                        x: sx - 2,
+                        y: sy - 2,
+                        width: 4,
+                        height: 4,
+                        colour: if projectile.friendly {
+                            FRIENDLY_PROJECTILE_COLOUR
+                        } else {
+                            ENEMY_PROJECTILE_COLOUR
+                        },
+                    }),
                 ActiveProjectileKind::ShooterBlock => {
                     if !push_shooter_block_projectile_sprite_loc_ef62(
                         &mut commands,

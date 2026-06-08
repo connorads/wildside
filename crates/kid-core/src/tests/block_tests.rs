@@ -10465,14 +10465,21 @@ mod chunk_04 {
         // fixed duration timer. ASM: Lion.asm loc_3E450/3E604.
         let grid = grid_with_platform(17, 0, 200);
         let floor_y = (17 * 16) << 16;
-        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        let mut enemy = test_enemy(
+            EnemyFamily::Lion,
+            (60 + LION_CHARGE_OVERSHOOT as u32) << 16,
+            floor_y,
+            6,
+        );
         enemy.lion_state = LionState::Charging;
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        // Player is at x=60, Lion starts at x=60 moving right.
-        // After enough steps the Lion passes the player by >112px.
+        enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+        enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+        // Player is at x=60; start exactly at the $70 edge so the next
+        // charge movement enters loc_3E476's overshoot exit.
         let player_x = Some(60u32 << 16);
-        for _ in 0..100 {
+        for _ in 0..20 {
             if enemy.lion_state == LionState::Walking {
                 break;
             }

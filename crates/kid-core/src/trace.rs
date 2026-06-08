@@ -62,6 +62,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
         return ActiveProjectileKind::DragonFlyingDescentFire;
     }
+    if projectile.kind == EnemyProjectileKind::LionProjectile {
+        return ActiveProjectileKind::LionProjectile;
+    }
     if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
         return ActiveProjectileKind::TarMonsterGlob;
     }
@@ -8517,9 +8520,21 @@ impl NativeRuntime {
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
         let rubber_skin_workers = self.block_state.rubber_block_animations.len() as u16;
         let lava_special_effect_workers = self.lava_special_effect_object_only_worker_count();
+        // ASM Lion.asm loc_3E12A allocates the roar shot as a child object
+        // worker and tracks the live child count in parent `$5B`. Native
+        // renders/collides it as a lightweight projectile, so account for the
+        // ROM worker through the parent count without adding a gfx slot.
+        let lion_projectile_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Lion)
+            .map(|enemy| u16::from(enemy.ufo_beam_segments))
+            .sum::<u16>()
+            .saturating_add(self.lion_projectile_object_only_tail_count);
         drips_child_workers
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
+            .saturating_add(lion_projectile_workers)
     }
 
     fn lava_special_effect_object_only_worker_count(&self) -> u16 {

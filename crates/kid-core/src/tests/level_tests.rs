@@ -3708,6 +3708,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level07_recording_settle_lion_charge_damage_matches_loc_3e09e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(7)
+            .settle_recording_warp()
+            .run(&[0], 61)
+            .into_iter()
+            .last()
+            .expect("settled level 7 frame 60");
+
+        assert_eq!(
+            (
+                trace.number_objects,
+                trace.number_hitpoints,
+                trace.just_received_damage
+            ),
+            (6, 1, true),
+            "ASM Lion.asm loc_3E09E/loc_3E12A should have the level 7 Lion charged near Kid, count its projectile worker, and deal the first settled-frame hit by frame 60"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]
