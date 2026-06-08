@@ -3744,12 +3744,22 @@ impl OpeningSliceState {
                     (block_grid.as_deref(), airborne_slope_recontact)
                 {
                     let handoff_x_velocity = if compound_slope_recontact_loc_a4ee {
-                        // ASM sub_A4EE loc_A53C/loc_B9A2 keeps the compound
-                        // slope contact but does not take the ordinary air-cap
-                        // loc_A99E handoff. Oracle issue #258 frame 480 shows
-                        // Iron Knight advancing by `$20800` before the first
-                        // walking slope step adds `$24000`.
-                        Some(self.player.x_velocity.saturating_sub(0x7800))
+                        // ASM sub_A4EE -> loc_B9A2 (kid.asm:12867,14935)
+                        // keeps the compound x/y integration live, then
+                        // `clr.w $1C(a3)` clears the X subpixel before
+                        // `loc_9D58 -> loc_9F18` applies the first slope walk
+                        // step. Express that as the pre-loc_9F18 handoff from
+                        // the restored native centre to the compound integer X.
+                        let compound_x_pos =
+                            (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
+                                .clamp(0, i64::from(u32::MAX)) as u32;
+                        let compound_integer_x_pos = compound_x_pos & 0xFFFF_0000;
+                        Some(
+                            i64::from(compound_integer_x_pos)
+                                .saturating_sub(i64::from(self.player.x_pos))
+                                .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
+                                as i32,
+                        )
                     } else {
                         airborne_slope_landing_handoff_x_velocity_loc_a99e(
                             x_velocity_before_sub_b084,
@@ -7608,8 +7618,18 @@ fn iron_knight_solid_edge_slopeup_clears_latch_loc_914a(
 ) -> Option<i32> {
     let x_px = (x_pos_after_step >> 16) as i32;
     let y_px = (y_pos >> 16) as i32;
+    let col = (x_px >> 4).max(0) as u16;
+    let row = (y_px >> 4).max(0) as u16;
+    let above_collision = row
+        .checked_sub(1)
+        .map(|above_row| grid.cell_at(col, above_row).collision);
+    let center_probe = terrain::probe_floor(grid, x_px, y_px);
     let hitbox_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
-    if hitbox_probe.on_ground
+    if !matches!(
+        above_collision,
+        Some(terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown)
+    ) && !matches!(center_probe.cell.collision, terrain::CollisionKind::SlopeUp)
+        && hitbox_probe.on_ground
         && matches!(
             hitbox_probe.cell.collision,
             terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes

@@ -19288,6 +19288,164 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the same natural
+    /// #258 route later lands on a `$4082/$6024` SlopeUp/Solid seam with zero
+    /// post-vertical fraction. Oracle frame 841 proves that this seam takes
+    /// the slope-walk low word once, not the doubled low-word advance that
+    /// regressed after the frame-712 handoff was opened to non-air-cap paths.
+    #[test]
+    fn level00_iron_knight_frame_841_slope_up_zero_fraction_keeps_single_low_word_loc_a99e() {
+        let w: u16 = 70;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 63, 10, 0x40, 0x82);
+        set(&mut data, 64, 10, 0x60, 0x24);
+        set(&mut data, 60, 11, 0x00, 0x2A);
+        set(&mut data, 62, 11, 0x40, 0x82);
+        set(&mut data, 63, 11, 0x60, 0x24);
+        set(&mut data, 64, 11, 0x60, 0x36);
+        set(&mut data, 58, 12, 0x00, 0x73);
+        set(&mut data, 59, 12, 0x00, 0x5F);
+        set(&mut data, 60, 12, 0x00, 0x4D);
+        set(&mut data, 61, 12, 0x40, 0x84);
+        set(&mut data, 62, 12, 0x60, 0x24);
+        set(&mut data, 63, 12, 0x60, 0x24);
+        set(&mut data, 64, 12, 0x60, 0x36);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x03D9_3400;
+        slice.player.y_pos = 0x00B9_4000;
+        slice.player.x_velocity = 0x0002_9800;
+        slice.player.y_velocity = 0x0003_8000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
+        assert_eq!(
+            trace.post_vertical.0, 0x00BD_0000,
+            "ASM sub_902A post-vertical zero fraction reaches the frame-841 SlopeUp seam",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x03DD_5700,
+            "ASM loc_A99E/loc_8BF0 should match oracle #258 frame 841 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00C2_0000,
+            "ASM loc_9D22 should snap Iron Knight to the frame-841 SlopeUp surface",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_5700,
+            "ASM loc_9D22 should keep the oracle #258 frame 841 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM loc_9D58 -> loc_9F18: after the frame-841 `loc_B9A2` compound
+    /// SlopeUp handoff, Iron Knight is still walking the same slope two frames
+    /// later. Oracle frame 843 keeps the diagonal SlopeUp velocity and snaps
+    /// to the slope surface, rather than treating the adjacent `$6024` support
+    /// as a flat landing that clears `y_vel`.
+    #[test]
+    fn level00_iron_knight_frame_843_compound_slope_keeps_diagonal_loc_9f18() {
+        let w: u16 = 70;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 63, 10, 0x40, 0x82);
+        set(&mut data, 64, 10, 0x60, 0x24);
+        set(&mut data, 60, 11, 0x00, 0x2A);
+        set(&mut data, 62, 11, 0x40, 0x82);
+        set(&mut data, 63, 11, 0x60, 0x24);
+        set(&mut data, 64, 11, 0x60, 0x36);
+        set(&mut data, 58, 12, 0x00, 0x73);
+        set(&mut data, 59, 12, 0x00, 0x5F);
+        set(&mut data, 60, 12, 0x00, 0x4D);
+        set(&mut data, 61, 12, 0x40, 0x84);
+        set(&mut data, 62, 12, 0x60, 0x24);
+        set(&mut data, 63, 12, 0x60, 0x24);
+        set(&mut data, 64, 12, 0x60, 0x36);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x03DF_6E00;
+        slice.player.y_pos = 0x00C0_0000;
+        slice.player.x_velocity = 0x0002_1700;
+        slice.player.y_velocity = -0x0002_1700;
+        slice.terrain.floor_y_pos = 0x00C0_0000;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeUp);
+        slice.terrain.slope_sliding = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x03E1_4500,
+            "ASM loc_9F18 should apply one post-deceleration slope-walk X step",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00BE_0000,
+            "ASM loc_9F18/sub_A254 should keep Iron Knight on the frame-843 SlopeUp surface",
+        );
+        assert_eq!(slice.player.x_velocity, 0x0001_D700);
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9F18 should preserve the SlopeUp diagonal velocity on frame 843",
+        );
+    }
+
     /// ASM loc_9F18 -> loc_9FBC (kid.asm:12223-12290): after SlopeUp motion,
     /// a non-slope/solid current tile takes the wall-exit tail, snaps the high
     /// Y word to the adjacent solid row, and clears y_vel before returning to
