@@ -1884,6 +1884,37 @@ pub fn issue_271_level01_rock_tank_stomp_route_audit_scenario() -> DynamicScenar
     scenario
 }
 
+pub fn issue_271_level01_rock_tank_stomp_sharp_audit_scenario() -> DynamicScenario {
+    let mut scenario = stomp_enemy_scenario(0x01, 420);
+    scenario.slug = "issue_271_level01_rock_tank_stomp_sharp_audit_01".into();
+    for frame_buttons in scenario.script.iter_mut().take(191).skip(125) {
+        *frame_buttons = 0;
+    }
+    scenario.checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: 60,
+        },
+        DynamicCheckpoint {
+            label: "pre_tank_edge_contact".into(),
+            frame_index: 222,
+        },
+        DynamicCheckpoint {
+            label: "tank_edge_damage_candidate_gfxobjects_collisionkid_loc_1c76".into(),
+            frame_index: 223,
+        },
+        DynamicCheckpoint {
+            label: "post_tank_edge_damage".into(),
+            frame_index: 224,
+        },
+        DynamicCheckpoint {
+            label: "route_tail".into(),
+            frame_index: scenario.frame_count.saturating_sub(1),
+        },
+    ];
+    scenario
+}
+
 impl Scenario {
     pub fn slug(self) -> &'static str {
         match self {
@@ -2217,7 +2248,8 @@ mod tests {
         issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
         issue_260_drips_early_jump_close_probe_scenario,
         issue_271_level00_dragon_stomp_damage_audit_scenario,
-        issue_271_level01_rock_tank_stomp_route_audit_scenario, lava_weather_audit_scenario,
+        issue_271_level01_rock_tank_stomp_route_audit_scenario,
+        issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
         level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
         walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
         walk_right_red_stealth_scenario, walk_right_scenario,
@@ -3406,6 +3438,38 @@ mod tests {
             .find(|checkpoint| checkpoint.label == "closest_tank_pass_miss")
             .expect("closest Tank miss checkpoint");
         assert_eq!(closest.frame_index, 171);
+    }
+
+    #[test]
+    fn issue_271_rock_tank_stomp_sharp_audit_reaches_classifier_window() {
+        let scenario = issue_271_level01_rock_tank_stomp_sharp_audit_scenario();
+
+        assert_eq!(
+            scenario.slug,
+            "issue_271_level01_rock_tank_stomp_sharp_audit_01"
+        );
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert_eq!(scenario.frame_count, 480);
+        assert!(!scenario.settle_oracle_warp);
+
+        const RIGHT: u8 = 1 << 3;
+        const JUMP: u8 = 1 << 4;
+        const RUN: u8 = 1 << 5;
+        assert_eq!(
+            scenario.script[136] & (RIGHT | JUMP | RUN),
+            0,
+            "the settled replay route clears the original approach jump"
+        );
+        assert_eq!(
+            scenario.script[190] & (RIGHT | JUMP | RUN),
+            0,
+            "the route clears input until the tank edge-contact setup"
+        );
+        assert_eq!(scenario.script[191] & (RIGHT | RUN), RIGHT | RUN);
+        assert!(scenario.checkpoints.iter().any(|checkpoint| {
+            checkpoint.label == "tank_edge_damage_candidate_gfxobjects_collisionkid_loc_1c76"
+                && checkpoint.frame_index == 223
+        }));
     }
 
     #[test]

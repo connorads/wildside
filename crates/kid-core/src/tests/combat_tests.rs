@@ -67,6 +67,47 @@ fn rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e() {
 }
 
 #[test]
+fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 140 << 16;
+    slice.player.y_pos = 201 << 16;
+    slice.player.x_velocity = 0x0002_7D00;
+    slice.player.y_velocity = 0x0004_C000;
+    slice.player.on_ground = false;
+
+    let mut tank = test_enemy(EnemyFamily::Tank, 158 << 16, 216 << 16, 2);
+    tank.x_velocity = 0;
+    tank.y_velocity = 0;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &tank.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "ASM GfxObjects_CollisionKid loc_1CB8 still allows exact edge contact, but Tank.asm loc_3B464 only reaches the Kid damage path on the following positive-overlap oracle frame"
+    );
+
+    slice.player.x_pos = 143 << 16;
+    slice.player.y_pos = 206 << 16;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &tank.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the issue-271 RockTank route spends HP once the side contact has positive x overlap"
+    );
+}
+
+#[test]
 fn pending_contact_damage_spends_before_motion_loc_b700() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

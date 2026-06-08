@@ -82,7 +82,8 @@ use scenarios::{
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
     issue_260_drips_early_jump_close_probe_scenario,
     issue_271_level00_dragon_stomp_damage_audit_scenario,
-    issue_271_level01_rock_tank_stomp_route_audit_scenario, lava_weather_audit_scenario,
+    issue_271_level01_rock_tank_stomp_route_audit_scenario,
+    issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
     level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
@@ -205,6 +206,8 @@ enum RecordScenarioKind {
     Issue271Level00DragonStompDamageAudit,
     /// preserve the current Level 01 RockTank stomp route miss before sharpening #271.
     Issue271Level01RockTankStompRouteAudit,
+    /// sharpened Level 01 RockTank route that reaches the stomp classifier (#271).
+    Issue271Level01RockTankStompSharpAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2995,6 +2998,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue271Level01RockTankStompRouteAudit => {
             issue_271_level01_rock_tank_stomp_route_audit_scenario()
         }
+        RecordScenarioKind::Issue271Level01RockTankStompSharpAudit => {
+            issue_271_level01_rock_tank_stomp_sharp_audit_scenario()
+        }
     }
 }
 
@@ -3102,6 +3108,9 @@ fn record_scenario_command(
         }
         RecordScenarioKind::Issue271Level01RockTankStompRouteAudit => {
             "issue271-level01-rock-tank-stomp-route-audit"
+        }
+        RecordScenarioKind::Issue271Level01RockTankStompSharpAudit => {
+            "issue271-level01-rock-tank-stomp-sharp-audit"
         }
     };
     let mut command = format!(
@@ -5869,6 +5878,12 @@ AddrTbl_LevelNames:
             0x01,
             None,
         );
+        let sharp_tank_command = record_scenario_command(
+            "issue-271-level01-rock-tank-stomp-sharp-audit",
+            RecordScenarioKind::Issue271Level01RockTankStompSharpAudit,
+            0x01,
+            None,
+        );
 
         assert_eq!(
             dragon_command,
@@ -5877,6 +5892,10 @@ AddrTbl_LevelNames:
         assert_eq!(
             tank_command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-271-level01-rock-tank-stomp-route-audit --scenario issue271-level01-rock-tank-stomp-route-audit --level 01"
+        );
+        assert_eq!(
+            sharp_tank_command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-271-level01-rock-tank-stomp-sharp-audit --scenario issue271-level01-rock-tank-stomp-sharp-audit --level 01"
         );
     }
 

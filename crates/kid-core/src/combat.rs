@@ -10468,6 +10468,19 @@ fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
     }
 }
 
+fn enemy_edge_side_damage_defers_until_positive_overlap(
+    enemy: &NativeObjectSnapshot,
+    x_overlap_px: i32,
+) -> bool {
+    x_overlap_px == 0
+        && matches!(
+            enemy.kind,
+            NativeObjectKind::Enemy {
+                object_type: 0x0A | 0x0B
+            }
+        )
+}
+
 /// Classify contact between player and enemy as stomp, damage, or no contact.
 ///
 /// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
@@ -10592,6 +10605,10 @@ pub(crate) fn classify_enemy_contact_with_half_width(
 
     if matches!(relation, ContactSide::Above) {
         return EnemyContactResult::Stomp;
+    }
+
+    if enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px) {
+        return EnemyContactResult::None;
     }
 
     EnemyContactResult::Damage
