@@ -18690,6 +18690,85 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_A4EE -> loc_B9A2 -> loc_9D58: Red Stealth reaches the Level 00
+    /// row-12 SlopeUp through the compound x/y object-collision pass before
+    /// sub_902A's old-X vertical scan can report a floor contact. Oracle #269
+    /// frame 535 enters the slope-walk coroutine on that same frame.
+    #[test]
+    fn level00_frame_535_red_stealth_compound_slope_recontact_loc_b9a2() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 50, 11, 0x40, 0x82);
+        set(&mut data, 49, 12, 0x40, 0x82);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x031a_7200;
+        slice.player.y_pos = 0x00bc_0000;
+        slice.player.x_velocity = 0x0002_7400;
+        slice.player.y_velocity = 0x0000_8000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice
+                .physics_trace
+                .expect("frame 535 trace")
+                .post_vertical
+                .0,
+            0x00bc_c000,
+            "ASM sub_A4EE sees the compound contact at the post-gravity y_pos",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x031b_f000,
+            "ASM loc_B9A2/loc_9D58 should match oracle #269 frame 535 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00c4_0000,
+            "ASM loc_B9A2/loc_9D58 should snap Red Stealth to the row-12 SlopeUp surface",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0000_1000,
+            "ASM loc_9E94/loc_9EA4 should force Red Stealth downhill on SlopeUp",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0000_1000,
+            "ASM loc_9D22 stores y_vel = -x_vel on SlopeUp",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "ASM loc_9EA4 faces downhill on the SlopeUp recontact",
+        );
+    }
+
     /// ASM sub_A4EE -> loc_A99E -> loc_8BF0 -> loc_9D22: Iron Knight's
     /// wider hitbox reaches the Level 00 row-13 SlopeUp surface during
     /// sub_A4EE's compound x/y integration. The later sub_902A old-X vertical

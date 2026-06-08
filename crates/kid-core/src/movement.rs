@@ -6634,9 +6634,11 @@ impl OpeningSliceState {
                     self.player.jump_buffer_frames = 0;
                     return Some(CompoundRecontactLocA4ee::ArmouredBounce);
                 }
-                if form != PlayerForm::IronKnight {
-                    return None;
-                }
+                // ASM sub_A4EE loc_A53C -> loc_B9A2: non-Juggernaut and
+                // non-Skycutter forms keep the compound SlopeUp contact and
+                // enter the slope-walk handoff. Oracle #269 frame 535 proves
+                // Red Stealth can reach this from open-air right-edge contact,
+                // not only the wider Iron Knight route.
                 compound_probe.cell.collision
             }
             terrain::CollisionKind::Solid if armoured_slopeup_probe.is_some() => {
@@ -6827,6 +6829,8 @@ impl OpeningSliceState {
         };
         let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
         self.terrain.floor_y_pos = floor_y_fp;
+        self.terrain.slope_walk_kind = Some(collision);
+        self.terrain.slope_sliding = true;
         self.player.y_pos = floor_y_fp;
         self.player.on_ground = true;
         self.player.y_velocity = match collision {
