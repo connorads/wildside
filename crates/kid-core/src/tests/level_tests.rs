@@ -8648,6 +8648,30 @@ mod chunk_02 {
     }
 
     #[test]
+    fn flag_touch_deletes_floating_prize_objects_loc_c070() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 728 << 16,
+            y_pos: i64::from(181 << 16),
+            y_velocity: 0,
+            remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+            spawn_delay: 0,
+            level_col: 45,
+            level_row: 11,
+            first_row_grace: false,
+            content: terrain::PrizeContent::IronKnight,
+            collected: false,
+        });
+
+        runtime.clear_flagpole_deleted_objects_loc_C070();
+
+        assert!(
+            runtime.floating_items.is_empty(),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 calls Delete_AllButCurrentObject, so floating helmet prize object threads must not survive the EOL hand-off"
+        );
+    }
+
+    #[test]
     fn level_complete_freezes_input_then_advances() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));

@@ -8854,6 +8854,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.floating_items.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.enemy_death_effects.clear();
     }
