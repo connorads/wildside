@@ -1677,6 +1677,17 @@ impl NativeRuntime {
                     .as_ref()
                     .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
             }
+            _ if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) => {
+                // ASM lose_life -> Teleport loc_B8DE writes Game_Mode=$0008
+                // and re-enters loc_6E2, which dispatches Load_TitleCard
+                // before Load_InGame. The hidden respawn shell therefore
+                // renders the current level's title-card VDP background, not
+                // a plain black transition frame.
+                let theme_index = self.current_level_title_card_theme_index();
+                self.title_card_data
+                    .as_ref()
+                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+            }
             _ => None,
         };
     }

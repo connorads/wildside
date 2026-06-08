@@ -2914,6 +2914,32 @@ mod chunk_02 {
     }
 
     #[test]
+    fn death_respawn_exposes_load_title_card_vdp_shell_loc_b8de() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.boot_to_level(LevelId(0));
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        let vdp = runtime.vdp_state().expect(
+            "ASM lose_life -> Teleport loc_B8DE -> loc_6E2 should expose the Load_TitleCard VDP shell during respawn",
+        );
+        assert_eq!(
+            u16::from_be_bytes([vdp.vram[0], vdp.vram[1]]),
+            0x02FB,
+            "ASM loc_19BC2 pads the top-left of the title-card plane during death respawn",
+        );
+        assert!(
+            vdp.vram[0x5F60..0x6000].iter().any(|&byte| byte != 0),
+            "ASM Load_TitleCard should decompress theme art for the respawn shell",
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
