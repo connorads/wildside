@@ -2950,6 +2950,28 @@ mod chunk_02 {
     }
 
     #[test]
+    fn death_respawn_exposes_title_workers_without_level_specific_bootstrap_profile_loc_b8de() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.boot_to_level(LevelId(7));
+        runtime.rebuild_death_respawn_title_workers_loc_b8de();
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
+
+        let trace = runtime.trace_frame();
+
+        assert!(
+            trace.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                    && object.debug_fields.contains_key("glyph")
+            }),
+            "ASM lose_life -> Teleport loc_B8DE -> loc_6E2 should expose the Load_TitleCard loc_1AB26/loc_1AD48 title workers during respawn even when no route-specific bootstrap pose profile exists",
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
