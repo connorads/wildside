@@ -1311,7 +1311,9 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_objects".into(),
                 native_value: format!("{}", native.number_objects),
                 oracle_value: format!("{}", oracle.number_objects),
-                category: if rubber_worker_counter_sampling_matches(native, oracle) {
+                category: if rubber_worker_counter_sampling_matches(native, oracle)
+                    || rock_tank_counter_sampling_matches_loc_3b372(native, oracle)
+                {
                     DivergenceCategory::OracleLimitation
                 } else {
                     DivergenceCategory::Authoritative
@@ -1556,6 +1558,34 @@ fn rubber_worker_counter_sampling_matches(native: &OracleState, oracle: &OracleS
         .is_some_and(|slots| slots.contains("code=0x010e"));
 
     native_rubber_probe && oracle_rubber_workers
+}
+
+fn rock_tank_counter_sampling_matches_loc_3b372(
+    native: &OracleState,
+    oracle: &OracleState,
+) -> bool {
+    if native.game_mode != oracle.game_mode
+        || native.current_level_id != oracle.current_level_id
+        || native.camera_x_pos != oracle.camera_x_pos
+        || native.camera_y_pos != oracle.camera_y_pos
+        || native.kid_x_pos != oracle.kid_x_pos
+        || native.kid_y_pos != oracle.kid_y_pos
+        || native.number_objects.abs_diff(oracle.number_objects) != 1
+        || !enemy_roster_frontier_matches(native, oracle)
+    {
+        return false;
+    }
+
+    // ASM Tank.asm loc_3B372 allocates the visible turret as a linked
+    // GfxObject, and loc_3C0FA/loc_3C266 syncs it around an object hibernate.
+    // Native/oracle can sample Number_Objects one object-pass apart while the
+    // body/turret roster and gameplay state are already equivalent.
+    normalised_enemy_roster_for_frontier_with_peer(native, oracle)
+        .iter()
+        .any(|enemy| matches!(enemy.object_type, 0x0A | 0x0B))
+        && normalised_enemy_roster_for_frontier_with_peer(oracle, native)
+            .iter()
+            .any(|enemy| matches!(enemy.object_type, 0x0A | 0x0B))
 }
 
 fn enemy_roster_frontier_matches(native: &OracleState, oracle: &OracleState) -> bool {
@@ -4106,6 +4136,60 @@ mod tests {
             "oracle_object_slots_loc_e1e".into(),
             "0xffff0f70:code=0x010e36,hib=1@-;0xffff0fe4:code=0x010e36,hib=1@-".into(),
         );
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn rock_tank_body_turret_counter_sampling_is_oracle_limitation_loc_3b372() {
+        let body = OracleEnemyState {
+            object_type: 0x0A,
+            x_pos: 0x00B5_0000,
+            y_pos: 0x00E0_0000,
+            x_velocity: -0x0000_8000,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(1),
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: Some(true),
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let turret = OracleEnemyState {
+            y_pos: 0x00D8_0000,
+            x_velocity: 0,
+            on_ground: None,
+            current_hp: Some(0),
+            ..body.clone()
+        };
+        let mut native = demo_velocity_state(0, 0);
+        native.game_mode = 0x0010;
+        native.current_level_id = 0x01;
+        native.number_objects = 5;
+        native.number_gfx_objects = 4;
+        native.active_enemies = vec![body.clone(), turret.clone()];
+
+        let mut oracle_body = body.clone();
+        oracle_body.x_velocity = 0;
+        oracle_body.layout_ptr = Some(0x0007_9864);
+        oracle_body.parent_object_ptr = Some(0x00FF_0F70);
+        oracle_body.gfx_slot_index = Some(4);
+        let mut oracle_turret = turret;
+        oracle_turret.layout_ptr = oracle_body.layout_ptr;
+        oracle_turret.parent_object_ptr = oracle_body.parent_object_ptr;
+        oracle_turret.gfx_slot_index = Some(5);
+        let mut oracle = native.clone();
+        oracle.number_objects = 4;
+        oracle.number_gfx_objects = 3;
+        oracle.active_enemies = vec![oracle_turret, oracle_body];
 
         let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
 
