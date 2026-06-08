@@ -6538,17 +6538,28 @@ impl OpeningSliceState {
             return None;
         }
 
-        let old_x_px = (self.player.x_pos >> 16) as i32;
-        let y_px = (self.player.y_pos >> 16) as i32;
-        let old_probe = terrain::probe_floor_hitbox(grid, old_x_px, y_px, collision_hw);
-        if old_probe.on_ground && old_probe.cell.collision != terrain::CollisionKind::SlopeDown {
-            return None;
-        }
-
         let compound_x_pos = (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
             .clamp(0, i64::from(u32::MAX)) as u32;
         let compound_x_px = (compound_x_pos >> 16) as i32;
+        let old_x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
         let compound_probe = terrain::probe_floor_hitbox(grid, compound_x_px, y_px, collision_hw);
+        let old_probe = terrain::probe_floor_hitbox(grid, old_x_px, y_px, collision_hw);
+        if old_probe.on_ground
+            && old_probe.cell.collision != terrain::CollisionKind::SlopeDown
+            && !matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter)
+        {
+            return None;
+        }
+        let armoured_slopeup_probe =
+            if matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter)
+                && compound_probe.on_ground
+                && compound_probe.cell.collision == terrain::CollisionKind::Solid
+            {
+                juggernaut_cached_slopeup_contact_loc_a556(grid, compound_x_px, y_px, collision_hw)
+            } else {
+                None
+            };
         let collision = match compound_probe.cell.collision {
             terrain::CollisionKind::SlopeUp if compound_probe.on_ground => {
                 if matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter) {
@@ -6557,6 +6568,12 @@ impl OpeningSliceState {
                     // makes Juggernaut/Skycutter bounce up-left instead of
                     // entering the ordinary loc_B9A2 recovery/landing path.
                     self.player.x_pos = compound_x_pos;
+                    let right_edge_x_px = compound_x_px + collision_hw;
+                    let contact_tile_x_px = i32::from(compound_probe.cell_x) * 16;
+                    let contact_tile_y_px = i32::from(compound_probe.cell_y) * 16;
+                    let snap_y_px = contact_tile_x_px + contact_tile_y_px + 15 - right_edge_x_px;
+                    self.player.y_pos =
+                        ((snap_y_px.max(0) as u32) << 16) | (self.player.y_pos & 0x0000_FFFF);
                     self.player.x_velocity = -0x0002_0000;
                     self.player.y_velocity = -0x0002_0000;
                     self.player.on_ground = false;
@@ -6570,11 +6587,39 @@ impl OpeningSliceState {
                 }
                 compound_probe.cell.collision
             }
+            terrain::CollisionKind::Solid if armoured_slopeup_probe.is_some() => {
+                let contact_probe = armoured_slopeup_probe.expect("checked is_some above");
+                // ASM sub_A4EE loc_A53C -> loc_A556 reads the cached
+                // Level_Layout address from $FB6C rather than reselecting the
+                // centre floor. In #258 frame 479 that cache points at the
+                // right-edge SlopeUp contact while the broad native floor
+                // probe has already found the adjacent solid landing.
+                self.player.x_pos = compound_x_pos;
+                let right_edge_x_px = compound_x_px + collision_hw;
+                let contact_tile_x_px = i32::from(contact_probe.cell_x) * 16;
+                let contact_tile_y_px = i32::from(contact_probe.cell_y) * 16;
+                let snap_y_px = contact_tile_x_px + contact_tile_y_px + 15 - right_edge_x_px;
+                self.player.y_pos =
+                    ((snap_y_px.max(0) as u32) << 16) | (self.player.y_pos & 0x0000_FFFF);
+                self.player.x_velocity = -0x0002_0000;
+                self.player.y_velocity = -0x0002_0000;
+                self.player.on_ground = false;
+                self.player.wall_cling_direction = None;
+                self.player.on_spikes = false;
+                self.player.jump_buffer_frames = 0;
+                return Some(CompoundRecontactLocA4ee::ArmouredBounce);
+            }
             terrain::CollisionKind::SlopeDown if compound_probe.on_ground => {
                 if matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter) {
                     // ASM sub_A4EE loc_A594 -> loc_A5AE: mirror of loc_A556
                     // for floor+left-wall (`colid_slopedown`, $18).
                     self.player.x_pos = compound_x_pos;
+                    let left_edge_x_px = compound_x_px - collision_hw;
+                    let contact_tile_x_px = i32::from(compound_probe.cell_x) * 16;
+                    let contact_tile_y_px = i32::from(compound_probe.cell_y) * 16;
+                    let snap_y_px = contact_tile_y_px + left_edge_x_px - contact_tile_x_px;
+                    self.player.y_pos =
+                        ((snap_y_px.max(0) as u32) << 16) | (self.player.y_pos & 0x0000_FFFF);
                     self.player.x_velocity = 0x0002_0000;
                     self.player.y_velocity = -0x0002_0000;
                     self.player.on_ground = false;
@@ -6842,6 +6887,42 @@ enum CompoundRecontactLocA4ee {
     Slope(terrain::CollisionKind),
     DirectLanding,
     ArmouredBounce,
+}
+
+fn juggernaut_cached_slopeup_contact_loc_a556(
+    grid: &terrain::BlockGrid,
+    compound_x_px: i32,
+    y_px: i32,
+    collision_hw: i32,
+) -> Option<terrain::FloorProbe> {
+    let right_edge_x_px = compound_x_px + collision_hw;
+    let edge_probe = terrain::probe_floor(grid, right_edge_x_px, y_px);
+    if edge_probe.cell.collision == terrain::CollisionKind::SlopeUp {
+        return Some(edge_probe);
+    }
+
+    let cached_col = terrain::pixel_to_cell(right_edge_x_px).max(0) as u16;
+    let cached_row = terrain::pixel_to_cell(y_px).saturating_sub(1).max(0) as u16;
+    let cached_cell = grid.cell_at(cached_col, cached_row);
+    if cached_cell.collision != terrain::CollisionKind::SlopeUp {
+        return None;
+    }
+
+    // ASM sub_A4EE loc_A556: $FB6C keeps the GfxObjects_Collision layout
+    // address. At right-edge slope/solid junctions that cache can be the
+    // slope tile one row above the current foot probe, while the ordinary
+    // hitbox floor probe has already preferred the centre solid support.
+    Some(terrain::FloorProbe {
+        on_ground: true,
+        floor_y_px: terrain::slope_floor_y_pub(
+            terrain::CollisionKind::SlopeUp,
+            i32::from(cached_row) * 16,
+            right_edge_x_px,
+        ),
+        cell: cached_cell,
+        cell_x: cached_col,
+        cell_y: cached_row,
+    })
 }
 
 fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {

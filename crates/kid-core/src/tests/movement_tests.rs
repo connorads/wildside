@@ -15203,6 +15203,133 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_A4EE loc_A53C -> loc_A556 also owns the follow-up #258 frame
+    /// 382 SlopeUp contact. The old-X floor probe is already touching the slope,
+    /// but the ROM's pre-sub_902A compound GfxObjects collision still takes the
+    /// Juggernaut bounce path instead of allowing a normal landing.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A556_juggernaut_repeated_slopeup_contact_bounces_issue_258() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(43, 16, 0x40, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02A4_9000;
+        slice.player.y_pos = 0x0103_C000;
+        slice.player.x_velocity = 0x0001_0600;
+        slice.player.y_velocity = 0x0002_8000;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x02A5_C100,
+            "ASM sub_A4EE keeps the second tentative x_pos on the loc_A556 bounce path"
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x0103_8000,
+            "ASM loc_A556 writes the snapped y high word while preserving the post-vertical subpixel"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "ASM loc_A556 should keep bouncing left on the repeated $14 contact"
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0002_0000,
+            "ASM loc_A556 should keep y_vel at $FFFE0000"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_A556 stays in MoveID_Jump rather than landing on the follow-up SlopeUp"
+        );
+    }
+
+    /// ASM sub_A4EE loc_A53C -> loc_A556 uses the cached $FB6C
+    /// GfxObjects_Collision layout address. #258 frame 479 has $FB6C=$BC90;
+    /// with Level_width_tiles=$190 and Level_Layout=$A652, sub_1F8E maps that
+    /// to tile (47,14), even though native's broader floor probe prefers the
+    /// adjacent solid landing at the feet.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A556_juggernaut_slopeup_cache_beats_solid_landing_issue_258() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(
+            w,
+            h,
+            &[
+                (47, 14, 0x40, 0x00),
+                (45, 15, 0x60, 0x00),
+                (46, 15, 0x60, 0x00),
+            ],
+        );
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02D7_9D00;
+        slice.player.y_pos = 0x00EE_0000;
+        slice.player.x_velocity = 0x0002_7A00;
+        slice.player.y_velocity = 0x0002_0000;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x02DA_1600,
+            "ASM sub_A4EE keeps the tentative x_pos before the loc_A556 bounce"
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00EE_4000,
+            "ASM loc_A556 snaps from cached tile (47,14) and preserves post-vertical subpixel"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "ASM loc_A556 should bounce left instead of landing on the adjacent solid"
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0002_0000,
+            "ASM loc_A556 should bounce upward from the cached $14 contact"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_A556 stays airborne instead of taking sub_902A's solid landing"
+        );
+    }
+
     // --- loc_A7B4, loc_A7DE, loc_A7E8: Skycutter B-press slam velocity ---
 
     /// ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop —
