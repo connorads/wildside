@@ -74,7 +74,9 @@ use scenarios::{
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
     issue_213_drips_delayed_b_drop_audit_scenario, issue_213_drips_metal_block_audit_scenario,
     issue_216_prize_audio_audit_scenario, issue_249_blw2_left_pit_wall_jump_audit_scenario,
+    issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario,
     issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
+    issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario,
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
@@ -193,6 +195,10 @@ enum RecordScenarioKind {
     Issue249Blw2LeftPitWallNoJumpAudit,
     /// drive Juggernaut/Rhino into Blue Lake Woods 2's left pit wall while pulsing jump (#249).
     Issue249Blw2LeftPitWallJumpAudit,
+    /// drive The Kid into Blue Lake Woods 2's left pit wall without jump (#249/#270).
+    Issue249Blw2LeftPitWallKidNoJumpAudit,
+    /// drive Red Stealth/Samurai into Blue Lake Woods 2's left pit wall without jump (#249/#270).
+    Issue249Blw2LeftPitWallRedStealthNoJumpAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2971,6 +2977,12 @@ fn build_record_scenario(
         RecordScenarioKind::Issue249Blw2LeftPitWallJumpAudit => {
             issue_249_blw2_left_pit_wall_jump_audit_scenario()
         }
+        RecordScenarioKind::Issue249Blw2LeftPitWallKidNoJumpAudit => {
+            issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario()
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallRedStealthNoJumpAudit => {
+            issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario()
+        }
     }
 }
 
@@ -3066,6 +3078,12 @@ fn record_scenario_command(
         }
         RecordScenarioKind::Issue249Blw2LeftPitWallJumpAudit => {
             "issue249-blw2-left-pit-wall-jump-audit"
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallKidNoJumpAudit => {
+            "issue249-blw2-left-pit-wall-kid-no-jump-audit"
+        }
+        RecordScenarioKind::Issue249Blw2LeftPitWallRedStealthNoJumpAudit => {
+            "issue249-blw2-left-pit-wall-red-stealth-no-jump-audit"
         }
     };
     let mut command = format!(
@@ -5601,6 +5619,64 @@ AddrTbl_LevelNames:
                 && collision_probe.contains("wall_cling=none"),
             "no-jump BLW2 left-pit wall probe should not carry jump buffer or wall cling: {collision_probe}"
         );
+    }
+
+    #[test]
+    fn issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_kid_or_samurai() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for (kind, expected_helmet) in [
+            (RecordScenarioKind::Issue249Blw2LeftPitWallKidNoJumpAudit, 0),
+            (
+                RecordScenarioKind::Issue249Blw2LeftPitWallRedStealthNoJumpAudit,
+                3,
+            ),
+        ] {
+            let scenario = build_record_scenario(kind, 0x00, None);
+            let trace = run_native_dynamic_scenario(
+                manifest.clone(),
+                &scenario,
+                NativeDynamicRunOptions {
+                    settled_warp: false,
+                    trace_physics: true,
+                },
+            )
+            .expect("native BLW2 Kid/Samurai left-wall probe should run");
+
+            for index in [30, 90, 179] {
+                let checkpoint = trace
+                    .get(index)
+                    .unwrap_or_else(|| panic!("missing native scenario frame {index}"));
+                assert_eq!(checkpoint.current_level, LevelId(0x01));
+                assert_eq!(checkpoint.current_helmet_id, expected_helmet);
+                assert_eq!(
+                    checkpoint.ledge_snap_cooldown, 0,
+                    "ASM kid_flip -> loc_ABA4 must not enter ledge snap without a B edge"
+                );
+
+                let collision_probe = checkpoint
+                    .gameplay_debug_fields
+                    .get("kid_collision_handoff_probe")
+                    .expect("collision handoff probe");
+                assert!(
+                    collision_probe.contains("jump_buffer=0"),
+                    "no-jump BLW2 probe should not carry a stale jump buffer at frame {index}: {collision_probe}"
+                );
+
+                let special_probe = checkpoint
+                    .gameplay_debug_fields
+                    .get("kid_special_motion_probe")
+                    .expect("special motion probe");
+                assert!(
+                    special_probe.contains("iron_knight_climbing=0")
+                        && special_probe.contains("skycutter_on_board=0")
+                        && special_probe.contains("cyclone_flying=0"),
+                    "no-jump BLW2 probe should not enter a helmet climb/fly path at frame {index}: {special_probe}"
+                );
+            }
+        }
     }
 
     #[test]

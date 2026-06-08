@@ -1430,7 +1430,11 @@ pub fn issue_249_juggernaut_wall_jump_audit_scenario() -> DynamicScenario {
     }
 }
 
-fn issue_249_blw2_left_pit_wall_scenario_for(slug: &str, pulse_jump: bool) -> DynamicScenario {
+fn issue_249_blw2_left_pit_wall_scenario_for(
+    slug: &str,
+    playtest_form: Option<u16>,
+    pulse_jump: bool,
+) -> DynamicScenario {
     const FRAME_COUNT: usize = 180;
     const LEFT: u8 = 1 << 2;
     const JUMP: u8 = 1 << 4;
@@ -1473,7 +1477,7 @@ fn issue_249_blw2_left_pit_wall_scenario_for(slug: &str, pulse_jump: bool) -> Dy
         // immediately diverges before reaching the wall-cling logic.
         start_position: Some(DynamicStartPosition { x: 352, y: 192 }),
         camera_position: Some(DynamicStartPosition { x: 240, y: 80 }),
-        playtest_form: Some(5),
+        playtest_form,
         initial_diamond_count: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
@@ -1483,12 +1487,33 @@ fn issue_249_blw2_left_pit_wall_scenario_for(slug: &str, pulse_jump: bool) -> Dy
 pub fn issue_249_blw2_left_pit_wall_no_jump_audit_scenario() -> DynamicScenario {
     issue_249_blw2_left_pit_wall_scenario_for(
         "issue_249_blw2_left_pit_wall_no_jump_audit_01",
+        Some(5),
         false,
     )
 }
 
 pub fn issue_249_blw2_left_pit_wall_jump_audit_scenario() -> DynamicScenario {
-    issue_249_blw2_left_pit_wall_scenario_for("issue_249_blw2_left_pit_wall_jump_audit_01", true)
+    issue_249_blw2_left_pit_wall_scenario_for(
+        "issue_249_blw2_left_pit_wall_jump_audit_01",
+        Some(5),
+        true,
+    )
+}
+
+pub fn issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario() -> DynamicScenario {
+    issue_249_blw2_left_pit_wall_scenario_for(
+        "issue_249_blw2_left_pit_wall_kid_no_jump_audit_01",
+        None,
+        false,
+    )
+}
+
+pub fn issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario() -> DynamicScenario {
+    issue_249_blw2_left_pit_wall_scenario_for(
+        "issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_01",
+        Some(3),
+        false,
+    )
 }
 
 /// Current #155/#213 Drips/metal-block probe.
@@ -2137,6 +2162,8 @@ mod tests {
         idle_level_full_frame_scenario, idle_level_scenario,
         issue_147_wall_side_jump_audit_scenario, issue_213_drips_delayed_b_drop_audit_scenario,
         issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
+        issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario,
+        issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario,
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
@@ -2439,6 +2466,56 @@ mod tests {
                 .iter()
                 .all(|buttons| buttons & (JUMP | SPECIAL) == 0),
             "the Juggernaut/Rhino variant must isolate wall contact from jump/special input"
+        );
+    }
+
+    #[test]
+    fn issue_249_blw2_left_pit_wall_kid_no_jump_audit_uses_reported_left_wall() {
+        let scenario = issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario();
+        assert_eq!(
+            scenario.slug,
+            "issue_249_blw2_left_pit_wall_kid_no_jump_audit_01"
+        );
+        assert_eq!(scenario.playtest_form, None);
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 352, y: 192 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 240, y: 80 })
+        );
+
+        const LEFT: u8 = 1 << 2;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[60], LEFT);
+        assert!(
+            scenario.script.iter().all(|buttons| buttons & JUMP == 0),
+            "Kid left-wall audit must isolate the latest no-jump launch report"
+        );
+    }
+
+    #[test]
+    fn issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_uses_samurai_form() {
+        let scenario = issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario();
+        assert_eq!(
+            scenario.slug,
+            "issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_01"
+        );
+        assert_eq!(
+            scenario.playtest_form,
+            Some(3),
+            "Red Stealth is the Samurai form named in the latest wall-launch report"
+        );
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+
+        const LEFT: u8 = 1 << 2;
+        const JUMP: u8 = 1 << 4;
+        assert_eq!(scenario.script[90], LEFT);
+        assert!(
+            scenario.script.iter().all(|buttons| buttons & JUMP == 0),
+            "Samurai left-wall audit must not contain a jump edge"
         );
     }
 
