@@ -317,6 +317,27 @@ pub(crate) fn parse_level_id(value: &str) -> Result<u8> {
         .with_context(|| format!("level id must be hex in the range 00-FF, got {value}"))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TargetPoint {
+    pub(crate) x_px: i64,
+    pub(crate) y_px: i64,
+}
+
+pub(crate) fn parse_target_point(value: &str) -> Result<TargetPoint> {
+    let (x, y) = value
+        .split_once(',')
+        .ok_or_else(|| anyhow!("target point must be formatted as x,y pixels, got {value}"))?;
+    let x_px = x
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("target point x must be a signed pixel integer, got {x}"))?;
+    let y_px = y
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("target point y must be a signed pixel integer, got {y}"))?;
+    Ok(TargetPoint { x_px, y_px })
+}
+
 pub(crate) fn inspect_enemy(manifest: &AssetManifest, selector: &str) -> Result<()> {
     let enemy = find_enemy_definition(manifest, selector)
         .ok_or_else(|| anyhow!("enemy {selector} not found in asset manifest"))?;
@@ -874,6 +895,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_enemy: Option<u8>,
     target_projectile: Option<ActiveProjectileKind>,
     player_motion: bool,
+    target_points: &[TargetPoint],
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -931,6 +953,9 @@ pub(crate) fn probe_dynamic_record_scenario(
     }
     if player_motion {
         println!("{}", describe_player_motion(&trace));
+    }
+    for target_point in target_points {
+        println!("{}", describe_target_point_approach(&trace, *target_point));
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -1487,6 +1512,76 @@ pub(crate) fn describe_player_motion(trace: &[NativeTraceFrame]) -> String {
         summary.last_x,
         summary.last_y,
         transition,
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetPointApproach {
+    replay_frame: usize,
+    kid_x: u32,
+    kid_y: u32,
+    dx_px: i64,
+    dy_px: i64,
+    manhattan_px: i64,
+}
+
+fn target_point_approach(
+    trace: &[NativeTraceFrame],
+    target_point: TargetPoint,
+) -> Option<TargetPointApproach> {
+    let target_x = target_point.x_px << 16;
+    let target_y = target_point.y_px << 16;
+    let mut closest: Option<TargetPointApproach> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        let (Some(kid_x), Some(kid_y)) = (frame.kid_x_pos, frame.kid_y_pos) else {
+            continue;
+        };
+        let dx_px = (target_x - i64::from(kid_x)) >> 16;
+        let dy_px = (target_y - i64::from(kid_y)) >> 16;
+        let candidate = TargetPointApproach {
+            replay_frame,
+            kid_x,
+            kid_y,
+            dx_px,
+            dy_px,
+            manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+        };
+        match &closest {
+            Some(existing)
+                if existing.manhattan_px < candidate.manhattan_px
+                    || (existing.manhattan_px == candidate.manhattan_px
+                        && existing.replay_frame <= candidate.replay_frame) => {}
+            _ => closest = Some(candidate),
+        }
+    }
+
+    closest
+}
+
+pub(crate) fn describe_target_point_approach(
+    trace: &[NativeTraceFrame],
+    target_point: TargetPoint,
+) -> String {
+    let Some(approach) = target_point_approach(trace, target_point) else {
+        return format!(
+            "target point {},{}: absent",
+            target_point.x_px, target_point.y_px
+        );
+    };
+    format!(
+        "target point {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+        target_point.x_px,
+        target_point.y_px,
+        approach.dx_px,
+        approach.dy_px,
+        approach.manhattan_px,
+        approach.replay_frame,
+        approach.kid_x,
+        approach.kid_y,
     )
 }
 
@@ -2150,5 +2245,40 @@ mod tests {
         let trace = vec![player_frame(10, GameMode::LevelTransition, None, None)];
 
         assert_eq!(describe_player_motion(&trace), "player motion: absent");
+    }
+
+    #[test]
+    fn target_point_approach_reports_closest_live_player_position() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x0010_0000), Some(0x0040_0000)),
+            player_frame(11, GameMode::InGame, Some(0x0018_0000), Some(0x0044_0000)),
+            player_frame(12, GameMode::InGame, Some(0x0021_0000), Some(0x003F_0000)),
+            player_frame(
+                13,
+                GameMode::LevelTransition,
+                Some(0x0020_0000),
+                Some(0x0040_0000),
+            ),
+        ];
+
+        assert_eq!(
+            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            "target point 32,64: closest kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000"
+        );
+    }
+
+    #[test]
+    fn target_point_approach_reports_absent_without_live_player_position() {
+        let trace = vec![player_frame(
+            10,
+            GameMode::LevelTransition,
+            Some(0x0020_0000),
+            Some(0x0040_0000),
+        )];
+
+        assert_eq!(
+            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            "target point 32,64: absent"
+        );
     }
 }

@@ -282,6 +282,9 @@ enum Commands {
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
+        /// Summarise closest live Kid approach to an x,y pixel target.
+        #[arg(long, value_parser = parse_target_point)]
+        target_point: Vec<TargetPoint>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -318,6 +321,9 @@ enum Commands {
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
+        /// Summarise closest live Kid approach to an x,y pixel target.
+        #[arg(long, value_parser = parse_target_point)]
+        target_point: Vec<TargetPoint>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -1188,6 +1194,7 @@ fn main() -> Result<()> {
             target_enemy,
             target_projectile,
             player_motion,
+            target_point,
             summary_only,
             frame_start,
             frame_end,
@@ -1213,6 +1220,7 @@ fn main() -> Result<()> {
                 target_enemy,
                 target_projectile.map(Into::into),
                 player_motion,
+                &target_point,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1226,6 +1234,7 @@ fn main() -> Result<()> {
             target_enemy,
             target_projectile,
             player_motion,
+            target_point,
             summary_only,
             frame_start,
             frame_end,
@@ -1251,6 +1260,7 @@ fn main() -> Result<()> {
                 target_enemy,
                 target_projectile.map(Into::into),
                 player_motion,
+                &target_point,
                 summary_only,
                 frame_start,
                 frame_end,
