@@ -8236,6 +8236,12 @@ impl NativeRuntime {
             // enabled. Only crawler states call loc_33550 before branching to
             // loc_338F8; the falling loc_3345C drop loop never touches the
             // off_33520 splash table on Kid collision.
+            if projectile.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8 {
+                // ASM Drips.asm loc_335D8 runs `stru_33FA6` before `st
+                // is_moved(a3)` and before the first loc_33650 collision
+                // probe, so the startup shell is not a Kid-facing stomp target.
+                continue;
+            }
             let target = match projectile.kind {
                 EnemyProjectileKind::DripsSurfaceCrawler => {
                     StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index)

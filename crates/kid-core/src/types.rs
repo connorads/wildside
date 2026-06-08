@@ -2449,6 +2449,7 @@ pub(crate) enum EnemyProjectileKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum DripsSurfaceCrawlerState {
+    StartupLoc335D8,
     #[default]
     HorizontalLoc33650,
     VerticalLoc336D0,

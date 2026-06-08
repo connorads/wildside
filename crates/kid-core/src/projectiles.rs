@@ -95,6 +95,7 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
 
 pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
+const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 31;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
@@ -346,31 +347,44 @@ fn drips_surface_crawler_from_splash_loc_335d8(
         child_byte_45,
         random_byte,
     );
-    let startup_deltas =
-        drips_velocity_deltas_loc_33526(init.child_byte_44, init.child_byte_45, init.x_velocity, 0);
-    let startup_velocity = drips_velocity_apply_loc_33546(
-        init.x_velocity,
-        0,
-        startup_deltas.x_delta,
-        startup_deltas.y_delta,
-    );
-
     EnemyProjectile {
         kind: EnemyProjectileKind::DripsSurfaceCrawler,
         x_pos: u32::from(init.x_pos_word) << 16,
         y_pos: u32::from(init.y_pos_word) << 16,
-        x_velocity: startup_velocity.x_velocity,
-        y_velocity: startup_velocity.y_velocity,
+        x_velocity: init.x_velocity,
+        y_velocity: 0,
         lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
         friendly: false,
         gravity: 0,
         terrain_kill: false,
-        drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+        // ASM Drips.asm loc_335D8 runs `stru_33FA6` to completion before
+        // `st is_moved(a3)`, `loc_33526`, and the first loc_33650 hibernate.
+        drips_surface_crawler_state: DripsSurfaceCrawlerState::StartupLoc335D8,
         drips_surface_crawler_x_direction_flipped: init.x_direction != 0,
         drips_child_byte_44: init.child_byte_44,
         drips_child_byte_45: init.child_byte_45,
+        animation_elapsed_frames: DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8,
         ..Default::default()
     }
+}
+
+fn drips_surface_crawler_finish_startup_loc_335d8(projectile: &mut EnemyProjectile) {
+    projectile.animation_elapsed_frames = 0;
+    projectile.drips_surface_crawler_state = DripsSurfaceCrawlerState::HorizontalLoc33650;
+    let startup_deltas = drips_velocity_deltas_loc_33526(
+        projectile.drips_child_byte_44,
+        projectile.drips_child_byte_45,
+        projectile.x_velocity,
+        projectile.y_velocity,
+    );
+    let startup_velocity = drips_velocity_apply_loc_33546(
+        projectile.x_velocity,
+        projectile.y_velocity,
+        startup_deltas.x_delta,
+        startup_deltas.y_delta,
+    );
+    projectile.x_velocity = startup_velocity.x_velocity;
+    projectile.y_velocity = startup_velocity.y_velocity;
 }
 
 pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
@@ -433,6 +447,7 @@ pub(crate) fn drips_surface_crawler_burst_offset_loc_33550(
         DripsSurfaceCrawlerState::VerticalLoc337A0 => Some((-8, 0)),
         DripsSurfaceCrawlerState::DiagonalLoc33810 => Some((-8, -8)),
         DripsSurfaceCrawlerState::DiagonalLoc33892 => Some((8, -8)),
+        DripsSurfaceCrawlerState::StartupLoc335D8 => None,
         DripsSurfaceCrawlerState::IdleLoc33A7C => None,
     }
 }
@@ -452,7 +467,17 @@ mod drips_surface_crawler_tests {
             ..Default::default()
         };
 
-        let crawler = drips_surface_crawler_from_drop_loc_335d8(&drop, 0);
+        let mut crawler = drips_surface_crawler_from_drop_loc_335d8(&drop, 0);
+
+        assert_eq!(
+            crawler.x_velocity, 0x0000_3000,
+            "ASM Drips.asm loc_335D8 seeds x_vel before the startup animation; loc_33526 does not run until `stru_33FA6` finishes"
+        );
+        assert_eq!(
+            crawler.drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::StartupLoc335D8
+        );
+        drips_surface_crawler_finish_startup_loc_335d8(&mut crawler);
 
         assert_eq!(
             crawler.x_velocity, 0x0000_9000,
@@ -504,7 +529,11 @@ mod drips_surface_crawler_tests {
         assert!(!crawler.terrain_kill);
         assert_eq!(
             crawler.drips_surface_crawler_state,
-            DripsSurfaceCrawlerState::HorizontalLoc33650
+            DripsSurfaceCrawlerState::StartupLoc335D8
+        );
+        assert_eq!(
+            crawler.animation_elapsed_frames, DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8,
+            "ASM `stru_33FA6` has three 10-frame entries, then `Hibernate_UntilAnimFinished` consumes the resume frame before loc_335D8 reaches loc_33630/loc_33526"
         );
 
         let flipped =
@@ -2170,6 +2199,18 @@ impl NativeRuntime {
                 // animation clock rather than deleting on timer expiry.
                 p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
             }
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
+            {
+                if p.animation_elapsed_frames > 1 {
+                    p.animation_elapsed_frames -= 1;
+                    return true;
+                }
+                drips_surface_crawler_finish_startup_loc_335d8(p);
+                // ASM loc_33650 starts with `Hibernate_Object_1Frame`, so the
+                // first support/collision probe runs on the next native frame.
+                return true;
+            }
             p.y_velocity += p.gravity;
 
             // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,
@@ -2782,6 +2823,14 @@ impl NativeRuntime {
                 // after the crawler has already resolved contact or terrain
                 // exit. The helper carries the finish animation, not another
                 // independent Kid damage check.
+                return true;
+            }
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
+            {
+                // ASM Drips.asm loc_335D8 finishes `stru_33FA6` before
+                // `st is_moved(a3)` and before loc_33650's live Kid collision
+                // path, so the startup shell is visible but not hostile.
                 return true;
             }
             if p.friendly {
