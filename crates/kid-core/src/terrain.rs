@@ -663,6 +663,12 @@ const PRIZE_BLOCK_RECORD_BYTES: usize = 8;
 const GHOST_BLOCK_RECORD_BYTES: usize = 16;
 const TELEPORTER_RECORD_BYTES: usize = 10;
 const HIDDEN_BLOCK_RECORD_BYTES: usize = 8;
+const LEVEL_LAYOUT_LOW_WORD_START: u16 = 0xA652;
+const LEVEL_LAYOUT_LOW_WORD_END: u16 = 0xE7F2;
+
+fn is_level_layout_low_word_addr(addr: u16) -> bool {
+    (LEVEL_LAYOUT_LOW_WORD_START..LEVEL_LAYOUT_LOW_WORD_END).contains(&addr) && addr % 2 == 0
+}
 
 impl BlockList {
     /// Parse prize block entries from the raw Block List RAM dump.
@@ -672,9 +678,16 @@ impl BlockList {
     pub fn from_raw(data: &[u8], _layout_width: u16) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
+        let enforce_level_layout_addr_bounds = data
+            .get(0..2)
+            .map(|bytes| is_level_layout_low_word_addr(u16::from_be_bytes([bytes[0], bytes[1]])))
+            .unwrap_or(false);
         while offset + PRIZE_BLOCK_RECORD_BYTES <= data.len() {
             let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
             if layout_addr == 0 {
+                break;
+            }
+            if enforce_level_layout_addr_bounds && !is_level_layout_low_word_addr(layout_addr) {
                 break;
             }
             let col = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
@@ -4617,6 +4630,47 @@ mod tests {
         assert_eq!(bl.prize_blocks[1].row, 8);
         assert_eq!(bl.prize_blocks[1].content, PrizeContent::IronKnight);
         assert!(bl.prize_blocks[1].disguised);
+    }
+
+    #[test]
+    fn block_list_from_raw_generated_ram_dump_stops_prizes_before_ghost_section() {
+        // ASM loc_12434 writes prize entries by count and loc_11CB6 bounds the
+        // section with that count; generated RAM dumps do not need a zero prize
+        // terminator before loc_124A6 starts writing ghost groups.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0xA7, 0xC4, // prize layout_addr in Level_Layout RAM
+            0x00, 0x41, // col = 65
+            0x00, 0x01, // row = 1
+            0x00, 0x00, // diamond
+        ]);
+        data.extend_from_slice(&[
+            0xB0, 0x9A, // prize layout_addr in Level_Layout RAM
+            0x00, 0x74, // col = 116
+            0x00, 0x0A, // row = 10
+            0x00, 0x06, // Juggernaut
+        ]);
+        data.extend_from_slice(&[
+            0x00, 0x7F, // ghost timer; not a Level_Layout pointer
+            0x00, 0x00, // flags, mapping_frame
+            0x00, 0x32, // solid_time
+            0x00, 0x64, // vanished_time
+            0xB3, 0x82, // ghost layout_addr
+            0x00, 0x08, // col
+            0x00, 0x0E, // row
+            0x01, // count nibble -> 2
+            0x00, // horizontal
+        ]);
+        data.extend_from_slice(&[0u8; GHOST_BLOCK_RECORD_BYTES]);
+
+        let bl = BlockList::from_raw(&data, 120);
+        assert_eq!(bl.prize_blocks.len(), 2);
+        assert_eq!(bl.prize_blocks[1].content, PrizeContent::Juggernaut);
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks[0].timer, 0x007F);
+        assert_eq!(bl.ghost_blocks[0].col, 8);
+        assert_eq!(bl.ghost_blocks[0].row, 14);
+        assert_eq!(bl.ghost_blocks[0].count, 2);
     }
 
     #[test]

@@ -3621,6 +3621,40 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_later_level_block_list_keeps_helmet_prizes_without_section_overread() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(5));
+
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 5 should load its extracted block-list asset");
+        assert!(
+            block_list.prize_blocks.iter().any(|entry| {
+                entry.col == 116
+                    && entry.row == 10
+                    && entry.content == terrain::PrizeContent::Juggernaut
+            }),
+            "ASM Prize_Init_Index id 6 should expose the level 5 Juggernaut helmet prize at (116,10)",
+        );
+        assert!(
+            block_list.prize_blocks.iter().any(|entry| {
+                entry.col == 4
+                    && entry.row == 29
+                    && entry.content == terrain::PrizeContent::Micromax
+            }),
+            "ASM Prize_Init_Index id A should expose the level 5 Micromax helmet prize at (4,29)",
+        );
+        assert!(
+            block_list.prize_blocks.iter().all(|entry| entry.col < 120),
+            "ASM loc_12434 prize records must stop before loc_124A6 ghost data; overread entries produced impossible level 5 columns",
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]
