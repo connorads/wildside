@@ -6227,27 +6227,39 @@ mod chunk_09 {
 
         assert_eq!(
             settled[0].frame_index,
-            fresh[0].frame_index + 107,
-            "full-frame oracle helper reaches Level 1's first RockTank on the frame the ROM-observed live target-level window is satisfied; native must not step one extra frame after the settle condition",
+            fresh[0].frame_index + 108,
+            "full-frame oracle helper includes the Level 1 hidden resume-tail frame that lets Tank.asm loc_3C044 expose the ROM body/turret phase",
         );
         assert_eq!(settled[0].game_mode, GameMode::InGame);
         assert_eq!(settled[0].current_level, LevelId(1));
         assert!(!settled[0].paused);
-        let first_tank = settled[0]
+        let first_tank_body = settled[0]
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00E0_0000
+                    && object.hit_points == Some(2)
+            })
+            .expect("Level 0x01 first RockTank body should be active after settled warp");
+        let first_tank_turret = settled[0]
             .active_objects
             .iter()
             .find(|object| {
                 object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
                     && object.layout_index == Some(1)
                     && object.y_pos == 0x00D8_0000
+                    && matches!(object.hit_points, None | Some(0))
             })
-            .expect("Level 0x01 first RockTank parent should be active after settled warp");
+            .expect("Level 0x01 first RockTank turret child should be active after settled warp");
         assert_eq!(
-            first_tank.x_pos, 0x00A4_0000,
-            "ASM Tank.asm loc_3B2E4 into shared walker loc_3C0FA/loc_3C026: by oracle settled frame 0 the first RockTank has already turned at the left edge",
+            (first_tank_body.x_pos, first_tank_turret.x_pos),
+            (0x00A4_8000, 0x00A4_0000),
+            "ASM Tank.asm loc_3B2E4 into shared walker loc_3C0FA/loc_3C026: oracle settled frame 0 has the body one half-pixel ahead of the synced turret child",
         );
         assert_eq!(
-            first_tank.facing,
+            first_tank_body.facing,
             Some(Direction::Right),
             "ASM loc_3C152 -> loc_3C026 turns the leftward RockTank back to the set x_direction/rightward path before settled frame 0",
         );
@@ -6399,7 +6411,7 @@ mod chunk_09 {
                     object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
                         && object.layout_index == Some(1)
                         && object.y_pos == 0x00D8_0000
-                        && object.hit_points.is_none()
+                        && matches!(object.hit_points, None | Some(0))
                 })
                 .expect("Level 0x01 first RockTank turret child should be active");
             (body.x_pos, turret.x_pos)
@@ -6606,19 +6618,31 @@ mod chunk_09 {
         let frame_300 = trace
             .get(300)
             .expect("settled Level 0x01 frame 300 should be captured");
-        let first_tank = frame_300
+        let first_tank_body = frame_300
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00E0_0000
+                    && object.hit_points == Some(2)
+            })
+            .expect("Level 0x01 first RockTank body should still be active at frame 300");
+        let first_tank_turret = frame_300
             .active_objects
             .iter()
             .find(|object| {
                 object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
                     && object.layout_index == Some(1)
                     && object.y_pos == 0x00D8_0000
+                    && matches!(object.hit_points, None | Some(0))
             })
-            .expect("Level 0x01 first RockTank parent should still be active at frame 300");
+            .expect("Level 0x01 first RockTank turret child should still be active at frame 300");
 
         assert_eq!(
-            first_tank.x_pos, 0x00C4_0000,
-            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank parent at x=$00C4, not idling near spawn",
+            (first_tank_body.x_pos, first_tank_turret.x_pos),
+            (0x00C4_8000, 0x00C4_0000),
+            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank body one half-pixel ahead of its turret child",
         );
     }
 

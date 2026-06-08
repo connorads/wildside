@@ -126,7 +126,12 @@ impl NativeRuntime {
     }
 
     pub fn settle_oracle_warp_live_window(&mut self, level_id: LevelId) {
-        let target_live_frames = if level_id.0 <= 1 {
+        if level_id == LevelId(1) {
+            self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        }
+        let target_live_frames = if level_id == LevelId(1) {
+            ORACLE_SETTLED_WARP_LIVE_FRAMES + 1
+        } else if level_id.0 <= 1 {
             ORACLE_SETTLED_WARP_LIVE_FRAMES
         } else {
             1
