@@ -8913,11 +8913,12 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
     ) -> LevelCompleteGfxSnapshot {
         let frozen_active_objects = self.active_objects();
-        let (frozen_number_objects, base_number_gfx_objects) = self.object_counts_from_roster(
-            &frozen_active_objects,
-            slice.camera.x_pos,
-            slice.camera.y_pos,
-        );
+        let (frozen_number_objects, base_number_gfx_objects) = self
+            .object_counts_from_roster_without_runtime_transients(
+                &frozen_active_objects,
+                slice.camera.x_pos,
+                slice.camera.y_pos,
+            );
         LevelCompleteGfxSnapshot {
             frozen_active_objects,
             frozen_number_objects,

@@ -8516,7 +8516,27 @@ impl NativeRuntime {
         // Object_RAM coroutine for each rubber-block skin swap, but unlike
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
         let rubber_skin_workers = self.block_state.rubber_block_animations.len() as u16;
-        drips_child_workers.saturating_add(rubber_skin_workers)
+        let lava_special_effect_workers = self.lava_special_effect_object_only_worker_count();
+        drips_child_workers
+            .saturating_add(rubber_skin_workers)
+            .saturating_add(lava_special_effect_workers)
+    }
+
+    fn lava_special_effect_object_only_worker_count(&self) -> u16 {
+        if matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }) {
+            return 0;
+        }
+        let lava_objects =
+            self.weather.lava_geysers.len() as u16 + self.weather.lava_fireballs.len() as u16;
+        if lava_objects == 0 {
+            return 0;
+        }
+        // ASM Init_SpecialEffect_Lava loc_14C6A allocates one Obj_Lava_Geyser
+        // slot per geyser/fireball script. The same routine then allocates
+        // Animation_Geyser (loc_14B2A) as a palette coroutine. These workers
+        // increment Number_of_Objects but never call j_sub_E02, so they do not
+        // own Number_of_GfxObject entries.
+        lava_objects.saturating_add(1)
     }
 
     fn gameplay_transient_gfx_worker_count(&self) -> u16 {

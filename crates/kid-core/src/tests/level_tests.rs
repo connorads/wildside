@@ -3687,6 +3687,27 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level05_recording_settle_counts_lava_special_effect_workers_loc_14c6a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(5)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("one settled level 5 frame");
+
+        assert_eq!(
+            (trace.number_objects, trace.number_gfx_objects),
+            (9, 5),
+            "ASM Init_SpecialEffect_Lava loc_14C6A plus Animation_Geyser loc_14B2A own four object-only workers on USM2"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

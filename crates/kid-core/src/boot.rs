@@ -7481,6 +7481,10 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
+        self.projectiles.clear();
+        self.drips_surface_crawler_count_loc_fffffb42 = 0;
+        self.init_murder_wall(self.current_level, 0);
+        self.init_weather(self.current_level);
         self.level_timer = LevelTimer::new();
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -7499,6 +7503,8 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.level_start_frame = Some(self.frame_index);
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
+        self.init_murder_wall(self.current_level, 0);
+        self.init_weather(self.current_level);
     }
 
     /// Returns true if the frame should continue to physics/gameplay processing.
