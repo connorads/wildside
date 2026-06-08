@@ -2197,6 +2197,15 @@ into `LevelTransition` at frames 677/661. The route blocker is now a real
 climb/approach problem, not a Drips/block implementation signal; do not retry
 the old B-based "jump" tails.
 
+Follow-up 2026-06-08 visual route check for #213/#260: native captures for the
+best C-tail route (`536-620:c`, `536-700:right`) at
+`.cache/debug/issue260-c-tail/` show Kid jumping onto the right RockTank around
+frames 640/660, then falling through the lower gap by frame 680. Braking or
+backing off after the tank (`641-720:left`) and a second C jump (`650-690:c`,
+`650-720:left`) still fall into `LevelTransition` around frames 705/709. The
+tank can explain the HP-zero/death tail, but it has not produced a usable climb
+to the row-32 Drips/metal cells.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
