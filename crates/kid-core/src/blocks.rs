@@ -4100,11 +4100,15 @@ impl NativeRuntime {
             // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
             // its wake frame and deletes the prize while Kid's airborne object
             // is already at the loc_A6F8 hibernate point. Oracle keeps
-            // Current_Helmet unchanged but exposes the sub_7EB2 HP seed for
-            // the touched helmet during this held state.
-            self.prize_helmet_collision_hibernate_delay_frames =
-                self.prize_helmet_collision_hibernate_delay_frames.max(116);
+            // Current_Helmet unchanged through the old helmet's reverse table,
+            // then loc_7CD0 writes the new helmet before the forward table.
+            let old_frames = crate::combat::transform_anim_frames(self.progression.current_form);
+            let new_frames = crate::combat::transform_anim_frames(form);
+            self.prize_helmet_collision_hibernate_delay_frames = self
+                .prize_helmet_collision_hibernate_delay_frames
+                .max((old_frames + new_frames + 2) as u8);
             self.prize_helmet_collision_hibernate_hitpoints_form = Some(form);
+            self.prize_helmet_collision_hibernate_switch_form = Some(form);
         }
 
         for f in &mut self.floating_items {

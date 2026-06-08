@@ -157,6 +157,9 @@ pub struct NativeRuntime {
     /// Helmet whose sub_7EB2 hitpoint seed is exposed on the held loc_A6F8
     /// frames after a PrizeHelmet* object-side collision.
     prize_helmet_collision_hibernate_hitpoints_form: Option<PlayerForm>,
+    /// Helmet written to Current_Helmet after the old-helmet reverse table
+    /// finishes during the latched prize collision hibernate.
+    prize_helmet_collision_hibernate_switch_form: Option<PlayerForm>,
     /// ASM `Iron_Knight_block_breaker` ($FFFFFA6B): set by sub_AF7A after a
     /// handled Iron Knight block impact, cleared by sub_DB22 on the normal
     /// grounded clean-up path.
@@ -1336,6 +1339,7 @@ impl NativeRuntime {
             floating_items: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
             prize_helmet_collision_hibernate_hitpoints_form: None,
+            prize_helmet_collision_hibernate_switch_form: None,
             iron_knight_block_breaker: false,
             iron_knight_last_metal_block_hit: None,
             pending_prize_diamond_awards: Vec::new(),
@@ -2762,7 +2766,15 @@ impl NativeRuntime {
         self.step_shooter_headbutt_workers();
         if self.prize_helmet_collision_hibernate_delay_frames > 0 {
             self.prize_helmet_collision_hibernate_delay_frames -= 1;
-            if self.prize_helmet_collision_hibernate_delay_frames < 115 {
+            if self.prize_helmet_collision_hibernate_delay_frames == 0 {
+                // ASM loc_7E90 (kid.asm:8597): transform cleanup clears both
+                // velocity longwords before returning to the regular movement
+                // loop. The #258 latched-prize path reaches the same cleanup
+                // timing even though native models the visual transform as a
+                // hibernate-only special case.
+                slice.player.x_velocity = 0;
+                slice.player.y_velocity = 0;
+            } else if self.prize_helmet_collision_hibernate_delay_frames < 115 {
                 // ASM loc_A6F8 (kid.asm:13038): the airborne path has already
                 // run movement and Hibernate_Object_1Frame. PrizeHelmet*
                 // loc_105D6 can expose that held Kid pose after the object
@@ -2772,9 +2784,22 @@ impl NativeRuntime {
                 if let Some(form) = self.prize_helmet_collision_hibernate_hitpoints_form.take() {
                     // ASM sub_7EB2 (kid.asm:8614): the latched collision
                     // exposes the touched helmet's hitpoint seed even though
-                    // oracle keeps Current_Helmet unchanged on #258.
+                    // oracle keeps Current_Helmet unchanged until the old
+                    // helmet reverse table reaches loc_7CD0.
                     self.progression.number_hitpoints =
                         form.max_hitpoints() + self.progression.extra_hitpoint_slots;
+                }
+                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form {
+                    if self.prize_helmet_collision_hibernate_delay_frames
+                        == crate::combat::transform_anim_frames(form) as u8
+                    {
+                        // ASM loc_7CD0 (kid.asm:8426): after the old helmet's
+                        // reverse animation entries have hibernated, write
+                        // Current_Helmet_Available into Current_Helmet before
+                        // walking the new helmet's forward table.
+                        self.progression.current_form = form;
+                        self.prize_helmet_collision_hibernate_switch_form = None;
+                    }
                 }
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {

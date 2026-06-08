@@ -121,7 +121,7 @@ pub(crate) fn contact_damage_ouch_sound_loc_b73c(enemy_family: EnemyFamily) -> Q
 /// (kid.asm:8678-8812, stru_7EFA..stru_808A). TheKid (helmet 0) has no table.
 /// These counts sum the first `anim_frame` field only; the second field is sprite/meta
 /// data, not extra duration.
-fn transform_anim_frames(form: PlayerForm) -> u16 {
+pub(crate) fn transform_anim_frames(form: PlayerForm) -> u16 {
     match form {
         PlayerForm::TheKid => 0,
         PlayerForm::Skycutter => 47,  // stru_7EFA

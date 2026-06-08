@@ -18023,6 +18023,11 @@ mod chunk_02 {
             Some(PlayerForm::IronKnight),
             "ASM sub_7EB2 HP seed is exposed without changing Current_Helmet on the #258 latched collision"
         );
+        assert_eq!(
+            runtime.prize_helmet_collision_hibernate_switch_form,
+            Some(PlayerForm::IronKnight),
+            "ASM Kid_Transform loc_7CD0 should switch Current_Helmet only after the old helmet reverse table"
+        );
     }
 
     #[test]
