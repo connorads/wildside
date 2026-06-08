@@ -594,18 +594,12 @@ pub(super) fn select_player_frame<'a>(
         } else if x_velocity == 0 {
             &player_visuals.idle
         } else {
-            let frame_index = if trace.current_helmet_id == PlayerForm::Juggernaut.helmet_id()
-                || trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
-            {
-                // ASM loc_94B4/loc_97E8: Juggernaut indexes the
-                // walking/head-forward companion tables with
-                // `$FFFFF8F0 >> 8`.
-                // ASM loc_95DA/loc_9600 does the same for Berzerker's
-                // ordinary off_967C walk table.
-                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len()
-            } else {
-                (trace.frame_index / 4) % player_visuals.walk.len()
-            };
+            // ASM loc_95DA -> loc_9600/off_9618 indexes ordinary walking
+            // frames from `$FFFFF8F0 >> 8` for Kid and helmet forms. Native
+            // used to drive most forms from wall-clock frame time, which put
+            // Red Stealth's held-right slope approach visibly out of phase.
+            let frame_index =
+                usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
             &player_visuals.walk[frame_index]
         }
     } else if y_velocity < 0 {

@@ -4633,6 +4633,48 @@ mod tests {
     }
 
     #[test]
+    fn red_stealth_walk_frame_uses_walk_visual_accumulator_loc_9600() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(30),
+                sample_player_frame(31),
+                sample_player_frame(32),
+                sample_player_frame(33),
+                sample_player_frame(34),
+                sample_player_frame(35),
+            ],
+            charge: Vec::new(),
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: sample_player_frame(40),
+            jump_fall: sample_player_frame(41),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.frame_index = 0;
+        trace.kid_x_velocity = Some(0x0002_0000);
+        trace.kid_on_ground = Some(true);
+        trace.walk_visual_accumulator = 0x0308;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 33,
+            "ASM loc_95DA -> loc_9600/off_9658: Red Stealth ordinary walk frames are indexed by `$FFFFF8F0 >> 8`; $0308 selects phase 3 even when frame_index is 0"
+        );
+    }
+
+    #[test]
     fn juggernaut_slope_fallback_keeps_head_forward_phase_loc_94b4() {
         let visuals = PlayerFormVisuals {
             palette: Palette {
