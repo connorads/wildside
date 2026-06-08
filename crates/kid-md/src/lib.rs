@@ -24,6 +24,8 @@ const CONTROLLER_TH_HIGH_DELAY_CYCLES: u32 = 30;
 const CONTROLLER_TH_BIT: u8 = 6;
 const V_INT_COUNTER_ADDR: u32 = 0x00FF_F806;
 const V_INT_DONE_ADDR: u32 = 0x00FF_F80A;
+const CTRL_1_ADDR: u32 = 0x00FF_F80C;
+const CTRL_JOYPAD_LATCH_END_ADDR: u32 = 0x00FF_F81A;
 const CAMERA_X_POS_ADDR: u32 = 0x00FF_F81C;
 const CAMERA_Y_POS_ADDR: u32 = 0x00FF_F820;
 const NUMBER_OBJECTS_ADDR: u32 = 0x00FF_F84A;
@@ -758,6 +760,13 @@ impl MdRuntime {
         self.core
             .mem
             .write_work_ram_word(PLAYER_1_LEVEL_ID_ADDR, level_id);
+        // Debug/menu level selection bypasses ROM ReadJoypad. Clear loc_C4E/
+        // loc_C9C input latches so a held confirm/jump cannot leak into the
+        // first gameplay frame as movement or sfx_Jump.
+        self.set_controller_1(0);
+        for addr in CTRL_1_ADDR..=CTRL_JOYPAD_LATCH_END_ADDR {
+            self.core.mem.write_work_ram_byte(addr, 0);
+        }
     }
 
     pub fn set_game_mode(&mut self, mode: u16) {
@@ -4374,6 +4383,9 @@ mod tests {
         let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
 
         runtime.set_controller_1(0b0010_0001);
+        for addr in super::CTRL_1_ADDR..=super::CTRL_JOYPAD_LATCH_END_ADDR {
+            runtime.core.mem.write_work_ram_byte(addr, 0xFF);
+        }
         runtime.set_level_skip_cheat_enabled(true);
         runtime.set_current_level(0x1234);
         runtime.set_game_mode(0x0042);
@@ -4381,7 +4393,15 @@ mod tests {
         runtime.set_lives(9);
         runtime.set_hitpoints(6);
 
-        assert_eq!(runtime.core.mem.io.p1_port.buttons, 0b0010_0001);
+        assert_eq!(runtime.core.mem.io.p1_port.buttons, 0);
+        assert_eq!(
+            runtime.read_work_ram_range(
+                super::CTRL_1_ADDR,
+                (super::CTRL_JOYPAD_LATCH_END_ADDR - super::CTRL_1_ADDR + 1) as usize
+            ),
+            vec![0; (super::CTRL_JOYPAD_LATCH_END_ADDR - super::CTRL_1_ADDR + 1) as usize],
+            "debug Level cheat must clear ReadJoypad loc_C4E/loc_C9C latches"
+        );
         assert_eq!(
             runtime
                 .core
