@@ -1530,6 +1530,58 @@ pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
     }
 }
 
+/// Current #213/#260 Drips cleaner-prefix route window.
+///
+/// This preserves the first oracle-clean route variant that keeps Kid live after
+/// two DripsSurfaceCrawler sightings without falling into the lower-pit
+/// LevelTransition. It still does not reach the reported metal-block contact,
+/// but it is a better extension seed than the older one-crawler healthy prefix.
+pub fn issue_260_drips_cleaner_prefix_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 536;
+    const LEFT: u8 = 1 << 2;
+    const RIGHT: u8 = 1 << 3;
+    const B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, 240, RIGHT);
+    apply_range(&mut script, 60, 120, B);
+    apply_range(&mut script, 170, 260, LEFT);
+
+    DynamicScenario {
+        slug: "issue_260_drips_cleaner_prefix_audit_01".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "lower_floor_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "first_drips_drop_window".into(),
+                frame_index: 108,
+            },
+            DynamicCheckpoint {
+                label: "first_crawler_window".into(),
+                frame_index: 376,
+            },
+            DynamicCheckpoint {
+                label: "second_crawler_window".into(),
+                frame_index: 518,
+            },
+            DynamicCheckpoint {
+                label: "live_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1905,8 +1957,9 @@ mod tests {
         issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
-        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+        issue_260_drips_cleaner_prefix_audit_scenario, lava_weather_audit_scenario,
+        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
+        walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
         walk_right_red_stealth_scenario, walk_right_scenario,
     };
 
@@ -2021,6 +2074,50 @@ mod tests {
                 "drop_tail_window",
                 "tank_evade_window",
                 "pre_crawler_contact_tail"
+            ]
+        );
+    }
+
+    #[test]
+    fn issue_260_drips_cleaner_prefix_audit_preserves_two_crawler_windows() {
+        let scenario = issue_260_drips_cleaner_prefix_audit_scenario();
+
+        assert_eq!(scenario.slug, "issue_260_drips_cleaner_prefix_audit_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 536);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        assert_eq!(scenario.script[0], 1 << 3);
+        assert_eq!(scenario.script[60], (1 << 3) | (1 << 4));
+        assert_eq!(scenario.script[108], (1 << 3) | (1 << 4));
+        assert_eq!(scenario.script[170], (1 << 2) | (1 << 3));
+        assert_eq!(scenario.script[190], (1 << 2) | (1 << 3));
+        assert_eq!(scenario.script[241], 1 << 2);
+        assert_eq!(scenario.script[261], 0);
+        assert_eq!(scenario.script[535], 0);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "lower_floor_start",
+                "first_drips_drop_window",
+                "first_crawler_window",
+                "second_crawler_window",
+                "live_tail"
             ]
         );
     }

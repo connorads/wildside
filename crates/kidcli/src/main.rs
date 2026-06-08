@@ -76,7 +76,8 @@ use scenarios::{
     issue_249_blw2_left_pit_wall_no_jump_audit_scenario,
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
-    lava_weather_audit_scenario, level_00_slope_right_probe_iron_knight_scenario,
+    issue_260_drips_cleaner_prefix_audit_scenario, lava_weather_audit_scenario,
+    level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
     prize_block_scenario, run_native_dynamic_scenario, stomp_enemy_scenario,
@@ -172,6 +173,8 @@ enum RecordScenarioKind {
     Issue213DripsMetalBlockAudit,
     /// delayed Level 01 B-jump that activates Drips drops before the fall tail (#155/#213).
     Issue213DripsDelayedBDropAudit,
+    /// cleaner Level 01 Drips prefix with two crawler sightings and live tail (#213/#260).
+    Issue260DripsCleanerPrefixAudit,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
     Issue249WallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
@@ -2835,6 +2838,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue213DripsDelayedBDropAudit => {
             issue_213_drips_delayed_b_drop_audit_scenario()
         }
+        RecordScenarioKind::Issue260DripsCleanerPrefixAudit => {
+            issue_260_drips_cleaner_prefix_audit_scenario()
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             issue_249_juggernaut_wall_no_jump_audit_scenario()
@@ -2923,6 +2929,9 @@ fn record_scenario_command(
         RecordScenarioKind::Issue147WallSideJumpAudit => "issue147-wall-side-jump-audit",
         RecordScenarioKind::Issue213DripsMetalBlockAudit => "issue213-drips-metal-block-audit",
         RecordScenarioKind::Issue213DripsDelayedBDropAudit => "issue213-drips-delayed-b-drop-audit",
+        RecordScenarioKind::Issue260DripsCleanerPrefixAudit => {
+            "issue260-drips-cleaner-prefix-audit"
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             "issue249-juggernaut-wall-no-jump-audit"
@@ -5455,6 +5464,21 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-213-drips-metal-block-audit --scenario issue213-drips-metal-block-audit --level 01"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_issue260_drips_cleaner_prefix_audit() {
+        let command = record_scenario_command(
+            "issue-260-drips-cleaner-prefix-audit",
+            RecordScenarioKind::Issue260DripsCleanerPrefixAudit,
+            0x01,
+            None,
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-260-drips-cleaner-prefix-audit --scenario issue260-drips-cleaner-prefix-audit --level 01"
         );
     }
 
