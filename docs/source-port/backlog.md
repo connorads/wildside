@@ -2233,6 +2233,21 @@ pixel left (`$00C5/$00C5.8`) and ground/debug-field differences versus oracle
 should either classify/fix the frame-603 RockTank roster divergence or extend
 from the CRC-clean gameplay route without assuming enemy-frontier object parity.
 
+Follow-up 2026-06-08 route-search note for #213/#260: post-climb and earlier
+vertical setup overlays still do not reach the reported row-32 Drips/metal-block
+interaction. A live negative variant
+(`430-1000:none`, `450-660:right`, `450-560:b`, `660-820:left`,
+`780-850:b+left`) stays `InGame` through frame 1000, keeps Drips layouts #7/#8
+active, and emits `DripsDrop` through frame 913, but native captures in
+`.cache/debug/issue260-live-negative-variant/` show Kid landing back on the
+bottom floor and walking left; max x is `$03D94700` at frame 671 and final Kid
+is `$027B7000,$024F0000`. Short-hop/shelf attempts that clear inputs from frame
+420 and jump/right at 420, 430, or 440 all enter `LevelTransition` by frames
+587, 599, or 706, while vertical-hop/right-tap/left-wall variants die by
+frames 671..677. Do not retry these exact early B-jump shelf timings; next route
+work needs a different vertical-position axis or a different approach to the
+row-32/row-20 block corridor.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
