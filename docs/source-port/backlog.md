@@ -2184,6 +2184,19 @@ row-32 Drips/metal cells or the reported metal-block mutation. Next work should
 extend or climb from this cleaner prefix instead of patching Drips/block
 behaviour from the lower-floor crawler sighting alone.
 
+Follow-up 2026-06-08 route-search correction for #213/#260: native debug fields
+showed the prior `...:b` overlays were not jump attempts (`kid_jump_gravity_probe`
+reported `jump=0` while `b_held=1`); route-search overlays must use `c` for jump.
+The current Level 01 layout window has the reported row-32 cells around cols
+28/36 (`C2D`) while the cleaner prefix remains on the lower row-37 shelf. Fresh
+probes from `issue260-drips-cleaner-prefix-audit` show `536-620:c` +
+`536-700:right` stays in `InGame` through frame 700 and reaches x `$02D3`, but
+HP is already 0 and Kid is below the target row; earlier C timings (`500-580:c`
+and `480-560:c` with right held) reach farther right (`$02E5..$02ED`) but fall
+into `LevelTransition` at frames 677/661. The route blocker is now a real
+climb/approach problem, not a Drips/block implementation signal; do not retry
+the old B-based "jump" tails.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
