@@ -524,13 +524,22 @@ pub(super) fn select_player_frame<'a>(
         }
     }
 
+    let iron_knight_attach_hibernate = trace.current_helmet_id == PlayerForm::IronKnight.helmet_id()
+        && trace.iron_knight_climbing
+        && trace.iron_knight_climb_pose_accum == 0
+        && y_velocity == -0x4000;
     if trace.current_helmet_id == PlayerForm::IronKnight.helmet_id()
         && trace.iron_knight_climbing
+        && !iron_knight_attach_hibernate
         && !player_visuals.climb.is_empty()
     {
         // ASM sub_A3BC (kid.asm:12710-12715) stores d3, buckets `d3 >> 2`
         // through `unk_A3F0`, then writes `off_A420` into addroffset_sprite.
         // Preserve that sprite write directly; a stationary cling is not idle.
+        //
+        // ASM loc_A276 seeds d3=0/y_vel=$FFFFC000 and hibernates through
+        // loc_A28A before sub_A3BC has written an off_A420 climb sprite, so
+        // the exact attach snapshot must fall through to the ordinary pose.
         let frame_index = match trace.iron_knight_climb_pose_accum >> 2 {
             0..=15 => 0,
             16..=31 => 1,

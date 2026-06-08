@@ -9704,7 +9704,7 @@ mod tests {
     }
 
     fn is_player_test_signature(signature: u8) -> bool {
-        (1..=47).contains(&signature)
+        (1..=52).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
@@ -9741,6 +9741,44 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert_eq!(player_sprite_signature(&scene), Some(10));
+    }
+
+    #[test]
+    fn iron_knight_attach_hibernate_preserves_pre_sub_a3bc_pose_loc_a276() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        trace.kid_on_ground = Some(false);
+        trace.kid_x_velocity = Some(0);
+        trace.kid_y_velocity = Some(-0x4000);
+        trace.iron_knight_climbing = true;
+        trace.iron_knight_climb_pose_accum = 0;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(17),
+            "ASM loc_A276 seeds wall climb and hibernates before sub_A3BC writes off_A420, so the attach frame must not force iron_knight_climbing_3"
+        );
+    }
+
+    #[test]
+    fn iron_knight_resume_climb_uses_sub_a3bc_pose_after_attach_loc_a330() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        trace.kid_on_ground = Some(false);
+        trace.kid_x_velocity = Some(0);
+        trace.kid_y_velocity = Some(-0x3F80);
+        trace.iron_knight_climbing = true;
+        trace.iron_knight_climb_pose_accum = 0;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(50),
+            "ASM loc_A330 calls sub_A3BC on the resume loop, so a post-attach climb frame should still use the bottom off_A420 pose"
+        );
     }
 
     #[test]
