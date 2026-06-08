@@ -512,6 +512,7 @@ pub(crate) struct KidFlipFollowOnProbe {
     pub(crate) branch: KidFlipBranchSelection,
     pub(crate) motion_branch: KidFrameMotionBranch,
     pub(crate) post_motion_mutator: KidFramePostMotionMutator,
+    pub(crate) wall_hit_after_floor: bool,
     pub(crate) stages: KidFlipFollowOnStages,
 }
 

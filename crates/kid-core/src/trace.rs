@@ -2251,6 +2251,7 @@ mod tests {
                 branch: KidFlipBranchSelection::NoButtonBranch,
                 motion_branch: KidFrameMotionBranch::NormalPhysics,
                 post_motion_mutator: KidFramePostMotionMutator::None,
+                wall_hit_after_floor: has_rubber_worker,
                 stages: KidFlipFollowOnStages {
                     entry: KidFlipFollowOnStageState {
                         x_velocity: 0x0005_0000,
@@ -2318,6 +2319,64 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_reports_loc_8e98_slope_tilesnap_as_standing() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 0x02ef_0000;
+        player.y_pos = 0x00ef_0000;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        runtime.trace_input.right = true;
+        runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+            branch: KidFlipBranchSelection::NoWallPath,
+            motion_branch: KidFrameMotionBranch::NormalPhysics,
+            post_motion_mutator: KidFramePostMotionMutator::None,
+            wall_hit_after_floor: false,
+            stages: KidFlipFollowOnStages {
+                entry: KidFlipFollowOnStageState {
+                    x_velocity: 0x0002_0000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_press_away: KidFlipFollowOnStageState {
+                    x_velocity: 0x0002_0000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_jump_gravity: KidFlipFollowOnStageState {
+                    x_velocity: 0x0002_0000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_floor: KidFlipFollowOnStageState {
+                    x_velocity: 0x0002_0000,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+                after_wall: KidFlipFollowOnStageState {
+                    x_velocity: 0,
+                    y_velocity: 0,
+                    on_ground: true,
+                    wall_cling_direction: None,
+                },
+            },
+        });
+
+        assert_eq!(
+            runtime.current_character_movement(player),
+            0,
+            "ASM loc_8E98 -> loc_8EC8: Red Stealth's current-row slope tile-snap can clear x_vel without taking the loc_8E74 wall-snap branch, so the trace must report MoveID_Standingstill",
+        );
+    }
+
+    #[test]
     fn current_character_movement_keeps_held_left_boundary_clamp_walking_loc_8ff8() {
         let mut player = PlayerState::title_pose();
         player.x_pos = (PlayerForm::TheKid.half_width() as u32) << 16;
@@ -2351,6 +2410,7 @@ mod tests {
             branch: KidFlipBranchSelection::NoButtonBranch,
             motion_branch: KidFrameMotionBranch::NormalPhysics,
             post_motion_mutator: KidFramePostMotionMutator::None,
+            wall_hit_after_floor: true,
             stages: KidFlipFollowOnStages {
                 entry: KidFlipFollowOnStageState {
                     x_velocity: -0x0000_c000,
@@ -5259,6 +5319,7 @@ impl NativeRuntime {
         probe.motion_branch == KidFrameMotionBranch::NormalPhysics
             && matches!(self.boot_state, BootState::InGame)
             && probe.post_motion_mutator == KidFramePostMotionMutator::None
+            && probe.wall_hit_after_floor
             && probe.stages.after_floor.on_ground
             && probe.stages.after_floor.x_velocity != 0
             && probe.stages.after_wall.on_ground
@@ -6753,10 +6814,11 @@ impl NativeRuntime {
         let probe = self.last_kid_frame_kid_flip_follow_on_probe?;
 
         Some(format!(
-            "branch={}/motion={}/post={}/entry[{}/ground={}/wall_cling={}]/press_away[{}/ground={}/wall_cling={}]/jump_gravity[{}/ground={}/wall_cling={}]/floor[{}/ground={}/wall_cling={}]/wall[{}/ground={}/wall_cling={}]",
+            "branch={}/motion={}/post={}/wall_hit_after_floor={}/entry[{}/ground={}/wall_cling={}]/press_away[{}/ground={}/wall_cling={}]/jump_gravity[{}/ground={}/wall_cling={}]/floor[{}/ground={}/wall_cling={}]/wall[{}/ground={}/wall_cling={}]",
             probe.branch.as_debug_label(),
             probe.motion_branch.as_debug_label(),
             probe.post_motion_mutator.as_debug_label(),
+            u8::from(probe.wall_hit_after_floor),
             kid_flip_follow_on_stage_debug(probe.stages.entry),
             u8::from(probe.stages.entry.on_ground),
             direction_debug_label(probe.stages.entry.wall_cling_direction),

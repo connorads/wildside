@@ -13187,6 +13187,7 @@ mod chunk_03 {
             branch: KidFlipBranchSelection::CPressedFallthrough,
             motion_branch: KidFrameMotionBranch::NormalPhysics,
             post_motion_mutator: KidFramePostMotionMutator::None,
+            wall_hit_after_floor: false,
             stages: KidFlipFollowOnStages {
                 entry: KidFlipFollowOnStageState {
                     x_velocity: 0,

@@ -2341,6 +2341,7 @@ impl NativeRuntime {
                     branch,
                     motion_branch: self.last_kid_frame_motion_branch,
                     post_motion_mutator: self.last_kid_frame_post_motion_mutator,
+                    wall_hit_after_floor: slice.physics_trace.is_some_and(|trace| trace.wall_hit),
                     stages,
                 });
     }
