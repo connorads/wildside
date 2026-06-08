@@ -80,7 +80,9 @@ use scenarios::{
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
-    issue_260_drips_early_jump_close_probe_scenario, lava_weather_audit_scenario,
+    issue_260_drips_early_jump_close_probe_scenario,
+    issue_271_level00_dragon_stomp_damage_audit_scenario,
+    issue_271_level01_rock_tank_stomp_route_audit_scenario, lava_weather_audit_scenario,
     level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
@@ -199,6 +201,10 @@ enum RecordScenarioKind {
     Issue249Blw2LeftPitWallKidNoJumpAudit,
     /// drive Red Stealth/Samurai into Blue Lake Woods 2's left pit wall without jump (#249/#270).
     Issue249Blw2LeftPitWallRedStealthNoJumpAudit,
+    /// preserve the current Level 00 Dragon side-graze damage route before sharpening #271.
+    Issue271Level00DragonStompDamageAudit,
+    /// preserve the current Level 01 RockTank stomp route miss before sharpening #271.
+    Issue271Level01RockTankStompRouteAudit,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2983,6 +2989,12 @@ fn build_record_scenario(
         RecordScenarioKind::Issue249Blw2LeftPitWallRedStealthNoJumpAudit => {
             issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario()
         }
+        RecordScenarioKind::Issue271Level00DragonStompDamageAudit => {
+            issue_271_level00_dragon_stomp_damage_audit_scenario()
+        }
+        RecordScenarioKind::Issue271Level01RockTankStompRouteAudit => {
+            issue_271_level01_rock_tank_stomp_route_audit_scenario()
+        }
     }
 }
 
@@ -3084,6 +3096,12 @@ fn record_scenario_command(
         }
         RecordScenarioKind::Issue249Blw2LeftPitWallRedStealthNoJumpAudit => {
             "issue249-blw2-left-pit-wall-red-stealth-no-jump-audit"
+        }
+        RecordScenarioKind::Issue271Level00DragonStompDamageAudit => {
+            "issue271-level00-dragon-stomp-damage-audit"
+        }
+        RecordScenarioKind::Issue271Level01RockTankStompRouteAudit => {
+            "issue271-level01-rock-tank-stomp-route-audit"
         }
     };
     let mut command = format!(
@@ -5523,6 +5541,53 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn build_record_scenario_issue271_stomp_audits_ignore_generic_level_arg() {
+        let dragon = build_record_scenario(
+            RecordScenarioKind::Issue271Level00DragonStompDamageAudit,
+            0x7F,
+            None,
+        );
+        let tank = build_record_scenario(
+            RecordScenarioKind::Issue271Level01RockTankStompRouteAudit,
+            0x7F,
+            None,
+        );
+
+        assert_eq!(
+            dragon.slug,
+            "issue_271_level00_dragon_stomp_damage_audit_00"
+        );
+        assert_eq!(
+            dragon.warp_to_level,
+            Some(0x00),
+            "the named #271 Dragon audit preserves today's Level 00 side-graze route"
+        );
+        assert!(
+            dragon.checkpoints.iter().any(|checkpoint| checkpoint.label
+                == "dragon_graze_damage_window_loc_1c76"
+                && checkpoint.frame_index == 137),
+            "ASM GfxObjects_CollisionKid loc_1C76 side-contact window stays named until a sharper stomp route exists"
+        );
+
+        assert_eq!(
+            tank.slug,
+            "issue_271_level01_rock_tank_stomp_route_audit_01"
+        );
+        assert_eq!(
+            tank.warp_to_level,
+            Some(0x01),
+            "the named #271 Tank audit preserves today's Level 01 miss route"
+        );
+        assert!(
+            tank.checkpoints
+                .iter()
+                .any(|checkpoint| checkpoint.label == "closest_tank_pass_miss"
+                    && checkpoint.frame_index == 171),
+            "current generic Level 01 route misses the Tank collision box and must be sharpened before gameplay changes"
+        );
+    }
+
+    #[test]
     fn build_record_scenario_issue249_blw2_left_pit_wall_no_jump_targets_reported_pit() {
         let scenario = build_record_scenario(
             RecordScenarioKind::Issue249Blw2LeftPitWallNoJumpAudit,
@@ -5787,6 +5852,31 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-260-drips-early-jump-close-probe --scenario issue260-drips-early-jump-close-probe --level 01"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_issue271_stomp_audits() {
+        let dragon_command = record_scenario_command(
+            "issue-271-level00-dragon-stomp-damage-audit",
+            RecordScenarioKind::Issue271Level00DragonStompDamageAudit,
+            0x00,
+            None,
+        );
+        let tank_command = record_scenario_command(
+            "issue-271-level01-rock-tank-stomp-route-audit",
+            RecordScenarioKind::Issue271Level01RockTankStompRouteAudit,
+            0x01,
+            None,
+        );
+
+        assert_eq!(
+            dragon_command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-271-level00-dragon-stomp-damage-audit --scenario issue271-level00-dragon-stomp-damage-audit --level 00"
+        );
+        assert_eq!(
+            tank_command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-271-level01-rock-tank-stomp-route-audit --scenario issue271-level01-rock-tank-stomp-route-audit --level 01"
         );
     }
 

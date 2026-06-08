@@ -107,6 +107,16 @@ and later-level helmet prize blocks may not be mapped/extracted correctly. These
 are current human-play-stability checks against the latest pushed changes, not
 historical closed-state evidence.
 
+Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
+prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
+damage, but the contact is a side-graze baseline matching the existing
+`GfxObjects_CollisionKid` `loc_1C76` damage classification. Level 01 RockTank
+with the same route misses the Tank collision box entirely; frame 171 is the
+closest pass, still separated vertically. Added named audit routes
+`issue271-level00-dragon-stomp-damage-audit` and
+`issue271-level01-rock-tank-stomp-route-audit` so the next loop can sharpen the
+human-shaped approach route before changing shared stomp/contact logic.
+
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
