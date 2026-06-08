@@ -165,7 +165,7 @@ const PAUSE_RESUME_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
-const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 6] = [
+const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 8] = [
     GameplayCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -189,6 +189,14 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 6] = [
     GameplayCheckpoint {
         label: "respawn_bootstrap_tail_9500",
         frame_index: 9_500,
+    },
+    GameplayCheckpoint {
+        label: "respawn_bootstrap_tail_10500",
+        frame_index: 10_500,
+    },
+    GameplayCheckpoint {
+        label: "respawn_bootstrap_tail_12200",
+        frame_index: 12_200,
     },
 ];
 
@@ -1795,7 +1803,7 @@ impl GameplayScenario {
     pub fn frame_count(self) -> usize {
         match self {
             Self::PauseResumeLevel1 => 1_120,
-            Self::DeathRespawnLevel1 => 9_501,
+            Self::DeathRespawnLevel1 => 12_251,
             Self::DeathRespawnStartResumeLevel1 => 1_951,
             Self::ProgressTwoTransitions => 3_301,
             Self::SoakLevel10m => 36_720,
@@ -2600,11 +2608,16 @@ mod tests {
         assert_eq!(script[8_000] & (1 << 3), 0);
         assert_eq!(script[8_500] & (1 << 3), 0);
         assert_eq!(script[9_000] & (1 << 3), 0);
+        assert_eq!(script[9_500] & (1 << 3), 0);
+        assert_eq!(script[10_500] & (1 << 3), 0);
+        assert_eq!(script[11_000] & (1 << 3), 0);
+        assert_eq!(script[11_500] & (1 << 3), 0);
+        assert_eq!(script[12_200] & (1 << 3), 0);
     }
 
     #[test]
     fn gameplay_death_scenario_extends_past_the_hidden_respawn_bootstrap() {
-        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 9_501);
+        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 12_251);
         assert_eq!(
             GameplayScenario::DeathRespawnLevel1
                 .checkpoints()
@@ -2618,6 +2631,8 @@ mod tests {
                 ("respawn_tail", 1_919),
                 ("respawn_bootstrap_tail", 9_000),
                 ("respawn_bootstrap_tail_9500", 9_500),
+                ("respawn_bootstrap_tail_10500", 10_500),
+                ("respawn_bootstrap_tail_12200", 12_200),
             ]
         );
     }
