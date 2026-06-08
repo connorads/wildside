@@ -1,4 +1,5 @@
 use super::*;
+use kid_core::{FrameInput, LevelId, NativeRuntime, PlayerForm};
 use scenarios::{
     DynamicScenario, NativeDynamicRunOptions, idle_level_scenario, prize_block_scenario,
     run_native_dynamic_scenario, stomp_enemy_scenario, walk_right_scenario,
@@ -86,7 +87,7 @@ pub(crate) fn capture_scenario_frames(
 ) -> Result<()> {
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
-        render_scene,
+        render_scene, render_vdp_trace_overlay,
     };
 
     fs::create_dir_all(output_dir)
@@ -94,35 +95,126 @@ pub(crate) fn capture_scenario_frames(
 
     // The warp target drives which level's visuals/block grid to load; default
     // to level 0 (the boot level) when the scenario does not warp.
-    let level_id = scenario.warp_to_level.unwrap_or(0);
+    let mut current_visual_level = scenario.warp_to_level.unwrap_or(0);
 
-    let native_trace = run_native_dynamic_scenario(
-        manifest.clone(),
-        scenario,
-        NativeDynamicRunOptions::default(),
-    )?;
+    let full_frame_filter = filter.background
+        && filter.terrain
+        && filter.block_overrides
+        && filter.platforms
+        && filter.enemies
+        && filter.player
+        && filter.effects
+        && filter.eol_score
+        && filter.hud;
+    let native_trace = if full_frame_filter {
+        None
+    } else {
+        Some(run_native_dynamic_scenario(
+            manifest.clone(),
+            scenario,
+            NativeDynamicRunOptions::default(),
+        )?)
+    };
 
-    let (level_visuals, block_grid) = load_session_assets(manifest, level_id)?;
+    let (mut level_visuals, mut block_grid) = load_session_assets(manifest, current_visual_level)?;
     let w = NATIVE_FRAME_WIDTH as usize;
     let h = NATIVE_FRAME_HEIGHT as usize;
 
-    for &frame_idx in frame_indices {
-        let Some(frame) = native_trace.get(frame_idx) else {
-            println!(
-                "  frame {frame_idx}: not in trace (len={})",
-                native_trace.len()
-            );
-            continue;
+    let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+    if let Some(level) = scenario.warp_to_level {
+        let target_level = LevelId(level);
+        runtime.boot_to_level(target_level);
+        if scenario.settle_oracle_warp {
+            runtime.settle_recording_oracle_warp_live_window(target_level);
+        }
+    }
+    if let Some(position) = scenario.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+    if let Some(position) = scenario.camera_position {
+        runtime.set_camera_probe_position(position.x, position.y);
+    }
+    if let Some(helmet_id) = scenario.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runtime.set_playtest_form(form);
+    }
+    if let Some(count) = scenario.initial_diamond_count {
+        runtime.set_probe_diamond_count(count);
+    }
+
+    let mut sorted_frames = frame_indices.to_vec();
+    sorted_frames.sort_unstable();
+    sorted_frames.dedup();
+    let mut requested = sorted_frames.iter().peekable();
+    let max_frame = sorted_frames.last().copied().unwrap_or(0);
+    let delay_recording_input = scenario.settle_oracle_warp && scenario.warp_to_level.is_some();
+
+    for frame_idx in 0..=max_frame {
+        let input_index = if delay_recording_input {
+            frame_idx.checked_sub(1)
+        } else {
+            Some(frame_idx)
         };
-        let scene = build_scene_filtered(
-            frame,
-            false,
-            Some(&level_visuals),
-            Some(&block_grid),
-            filter,
-        );
+        let buttons = input_index
+            .and_then(|index| scenario.script.get(index))
+            .copied()
+            .unwrap_or(0);
+        let trace = runtime.step_frame(FrameInput::from_mask(buttons));
+
+        if !requested.peek().is_some_and(|&&wanted| wanted == frame_idx) {
+            continue;
+        }
+        requested.next();
+
+        if trace.current_level.0 != current_visual_level {
+            current_visual_level = trace.current_level.0;
+            let loaded = load_session_assets(manifest, trace.current_level.0)?;
+            level_visuals = loaded.0;
+            block_grid = loaded.1;
+        }
+
         let mut rgb = vec![0u8; w * h * 3];
-        render_scene(&scene, &mut rgb);
+        if full_frame_filter {
+            if let Some(vdp) = runtime.vdp_state() {
+                let snapshot = kid_md::VdpSnapshot {
+                    registers: vdp.registers,
+                    vram: vdp.vram.clone(),
+                    cram: vdp.cram.clone(),
+                    vsram: vdp.vsram.clone(),
+                };
+                kid_md::render_vdp_into(&snapshot, &mut rgb);
+                render_vdp_trace_overlay(&trace, &level_visuals, &mut rgb);
+            } else {
+                let scene = build_scene_filtered(
+                    &trace,
+                    false,
+                    Some(&level_visuals),
+                    Some(&block_grid),
+                    filter,
+                );
+                render_scene(&scene, &mut rgb);
+            }
+        } else {
+            let native_trace = native_trace
+                .as_ref()
+                .expect("layer capture should have trace");
+            let Some(frame) = native_trace.get(frame_idx) else {
+                println!(
+                    "  frame {frame_idx}: not in trace (len={})",
+                    native_trace.len()
+                );
+                continue;
+            };
+            let scene = build_scene_filtered(
+                frame,
+                false,
+                Some(&level_visuals),
+                Some(&block_grid),
+                filter,
+            );
+            render_scene(&scene, &mut rgb);
+        }
 
         let filename = format!("{}_frame_{frame_idx:05}.png", scenario.slug);
         let path = output_dir.join(&filename);

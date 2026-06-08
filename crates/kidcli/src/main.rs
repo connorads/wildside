@@ -56,14 +56,14 @@ use native_player::{
 use oracle::{
     EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
     OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
-    run_jgenesis_enemy_layout_trace,
+    run_jgenesis_capture_dynamic, run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
 use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
-    DynamicScenario, GameplayScenario, NativeDynamicRunOptions, Scenario,
+    DynamicCheckpoint, DynamicScenario, GameplayScenario, NativeDynamicRunOptions, Scenario,
     diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
     diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
     diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
@@ -785,6 +785,27 @@ enum Commands {
         /// block_overrides, platforms, enemies, player, effects, hud)
         #[arg(long)]
         layer: Option<String>,
+    },
+    /// Render ORACLE ROM frames while replaying a DynamicScenario.
+    ///
+    /// Complements `capture-scenario-frames`, which renders the native engine.
+    /// Unlike `render-frame`, this honours DynamicScenario warp/settle/probe
+    /// fields and is suitable for manual title/menu or settled gameplay routes.
+    CaptureOracleScenarioFrames {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON (e.g. a recording's scenario.json)
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Overlay input ranges, e.g. `60-600:right+c` or `120:b`.
+        #[arg(long)]
+        input: Vec<String>,
+        /// Comma-separated frame indices to capture
+        #[arg(long, default_value = "30,60,120,240,360")]
+        frames: String,
+        /// Output directory for PNGs and oracle manifest
+        #[arg(long, default_value = ".cache/captures-oracle")]
+        output: PathBuf,
     },
     /// Verify a TAS scenario against the oracle (native vs emulator comparison).
     VerifyTas {
@@ -1905,6 +1926,51 @@ fn main() -> Result<()> {
             }
             sweep::capture_scenario_frames(&manifest, &dynamic, &frame_indices, &output, filter)?;
         }
+        Commands::CaptureOracleScenarioFrames {
+            rom,
+            scenario,
+            input,
+            frames,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let env = ensure_oracles(&repo_root)?;
+            let frame_indices: Vec<usize> = frames
+                .split(',')
+                .map(|s| s.trim().parse::<usize>().context("invalid frame index"))
+                .collect::<Result<_>>()?;
+            let dynamic = dynamic_scenario_with_frame_checkpoints(
+                apply_dynamic_scenario_input_overlays(
+                    load_record_scenario_file(&scenario)?,
+                    &input,
+                )?,
+                &frame_indices,
+            );
+            fs::create_dir_all(&output)
+                .with_context(|| format!("failed to create {}", output.display()))?;
+            let scenario_path = output.join("oracle-frame-scenario.json");
+            fs::write(&scenario_path, serde_json::to_vec_pretty(&dynamic)?)
+                .with_context(|| format!("failed to write {}", scenario_path.display()))?;
+            let skip_frames_before = frame_indices.iter().min().copied();
+            let oracle = run_jgenesis_capture_dynamic(
+                &env,
+                &rom_path,
+                &scenario_path,
+                &output,
+                skip_frames_before,
+            )?;
+            fs::write(
+                output.join("manifest.json"),
+                serde_json::to_vec_pretty(&oracle)?,
+            )
+            .with_context(|| {
+                format!("failed to write {}", output.join("manifest.json").display())
+            })?;
+            for frame in &oracle.frames {
+                println!("  saved {}", frame.png_path.display());
+            }
+        }
         Commands::DumpEnemySheet {
             rom,
             dir,
@@ -2708,6 +2774,30 @@ fn apply_dynamic_scenario_input_overlays(
     Ok(scenario)
 }
 
+fn dynamic_scenario_with_frame_checkpoints(
+    mut scenario: DynamicScenario,
+    frame_indices: &[usize],
+) -> DynamicScenario {
+    let mut frames = frame_indices.to_vec();
+    frames.sort_unstable();
+    frames.dedup();
+    if let Some(last_frame) = frames.last().copied() {
+        let required_len = last_frame.saturating_add(1);
+        scenario.frame_count = scenario.frame_count.max(required_len);
+        if scenario.script.len() < required_len {
+            scenario.script.resize(required_len, 0);
+        }
+    }
+    scenario.checkpoints = frames
+        .into_iter()
+        .map(|frame_index| DynamicCheckpoint {
+            label: format!("frame_{frame_index:05}"),
+            frame_index,
+        })
+        .collect();
+    scenario
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct FrameInputRange {
     start: usize,
@@ -3229,15 +3319,16 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, PlayerForm,
-        RecordScenarioKind, ReferenceName, analyse_audio_samples,
+        DynamicCheckpoint, DynamicScenario, GameplayCapture, GameplayScenario, GameplayState,
+        PlayerForm, RecordScenarioKind, ReferenceName, analyse_audio_samples,
         apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
-        ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
-        gameplay_checkpoint_window, native_trace_to_oracle_state, oracle_probe_watch_row_in_range,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
+        dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
+        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
+        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
+        record_scenario_file_command, recording_scenario_manifest,
         recording_start_for_dynamic_scenario, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
@@ -3525,6 +3616,44 @@ AddrTbl_LevelNames:
         assert!(scenario.script.len() >= 7);
         assert_eq!(scenario.frame_count, 6);
         assert_eq!(scenario.script[5], (1 << 3) | (1 << 5));
+    }
+
+    #[test]
+    fn dynamic_frame_capture_checkpoints_are_sorted_unique_and_extend_script() {
+        let scenario = DynamicScenario {
+            slug: String::from("test-frame-capture"),
+            script: vec![0, 1 << 3],
+            frame_count: 2,
+            checkpoints: vec![DynamicCheckpoint {
+                label: String::from("old"),
+                frame_index: 1,
+            }],
+            start_position: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        };
+
+        let scenario = dynamic_scenario_with_frame_checkpoints(scenario, &[5, 2, 5]);
+
+        assert_eq!(scenario.frame_count, 6);
+        assert_eq!(scenario.script.len(), 6);
+        assert_eq!(scenario.script[1], 1 << 3);
+        assert_eq!(
+            scenario.checkpoints,
+            vec![
+                DynamicCheckpoint {
+                    label: String::from("frame_00002"),
+                    frame_index: 2,
+                },
+                DynamicCheckpoint {
+                    label: String::from("frame_00005"),
+                    frame_index: 5,
+                },
+            ]
+        );
     }
 
     #[test]
