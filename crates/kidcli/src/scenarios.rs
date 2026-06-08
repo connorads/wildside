@@ -1586,6 +1586,64 @@ pub fn issue_260_drips_cleaner_prefix_audit_scenario() -> DynamicScenario {
     }
 }
 
+/// #260 Drips route extension that survives the lower tank/gap approach.
+///
+/// This starts from the cleaner two-crawler prefix, then uses the corrected
+/// physical B jump input and Right hold to carry Kid through the lower
+/// RockTank/gap blocker into the rising right-hand tunnel. It is a climb seed
+/// for the reported upper Drips/metal-block mutation, not a completed repro.
+pub fn issue_260_drips_b_jump_climb_seed_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 700;
+    const LEFT: u8 = 1 << 2;
+    const RIGHT: u8 = 1 << 3;
+    const B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, 240, RIGHT);
+    apply_range(&mut script, 60, 120, B);
+    apply_range(&mut script, 170, 260, LEFT);
+    apply_range(&mut script, 480, 700, RIGHT);
+    apply_range(&mut script, 480, 560, B);
+
+    DynamicScenario {
+        slug: "issue_260_drips_b_jump_climb_seed_01".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "lower_floor_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "first_crawler_window".into(),
+                frame_index: 376,
+            },
+            DynamicCheckpoint {
+                label: "second_crawler_window".into(),
+                frame_index: 518,
+            },
+            DynamicCheckpoint {
+                label: "b_jump_climb_start".into(),
+                frame_index: 480,
+            },
+            DynamicCheckpoint {
+                label: "rising_tunnel_entry".into(),
+                frame_index: 640,
+            },
+            DynamicCheckpoint {
+                label: "live_climb_tail".into(),
+                frame_index: FRAME_COUNT,
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -1961,9 +2019,9 @@ mod tests {
         issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
-        issue_260_drips_cleaner_prefix_audit_scenario, lava_weather_audit_scenario,
-        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-        walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+        issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
+        lava_weather_audit_scenario, level_00_slope_right_probe_scenario, prize_block_scenario,
+        stomp_enemy_scenario, walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
         walk_right_red_stealth_scenario, walk_right_scenario,
     };
 
@@ -2122,6 +2180,54 @@ mod tests {
                 "first_crawler_window",
                 "second_crawler_window",
                 "live_tail"
+            ]
+        );
+    }
+
+    #[test]
+    fn issue_260_drips_b_jump_climb_seed_extends_prefix_with_live_right_tunnel_route() {
+        let scenario = issue_260_drips_b_jump_climb_seed_scenario();
+
+        assert_eq!(scenario.slug, "issue_260_drips_b_jump_climb_seed_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 700);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        const LEFT: u8 = 1 << 2;
+        const RIGHT: u8 = 1 << 3;
+        const B: u8 = 1 << 4;
+        assert_eq!(scenario.script[0], RIGHT);
+        assert_eq!(scenario.script[60], RIGHT | B);
+        assert_eq!(scenario.script[190], LEFT | RIGHT);
+        assert_eq!(scenario.script[261], 0);
+        assert_eq!(scenario.script[480], RIGHT | B);
+        assert_eq!(scenario.script[560], RIGHT | B);
+        assert_eq!(scenario.script[561], RIGHT);
+        assert_eq!(scenario.script[700], RIGHT);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "lower_floor_start",
+                "first_crawler_window",
+                "second_crawler_window",
+                "b_jump_climb_start",
+                "rising_tunnel_entry",
+                "live_climb_tail"
             ]
         );
     }

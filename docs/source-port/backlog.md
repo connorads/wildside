@@ -2217,6 +2217,22 @@ Drips crawler or hit the reported metal-block mutation. Next #260 route work
 should use B for jump and search a real approach/climb to row 32, not add a
 C-jump scenario.
 
+Follow-up 2026-06-08 B-jump climb seed for #213/#260: promoted the first live
+post-cleaner-prefix climb branch to named scenario
+`issue260-drips-b-jump-climb-seed`
+(`.cache/recordings/issue-260-drips-b-jump-climb-seed/scenario.json`). Inputs
+reuse the cleaner prefix, then hold B+Right from frames 480..560 and Right
+through frame 700. Native remains live through frame 700 (`kid=$03E19700,$024F`)
+and frame captures in `.cache/debug/issue260-b-tail-live/` show Kid crossing the
+RockTank/gap area and entering the rising right-hand tunnel. Gameplay oracle
+verification passes all frames 360..700 by CRC. Enemy-frontier verification now
+first diverges at frame 603 on the RockTank roster: native has layout #01 half a
+pixel left (`$00C5/$00C5.8`) and ground/debug-field differences versus oracle
+`$00C6`, while Drips/crawler sightings remain only the two earlier frames
+376/518. This is a better route seed, not a metal-block repro yet; next work
+should either classify/fix the frame-603 RockTank roster divergence or extend
+from the CRC-clean gameplay route without assuming enemy-frontier object parity.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
