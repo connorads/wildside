@@ -17407,6 +17407,86 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_7664 (kid.asm): `bclr #Button_B,(Ctrl_Pressed); bne loc_A426`
+    /// consumes a grounded jump edge before the standing-still loc_779C
+    /// right/left probes can write `x_direction`. Native must not flip facing
+    /// merely because Right is held on the take-off frame.
+    #[test]
+    fn loc_7664_velocity_only_grounded_jump_edge_skips_loc_779c_facing_write() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(
+            !stepped,
+            "grounded jump edge should branch to loc_A426 before loc_779C/sub_B084 walking",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_7664 jump edge must preserve the previous x_direction byte",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+    }
+
+    /// ASM loc_7664's jump-edge branch also applies to the full-motion helper:
+    /// no loc_779C facing write, no sub_B084 acceleration, and no horizontal
+    /// position advance before the vertical jump launch path runs.
+    #[test]
+    fn loc_7664_full_motion_grounded_jump_edge_skips_loc_779c_facing_write() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        let start_x = 32 << 16;
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = start_x;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 0;
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(
+            !stepped,
+            "full-motion grounded jump edge should branch before loc_779C walking",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_7664 jump edge must preserve the previous x_direction byte",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+        assert_eq!(slice.player.x_pos, start_x);
+    }
+
     /// ASM sub_B084 uses `unk_A4B2`/`unk_A4C6` for airborne jump horizontal
     /// acceleration. Native's retained jump buffer must not suppress that
     /// airborne air-control path; only grounded pending buffers block walking.

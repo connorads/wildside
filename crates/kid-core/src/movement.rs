@@ -4889,12 +4889,6 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
-        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
-            // ASM loc_7828: held standing returns the Kid to MoveID 0; any
-            // active MoveID 6 slope-walk has ended.
-            self.terrain.slope_sliding = false;
-            return false;
-        }
         if self.player.on_ground && !input.b {
             self.player.jump_buffer_frames = 0;
         }
@@ -4926,6 +4920,12 @@ impl OpeningSliceState {
             }
             // Jumping off a slope leaves MoveID 6 for the jump state; clear the
             // slide latch so it does not suppress a later fresh-contact tile-snap.
+            self.terrain.slope_sliding = false;
+            return false;
+        }
+        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
+            // ASM loc_7828: held standing returns the Kid to MoveID 0; any
+            // active MoveID 6 slope-walk has ended.
             self.terrain.slope_sliding = false;
             return false;
         }
@@ -5271,9 +5271,6 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
-        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
-            return false;
-        }
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }
@@ -5297,6 +5294,9 @@ impl OpeningSliceState {
                 self.player.x_velocity = new_vel;
                 self.player.facing = new_facing;
             }
+            return false;
+        }
+        if self.should_hold_standing_still(input, block_grid, form, maniaxe_throwing_axe_active) {
             return false;
         }
 
