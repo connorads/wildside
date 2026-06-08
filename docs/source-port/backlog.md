@@ -2263,6 +2263,18 @@ does not climb. Do not retry this cell-29/32 Prize-block wall-cling branch
 unless the target route changes; #260 still needs a new vertical approach to the
 row-32 Drips/metal cells.
 
+Follow-up 2026-06-08 early-jump route sweep for #213/#260: clearing the
+post-cleaner tail from frame 360 and trying B+Right windows starting at
+360/380/400/420/440/460 narrows the target approach but still does not yield a
+usable repro. The 380-start family gets as close as 19px to `(584,543)` at frame
+408, the 420-start family gets 30px at frame 449, and the 440/460-start families
+get 23px at frames 465/485; all of those runs later enter `LevelTransition`
+between frames 587 and 758 or hit death windup after passing the lower enemy
+cluster. The 360-start family dies earlier and never improves on the old 48px
+vertical miss. Treat these early B+Right timing families as route-search
+evidence only: they improve proximity to the Drips point, but still do not
+produce a live row-32 metal-block mutation or crawler contact.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
