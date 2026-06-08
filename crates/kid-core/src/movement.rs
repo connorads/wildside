@@ -3341,7 +3341,7 @@ impl OpeningSliceState {
                 //   land vs wall-cling (loc_AA22). loc_BB08/loc_BB30 are the
                 //   Juggernaut velocity-reset bypasses inside loc_B9A2/loc_BA5A.
                 //
-                // NOT PORTED — DELIBERATELY (issue #224, investigated 2026-06-04).
+                // PARTIALLY PORTED — deliberately narrow (issue #224 / #258).
                 // GfxObjects_Collision only writes $14/$18 to the Kid object
                 // (ChkUpSlope/ChkDownSlope, loc_1A94/loc_1AB8) when Kid's hitbox
                 // simultaneously straddles a SOLID tile (feet/side contact) AND an
@@ -3353,16 +3353,13 @@ impl OpeningSliceState {
                 // of a fully-enclosed solid pyramid (col 50 row 13, walled on all
                 // four sides): the oracle then snaps Kid ~40px up onto the slope
                 // surface (y 222→182) — the loc_B9A2 recovery. Approaching the same
-                // slope-meets-wall corners from OPEN AIR (the only way reachable in
-                // normal play) never forms $14/$18: collision_type stays 0, the
-                // oracle walks the slope normally, and native (decomposed per-axis
-                // passes) tracks it within the 6px tolerance. The per-axis pipeline
-                // never embeds Kid in solid, so the precondition for $14/$18 cannot
-                // arise without the artificial probe teleport. There is therefore
-                // no normal-play divergence to fix here; porting the recovery snap
-                // would add a stuck-in-solid branch that no reachable input path
-                // exercises. The loc_A532 restore is implicit — position is applied
-                // incrementally per axis.
+                // slope-meets-wall corners from OPEN AIR for TheKid did not form
+                // $14/$18 in the earlier probes. The issue #258 Iron Knight natural
+                // route does: the wider hitbox reaches the row-13 SlopeUp during
+                // sub_A4EE's compound x/y integration even though the following
+                // old-X sub_902A vertical probe misses it. Native ports only that
+                // reachable compound slope handoff below and leaves the larger
+                // stuck-in-solid recovery snap unported.
                 //
                 // ASM loc_B9A2 (kid.asm:14935): $14 slope-corner recovery-snap entry
                 // (reached ONLY from sub_A4EE loc_A53C — no IK-climb caller exists).
@@ -3533,6 +3530,7 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
 
+                let mut compound_slope_recontact_loc_a4ee = false;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
@@ -3542,13 +3540,18 @@ impl OpeningSliceState {
                         deferred_prize_ceiling_cells,
                         custom_gravity,
                     );
-                    self.apply_floor_collision(
-                        Some(grid),
-                        horizontal_step_applied,
-                        !jump_pressed,
-                        collision_hw,
-                        allow_asm_faithful_solid_touch_snap,
-                    )
+                    let compound_recontact =
+                        self.try_compound_slope_recontact_loc_a4ee(grid, form, collision_hw);
+                    compound_slope_recontact_loc_a4ee = compound_recontact.is_some();
+                    compound_recontact.or_else(|| {
+                        self.apply_floor_collision(
+                            Some(grid),
+                            horizontal_step_applied,
+                            !jump_pressed,
+                            collision_hw,
+                            allow_asm_faithful_solid_touch_snap,
+                        )
+                    })
                 } else {
                     self.apply_floor_collision(
                         None,
@@ -3584,12 +3587,21 @@ impl OpeningSliceState {
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
                 {
-                    let handoff_x_velocity = airborne_slope_landing_handoff_x_velocity_loc_a99e(
-                        x_velocity_before_sub_b084,
-                        self.player.x_velocity,
-                        input,
-                        form,
-                    );
+                    let handoff_x_velocity = if compound_slope_recontact_loc_a4ee {
+                        // ASM sub_A4EE loc_A53C/loc_B9A2 keeps the compound
+                        // slope contact but does not take the ordinary air-cap
+                        // loc_A99E handoff. Oracle issue #258 frame 480 shows
+                        // Iron Knight advancing by `$20800` before the first
+                        // walking slope step adds `$24000`.
+                        Some(self.player.x_velocity.saturating_sub(0x7800))
+                    } else {
+                        airborne_slope_landing_handoff_x_velocity_loc_a99e(
+                            x_velocity_before_sub_b084,
+                            self.player.x_velocity,
+                            input,
+                            form,
+                        )
+                    };
                     self.apply_immediate_slope_recontact(
                         input,
                         form,
@@ -3599,6 +3611,7 @@ impl OpeningSliceState {
                         SlopeRecontactHandoff {
                             x_velocity: handoff_x_velocity,
                             post_vertical_y_pos: Some(post_vertical_y_pos),
+                            compound_loc_a4ee: compound_slope_recontact_loc_a4ee,
                         },
                     );
                 }
@@ -6297,6 +6310,49 @@ impl OpeningSliceState {
         None
     }
 
+    fn try_compound_slope_recontact_loc_a4ee(
+        &mut self,
+        grid: &terrain::BlockGrid,
+        form: PlayerForm,
+        collision_hw: i32,
+    ) -> Option<terrain::CollisionKind> {
+        if self.player.on_ground || form != PlayerForm::IronKnight || self.player.y_velocity < 0 {
+            return None;
+        }
+
+        let old_x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let old_probe = terrain::probe_floor_hitbox(grid, old_x_px, y_px, collision_hw);
+        if old_probe.on_ground {
+            return None;
+        }
+
+        let compound_x_pos = (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
+        let compound_x_px = (compound_x_pos >> 16) as i32;
+        let compound_probe = terrain::probe_floor_hitbox(grid, compound_x_px, y_px, collision_hw);
+        let collision = match compound_probe.cell.collision {
+            terrain::CollisionKind::SlopeUp if compound_probe.on_ground => {
+                compound_probe.cell.collision
+            }
+            _ => return None,
+        };
+
+        // ASM sub_A4EE (kid.asm:12867-12884) tentatively applies x_vel/y_vel
+        // together before GfxObjects_Collision. Issue #258 frame 480 shows
+        // Iron Knight's wider hitbox forming a reachable `colid_slopeup`
+        // contact there; keep the pre-compound X so loc_A99E's walking handoff
+        // advances from the same restored centre that sub_902A/sub_8F26 use.
+        self.player.on_ground = true;
+        self.player.wall_cling_direction = None;
+        self.player.on_spikes = false;
+        self.player.jump_buffer_frames = 0;
+        self.terrain.floor_y_pos = (compound_probe.floor_y_px.max(0) as u32) << 16;
+        self.terrain.floor_terrain_type =
+            grounded_surface_type_sub_8600(grid, compound_x_px, y_px, collision_hw);
+        Some(collision)
+    }
+
     pub(crate) fn apply_immediate_slope_recontact(
         &mut self,
         input: FrameInput,
@@ -6323,6 +6379,7 @@ impl OpeningSliceState {
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
         if collision == terrain::CollisionKind::SlopeUp
             && has_air_cap_handoff
+            && !handoff.compound_loc_a4ee
             && let Some(post_vertical_y_pos) = handoff.post_vertical_y_pos
         {
             let future_x_pos = (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
@@ -6497,6 +6554,7 @@ pub(crate) struct CrawlSlopeSnapSub83E6 {
 pub(crate) struct SlopeRecontactHandoff {
     pub(crate) x_velocity: Option<i32>,
     pub(crate) post_vertical_y_pos: Option<u32>,
+    pub(crate) compound_loc_a4ee: bool,
 }
 
 fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {

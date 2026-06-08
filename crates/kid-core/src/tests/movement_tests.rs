@@ -18066,6 +18066,7 @@ mod chunk_12 {
             SlopeRecontactHandoff {
                 x_velocity: Some(0x0001_0000),
                 post_vertical_y_pos: Some(0x003f_5000),
+                compound_loc_a4ee: false,
             },
         );
 
@@ -18127,6 +18128,7 @@ mod chunk_12 {
             SlopeRecontactHandoff {
                 x_velocity: Some(0x0001_0000),
                 post_vertical_y_pos: Some(0x003f_0800),
+                compound_loc_a4ee: false,
             },
         );
 
@@ -18321,6 +18323,77 @@ mod chunk_12 {
         assert_eq!(
             slice.player.x_velocity, 0x0002_4e00,
             "ASM loc_9D22 should keep the oracle frame 478 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM sub_A4EE -> loc_A99E -> loc_8BF0 -> loc_9D22: Iron Knight's
+    /// wider hitbox reaches the Level 00 row-13 SlopeUp surface during
+    /// sub_A4EE's compound x/y integration. The later sub_902A old-X vertical
+    /// probe is still two pixels above that slope, but the ROM has already
+    /// kept the compound contact and enters slope walking on the same frame.
+    #[test]
+    fn level00_frame_480_iron_knight_compound_slope_recontact_loc_a4ee() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 48, 13, 0x40, 0x6D);
+        set(&mut data, 49, 13, 0x60, 0x6E);
+        set(&mut data, 47, 14, 0x40, 0x82);
+        set(&mut data, 48, 14, 0x60, 0x7F);
+        set(&mut data, 49, 14, 0x60, 0x80);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02f9_f800;
+        slice.player.y_pos = 0x00da_a400;
+        slice.player.x_velocity = 0x0002_8100;
+        slice.player.y_velocity = 0x0002_1f00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_A4EE compound probe should keep Iron Knight's leading-edge SlopeUp contact on frame 480",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x02fe_4000,
+            "Oracle frame 480 for issue-258 Iron Knight route should take the same-frame loc_A99E slope handoff",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00e1_0000,
+            "ASM loc_9D22 should snap Iron Knight to the row-13 SlopeUp surface on frame 480",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_4000,
+            "ASM loc_9D22 should install the Iron Knight post-slope x velocity from oracle frame 480",
         );
         assert_eq!(
             slice.player.y_velocity, -slice.player.x_velocity,
