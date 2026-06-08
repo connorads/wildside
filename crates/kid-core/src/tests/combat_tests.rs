@@ -12981,6 +12981,72 @@ mod chunk_03 {
     }
 
     #[test]
+    fn trace_frame_reports_kid_collision_order_probe() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 200 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+        runtime.progression.current_form = PlayerForm::TheKid;
+
+        let mut first_enemy = test_enemy(EnemyFamily::MiniHoppingSkull, 100 << 16, 204 << 16, 1);
+        first_enemy.on_ground = true;
+        first_enemy.y_velocity = 0x0001_0000;
+        let second_enemy = test_enemy(EnemyFamily::DragonWalking, 130 << 16, 204 << 16, 1);
+        runtime.active_enemies = vec![first_enemy, second_enemy];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 112 << 16,
+            y_pos: 204 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 12,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 8,
+                token: 0,
+            }),
+            kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+            ..Default::default()
+        });
+
+        let trace = runtime.trace_frame();
+        let order_debug = trace
+            .gameplay_debug_fields
+            .get("kid_collision_order_probe")
+            .unwrap_or_else(|| panic!("trace frame should emit collision-order diagnostics"));
+
+        let first = order_debug
+            .find("order=0/target=active_enemy[0]/enemy_1C#00")
+            .unwrap_or_else(|| {
+                panic!("first active enemy should be first in order, got {order_debug}")
+            });
+        let second = order_debug
+            .find("order=1/target=active_enemy[1]/enemy_0D#00")
+            .unwrap_or_else(|| {
+                panic!("second active enemy should be second in order, got {order_debug}")
+            });
+        let third = order_debug
+            .find("order=2/target=drips_burst[0]/enemy_16#08")
+            .unwrap_or_else(|| {
+                panic!("Drips burst projectile should follow active enemies, got {order_debug}")
+            });
+
+        assert!(
+            first < second && second < third,
+            "ASM GfxObjects_CollisionKid ordering diagnostics should preserve native scan order, got {order_debug}",
+        );
+        assert!(
+            order_debug.contains("gate=classify/result=stomp") && order_debug.contains("/delta="),
+            "order diagnostics should carry classification and velocity data for the issue #260 overlap, got {order_debug}",
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_kid_iron_knight_attach_probe() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;

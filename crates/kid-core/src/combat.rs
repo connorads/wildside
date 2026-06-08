@@ -8312,6 +8312,52 @@ impl NativeRuntime {
         Some(summaries.join("; "))
     }
 
+    pub(crate) fn kid_collision_order_probe_debug(
+        &self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) -> Option<String> {
+        const LIMIT: usize = 8;
+
+        let player = slice.player;
+        let mut summaries = Vec::new();
+        for (order, candidate) in self.stomp_contact_candidates().into_iter().enumerate() {
+            let (target_label, debug_index) = match candidate.target {
+                StompContactTarget::ActiveEnemy(index) => (format!("active_enemy[{index}]"), index),
+                StompContactTarget::DripsSurfaceCrawlerProjectile(index) => {
+                    (format!("drips_crawler[{index}]"), index)
+                }
+                StompContactTarget::DripsSurfaceCrawlerBurstProjectile(index) => {
+                    (format!("drips_burst[{index}]"), index)
+                }
+            };
+            let summary = stomp_contact_candidate_debug_summary(
+                debug_index,
+                player,
+                &candidate.snapshot,
+                pre_physics_y_velocity,
+                self.progression.current_form.half_width() as i64,
+            );
+            if summary.distance_score > 160 {
+                continue;
+            }
+
+            summaries.push(format!(
+                "order={order}/target={target_label}/{}",
+                summary.summary
+            ));
+            if summaries.len() >= LIMIT {
+                break;
+            }
+        }
+
+        if summaries.is_empty() {
+            None
+        } else {
+            Some(summaries.join("; "))
+        }
+    }
+
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     pub(crate) fn process_stomps(
