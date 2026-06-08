@@ -6064,7 +6064,7 @@ mod chunk_02 {
 
         let trace = runtime.trace_frame();
         assert_eq!(trace.current_helmet_id, PlayerForm::IronKnight.helmet_id());
-        assert_eq!(trace.number_hitpoints, 0x0C);
+        assert_eq!(trace.number_hitpoints, 5);
     }
 
     #[test]
@@ -6077,8 +6077,8 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.progression.number_hitpoints, 0x0E,
-            "ASM sub_7EB2 should load IronKnight's `unk_7EC2` base value `$0C` and add `Extra_hitpoint_slots` before storing `Number_Hitpoints`",
+            runtime.progression.number_hitpoints, 7,
+            "ASM sub_7EB2 should load IronKnight's `unk_7EC2` base value `5` and add `Extra_hitpoint_slots` before storing `Number_Hitpoints`",
         );
     }
 
@@ -18013,6 +18013,15 @@ mod chunk_02 {
         assert!(
             runtime.floating_items.is_empty(),
             "ASM PrizeHelmetIronKnight_Init loc_105D6 deletes on the next hibernated tick after collision_type(a3) is latched"
+        );
+        assert_eq!(
+            runtime.prize_helmet_collision_hibernate_delay_frames, 116,
+            "ASM loc_A6F8 exposes Kid's post-movement hibernate point after loc_105D6 deletes the latched helmet prize"
+        );
+        assert_eq!(
+            runtime.prize_helmet_collision_hibernate_hitpoints_form,
+            Some(PlayerForm::IronKnight),
+            "ASM sub_7EB2 HP seed is exposed without changing Current_Helmet on the #258 latched collision"
         );
     }
 

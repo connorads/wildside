@@ -165,6 +165,7 @@ pub(crate) enum KidFrameMotionBranch {
     IronKnightAttachHibernate,
     IronKnightClimbExitHibernate,
     IronKnightClimbResume,
+    PrizeHelmetCollisionHibernate,
     TransformHibernating,
     NormalPhysics,
 }
@@ -183,6 +184,7 @@ impl KidFrameMotionBranch {
             Self::IronKnightAttachHibernate => "iron_knight_attach_hibernate",
             Self::IronKnightClimbExitHibernate => "iron_knight_climb_exit_hibernate",
             Self::IronKnightClimbResume => "iron_knight_climb_resume",
+            Self::PrizeHelmetCollisionHibernate => "prize_helmet_collision_hibernate",
             Self::TransformHibernating => "transform_hibernating",
             Self::NormalPhysics => "normal_physics",
         }
@@ -376,6 +378,7 @@ pub(crate) struct KidCollisionHandoffProbe {
     pub(crate) player_lifecycle: PlayerLifecycle,
     pub(crate) previous_post_motion_mutator: KidFramePostMotionMutator,
     pub(crate) pending_stomp_bounce: bool,
+    pub(crate) pending_contact_damage: bool,
     pub(crate) pending_form: Option<PlayerForm>,
     pub(crate) pending_level_skip: Option<LevelId>,
     pub(crate) form_change_flash_frames: u8,
@@ -396,6 +399,7 @@ impl Default for KidCollisionHandoffProbe {
             player_lifecycle: PlayerLifecycle::Alive,
             previous_post_motion_mutator: KidFramePostMotionMutator::None,
             pending_stomp_bounce: false,
+            pending_contact_damage: false,
             pending_form: None,
             pending_level_skip: None,
             form_change_flash_frames: 0,

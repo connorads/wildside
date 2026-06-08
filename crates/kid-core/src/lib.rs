@@ -150,6 +150,13 @@ pub struct NativeRuntime {
     block_debris_swarms: Vec<BlockDebrisSwarmSub2A4C>,
     /// Floating prize items rising from blocks.
     floating_items: Vec<FloatingItem>,
+    /// ASM PrizeHelmet* loc_105D6 deletes after object-side collision, then
+    /// Kid remains visible at the loc_A6F8 hibernate point without changing
+    /// Current_Helmet.
+    prize_helmet_collision_hibernate_delay_frames: u8,
+    /// Helmet whose sub_7EB2 hitpoint seed is exposed on the held loc_A6F8
+    /// frames after a PrizeHelmet* object-side collision.
+    prize_helmet_collision_hibernate_hitpoints_form: Option<PlayerForm>,
     /// ASM `Iron_Knight_block_breaker` ($FFFFFA6B): set by sub_AF7A after a
     /// handled Iron Knight block impact, cleared by sub_DB22 on the normal
     /// grounded clean-up path.
@@ -1327,6 +1334,8 @@ impl NativeRuntime {
             block_destroy_effects: Vec::new(),
             block_debris_swarms: Vec::new(),
             floating_items: Vec::new(),
+            prize_helmet_collision_hibernate_delay_frames: 0,
+            prize_helmet_collision_hibernate_hitpoints_form: None,
             iron_knight_block_breaker: false,
             iron_knight_last_metal_block_hit: None,
             pending_prize_diamond_awards: Vec::new(),
@@ -2110,6 +2119,7 @@ impl NativeRuntime {
             player_lifecycle: self.player_lifecycle,
             previous_post_motion_mutator: self.previous_kid_frame_post_motion_mutator,
             pending_stomp_bounce: self.pending_stomp_bounce.is_some(),
+            pending_contact_damage: self.pending_player_contact_damage.is_some(),
             pending_form: self.progression.pending_form,
             pending_level_skip: self.pending_level_skip,
             form_change_flash_frames: self.progression.form_change_flash_frames,
@@ -2750,6 +2760,43 @@ impl NativeRuntime {
         // ASM sub_114C0 / sub_114F4 are the same style of coroutine: shooter
         // headbutt tiles update before physics on their wake frames.
         self.step_shooter_headbutt_workers();
+        if self.prize_helmet_collision_hibernate_delay_frames > 0 {
+            self.prize_helmet_collision_hibernate_delay_frames -= 1;
+            if self.prize_helmet_collision_hibernate_delay_frames < 115 {
+                // ASM loc_A6F8 (kid.asm:13038): the airborne path has already
+                // run movement and Hibernate_Object_1Frame. PrizeHelmet*
+                // loc_105D6 can expose that held Kid pose after the object
+                // sees collision_type(a3) and deletes itself.
+                self.last_kid_frame_motion_branch =
+                    KidFrameMotionBranch::PrizeHelmetCollisionHibernate;
+                if let Some(form) = self.prize_helmet_collision_hibernate_hitpoints_form.take() {
+                    // ASM sub_7EB2 (kid.asm:8614): the latched collision
+                    // exposes the touched helmet's hitpoint seed even though
+                    // oracle keeps Current_Helmet unchanged on #258.
+                    self.progression.number_hitpoints =
+                        form.max_hitpoints() + self.progression.extra_hitpoint_slots;
+                }
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+                self.opening_slice = Some(slice);
+                return;
+            }
+        }
         // Step helmet abilities BEFORE physics
         let player_before_skycutter_flipboard = slice.player;
         self.step_skycutter_flipboard(&mut slice, input);

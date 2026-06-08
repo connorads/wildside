@@ -4362,6 +4362,7 @@ mod tests {
             player_lifecycle: PlayerLifecycle::Alive,
             previous_post_motion_mutator: KidFramePostMotionMutator::None,
             pending_stomp_bounce: true,
+            pending_contact_damage: false,
             pending_form: None,
             pending_level_skip: None,
             form_change_flash_frames: 0,
@@ -6534,10 +6535,11 @@ impl NativeRuntime {
         };
 
         Some(format!(
-            "lifecycle={}/prev_post={}/pending_stomp={}/pending_form={}/pending_level_skip={}/form_flash={}/ground={}/jump_buffer={}/wall_cling={}/stomp_candidate={}/stomp_enemy={}/anchor={:#010x},{:#010x}",
+            "lifecycle={}/prev_post={}/pending_stomp={}/pending_contact={}/pending_form={}/pending_level_skip={}/form_flash={}/ground={}/jump_buffer={}/wall_cling={}/stomp_candidate={}/stomp_enemy={}/anchor={:#010x},{:#010x}",
             player_lifecycle_debug_label(probe.player_lifecycle),
             probe.previous_post_motion_mutator.as_debug_label(),
             u8::from(probe.pending_stomp_bounce),
+            u8::from(probe.pending_contact_damage),
             pending_form,
             pending_level_skip,
             probe.form_change_flash_frames,

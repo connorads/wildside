@@ -4078,7 +4078,34 @@ impl NativeRuntime {
             (0..0x140).contains(&screen_x)
         });
 
+        let deleted_collision_latched_prize_form = self
+            .floating_items
+            .iter()
+            .filter(|f| f.collision_latched)
+            .filter_map(|f| match f.content {
+                terrain::PrizeContent::Skycutter => Some(PlayerForm::Skycutter),
+                terrain::PrizeContent::Cyclone => Some(PlayerForm::Cyclone),
+                terrain::PrizeContent::RedStealth => Some(PlayerForm::RedStealth),
+                terrain::PrizeContent::Eyeclops => Some(PlayerForm::Eyeclops),
+                terrain::PrizeContent::Juggernaut => Some(PlayerForm::Juggernaut),
+                terrain::PrizeContent::IronKnight => Some(PlayerForm::IronKnight),
+                terrain::PrizeContent::Berzerker => Some(PlayerForm::Berzerker),
+                terrain::PrizeContent::Maniaxe => Some(PlayerForm::Maniaxe),
+                terrain::PrizeContent::Micromax => Some(PlayerForm::Micromax),
+                _ => None,
+            })
+            .next();
         self.floating_items.retain(|f| !f.collision_latched);
+        if let Some(form) = deleted_collision_latched_prize_form {
+            // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
+            // its wake frame and deletes the prize while Kid's airborne object
+            // is already at the loc_A6F8 hibernate point. Oracle keeps
+            // Current_Helmet unchanged but exposes the sub_7EB2 HP seed for
+            // the touched helmet during this held state.
+            self.prize_helmet_collision_hibernate_delay_frames =
+                self.prize_helmet_collision_hibernate_delay_frames.max(116);
+            self.prize_helmet_collision_hibernate_hitpoints_form = Some(form);
+        }
 
         for f in &mut self.floating_items {
             if f.spawn_delay > 0 {

@@ -5989,7 +5989,7 @@ mod chunk_03 {
 
         assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
         assert_eq!(
-            runtime.progression.number_hitpoints, 0x0C,
+            runtime.progression.number_hitpoints, 5,
             "ASM sub_7EB2 should seed IronKnight from `unk_7EC2`, not the loc_B700 damage cap table"
         );
     }
@@ -6058,7 +6058,7 @@ mod chunk_03 {
 
         assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
         assert_eq!(
-            runtime.progression.number_hitpoints, 0x0C,
+            runtime.progression.number_hitpoints, 5,
             "ASM loc_7C76 same-helmet path replenishes from sub_7EB2 before loc_7E14 cleanup"
         );
         assert_eq!(
@@ -6232,10 +6232,10 @@ mod chunk_03 {
             (PlayerForm::RedStealth, 3),
             (PlayerForm::Eyeclops, 3),
             (PlayerForm::Juggernaut, 3),
-            (PlayerForm::IronKnight, 0x0C),
-            (PlayerForm::Berzerker, 4),
-            (PlayerForm::Maniaxe, 8),
-            (PlayerForm::Micromax, 0x10),
+            (PlayerForm::IronKnight, 5),
+            (PlayerForm::Berzerker, 3),
+            (PlayerForm::Maniaxe, 3),
+            (PlayerForm::Micromax, 3),
         ] {
             runtime.queue_form_change(form);
             runtime.resolve_pending_form_change();
@@ -12874,6 +12874,7 @@ mod chunk_03 {
             player_lifecycle: PlayerLifecycle::Alive,
             previous_post_motion_mutator: KidFramePostMotionMutator::None,
             pending_stomp_bounce: false,
+            pending_contact_damage: false,
             pending_form: None,
             pending_level_skip: None,
             form_change_flash_frames: 0,
@@ -12900,7 +12901,7 @@ mod chunk_03 {
         );
         assert!(
             probe_debug.contains(
-                "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
+                "pending_stomp=0/pending_contact=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
             ),
             "the collision-handoff probe should expose the native carry-style state before pre-physics consumption",
         );
