@@ -78,7 +78,8 @@ use scenarios::{
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
-    lava_weather_audit_scenario, level_00_slope_right_probe_iron_knight_scenario,
+    issue_260_drips_early_jump_close_probe_scenario, lava_weather_audit_scenario,
+    level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
     prize_block_scenario, run_native_dynamic_scenario, stomp_enemy_scenario,
@@ -180,6 +181,8 @@ enum RecordScenarioKind {
     Issue260DripsCleanerPrefixAudit,
     /// cleaner Level 01 Drips prefix extended by a live B-jump climb seed (#260).
     Issue260DripsBJumpClimbSeed,
+    /// close early-jump Level 01 Drips route that stops before the death tail (#260).
+    Issue260DripsEarlyJumpCloseProbe,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
     Issue249WallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
@@ -2952,6 +2955,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue260DripsBJumpClimbSeed => {
             issue_260_drips_b_jump_climb_seed_scenario()
         }
+        RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
+            issue_260_drips_early_jump_close_probe_scenario()
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             issue_249_juggernaut_wall_no_jump_audit_scenario()
@@ -3045,6 +3051,9 @@ fn record_scenario_command(
             "issue260-drips-cleaner-prefix-audit"
         }
         RecordScenarioKind::Issue260DripsBJumpClimbSeed => "issue260-drips-b-jump-climb-seed",
+        RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
+            "issue260-drips-early-jump-close-probe"
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             "issue249-juggernaut-wall-no-jump-audit"
@@ -5687,6 +5696,21 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario --slug issue-260-drips-b-jump-climb-seed --scenario issue260-drips-b-jump-climb-seed --level 01"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_exposes_issue260_drips_early_jump_close_probe() {
+        let command = record_scenario_command(
+            "issue-260-drips-early-jump-close-probe",
+            RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe,
+            0x01,
+            None,
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-260-drips-early-jump-close-probe --scenario issue260-drips-early-jump-close-probe --level 01"
         );
     }
 
