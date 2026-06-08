@@ -1313,6 +1313,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 oracle_value: format!("{}", oracle.number_objects),
                 category: if rubber_worker_counter_sampling_matches(native, oracle)
                     || rock_tank_counter_sampling_matches_loc_3b372(native, oracle)
+                    || prize_diamond_counter_sampling_matches_loc_10396(native, oracle)
                 {
                     DivergenceCategory::OracleLimitation
                 } else {
@@ -1586,6 +1587,42 @@ fn rock_tank_counter_sampling_matches_loc_3b372(
         && normalised_enemy_roster_for_frontier_with_peer(oracle, native)
             .iter()
             .any(|enemy| matches!(enemy.object_type, 0x0A | 0x0B))
+}
+
+fn prize_diamond_counter_sampling_matches_loc_10396(
+    native: &OracleState,
+    oracle: &OracleState,
+) -> bool {
+    if native.game_mode != oracle.game_mode
+        || native.current_level_id != oracle.current_level_id
+        || native.camera_x_pos != oracle.camera_x_pos
+        || native.camera_y_pos != oracle.camera_y_pos
+        || native.kid_x_pos != oracle.kid_x_pos
+        || native.kid_y_pos != oracle.kid_y_pos
+        || native.kid_x_vel != oracle.kid_x_vel
+        || native.kid_y_vel != oracle.kid_y_vel
+        || native.character_movement != oracle.character_movement
+        || native.number_objects.abs_diff(oracle.number_objects) != 1
+        || !enemy_roster_frontier_matches(native, oracle)
+    {
+        return false;
+    }
+
+    let native_has_live_diamond = native
+        .gameplay_debug_fields
+        .get("floating_diamond_contact_candidates")
+        .is_some_and(|candidates| candidates.contains("diamond@"));
+    let oracle_has_prize_diamond_object = oracle
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+        .is_some_and(|slots| slots.contains("code=0x01039a"));
+
+    // ASM PrizeDiamond_Init loc_10396 hibernates the Object slot before the
+    // standard gfx collision/count path. Native models the gameplay-visible
+    // floating prize directly, while oracle snapshots can retain one extra
+    // hibernated Object-list entry after all authoritative Kid/enemy state has
+    // already converged.
+    native_has_live_diamond && oracle_has_prize_diamond_object
 }
 
 fn enemy_roster_frontier_matches(native: &OracleState, oracle: &OracleState) -> bool {
@@ -4190,6 +4227,38 @@ mod tests {
         oracle.number_objects = 4;
         oracle.number_gfx_objects = 3;
         oracle.active_enemies = vec![oracle_turret, oracle_body];
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn prize_diamond_object_counter_sampling_is_oracle_limitation_loc_10396() {
+        let mut native = demo_velocity_state(0x0001_EF00, -0x0001_EF00);
+        native.game_mode = 0x0010;
+        native.current_level_id = 0;
+        native.camera_x_pos = 0x0252_0000;
+        native.camera_y_pos = 0x0030_0000;
+        native.kid_x_pos = 0x0300_EF00;
+        native.kid_y_pos = 0x00DF_0000;
+        native.character_movement = Some(0x0006);
+        native.number_objects = 4;
+        native.number_gfx_objects = 4;
+        native.gameplay_debug_fields.insert(
+            "floating_diamond_contact_candidates".into(),
+            "diamond@616,274 dx=-152 dy=51 gap_x=140 gap_y=20 overlap_x=0 overlap_y=0 spawn=0 rem=169 collected=0".into(),
+        );
+
+        let mut oracle = native.clone();
+        oracle.number_objects = 5;
+        oracle.gameplay_debug_fields.clear();
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff0efc:code=0x01039a,hib=1@616,274;0xffff1058:code=0x01039a,hib=1@264,274".into(),
+        );
 
         let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
 
