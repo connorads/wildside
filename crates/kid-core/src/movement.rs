@@ -6700,14 +6700,12 @@ impl OpeningSliceState {
             form,
             self.terrain.floor_terrain_type,
         );
-        let has_air_cap_handoff = handoff.x_velocity.is_some();
         let handoff_x_velocity = handoff.x_velocity.unwrap_or(new_vel);
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
         let next_x = i64::from(self.player.x_pos) + i64::from(handoff_x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
         if collision == terrain::CollisionKind::SlopeUp
-            && has_air_cap_handoff
             && !handoff.compound_loc_a4ee
             && let Some(post_vertical_y_pos) = handoff.post_vertical_y_pos
         {
@@ -6746,12 +6744,14 @@ impl OpeningSliceState {
                 // advance before sub_A254 snaps Y. Oracle #211 frames 478 and
                 // 601 prove the extra high-word borrow at post-vertical
                 // fraction 0x4C80 on the 405C/605D seam and at 0x0800 on the
-                // 4082/6024 seam. Blue Lake Woods 2 frame 181 hits the
-                // 405C/605D seam at 0x0800 and only takes the low-word
-                // handoff, keeping the airborne handoff's high word. Earlier
-                // frame 428 hits the 4082/6024 seam at post-vertical fraction
-                // 0xAC00 and also keeps the unborrowed high word; only the
-                // low-word handoff applies there.
+                // 4082/6024 seam. Issue #258 frame 712 proves the same
+                // correction can apply without the air-cap tail when Iron
+                // Knight lands on the `$406D/$606E` seam. Blue Lake Woods 2
+                // frame 181 hits the 405C/605D seam at 0x0800 and only takes
+                // the low-word handoff, keeping the airborne handoff's high
+                // word. Earlier frame 428 hits the 4082/6024 seam at
+                // post-vertical fraction 0xAC00 and also keeps the unborrowed
+                // high word; only the low-word handoff applies there.
                 let corrected_high = if applies_solid_edge_high_borrow {
                     (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
                 } else {

@@ -19202,6 +19202,92 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the natural #258
+    /// route reaches the next Level 00 SlopeUp/Solid seam as Iron Knight
+    /// after the latched prize-transform hibernate. Oracle frame 712 proves
+    /// the `$406D/$606E` seam keeps the same low-word handoff as the earlier
+    /// SlopeUp cases without advancing the landing high word by the extra
+    /// subpixel fraction.
+    #[test]
+    fn level00_iron_knight_frame_712_slope_up_recontact_keeps_low_word_loc_a99e() {
+        let w: u16 = 60;
+        let h: u16 = 28;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set(&mut data, 49, 12, 0x40, 0x5C);
+        set(&mut data, 50, 12, 0x60, 0x5D);
+        set(&mut data, 48, 13, 0x40, 0x6D);
+        set(&mut data, 49, 13, 0x60, 0x6E);
+        set(&mut data, 47, 14, 0x40, 0x82);
+        set(&mut data, 48, 14, 0x60, 0x7F);
+        set(&mut data, 49, 14, 0x60, 0x80);
+        set(&mut data, 50, 14, 0x60, 0x81);
+        set(&mut data, 44, 15, 0x40, 0x82);
+        set(&mut data, 45, 15, 0x60, 0x24);
+        set(&mut data, 46, 15, 0x60, 0x36);
+        set(&mut data, 47, 15, 0x60, 0x34);
+        set(&mut data, 48, 15, 0x60, 0xB4);
+        set(&mut data, 49, 15, 0x60, 0xFC);
+        set(&mut data, 50, 15, 0x60, 0xFB);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02FD_6900;
+        slice.player.y_pos = 0x00D9_0000;
+        slice.player.x_velocity = 0x0002_0400;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
+        assert_eq!(
+            trace.post_vertical.0, 0x00DC_4000,
+            "ASM sub_902A post-vertical fraction 0x4000 reaches the frame-712 SlopeUp seam",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x0300_EF00,
+            "ASM loc_A99E/loc_8BF0 should match oracle #258 frame 712 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00DF_0000,
+            "ASM loc_9D22 should snap Iron Knight to the row-13 SlopeUp surface",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0001_EF00,
+            "ASM loc_9D22 should keep the oracle #258 frame 712 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
     /// ASM loc_9F18 -> loc_9FBC (kid.asm:12223-12290): after SlopeUp motion,
     /// a non-slope/solid current tile takes the wall-exit tail, snaps the high
     /// Y word to the adjacent solid row, and clears y_vel before returning to
