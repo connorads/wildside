@@ -822,6 +822,14 @@ pub(super) fn resolve_palette_colour(
     } else if palette.colours.len() == 8 {
         match selected_palette_line {
             0 => palette.colours.get(usize::from(palette_index)),
+            // ASM `sub_307D8` streams chunked cave background bytes through
+            // `unk_309B8`, whose tile words are `$2780 + tile_id`: palette
+            // line 1 with normal 4bpp pixel nibbles 1..7. Native stores the
+            // compact 8-word background palette alone, so those nibbles still
+            // address the local palette directly.
+            1 | 2 if (1..=7).contains(&palette_index) => {
+                palette.colours.get(usize::from(palette_index))
+            }
             1 | 2 if (8..=15).contains(&palette_index) => {
                 palette.colours.get(usize::from(palette_index - 8))
             }
@@ -882,5 +890,17 @@ mod tests {
         };
 
         assert_eq!(resolve_palette_colour(&palette, 1, 8), Some([8, 16, 24]));
+    }
+
+    #[test]
+    fn compact_background_palette_line_one_uses_local_slots_loc_307d8() {
+        // ASM sub_307D8 indexes `unk_309B8`, which emits `$2780 + tile_id`
+        // for chunked backgrounds: palette line 1, tile pixels still in
+        // compact slots 1..7. Native stores those eight colours locally.
+        let palette = Palette {
+            colours: (0..8).map(test_colour).collect(),
+        };
+
+        assert_eq!(resolve_palette_colour(&palette, 1, 1), Some([1, 2, 3]));
     }
 }

@@ -1563,7 +1563,11 @@ pub(super) fn push_background_tiles(
                             tile_sheet: tile_sheet.clone(),
                             tile: TileRef {
                                 tile_index: background_tile.tile_index,
-                                palette_line: 0,
+                                // ASM sub_307D8 indexes `unk_309B8`, whose
+                                // chunked background tile words are
+                                // `$2780 + tile_id`: background art base with
+                                // CRAM palette line 1.
+                                palette_line: 1,
                                 priority: false,
                                 flip_x: background_tile.flip_x,
                                 flip_y: false,
@@ -1679,7 +1683,10 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         );
                         let tile_ref = TileRef {
                             tile_index: background_tile.tile_index,
-                            palette_line: 0,
+                            // ASM sub_307D8 -> `unk_309B8` emits `$2780`
+                            // based tile words for chunked backgrounds, so
+                            // native samples must use CRAM palette line 1 too.
+                            palette_line: 1,
                             priority: false,
                             flip_x: background_tile.flip_x,
                             flip_y: false,

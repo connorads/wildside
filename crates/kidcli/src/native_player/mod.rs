@@ -6787,6 +6787,41 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn under_skull_mountain3_cave_background_chunk_renders_loc_12830() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let visuals = load_level_visuals(&manifest, 0x06).expect("Under Skull Mountain 3 visuals");
+        assert_eq!(visuals.level.background_theme_id, 0x08);
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x06);
+        trace.frame_index = 60;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0x000C_0000;
+
+        let sample = (0..FRAME_HEIGHT as i32)
+            .flat_map(|y| (0..FRAME_WIDTH as i32).map(move |x| (x, y)))
+            .find_map(|(x, y)| {
+                super::scene::sample_background_pixel_loc_c070(&trace, &visuals, x, y)
+                    .filter(|sample| sample.rgb != [0, 0, 0])
+                    .map(|sample| (x, y, sample))
+            })
+            .expect("ASM Load_BackgroundMappings loc_12830 places visible cave chunks");
+
+        assert_eq!(
+            sample.2.palette_line, 1,
+            "ASM sub_307D8 indexes `unk_309B8`, whose chunked background words are `$2780 + tile_id`"
+        );
+        assert_eq!(
+            sample.2.rgb,
+            [0x24, 0x00, 0x00],
+            "ASM loc_12830 copies cave chunk bytes into Plane B and sub_307D8 renders them through palette_bg/cave; MD colour `$0002` is the dark red silhouette behind level 0x06 terrain"
+        );
+    }
+
+    #[test]
     fn forest_background_palette_keeps_line_zero_and_swapped_line_one_loc_128ba_129ae() {
         let mut visuals = sample_level_visuals();
         visuals.level.background_theme_id = 9;
