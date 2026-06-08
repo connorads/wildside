@@ -275,6 +275,20 @@ mod tests {
             "ASM loc_94B4 writes the Juggernaut body sprite first and sub_975C keeps the companion head visible over it"
         );
         assert_eq!(
+            juggernaut.slope_walk.len(),
+            6,
+            "ASM loc_A13A/off_A190 maps Juggernaut id 6 to off_A200, the Iron Knight slope table"
+        );
+        assert_eq!(
+            juggernaut.slope_walk[0].origin_x, iron_knight.slope_walk[0].origin_x,
+            "ASM off_A200+$0C means Juggernaut should use Iron Knight's right-facing slope bank"
+        );
+        assert_eq!(
+            juggernaut.slope_walk_left.len(),
+            6,
+            "ASM off_A200 first bank gives Juggernaut left-facing Iron Knight slope frames"
+        );
+        assert_eq!(
             juggernaut.jump_rise.height_px, 0x25,
             "ASM unk_BFAE0 pairs the taller rising body with the shared head"
         );
@@ -1110,6 +1124,13 @@ mod tests {
                 "ingame/artunc_kid/iron_knight_transformation_4.bin",
                 &vec![0x4D; 32 * 40],
             )?;
+            for index in 1..=12 {
+                write_file(
+                    root.path(),
+                    &format!("ingame/artunc_kid/iron_knight_slope_{index}.bin"),
+                    &vec![0x60 + index as u8; 32 * 48],
+                )?;
+            }
             for (path, tile_count, fill) in [
                 ("ingame/artunc_kid/juggernaut_head.bin", 12, 0x4E),
                 ("ingame/artunc_kid/juggernaut_head_walk_2.bin", 12, 0x4F),
@@ -1386,6 +1407,18 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_2.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_7.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_8.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_9.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_10.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_11.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_12.bin"),
                     asset_file(
                         root.path(),
                         "ingame/artunc_kid/iron_knight_transformation_1.bin",

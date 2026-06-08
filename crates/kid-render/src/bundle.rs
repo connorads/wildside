@@ -3744,8 +3744,16 @@ fn load_juggernaut_form_visuals_if_present(
             .collect::<Result<Vec<_>>>()?,
         charge: Vec::new(),
         climb: Vec::new(),
-        slope_walk: Vec::new(),
-        slope_walk_left: Vec::new(),
+        // ASM loc_A13A/off_A190 maps Juggernaut helmet id 6 to off_A200,
+        // the same Iron Knight slope frame table.
+        slope_walk: IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES
+            .iter()
+            .map(|&descriptor| load_player_frame(manifest, descriptor))
+            .collect::<Result<Vec<_>>>()?,
+        slope_walk_left: IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES
+            .iter()
+            .map(|&descriptor| load_player_frame(manifest, descriptor))
+            .collect::<Result<Vec<_>>>()?,
         jump_rise: load_composite_player_frame(
             manifest,
             &[
