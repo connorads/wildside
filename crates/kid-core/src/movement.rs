@@ -3169,6 +3169,45 @@ impl OpeningSliceState {
                 }
 
                 if on_ground_before
+                    && form == PlayerForm::IronKnight
+                    && self.terrain.slope_walk_kind == Some(terrain::CollisionKind::SlopeUp)
+                    && self.player.y_velocity < 0
+                    && self.player.x_velocity.unsigned_abs() > 0x0001_8000
+                    && let Some(grid) = block_grid.as_deref()
+                {
+                    let new_vel = self.player.x_velocity.saturating_sub(0x0000_4000);
+                    let new_x_pos = (i64::from(self.player.x_pos) + i64::from(new_vel))
+                        .clamp(0, i64::from(u32::MAX)) as u32;
+                    if let Some(floor_y_px) = iron_knight_solid_edge_slopeup_clears_latch_loc_914a(
+                        grid,
+                        new_x_pos,
+                        self.player.y_pos,
+                        collision_hw,
+                    ) {
+                        let new_facing = if new_vel >= 0 {
+                            Direction::Right
+                        } else {
+                            Direction::Left
+                        };
+                        self.player.x_velocity = new_vel;
+                        self.player.facing = new_facing;
+                        self.player.y_velocity = 0;
+                        self.player.x_pos = new_x_pos;
+                        self.player.y_pos = (floor_y_px.saturating_sub(1).max(0) as u32) << 16;
+                        self.player.on_ground = true;
+                        self.terrain.floor_y_pos = self.player.y_pos;
+                        self.terrain.slope_walk_kind = None;
+                        self.terrain.slope_sliding = false;
+                        kid_flip_follow_on_stages.after_wall =
+                            self.kid_flip_follow_on_stage_state();
+                        self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                        self.finalise_trace();
+                        self.update_camera_follow(y_look_offset);
+                        return;
+                    }
+                }
+
+                if on_ground_before
                     && !self.terrain.slope_sliding
                     && let Some(grid) = block_grid.as_deref()
                     && matches!(
@@ -7398,6 +7437,27 @@ fn iron_knight_solid_edge_slopeup_followup_loc_914a(
             right_edge_probe.cell.collision,
             terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
         )
+}
+
+fn iron_knight_solid_edge_slopeup_clears_latch_loc_914a(
+    grid: &terrain::BlockGrid,
+    x_pos_after_step: u32,
+    y_pos: u32,
+    collision_hw: i32,
+) -> Option<i32> {
+    let x_px = (x_pos_after_step >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let hitbox_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+    if hitbox_probe.on_ground
+        && matches!(
+            hitbox_probe.cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
+    {
+        Some(hitbox_probe.floor_y_px)
+    } else {
+        None
+    }
 }
 
 pub(crate) fn slope_to_solid_exit_floor_y_loc_9fbc(

@@ -18780,6 +18780,58 @@ mod chunk_12 {
         assert!(slice.terrain.slope_sliding);
     }
 
+    /// ASM sub_914A solid support wins after the brief SlopeUp handoff. Frame
+    /// 664 of the natural Iron Knight route is fully over the `$6000` floor
+    /// span, so the ROM clears the transient diagonal y velocity and returns
+    /// to normal grounded movement instead of launching off the slope.
+    #[test]
+    fn level00_frame_664_iron_knight_solid_floor_clears_slopeup_latch_loc_914a() {
+        let w: u16 = 75;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(66, 9, 0x40, 0x82), (67, 9, 0x60, 0x24)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x042f_4200;
+        slice.player.y_pos = 0x0090_0000;
+        slice.player.x_velocity = 0x0002_1700;
+        slice.player.y_velocity = -0x0002_1700;
+        slice.terrain.floor_y_pos = 0x008f_0000;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeUp);
+        slice.terrain.slope_sliding = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.x_pos, 0x0431_1900);
+        assert_eq!(slice.player.y_pos, 0x008f_0000);
+        assert_eq!(slice.player.x_velocity, 0x0001_d700);
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "Fully solid support clears the transient SlopeUp diagonal y velocity",
+        );
+        assert_eq!(slice.terrain.slope_walk_kind, None);
+        assert!(!slice.terrain.slope_sliding);
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the next natural
     /// Level 00 SlopeUp/Solid edge lands from above with a lower incoming
     /// x_vel than frame 478. Oracle frame 601 proves this seam still needs the
