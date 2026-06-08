@@ -2287,6 +2287,22 @@ vertical miss. Treat these early B+Right timing families as route-search
 evidence only: they improve proximity to the Drips point, but still do not
 produce a live row-32 metal-block mutation or crawler contact.
 
+Follow-up 2026-06-08 early-jump Drips timing audit for #213/#260: tight
+`tas-diff` on
+`.cache/recordings/issue-260-drips-early-jump-close-probe/scenario.json` frames
+386..392 shows the first authoritative mismatch at frame 388. Native has already
+created a `DripsSurfaceCrawlerBurst@0x0244e000,0x023c2000` with
+`count_loc_fffffb42=1`, while oracle still has both Drips controllers in the
+`Drips.asm loc_3345C`/`loc_33488` coroutine (`code=0x033460` for both at frame
+388; the left controller only returns through `loc_33428` on frames 390..391).
+The later frame-403 native stomp/bounce on that burst helper is therefore a
+downstream symptom, not evidence for changing generic stomp priority or
+projectile damage. Rejected hypothesis: "fix the 403 bounce by changing
+DripsSurfaceCrawlerBurst collision order". Next implementation work should
+target why native's right Drips reaches `loc_335D8`/`loc_338F8` before oracle,
+checking the linked-child Y offset and splash/table countdown around
+`loc_33424`, `loc_3345C`, `loc_33488`, and `off_33520`.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
