@@ -4513,7 +4513,11 @@ impl OpeningSliceState {
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
         }
         self.player.x_velocity = 0;
-        self.player.y_velocity = 0;
+        // TODO(fidelity): ASM loc_AB4A clears y_vel after the ascending
+        // overhang release, but oracle #258 frame 515 exports the post-gravity
+        // live slot y_vel through the immediate release boundary, matching the
+        // descending loc_AB0A sampled-state quirk below. Preserve it until the
+        // object/export timing is narrowed enough to model the clear separately.
         self.player.wall_cling_direction = None;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;

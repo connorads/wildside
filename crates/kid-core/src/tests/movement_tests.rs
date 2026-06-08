@@ -22350,11 +22350,71 @@ mod chunk_12 {
             "loc_AB4A should apply the one-pixel shimmy away from the right wall",
         );
         assert_eq!(
-            release.player.y_velocity, 0,
-            "loc_AB4A should clear y_vel after the overhang snap",
+            release.player.y_velocity, -0x0008_0000,
+            "native preserves the post-gravity y_vel at the sampled ascending release boundary",
         );
         assert_eq!(release.player.wall_cling_direction, None);
         assert!(!release.player.right_wall_sticky);
+    }
+
+    /// ASM loc_AB22 -> loc_AB4A clears y_vel, but the #258 natural Juggernaut
+    /// route exports the post-gravity live slot through the same sampled-state
+    /// boundary. Frame 515 has native and oracle positions aligned while native
+    /// was incorrectly zeroing `kid_y_vel`; keep the velocity until the object
+    /// export timing can distinguish the ROM clear from the sampled state.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_AB4A_juggernaut_ascending_release_preserves_sampled_y_velocity_issue_258() {
+        let w = 80u16;
+        let h = 40u16;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 0x02E8_0000;
+        slice.player.y_pos = 0x00E1_D700;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = -0x0004_4300;
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x02E9_0000,
+            "loc_AB4A still applies the one-pixel right-wall release shimmy",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00DD_B400,
+            "test setup should match the #258 frame-515 post-vertical position",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0004_2300,
+            "native should preserve the post-gravity rising velocity exported by oracle frame 515",
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "loc_AB4A should still release the wall cling latch",
+        );
     }
 
     /// ASM loc_AB0A (kid.asm:13372): the descending wall-cling release tail
