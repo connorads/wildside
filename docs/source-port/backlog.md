@@ -2184,18 +2184,19 @@ row-32 Drips/metal cells or the reported metal-block mutation. Next work should
 extend or climb from this cleaner prefix instead of patching Drips/block
 behaviour from the lower-floor crawler sighting alone.
 
-Follow-up 2026-06-08 route-search correction for #213/#260: native debug fields
-showed the prior `...:b` overlays were not jump attempts (`kid_jump_gravity_probe`
-reported `jump=0` while `b_held=1`); route-search overlays must use `c` for jump.
-The current Level 01 layout window has the reported row-32 cells around cols
-28/36 (`C2D`) while the cleaner prefix remains on the lower row-37 shelf. Fresh
-probes from `issue260-drips-cleaner-prefix-audit` show `536-620:c` +
-`536-700:right` stays in `InGame` through frame 700 and reaches x `$02D3`, but
-HP is already 0 and Kid is below the target row; earlier C timings (`500-580:c`
-and `480-560:c` with right held) reach farther right (`$02E5..$02ED`) but fall
-into `LevelTransition` at frames 677/661. The route blocker is now a real
-climb/approach problem, not a Drips/block implementation signal; do not retry
-the old B-based "jump" tails.
+Follow-up 2026-06-08 route-search correction for #213/#260: the current Level
+01 layout window has the reported row-32 cells around cols 28/36 (`C2D`) while
+the cleaner prefix remains on the lower row-37 shelf. Fresh probes from
+`issue260-drips-cleaner-prefix-audit` show the post-tail extensions still do not
+reach those cells: `536-620:c` + `536-700:right` stays in `InGame` through frame
+700 and reaches x `$02D3`, but HP is already 0 and Kid is below the target row;
+earlier C timings (`500-580:c` and `480-560:c` with right held) reach farther
+right (`$02E5..$02ED`) but fall into `LevelTransition` at frames 677/661.
+Control-mapping note: `FrameInput::from_mask` and `kidcli` input specs map bit
+4/`b` to the jump button and bit 5/`c` to run/speed; a later direct comparison
+confirmed the old B direct probe jumps while a C-only direct probe does not.
+The route blocker is therefore climb/approach plus tank/gap handling, not an
+input remap or Drips/block implementation signal.
 
 Follow-up 2026-06-08 visual route check for #213/#260: native captures for the
 best C-tail route (`536-620:c`, `536-700:right`) at
@@ -2205,6 +2206,16 @@ backing off after the tank (`641-720:left`) and a second C jump (`650-690:c`,
 `650-720:left`) still fall into `LevelTransition` around frames 705/709. The
 tank can explain the HP-zero/death tail, but it has not produced a usable climb
 to the row-32 Drips/metal cells.
+
+Follow-up 2026-06-08 direct input sanity check for #213/#260: a temporary
+direct C-only probe from the existing upper-cell seed (`x=568,y=575`, camera
+`240,352`, frames 0..80 holding `c`) did not jump, did not spawn a
+`DripsSurfaceCrawler`, and settled back at `$0238,$024F` by frame 11. The
+existing `issue213-drips-metal-block-audit` B route from the same seed does
+jump (`jump_peak_window@380` at `$0238,$0238`) but still does not spawn the
+Drips crawler or hit the reported metal-block mutation. Next #260 route work
+should use B for jump and search a real approach/climb to row 32, not add a
+C-jump scenario.
 
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
