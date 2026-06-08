@@ -7635,8 +7635,11 @@ impl NativeRuntime {
                 // i.e. the SAME `Game_Mode=8` title-card/level-load path as a
                 // normal level entry. Settled oracle probe
                 // `issue-248-death-start-resume-settled` keeps `Game_Mode=$0008`
-                // on the first two Start-held frames after death (560/561) and
-                // returns to live `Game_Mode=$000C` on the third (562). The old fixed
+                // on Start-held frames 560/561 and returns to
+                // `Game_Mode=$000C` on frame 562 while the hidden respawn
+                // bootstrap pose/object view is still visible. Native trace
+                // frames are post-step, so the live-mode hand-off starts on
+                // the second counted held frame. The old fixed
                 // `Respawning` countdown ignored input, so live play sat on a
                 // black `LevelTransition` frame for the whole ~7210-frame settle
                 // and the player's Start press did nothing ("press start —
@@ -7649,6 +7652,22 @@ impl NativeRuntime {
                 // against an IDLE oracle trace that never presses Start during the
                 // hold, so they keep running the full countdown and are unaffected
                 // (the held-frame latch is zero without a Start press).
+                if self.respawn_live_handoff_frames > 0 {
+                    self.respawn_live_handoff_frames =
+                        self.respawn_live_handoff_frames.saturating_sub(1);
+                    if self.respawn_live_handoff_frames == 0 {
+                        self.player_lifecycle = PlayerLifecycle::Alive;
+                        self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                        self.just_received_damage = false;
+                        self.kid_is_invulnerable = false;
+                    } else {
+                        self.player_lifecycle = PlayerLifecycle::Respawning {
+                            remaining_frames: remaining_frames.saturating_sub(1),
+                        };
+                    }
+                    return false;
+                }
+
                 if input.start {
                     self.respawn_start_held_frames =
                         self.respawn_start_held_frames.saturating_add(1);
@@ -7663,10 +7682,10 @@ impl NativeRuntime {
                     };
                 } else {
                     self.respawn_start_held_frames = 0;
-                    self.player_lifecycle = PlayerLifecycle::Alive;
-                    self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
-                    self.just_received_damage = false;
-                    self.kid_is_invulnerable = false;
+                    self.respawn_live_handoff_frames = PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES;
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: remaining_frames.saturating_sub(1),
+                    };
                 }
                 return false;
             }

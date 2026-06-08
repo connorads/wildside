@@ -8189,20 +8189,22 @@ mod chunk_02 {
 
         // #248 regression: ASM `lose_life -> loc_6E2` routes through the same
         // hidden mode-8 shell as level entry. Settled oracle probe
-        // `issue-248-death-start-resume-settled` keeps it hidden for the first
-        // two Start-held frames and resumes live gameplay on the third.
-        for handoff_frame in 1..=2 {
-            runtime.step_frame(FrameInput {
-                start: true,
-                ..FrameInput::default()
-            });
-            assert!(
-                matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-                "Start handoff frame {handoff_frame} should stay hidden (got {:?})",
-                runtime.player_lifecycle
-            );
-            assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
-        }
+        // `issue-248-death-start-resume-settled` keeps frames 560/561 hidden
+        // and reports live Game_Mode on frame 562 while the hidden Load_InGame
+        // bootstrap still owns Kid/object state; the synthetic probe exposes
+        // that mode on the second counted held frame because traces are
+        // post-step.
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "first Start handoff frame should stay hidden (got {:?})",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
@@ -8210,8 +8212,8 @@ mod chunk_02 {
 
         let resumed_trace = runtime.trace_frame();
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
-            "third Start-held frame during spike-death Respawning should resume gameplay (got {:?})",
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "second counted Start-held frame during spike-death Respawning should stay in the live-mode handoff (got {:?})",
             runtime.player_lifecycle
         );
         assert_eq!(resumed_trace.game_mode, GameMode::InGame);
@@ -8219,6 +8221,15 @@ mod chunk_02 {
         assert_eq!(resumed_trace.number_lives, pre_lives - 1);
         assert!(resumed_trace.kid_x_pos.is_some());
         assert!(resumed_trace.kid_y_pos.is_some());
+
+        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "live-mode handoff should finish by releasing spike respawn to gameplay (got {:?})",
+            runtime.player_lifecycle
+        );
     }
 
     #[test]
@@ -8385,29 +8396,30 @@ mod chunk_02 {
 
         // ASM Use_Continue resumes through lose_life's `loc_6E2` reload path; native
         // keeps the hidden state-parity countdown but the settled oracle requires
-        // two hidden Start-held frames before live gameplay returns.
+        // frame 560/561 hidden before frame 562 reports live Game_Mode. The
+        // hidden Load_InGame bootstrap still owns Kid/object state, so the
+        // synthetic lifecycle probe exposes live mode on the second counted
+        // held frame before releasing normal gameplay after the carry window.
         runtime.step_frame(FrameInput::default());
-        for handoff_frame in 1..=2 {
-            runtime.step_frame(FrameInput {
-                start: true,
-                ..FrameInput::default()
-            });
-            assert!(
-                matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-                "continue Start handoff frame {handoff_frame} should stay hidden (got {:?})",
-                runtime.player_lifecycle
-            );
-            assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
-        }
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "first continue Start handoff frame should stay hidden (got {:?})",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
+
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
         });
 
-        assert_eq!(
-            runtime.player_lifecycle,
-            PlayerLifecycle::Alive,
-            "third Start-held frame after continue respawn should release live gameplay"
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "second counted Start-held frame after continue respawn should stay in live-mode handoff"
         );
         assert_eq!(
             runtime.trace_frame().game_mode,
@@ -8422,6 +8434,15 @@ mod chunk_02 {
         assert!(
             runtime.trace_frame().kid_x_pos.is_some(),
             "continued respawn should expose a live Kid pose"
+        );
+
+        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::Alive,
+            "continued respawn should release gameplay after the live-mode handoff"
         );
     }
 

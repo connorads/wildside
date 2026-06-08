@@ -395,9 +395,16 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
 // `Load_InGame` return is still a separate frontier.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 10_000;
 // Settled oracle probe `issue-248-death-start-resume-settled` keeps
-// `Game_Mode=$0008` for the first two Start-held frames after death (560/561)
-// and returns to live `Game_Mode=$000C` on the third frame (562).
-pub(crate) const PLAYER_DEATH_RESPAWN_START_HELD_FRAMES: u8 = 3;
+// `Game_Mode=$0008` for Start-held frames 560/561 and returns to live
+// `Game_Mode=$000C` on frame 562. Trace frames are sampled after the native
+// step, so the release happens on the second counted held frame.
+pub(crate) const PLAYER_DEATH_RESPAWN_START_HELD_FRAMES: u8 = 2;
+// ASM `loc_1AE2E -> loc_6E2 -> Load_InGame` exposes `Game_Mode=$000C` before
+// the hidden respawn/bootstrap WRAM view has collapsed to the normal level
+// slice. Keep the post-Start hand-off in live mode while the existing
+// bootstrap trace pose owns Kid/camera/object counts.
+pub(crate) const PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES: u8 =
+    EARLY_START_LOAD_INGAME_VISIBLE_FRAME as u8;
 // ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
 // bootstrap before `Load_InGame` later restores the grounded respawn pose.
 // Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose

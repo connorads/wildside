@@ -17888,6 +17888,7 @@ pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offse
 impl NativeRuntime {
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         self.respawn_start_held_frames = 0;
+        self.respawn_live_handoff_frames = 0;
         let level_id = self.current_level;
         self.reload_block_grid_for_level(level_id);
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));

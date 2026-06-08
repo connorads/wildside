@@ -1918,6 +1918,9 @@ mod chunk_08 {
         // and "press start did nothing". Settled oracle probe
         // `issue-248-death-start-resume-settled` keeps `Game_Mode=$0008` for
         // Start-held frames 560/561 and resumes live `Game_Mode=$000C` on 562.
+        // Native trace frames are post-step, so the synthetic lifecycle probe
+        // exposes live Game_Mode on the second counted held frame while the
+        // hidden Load_InGame hand-off still owns Kid/object state.
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));
         runtime.set_block_grid(grid_with_floor_at_row(17));
         runtime.progression.number_lives = 2;
@@ -1944,18 +1947,18 @@ mod chunk_08 {
 
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-            "second Start-held frame should remain in the loc_6E2 respawn handoff (got {:?})",
+            "second counted Start-held frame should stay in the loc_6E2 bootstrap handoff (got {:?})",
             runtime.player_lifecycle
         );
+        assert_eq!(runtime.trace_frame().game_mode, GameMode::InGame);
 
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
+        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
 
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
-            "third Start-held frame during the respawn hold must resume gameplay (got {:?})",
+            "after the live-mode handoff window the respawn hold must release gameplay (got {:?})",
             runtime.player_lifecycle
         );
     }

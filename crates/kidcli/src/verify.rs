@@ -420,7 +420,7 @@ pub(crate) fn verify_death_respawn_start_resume_level_1(capture: &GameplayCaptur
     }
     if start_release.game_mode != 0x000C {
         bail!(
-            "death_respawn_start_resume_level1 did not return to live gameplay on the third Start-held frame: 0x{:04X}",
+            "death_respawn_start_resume_level1 did not return to live gameplay on the oracle frame-562 Start handoff: 0x{:04X}",
             start_release.game_mode
         );
     }

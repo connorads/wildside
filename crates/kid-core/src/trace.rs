@@ -7085,6 +7085,12 @@ impl NativeRuntime {
     }
 
     pub fn game_mode(&self) -> GameMode {
+        if self.respawn_live_handoff_frames > 0 {
+            // ASM lose_life -> loc_6E2 -> Load_InGame: the settled Start-held
+            // probe has already written Game_Mode=$000C while the hidden
+            // respawn bootstrap WRAM view still owns Kid/camera/object state.
+            return GameMode::InGame;
+        }
         if matches!(
             self.player_lifecycle,
             PlayerLifecycle::Dying { .. } | PlayerLifecycle::Respawning { .. }
