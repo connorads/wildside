@@ -7027,6 +7027,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Skycutter,
             collected: false,
+            collision_latched: false,
         });
         rt.floating_items.push(FloatingItem {
             x_pos: 0x0030_0000,
@@ -7039,6 +7040,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Clock,
             collected: false,
+            collision_latched: false,
         });
         rt.block_state
             .deferred_ceiling_clears
@@ -7099,6 +7101,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Clock,
             collected: false,
+            collision_latched: false,
         });
         rt.block_state
             .deferred_ceiling_clears
@@ -9489,6 +9492,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         let mut slice = OpeningSliceState::new(default_bounds());
@@ -9517,6 +9521,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9547,6 +9552,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9571,6 +9577,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9600,6 +9607,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Ankh,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9630,6 +9638,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Ankh,
             collected: false,
+            collision_latched: false,
         });
         let lives_before = rt.progression.number_lives;
         let mut slice = OpeningSliceState::new(default_bounds());
@@ -9667,6 +9676,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Ankh,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9697,6 +9707,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Ankh,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9721,6 +9732,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Skycutter,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9751,6 +9763,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9774,6 +9787,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Skycutter,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9798,6 +9812,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Cyclone,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9828,6 +9843,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Cyclone,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9852,6 +9868,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::RedStealth,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9882,6 +9899,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::RedStealth,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9906,6 +9924,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Eyeclops,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9936,6 +9955,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Eyeclops,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9960,6 +9980,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Juggernaut,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -9990,6 +10011,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::IronKnight,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10020,6 +10042,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::IronKnight,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10044,6 +10067,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Berzerker,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10074,6 +10098,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Berzerker,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10098,6 +10123,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Maniaxe,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10128,6 +10154,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Micromax,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10166,6 +10193,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Micromax,
             collected: true,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10803,6 +10831,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         let mut slice = OpeningSliceState::new(default_bounds());
@@ -10841,6 +10870,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Skycutter,
             collected: false,
+            collision_latched: false,
         });
 
         let mut slice = OpeningSliceState::new(default_bounds());
@@ -10876,6 +10906,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10917,6 +10948,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
         rt.floating_items.push(FloatingItem {
             x_pos: (3 * 16 + 8) << 16,
@@ -10929,6 +10961,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Clock,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10962,6 +10995,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -10994,6 +11028,7 @@ mod chunk_09 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();
@@ -11034,6 +11069,7 @@ mod chunk_09 {
             first_row_grace: false,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
         rt.floating_items.push(FloatingItem {
             x_pos: (3 * 16 + 8) << 16,
@@ -11046,6 +11082,7 @@ mod chunk_09 {
             first_row_grace: false,
             content: terrain::PrizeContent::Clock,
             collected: false,
+            collision_latched: false,
         });
 
         rt.step_visual_effects();

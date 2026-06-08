@@ -111,6 +111,7 @@ mod tests {
             first_row_grace: false,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         }
     }
 
@@ -3753,6 +3754,7 @@ mod tests {
             first_row_grace: false,
             content: terrain::PrizeContent::IronKnight,
             collected: false,
+            collision_latched: false,
         });
         let mut grid = terrain::BlockGrid::from_level_layout(&[], 64, 16);
         grid.set_cell_at(45, 10, terrain::Cell::from_be_bytes(0x60, 0x00));
@@ -4231,6 +4233,7 @@ mod tests {
             first_row_grace: false,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
         runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES - 7,
@@ -7140,12 +7143,13 @@ impl NativeRuntime {
             candidates.push(FloatingDiamondContactCandidate {
                 distance_score: dx_px.abs() + dy_px.abs(),
                 summary: format!(
-                    "prize#{:02x}@{item_x_px},{item_y_px} dx={dx_px} dy={dy_px} row={} grace={} rem={} collected={} native_ov={}{} form_ov={}{} {cell_summary}",
+                    "prize#{:02x}@{item_x_px},{item_y_px} dx={dx_px} dy={dy_px} row={} grace={} rem={} collected={} latched={} native_ov={}{} form_ov={}{} {cell_summary}",
                     item.content.to_id(),
                     item.level_row,
                     u8::from(item.first_row_grace),
                     item.remaining,
                     u8::from(item.collected),
+                    u8::from(item.collision_latched),
                     u8::from(native_overlap_x),
                     u8::from(native_overlap_y),
                     u8::from(form_overlap_x),

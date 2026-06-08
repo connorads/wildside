@@ -1660,6 +1660,11 @@ pub(crate) struct FloatingItem {
     pub(crate) content: terrain::PrizeContent,
     /// Whether the player has collected this item by touching it.
     pub(crate) collected: bool,
+    /// ASM PrizeHelmet* loc_10464..loc_106B4: helmet objects inspect their
+    /// own `collision_type(a3)` after a hibernated frame, so gfx collision can
+    /// delete the object on the following tick even when Kid's transform path
+    /// is cancelled.
+    pub(crate) collision_latched: bool,
 }
 
 #[derive(Debug, Clone)]

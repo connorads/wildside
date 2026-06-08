@@ -119,6 +119,7 @@ mod chunk_04 {
             first_row_grace: false,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         let trace = runtime.trace_frame();

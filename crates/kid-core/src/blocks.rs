@@ -2957,6 +2957,7 @@ impl NativeRuntime {
             first_row_grace: true,
             content: entry.content,
             collected: false,
+            collision_latched: false,
         }
     }
 
@@ -3666,6 +3667,7 @@ impl NativeRuntime {
     pub(crate) fn collect_floating_items(&mut self, slice: &mut OpeningSliceState) {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
         const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
+        const HELMET_OBJECT_COLLISION_MIN_DY_PX: i32 = -17;
 
         let player_x_px = (slice.player.x_pos >> 16) as i32;
         let player_y_px = (slice.player.y_pos >> 16) as i32;
@@ -3716,6 +3718,29 @@ impl NativeRuntime {
             } else {
                 player_top < item_bottom && player_y_px > item_top
             };
+
+            if item.content != terrain::PrizeContent::Diamond {
+                let form_left = player_x_px - self.progression.current_form.half_width();
+                let form_right = player_x_px + self.progression.current_form.half_width();
+                let form_top = player_y_px - PLAYER_HEIGHT;
+                let asm_left = item_x_px - 7;
+                let asm_right = item_x_px + 7;
+                let asm_top = item_y_px - PLAYER_HEIGHT;
+                let asm_bottom = item_y_px;
+                if form_left <= asm_right
+                    && form_right >= asm_left
+                    && form_top <= asm_bottom
+                    && player_y_px >= asm_top
+                    && item_y_px - player_y_px >= HELMET_OBJECT_COLLISION_MIN_DY_PX
+                {
+                    // ASM PrizeHelmet* loc_10464..loc_106B4: object-side
+                    // GfxObjects_CollisionKid collision deletes on the next
+                    // hibernated tick. The #258 oracle route keeps the mask
+                    // alive at dy=-19 and latches it at dy=-17; Kid-side form
+                    // award remains the stricter lower-body collection path.
+                    item.collision_latched = true;
+                }
+            }
 
             if overlap_x && overlap_y {
                 // ASM loc_1000A / loc_1001E (kid.asm:21302-21312) hibernate
@@ -4052,6 +4077,8 @@ impl NativeRuntime {
             let screen_x = (first_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
             (0..0x140).contains(&screen_x)
         });
+
+        self.floating_items.retain(|f| !f.collision_latched);
 
         for f in &mut self.floating_items {
             if f.spawn_delay > 0 {
@@ -4514,6 +4541,7 @@ mod tests {
                 first_row_grace: false,
                 content: terrain::PrizeContent::Skycutter,
                 collected: false,
+                collision_latched: false,
             },
             FloatingItem {
                 x_pos: 0x0040_0000,
@@ -4526,6 +4554,7 @@ mod tests {
                 first_row_grace: false,
                 content: terrain::PrizeContent::Ankh,
                 collected: false,
+                collision_latched: false,
             },
             FloatingItem {
                 x_pos: 0x0060_0000,
@@ -4538,6 +4567,7 @@ mod tests {
                 first_row_grace: false,
                 content: terrain::PrizeContent::Micromax,
                 collected: false,
+                collision_latched: false,
             },
         ];
 

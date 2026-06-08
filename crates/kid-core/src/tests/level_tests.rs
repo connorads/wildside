@@ -147,6 +147,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         first_row_grace: true,
         content: terrain::PrizeContent::Diamond,
         collected: false,
+        collision_latched: false,
     });
     runtime.block_state.lift_platforms.push(LiftPlatform {
         x_pos: 0x0070_0000,
@@ -8661,6 +8662,7 @@ mod chunk_02 {
             first_row_grace: false,
             content: terrain::PrizeContent::IronKnight,
             collected: false,
+            collision_latched: false,
         });
 
         runtime.clear_flagpole_deleted_objects_loc_C070();
@@ -17966,6 +17968,7 @@ mod chunk_02 {
             first_row_grace: false,
             content: terrain::PrizeContent::Cyclone,
             collected: false,
+            collision_latched: false,
         });
         let mut slice = make_airborne_slice(74, 655);
 
@@ -17976,6 +17979,41 @@ mod chunk_02 {
             "helmet prize should stay uncollected until it overlaps Kid's lower body"
         );
         assert_eq!(runtime.progression.pending_form, None);
+    }
+
+    #[test]
+    fn floating_helmet_form_box_collision_deletes_next_tick_without_transform_loc_105d6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 728 << 16,
+            y_pos: i64::from(179 << 16),
+            y_velocity: 0,
+            remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+            spawn_delay: 0,
+            level_col: 45,
+            level_row: 11,
+            first_row_grace: false,
+            content: terrain::PrizeContent::IronKnight,
+            collected: false,
+            collision_latched: false,
+        });
+        let mut slice = make_airborne_slice(752, 196);
+
+        runtime.collect_floating_items(&mut slice);
+
+        assert!(
+            !runtime.floating_items[0].collected,
+            "frame-584 #258 oracle keeps Current_Helmet as Juggernaut; form-box collision must not award the Iron Knight mask"
+        );
+        assert_eq!(runtime.progression.pending_form, None);
+
+        runtime.step_visual_effects();
+
+        assert!(
+            runtime.floating_items.is_empty(),
+            "ASM PrizeHelmetIronKnight_Init loc_105D6 deletes on the next hibernated tick after collision_type(a3) is latched"
+        );
     }
 
     #[test]
@@ -17992,6 +18030,7 @@ mod chunk_02 {
             first_row_grace: false,
             content: terrain::PrizeContent::Cyclone,
             collected: false,
+            collision_latched: false,
         });
         let mut slice = make_airborne_slice(74, 655);
 
@@ -18015,6 +18054,7 @@ mod chunk_02 {
             first_row_grace: true,
             content: terrain::PrizeContent::Clock,
             collected: false,
+            collision_latched: false,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 72 << 16;
@@ -18085,6 +18125,7 @@ mod chunk_02 {
             first_row_grace: true,
             content: terrain::PrizeContent::Diamond,
             collected: false,
+            collision_latched: false,
         });
 
         while runtime.floating_items[0].level_row == 2 {
