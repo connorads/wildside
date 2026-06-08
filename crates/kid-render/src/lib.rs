@@ -292,6 +292,11 @@ mod tests {
         assert_eq!(iron_knight.palette.colours.len(), 15);
         assert_eq!(iron_knight.idle.origin_x, 0x13);
         assert_eq!(iron_knight.walk.len(), 6);
+        assert_eq!(iron_knight.climb.len(), 3);
+        assert_eq!(
+            iron_knight.climb[0].origin_x, 0x13,
+            "ASM sub_A3BC/off_A420 selects unk_C209E / iron_knight_climbing_3 for the bottom climb bucket"
+        );
         assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
         assert_eq!(
             iron_knight.jump_fall.origin_y, -0x02,
@@ -1072,6 +1077,21 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_1.bin",
+                &vec![0x4E; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_2.bin",
+                &vec![0x4F; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_3.bin",
+                &vec![0x50; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc_kid/iron_knight_transformation_1.bin",
                 &vec![0x4A; 32 * 40],
             )?;
@@ -1363,6 +1383,9 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_6.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_3.bin"),
                     asset_file(
                         root.path(),
                         "ingame/artunc_kid/iron_knight_transformation_1.bin",

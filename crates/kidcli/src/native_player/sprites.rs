@@ -524,6 +524,22 @@ pub(super) fn select_player_frame<'a>(
         }
     }
 
+    if trace.current_helmet_id == PlayerForm::IronKnight.helmet_id()
+        && trace.iron_knight_climbing
+        && !player_visuals.climb.is_empty()
+    {
+        // ASM sub_A3BC (kid.asm:12710-12715) stores d3, buckets `d3 >> 2`
+        // through `unk_A3F0`, then writes `off_A420` into addroffset_sprite.
+        // Preserve that sprite write directly; a stationary cling is not idle.
+        let frame_index = match trace.iron_knight_climb_pose_accum >> 2 {
+            0..=15 => 0,
+            16..=31 => 1,
+            _ => 2,
+        }
+        .min(player_visuals.climb.len() - 1);
+        return &player_visuals.climb[frame_index];
+    }
+
     if on_ground {
         if trace.current_helmet_id == PlayerForm::Berzerker.helmet_id()
             && (trace.berzerker_charging || trace.berzerker_charge_pose)

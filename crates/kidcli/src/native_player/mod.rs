@@ -2220,6 +2220,8 @@ mod tests {
             kid_facing: Some(Direction::Right),
             kid_on_ground: Some(true),
             walk_visual_accumulator: 0,
+            iron_knight_climbing: false,
+            iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
@@ -4111,6 +4113,7 @@ mod tests {
                     sample_player_frame(7),
                 ],
                 charge: Vec::new(),
+                climb: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(25),
                     sample_player_frame(26),
@@ -4161,6 +4164,11 @@ mod tests {
                     sample_player_frame(16),
                 ],
                 charge: Vec::new(),
+                climb: vec![
+                    sample_player_frame(50),
+                    sample_player_frame(51),
+                    sample_player_frame(52),
+                ],
                 slope_walk: Vec::new(),
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
@@ -4197,6 +4205,7 @@ mod tests {
                 idle: sample_player_frame(21),
                 walk: vec![sample_player_frame(22)],
                 charge: Vec::new(),
+                climb: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(38),
                     sample_player_frame(39),
@@ -4260,6 +4269,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -4309,6 +4319,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -4359,6 +4370,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -4409,6 +4421,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -4460,6 +4473,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: vec![sample_player_frame(70)],
             slope_walk_left: vec![sample_player_frame(71)],
             jump_rise: sample_player_frame(20),
@@ -4510,6 +4524,7 @@ mod tests {
                 sample_player_frame(44),
                 sample_player_frame(45),
             ],
+            climb: Vec::new(),
             slope_walk: vec![sample_player_frame(70), sample_player_frame(71)],
             slope_walk_left: vec![sample_player_frame(80), sample_player_frame(81)],
             jump_rise: sample_player_frame(20),
@@ -4549,6 +4564,7 @@ mod tests {
             idle: sample_player_frame(1),
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
             charge: Vec::new(),
+            climb: Vec::new(),
             slope_walk: vec![
                 sample_player_frame(70),
                 sample_player_frame(71),
@@ -4606,6 +4622,7 @@ mod tests {
                 sample_player_frame(15),
             ],
             charge: Vec::new(),
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -4648,6 +4665,7 @@ mod tests {
                 sample_player_frame(35),
             ],
             charge: Vec::new(),
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(40),
@@ -4675,6 +4693,47 @@ mod tests {
     }
 
     #[test]
+    fn iron_knight_climb_pose_uses_sub_a3bc_sprite_over_idle() {
+        let visuals = PlayerFormVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![sample_player_frame(10), sample_player_frame(11)],
+            charge: Vec::new(),
+            climb: vec![
+                sample_player_frame(60),
+                sample_player_frame(61),
+                sample_player_frame(62),
+            ],
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: sample_player_frame(20),
+            jump_fall: sample_player_frame(21),
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        trace.kid_x_velocity = Some(0);
+        trace.kid_y_velocity = Some(0);
+        trace.kid_on_ground = Some(false);
+        trace.iron_knight_climbing = true;
+        trace.iron_knight_climb_pose_accum = 0x0080;
+
+        let frame = sprites::select_player_frame(&trace, &visuals);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 62,
+            "ASM sub_A3BC/off_A420: d3=$80 buckets through `unk_A3F0` to the top Iron Knight climbing sprite, even when velocity is zero"
+        );
+    }
+
+    #[test]
     fn juggernaut_slope_fallback_keeps_head_forward_phase_loc_94b4() {
         let visuals = PlayerFormVisuals {
             palette: Palette {
@@ -4690,6 +4749,7 @@ mod tests {
                 sample_player_frame(15),
             ],
             charge: Vec::new(),
+            climb: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),

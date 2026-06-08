@@ -2017,6 +2017,33 @@ const IRON_KNIGHT_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
         height_px: 0x25,
     },
 ];
+
+// ASM sub_A3BC/off_A420 (kid.asm:12710-12715): pose buckets select
+// climbing_3 (bottom), climbing_2 (mid), then climbing_1 (top).
+const IRON_KNIGHT_CLIMB_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd(
+        "artunc_kid/iron_knight_climbing_3.bin",
+        0x13,
+        0x01,
+        0x1C,
+        0x25,
+    ),
+    pfd(
+        "artunc_kid/iron_knight_climbing_2.bin",
+        0x14,
+        0x03,
+        0x1C,
+        0x27,
+    ),
+    pfd(
+        "artunc_kid/iron_knight_climbing_1.bin",
+        0x14,
+        0x03,
+        0x1C,
+        0x27,
+    ),
+];
+
 // ASM loc_A13A/off_A190 indexes helmet 6 through off_A200. The first
 // six-entry bank is used before loc_A16C's `$C(a0)` reverse-bank advance.
 const IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES: [PlayerFrameDescriptor; 6] = [
@@ -3716,6 +3743,7 @@ fn load_juggernaut_form_visuals_if_present(
             })
             .collect::<Result<Vec<_>>>()?,
         charge: Vec::new(),
+        climb: Vec::new(),
         slope_walk: Vec::new(),
         slope_walk_left: Vec::new(),
         jump_rise: load_composite_player_frame(
@@ -3800,6 +3828,11 @@ fn load_player_form_visuals(
             // ASM loc_9564 indexes off_9688, which is a separate Berzerker
             // run/head-forward table rather than the normal off_967C walk art.
             load_player_frames(manifest, &BERZERKER_CHARGE_FRAMES)?
+        } else {
+            Vec::new()
+        },
+        climb: if spec.form_id == PLAYER_FORM_IRON_KNIGHT {
+            load_player_frames(manifest, &IRON_KNIGHT_CLIMB_FRAMES)?
         } else {
             Vec::new()
         },

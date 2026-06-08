@@ -1161,6 +1161,12 @@ pub struct NativeTraceFrame {
     /// ROM `$FFFFF8F0`: visual walk/crawl/slope animation phase.
     #[serde(default, skip_serializing_if = "is_zero_u16")]
     pub walk_visual_accumulator: u16,
+    /// ROM Iron Knight wall-climb state: `sub_A3BC` stores the pose
+    /// accumulator in d3 and writes the selected climb sprite each loop.
+    #[serde(default)]
+    pub iron_knight_climbing: bool,
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub iron_knight_climb_pose_accum: u16,
     /// ASM sub_44DC loc_45EE `$FFFFFA5D`: byte offset into `unk_461C` for the
     /// currently uploaded HUD diamond page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1423,6 +1429,8 @@ impl Default for NativeTraceFrame {
             kid_facing: None,
             kid_on_ground: None,
             walk_visual_accumulator: 0,
+            iron_knight_climbing: false,
+            iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,

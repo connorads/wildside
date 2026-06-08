@@ -840,6 +840,8 @@ mod tests {
             kid_facing: None,
             kid_on_ground: Some(false),
             walk_visual_accumulator: 0,
+            iron_knight_climbing: false,
+            iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,

@@ -34,6 +34,9 @@ pub struct PlayerFormVisuals {
     /// ASM `off_9688`: Berzerker head-forward charge/run frames.
     /// Empty for forms without a separate charge table.
     pub charge: Vec<SpriteFrame>,
+    /// ASM `sub_A3BC` / `off_A420`: Iron Knight wall-climb poses.
+    /// Empty for forms without separate climb art.
+    pub climb: Vec<SpriteFrame>,
     /// ASM stru_8B6A: pre-drawn tilted sprite frames for slope walking.
     /// Right-facing set (kid_slope_7..12). Empty if not loaded.
     pub slope_walk: Vec<SpriteFrame>,

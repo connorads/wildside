@@ -5911,6 +5911,16 @@ impl NativeRuntime {
             walk_visual_accumulator: self
                 .opening_slice
                 .map_or(0, |slice| slice.walk_visual_accumulator),
+            iron_knight_climbing: if hidden_boot_progression {
+                false
+            } else {
+                self.helmet.iron_knight_climbing
+            },
+            iron_knight_climb_pose_accum: if hidden_boot_progression {
+                0
+            } else {
+                self.helmet.iron_knight_climb_pose_accum
+            },
             hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
             berzerker_charging: if hidden_boot_progression {
                 false
