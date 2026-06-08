@@ -2248,6 +2248,21 @@ frames 671..677. Do not retry these exact early B-jump shelf timings; next route
 work needs a different vertical-position axis or a different approach to the
 row-32/row-20 block corridor.
 
+Follow-up 2026-06-08 wall-cling route rejection for #213/#260: clearing the
+cleaner prefix from frames 140..300 and reapplying Left on 170..260 reliably
+creates a near-hit on the lower wall-cling branch, not the reported slime/metal
+interaction. The probe reaches target point `(456,543)` within 2px at frame 496,
+but `kid_wall_cling_release_probe` shows the top edge blocked by the Prize block
+at cell 29,32 (`x=464`) on frames 504..506, then releases/falls right by frame
+507. Post-contact overlays (`500-560` Left, Left+B, B, Right+B, or clear/right
+tails through 620) keep Kid live but still miss target `(584,543)` by 48px
+vertically; the best DripsDrop closest approach is still only manhattan 40..45px
+and no fresh surface-crawler/metal-block mutation appears. Longer right-only
+tailing reaches `LevelTransition` at frame 857, while right+B stays live but
+does not climb. Do not retry this cell-29/32 Prize-block wall-cling branch
+unless the target route changes; #260 still needs a new vertical approach to the
+row-32 Drips/metal cells.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
