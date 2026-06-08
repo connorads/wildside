@@ -7623,6 +7623,7 @@ impl NativeRuntime {
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
+                    self.rebuild_death_respawn_title_workers_loc_b8de();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -7754,6 +7755,7 @@ impl NativeRuntime {
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
+                    self.rebuild_death_respawn_title_workers_loc_b8de();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };

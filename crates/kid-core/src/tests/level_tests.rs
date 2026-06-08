@@ -2919,6 +2919,7 @@ mod chunk_02 {
             return;
         };
         runtime.boot_to_level(LevelId(0));
+        runtime.rebuild_death_respawn_title_workers_loc_b8de();
         runtime.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: crate::constants::PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
         };
@@ -2936,6 +2937,15 @@ mod chunk_02 {
         assert!(
             vdp.vram[0x5F60..0x6000].iter().any(|&byte| byte != 0),
             "ASM Load_TitleCard should decompress theme art for the respawn shell",
+        );
+
+        let trace = runtime.trace_frame();
+        assert!(
+            trace.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                    && object.debug_fields.contains_key("glyph")
+            }),
+            "ASM loc_1AB26/loc_1AC70/loc_1AD48 should expose respawn title-card workers",
         );
     }
 

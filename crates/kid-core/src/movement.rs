@@ -2186,6 +2186,19 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn rebuild_death_respawn_title_workers_loc_b8de(&mut self) {
+        // ASM lose_life -> Teleport loc_B8DE -> loc_6E2 re-enters
+        // Load_TitleCard, which allocates the same loc_1AB26/loc_1AD48
+        // workers as normal level entry before the hidden Load_InGame
+        // bootstrap resumes live gameplay.
+        self.rebuild_starting_level_title_workers();
+        self.starting_level_title_rng = None;
+        self.maybe_seed_starting_level_title_workers(LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME);
+        self.maybe_seed_starting_level_title_workers(
+            LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
+        );
+    }
+
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {
         self.starting_level_title_workers
             .iter()

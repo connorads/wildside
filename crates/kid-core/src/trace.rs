@@ -7914,9 +7914,16 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. })
             && self.death_respawn_bootstrap_profile().is_some()
         {
-            // ASM loc_6E2 clears object RAM before the hidden respawn bootstrap
-            // has rebuilt level enemies/platforms. Keep the hidden Kid pose
-            // trace-visible, but do not expose stale gameplay rosters here.
+            let title_elapsed = crate::movement::LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME
+                + self
+                    .death_respawn_bootstrap_elapsed_frames()
+                    .unwrap_or_default();
+            objects.extend(self.starting_level_title_active_objects(title_elapsed));
+            // ASM lose_life -> Teleport loc_B8DE -> loc_6E2 clears object RAM
+            // before the hidden respawn bootstrap has rebuilt level
+            // enemies/platforms. Keep the hidden Kid pose and Load_TitleCard
+            // loc_1AC70/loc_1AD48 workers trace-visible, but do not expose
+            // stale gameplay rosters here.
             return objects;
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
