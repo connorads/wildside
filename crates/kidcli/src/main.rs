@@ -4559,13 +4559,13 @@ AddrTbl_LevelNames:
         let capture =
             capture_native_gameplay_scenario(&manifest, GameplayScenario::DeathRespawnLevel1)
                 .expect("capture");
-        assert_eq!(capture.checkpoints.len(), 5);
+        assert_eq!(capture.checkpoints.len(), 6);
         assert!(
             capture
                 .checkpoints
                 .iter()
-                .any(|state| state.label == "respawn_bootstrap_tail"),
-            "default native gameplay capture should reach the late hidden respawn checkpoint"
+                .any(|state| state.label == "respawn_bootstrap_tail_9500"),
+            "default native gameplay capture should reach the extended hidden respawn checkpoint"
         );
     }
 
