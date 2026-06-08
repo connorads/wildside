@@ -67,7 +67,8 @@ use scenarios::{
     diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
     diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
     diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
-    highwater_flag_transition_audit_scenario, highwater_pass2_grow_shooter_touch_audit_scenario,
+    highwater_flag_floor_contact_audit_scenario, highwater_flag_transition_audit_scenario,
+    highwater_pass2_grow_shooter_touch_audit_scenario,
     highwater_pass2_juggernaut_flag_transition_audit_scenario,
     highwater_shooter_barrier_audit_scenario, highwater_water_priority_audit_scenario,
     idle_level_scenario, issue_147_wall_side_jump_audit_scenario,
@@ -163,6 +164,8 @@ enum RecordScenarioKind {
     HighwaterWaterPriorityAudit,
     /// start at Highwater Pass 1's flag and audit the normal next-level hand-off.
     HighwaterFlagTransitionAudit,
+    /// walk into Highwater Pass 1's flag from floor level (#267).
+    HighwaterFlagFloorContactAudit,
     /// start at Highwater Pass 2's flag as Juggernaut and audit the normal level-4 hand-off.
     HighwaterPass2JuggernautFlagTransitionAudit,
     /// start above Highwater Pass 2's first `$E919` touch-grown shooter block.
@@ -2917,6 +2920,9 @@ fn build_record_scenario(
         RecordScenarioKind::HighwaterFlagTransitionAudit => {
             highwater_flag_transition_audit_scenario()
         }
+        RecordScenarioKind::HighwaterFlagFloorContactAudit => {
+            highwater_flag_floor_contact_audit_scenario()
+        }
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             highwater_pass2_juggernaut_flag_transition_audit_scenario()
         }
@@ -3015,6 +3021,7 @@ fn record_scenario_command(
         RecordScenarioKind::HighwaterShooterBarrierAudit => "highwater-shooter-barrier-audit",
         RecordScenarioKind::HighwaterWaterPriorityAudit => "highwater-water-priority-audit",
         RecordScenarioKind::HighwaterFlagTransitionAudit => "highwater-flag-transition-audit",
+        RecordScenarioKind::HighwaterFlagFloorContactAudit => "highwater-flag-floor-contact-audit",
         RecordScenarioKind::HighwaterPass2JuggernautFlagTransitionAudit => {
             "highwater-pass2-juggernaut-flag-transition-audit"
         }
@@ -5246,6 +5253,47 @@ AddrTbl_LevelNames:
                 .iter()
                 .any(|checkpoint| checkpoint.label == "next_level_survival_tail"),
             "issue #238 needs evidence after the normal level-complete hand-off, not just flag touch"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_highwater_flag_floor_contact_audit_walks_into_flag() {
+        let scenario = build_record_scenario(
+            RecordScenarioKind::HighwaterFlagFloorContactAudit,
+            0x00,
+            None,
+        );
+
+        assert_eq!(scenario.slug, "highwater_flag_floor_contact_audit_02");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x02),
+            "the #267 floor-contact probe must target Highwater Pass 1 regardless of the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((888, 144)),
+            "the #267 route starts left of Highwater Pass 1's flag at (912, 144) so contact comes from walking into the pole"
+        );
+        assert_eq!(
+            scenario.script.get(0).copied(),
+            Some(1 << 3),
+            "the #267 route must begin by holding Right, not by spawning inside the flag hitbox"
+        );
+        assert_eq!(
+            scenario.script.get(90).copied(),
+            Some(0),
+            "the #267 route releases Right after the approach window so the level-complete hand-off can settle"
+        );
+        assert!(
+            scenario.checkpoints.iter().any(|checkpoint| {
+                checkpoint.label == "floor_flag_contact_window_loc_31d7a"
+                    && checkpoint.frame_index == 45
+            }),
+            "issue #267 needs a durable checkpoint around the ROM flag-floor-contact window"
         );
     }
 

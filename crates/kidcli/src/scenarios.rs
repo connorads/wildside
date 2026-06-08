@@ -1121,6 +1121,58 @@ pub fn highwater_flag_transition_audit_scenario() -> DynamicScenario {
     }
 }
 
+/// Focused #267 Highwater Pass floor-contact flag audit.
+///
+/// Unlike `highwater_flag_transition_audit_scenario`, this starts Kid just left
+/// of the real Highwater Pass 1 flag and walks right into it. The route keeps
+/// the same ASM `loc_D7F4` title-card hand-off coverage while proving the flag
+/// can trigger from floor-level side contact instead of an initial overlap.
+pub fn highwater_flag_floor_contact_audit_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 2_400;
+    const APPROACH_END_FRAME: usize = 89;
+    const TITLE_CARD_START_FRAME: usize = 1_100;
+    const RIGHT: u8 = 1 << 3;
+    const START: u8 = 1 << 7;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, APPROACH_END_FRAME, RIGHT);
+    script[TITLE_CARD_START_FRAME] = START;
+
+    DynamicScenario {
+        slug: "highwater_flag_floor_contact_audit_02".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "floor_flag_approach".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "floor_flag_contact_window_loc_31d7a".into(),
+                frame_index: 45,
+            },
+            DynamicCheckpoint {
+                label: "scoreboard_window_loc_d7f4".into(),
+                frame_index: 600,
+            },
+            DynamicCheckpoint {
+                label: "next_level_entry_loc_1ae2e".into(),
+                frame_index: 1_800,
+            },
+            DynamicCheckpoint {
+                label: "next_level_survival_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 888, y: 144 }),
+        camera_position: Some(DynamicStartPosition { x: 728, y: 0 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x02),
+        settle_oracle_warp: true,
+    }
+}
+
 /// Focused Highwater Pass 2 Juggernaut level-complete transition audit.
 ///
 /// Latest live playtest reported an instant death after finishing Level 0x03
