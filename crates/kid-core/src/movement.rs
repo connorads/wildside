@@ -3131,6 +3131,44 @@ impl OpeningSliceState {
                 }
 
                 if on_ground_before
+                    && form == PlayerForm::IronKnight
+                    && !self.terrain.slope_sliding
+                    && self.player.y_velocity == 0
+                    && let Some(grid) = block_grid.as_deref()
+                    && iron_knight_solid_edge_slopeup_followup_loc_914a(
+                        grid,
+                        self.player.x_pos,
+                        self.player.y_pos,
+                        collision_hw,
+                    )
+                {
+                    let h_input = HorizontalInput {
+                        left: input.left,
+                        right: input.right,
+                        run: input.a,
+                    };
+                    let (new_vel, new_facing) = physics::update_horizontal_velocity(
+                        self.player.x_velocity,
+                        self.player.facing,
+                        h_input,
+                        form.ground_speed_table(self.terrain.floor_terrain_type),
+                    );
+                    self.player.x_velocity = new_vel;
+                    self.player.facing = new_facing;
+                    self.player.y_velocity = -new_vel;
+                    self.player.x_pos = (i64::from(self.player.x_pos) + i64::from(new_vel))
+                        .clamp(0, i64::from(u32::MAX))
+                        as u32;
+                    self.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeUp);
+                    self.terrain.slope_sliding = true;
+                    kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
+                }
+
+                if on_ground_before
                     && !self.terrain.slope_sliding
                     && let Some(grid) = block_grid.as_deref()
                     && matches!(
@@ -3584,13 +3622,48 @@ impl OpeningSliceState {
                             direct_compound_landing_loc_a4ee = true;
                             None
                         }
-                        None => self.apply_floor_collision(
-                            Some(grid),
-                            horizontal_step_applied,
-                            !jump_pressed,
-                            collision_hw,
-                            allow_asm_faithful_solid_touch_snap,
-                        ),
+                        None => {
+                            if form == PlayerForm::IronKnight
+                                && !self.player.on_ground
+                                && iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a(
+                                    grid,
+                                    self.player.x_pos,
+                                    self.player.y_pos,
+                                    self.player.y_velocity,
+                                    collision_hw,
+                                )
+                            {
+                                // ASM loc_A75A -> sub_902A (kid.asm:10437):
+                                // the descending scan branches to loc_913A on
+                                // `cmp.w d0,d4; ble` before sub_914A can
+                                // report floor contact. Issue #258 frame 660
+                                // is the Iron Knight equal-boundary SlopeUp
+                                // case; the ordinary floor helper still keeps
+                                // older loc_A99E recontact contracts.
+                                None
+                            } else {
+                                if form == PlayerForm::IronKnight
+                                    && !self.player.on_ground
+                                    && prefer_iron_knight_solid_edge_floor_loc_914a(
+                                        grid,
+                                        &mut self.player,
+                                        &mut self.terrain,
+                                        collision_hw,
+                                    )
+                                {
+                                    direct_compound_landing_loc_a4ee = true;
+                                    None
+                                } else {
+                                    self.apply_floor_collision(
+                                        Some(grid),
+                                        horizontal_step_applied,
+                                        !jump_pressed,
+                                        collision_hw,
+                                        allow_asm_faithful_solid_touch_snap,
+                                    )
+                                }
+                            }
+                        }
                     }
                 } else {
                     self.apply_floor_collision(
@@ -7219,6 +7292,112 @@ fn descending_floor_scan_crossed_sub_902a_boundary(y_pos_after_step: u32, y_velo
     let pixels_to_next_row = (-(pre_y_px + 1)) & 0xF;
 
     crossed_pixels > pixels_to_next_row
+}
+
+fn descending_floor_scan_equal_sub_902a_boundary(y_pos_after_step: u32, y_velocity: i32) -> bool {
+    if y_velocity <= 0 {
+        return false;
+    }
+
+    let y_pos_before_step = (i64::from(y_pos_after_step) - i64::from(y_velocity)).max(0) as u32;
+    let pre_y_px = (y_pos_before_step >> 16) as i32;
+    let post_y_px = (y_pos_after_step >> 16) as i32;
+    let crossed_pixels = post_y_px - pre_y_px;
+    let pixels_to_next_row = (-(pre_y_px + 1)) & 0xF;
+
+    crossed_pixels == pixels_to_next_row
+}
+
+fn iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    y_velocity: i32,
+    collision_hw: i32,
+) -> bool {
+    if !descending_floor_scan_equal_sub_902a_boundary(y_pos, y_velocity) {
+        return false;
+    }
+
+    let x_px = (x_pos >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+    probe.on_ground && probe.cell.collision == terrain::CollisionKind::SlopeUp
+}
+
+fn prefer_iron_knight_solid_edge_floor_loc_914a(
+    grid: &terrain::BlockGrid,
+    player: &mut PlayerState,
+    terrain_state: &mut TerrainState,
+    collision_hw: i32,
+) -> bool {
+    let x_px = (player.x_pos >> 16) as i32;
+    let y_px = (player.y_pos >> 16) as i32;
+    let center_probe = terrain::probe_floor(grid, x_px, y_px);
+    let hitbox_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+    if center_probe.cell.collision != terrain::CollisionKind::SlopeUp
+        && hitbox_probe.cell.collision != terrain::CollisionKind::SlopeUp
+    {
+        return false;
+    }
+
+    let left_edge_probe = terrain::probe_floor(grid, x_px - collision_hw, y_px);
+    let right_edge_probe = terrain::probe_floor(grid, x_px + collision_hw, y_px);
+    let solid_edge = [left_edge_probe, right_edge_probe]
+        .into_iter()
+        .filter(|probe| {
+            probe.on_ground
+                && matches!(
+                    probe.cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                )
+        })
+        .min_by_key(|probe| probe.floor_y_px);
+
+    let Some(solid_edge) = solid_edge else {
+        return false;
+    };
+
+    // ASM sub_914A (kid.asm:10557): the downward floor scan records `$6000`
+    // and `$7000` cells in the hitbox span before any later slope handoff.
+    // Issue #258 frame 661 has a centre SlopeUp but right-edge solid; the ROM
+    // lands on the solid row and stays in normal movement.
+    player.y_pos = (solid_edge.floor_y_px.saturating_sub(1).max(0) as u32) << 16;
+    player.y_velocity = 0;
+    player.on_ground = true;
+    player.wall_cling_direction = None;
+    player.on_spikes = solid_edge.cell.collision == terrain::CollisionKind::Spikes;
+    player.jump_buffer_frames = 0;
+    terrain_state.floor_y_pos = player.y_pos;
+    terrain_state.floor_terrain_type =
+        grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
+    terrain_state.slope_walk_kind = None;
+    terrain_state.slope_sliding = false;
+    true
+}
+
+fn iron_knight_solid_edge_slopeup_followup_loc_914a(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    collision_hw: i32,
+) -> bool {
+    let x_px = (x_pos >> 16) as i32;
+    let y_px = (y_pos >> 16) as i32;
+    let center_probe = terrain::probe_floor(grid, x_px, y_px);
+    let hitbox_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
+    if center_probe.cell.collision != terrain::CollisionKind::SlopeUp
+        && hitbox_probe.cell.collision != terrain::CollisionKind::SlopeUp
+    {
+        return false;
+    }
+
+    let right_edge_probe = terrain::probe_floor(grid, x_px + collision_hw, y_px);
+    right_edge_probe.on_ground
+        && matches!(
+            right_edge_probe.cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
 }
 
 pub(crate) fn slope_to_solid_exit_floor_y_loc_9fbc(

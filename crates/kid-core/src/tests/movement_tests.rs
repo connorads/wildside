@@ -18608,6 +18608,178 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A75A/sub_902A: the later Level 00 Iron Knight route reaches a
+    /// SlopeUp/Solid edge exactly at the next-row boundary distance on frame
+    /// 660. The ROM's `cmp.w d0,d4; ble.w loc_913A` keeps that equal case
+    /// airborne; native must not accept the SlopeUp hitbox overlap as a fresh
+    /// landing until a later frame crosses the boundary.
+    #[test]
+    fn level00_frame_660_iron_knight_equal_boundary_slopeup_stays_airborne_loc_a75a() {
+        let w: u16 = 75;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(66, 9, 0x40, 0x82), (67, 9, 0x60, 0x24)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0428_5400;
+        slice.player.y_pos = 0x008c_a400;
+        slice.player.x_velocity = 0x0002_8100;
+        slice.player.y_velocity = 0x0002_1f00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "ASM sub_902A should skip the equal-boundary SlopeUp scan at issue #258 frame 660",
+        );
+        assert_eq!(
+            slice.player.x_pos, 0x042a_d400,
+            "Oracle frame 660 keeps only the post-sub_B084 airborne horizontal step",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x008f_0300,
+            "Oracle frame 660 keeps the post-sub_B168 airborne vertical step",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_8000,
+            "Oracle frame 660 keeps the airborne x velocity instead of entering slope-walk",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0002_5f00,
+            "Oracle frame 660 keeps the airborne y velocity instead of snapping to the SlopeUp",
+        );
+    }
+
+    /// ASM sub_914A: after the equal-boundary frame is skipped, the next
+    /// downward scan sees a centre SlopeUp below Iron Knight but a right-edge
+    /// `$6000` solid in the same hitbox span. The ROM lands on that solid row
+    /// and stays in normal movement instead of entering the slope-walk branch.
+    #[test]
+    fn level00_frame_661_iron_knight_prefers_solid_edge_floor_loc_914a() {
+        let w: u16 = 75;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(66, 9, 0x40, 0x82), (67, 9, 0x60, 0x24)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x042a_d400;
+        slice.player.y_pos = 0x008f_0300;
+        slice.player.x_velocity = 0x0002_8000;
+        slice.player.y_velocity = 0x0002_5f00;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x042a_d400,
+            "Oracle frame 661 has no extra horizontal step after the solid-edge landing",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x008f_0000,
+            "ASM sub_914A should land on the adjacent solid edge row, not the lower centre SlopeUp surface",
+        );
+        assert_eq!(slice.player.x_velocity, 0x0002_7f00);
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "Solid-edge floor landing clears y_vel instead of entering loc_9D22 slope-walk",
+        );
+        assert_eq!(
+            slice.terrain.slope_walk_kind, None,
+            "Frame 661 stays in normal grounded movement after the solid-edge hit",
+        );
+    }
+
+    /// ASM sub_914A -> loc_8BF0 -> loc_9D22: the frame after the solid-edge
+    /// landing uses the normal floor velocity table once, then installs the
+    /// SlopeUp diagonal velocity. This keeps the route on the ROM's `$2800`
+    /// flat deceleration rather than the steeper slope-table brake.
+    #[test]
+    fn level00_frame_662_iron_knight_solid_edge_followup_uses_normal_table_loc_914a() {
+        let w: u16 = 75;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(66, 9, 0x40, 0x82), (67, 9, 0x60, 0x24)]);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x042a_d400;
+        slice.player.y_pos = 0x008f_0000;
+        slice.player.x_velocity = 0x0002_7f00;
+        slice.player.y_velocity = 0;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.x_pos, 0x042d_2b00);
+        assert_eq!(slice.player.y_pos, 0x008f_0000);
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_5700,
+            "Oracle frame 662 decelerates by the normal-table `$2800`, not the slope-table `$4000`",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0002_5700,
+            "ASM loc_9D22 installs the SlopeUp diagonal y_vel after the flat-table handoff",
+        );
+        assert_eq!(
+            slice.terrain.slope_walk_kind,
+            Some(terrain::CollisionKind::SlopeUp)
+        );
+        assert!(slice.terrain.slope_sliding);
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the next natural
     /// Level 00 SlopeUp/Solid edge lands from above with a lower incoming
     /// x_vel than frame 478. Oracle frame 601 proves this seam still needs the
