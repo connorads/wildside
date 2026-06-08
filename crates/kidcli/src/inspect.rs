@@ -1,4 +1,5 @@
 use super::*;
+use kid_core::ActiveProjectileSnapshot;
 
 pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
     let level_id = parse_level_id(level_spec)?;
@@ -1221,6 +1222,51 @@ struct TargetProjectileActivation {
     max_y: u32,
     min_y_velocity: i32,
     max_y_velocity: i32,
+    closest_approach: Option<TargetProjectileClosestApproach>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetProjectileClosestApproach {
+    replay_frame: usize,
+    dx_px: i64,
+    dy_px: i64,
+    manhattan_px: i64,
+}
+
+fn fixed_delta_px(to: u32, from: u32) -> i64 {
+    (i64::from(to) - i64::from(from)) >> 16
+}
+
+fn target_projectile_closest_approach(
+    replay_frame: usize,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+    projectile: &ActiveProjectileSnapshot,
+) -> Option<TargetProjectileClosestApproach> {
+    let (Some(player_x), Some(player_y)) = (player_x, player_y) else {
+        return None;
+    };
+    let dx_px = fixed_delta_px(projectile.x_pos, player_x);
+    let dy_px = fixed_delta_px(projectile.y_pos, player_y);
+    Some(TargetProjectileClosestApproach {
+        replay_frame,
+        dx_px,
+        dy_px,
+        manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+    })
+}
+
+fn retain_closest_projectile_approach(
+    closest: &mut Option<TargetProjectileClosestApproach>,
+    candidate: Option<TargetProjectileClosestApproach>,
+) {
+    let Some(candidate) = candidate else {
+        return;
+    };
+    match closest {
+        Some(existing) if existing.manhattan_px <= candidate.manhattan_px => {}
+        _ => *closest = Some(candidate),
+    }
 }
 
 fn target_projectile_activation(
@@ -1252,6 +1298,15 @@ fn target_projectile_activation(
                     existing.max_y = existing.max_y.max(projectile.y_pos);
                     existing.min_y_velocity = existing.min_y_velocity.min(projectile.y_velocity);
                     existing.max_y_velocity = existing.max_y_velocity.max(projectile.y_velocity);
+                    retain_closest_projectile_approach(
+                        &mut existing.closest_approach,
+                        target_projectile_closest_approach(
+                            replay_frame,
+                            frame.kid_x_pos,
+                            frame.kid_y_pos,
+                            projectile,
+                        ),
+                    );
                 }
                 None => {
                     activation = Some(TargetProjectileActivation {
@@ -1265,6 +1320,12 @@ fn target_projectile_activation(
                         max_y: projectile.y_pos,
                         min_y_velocity: projectile.y_velocity,
                         max_y_velocity: projectile.y_velocity,
+                        closest_approach: target_projectile_closest_approach(
+                            replay_frame,
+                            frame.kid_x_pos,
+                            frame.kid_y_pos,
+                            projectile,
+                        ),
                     });
                 }
             }
@@ -1288,8 +1349,17 @@ pub(crate) fn describe_target_projectile_activation(
     let Some(activation) = target_projectile_activation(trace, kind) else {
         return format!("target projectile {kind:?}: absent");
     };
+    let closest = activation.closest_approach.map_or_else(
+        || String::from("closest kid <none>"),
+        |closest| {
+            format!(
+                "closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{}",
+                closest.dx_px, closest.dy_px, closest.manhattan_px, closest.replay_frame
+            )
+        },
+    );
     format!(
-        "target projectile {kind:?}: first replay frame {} last replay frame {} active frames {} sightings {} x {:08X}..{:08X} y {:08X}..{:08X} y_vel {:08X}..{:08X} first details [{}]",
+        "target projectile {kind:?}: first replay frame {} last replay frame {} active frames {} sightings {} x {:08X}..{:08X} y {:08X}..{:08X} y_vel {:08X}..{:08X} {} first details [{}]",
         activation.first_replay_frame,
         activation.last_replay_frame,
         activation.frame_count,
@@ -1300,6 +1370,7 @@ pub(crate) fn describe_target_projectile_activation(
         activation.max_y,
         activation.min_y_velocity,
         activation.max_y_velocity,
+        closest,
         trace.get(activation.first_replay_frame).map_or_else(
             || String::from("<none>"),
             |frame| describe_target_projectile_details(frame, kind),
@@ -1968,7 +2039,38 @@ mod tests {
 
         assert_eq!(
             describe_target_projectile_activation(&trace, ActiveProjectileKind::DripsDrop),
-            "target projectile DripsDrop: first replay frame 1 last replay frame 3 active frames 2 sightings 3 x 00180000..00200000 y 003F0000..00410000 y_vel 00002000..00004000 first details [DripsDrop@001C0000,003F0000/vel00000000,00002000/remaining0]"
+            "target projectile DripsDrop: first replay frame 1 last replay frame 3 active frames 2 sightings 3 x 00180000..00200000 y 003F0000..00410000 y_vel 00002000..00004000 closest kid <none> first details [DripsDrop@001C0000,003F0000/vel00000000,00002000/remaining0]"
+        );
+    }
+
+    #[test]
+    fn target_projectile_activation_summary_reports_closest_player_approach() {
+        let mut trace = vec![
+            target_projectile_frame(
+                10,
+                ActiveProjectileKind::DripsDrop,
+                0x0020_0000,
+                0x0040_0000,
+                0x0000_2000,
+                0,
+            ),
+            target_projectile_frame(
+                11,
+                ActiveProjectileKind::DripsDrop,
+                0x0024_0000,
+                0x0042_0000,
+                0x0000_4000,
+                0,
+            ),
+        ];
+        trace[0].kid_x_pos = Some(0x0018_0000);
+        trace[0].kid_y_pos = Some(0x0048_0000);
+        trace[1].kid_x_pos = Some(0x0025_0000);
+        trace[1].kid_y_pos = Some(0x0040_0000);
+
+        assert_eq!(
+            describe_target_projectile_activation(&trace, ActiveProjectileKind::DripsDrop),
+            "target projectile DripsDrop: first replay frame 0 last replay frame 1 active frames 2 sightings 2 x 00200000..00240000 y 00400000..00420000 y_vel 00002000..00004000 closest kid dx_px -1 dy_px +2 manhattan_px 3 @1 first details [DripsDrop@00200000,00400000/vel00000000,00002000/remaining0]"
         );
     }
 
