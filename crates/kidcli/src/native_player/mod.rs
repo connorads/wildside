@@ -9839,6 +9839,23 @@ mod tests {
     }
 
     #[test]
+    fn red_stealth_slope_frame_phase_uses_walk_visual_accumulator_loc_a13a() {
+        let mut trace = trace_with_player(4, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.kid_x_velocity = Some(0);
+        trace.kid_on_ground = Some(true);
+        trace.kid_on_slope = 1;
+        trace.kid_facing = Some(Direction::Right);
+        trace.walk_visual_accumulator = 0x0100;
+
+        assert_eq!(
+            player_sprite_signature(&build_ingame_scene(&trace, false, None)),
+            Some(41),
+            "ASM loc_A13A/loc_A17E indexes Red Stealth slope frames with `$FFFFF8F0 >> 8`; wedged Samurai slope frames must not be driven by frame time or idle/walk state"
+        );
+    }
+
+    #[test]
     fn red_stealth_slope_render_flip_accounts_for_predrawn_loc_a13a_banks() {
         let selected_flip = |slope: i8, facing: Direction| {
             let mut trace = trace_with_player(4, 0);
