@@ -30,9 +30,9 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
     drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
     drips_velocity_deltas_loc_33526, drips_vertical_bounds_contact_flag_loc_335b0,
-    drips_wait_timer_with_rng_loc_3340e, robot_shot_flight_loop_loc_3ac48,
-    robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
-    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
+    drips_wait_timer_loc_3340e, robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
+    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
+    tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC,
@@ -1957,6 +1957,9 @@ impl NativeRuntime {
         player_x: Option<u32>,
         spawned_projectiles: &mut Vec<EnemyProjectile>,
     ) {
+        let player_x = player_x.unwrap_or(0);
+        let kid_x_word = ((player_x >> 16) & 0xFFFF) as u16;
+        let mut reseed_events = Vec::new();
         for enemy in self
             .active_enemies
             .iter_mut()
@@ -1965,6 +1968,7 @@ impl NativeRuntime {
             if drips_splash_animation_remaining_loc_33488(enemy.wait_timer) != Some(0) {
                 continue;
             }
+            let table_index = enemy.drips_surface_table_index;
             let spawn_crawler_on_splash = if enemy.drips_surface_table_index < 2 {
                 enemy.drips_surface_table_index += 1;
                 false
@@ -1974,6 +1978,13 @@ impl NativeRuntime {
                 // returning to loc_3340E.
                 enemy.drips_surface_table_index = 0;
                 true
+            };
+            let crawler_random_byte = if spawn_crawler_on_splash
+                && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
+            {
+                Some(self.rom_random.next_byte())
+            } else {
+                None
             };
             if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
@@ -1985,16 +1996,35 @@ impl NativeRuntime {
                     enemy.drips_pending_splash_y_pos,
                     drips_child_byte_44,
                     drips_child_byte_45,
-                    self.rom_random.next_byte(),
+                    crawler_random_byte.expect("crawler random byte is reserved above"),
                 ));
                 *drips_surface_crawler_count += 1;
                 self.drips_surface_crawler_count_loc_fffffb42 += 1;
             }
             // ASM loc_3350E branches back to loc_3340E after the splash path.
-            enemy.wait_timer =
-                drips_wait_timer_with_rng_loc_3340e(&mut self.rom_random, player_x.unwrap_or(0));
+            let reseed_random_byte = self.rom_random.next_byte();
+            let wait_timer = drips_wait_timer_loc_3340e(reseed_random_byte, kid_x_word);
+            reseed_events.push(format!(
+                "#{:02}@{:#010x},{:#010x} table:{}->{} crawler={} crawler_rng={} kid_x={:#06x} reseed_rng={:#04x} wait={:#06x}",
+                enemy.layout_index,
+                enemy.x_pos,
+                enemy.y_pos,
+                table_index,
+                enemy.drips_surface_table_index,
+                u8::from(spawn_crawler_on_splash),
+                crawler_random_byte
+                    .map(|byte| format!("{byte:#04x}"))
+                    .unwrap_or_else(|| String::from("none")),
+                kid_x_word,
+                reseed_random_byte,
+                wait_timer
+            ));
+            enemy.wait_timer = wait_timer;
             enemy.drips_pending_splash_x_pos = 0;
             enemy.drips_pending_splash_y_pos = 0;
+        }
+        if !reseed_events.is_empty() {
+            self.last_drips_splash_reseed_probe = Some(reseed_events.join(";"));
         }
     }
 

@@ -5700,6 +5700,9 @@ impl NativeRuntime {
         if let Some(summary) = self.drips_lifecycle_probe_debug() {
             gameplay_debug_fields.insert("drips_lifecycle_probe".into(), summary);
         }
+        if let Some(summary) = &self.last_drips_splash_reseed_probe {
+            gameplay_debug_fields.insert("drips_splash_reseed_probe".into(), summary.clone());
+        }
         if let Some(slice) = self.opening_slice
             && let Some(summary) =
                 self.stomp_contact_candidates_debug(&slice, slice.player.y_velocity)

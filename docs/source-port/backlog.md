@@ -2303,6 +2303,22 @@ target why native's right Drips reaches `loc_335D8`/`loc_338F8` before oracle,
 checking the linked-child Y offset and splash/table countdown around
 `loc_33424`, `loc_3345C`, `loc_33488`, and `off_33520`.
 
+Follow-up 2026-06-08 Drips reseed probe for #260: native instrumentation
+`drips_splash_reseed_probe` shows the first right-Drips reseed at frame 125:
+`#08 table:0->1 crawler=0 kid_x=0x023f reseed_rng=0x58 wait=0x0029`. Oracle is
+not in the `loc_33488` splash/table path there; `oracle_drips_object_slots`
+shows the controller still hibernating at `code=0x001066` after the
+`loc_33424` animation setup, with `a0=0x00033520`. By frame 160 native is
+counting down the next Drips cycle, while oracle is only in the falling-child
+loop `loc_3345C`; by frame 181 native right Drips is already in
+`pre_drop:0x8016` and oracle right Drips is still in `loc_33428` with
+`d0=0x9c`, `a0=0x00033522`. Revised hypothesis: the crawler/table drift is
+downstream of native advancing the first drop/splash cycle while the ROM is
+still inside the `loc_33424` animation hibernate/falling-child handoff. Next
+work should compare native `step_drips` wait/pre-drop phase boundaries against
+ASM `GfxObject_Animate` + `Hibernate_UntilAnimFinished` before changing crawler
+RNG or stomp/contact rules.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0

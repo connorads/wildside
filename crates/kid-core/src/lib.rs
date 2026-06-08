@@ -271,6 +271,8 @@ pub struct NativeRuntime {
     /// Debug-only attribution for the hostile projectile that triggered Kid
     /// damage during the current frame.
     last_projectile_damage_probe: Option<String>,
+    /// Debug-only Drips splash reseed trace for ASM loc_33488 -> loc_3340E.
+    last_drips_splash_reseed_probe: Option<String>,
     /// ASM Drips.asm loc_33488/loc_3392C mirror of `$FFFFFB42`: incremented
     /// when loc_335D8 allocates a surface crawler and decremented only after
     /// the crawler's finish animation reaches loc_3392C. Native cannot derive
@@ -1378,6 +1380,7 @@ impl NativeRuntime {
             level_damage_taken: false,
             just_received_damage: false,
             last_projectile_damage_probe: None,
+            last_drips_splash_reseed_probe: None,
             drips_surface_crawler_count_loc_fffffb42: 0,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,
@@ -1853,6 +1856,7 @@ impl NativeRuntime {
         self.last_kid_frame_kid_flip_follow_on_probe = None;
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
+        self.last_drips_splash_reseed_probe = None;
         let replay_demo_1_timeout_handoff_frame = matches!(
             self.boot_state,
             BootState::DemoPlay {
