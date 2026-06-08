@@ -5173,6 +5173,15 @@ impl NativeRuntime {
         const MOVE_WALL_CLIMBING: u16 = 4;
         const MOVE_UPHILL_DOWNHILL: u16 = 6;
 
+        if self.wall_cling_boundary_trace_y_velocity.is_some()
+            && player.on_ground
+            && player.y_velocity == 0
+        {
+            // ASM loc_A762 -> loc_A8DE/sub_902A stale GFX-slot export window;
+            // see `maybe_hold_wall_cling_boundary_trace_y_velocity`.
+            return MOVE_JUMP;
+        }
+
         if self.death_shell_snapshot.is_some()
             && matches!(
                 self.player_lifecycle,
@@ -5893,6 +5902,10 @@ impl NativeRuntime {
                 // Raw Kid WRAM is still the title-pose object here; only
                 // the top-level oracle velocity sample carries `$60000`.
                 0x0006_0000
+            } else if let Some(y_velocity) =
+                self.wall_cling_boundary_sampled_y_velocity_export(state)
+            {
+                y_velocity
             } else {
                 state.y_velocity
             }
@@ -7568,6 +7581,15 @@ impl NativeRuntime {
                     && (use_demo_2
                         || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample)
             })
+    }
+
+    fn wall_cling_boundary_sampled_y_velocity_export(&self, state: PlayerState) -> Option<i32> {
+        let (y_velocity, _) = self.wall_cling_boundary_trace_y_velocity?;
+        if state.on_ground && state.y_velocity == 0 {
+            Some(y_velocity)
+        } else {
+            None
+        }
     }
 
     fn demo_1_late_controller_pause_active(&self) -> bool {

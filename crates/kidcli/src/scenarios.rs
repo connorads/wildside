@@ -1442,7 +1442,8 @@ fn issue_249_blw2_left_pit_wall_scenario_for(
     const JUMP_START: usize = 12;
 
     let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
-    apply_range(&mut script, 0, WALL_HOLD_END, LEFT);
+    let wall_hold_start = if pulse_jump { 0 } else { 60 };
+    apply_range(&mut script, wall_hold_start, WALL_HOLD_END, LEFT);
     if pulse_jump {
         let mut frame = JUMP_START;
         while frame + 2 < FRAME_COUNT {
@@ -2571,6 +2572,10 @@ mod tests {
 
         const LEFT: u8 = 1 << 2;
         const JUMP: u8 = 1 << 4;
+        assert!(
+            scenario.script[..60].iter().all(|&buttons| buttons == 0),
+            "BLW2 no-jump left-wall probe must settle before holding LEFT"
+        );
         assert_eq!(scenario.script[60], LEFT);
         assert!(
             scenario.script.iter().all(|buttons| buttons & JUMP == 0),

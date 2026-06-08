@@ -5994,10 +5994,10 @@ impl NativeRuntime {
     }
 
     /// During frames between initial_settle and grounded_hold, the ASM's demo
-    /// bootstrap applies gravity-trajectory position updates without touching
-    /// the kid object's y_vel field. The kid object is hibernating — sub_B168
-    /// (gravity) and sub_A4EE (position) don't run. Instead, the boot code
-    /// directly adjusts y_pos with accumulated gravity: Δy = frame * 0x4000.
+    /// bootstrap applies a short gravity trajectory while the normal gameplay
+    /// object path is still hibernating. The boot code directly adjusts y_pos
+    /// with accumulated gravity: Δy = frame * 0x4000, and oracle frame exports
+    /// show the same shadow velocity in the Kid object y_vel field.
     pub(crate) fn apply_demo_bootstrap_freefall(&mut self, frame_counter: u16) {
         let Some(slice) = self.opening_slice.as_mut() else {
             return;
@@ -6005,8 +6005,10 @@ impl NativeRuntime {
         let freefall_frame = u32::from(frame_counter - demo::DEMO_BOOTSTRAP_INIT_FRAME);
         let shadow_vel = freefall_frame * 0x4000;
         slice.player.y_pos = slice.player.y_pos.wrapping_add(shadow_vel);
-        // y_vel stays 0 — the kid object's velocity field is not used
-        slice.player.y_velocity = 0;
+        // ASM/oracle any-percent-published frames 904..906: the hidden
+        // bootstrap freefall exports this shadow velocity even though the
+        // normal sub_B168/sub_A4EE object physics path has not resumed.
+        slice.player.y_velocity = shadow_vel as i32;
         slice.update_camera_follow(0);
     }
 

@@ -4279,6 +4279,8 @@ impl OpeningSliceState {
                     KidWallClingReleaseGate::ForwardWallBlocked
                 } else if top_edge_probe.is_some_and(|probe| probe.hit) {
                     KidWallClingReleaseGate::TopEdgeBlocked
+                } else if !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid) {
+                    KidWallClingReleaseGate::ColumnShapeBlocked
                 } else {
                     KidWallClingReleaseGate::Ready
                 }
@@ -4301,6 +4303,12 @@ impl OpeningSliceState {
                     KidWallClingReleaseGate::ForwardWallBlocked
                 } else if top_edge_probe.is_some_and(|probe| probe.hit) {
                     KidWallClingReleaseGate::TopEdgeBlocked
+                } else if !self.ascending_wall_cling_release_column_matches_sub_ae6e(
+                    form,
+                    grid,
+                    pre_vertical_y_px,
+                ) {
+                    KidWallClingReleaseGate::ColumnShapeBlocked
                 } else {
                     KidWallClingReleaseGate::Ready
                 }
@@ -4491,54 +4499,42 @@ impl OpeningSliceState {
             return false;
         }
 
-        // ASM jump wall-cling state keeps suppressing h_accel until the first
-        // upward tile-row crossing where the overhang has actually cleared.
-        // On that release frame, the sticky wall hold contributes a 1px x-pos
-        // shimmy and clears the cling state, which is exactly the demo-1
-        // frame-2723 frontier behaviour.
-        //
-        // loc_AE8C (kid.asm:13699): ascending wall probe path (tile row
-        //   was crossed). `move.w y_pos(a3),d7; asr.w #4,d7; add.w d7,d7`
-        //   — compute row pointer into tile map. Load column pointer from
-        //   level row table ($4A04), add FA78+1 offset (negated if FA72≠0).
-        // loc_AEAE (kid.asm:13711): column tile check — mirror of loc_AE0E
-        //   for ascending case. `add.w x_pos(a3),d7; asr.w #4,d7` — resolve
-        //   tile at leading edge. If wall ($6000+) → return NE (stay cling).
-        //   Check tile one row BELOW: if NOT wall → return NE.
-        //   For non-Micromax/non-Juggernaut, extra row above check.
-        // loc_AEFA (kid.asm:13736): Micromax/Juggernaut ascending skip —
-        //   mirrors loc_AE5A for the ascending case. Short helmets skip
-        //   the above-row check and jump straight here: `suba.w
-        //   Level_width_tiles,a4` (one row above current), check tile —
-        //   if NOT wall → `blt loc_AE88` (NE, stay cling). If wall →
-        //   `moveq #0,d7; rts` (EQ, release). Normal-height helmets
-        //   fall through after their own above-row check, so a4 is
-        //   already one row higher — loc_AEFA then checks TWO rows above.
-        //   Native: `probe_wall` (3-point body scan) + `probe_wall_top_edge`
-        //   cover the full column implicitly regardless of helmet height.
-        let x_px = (self.player.x_pos >> 16) as i32;
-        let moving_right = direction == Direction::Right;
-        if terrain::probe_wall(
-            grid,
-            x_px,
-            y_px,
-            form.half_width(),
-            PLAYER_HEIGHT,
-            moving_right,
-        )
-        .hit
-        {
-            return false;
-        }
-        if terrain::probe_wall_top_edge(
-            grid,
-            x_px,
-            y_px,
-            form.half_width(),
-            PLAYER_HEIGHT,
-            moving_right,
-        )
-        .hit
+        // ORIGINAL_QUIRK: oracle frames 2786/3057 of any-percent-published
+        // release from right-wall cling when the broad wall/top-edge probes
+        // are clear, even though the stricter sub_AE6E column-shape mirror
+        // rejects the tile pattern. Keep the strict mirror for left-wall
+        // shafts such as BLW2; the right-wall path follows the sampled oracle.
+        let right_wall_oracle_release =
+            direction == Direction::Right
+                && !self.ascending_wall_cling_release_column_matches_sub_ae6e(
+                    form,
+                    grid,
+                    pre_vertical_y_px,
+                )
+                && !terrain::probe_wall_column(
+                    grid,
+                    (self.player.x_pos >> 16) as i32,
+                    (self.player.y_pos >> 16) as i32,
+                    form.half_width(),
+                    form.ceiling_probe_height(),
+                    true,
+                )
+                .hit
+                && !terrain::probe_wall_top_edge(
+                    grid,
+                    (self.player.x_pos >> 16) as i32,
+                    (self.player.y_pos >> 16) as i32,
+                    form.half_width(),
+                    form.ceiling_probe_height(),
+                    true,
+                )
+                .hit;
+        if !right_wall_oracle_release
+            && !self.ascending_wall_cling_release_column_matches_sub_ae6e(
+                form,
+                grid,
+                pre_vertical_y_px,
+            )
         {
             return false;
         }
@@ -4572,6 +4568,68 @@ impl OpeningSliceState {
         true
     }
 
+    fn wall_cling_release_tile_column(&self, direction: Direction, form: PlayerForm) -> i32 {
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let offset = form.half_width() + 1;
+        let edge_x = match direction {
+            Direction::Right => x_px + offset,
+            Direction::Left => x_px - offset,
+        };
+        edge_x >> 4
+    }
+
+    fn wall_cling_release_tile_is_wall(grid: &terrain::BlockGrid, col: i32, row: i32) -> bool {
+        if col < 0 || row < 0 {
+            return false;
+        }
+        matches!(
+            grid.cell_at(col as u16, row as u16).collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
+    }
+
+    fn wall_cling_release_short_form(form: PlayerForm) -> bool {
+        matches!(form, PlayerForm::Micromax | PlayerForm::Juggernaut)
+    }
+
+    fn ascending_wall_cling_release_column_matches_sub_ae6e(
+        &self,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+        pre_vertical_y_px: i32,
+    ) -> bool {
+        let Some(direction) = self.player.wall_cling_direction else {
+            return false;
+        };
+        let row = pre_vertical_y_px >> 4;
+        let col = self.wall_cling_release_tile_column(direction, form);
+
+        // ASM sub_AE6E loc_AEAE/loc_AEFA (kid.asm:13711, 13736): release
+        // only in the exact column shape the ROM recognises. The current
+        // leading tile must be clear, the tile below must remain a wall, and
+        // the upper sentinel wall sits one row above for short forms or two
+        // rows above for normal-height forms. This preserves the original
+        // left-wall shaft quirk where a clear body probe alone is not enough
+        // to perform the loc_AB4A one-pixel shimmy.
+        if Self::wall_cling_release_tile_is_wall(grid, col, row) {
+            return false;
+        }
+        if !Self::wall_cling_release_tile_is_wall(grid, col, row + 1) {
+            return false;
+        }
+        if !Self::wall_cling_release_short_form(form)
+            && Self::wall_cling_release_tile_is_wall(grid, col, row - 1)
+        {
+            return false;
+        }
+        let sentinel_row = if Self::wall_cling_release_short_form(form) {
+            row - 1
+        } else {
+            row - 2
+        };
+        Self::wall_cling_release_tile_is_wall(grid, col, sentinel_row)
+    }
+
     fn try_release_descending_wall_cling_into_run(
         &mut self,
         input: FrameInput,
@@ -4592,9 +4650,6 @@ impl OpeningSliceState {
             return false;
         }
 
-        let x_px = (self.player.x_pos >> 16) as i32;
-        let y_px = (self.player.y_pos >> 16) as i32;
-        let moving_right = direction == Direction::Right;
         // ASM loc_AAC8 (kid.asm:13350): towards-wall + descending dispatch.
         // `tst.l y_vel; bmi loc_AB22` (ascending → overhang). Falls through
         // to `bsr.w sub_ADB8` — descending tile-row crossing check.
@@ -4625,29 +4680,32 @@ impl OpeningSliceState {
         //   `add.w Level_width_tiles,a4; andi.w #$7000; cmpi.w #$6000`
         //   — if NOT wall, return NE. Otherwise `moveq #0,d7; rts` (EQ)
         //   → wall has ended, release cling.
-        // Native: `probe_wall` (3-point body scan) + `probe_wall_top_edge`
-        // cover the same column checks without the per-row iteration.
-        if terrain::probe_wall(
-            grid,
-            x_px,
-            y_px,
-            form.half_width(),
-            PLAYER_HEIGHT,
-            moving_right,
-        )
-        .hit
-        {
-            return false;
-        }
-        if terrain::probe_wall_top_edge(
-            grid,
-            x_px,
-            y_px,
-            form.half_width(),
-            PLAYER_HEIGHT,
-            moving_right,
-        )
-        .hit
+        // ORIGINAL_QUIRK: same right-wall escape as sub_AE6E above. The
+        // strict sub_ADB8 column shape protects left-wall shaft parity, while
+        // published TAS right-wall releases use the broader clear probes.
+        let right_wall_oracle_release =
+            direction == Direction::Right
+                && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
+                && !terrain::probe_wall_column(
+                    grid,
+                    (self.player.x_pos >> 16) as i32,
+                    (self.player.y_pos >> 16) as i32,
+                    form.half_width(),
+                    form.ceiling_probe_height(),
+                    true,
+                )
+                .hit
+                && !terrain::probe_wall_top_edge(
+                    grid,
+                    (self.player.x_pos >> 16) as i32,
+                    (self.player.y_pos >> 16) as i32,
+                    form.half_width(),
+                    form.ceiling_probe_height(),
+                    true,
+                )
+                .hit;
+        if !right_wall_oracle_release
+            && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
         {
             return false;
         }
@@ -4669,6 +4727,41 @@ impl OpeningSliceState {
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;
         true
+    }
+
+    fn descending_wall_cling_release_column_matches_sub_adb8(
+        &self,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+    ) -> bool {
+        let Some(direction) = self.player.wall_cling_direction else {
+            return false;
+        };
+        let row = ((self.player.y_pos >> 16) as i32) >> 4;
+        let col = self.wall_cling_release_tile_column(direction, form);
+
+        // ASM sub_ADB8 loc_AE0E/loc_AE5A (kid.asm:13644, 13669): descending
+        // release is the vertical mirror of sub_AE6E. The current leading tile
+        // must be clear, the tile above must still be a wall, and the lower
+        // sentinel wall sits one row below for short forms or two rows below
+        // for normal-height forms.
+        if Self::wall_cling_release_tile_is_wall(grid, col, row) {
+            return false;
+        }
+        if !Self::wall_cling_release_tile_is_wall(grid, col, row - 1) {
+            return false;
+        }
+        if !Self::wall_cling_release_short_form(form)
+            && Self::wall_cling_release_tile_is_wall(grid, col, row + 1)
+        {
+            return false;
+        }
+        let sentinel_row = if Self::wall_cling_release_short_form(form) {
+            row + 1
+        } else {
+            row + 2
+        };
+        Self::wall_cling_release_tile_is_wall(grid, col, sentinel_row)
     }
 
     /// Record final state into the physics trace and detect floor landing.

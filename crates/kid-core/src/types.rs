@@ -338,6 +338,7 @@ pub(crate) enum KidWallClingReleaseGate {
     NeedsTileCrossing,
     ForwardWallBlocked,
     TopEdgeBlocked,
+    ColumnShapeBlocked,
 }
 
 impl KidWallClingReleaseGate {
@@ -353,6 +354,7 @@ impl KidWallClingReleaseGate {
             Self::NeedsTileCrossing => "needs_tile_crossing",
             Self::ForwardWallBlocked => "forward_wall_blocked",
             Self::TopEdgeBlocked => "top_edge_blocked",
+            Self::ColumnShapeBlocked => "column_shape_blocked",
         }
     }
 }

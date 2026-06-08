@@ -1211,6 +1211,74 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_bootstrap_freefall_exports_shadow_y_velocity() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut sampled = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(907) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if (904..=906).contains(&frame_index) {
+                sampled.push((frame_index, trace));
+            }
+        }
+
+        assert_eq!(sampled.len(), 3);
+        for (frame_index, trace) in sampled {
+            let expected = ((frame_index - 903) as i32) * 0x4000;
+            let path_debug = trace
+                .gameplay_debug_fields
+                .get("kid_gameplay_path_probe")
+                .unwrap_or_else(|| panic!("frame {frame_index} should emit path diagnostics"));
+            assert!(
+                path_debug.contains("motion=demo_bootstrap_freefall"),
+                "frame {frame_index} should still be in the ASM-backed demo bootstrap freefall path: {path_debug}",
+            );
+            assert_eq!(
+                trace.kid_y_velocity,
+                Some(expected),
+                "ASM/oracle any-percent-published frame {frame_index} exports the bootstrap shadow velocity, not zero",
+            );
+        }
+    }
+
+    #[test]
+    fn published_tas_wall_floor_boundary_exports_sampled_y_velocity() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_957 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(958) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 957 {
+                frame_957 = Some(trace);
+                break;
+            }
+        }
+
+        let trace = frame_957.unwrap_or_else(|| panic!("frame 957 should be captured"));
+        let probe = trace
+            .gameplay_debug_fields
+            .get("kid_flip_follow_on_probe")
+            .unwrap_or_else(|| panic!("frame 957 should emit Kid follow-on diagnostics"));
+        assert!(
+            probe.contains("after_floor[x_vel=0x00000000/y_vel=0xffff59e0/ground=0/wall_cling=right]"),
+            "ASM loc_AAC8/sub_902A should keep the post-gravity sample after the vertical floor probe: {probe}",
+        );
+        assert!(
+            probe.contains("after_wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            "ASM loc_AD7C wall/floor boundary settlement should clear simulation y velocity: {probe}",
+        );
+        assert_eq!(
+            trace.kid_y_velocity,
+            Some(0xFFFF_59E0u32 as i32),
+            "oracle any-percent-published frame 957 exports the sampled post-gravity y velocity through the stale GFX slot",
+        );
+    }
+
+    #[test]
     fn published_tas_frame_7969_matches_oracle_iron_knight_climb_resume_pose() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

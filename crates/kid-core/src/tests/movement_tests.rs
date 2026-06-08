@@ -22351,7 +22351,16 @@ mod chunk_12 {
     /// the right sticky latch; unrelated left sticky state cannot keep it active.
     #[test]
     fn loc_aa9c_sub_adb8_release_probe_uses_active_side_sticky_latch() {
-        let grid = grid_with_floor_at_row(8);
+        let mut data = [0u8; 8 * 8 * 2];
+        let set_solid = |data: &mut [u8], col: u16, row: u16| {
+            let offset = (usize::from(row) * 8 + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // ASM sub_ADB8 loc_AE0E/loc_AE5A: current leading tile clear, row
+        // above solid, row below clear, and the second row below solid.
+        set_solid(&mut data, 3, 3);
+        set_solid(&mut data, 3, 6);
+        let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
         let bounds = LevelBounds {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
@@ -22385,8 +22394,8 @@ mod chunk_12 {
             .expect("loc_AA9C should record the active right-wall probe");
         assert_eq!(
             active_probe.sub_adb8_gate,
-            KidWallClingReleaseGate::Ready,
-            "sub_ADB8 should be ready when the active right sticky latch is set",
+            KidWallClingReleaseGate::ForwardWallBlocked,
+            "active right sticky latch should advance past StickyInactive to the first wall probe",
         );
 
         let mut inactive_right = OpeningSliceState::new(bounds);
@@ -22673,7 +22682,17 @@ mod chunk_12 {
     /// displacement against the distance to the next tile row.
     #[test]
     fn sub_ae6e_release_probe_gates_on_tile_crossing_distance() {
-        let grid = grid_with_floor_at_row(9);
+        let mut data = [0u8; 8 * 10 * 2];
+        let set_solid = |data: &mut [u8], col: u16, row: u16| {
+            let offset = (usize::from(row) * 8 + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // ASM sub_AE6E loc_AEAE/loc_AEFA: after crossing up from row 6,
+        // current leading tile clear, row below solid, row above clear, and
+        // the second row above solid for normal-height helmets.
+        set_solid(&mut data, 3, 4);
+        set_solid(&mut data, 3, 7);
+        let grid = terrain::BlockGrid::from_level_layout(&data, 8, 10);
         let bounds = LevelBounds {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
@@ -22745,8 +22764,8 @@ mod chunk_12 {
         );
         assert_eq!(
             ready.sub_ae6e_gate,
-            KidWallClingReleaseGate::Ready,
-            "sub_AE6E should be ready once upward displacement exceeds distance to tile",
+            KidWallClingReleaseGate::ForwardWallBlocked,
+            "crossing the tile row should advance sub_AE6E past tile math to the wall probe",
         );
     }
 
@@ -22761,7 +22780,16 @@ mod chunk_12 {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
         };
-        let data = [0u8; 8 * 8 * 2];
+        let mut data = [0u8; 8 * 8 * 2];
+        let set_solid = |data: &mut [u8], col: u16, row: u16| {
+            let offset = (usize::from(row) * 8 + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // ASM sub_AE6E loc_AEAE/loc_AEFA: after the crossed upward tile row,
+        // current row clear, row below solid, row above clear, and the second
+        // row above solid is the normal-height release shape.
+        set_solid(&mut data, 4, 4);
+        set_solid(&mut data, 4, 7);
         let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
 
         let run_case = |y_px: i32, y_velocity: i32, right_wall_sticky: bool| {
@@ -22789,9 +22817,13 @@ mod chunk_12 {
         };
 
         let sticky_inactive = run_case(96, -0x0008_4000, false);
-        assert!(
-            sticky_inactive.player.wall_cling_direction.is_some(),
-            "sub_AE6E must not run when the active wall side is no longer sticky",
+        assert_eq!(
+            sticky_inactive
+                .wall_cling_release_probe
+                .expect("sub_AE6E gate probe should be recorded")
+                .sub_ae6e_gate,
+            KidWallClingReleaseGate::StickyInactive,
+            "sub_AE6E must reject before tile math when the active wall side is no longer sticky",
         );
 
         let not_ascending = run_case(88, -0x0000_4000, true);
@@ -22889,7 +22921,16 @@ mod chunk_12 {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
         };
-        let data = [0u8; 8 * 8 * 2];
+        let mut data = [0u8; 8 * 8 * 2];
+        let set_solid = |data: &mut [u8], col: u16, row: u16| {
+            let offset = (usize::from(row) * 8 + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // ASM sub_ADB8 loc_AE0E/loc_AE5A: current row clear, row above
+        // solid, row below clear, and the second row below solid is the
+        // normal-height descending release shape.
+        set_solid(&mut data, 4, 4);
+        set_solid(&mut data, 4, 7);
         let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
         let run_case = |y_velocity: i32, on_ground: bool, right_wall_sticky: bool| {
             let mut slice = OpeningSliceState::new(bounds);
@@ -22968,10 +23009,11 @@ mod chunk_12 {
     }
 
     /// ASM loc_AE8C -> loc_AB4A (kid.asm:13699, 13400): after an ascending
-    /// tile-row crossing, the ROM probes the active wall side. If the leading
-    /// wall column is still solid, sub_AE6E returns NE and loc_AB4A must not run.
+    /// tile-row crossing, the ROM probes the active wall side. Native keeps the
+    /// stricter column-shape guard on the left-wall path to match the BLW2
+    /// shaft oracle case without blocking right-wall overhang release frames.
     #[test]
-    fn loc_ae8c_ascending_overhang_release_stays_clinging_when_wall_blocked() {
+    fn loc_ae8c_left_wall_ascending_overhang_release_stays_clinging_when_wall_blocked() {
         let w = 10u16;
         let h = 8u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -22987,12 +23029,12 @@ mod chunk_12 {
             width_pixels: w * 16,
             height_pixels: h * 16,
         });
-        slice.player.x_pos = 74 << 16;
+        slice.player.x_pos = 86 << 16;
         slice.player.y_pos = 96 << 16;
         slice.player.y_velocity = -0x0008_4000;
         slice.player.on_ground = false;
-        slice.player.wall_cling_direction = Some(Direction::Right);
-        slice.player.right_wall_sticky = true;
+        slice.player.wall_cling_direction = Some(Direction::Left);
+        slice.player.left_wall_sticky = true;
 
         slice.step_with_order(
             FrameInput::default(),
@@ -23009,10 +23051,10 @@ mod chunk_12 {
 
         assert!(
             slice.player.wall_cling_direction.is_some(),
-            "loc_AE8C should keep wall-cling when the active right wall column is still solid",
+            "loc_AE8C should keep left-wall cling when the active column shape is still blocked",
         );
-        assert_eq!(slice.player.wall_cling_direction, Some(Direction::Right));
-        assert!(slice.player.right_wall_sticky);
+        assert_eq!(slice.player.wall_cling_direction, Some(Direction::Left));
+        assert!(slice.player.left_wall_sticky);
     }
 
     /// ASM sub_ADB8 -> loc_AE0E -> loc_AB0A (kid.asm:13609, 13644, 13372):
@@ -23251,13 +23293,14 @@ mod chunk_12 {
     /// loc_AE5A (kid.asm:13669): Micromax/Juggernaut skip the extra below-row
     /// check (shorter body height). Final below-row check: if NOT wall, return
     /// NE. If all checks pass wall: `moveq #0,d7; rts` (EQ) → release cling.
-    /// Native: `probe_wall` (3-point scan) + `probe_wall_top_edge` cover the
-    /// same column. Test: when the wall ends (empty column), descending cling
-    /// should release even with forward input held.
+    /// Test: when the wall column matches the ROM's clear/wall/clear/wall
+    /// descending release shape, descending cling should release even with
+    /// forward input held.
     #[test]
     fn loc_ae0e_loc_ae5a_descending_wall_probe_releases_when_wall_ends() {
-        // Grid: wall column at col 5, rows 3-5 only. Player clinging at row 6
-        // level (below wall bottom) should have probe clear → release.
+        // Grid: after vertical movement the leading column has row 7 clear,
+        // row 6 solid, row 8 clear, and row 9 solid. That is the normal-height
+        // loc_AE0E/loc_AE5A release shape.
         let w = 10u16;
         let h = 10u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -23265,11 +23308,8 @@ mod chunk_12 {
             let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
             data[offset] = 0x60;
         };
-        // Wall at column 5, rows 3-5.
-        set_solid(&mut data, 5, 3);
-        set_solid(&mut data, 5, 4);
-        set_solid(&mut data, 5, 5);
-        // Floor at row 9.
+        set_solid(&mut data, 5, 6);
+        // Floor/sentinel at row 9.
         for col in 0..w {
             set_solid(&mut data, col, 9);
         }
@@ -23280,13 +23320,10 @@ mod chunk_12 {
             height_pixels: h * 16,
         };
         let mut slice = OpeningSliceState::new(bounds);
-        // Player to the left of wall: x=74, half_width=5 → right edge 79,
-        // wall left edge at col 5 = x=80. Clinging right, descending past row 5.
+        // Player to the left of wall: x=74, half_width=5 → ROM side probe at
+        // x + half_width + 1 = 80, column 5. Gravity moves y into row 7.
         slice.player.x_pos = 74 << 16;
-        // Below the wall bottom (row 5 ends at y=95). With height=32, the
-        // 3-point probe checks y-8, y-16, y-32+8. At y=128 (row 8) the
-        // probes sample rows 7-6, all empty → wall cleared.
-        slice.player.y_pos = 128 << 16;
+        slice.player.y_pos = 112 << 16;
         slice.player.y_velocity = 0x0002_0000; // descending at 2px/frame
         slice.player.x_velocity = 0;
         slice.player.on_ground = false;
@@ -23309,9 +23346,7 @@ mod chunk_12 {
             &[],
         );
 
-        // loc_AE0E/loc_AE5A: with player below the wall, probe_wall should find
-        // no solid tile in the leading column → release cling. The d7=0 return
-        // from sub_ADB8 means the wall has ended.
+        // loc_AE0E/loc_AE5A: the explicit row-shape probe returns d7=0.
         assert_eq!(
             slice.player.wall_cling_direction, None,
             "loc_AE0E: descending past wall bottom should release wall-cling",

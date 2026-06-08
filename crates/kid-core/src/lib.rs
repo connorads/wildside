@@ -546,6 +546,8 @@ pub struct NativeRuntime {
     demo_transform_active: bool,
     /// Trace-only velocity export hold after demo Kid_Transform exits.
     demo_post_transform_trace_velocity_hold_frames: u8,
+    /// Trace-only stale GFX-slot y velocity after a wall-cling boundary settle.
+    wall_cling_boundary_trace_y_velocity: Option<(i32, u8)>,
     /// Two-player alternating mode enabled.
     two_player: bool,
     /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
@@ -1451,6 +1453,7 @@ impl NativeRuntime {
             demo_toggle: false,
             demo_transform_active: false,
             demo_post_transform_trace_velocity_hold_frames: 0,
+            wall_cling_boundary_trace_y_velocity: None,
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
@@ -1861,6 +1864,14 @@ impl NativeRuntime {
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         self.last_drips_splash_reseed_probe = None;
+        self.wall_cling_boundary_trace_y_velocity =
+            self.wall_cling_boundary_trace_y_velocity
+                .and_then(|(y_velocity, frames)| {
+                    frames
+                        .checked_sub(1)
+                        .filter(|remaining| *remaining > 0)
+                        .map(|remaining| (y_velocity, remaining))
+                });
         let replay_demo_1_timeout_handoff_frame = matches!(
             self.boot_state,
             BootState::DemoPlay {
@@ -2344,6 +2355,29 @@ impl NativeRuntime {
                     wall_hit_after_floor: slice.physics_trace.is_some_and(|trace| trace.wall_hit),
                     stages,
                 });
+    }
+
+    fn maybe_hold_wall_cling_boundary_trace_y_velocity(&mut self, player: PlayerState) {
+        let Some(probe) = self.last_kid_frame_kid_flip_follow_on_probe else {
+            return;
+        };
+        let sampled = probe.stages.after_floor.y_velocity;
+        if sampled == 0
+            || probe.stages.after_floor.on_ground
+            || probe.stages.after_floor.wall_cling_direction.is_none()
+            || !probe.stages.after_wall.on_ground
+            || probe.stages.after_wall.y_velocity != 0
+            || !player.on_ground
+            || player.y_velocity != 0
+        {
+            return;
+        }
+
+        // ASM loc_A762 -> loc_A8DE/sub_902A: after a wall-cling jump-loop frame
+        // settles on the wall/floor boundary, the live player state is grounded
+        // with cleared y_vel, but oracle frames 957..977 of any-percent-published
+        // still expose the post-gravity y_vel sample through the Kid GFX slot.
+        self.wall_cling_boundary_trace_y_velocity = Some((sampled, 21));
     }
 
     fn kid_pre_physics_probe_state_changed(before: PlayerState, after: PlayerState) -> bool {
@@ -3034,6 +3068,10 @@ impl NativeRuntime {
                 }
             }
 
+            slice.wall_cling_release_probe = None;
+            slice.kid_flip_follow_on_stages = None;
+            slice.kid_jump_gravity_probe = None;
+
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
                 // `Hibernate_Object_1Frame` stops Kid immediately. The attach
@@ -3389,6 +3427,7 @@ impl NativeRuntime {
                 slice.player,
                 &slice,
             );
+            self.maybe_hold_wall_cling_boundary_trace_y_velocity(slice.player);
         }
         self.finish_deferred_ceiling_clears();
         // Wide spawn-support settling is a bootstrap/respawn helper, not

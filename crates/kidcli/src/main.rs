@@ -5627,6 +5627,10 @@ AddrTbl_LevelNames:
         assert_eq!(scenario.playtest_form, Some(5));
         const LEFT: u8 = 1 << 2;
         const JUMP: u8 = 1 << 4;
+        assert!(
+            scenario.script[..60].iter().all(|&buttons| buttons == 0),
+            "the direct BLW2 no-jump wall probe must settle before holding LEFT"
+        );
         assert_eq!(scenario.script[60], LEFT);
         assert!(
             scenario.script.iter().all(|buttons| buttons & JUMP == 0),
