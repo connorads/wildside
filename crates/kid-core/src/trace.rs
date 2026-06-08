@@ -3,6 +3,7 @@ use crate::combat::enemy_contact_bounds;
 use std::collections::BTreeMap;
 
 const FLOATING_DIAMOND_CANDIDATE_LIMIT: usize = 4;
+const FLOATING_PRIZE_CANDIDATE_LIMIT: usize = 4;
 const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
@@ -3730,6 +3731,58 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_floating_prize_candidates_report_row_gate_and_overlap() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 1024,
+            height_pixels: 512,
+        });
+        slice.player.x_pos = 752 << 16;
+        slice.player.y_pos = 197 << 16;
+        runtime.opening_slice = Some(slice);
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 728 << 16,
+            y_pos: 181 << 16,
+            y_velocity: 0,
+            remaining: 777,
+            spawn_delay: 0,
+            level_col: 45,
+            level_row: 10,
+            first_row_grace: false,
+            content: terrain::PrizeContent::IronKnight,
+            collected: false,
+        });
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 64, 16);
+        grid.set_cell_at(45, 10, terrain::Cell::from_be_bytes(0x60, 0x00));
+        runtime.set_block_grid(grid);
+
+        // ASM PrizeHelmetIronKnight_Init -> loc_105D6 -> sub_10C38 gates falling
+        // on the current layout row. GfxObjects_CollisionKid then compares the
+        // helmet's CollisionSize_Index box against Kid's form-width hitbox.
+        let prize_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("floating_prize_contact_candidates")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit floating-prize candidates"));
+
+        assert!(
+            prize_debug.contains("prize#07@728,181 dx=-24 dy=-16 row=10 grace=0 rem=777"),
+            "candidate should report the Iron Knight mask position and row, got {prize_debug}",
+        );
+        assert!(
+            prize_debug.contains("native_ov=01 form_ov=11"),
+            "candidate should distinguish native lower-body overlap from ASM form overlap, got {prize_debug}",
+        );
+        assert!(
+            prize_debug.contains("cell=Solid/open=0/below=Empty/below_open=1"),
+            "candidate should expose sub_10C38 row fall gates, got {prize_debug}",
+        );
+    }
+
+    #[test]
     fn trace_frame_kid_on_slope_uses_fixed_point_pixel_coordinates() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -5607,6 +5660,11 @@ impl NativeRuntime {
             gameplay_debug_fields.insert("floating_diamond_contact_candidates".into(), summary);
         }
         if let Some(player_state) = player_state
+            && let Some(summary) = self.floating_prize_contact_candidates(player_state)
+        {
+            gameplay_debug_fields.insert("floating_prize_contact_candidates".into(), summary);
+        }
+        if let Some(player_state) = player_state
             && let Some(summary) = self.kid_object_support_candidates(player_state)
         {
             gameplay_debug_fields.insert("kid_object_support_candidates".into(), summary);
@@ -7011,6 +7069,99 @@ impl NativeRuntime {
         let summaries = candidates
             .into_iter()
             .take(FLOATING_DIAMOND_CANDIDATE_LIMIT)
+            .map(|candidate| candidate.summary)
+            .collect::<Vec<_>>();
+        Some(summaries.join("; "))
+    }
+
+    fn floating_prize_contact_candidates(&self, player: PlayerState) -> Option<String> {
+        use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
+
+        let player_x_px = (player.x_pos >> 16) as i32;
+        let player_y_px = (player.y_pos >> 16) as i32;
+        let player_left = player_x_px - PLAYER_HALF_WIDTH;
+        let player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let lower_body_top = player_y_px - ((PLAYER_HEIGHT + 1) / 2);
+        let form_left = player_x_px - self.progression.current_form.half_width();
+        let form_right = player_x_px + self.progression.current_form.half_width();
+        let form_top = player_y_px - PLAYER_HEIGHT;
+        let mut candidates = Vec::new();
+
+        for item in &self.floating_items {
+            if item.content == terrain::PrizeContent::Diamond {
+                continue;
+            }
+            let item_x_px = (item.x_pos >> 16) as i32;
+            let item_y_px = (item.y_pos >> 16) as i32;
+            let native_left = item_x_px - 8;
+            let native_right = item_x_px + 8;
+            let native_top = item_y_px;
+            let native_bottom = item_y_px + 16;
+            let native_overlap_x = player_left < native_right && player_right > native_left;
+            let native_overlap_y = lower_body_top < native_bottom && player_y_px > native_top;
+
+            // ASM GfxObjects_CollisionKid (kid.asm:3315-3353) compares object
+            // CollisionSize_Index subboxes against Kid's current hitbox. The
+            // helmet masks use the `unk_315FC`-style row (`left=-$7,width=$E,
+            // top=-$1F,height=$1F`) selected from the Data_Index entry.
+            let asm_left = item_x_px - 7;
+            let asm_right = item_x_px + 7;
+            let asm_top = item_y_px - PLAYER_HEIGHT;
+            let asm_bottom = item_y_px;
+            let form_overlap_x = form_left <= asm_right && form_right >= asm_left;
+            let form_overlap_y = form_top <= asm_bottom && player_y_px >= asm_top;
+
+            let cell_summary = self
+                .block_grid
+                .as_ref()
+                .map(|grid| {
+                    let current_cell = grid.cell_at(item.level_col, item.level_row);
+                    let current_open = matches!(
+                        current_cell.collision,
+                        terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+                    );
+                    let below_cell = grid.cell_at(item.level_col, item.level_row.saturating_add(1));
+                    let below_open = matches!(
+                        below_cell.collision,
+                        terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+                    );
+                    format!(
+                        "cell={:?}/open={}/below={:?}/below_open={}",
+                        current_cell.collision,
+                        u8::from(current_open),
+                        below_cell.collision,
+                        u8::from(below_open),
+                    )
+                })
+                .unwrap_or_else(|| "cell=none/open=1/below=none/below_open=1".to_string());
+
+            let dx_px = item_x_px - player_x_px;
+            let dy_px = item_y_px - player_y_px;
+            candidates.push(FloatingDiamondContactCandidate {
+                distance_score: dx_px.abs() + dy_px.abs(),
+                summary: format!(
+                    "prize#{:02x}@{item_x_px},{item_y_px} dx={dx_px} dy={dy_px} row={} grace={} rem={} collected={} native_ov={}{} form_ov={}{} {cell_summary}",
+                    item.content.to_id(),
+                    item.level_row,
+                    u8::from(item.first_row_grace),
+                    item.remaining,
+                    u8::from(item.collected),
+                    u8::from(native_overlap_x),
+                    u8::from(native_overlap_y),
+                    u8::from(form_overlap_x),
+                    u8::from(form_overlap_y),
+                ),
+            });
+        }
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+        candidates.sort_unstable_by_key(|candidate| candidate.distance_score);
+        let summaries = candidates
+            .into_iter()
+            .take(FLOATING_PRIZE_CANDIDATE_LIMIT)
             .map(|candidate| candidate.summary)
             .collect::<Vec<_>>();
         Some(summaries.join("; "))

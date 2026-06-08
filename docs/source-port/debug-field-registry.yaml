@@ -132,6 +132,15 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed floating-item pickup/contact state."
     },
     {
+      "key": "floating_prize_contact_candidates",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-258-juggernaut-prize-frontier",
+      "first_added_commit": "d1fdab17",
+      "intended_meaning": "Nearest non-diamond floating prize candidates with native pickup overlap, form-width gfx-object overlap, row/grace state, and sampled terrain fall gates for the #258 frame-585 Iron Knight mask delete frontier.",
+      "promotion_trigger": "Promote if repeated parity work depends on typed non-diamond prize fall/contact state."
+    },
+    {
       "key": "diamond_power_snake_probe",
       "scope": "frame",
       "status": "exploratory",
