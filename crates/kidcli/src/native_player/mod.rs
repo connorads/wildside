@@ -1555,9 +1555,14 @@ fn native_bgm_state_after_trace(
             // must be able to queue bgm_Ice again.
             return (None, Some(NativeBgmPlaybackCommand::StopMusic));
         }
-        if active_bgm_cue == Some(NativeBgmCue::TitleShell)
-            && trace.game_mode == GameMode::LevelTransition
+        if matches!(
+            active_bgm_cue,
+            Some(NativeBgmCue::TitleShell | NativeBgmCue::Level(_))
+        ) && trace.game_mode == GameMode::LevelTransition
         {
+            // ASM loc_6E2 dispatches mode 8 through LoadGameModeData; the
+            // subsequent Load_InGame path (kid.asm:23623-23629) resets GEMS
+            // with StopMusic before loc_12004 queues the level BGM again.
             return (None, Some(NativeBgmPlaybackCommand::StopMusic));
         }
         return (active_bgm_cue, None);
@@ -12225,6 +12230,34 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the title shell has already run ASM StopMusic, Load_InGame can queue the level BGM directly"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_death_respawn_stops_level_bgm_before_loader_restart() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let transition = sample_trace(GameMode::LevelTransition);
+        let level = sample_trace(GameMode::InGame);
+
+        let (active_after_gap, gap_command) = native_bgm_state_after_trace(
+            &fixture.manifest,
+            &transition,
+            Some(NativeBgmCue::Level(LevelId(0))),
+        );
+        assert_eq!(
+            (active_after_gap, gap_command),
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            "ASM lose_life enters Teleport/loc_6E2; Load_InGame (kid.asm:23623-23629) then runs StopMusic before loc_12004 queues the reloaded level BGM"
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
+            ),
+            "after the death-respawn loader reset, the active level cue should restart from the foreground theme instead of continuing over the black hold"
         );
         Ok(())
     }
