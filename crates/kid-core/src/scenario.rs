@@ -86,6 +86,11 @@ impl NativeRuntime {
 
     pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
         self.warp_to_level(level_id);
+        // Playtest/debug level selection is outside the ROM joypad path. Clear
+        // the loc_C4E held-input latches so menu-held movement/jump cannot be
+        // consumed by the first gameplay frame after the warp.
+        self.prior_input = FrameInput::default();
+        self.previous_input = FrameInput::default();
         self.opening_slice = Some(if self.block_grid().is_some() {
             self.level_respawn_slice_with_floor_snap(level_id)
         } else {

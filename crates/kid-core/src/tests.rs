@@ -464,6 +464,31 @@ fn gameplay_input_applies_loc_7464_left_right_conflict_resolution() {
 }
 
 #[test]
+fn enter_level_playtest_clears_menu_held_input_latches_loc_c4e() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.previous_input = FrameInput {
+        left: true,
+        b: true,
+        start: true,
+        ..FrameInput::default()
+    };
+    runtime.prior_input = FrameInput {
+        right: true,
+        c: true,
+        ..FrameInput::default()
+    };
+
+    runtime.enter_level_playtest(LevelId(0));
+
+    let gameplay_input = runtime.gameplay_input(FrameInput::default());
+    assert_eq!(
+        gameplay_input,
+        FrameInput::default(),
+        "debug/level-select entry must not leak stale menu-held movement or jump into gameplay"
+    );
+}
+
+#[test]
 fn grounded_jump_queues_sfx_jump_loc_a480() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
