@@ -3661,6 +3661,10 @@ impl OpeningSliceState {
                             direct_compound_landing_loc_a4ee = true;
                             None
                         }
+                        Some(CompoundRecontactLocA4ee::ArmouredBounce) => {
+                            direct_compound_landing_loc_a4ee = true;
+                            None
+                        }
                         None => {
                             if form == PlayerForm::IronKnight
                                 && !self.player.on_ground
@@ -6530,7 +6534,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         collision_hw: i32,
     ) -> Option<CompoundRecontactLocA4ee> {
-        if self.player.on_ground || form != PlayerForm::IronKnight || self.player.y_velocity < 0 {
+        if self.player.on_ground || self.player.y_velocity < 0 {
             return None;
         }
 
@@ -6547,9 +6551,41 @@ impl OpeningSliceState {
         let compound_probe = terrain::probe_floor_hitbox(grid, compound_x_px, y_px, collision_hw);
         let collision = match compound_probe.cell.collision {
             terrain::CollisionKind::SlopeUp if compound_probe.on_ground => {
+                if matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter) {
+                    // ASM sub_A4EE loc_A53C -> loc_A556: a reachable
+                    // floor+right-wall (`colid_slopeup`, $14) compound contact
+                    // makes Juggernaut/Skycutter bounce up-left instead of
+                    // entering the ordinary loc_B9A2 recovery/landing path.
+                    self.player.x_pos = compound_x_pos;
+                    self.player.x_velocity = -0x0002_0000;
+                    self.player.y_velocity = -0x0002_0000;
+                    self.player.on_ground = false;
+                    self.player.wall_cling_direction = None;
+                    self.player.on_spikes = false;
+                    self.player.jump_buffer_frames = 0;
+                    return Some(CompoundRecontactLocA4ee::ArmouredBounce);
+                }
+                if form != PlayerForm::IronKnight {
+                    return None;
+                }
                 compound_probe.cell.collision
             }
             terrain::CollisionKind::SlopeDown if compound_probe.on_ground => {
+                if matches!(form, PlayerForm::Juggernaut | PlayerForm::Skycutter) {
+                    // ASM sub_A4EE loc_A594 -> loc_A5AE: mirror of loc_A556
+                    // for floor+left-wall (`colid_slopedown`, $18).
+                    self.player.x_pos = compound_x_pos;
+                    self.player.x_velocity = 0x0002_0000;
+                    self.player.y_velocity = -0x0002_0000;
+                    self.player.on_ground = false;
+                    self.player.wall_cling_direction = None;
+                    self.player.on_spikes = false;
+                    self.player.jump_buffer_frames = 0;
+                    return Some(CompoundRecontactLocA4ee::ArmouredBounce);
+                }
+                if form != PlayerForm::IronKnight {
+                    return None;
+                }
                 let center_probe = terrain::probe_floor(grid, compound_x_px, y_px);
                 if matches!(
                     center_probe.cell.collision,
@@ -6805,6 +6841,7 @@ pub(crate) struct SlopeRecontactHandoff {
 enum CompoundRecontactLocA4ee {
     Slope(terrain::CollisionKind),
     DirectLanding,
+    ArmouredBounce,
 }
 
 fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {

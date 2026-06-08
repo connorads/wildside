@@ -15147,6 +15147,62 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_A4EE loc_A53C -> loc_A556: when Juggernaut's tentative
+    /// both-axis movement reaches `colid_slopeup` ($14), the ROM restores the
+    /// contact path as a bounce by setting both velocities to $FFFE0000. Issue
+    /// #258 frame 363 reaches this through the Level 00 SlopeUp tile after the
+    /// short-body wall scan keeps rightward movement live.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A556_juggernaut_compound_slopeup_bounces_issue_258() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut grid = grid_with_cells(w, h, &[(44, 15, 0x40, 0x00)]);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02A9_4A00;
+        slice.player.y_pos = 0x00F9_4000;
+        slice.player.x_velocity = 0x0002_8E00;
+        slice.player.y_velocity = 0x0003_8000;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x02AB_D700,
+            "ASM sub_A4EE keeps the tentative x_pos on the loc_A556 bounce path"
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "ASM loc_A556 should bounce Juggernaut up-left on $14 compound contact"
+        );
+        assert_eq!(
+            slice.player.y_velocity, -0x0002_0000,
+            "ASM loc_A556 should set y_vel to $FFFE0000"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_A556 exits as an airborne bounce, not a slope landing"
+        );
+    }
+
     // --- loc_A7B4, loc_A7DE, loc_A7E8: Skycutter B-press slam velocity ---
 
     /// ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop —
