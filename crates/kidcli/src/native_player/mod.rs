@@ -9113,20 +9113,14 @@ mod tests {
                     turret_y < body_y,
                     "ASM Tank.asm loc_3B39C copies the parent X/Y into the child and then `subi.w #8,$1E(a1)`, so the turret must render above the body"
                 );
-                // #145: the turret art (base 0x020) is the FULL upper tank and
-                // must sit on the same ground line as the treads. Both sprites
-                // bottom-anchor at the parent's feet in `sprite_draw_position`
-                // (draw_y = screen_y - height_px), so their bottoms coincide and
-                // the top delta equals turret_height - body_height. With this
-                // synthetic visual that delta is 20. Before the fix native
-                // double-counted the ROM's top-anchor `subi #8`
-                // (`tank_child_y_offset_loc_3b372_3b49a`), drawing the turret a
-                // frame higher (delta 28) and leaving grass showing through the
-                // gap, which read as "two people stacked".
+                // ASM Tank.asm loc_3B372 stores the turret child at parent_y-8;
+                // ASM Make_SpriteFromGfxObject loc_11EE then subtracts the
+                // turret frame height. The turret therefore sits 8px above the
+                // tread/body GfxObject instead of being compensated back down.
                 assert_eq!(
                     *body_y - *turret_y,
-                    20,
-                    "#145: turret must bottom-anchor on the same ground line as the body (not 8px higher)"
+                    28,
+                    "RockTank turret must render from the linked child baseline, 8px above the body"
                 );
             }
             other => panic!("expected body + turret sprite commands, got {other:?}"),
@@ -9205,8 +9199,8 @@ mod tests {
                 );
                 assert_eq!(
                     *body_y - *turret_y,
-                    20,
-                    "ASM Tank.asm loc_3B372 subtracts 8 from the child Y for top-anchored hardware sprites; native child-snapshot rendering must compensate that offset so the full turret bottom overlaps the body instead of floating above it"
+                    28,
+                    "ASM Tank.asm loc_3B372 subtracts 8 from the child Y, and ASM Make_SpriteFromGfxObject loc_11EE still subtracts the child frame height"
                 );
             }
             other => panic!("expected body + turret sprite commands, got {other:?}"),

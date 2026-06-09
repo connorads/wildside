@@ -11,13 +11,6 @@ struct TankTurretFrameSpec {
     height_px: u16,
 }
 
-/// #145: native bottom-anchors sprites in `sprite_draw_position`, but the ROM
-/// keeps the RockTank turret object this many pixels above the body because
-/// hardware sprites are top-anchored (`tank_child_y_offset_loc_3b372_3b49a`
-/// baseline). Adding it back when rendering the (already-offset) turret child
-/// lands the full-tank turret on the ground overlapping the treads.
-const ROCK_TANK_TURRET_BASELINE_Y_OFFSET: i32 = 8;
-
 const ROCK_TANK_TURRET_STRU_3B27E: [TankTurretFrameSpec; 5] = [
     TankTurretFrameSpec {
         duration_frames: 0x37,
@@ -1316,20 +1309,12 @@ pub(super) fn push_enemy_sprite(
         if let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
         {
-            // #145: the turret art (e.g. base 0x020) is the FULL upper tank and
-            // must sit on the ground overlapping the animated treads, not float
-            // a frame above them. The ROM keeps the turret object `$8` above the
-            // body (`tank_child_y_offset_loc_3b372_3b49a`) because hardware
-            // sprites are top-anchored; native bottom-anchors in
-            // `sprite_draw_position`, which double-counts that `$8`. Add the
-            // baseline offset back so the turret bottom lands at the parent's
-            // feet, while the 8-vs-6 recoil delta still nudges it during recoil.
-            let (turret_x, turret_y) = sprite_draw_position(
-                &turret_frame,
-                screen_x,
-                screen_y + ROCK_TANK_TURRET_BASELINE_Y_OFFSET,
-                render_facing,
-            );
+            // ASM Tank.asm loc_3B372 copies parent X/Y into the linked turret
+            // GfxObject and subtracts 8 from child Y. ASM Make_SpriteFromGfxObject
+            // loc_11EE still subtracts the child frame height, so do not add
+            // the 8px back here; the child trace already carries the ROM offset.
+            let (turret_x, turret_y) =
+                sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
             let palette = enemy_palette_for_damage_flash(
                 select_enemy_palette(enemy_visuals, object.palette_variant),
                 rock_tank_damage_flash(object, trace, object_type),
@@ -1363,10 +1348,14 @@ pub(super) fn push_enemy_sprite(
         && let Some(turret_frame) =
             rock_tank_turret_frame(object, trace, enemy_visuals, object_type)
     {
-        // #145: draw the full-tank turret at the parent's feet (same ground
-        // line as the body), not a frame above. See the child-snapshot branch.
-        let (turret_x, turret_y) =
-            sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
+        // Fallback for traces that only expose the parent. ASM Tank.asm
+        // loc_3B372 creates the real child at parent_y-8 before drawing.
+        let (turret_x, turret_y) = sprite_draw_position(
+            &turret_frame,
+            screen_x,
+            screen_y - 8,
+            render_facing,
+        );
         let palette = enemy_palette_for_damage_flash(
             select_enemy_palette(enemy_visuals, object.palette_variant),
             object.damage_flash,
