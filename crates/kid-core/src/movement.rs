@@ -1504,33 +1504,38 @@ pub(crate) fn juggernaut_walk_visual_accumulator_loc_9484(
     }
 }
 
-pub(crate) fn grounded_walk_visual_accumulator_loc_8456(
+pub(crate) fn grounded_walk_visual_accumulator_loc_95da(
     current_accumulator: u16,
+    form: PlayerForm,
     x_velocity: i32,
 ) -> u16 {
-    // ASM sub_8446/loc_8456..loc_8470 (kid.asm:9205): non-Skycutter flat
-    // walking takes abs(x_vel), derives a phase increment with
-    // `swap; rol.l #5`, and wraps the shared `$FFFFF8F0` counter once at
-    // `$300` before indexing the three-frame off_84A2 table.
+    // ASM sub_942A loc_95DA..loc_9600 (kid.asm:11059): upright grounded
+    // walking takes abs(x_vel), derives a phase increment with `swap; rol.l #5`,
+    // doubles it for Micromax, and wraps `$FFFFF8F0` at `$600` before indexing
+    // the six-frame `off_9618` table. Do not use sub_8446 here: its off_84A2
+    // table is the crawling/platform path for most forms.
     let speed = x_velocity.unsigned_abs();
-    let delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+    let mut delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+    if form == PlayerForm::Micromax {
+        delta = delta.wrapping_add(delta);
+    }
     let next = current_accumulator.wrapping_add(delta);
-    if next >= 0x0300 {
-        next.wrapping_sub(0x0300)
+    if next >= 0x0600 {
+        next.wrapping_sub(0x0600)
     } else {
         next
     }
 }
 
-fn should_advance_grounded_walk_visual_accumulator_loc_8456(
+fn should_advance_grounded_walk_visual_accumulator_loc_95da(
     form: PlayerForm,
     previous_x_velocity: i32,
 ) -> bool {
+    // ASM loc_7820 clears `$FFFFF8F0` when entering MoveID_Walking from
+    // standing still. The upright walk refresh (`sub_942A loc_95DA`) only owns
+    // the later already-moving frames.
     previous_x_velocity != 0
-        && !matches!(
-            form,
-            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
-        )
+        && !matches!(form, PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker)
 }
 
 #[allow(non_snake_case)]
@@ -5146,12 +5151,13 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(
                     form,
                     previous_x_velocity,
                 ) {
-                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
+                        form,
                         new_vel,
                     );
                 }
@@ -5208,12 +5214,13 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(
                     form,
                     previous_x_velocity,
                 ) {
-                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
+                        form,
                         new_vel,
                     );
                 }
@@ -5496,12 +5503,13 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(
                     form,
                     previous_x_velocity,
                 ) {
-                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
+                        form,
                         new_vel,
                     );
                 }

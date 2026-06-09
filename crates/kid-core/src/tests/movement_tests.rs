@@ -5047,61 +5047,80 @@ mod chunk_11 {
     }
 
     // ---------------------------------------------------------------------------
-    // sub_8446 (kid.asm:9205): walk sprite animation accumulator
+    // sub_942A loc_95DA (kid.asm:11059): upright walk sprite animation accumulator
     // ---------------------------------------------------------------------------
 
-    /// ASM loc_8456 (kid.asm:9212): non-Skycutter walk sprite entry in sub_8446.
-    /// `move.w ($FFFFF8F0).w,d2` loads the walk accumulator, then `tst.l d0;
-    /// bpl.s loc_8460; neg.l d0` takes the absolute value of x_vel. The
-    /// accumulator is velocity-magnitude-dependent — direction doesn't matter.
+    /// ASM loc_95DA (kid.asm:11059): upright walking loads `$FFFFF8F0`, then
+    /// `tst.l d0; bpl.s loc_95E4; neg.l d0` takes the absolute value of x_vel.
+    /// The accumulator is velocity-magnitude-dependent — direction doesn't
+    /// matter.
     ///
-    /// ASM loc_8460 (kid.asm:9218): `swap d0; rol.l #5,d0; add.w d0,d2` —
+    /// ASM loc_95E4 (kid.asm:11064): `swap d0; rol.l #5,d0; add.w d0,d2` —
     /// converts |x_vel| to a phase increment. `swap` moves the integer part
     /// (upper 16 bits) to the low word; `rol.l #5` further shifts to extract
-    /// the walk-phase contribution. The increment is added to d2 (accumulator).
-    /// `cmpi.w #$300,d2; bcs.s loc_8470` — if d2 >= $300, wraps: `subi.w #$300,d2`.
+    /// the walk-phase contribution. Micromax doubles the increment before the
+    /// shared wrap.
     ///
-    /// ASM loc_8470 (kid.asm:9226): stores the updated accumulator back to
-    /// $FFFFF8F0, then indexes off_84A2 by Current_Helmet to pick one of 3
-    /// walking sprite frames: `lsr.w #8,d2; add.w d2,d2; add.w d2,a0;
-    /// move.w (a0),addroffset_sprite(a3)`. Phase 0=$000..$0FF, 1=$100..$1FF,
-    /// 2=$200..$2FF.
+    /// ASM loc_95F2/loc_9600 (kid.asm:11072): wraps at `$600`, then indexes
+    /// `off_9618` by Current_Helmet to pick one of 6 upright walking sprite
+    /// frames: phase 0=$000..$0FF through phase 5=$500..$5FF.
     ///
     /// All three labels are visual-only for gameplay, but native rendering
     /// consumes `$FFFFF8F0` to select the same walk phase.
     #[test]
-    fn loc_8456_loc_8460_loc_8470_sub_8446_walk_phase_advances_from_velocity() {
+    fn loc_95da_loc_95e4_loc_95f2_upright_walk_phase_advances_from_velocity() {
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_8456(0x0100, 0x0002_0000),
+            grounded_walk_visual_accumulator_loc_95da(
+                0x0100,
+                PlayerForm::TheKid,
+                0x0002_0000
+            ),
             0x0140,
-            "ASM loc_8460: `$20000` -> swap `$0002`, rol #5 -> `$40`"
+            "ASM loc_95E4: `$20000` -> swap `$0002`, rol #5 -> `$40`"
         );
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_8456(0x0100, -0x0002_0000),
+            grounded_walk_visual_accumulator_loc_95da(
+                0x0100,
+                PlayerForm::TheKid,
+                -0x0002_0000
+            ),
             0x0140,
-            "ASM loc_8456: negative velocity is normalised before the walk phase increment"
+            "ASM loc_95DA: negative velocity is normalised before the walk phase increment"
         );
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_8456(0x02F0, 0x0002_0000),
+            grounded_walk_visual_accumulator_loc_95da(
+                0x05F0,
+                PlayerForm::TheKid,
+                0x0002_0000
+            ),
             0x0030,
-            "ASM loc_8470 wraps `$FFFFF8F0` once at `$300` for the three-frame off_84A2 table"
+            "ASM loc_95F2 wraps `$FFFFF8F0` once at `$600` for the six-frame off_9618 table"
+        );
+        assert_eq!(
+            grounded_walk_visual_accumulator_loc_95da(
+                0x0100,
+                PlayerForm::Micromax,
+                0x0002_0000
+            ),
+            0x0180,
+            "ASM loc_95EA: Micromax doubles the `$40` upright-walk phase increment"
         );
     }
 
-    /// ASM loc_8460 (kid.asm:9218): the walk accumulator increment is derived
+    /// ASM loc_95E4 (kid.asm:11064): the walk accumulator increment is derived
     /// from |x_vel| via `swap; rol.l #5`. At zero velocity the increment is
     /// zero, so the accumulator stays unchanged.
     #[test]
-    fn loc_8460_zero_velocity_produces_no_walk_phase_increment() {
+    fn loc_95e4_zero_velocity_produces_no_walk_phase_increment() {
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_8456(0x0123, 0),
+            grounded_walk_visual_accumulator_loc_95da(0x0123, PlayerForm::TheKid, 0),
             0x0123,
-            "ASM loc_8460: zero x_vel produces zero walk phase increment"
+            "ASM loc_95E4: zero x_vel produces zero walk phase increment"
         );
     }
 
     #[test]
-    fn sub_8446_flat_grounded_kid_motion_persists_walk_phase_for_renderer() {
+    fn loc_95da_flat_grounded_kid_motion_persists_walk_phase_for_renderer() {
         let input = FrameInput {
             right: true,
             ..FrameInput::default()
@@ -5123,8 +5142,12 @@ mod chunk_11 {
         assert!(moved, "flat grounded Kid walk should advance position");
         assert_eq!(
             full_motion.walk_visual_accumulator,
-            grounded_walk_visual_accumulator_loc_8456(0x0100, full_motion.player.x_velocity),
-            "ASM sub_8446/loc_8470: full-motion flat walking must persist `$FFFFF8F0` so the renderer selects the next off_84A2 frame instead of freezing phase 0"
+            grounded_walk_visual_accumulator_loc_95da(
+                0x0100,
+                PlayerForm::TheKid,
+                full_motion.player.x_velocity
+            ),
+            "ASM loc_95DA/loc_9600: full-motion flat walking must persist `$FFFFF8F0` so the renderer selects the next off_9618 frame instead of freezing phase 0"
         );
 
         let mut velocity_only = OpeningSliceState::new(LevelBounds {
@@ -5147,31 +5170,39 @@ mod chunk_11 {
         assert!(stepped, "flat grounded Kid velocity path should run");
         assert_eq!(
             velocity_only.walk_visual_accumulator,
-            grounded_walk_visual_accumulator_loc_8456(0x0100, velocity_only.player.x_velocity),
-            "ASM sub_8446/loc_8470: velocity-only flat walking must persist the same `$FFFFF8F0` phase consumed by native-player rendering"
+            grounded_walk_visual_accumulator_loc_95da(
+                0x0100,
+                PlayerForm::TheKid,
+                velocity_only.player.x_velocity
+            ),
+            "ASM loc_95DA/loc_9600: velocity-only flat walking must persist the same `$FFFFF8F0` phase consumed by native-player rendering"
         );
     }
 
-    /// ASM loc_8470 (kid.asm:9226): the walk accumulator wraps at $300, giving
-    /// 3 sprite phases (0, 1, 2) via `lsr.w #8,d2`. Each phase maps to one
-    /// entry in the per-helmet off_84A2 sprite table. Verify that the off_84A2
-    /// table has exactly 10 entries (one per helmet, with slots 5 and 9 null).
+    /// ASM loc_9600 (kid.asm:11076): upright walking indexes six frame entries
+    /// per non-null helmet in `off_9618`. This guards against accidentally
+    /// reusing the crawl/platform `off_84A2` table, which has only three entries
+    /// and selects crawl art for Kid/Red Stealth.
     #[test]
-    fn loc_8470_off_84a2_has_ten_helmet_entries() {
-        // off_84A2 in kid.asm:9260 has 10 longword entries (one per helmet ID),
-        // with entries 5 (Juggernaut) and 9 (Micromax) as null pointers (0).
-        // Each non-null entry points to a 3-word sprite frame table.
-        // This is a structural assertion about the ASM data layout.
+    fn loc_9600_off_9618_has_ten_helmet_entries_and_six_walk_phases() {
+        // off_9618 in kid.asm:11094 has 10 longword entries (one per helmet ID),
+        // with slots 1 and 5 null here because Skycutter/Juggernaut have
+        // specialised paths. Each non-null entry points to six upright frames.
         let helmet_count = 10; // TheKid(0)..Micromax(9)
-        let null_entries = [5usize, 9]; // Juggernaut and Micromax have no walking sprites
+        let null_entries = [1usize, 5]; // Skycutter and Juggernaut
+        let phases = 6;
         assert_eq!(
             helmet_count, 10,
-            "ASM loc_8470/off_84A2: exactly 10 helmet entries (0..9)"
+            "ASM loc_9600/off_9618: exactly 10 helmet entries (0..9)"
+        );
+        assert_eq!(
+            phases, 6,
+            "ASM loc_9600/off_9618: upright walking uses six `$FFFFF8F0 >> 8` phases"
         );
         for &idx in &null_entries {
             assert!(
                 idx < helmet_count,
-                "ASM loc_8470/off_84A2: null entry index {idx} within helmet range"
+                "ASM loc_9600/off_9618: null entry index {idx} within helmet range"
             );
         }
     }
