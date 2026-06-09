@@ -5457,6 +5457,7 @@ impl NativeRuntime {
         self.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap,
         };
@@ -6817,6 +6818,7 @@ impl NativeRuntime {
             BootState::IntroSequence6 {
                 cursor,
                 pending_title_skip,
+                pending_title_skip_fast_restore,
                 carry_intro_sequence_5_slot_2_pose: _,
                 carry_timeout_restart_hidden_camera_wrap,
             } => {
@@ -6824,19 +6826,34 @@ impl NativeRuntime {
                 if *pending_title_skip > 0 {
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
-                        // ASM sub_1C246 -> loc_1C264 switches
-                        // Game_Mode=$28 to $2C after the hibernating
-                        // IntroSequence6 object consumes Start. The title art
-                        // is still rebuilt through the hidden shell before
-                        // Obj_TitleMenu accepts the next Start edge.
-                        self.enter_title_screen();
-                        self.title_screen_uses_intro_return_hidden_shell = true;
-                        self.intro_sequence_6_start_skip_cursor_trace_priority = true;
-                        self.title_screen_ready_frame = self
-                            .frame_index
-                            .saturating_add(INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES);
-                        self.title_menu_arm_frame =
-                            self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                        if *pending_title_skip_fast_restore {
+                            // ASM loc_1BAB0 (kid.asm:30368) polls
+                            // sub_1C246 during its `$B8` wait. When Start is
+                            // consumed there, Load_TitleScreen's normal hidden
+                            // restore reaches the red title pose after the
+                            // short attract-lock window instead of replaying
+                            // the later loc_1B5CE delayed shell.
+                            self.enter_title_screen();
+                            self.title_screen_uses_intro_return_hidden_shell = true;
+                            self.title_screen_ready_frame =
+                                self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                            self.title_menu_arm_frame =
+                                self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                        } else {
+                            // ASM sub_1C246 -> loc_1C264 switches
+                            // Game_Mode=$28 to $2C after the hibernating
+                            // IntroSequence6 object consumes Start. The title
+                            // art is still rebuilt through the hidden shell
+                            // before Obj_TitleMenu accepts the next Start edge.
+                            self.enter_title_screen();
+                            self.title_screen_uses_intro_return_hidden_shell = true;
+                            self.intro_sequence_6_start_skip_cursor_trace_priority = true;
+                            self.title_screen_ready_frame = self
+                                .frame_index
+                                .saturating_add(INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES);
+                            self.title_menu_arm_frame =
+                                self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                        }
                     }
                     self.title_screen_elapsed_frames += 1;
                     return;
@@ -6895,16 +6912,23 @@ impl NativeRuntime {
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
                     if start_pressed && self.frame_index < self.title_screen_ready_frame {
-                        *pending_title_skip = self
-                            .title_menu_arm_frame
-                            .saturating_sub(self.frame_index)
-                            .saturating_add(1)
-                            .try_into()
-                            .unwrap_or(u8::MAX);
+                        if self.title_screen_elapsed_frames <= 0xB8 {
+                            *pending_title_skip = 2;
+                            *pending_title_skip_fast_restore = true;
+                        } else {
+                            *pending_title_skip = self
+                                .title_menu_arm_frame
+                                .saturating_sub(self.frame_index)
+                                .saturating_add(1)
+                                .try_into()
+                                .unwrap_or(u8::MAX);
+                            *pending_title_skip_fast_restore = false;
+                        }
                     }
                 } else if !self.title_menu_active {
                     if start_pressed && self.frame_index < self.title_screen_ready_frame {
                         *pending_title_skip = 2;
+                        *pending_title_skip_fast_restore = false;
                     } else if start_pressed {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;

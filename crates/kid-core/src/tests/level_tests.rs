@@ -4478,6 +4478,55 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_early_start_restores_title_pose_loc_1bab0() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_2460 = None;
+        let mut frame_2460 = None;
+
+        for frame_index in 0..=2_460 {
+            let input = if frame_index == 2_400 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_460 {
+                trace_2460 = Some(trace);
+                frame_2460 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let trace_2460 = trace_2460.expect("early Start skip should reach frame 2460");
+        assert_eq!(
+            trace_2460.game_mode,
+            GameMode::TitleScreen,
+            "ASM loc_1BAB0 polls sub_1C246 during its `$B8` wait, so the frame-2400 Start edge should already be in the title shell by frame 2460"
+        );
+        assert!(
+            trace_2460.title_screen_ready,
+            "ASM Load_TitleScreen's short restore should expose the title pose by frame 2460 on the early loc_1BAB0 Start path"
+        );
+
+        let vdp_2460 = frame_2460.expect("frame 2460 should render the restored title VDP");
+        let word_at = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_2460.vram[byte_addr], vdp_2460.vram[byte_addr + 1]])
+        };
+        assert!(
+            (0..40).any(|col| word_at(20 * 128 + col * 2) != 0x20BC),
+            "ASM Load_TitleScreen should have rebuilt the KID/CHAMELEON title plane instead of keeping the hidden blue transformation shell"
+        );
+        assert!(
+            vdp_2460.vram[0x9A60..0xA360].iter().any(|&byte| byte != 0),
+            "ASM Load_TitleArt should have restored title art bytes by the early Start frame-2460 checkpoint"
+        );
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
@@ -4925,6 +4974,7 @@ mod chunk_02 {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 2,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: false,
         };

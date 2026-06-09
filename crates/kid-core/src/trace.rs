@@ -1050,6 +1050,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap: false,
         };
@@ -1075,6 +1076,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: false,
         };
@@ -1100,6 +1102,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: true,
         };
@@ -1125,6 +1128,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 2,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: false,
         };
@@ -1159,6 +1163,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 2,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: false,
             carry_timeout_restart_hidden_camera_wrap: false,
         };
@@ -1197,6 +1202,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap: true,
         };
@@ -1243,6 +1249,7 @@ mod tests {
         runtime.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             pending_title_skip: 0,
+            pending_title_skip_fast_restore: false,
             carry_intro_sequence_5_slot_2_pose: true,
             carry_timeout_restart_hidden_camera_wrap: false,
         };

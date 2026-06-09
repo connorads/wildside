@@ -1829,6 +1829,11 @@ pub(crate) enum BootState {
         /// IntroSequence6 object coroutine, so the traced mode flip follows
         /// two frames after the manual press.
         pending_title_skip: u8,
+        /// ASM loc_1BAB0 polls `sub_1C246` during the `$B8` hidden wait. A
+        /// Start edge there returns through the shorter `Load_TitleScreen`
+        /// restore, unlike the later title-menu wait that keeps the old
+        /// hidden shell until `loc_1B5CE`.
+        pending_title_skip_fast_restore: bool,
         /// ASM loc_1BA5C switches to `Game_Mode=$28`, then Load_IntroSequence6
         /// rebuilds the title shell while the old loc_1BCD0 slot-2 pose still
         /// survives in WRAM. This flag tracks that later timeout-restart
