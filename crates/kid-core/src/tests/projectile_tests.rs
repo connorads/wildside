@@ -9437,6 +9437,37 @@ mod chunk_06 {
             !cell.has_block,
             "smash block should be broken by Berzerker charge"
         );
+        assert_eq!(
+            rt.block_destroy_effects.len(),
+            2,
+            "ASM loc_930E should keep scanning the side column and Block_LoadSmashBits should leave visible debris for each broken Smash block",
+        );
+        assert_eq!(
+            (
+                rt.block_destroy_effects[0].x_px,
+                rt.block_destroy_effects[0].y_px,
+                rt.block_destroy_effects[0].direction,
+            ),
+            (
+                5 * 16 + 4,
+                3 * 16,
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+            ),
+            "ASM loc_10F26 should nudge the lower side-smash debris 4px right for d6=3",
+        );
+        assert_eq!(
+            (
+                rt.block_destroy_effects[1].x_px,
+                rt.block_destroy_effects[1].y_px,
+                rt.block_destroy_effects[1].direction,
+            ),
+            (
+                5 * 16 + 4,
+                2 * 16,
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+            ),
+            "ASM loc_930E should continue upward and spawn debris for the upper side-smash block too",
+        );
     }
 
     /// ASM loc_92EC (kid.asm:10735): block dispatch uses the wall probe on the

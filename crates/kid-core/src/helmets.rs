@@ -6507,9 +6507,6 @@ impl NativeRuntime {
 
     /// Berzerker charge wall break: when charging into a Smash block wall, break it.
     pub(crate) fn berzerker_break_wall_block(&mut self, slice: &OpeningSliceState) {
-        let Some(grid) = self.block_grid.as_mut() else {
-            return;
-        };
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
         let moving_right = slice.player.x_velocity > 0
@@ -6520,36 +6517,59 @@ impl NativeRuntime {
         } else {
             x_px - half_width - 1
         };
-        if edge_x < 0 || edge_x >= grid.width_pixels() {
-            return;
-        }
-
-        let col = (edge_x / 16).clamp(0, i32::from(grid.width_cells).saturating_sub(1)) as u16;
-        let top_row = ((y_px - PLAYER_HEIGHT).max(0) / 16) as u16;
-        let foot_row = (y_px / 16).clamp(0, i32::from(grid.height_cells).saturating_sub(1)) as u16;
-        let mut hit_wall = false;
-
-        // ASM loc_9294 -> loc_930E (kid.asm:10699-10752): scan every row in
-        // the leading column, dispatch handled blocks, then continue upward.
-        for row in (top_row..=foot_row).rev() {
-            let cell = grid.cell_at(col, row);
-            if !matches!(
-                cell.collision,
-                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
-            ) {
-                continue;
+        let smash_direction = if moving_right {
+            Self::BLOCK_DESTROY_DIRECTION_RIGHT
+        } else {
+            Self::BLOCK_DESTROY_DIRECTION_LEFT
+        };
+        let mut smash_effects = Vec::new();
+        let hit_wall = {
+            let Some(grid) = self.block_grid.as_mut() else {
+                return;
+            };
+            if edge_x < 0 || edge_x >= grid.width_pixels() {
+                return;
             }
-            hit_wall = true;
-            if slice.player.on_ground
-                && cell.has_block
-                && cell.block_type == terrain::BlockType::Smash
-            {
-                // ASM loc_92DE -> loc_92EC: non-Rubber block handlers are
-                // gated behind Berzerker charge and `Character_Movement !=
-                // MoveID_Jump`; native approximates that movement gate with
-                // grounded state while keeping loc_9326's charge-clear below.
-                grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+
+            let col = (edge_x / 16).clamp(0, i32::from(grid.width_cells).saturating_sub(1)) as u16;
+            let top_row = ((y_px - PLAYER_HEIGHT).max(0) / 16) as u16;
+            let foot_row =
+                (y_px / 16).clamp(0, i32::from(grid.height_cells).saturating_sub(1)) as u16;
+            let mut hit_wall = false;
+
+            // ASM loc_9294 -> loc_930E (kid.asm:10699-10752): scan every row in
+            // the leading column, dispatch handled blocks, then continue upward.
+            for row in (top_row..=foot_row).rev() {
+                let cell = grid.cell_at(col, row);
+                if !matches!(
+                    cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                ) {
+                    continue;
+                }
+                hit_wall = true;
+                if slice.player.on_ground
+                    && cell.has_block
+                    && cell.block_type == terrain::BlockType::Smash
+                {
+                    // ASM loc_92DE -> loc_92EC: non-Rubber block handlers are
+                    // gated behind Berzerker charge and `Character_Movement !=
+                    // MoveID_Jump`; native approximates that movement gate with
+                    // grounded state while keeping loc_9326's charge-clear below.
+                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    smash_effects.push((col * 16, row * 16, smash_direction));
+                }
             }
+
+            hit_wall
+        };
+
+        for (block_x_px, block_y_px, direction) in smash_effects {
+            // ASM off_933E[0] -> j_Block_LoadSmashBits -> sub_10EDA:
+            // Berzerker side Smash hits use d6=1 when moving left and d6=3
+            // when moving right, so the visible debris nudges horizontally
+            // instead of simply deleting the block.
+            self.spawn_smash_block_effect_sub_10eda(block_x_px, block_y_px, direction);
         }
 
         if hit_wall {
