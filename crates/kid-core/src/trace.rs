@@ -1640,6 +1640,57 @@ mod tests {
     }
 
     #[test]
+    fn loc_1ae2e_title_card_idle_window_still_ignores_gameplay_jump_input() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let bounds = crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        };
+        runtime.opening_slice = Some(OpeningSliceState::respawn(bounds));
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: false,
+            elapsed_frames: crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10,
+            uses_load_ingame_bootstrap: false,
+            load_ingame_bootstrap_started: false,
+        };
+        runtime.previous_input = FrameInput {
+            right: true,
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let before = runtime
+            .opening_slice
+            .expect("test setup should seed a gameplay slice")
+            .player;
+        runtime.opening_slice = Some(OpeningSliceState {
+            player: before,
+            ..OpeningSliceState::respawn(bounds)
+        });
+
+        let trace = runtime.step_frame(FrameInput::default());
+        let after = runtime
+            .opening_slice
+            .expect("title-card hibernate keeps the hidden slice alive")
+            .player;
+
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM Load_TitleCard keeps mode $0008 while loc_1AE2E is idling for Start",
+        );
+        assert_eq!(
+            (after.x_pos, after.y_pos, after.x_velocity, after.y_velocity),
+            (before.x_pos, before.y_pos, before.x_velocity, before.y_velocity),
+            "ASM loc_1AE2E only polls Ctrl_Pressed Start; gameplay B/Right must not launch or move Kid under the title card even after visible workers settle",
+        );
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "ASM loc_1AE2E idle does not enter loc_A480 jump sound while the level card still owns the shell",
+        );
+    }
+
+    #[test]
     fn current_player_state_exposes_title_menu_cursor_before_title_ready() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::TitleScreen { cursor: 1 };

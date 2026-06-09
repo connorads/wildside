@@ -2517,10 +2517,9 @@ impl NativeRuntime {
         matches!(
             self.boot_state,
             BootState::StartingLevel {
-                uses_load_ingame_bootstrap: false,
                 ..
             }
-        ) && !self.starting_level_title_workers.is_empty()
+        )
     }
 
     #[allow(non_snake_case)]
