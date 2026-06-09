@@ -2389,8 +2389,18 @@ Knight on the cleaner lower-floor Drips prefix opens the row-32 approach. Probe:
 stalls around `kid=$0216FA00,$024F0000`; closest approach to `(584,543)` is
 manhattan 49px at frame 128 (`dx=+1, dy=-48`), worse than the base-Kid B-jump
 seed's 23px miss. Treat this form seed as rejected route-search evidence, not
-an implementation signal; continue with the Drips `loc_33424`/`loc_33488`
-timing hypothesis above.
+an implementation signal.
+
+Follow-up 2026-06-09 Drips timing correction for #213/#260: fresh current-main
+oracle checks show the older `loc_33424`/`loc_33488` timing suspicion is stale
+for the checked-in early-jump probe. `tas-diff --scenario
+.cache/recordings/issue-260-drips-early-jump-close-probe/scenario.json
+--frame-start 120 --frame-end 130 --include-advisory --frontier-kind enemy
+--only-divergent` reports 10/10 matching frames, and the documented frame
+386..392 window now reports 6/6 matching frames. Do not start the next #260
+session by patching Drips timing from those older notes; the active blocker is
+still finding or recording a route that reaches the row-32 Drips/metal-block
+interaction.
 
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
