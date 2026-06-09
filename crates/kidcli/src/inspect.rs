@@ -1988,6 +1988,31 @@ mod tests {
     };
     use std::path::PathBuf;
 
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("kidcli crate should live under <repo>/crates/kidcli")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed inspect test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(kid_data::load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+    }
+
     fn manifest_with_drips_definition() -> AssetManifest {
         AssetManifest {
             generated_bundle_version: 0,
@@ -2053,6 +2078,37 @@ mod tests {
             ],
             "later-level helmet prize audits need inspect-level to show parsed Block List records directly",
         );
+    }
+
+    #[test]
+    fn generated_later_level_block_lists_include_helmet_prize_entries() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for (level_id, expected_content) in [
+            (0x05, terrain::PrizeContent::Juggernaut),
+            (0x14, terrain::PrizeContent::Cyclone),
+            (0x20, terrain::PrizeContent::Skycutter),
+        ] {
+            let bundle = kid_data::load_level_asset_bundle(&manifest, level_id)
+                .unwrap_or_else(|error| panic!("load level 0x{level_id:02X} bundle: {error}"));
+            let block_list = load_inspect_block_list(
+                &manifest,
+                level_id,
+                resource_level_id(&manifest, level_id),
+                &bundle,
+            )
+            .unwrap_or_else(|| panic!("load level 0x{level_id:02X} block list"));
+
+            assert!(
+                block_list
+                    .prize_blocks
+                    .iter()
+                    .any(|entry| entry.content == expected_content),
+                "generated level 0x{level_id:02X} block list should expose {expected_content:?} helmet prizes for later-level audits"
+            );
+        }
     }
 
     #[test]
