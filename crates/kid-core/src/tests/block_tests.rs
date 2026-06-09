@@ -11626,8 +11626,8 @@ mod chunk_04 {
             "ASM loc_333F6 clears y_vel on ceiling contact",
         );
         assert_eq!(
-            enemy.y_pos, 0x003F_0000,
-            "ASM GfxObjects_Collision loc_1A6C snaps Drips via object_meta `$16` / `unk_314D0` top `-$1F`, so row-1 ceiling bottom 32px leaves y_pos at 63px",
+            enemy.y_pos, 0x0032_0000,
+            "ASM GfxObjects_Collision loc_1A6C snaps Drips via its live `$22` sprite collision top, not object_meta `$16`; issue-260 oracle route `orig_l480_530_b528` shows row-31 ceiling bottom 512px leaves y_pos at 530px, so row-1 bottom 32px leaves y_pos at 50px",
         );
         assert!(
             projectiles.is_empty(),

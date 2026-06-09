@@ -23636,11 +23636,18 @@ pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
 /// `$16` resolves to `unk_314D0: dc.w -$5,$A,-$1F,$1F`, so the live collision
 /// box spans five pixels left and right of x_pos.
 const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 5;
-/// Vertical reach above the Drips object origin used for ceiling attachment.
-/// ASM `GfxObjects_Collision loc_1A6C` snaps ceiling hits through the collision
-/// size top offset. For Drips `unk_314D0` that top is `-$1F`, not the 2px
-/// visible slime sprite frame, so using a 1px probe leaves the slime embedded.
-const DRIPS_CEILING_PROBE_HEIGHT: i32 = 0x1F;
+/// Vertical reach above the Drips object origin used to detect ceiling contact.
+/// ASM Enemy16_Drip_Init writes `object_meta=$16`; CollisionSize_Index entry
+/// `$16` resolves to `unk_314D0: dc.w -$5,$A,-$1F,$1F`, so the object can
+/// report a ceiling hit before the visible slime top reaches the tile.
+const DRIPS_CEILING_DETECT_HEIGHT: i32 = 0x1F;
+/// Vertical offset used when GfxObjects_Collision writes back attached y_pos.
+/// ASM `GfxObjects_Collision loc_1A6C` indexes collision sizes from the live
+/// `$22(a2)` sprite mapping, after `Enemy16_Drip_Init` has written
+/// `LnkTo_unk_C7B0E-Data_Index`, not from `object_meta=$16`. The issue-260
+/// oracle route `orig_l480_530_b528` shows attached Drips at y=530 under a
+/// row-31 ceiling bottom (512px), so the snap top offset is 18px.
+const DRIPS_CEILING_SNAP_TOP_OFFSET: i32 = 0x12;
 
 pub(crate) fn drips_child_state_bytes_loc_3333e(enemy_level: u8) -> (u8, u8) {
     // ASM Enemy16_Drip_Init loc_3333E: `move.w 2(a0),d7; add.w d7,d7`
@@ -23680,14 +23687,16 @@ pub(crate) fn step_drips(
                 center_x_px,
                 body_y_px,
                 DRIPS_CEILING_PROBE_HALF_WIDTH,
-                DRIPS_CEILING_PROBE_HEIGHT,
+                DRIPS_CEILING_DETECT_HEIGHT,
             );
             if probe.hit {
                 // ASM loc_333F6 exits only after GfxObjects_Collision has
                 // reported colid_ceiling. The shared collision routine
-                // `loc_1A6C` repositions y_pos from the hitbox top offset;
-                // for Drips object_meta `$16`, that offset is `-$1F`.
-                enemy.y_pos = (probe.ceiling_y_px as u32 + DRIPS_CEILING_PROBE_HEIGHT as u32) << 16;
+                // `loc_1A6C` repositions y_pos from the live sprite collision
+                // top offset, after the collision detection pass has already
+                // found the ceiling.
+                enemy.y_pos =
+                    (probe.ceiling_y_px as u32 + DRIPS_CEILING_SNAP_TOP_OFFSET as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
                 enemy.wait_timer = drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos);
