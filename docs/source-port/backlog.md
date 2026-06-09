@@ -2257,6 +2257,15 @@ row-32 Drips/metal cells or the reported metal-block mutation. Next work should
 extend or climb from this cleaner prefix instead of patching Drips/block
 behaviour from the lower-floor crawler sighting alone.
 
+Case-queue follow-up 2026-06-09 for #213/#260: the queued
+`issue-260-drips-cleaner-prefix-audit` bundle is stale on current main. Fresh
+`verify-recording --slug issue-260-drips-cleaner-prefix-audit` fails with native
+trace replay drift at frame 0. The generated 0..120 case in
+`.cache/cases/issue-260-drips-cleaner-prefix-audit` fails, but reduction blocks
+with `source recording replay drifted at frame 0`; `summary.md` classifies the
+likely subsystem as `recording verification`. Re-record the cleaner prefix before
+mining it as gameplay-authoritative #260 evidence.
+
 Follow-up 2026-06-08 route-search correction for #213/#260: the current Level
 01 layout window has the reported row-32 cells around cols 28/36 (`C2D`) while
 the cleaner prefix remains on the lower row-37 shelf. Fresh probes from
