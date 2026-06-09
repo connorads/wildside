@@ -2306,6 +2306,16 @@ pixel left (`$00C5/$00C5.8`) and ground/debug-field differences versus oracle
 should either classify/fix the frame-603 RockTank roster divergence or extend
 from the CRC-clean gameplay route without assuming enemy-frontier object parity.
 
+Case-queue follow-up 2026-06-09 for #213/#260: the queued
+`issue-260-drips-b-jump-climb-seed` recording is not currently suitable for
+case reduction. Fresh `verify-recording --slug issue-260-drips-b-jump-climb-seed`
+fails with `missing native frame b_jump_climb_start@480`. Deriving the requested
+0..120 case to `.cache/cases/issue-260-drips-b-jump-climb-seed` produces
+`issue_260_drips_b_jump_climb_seed_01_case_00000_00120`, but `case reduce`
+blocks it with `source recording replay drifted at frame 0`; `summary.md`
+classifies the likely subsystem as `recording verification`. Re-record or
+repair the climb-seed bundle before using it as gameplay-authoritative evidence.
+
 Follow-up 2026-06-08 route-search note for #213/#260: post-climb and earlier
 vertical setup overlays still do not reach the reported row-32 Drips/metal-block
 interaction. A live negative variant
