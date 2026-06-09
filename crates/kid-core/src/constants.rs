@@ -55,6 +55,19 @@ pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES: usize = 244;
 /// `loc_1B45A` hidden-shell restore to the normal title VDP shell by oracle
 /// frame 2700, while trace-facing title readiness remains false.
 pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES: usize = 304;
+/// Cold boot global frame where `Load_IntroSequence6` first owns
+/// `Game_Mode=$0028`.
+pub(crate) const INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME: usize = SEGA_SCREEN_FRAMES
+    + INTRO_FIRST_SEGMENT_FRAMES
+    + INTRO_SECOND_SEGMENT_FRAMES
+    + INTRO_THIRD_SEGMENT_FRAMES
+    + INTRO_FOURTH_SEGMENT_FRAMES
+    + INTRO_FIFTH_SEGMENT_FRAMES;
+/// Oracle Start-skip probes at cold frames 2450 and 2500 split the
+/// `loc_1BAB0` fast-restore path: the earlier handoff keeps presenting the
+/// existing `sub_1B43A/loc_1B446` VDP until the short title restore is ready,
+/// while the later handoff has reached the title blackout/clear phase.
+pub(crate) const INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME: usize = 2_510;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.

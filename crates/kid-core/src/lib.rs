@@ -1649,6 +1649,31 @@ impl NativeRuntime {
                     )
                 })
             }
+            BootState::TitleScreen { .. }
+                if self.title_screen_uses_intro_return_hidden_shell
+                    && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                    && !self.title_screen_vdp_ready()
+                    && self.title_screen_ready_frame
+                        <= INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    // ASM loc_1BAB0 (kid.asm:30370) can switch Game_Mode via
+                    // sub_1C246 while the sibling sub_1B43A worker is still
+                    // presenting loc_1B446 hidden-shell frames. Until the
+                    // early fast-restore title shell is ready, keep rebuilding
+                    // that still-visible IntroSequence6 VDP from the cold
+                    // Load_IntroSequence6 global timeline.
+                    let intro_sequence_6_elapsed = self
+                        .frame_index
+                        .saturating_sub(INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME);
+                    vdp::build_intro_sequence_6_vdp_with_character_frame_at_elapsed(
+                        data,
+                        intro_sequence_6_elapsed,
+                        self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
+                    )
+                })
+            }
             BootState::TitleScreen { .. } if self.title_screen_vdp_blackout() => {
                 Some(vdp::blank_vdp_state())
             }
@@ -1812,7 +1837,12 @@ impl NativeRuntime {
     }
 
     fn title_screen_vdp_blackout(&self) -> bool {
-        self.intro_sequence_6_start_skip_cursor_trace_priority && !self.title_screen_vdp_ready()
+        (self.intro_sequence_6_start_skip_cursor_trace_priority
+            || (self.title_screen_uses_intro_return_hidden_shell
+                && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_ready_frame
+                    > INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME))
+            && !self.title_screen_vdp_ready()
     }
 
     fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {

@@ -4640,6 +4640,94 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_mid_start_keeps_hidden_shell_or_blackout_loc_1b446_1b45a() {
+        let Some(mut runtime_2450) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_2450_2460 = None;
+        let mut frame_2450_2460 = None;
+
+        for frame_index in 0..=2_460 {
+            let input = if frame_index == 2_450 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime_2450.step_frame(input);
+            if frame_index == 2_460 {
+                trace_2450_2460 = Some(trace);
+                frame_2450_2460 = runtime_2450.vdp_state().cloned();
+            }
+        }
+
+        let trace_2450_2460 =
+            trace_2450_2460.expect("frame-2450 Start skip should reach frame 2460");
+        assert_eq!(
+            trace_2450_2460.game_mode,
+            GameMode::TitleScreen,
+            "ASM sub_1C246 can switch Game_Mode during loc_1BAB0's wait, but the visible VDP still belongs to the hidden IntroSequence6 workers"
+        );
+        let vdp_2450_2460 = frame_2450_2460.expect("frame 2460 should keep the hidden-shell VDP");
+        let word_at = |vdp: &crate::vdp::VdpState, byte_addr: usize| {
+            u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+        };
+        assert_eq!(
+            word_at(&vdp_2450_2460, 0xE000),
+            0x00BD,
+            "ASM Load_IntroSequence6 loc_1B194 should still own Scroll B while loc_1B446 is presenting the hidden transformation frame"
+        );
+        assert!(
+            vdp_2450_2460.vram[0x9A60..0xA360]
+                .iter()
+                .all(|&byte| byte == 0),
+            "ASM loc_1B45A/Load_TitleArt has not restored title art during the frame-2450 Start skip's frame-2460 hidden shell"
+        );
+
+        let Some(mut runtime_2500) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_2500_2520 = None;
+        let mut frame_2500_2520 = None;
+
+        for frame_index in 0..=2_520 {
+            let input = if frame_index == 2_500 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime_2500.step_frame(input);
+            if frame_index == 2_520 {
+                trace_2500_2520 = Some(trace);
+                frame_2500_2520 = runtime_2500.vdp_state().cloned();
+            }
+        }
+
+        let trace_2500_2520 =
+            trace_2500_2520.expect("frame-2500 Start skip should reach frame 2520");
+        assert_eq!(
+            trace_2500_2520.game_mode,
+            GameMode::TitleScreen,
+            "ASM sub_1C246 should have handed off to Load_TitleScreen by frame 2520 on the frame-2500 Start skip"
+        );
+        assert!(
+            !trace_2500_2520.title_screen_ready,
+            "ASM loc_1B45A is still in its blackout before the visible title rebuild at frame 2520"
+        );
+        let vdp_2500_2520 = frame_2500_2520.expect("frame 2520 should expose the blackout VDP");
+        assert!(
+            vdp_2500_2520.vram.iter().all(|&byte| byte == 0)
+                && vdp_2500_2520.cram.iter().all(|&byte| byte == 0),
+            "ASM loc_1B45A should blackout the frame-2500 Start skip at frame 2520 instead of rendering the partially initialised hidden title rectangle"
+        );
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
