@@ -6007,11 +6007,16 @@ fn load_rejected_recording_slugs(repo_root: &Path) -> Result<RejectedRecordingFi
                 .slugs
                 .extend(recording_slugs_from_command_mentions(&hypothesis.reason));
         }
-        if let Some((_, rest)) = hypothesis.reason.split_once("case queue keeps selecting `")
-            && let Some((prefix, suffix)) = rest.split_once('`')
-            && suffix.trim_start().starts_with("variants")
+        for rest in hypothesis
+            .reason
+            .split("case queue keeps selecting `")
+            .skip(1)
         {
-            filters.prefixes.insert(prefix.to_owned());
+            if let Some((prefix, suffix)) = rest.split_once('`')
+                && suffix.trim_start().starts_with("variants")
+            {
+                filters.prefixes.insert(prefix.to_owned());
+            }
         }
     }
     Ok(filters)
@@ -15767,6 +15772,54 @@ strategies:
                 .iter()
                 .all(|recording| !recording.slug.starts_with("issue-210-title-"))
         );
+        let recording = queue
+            .selected_recording
+            .expect("fresh recording should be selected");
+        assert_eq!(recording.slug, "level1-tree-break");
+    }
+
+    #[test]
+    fn case_queue_skips_multiple_stale_recording_wrapper_families_from_one_note() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(
+            temp_dir.path(),
+            "issue-271-level00-dragon-stomp-current",
+            true,
+        );
+        write_recording(
+            temp_dir.path(),
+            "issue-271-level01-rocktank-stomp-damage-current",
+            true,
+        );
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let mut state: serde_json::Value = serde_json::from_slice(
+            &fs::read(temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH))
+                .expect("frontier state should read"),
+        )
+        .expect("frontier state should parse");
+        state["active_frontier"]["rejected_hypotheses"]
+            .as_array_mut()
+            .expect("rejected hypotheses should be an array")
+            .push(serde_json::json!({
+                "name": "Recording `issue-271-level00-dragon-stomp` and RockTank stomp families are stale",
+                "reason": "Rejected 2026-06-09. Re-record these wrappers against current native before using. If the case queue keeps selecting `issue-271-level00-dragon-stomp` variants, first refresh the Dragon stomp recordings against current native. If the case queue keeps selecting `issue-271-level01-rocktank-stomp` variants, first refresh the RockTank stomp recordings against current native."
+            }));
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            serde_json::to_vec_pretty(&state).expect("frontier state should serialise"),
+        )
+        .expect("frontier state should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(queue.untriaged_recordings.iter().all(|recording| {
+            !recording.slug.starts_with("issue-271-level00-dragon-stomp")
+                && !recording
+                    .slug
+                    .starts_with("issue-271-level01-rocktank-stomp")
+        }));
         let recording = queue
             .selected_recording
             .expect("fresh recording should be selected");
