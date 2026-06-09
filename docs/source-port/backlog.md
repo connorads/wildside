@@ -107,6 +107,14 @@ and later-level helmet prize blocks may not be mapped/extracted correctly. These
 are current human-play-stability checks against the latest pushed changes, not
 historical closed-state evidence.
 
+Follow-up 2026-06-09: the initial natural BLW2 route for the Level 2 well
+left-wall report was rejected as a wall-cling repro because it died before the
+wall-hold window after RockTank contact. A sharpened natural route is now
+tracked at `tests/data/dynamic-scenarios/issue-270-blw2-natural-left-wall-right180-left-b205245.json`
+and passes gameplay oracle CRC verification through frames 0..960. Use it as
+the next #249/#270 seed; it proves the simple approach is currently faithful but
+does not yet reproduce the upward wall launch.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
