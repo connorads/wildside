@@ -1989,12 +1989,12 @@ mod chunk_08 {
     }
 
     #[test]
-    fn respawn_hold_without_start_covers_oracle_22000_route_lower_bound_loc_6e2() {
+    fn respawn_hold_without_start_covers_oracle_26000_route_lower_bound_loc_6e2() {
         // Oracle-backed `compare-native-gameplay-window --scenario
-        // death-respawn-level1 --frame-start 16000 --frame-end 22000` keeps
-        // Game_Mode=$0008 at frame 22000 when Start is never pressed; before
+        // death-respawn-level1 --frame-start 22000 --frame-end 26000` keeps
+        // Game_Mode=$0008 at frame 26000 when Start is never pressed; before
         // extending the settle, the same route window stays green through the
-        // 16000 checkpoint but releases at first live drift frame 16002.
+        // 22000 checkpoint but releases at first live drift frame 22016.
         // Native must not let the fallback countdown release earlier and run
         // Kid into a second death before that lower bound.
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));
@@ -2005,13 +2005,13 @@ mod chunk_08 {
         };
         runtime.boot_state = BootState::InGame;
 
-        for _ in 0..=20_100 {
+        for _ in 0..=24_100 {
             runtime.step_frame(FrameInput::default());
         }
 
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-            "without Start, loc_6E2 respawn should remain hidden through the oracle route-frame 22000 lower bound (got {:?})",
+            "without Start, loc_6E2 respawn should remain hidden through the oracle route-frame 26000 lower bound (got {:?})",
             runtime.player_lifecycle
         );
         assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);

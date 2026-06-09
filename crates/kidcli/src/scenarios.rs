@@ -165,7 +165,7 @@ const PAUSE_RESUME_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
-const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 10] = [
+const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 11] = [
     GameplayCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -205,6 +205,10 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 10] = [
     GameplayCheckpoint {
         label: "respawn_bootstrap_tail_22000",
         frame_index: 22_000,
+    },
+    GameplayCheckpoint {
+        label: "respawn_bootstrap_tail_26000",
+        frame_index: 26_000,
     },
 ];
 
@@ -2020,7 +2024,7 @@ impl GameplayScenario {
     pub fn frame_count(self) -> usize {
         match self {
             Self::PauseResumeLevel1 => 1_120,
-            Self::DeathRespawnLevel1 => 22_001,
+            Self::DeathRespawnLevel1 => 26_001,
             Self::DeathRespawnStartResumeLevel1 => 1_951,
             Self::ProgressTwoTransitions => 3_301,
             Self::SoakLevel10m => 36_720,
@@ -2941,7 +2945,7 @@ mod tests {
 
     #[test]
     fn gameplay_death_scenario_extends_past_the_hidden_respawn_bootstrap() {
-        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 22_001);
+        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 26_001);
         assert_eq!(
             GameplayScenario::DeathRespawnLevel1
                 .checkpoints()
@@ -2959,6 +2963,7 @@ mod tests {
                 ("respawn_bootstrap_tail_12200", 12_200),
                 ("respawn_bootstrap_tail_16000", 16_000),
                 ("respawn_bootstrap_tail_22000", 22_000),
+                ("respawn_bootstrap_tail_26000", 26_000),
             ]
         );
     }
