@@ -2922,12 +2922,17 @@ mod chunk_06 {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
 
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert_eq!(
             rt.helmet.red_stealth_sword_timer, RED_STEALTH_ACTIVE_FRAMES,
             "ASM sub_78E8 should preserve Red Stealth's grounded sword pose while the swing timer is live",
+        );
+        assert_eq!(
+            rt.helmet.red_stealth_airborne_slash_counter, 0,
+            "ASM sub_78E8/loc_794C clears the shared Red_Stealth_sword_swing byte for grounded/default recovery; native must clear the split airborne counter too",
         );
     }
 
@@ -3765,6 +3770,7 @@ mod chunk_06 {
         rt.helmet.skycutter_flipboard = 0x11;
         rt.helmet.skycutter_on_board = true;
         rt.helmet.red_stealth_sword_timer = 0x70;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
         rt.helmet.maniaxe_axe_active = true;
         rt.helmet.berzerker_charge_accum = 0xFF;
         rt.helmet.berzerker_charging = true;
@@ -3789,6 +3795,10 @@ mod chunk_06 {
         assert_eq!(
             rt.helmet.red_stealth_sword_timer, 0,
             "ASM sub_DB22 should clear `Red_Stealth_sword_swing` once the shared airborne action ends",
+        );
+        assert_eq!(
+            rt.helmet.red_stealth_airborne_slash_counter, 0,
+            "ASM sub_DB22 clears the same Red_Stealth_sword_swing byte used by sub_B270, including native's split airborne slash counter",
         );
         assert!(
             !rt.helmet.maniaxe_axe_active,

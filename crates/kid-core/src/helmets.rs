@@ -4913,11 +4913,13 @@ impl NativeRuntime {
         // ASM loc_9472 (kid.asm:10902): `sf (Red_Stealth_sword_swing).w` —
         //   unconditionally clears the sword flag unless the Red Stealth
         //   early-return at loc_9454+$10 kept it (helmet==3 && flag && $18).
-        //   Native: red_stealth_sword_timer = 0 below.
+        //   Native: red_stealth_sword_timer and the split airborne slash
+        //   counter are both parts of that one ROM byte, so clear both.
         self.helmet.cyclone_flying = false;
         self.helmet.skycutter_on_board = false;
         self.helmet.skycutter_flipboard = 0;
         self.helmet.red_stealth_sword_timer = 0;
+        self.helmet.red_stealth_airborne_slash_counter = 0;
         self.helmet.maniaxe_axe_active = false;
         self.helmet.berzerker_charging = false;
         self.helmet.berzerker_charge_accum = 0;
@@ -5003,21 +5005,25 @@ impl NativeRuntime {
                     // call sites such as landing and recovery.
                     self.helmet.maniaxe_axe_active = false;
                     self.helmet.red_stealth_sword_timer = 0;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
                 }
             }
             PlayerForm::RedStealth => {
                 if previous_red_stealth_sword_timer > 0 {
                     self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
                 } else {
                     // ASM loc_7932 falls through to loc_794C when the prior
                     // sword latch is clear.
                     self.helmet.maniaxe_axe_active = false;
                     self.helmet.red_stealth_sword_timer = 0;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
                 }
             }
             PlayerForm::Eyeclops => {
                 self.helmet.maniaxe_axe_active = false;
                 self.helmet.red_stealth_sword_timer = 0;
+                self.helmet.red_stealth_airborne_slash_counter = 0;
                 self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
                     projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
                 });
@@ -5030,6 +5036,7 @@ impl NativeRuntime {
                 // ASM loc_794C: default standing sprite path.
                 self.helmet.maniaxe_axe_active = false;
                 self.helmet.red_stealth_sword_timer = 0;
+                self.helmet.red_stealth_airborne_slash_counter = 0;
             }
         }
     }

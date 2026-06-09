@@ -496,7 +496,10 @@ pub(super) fn select_player_frame<'a>(
     // a fast-fall hold instead of falling through to the generic jump-fall
     // pose. Takes precedence over the ground swing timer because the airborne
     // path is what the user reported broken (#153).
-    if trace.red_stealth_airborne_slash_counter > 0 && !player_visuals.slash_air.is_empty() {
+    if !on_ground
+        && trace.red_stealth_airborne_slash_counter > 0
+        && !player_visuals.slash_air.is_empty()
+    {
         let phase = usize::from(trace.red_stealth_airborne_slash_counter >> 5);
         let frame_index = phase.min(player_visuals.slash_air.len() - 1);
         return &player_visuals.slash_air[frame_index];

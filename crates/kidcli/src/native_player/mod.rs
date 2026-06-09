@@ -9872,6 +9872,24 @@ mod tests {
     }
 
     #[test]
+    fn grounded_red_stealth_swing_ignores_stale_airborne_slash_counter_loc_76b0_78e8() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.red_stealth_sword_timer = 11;
+        trace.red_stealth_airborne_slash_counter = 0x40;
+        trace.kid_on_ground = Some(true);
+        trace.kid_x_velocity = Some(0);
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(30),
+            "ASM loc_76B0/stru_8B3C owns grounded sword art; sub_78E8 loc_794C clears the shared Red_Stealth_sword_swing byte on grounded/default recovery",
+        );
+    }
+
+    #[test]
     fn red_stealth_sword_timer_selects_air_slash_rom_frame_sub_b270() {
         let mut trace = trace_with_player(720, 0);
         trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
