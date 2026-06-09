@@ -2861,7 +2861,6 @@ impl NativeRuntime {
         let mut hit = false;
         let mut released_owners = Vec::new();
         self.last_projectile_damage_probe = None;
-        self.lion_projectile_object_only_tail_count = 0;
         self.projectiles.retain_mut(|p| {
             if p.kind == EnemyProjectileKind::DripsDrop {
                 // ASM Drips.asm loc_3345C only advances the falling child and

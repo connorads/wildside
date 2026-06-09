@@ -9657,12 +9657,22 @@ impl NativeRuntime {
                 slice.camera.y_pos,
             );
 
+        let death_object_workers = if self.lion_projectile_object_only_tail_count > 0 {
+            // ASM Lion.asm loc_3E1B4 deletes the child projectile object after
+            // the hit; Death/loc_B80C then enters with that counted child tail
+            // still replacing one of native's generic death-shell workers in
+            // the Level 0x07 oracle trace.
+            1
+        } else {
+            2
+        };
+
         LevelSkipTransitionState {
             elapsed_frames: 0,
             frozen_player,
             frozen_camera: slice.camera,
             frozen_active_objects,
-            frozen_number_objects: base_number_objects.saturating_add(2),
+            frozen_number_objects: base_number_objects.saturating_add(death_object_workers),
             frozen_number_gfx_objects: base_number_gfx_objects.saturating_add(3),
         }
     }

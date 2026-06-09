@@ -3829,6 +3829,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level07_recording_settle_lion_postfire_object_counts_match_loc_3e11e_b8de() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(7)
+            .settle_recording_warp()
+            .run(&[0], 96);
+
+        assert_eq!(
+            trace[93].number_objects, 6,
+            "ASM Lion.asm loc_3E11E plus oracle tas-diff frame 94 keep six objects counted just before body-contact death"
+        );
+        assert_eq!(
+            trace[94].number_objects, 6,
+            "ASM Lion.asm loc_3E11E body contact enters the death shell without adding an extra object-count worker at oracle frame 95"
+        );
+        assert_eq!(
+            trace[95].number_objects, 6,
+            "ASM Death/loc_B80C keeps the Level 0x07 death wind-up shell at the oracle's six counted objects after Lion body contact"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]
