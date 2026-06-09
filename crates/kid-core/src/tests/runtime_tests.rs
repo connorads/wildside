@@ -11742,22 +11742,24 @@ mod chunk_09 {
         );
         assert_eq!(
             drips_splash_animation_remaining_loc_33488(drips.wait_timer),
-            Some(1),
-            "ASM Drips.asm loc_33488 is still hibernating before the j_Hibernate_UntilAnimFinished resume frame"
+            Some(DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 - 1),
+            "ASM Drips.asm loc_33488 is still hibernating before off_33520; issue-260 oracle shows the engine-expanded splash countdown"
         );
 
-        step_active_enemies(
-            &mut rt.active_enemies,
-            rt.block_grid.as_ref(),
-            None,
-            None,
-            None,
-            None,
-            PlayerForm::TheKid,
-            Some(&mut rt.projectiles),
-            &mut drilled_blocks,
-        );
-        rt.step_projectiles();
+        for _ in 0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 {
+            step_active_enemies(
+                &mut rt.active_enemies,
+                rt.block_grid.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                Some(&mut rt.projectiles),
+                &mut drilled_blocks,
+            );
+            rt.step_projectiles();
+        }
 
         let drips = rt
             .active_enemies

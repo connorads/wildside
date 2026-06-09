@@ -455,6 +455,90 @@ pub(crate) fn drips_surface_crawler_burst_offset_loc_33550(
 #[cfg(test)]
 mod drips_surface_crawler_tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn minimal_manifest() -> kid_data::AssetManifest {
+        kid_data::AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("projectiles-test"),
+            upstream_commit: String::from("projectiles-test"),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    fn drips_ready_splash_enemy(layout_index: usize, x_pos: u32, y_pos: u32) -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index,
+            enemy_level: 0,
+            family: EnemyFamily::Drips,
+            x_pos,
+            y_pos,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 1,
+            death_animation_active: false,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: drips_splash_animation_timer_loc_33488(0),
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: true,
+            drips_surface_table_index: 1,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
 
     #[test]
     fn drips_surface_crawler_spawn_applies_parent_velocity_gate_loc_33526() {
@@ -501,6 +585,51 @@ mod drips_surface_crawler_tests {
         assert_eq!(
             crawler.y_pos, 0x0250_0000,
             "ASM Drips.asm loc_33488 adds 10px to the falling child before the loc_335D8 queue adds another 10px and aligns down into `$46(a0)`"
+        );
+    }
+
+    #[test]
+    fn drips_ready_splash_reseeds_in_object_slot_order_loc_33488() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.rom_random = RomRandomState::default();
+        runtime.active_enemies = vec![
+            drips_ready_splash_enemy(7, 0x01C8_0000, 0x021F_0000),
+            drips_ready_splash_enemy(8, 0x0248_0000, 0x021F_0000),
+        ];
+        let mut crawler_count = 0;
+        let mut spawned_projectiles = Vec::new();
+
+        runtime.resolve_ready_drips_splash_animations(
+            &mut crawler_count,
+            Some(0x0241_0000),
+            &mut spawned_projectiles,
+        );
+        let mut expected_rng = RomRandomState::default();
+        let first_reseed_byte = expected_rng.next_byte();
+        let second_reseed_byte = expected_rng.next_byte();
+
+        let left_wait = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.layout_index == 7)
+            .expect("left Drips should remain active")
+            .wait_timer;
+        let right_wait = runtime
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.layout_index == 8)
+            .expect("right Drips should remain active")
+            .wait_timer;
+
+        assert_eq!(
+            right_wait,
+            drips_wait_timer_loc_3340e(first_reseed_byte, 0x0241),
+            "ASM Drips.asm loc_33488 resumes each controller coroutine in object-slot order; oracle issue-260 frame 250 shows layout #08 consumes the first ready-splash reseed"
+        );
+        assert_eq!(
+            left_wait,
+            drips_wait_timer_loc_3340e(second_reseed_byte, 0x0241),
+            "layout #07 must consume the next loc_3340E RNG byte after the right-side Drips continuation"
         );
     }
 
@@ -1960,11 +2089,36 @@ impl NativeRuntime {
         let player_x = player_x.unwrap_or(0);
         let kid_x_word = ((player_x >> 16) & 0xFFFF) as u16;
         let mut reseed_events = Vec::new();
-        for enemy in self
+        let mut ready_drips_indices = self
             .active_enemies
-            .iter_mut()
-            .filter(|enemy| enemy.family == EnemyFamily::Drips)
-        {
+            .iter()
+            .enumerate()
+            .filter(|(_, enemy)| {
+                enemy.family == EnemyFamily::Drips
+                    && drips_splash_animation_remaining_loc_33488(enemy.wait_timer) == Some(0)
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        // ASM Drips.asm loc_33488 resumes each controller as its object-slot
+        // coroutine wakes. The issue-260 oracle trace shows simultaneous
+        // layout #08/#07 continuations consume loc_3340E RNG in descending
+        // layout order, while the native active vector stores them ascending.
+        ready_drips_indices.sort_by(|&left, &right| {
+            let left_enemy = &self.active_enemies[left];
+            let right_enemy = &self.active_enemies[right];
+            (
+                right_enemy.segment_index,
+                right_enemy.layout_index,
+                right_enemy.x_pos,
+            )
+                .cmp(&(
+                    left_enemy.segment_index,
+                    left_enemy.layout_index,
+                    left_enemy.x_pos,
+                ))
+        });
+        for enemy_index in ready_drips_indices {
+            let enemy = &mut self.active_enemies[enemy_index];
             if drips_splash_animation_remaining_loc_33488(enemy.wait_timer) != Some(0) {
                 continue;
             }

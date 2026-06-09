@@ -22206,9 +22206,12 @@ pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
 /// frame durations `$A,$A,8,6,1`.
 pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
-/// ASM Drips.asm loc_33488 initialises `stru_33332`, whose single display
-/// frame is followed by the resume frame from `j_Hibernate_UntilAnimFinished`.
-pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 2;
+/// ASM Drips.asm loc_33488 initialises `stru_33332` and then hibernates in
+/// the animation system before `off_33520` advances. The issue-260 oracle
+/// trace sees the loc_33428 splash countdown at `$56` on frame 250 and `$06`
+/// on frame 330, so the native wait must model the engine-expanded duration,
+/// not just the single `anim_frame 1,1` script entry.
+pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 0x58;
 const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
@@ -33091,28 +33094,25 @@ mod tests {
 
         let mut projectiles = Vec::new();
         let mut rng = RomRandomState::default();
-        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
-
-        assert_eq!(
-            drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
-            Some(1),
-            "ASM Drips.asm loc_33488 keeps the parent hibernating for the visible stru_33332 splash frame"
-        );
-        assert!(
-            projectiles.is_empty(),
-            "loc_33488 must not start the next loc_33424 drop during the visible splash frame"
-        );
+        for expected_remaining in (0..0x58).rev() {
+            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+            assert_eq!(
+                drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
+                Some(expected_remaining),
+                "ASM Drips.asm loc_33488 stays in the engine-expanded splash hibernate before off_33520; issue-260 oracle frame 250 observes d0=$56 and frame 330 observes d0=$06"
+            );
+            assert!(
+                projectiles.is_empty(),
+                "loc_33488 must not start the next loc_33424 drop before the splash hibernate finishes"
+            );
+        }
 
         step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
 
         assert_eq!(
             drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
             Some(0),
-            "ASM Drips.asm loc_33488 resumes from j_Hibernate_UntilAnimFinished one frame after the visible splash frame"
-        );
-        assert!(
-            projectiles.is_empty(),
-            "loc_33488 must not start the next loc_33424 drop during the splash hibernate frame"
+            "ASM Drips.asm loc_33488 resumes after the final splash hibernate frame"
         );
     }
 
