@@ -6866,10 +6866,13 @@ impl OpeningSliceState {
             let next_cell = grid.cell_at(next_col, row);
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
             let is_4082_6024_seam = current_cell.skin == 0x82 && next_cell.skin == 0x24;
+            let is_406d_606e_seam = current_cell.skin == 0x6D && next_cell.skin == 0x6E;
             let applies_solid_edge_low_word_handoff =
                 post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
             let applies_solid_edge_high_borrow = if is_4082_6024_seam {
                 post_vertical_frac <= 0x0800
+            } else if is_406d_606e_seam {
+                form == PlayerForm::IronKnight && post_vertical_frac >= 0x4000
             } else {
                 post_vertical_frac >= 0x4000
             };
@@ -6890,11 +6893,13 @@ impl OpeningSliceState {
                 // 4082/6024 seam. Issue #258 frame 712 proves the same
                 // correction can apply without the air-cap tail when Iron
                 // Knight lands on the `$406D/$606E` seam. Blue Lake Woods 2
-                // frame 181 hits the 405C/605D seam at 0x0800 and only takes
-                // the low-word handoff, keeping the airborne handoff's high
-                // word. Earlier frame 428 hits the 4082/6024 seam at
-                // post-vertical fraction 0xAC00 and also keeps the unborrowed
-                // high word; only the low-word handoff applies there.
+                // frame 268 proves The Kid on `$406D/$606E` keeps the
+                // unborrowed high word instead. Blue Lake Woods 2 frame 181
+                // hits the 405C/605D seam at 0x0800 and only takes the
+                // low-word handoff, keeping the airborne handoff's high word.
+                // Earlier frame 428 hits the 4082/6024 seam at post-vertical
+                // fraction 0xAC00 and also keeps the unborrowed high word;
+                // only the low-word handoff applies there.
                 let corrected_high = if applies_solid_edge_high_borrow {
                     (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
                 } else {

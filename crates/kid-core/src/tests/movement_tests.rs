@@ -19419,6 +19419,101 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the natural Level
+    /// 01 RockTank route lands on the `$406D/$606E` SlopeUp/Solid seam after
+    /// an airborne rightward approach. Oracle frame 268 proves this seam keeps
+    /// the unborrowed high word and snaps to the row-12 slope surface, so the
+    /// first RockTank contact audit is not polluted by a one-pixel player drift.
+    #[test]
+    fn level01_frame_268_rock_tank_slope_up_recontact_keeps_boundary_handoff_loc_a99e() {
+        let w: u16 = 24;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        for (col, row, hi, lo) in [
+            (17, 10, 0x40, 0x4B),
+            (18, 10, 0x60, 0x4C),
+            (19, 10, 0x60, 0x6C),
+            (20, 10, 0x50, 0x95),
+            (12, 11, 0x40, 0x5C),
+            (13, 11, 0x60, 0x5D),
+            (14, 11, 0x60, 0x5E),
+            (15, 11, 0x60, 0x58),
+            (16, 11, 0x60, 0x34),
+            (15, 12, 0x40, 0x6D),
+            (16, 12, 0x60, 0x6E),
+            (17, 12, 0x00, 0x6F),
+            (18, 12, 0x00, 0x70),
+            (19, 12, 0x60, 0xFC),
+            (20, 12, 0x60, 0x46),
+            (14, 13, 0x40, 0x82),
+            (15, 13, 0x60, 0x7F),
+            (16, 13, 0x60, 0x80),
+            (17, 13, 0x60, 0x81),
+            (18, 13, 0x60, 0xFB),
+            (19, 13, 0x60, 0xE8),
+            (8, 14, 0x60, 0xE9),
+            (9, 14, 0x60, 0x22),
+            (10, 14, 0x60, 0x9F),
+            (11, 14, 0x60, 0x35),
+            (12, 14, 0x60, 0x5A),
+            (13, 14, 0x60, 0x7D),
+            (14, 14, 0x60, 0x34),
+            (15, 14, 0x60, 0xFB),
+            (16, 14, 0x60, 0xFC),
+            (17, 14, 0x60, 0xFB),
+        ] {
+            set(&mut data, col, row, hi, lo);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x00F6_BD00;
+        slice.player.y_pos = 0x00C2_AE60;
+        slice.player.x_velocity = 0x0002_9F00;
+        slice.player.y_velocity = 0x0004_A760;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::from_mask(0x28),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x00FB_5E00,
+            "ASM loc_A99E/loc_8BF0 should match oracle Level 01 RockTank frame 268 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00C4_0000,
+            "ASM loc_9D22 should snap to the Level 01 frame-268 SlopeUp surface",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_5E00,
+            "ASM loc_9D22 should keep the Level 01 frame-268 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the natural #258
     /// route reaches the next Level 00 SlopeUp/Solid seam as Iron Knight
     /// after the latched prize-transform hibernate. Oracle frame 712 proves
