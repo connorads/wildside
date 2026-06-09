@@ -8020,7 +8020,9 @@ mod tests {
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
-        level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
+        level_entry_title_target_y, level_entry_title_top_edge_y_loc_1ace6,
+        level_entry_title_two_player_waiter_workers_loc_1AD80,
+        level_entry_title_worker_axis_pos,
         prefer_iron_knight_solid_edge_floor_loc_914a,
     };
     use crate::physics::{Direction, LevelBounds};
@@ -8097,6 +8099,20 @@ mod tests {
     }
 
     #[test]
+    fn level_entry_title_target_y_raises_glyph_83_loc_1aca8() {
+        assert_eq!(
+            level_entry_title_target_y(0x83, 0x0040),
+            0x0038,
+            "ASM loc_1AC70 should subtract 8 from d1 only for raised glyph $83 before loc_1ACB0",
+        );
+        assert_eq!(
+            level_entry_title_target_y(b'a', 0x0040),
+            0x0040,
+            "ASM loc_1AC70 should leave ordinary glyph target Y unchanged",
+        );
+    }
+
+    #[test]
     fn level_entry_title_deferred_number_indices_skip_zero_count_loc_1abf4() {
         assert_eq!(
             level_entry_title_deferred_number_indices_loc_1ABF4(0).collect::<Vec<_>>(),
@@ -8127,6 +8143,74 @@ mod tests {
         assert!(
             level_entry_title_spawns_two_player_waiter_loc_1AC10(true),
             "ASM loc_1AC10 should allocate loc_1AD80 before `Delete_CurrentObject` when `Two_player_flag` is set",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_two_player_waiter_workers_loc_1ad80_use_player_glyph_and_opposed_motion() {
+        let p1_workers = level_entry_title_two_player_waiter_workers_loc_1AD80(0, 5);
+        let p2_workers = level_entry_title_two_player_waiter_workers_loc_1AD80(1, 5);
+
+        assert_eq!(
+            [p1_workers[0].glyph, p1_workers[1].glyph],
+            [0x80, 0x81],
+            "ASM loc_1AD80 should pair the fixed left player-title glyph $80 with current-player glyph $81 for player 0",
+        );
+        assert_eq!(
+            [p2_workers[0].glyph, p2_workers[1].glyph],
+            [0x80, 0x82],
+            "ASM loc_1ADEA should increment the current-player glyph to $82 for non-zero Current_player",
+        );
+        assert_eq!(
+            [p1_workers[0].gfx_slot_index, p1_workers[1].gfx_slot_index],
+            [5, 6],
+            "ASM loc_1AD80 should allocate the second 2P waiter gfx object immediately after the first",
+        );
+        assert_eq!(
+            p1_workers[0].motion.as_ref().map(|motion| motion.x_step_fp),
+            Some(0x0004_0000),
+            "ASM loc_1AE10 should move the left waiter sprite +4px per frame toward x=$60",
+        );
+        assert_eq!(
+            p1_workers[1].motion.as_ref().map(|motion| motion.x_step_fp),
+            Some(-0x0004_0000),
+            "ASM loc_1AE20 should move the right waiter sprite -4px per frame toward x=$D0",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_letter_slots_count_down_from_visible_tail() {
+        assert_eq!(
+            [
+                super::level_entry_title_letter_gfx_slot_index(0, 3),
+                super::level_entry_title_letter_gfx_slot_index(1, 3),
+                super::level_entry_title_letter_gfx_slot_index(2, 3),
+            ],
+            [2, 1, 0],
+            "ASM loc_1AB6A allocates visible title glyph gfx slots in reverse visible-glyph order",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_effective_activation_frame_rebases_early_start_bootstrap() {
+        let worker = crate::types::LevelEntryTitleWorker {
+            gfx_slot_index: 0,
+            glyph: b'a',
+            activation_frame: super::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 6,
+            target_x_pos: 0,
+            target_y_pos: 0,
+            motion: None,
+        };
+
+        assert_eq!(
+            super::level_entry_title_effective_activation_frame(&worker, false),
+            super::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 6,
+            "normal ASM loc_1AC70 title workers should keep their recorded activation frame",
+        );
+        assert_eq!(
+            super::level_entry_title_effective_activation_frame(&worker, true),
+            super::EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 6,
+            "early-start bootstrap should preserve the worker's offset from the first visible title frame",
         );
     }
 
