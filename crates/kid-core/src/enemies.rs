@@ -9857,13 +9857,7 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
                         if drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px) {
-                            step_drips(
-                                enemy,
-                                projs,
-                                player_x_pos.unwrap_or(enemy.x_pos),
-                                rng,
-                                block_grid,
-                            );
+                            step_drips(enemy, projs, block_grid);
                         }
                     }
                 } else if let Some(ref mut projs) = projectiles {
@@ -9878,6 +9872,54 @@ pub(crate) fn step_active_enemies_with_rng(
                 }
             }
         }
+    }
+    seed_pending_drips_initial_waits_loc_3340e(active, player_x_pos, rng);
+}
+
+/// Draw the deferred ASM `Drips.asm loc_3340E` initial dormant seeds for every
+/// Drips that attached to the ceiling this frame.
+///
+/// ASM `Allocate_ObjectSlot` (kid.asm loc_DE0) walks the execution list with
+/// `cmp.w $E(a1),d6; bhi.s loc_DE0` — a strict unsigned compare — so an
+/// equal-priority object is inserted BEFORE existing slots and
+/// `Execute_Objects` (loc_E1E) runs simultaneously loaded enemies in reverse
+/// load order. `Manage_EnemyLoading` loads layout entries ascending, so
+/// same-frame Drips attaches consume `j_Get_RandomNumber_byte` in descending
+/// (segment, layout, x) order. The issue-260 oracle pair confirms this: the
+/// x=584 Drips holds the first draw and the x=456 Drips the second (the same
+/// ordering the loc_33488 splash-continuation pass already uses).
+pub(crate) fn seed_pending_drips_initial_waits_loc_3340e(
+    active: &mut [ActiveEnemy],
+    player_x_pos: Option<u32>,
+    rng: &mut RomRandomState,
+) {
+    let mut pending_indices: Vec<usize> = active
+        .iter()
+        .enumerate()
+        .filter(|(_, enemy)| {
+            enemy.family == EnemyFamily::Drips
+                && enemy.wait_timer == DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E
+        })
+        .map(|(index, _)| index)
+        .collect();
+    pending_indices.sort_by(|&left, &right| {
+        let left_enemy = &active[left];
+        let right_enemy = &active[right];
+        (
+            right_enemy.segment_index,
+            right_enemy.layout_index,
+            right_enemy.x_pos,
+        )
+            .cmp(&(
+                left_enemy.segment_index,
+                left_enemy.layout_index,
+                left_enemy.x_pos,
+            ))
+    });
+    for index in pending_indices {
+        let enemy = &mut active[index];
+        enemy.wait_timer =
+            drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos.unwrap_or(enemy.x_pos));
     }
 }
 
@@ -22212,17 +22254,27 @@ pub(crate) const DRIPS_DROP_LIFETIME: u16 = u16::MAX;
 /// active. ASM Drips.asm loc_33424/loc_3345C does not branch back to
 /// loc_3340E until the child reaches loc_33488.
 pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
+/// Native-only sentinel set at the ceiling-attach frame. The loc_3340E RNG
+/// byte is drawn in a post-pass over all same-frame attaches because ASM
+/// `Allocate_ObjectSlot` (kid.asm loc_DE0: `cmp.w $E(a1),d6; bhi.s loc_DE0`)
+/// inserts equal-priority objects BEFORE existing slots, so `Execute_Objects`
+/// (loc_E1E) runs simultaneously loaded enemies in reverse load order and
+/// their loc_3340E draws happen in descending layout order.
+pub(crate) const DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E: u16 = u16::MAX - 1;
 /// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
 /// animation finishes before exposing the falling child. The script has
 /// frame durations `$A,$A,8,6,1`.
 pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
-/// ASM Drips.asm loc_33488 initialises `stru_33332` and then hibernates in
-/// the animation system before `off_33520` advances. The issue-260 oracle
-/// trace sees the loc_33428 splash countdown at `$56` on frame 250 and `$06`
-/// on frame 330, so the native wait must model the engine-expanded duration,
-/// not just the single `anim_frame 1,1` script entry.
-pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 0x58;
+/// ASM Drips.asm loc_33488 initialises `stru_33332` (`anim_frame 1,1` — a
+/// single one-frame entry) and hibernates until it finishes before `off_33520`
+/// advances. Oracle issue-260 floor probe: the last loc_3345C fall frame is
+/// 181, frame 182 hibernates in the splash animation (`code=0x001066`), and
+/// frame 183 is already back in the loc_33424 countdown with a fresh d0 — the
+/// splash occupies exactly one frame. The previous `0x58` value was circular:
+/// it modelled the oracle's *next dormant countdown* (`d0=$56` at frame 250)
+/// as splash duration.
+pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 1;
 const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
@@ -23662,8 +23714,6 @@ pub(crate) fn drips_child_state_bytes_loc_3333e(enemy_level: u8) -> (u8, u8) {
 pub(crate) fn step_drips(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
-    player_x_pos: u32,
-    rng: &mut RomRandomState,
     block_grid: Option<&terrain::BlockGrid>,
 ) {
     // ASM Enemy16_Drip_Init -> loc_333F6 (Drips.asm:35-64): the slime spawns
@@ -23699,7 +23749,11 @@ pub(crate) fn step_drips(
                     (probe.ceiling_y_px as u32 + DRIPS_CEILING_SNAP_TOP_OFFSET as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
-                enemy.wait_timer = drips_wait_timer_with_rng_loc_3340e(rng, player_x_pos);
+                // ASM loc_3340E draws the RNG byte at the object's own
+                // Execute_Objects slot. Same-frame attaches must consume RNG
+                // in descending layout order (Allocate_ObjectSlot LIFO), so
+                // the draw is deferred to `seed_pending_drips_initial_waits`.
+                enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
             }
             return;
         }
@@ -23710,6 +23764,12 @@ pub(crate) fn step_drips(
     }
 
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
+        return;
+    }
+    if enemy.wait_timer == DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E {
+        // The deferred loc_3340E seed pass runs later in the same frame; a
+        // direct caller without that pass must not misread the sentinel as a
+        // splash/pre-drop timer.
         return;
     }
     if let Some(frames_remaining) = drips_splash_animation_remaining_loc_33488(enemy.wait_timer) {
@@ -33059,10 +33119,9 @@ mod tests {
             ..mini_hopping_skull_test_enemy()
         };
         let mut projectiles = Vec::new();
-        let mut rng = RomRandomState::default();
 
         for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+            step_drips(&mut enemy, &mut projectiles, None);
         }
 
         assert_eq!(projectiles.len(), 1);
@@ -33113,13 +33172,12 @@ mod tests {
         );
 
         let mut projectiles = Vec::new();
-        let mut rng = RomRandomState::default();
-        for expected_remaining in (0..0x58).rev() {
-            step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+        for expected_remaining in (0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488).rev() {
+            step_drips(&mut enemy, &mut projectiles, None);
             assert_eq!(
                 drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
                 Some(expected_remaining),
-                "ASM Drips.asm loc_33488 stays in the engine-expanded splash hibernate before off_33520; issue-260 oracle frame 250 observes d0=$56 and frame 330 observes d0=$06"
+                "ASM Drips.asm loc_33488 hibernates through the one-frame stru_33332 splash before off_33520; issue-260 oracle frames 181..183 show fall end, one splash hibernate frame, then the fresh loc_33424 countdown"
             );
             assert!(
                 projectiles.is_empty(),
@@ -33127,12 +33185,54 @@ mod tests {
             );
         }
 
-        step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+        step_drips(&mut enemy, &mut projectiles, None);
 
         assert_eq!(
             drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
             Some(0),
             "ASM Drips.asm loc_33488 resumes after the final splash hibernate frame"
+        );
+    }
+
+    #[test]
+    fn drips_simultaneous_attach_seeds_consume_rng_in_descending_layout_order_loc_3340e() {
+        // ASM Allocate_ObjectSlot (kid.asm loc_DE0): `cmp.w $E(a1),d6;
+        // bhi.s loc_DE0` inserts an equal-priority object BEFORE existing
+        // slots, so Execute_Objects (loc_E1E) runs simultaneously loaded
+        // enemies in reverse load order. Two Drips attaching on the same
+        // frame must therefore take their loc_3340E RNG draws in descending
+        // layout order: the issue-260 oracle pair shows layout #08 (x=584)
+        // holding the first draw and #07 (x=456) the second.
+        let kid_x_pos = 0x0158_0000u32;
+        let mut expected_rng = RomRandomState::default();
+        let first_draw = drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, kid_x_pos);
+        let second_draw = drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, kid_x_pos);
+
+        let mut lower = mini_hopping_skull_test_enemy();
+        lower.family = EnemyFamily::Drips;
+        lower.layout_index = 7;
+        lower.x_pos = 456 << 16;
+        lower.drips_attached = true;
+        lower.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
+        let mut upper = mini_hopping_skull_test_enemy();
+        upper.family = EnemyFamily::Drips;
+        upper.layout_index = 8;
+        upper.x_pos = 584 << 16;
+        upper.drips_attached = true;
+        upper.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
+
+        // Native stores active enemies in ascending layout order.
+        let mut enemies = [lower, upper];
+        let mut rng = RomRandomState::default();
+        seed_pending_drips_initial_waits_loc_3340e(&mut enemies, Some(kid_x_pos), &mut rng);
+
+        assert_eq!(
+            enemies[1].wait_timer, first_draw,
+            "layout #08 executes first (Allocate_ObjectSlot LIFO), so it consumes the first loc_3340E RNG byte"
+        );
+        assert_eq!(
+            enemies[0].wait_timer, second_draw,
+            "layout #07 executes second, so it consumes the second loc_3340E RNG byte"
         );
     }
 
@@ -38757,10 +38857,9 @@ mod tests {
             ..mini_hopping_skull_test_enemy()
         };
         let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
-        let mut rng = RomRandomState::default();
 
         for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+            step_drips(&mut enemy, &mut projectiles, None);
         }
 
         assert_eq!(

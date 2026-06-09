@@ -97,7 +97,15 @@ pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 31;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
-const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x1F;
+/// ASM Drips.asm loc_3345C exits the fall loop when GfxObjects_Collision
+/// reports `$38(a1) == $C`. GfxObjects_Collision_ChkBoundaries (kid.asm
+/// loc_173E) builds the hitbox as `(x_off, width, y_off, height)` words, so
+/// the falling child's box bottom sits `$A` below y_pos (the same `$A` that
+/// loc_33488 later adds via `addi.w #$A,$1E(a1)` before the crawler spawn).
+/// Oracle issue-260 floor probe: the drop leaves y=530 at frame 152, the last
+/// loc_3345C frame is 181 at y=582, and the splash rests at y=592 — contact
+/// fires exactly when `y+$A` enters the solid row-37 tile, not `y+$1F`.
+const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 
 fn dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile: &mut EnemyProjectile) {
@@ -813,15 +821,32 @@ fn projectile_terrain_contact_loc_3345c(
     let py_i = (projectile.y_pos >> 16) as i32;
     if projectile.kind == EnemyProjectileKind::DripsDrop {
         // ASM Drips.asm loc_3345C waits until the falling child reports
-        // collision_type `$0C` (floor). A wall/solid overlap at the child's
-        // origin is not enough to take the loc_33488 splash path.
-        let probe = terrain::probe_floor_hitbox(
-            grid,
-            px_i,
-            py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C,
-            DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C,
-        );
-        return probe.on_ground;
+        // collision_type `$0C` (floor). GfxObjects_Collision's tile loop
+        // (kid.asm loc_1792) overlaps the child's box rows top..bottom against
+        // `$4000`-collision tiles, ignoring spikes (`$7000` at loc_17C6), so
+        // contact fires on the frame the bottom edge (`y+$A`) enters a solid
+        // row — oracle issue-260: last fall frame y=582, splash rest y=592.
+        // A child whose origin row is already inside terrain takes the
+        // wall-classified branch of GfxObjects_Collision_Solid, not `$0C`,
+        // and keeps falling.
+        let bottom_row =
+            terrain::pixel_to_cell(py_i + DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C).max(0) as u16;
+        let origin_row = terrain::pixel_to_cell(py_i).max(0) as u16;
+        let left_col = terrain::pixel_to_cell(px_i - DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C)
+            .max(0) as u16;
+        let right_col = terrain::pixel_to_cell(px_i + DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C)
+            .max(0) as u16;
+        let row_has_floor_tile = |row: u16| {
+            (left_col..=right_col).any(|col| {
+                matches!(
+                    grid.cell_at(col, row).collision,
+                    terrain::CollisionKind::Solid
+                        | terrain::CollisionKind::SlopeUp
+                        | terrain::CollisionKind::SlopeDown
+                )
+            })
+        };
+        return row_has_floor_tile(bottom_row) && !row_has_floor_tile(origin_row);
     }
 
     {

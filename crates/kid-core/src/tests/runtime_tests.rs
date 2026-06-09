@@ -11594,7 +11594,7 @@ mod chunk_09 {
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
             x_pos: 0x0020_0000,
-            y_pos: 0x0020_0000,
+            y_pos: 0x0026_0000,
             x_velocity: 0,
             y_velocity: 0,
             lifetime: DRIPS_DROP_LIFETIME,
@@ -11629,7 +11629,7 @@ mod chunk_09 {
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
             x_pos: 0x0020_0000,
-            y_pos: 0x0020_0000,
+            y_pos: 0x0026_0000,
             x_velocity: 0,
             y_velocity: 0,
             lifetime: DRIPS_DROP_LIFETIME,
@@ -11684,7 +11684,7 @@ mod chunk_09 {
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
             x_pos: 0x0020_0000,
-            y_pos: 0x0020_0000,
+            y_pos: 0x0026_0000,
             x_velocity: 0,
             y_velocity: 0,
             lifetime: DRIPS_DROP_LIFETIME,
@@ -11715,8 +11715,11 @@ mod chunk_09 {
             "ASM Drips.asm loc_33488 hibernates through the splash animation before loc_3350E reseeds"
         );
         assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
-        assert_eq!(drips.drips_pending_splash_y_pos, 0x002A_0000);
+        assert_eq!(drips.drips_pending_splash_y_pos, 0x0030_0000);
 
+        // Oracle issue-260 floor probe: the stru_33332 splash hibernates for a
+        // single frame (oracle frame 182), and the very next object pass is
+        // already back in the loc_33424 countdown with a fresh d0 (frame 183).
         let mut drilled_blocks = Vec::new();
         step_active_enemies(
             &mut rt.active_enemies,
@@ -11730,36 +11733,6 @@ mod chunk_09 {
             &mut drilled_blocks,
         );
         rt.step_projectiles();
-
-        let drips = rt
-            .active_enemies
-            .iter()
-            .find(|enemy| enemy.family == EnemyFamily::Drips)
-            .expect("Drips parent remains active during splash animation");
-        assert_eq!(
-            drips.drips_surface_table_index, 0,
-            "ASM Drips.asm loc_33488 must not consume off_33520 during the visible stru_33332 splash frame"
-        );
-        assert_eq!(
-            drips_splash_animation_remaining_loc_33488(drips.wait_timer),
-            Some(DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 - 1),
-            "ASM Drips.asm loc_33488 is still hibernating before off_33520; issue-260 oracle shows the engine-expanded splash countdown"
-        );
-
-        for _ in 0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 {
-            step_active_enemies(
-                &mut rt.active_enemies,
-                rt.block_grid.as_ref(),
-                None,
-                None,
-                None,
-                None,
-                PlayerForm::TheKid,
-                Some(&mut rt.projectiles),
-                &mut drilled_blocks,
-            );
-            rt.step_projectiles();
-        }
 
         let drips = rt
             .active_enemies
@@ -13032,14 +13005,19 @@ mod chunk_09 {
 
     #[test]
     fn drips_drop_floor_collision_uses_object_bottom_loc_3345c() {
-        let mut rt = NativeRuntime::new(manifest());
+        // Solid floor cell at (col 2, row 3) => floor top at y=48. The falling
+        // child's GfxObjects_Collision box bottom is `y+$A`, so contact fires
+        // at y=38 (bottom edge 48 enters row 3) and not at y=37 (bottom 47 is
+        // still row 2). Oracle issue-260 floor probe: fall ends at y=582 with
+        // the splash resting at the 592 floor top — bottom `+$A`, not `+$1F`.
+        let mut above = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];
         data[(3 * 5 + 2) * 2] = 0x60;
-        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
-        rt.projectiles.push(EnemyProjectile {
+        above.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        above.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
             x_pos: 0x0020_0000,
-            y_pos: 0x0011_0000,
+            y_pos: 0x0025_0000,
             x_velocity: 0,
             y_velocity: 0,
             lifetime: DRIPS_DROP_LIFETIME,
@@ -13048,11 +13026,37 @@ mod chunk_09 {
             ..Default::default()
         });
 
-        rt.step_projectiles();
+        above.step_projectiles();
 
         assert!(
-            rt.projectiles.is_empty(),
-            "ASM Drips.asm loc_3345C waits for floor collision `$0C` from object_meta `$16`; the drop should splash when its +$1F bottom edge reaches the solid cell, not when its origin enters terrain"
+            above
+                .projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::DripsDrop),
+            "ASM Drips.asm loc_3345C: at y=37 the `y+$A` bottom edge (47) is still above the row-3 floor, so no `$0C` contact yet"
+        );
+
+        let mut contact = NativeRuntime::new(manifest());
+        let mut data = vec![0u8; 5 * 5 * 2];
+        data[(3 * 5 + 2) * 2] = 0x60;
+        contact.block_grid = Some(terrain::BlockGrid::from_level_layout(&data, 5, 5));
+        contact.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0026_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: DRIPS_DROP_LIFETIME,
+            friendly: false,
+            terrain_kill: true,
+            ..Default::default()
+        });
+
+        contact.step_projectiles();
+
+        assert!(
+            contact.projectiles.is_empty(),
+            "ASM Drips.asm loc_3345C reports floor `$0C` on the frame the `y+$A` bottom edge enters the solid row"
         );
     }
 

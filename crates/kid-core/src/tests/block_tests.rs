@@ -11500,9 +11500,8 @@ mod chunk_04 {
         let mut expected_rng = RomRandomState::default();
         let expected_wait_timer =
             drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, 0x1234_0000);
-        let mut rng = RomRandomState::default();
         for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+            step_drips(&mut enemy, &mut projectiles, None);
         }
         assert_eq!(projectiles.len(), 1, "should drop one projectile");
         assert_eq!(projectiles[0].x_velocity, 0, "drops straight down");
@@ -11557,11 +11556,10 @@ mod chunk_04 {
         enemy.drips_attached = true;
         enemy.wait_timer = 0;
         let mut projectiles = Vec::new();
-        let mut rng = RomRandomState::default();
 
         for _ in 0..3 {
             for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-                step_drips(&mut enemy, &mut projectiles, 0, &mut rng, None);
+                step_drips(&mut enemy, &mut projectiles, None);
             }
             enemy.wait_timer = 0;
         }
@@ -11604,16 +11602,9 @@ mod chunk_04 {
         enemy.wait_timer = 0;
 
         let mut projectiles = Vec::new();
-        let mut rng = RomRandomState::default();
         let mut frames = 0;
         while !enemy.drips_attached && frames < 200 {
-            step_drips(
-                &mut enemy,
-                &mut projectiles,
-                0x0040_0000,
-                &mut rng,
-                Some(&grid),
-            );
+            step_drips(&mut enemy, &mut projectiles, Some(&grid));
             frames += 1;
         }
 
@@ -11633,8 +11624,19 @@ mod chunk_04 {
             projectiles.is_empty(),
             "Drips must reach the ceiling before its first drop spawns",
         );
-        assert!(
-            enemy.wait_timer > 0,
+        assert_eq!(
+            enemy.wait_timer, DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E,
+            "the attach frame defers the loc_3340E RNG draw to the same-frame seed pass",
+        );
+
+        let mut expected_rng = RomRandomState::default();
+        let expected_wait_timer =
+            drips_wait_timer_with_rng_loc_3340e(&mut expected_rng, 0x0040_0000);
+        let mut rng = RomRandomState::default();
+        let mut enemies = [enemy];
+        seed_pending_drips_initial_waits_loc_3340e(&mut enemies, Some(0x0040_0000), &mut rng);
+        assert_eq!(
+            enemies[0].wait_timer, expected_wait_timer,
             "ASM loc_3340E seeds the dormant timer when the ceiling attach completes",
         );
     }
@@ -11644,8 +11646,7 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
         enemy.wait_timer = 5;
         let mut projectiles = Vec::new();
-        let mut rng = RomRandomState::default();
-        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        step_drips(&mut enemy, &mut projectiles, None);
         assert!(projectiles.is_empty(), "should not drop while timer active");
         assert_eq!(enemy.wait_timer, 4);
     }
@@ -11719,9 +11720,8 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
         enemy.wait_timer = 0;
         let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
-        let mut rng = RomRandomState::default();
 
-        step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+        step_drips(&mut enemy, &mut projectiles, None);
 
         assert_eq!(
             projectiles.len(),
@@ -11730,7 +11730,7 @@ mod chunk_04 {
         );
 
         for _ in 0..DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-            step_drips(&mut enemy, &mut projectiles, 0x1234_0000, &mut rng, None);
+            step_drips(&mut enemy, &mut projectiles, None);
         }
 
         assert_eq!(
