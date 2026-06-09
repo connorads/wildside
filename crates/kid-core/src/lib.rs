@@ -3189,7 +3189,12 @@ impl NativeRuntime {
                 if let Some(ref mut grid) = self.block_grid {
                     let red_stealth_impact = helmets::red_stealth_floor_impact_sub_B000(
                         self.progression.current_form,
-                        self.helmet.red_stealth_sword_timer > 0,
+                        // ASM sub_B270 and sub_B000 both read the same
+                        // Red_Stealth_sword_swing byte; native stores the
+                        // airborne down-slash phase separately so the renderer
+                        // can distinguish it from the ground slash timer.
+                        self.helmet.red_stealth_sword_timer > 0
+                            || self.helmet.red_stealth_airborne_slash_counter > 0,
                         grid,
                         px,
                         py,

@@ -469,6 +469,47 @@ mod chunk_06 {
         );
     }
 
+    /// ASM sub_B270 and sub_B000 share `Red_Stealth_sword_swing`: the airborne
+    /// downward slash counter must keep the landing-frame floor break active.
+    #[test]
+    fn loc_b01e_red_stealth_airborne_slash_landing_breaks_floor_block() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        runtime.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+        runtime.helmet.red_stealth_airborne_slash_counter = 0x40;
+
+        let mut grid = grid_with_floor_at_row(14);
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+
+        let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+        assert!(
+            !cell_after.has_block,
+            "ASM sub_B270/sub_B000 share Red_Stealth_sword_swing, so a jump+sword landing must break the smash block below"
+        );
+        let slice_after = runtime
+            .opening_slice
+            .expect("opening slice should remain active");
+        assert_eq!(
+            slice_after.player.y_velocity, -0x0003_8000,
+            "ASM sub_B000 should rebound the airborne downward slash after the floor impact"
+        );
+    }
+
     /// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
     /// `moveq #1,d6; bsr.w sub_B55C` — probes one pixel below foot with
     /// x_offset=0, y_offset=1.  If tile bit 15 set and block ID ≤ 5,
