@@ -114,6 +114,17 @@ tracked at `tests/data/dynamic-scenarios/issue-270-blw2-natural-left-wall-right1
 and passes gameplay oracle CRC verification through frames 0..960. Use it as
 the next #249/#270 seed; it proves the simple approach is currently faithful but
 does not yet reproduce the upward wall launch.
+Follow-up 2026-06-09 lower-corridor probe: reused the authoritative Level 01
+lower-floor prefix from `.cache/recordings/issue-260-drips-cleaner-prefix-audit/scenario.json`
+to avoid the stale #249 direct-probe bootstrap. Cache-local variants in
+`.cache/debug/issue270-scenarios/` replaced the opening 300 frames with plain
+`Left` and with `Left+B`. Both pass `verify-tas --frame-start 0 --frame-end 300
+--checkpoint-interval 10 --frontier-kind gameplay --bisect` by CRC. The plain
+`Left` route does not launch. The `Left+B` route enters normal
+`wall_cling=left` jump gravity and also matches the ROM, so it is not evidence
+for a native-only no-input wall launch. Keep #249/#270 open for a sharper
+natural well/shaft route; do not patch `sub_ADB8`/`sub_AE6E` from this lower
+wall family.
 
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
