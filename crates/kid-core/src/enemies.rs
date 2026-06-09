@@ -8879,6 +8879,17 @@ impl ActiveEnemy {
                 lion_active_projectile_count(self).to_string(),
             );
         }
+        let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
+            && self.on_ground
+        {
+            // ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE enter the
+            // shared walker at kid.asm loc_3C026/loc_3C0D2, which clears the
+            // object x_vel/y_vel. Native keeps `$50(a5)` patrol speed in
+            // `x_velocity`; hide that storage detail from ROM-visible snapshots.
+            0
+        } else {
+            self.x_velocity
+        };
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -8886,7 +8897,7 @@ impl ActiveEnemy {
             x_pos: self.x_pos,
             y_pos: self.y_pos,
             layout_index: Some(self.layout_index),
-            x_velocity: Some(self.x_velocity),
+            x_velocity: Some(x_velocity),
             y_velocity: Some(self.y_velocity),
             facing: Some(self.facing),
             on_ground: Some(self.on_ground),
@@ -35774,7 +35785,7 @@ mod tests {
             family: EnemyFamily::Tank,
             x_pos: 0x00C2_8000,
             y_pos: 0x00E0_0000,
-            x_velocity: 0,
+            x_velocity: -0x0000_8000,
             y_velocity: 0,
             target_x_velocity: 0,
             target_y_velocity: 0,
@@ -35826,6 +35837,18 @@ mod tests {
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
         };
+
+        let body = tank.snapshot();
+        assert_eq!(
+            body.x_velocity,
+            Some(0),
+            "ASM Tank.asm loc_3B40A -> kid.asm loc_3C026/loc_3C0D2 clears object x_vel; native `$50(a5)` patrol speed must not leak into body snapshots",
+        );
+        assert_eq!(
+            body.y_velocity,
+            Some(0),
+            "ASM kid.asm loc_3C026/loc_3C0D2 also clears object y_vel for grounded Tank walkers",
+        );
 
         let child = tank
             .child_attachment_snapshot()
