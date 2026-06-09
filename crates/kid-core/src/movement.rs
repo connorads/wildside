@@ -1504,6 +1504,35 @@ pub(crate) fn juggernaut_walk_visual_accumulator_loc_9484(
     }
 }
 
+pub(crate) fn grounded_walk_visual_accumulator_loc_8456(
+    current_accumulator: u16,
+    x_velocity: i32,
+) -> u16 {
+    // ASM sub_8446/loc_8456..loc_8470 (kid.asm:9205): non-Skycutter flat
+    // walking takes abs(x_vel), derives a phase increment with
+    // `swap; rol.l #5`, and wraps the shared `$FFFFF8F0` counter once at
+    // `$300` before indexing the three-frame off_84A2 table.
+    let speed = x_velocity.unsigned_abs();
+    let delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+    let next = current_accumulator.wrapping_add(delta);
+    if next >= 0x0300 {
+        next.wrapping_sub(0x0300)
+    } else {
+        next
+    }
+}
+
+fn should_advance_grounded_walk_visual_accumulator_loc_8456(
+    form: PlayerForm,
+    previous_x_velocity: i32,
+) -> bool {
+    previous_x_velocity != 0
+        && !matches!(
+            form,
+            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
+        )
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn slope_walk_visual_accumulator_loc_A13A(
     current_accumulator: u16,
@@ -5110,22 +5139,23 @@ impl OpeningSliceState {
                     air_table,
                 )
             } else {
-                // ASM loc_8456 (kid.asm:9212): the non-Skycutter sub_8446
-                // path consumes x_vel only to advance the visual walk-sprite
-                // accumulator after gameplay velocity is chosen. Native keeps
-                // this branch to gameplay velocity; sprite phase is visual-only.
-                // ASM loc_8460 (kid.asm:9218): `swap; rol.l #5` turns the
-                // absolute x_vel into that sprite-phase increment, still with
-                // no gameplay state change in native.
-                // ASM loc_8470 (kid.asm:9226): stores the wrapped phase in
-                // $FFFFF8F0 and indexes off_84A2 for addroffset_sprite(a3);
-                // native leaves that sprite-table write unmodelled.
-                physics::update_horizontal_velocity(
-                    self.player.x_velocity,
+                let previous_x_velocity = self.player.x_velocity;
+                let (new_vel, new_facing) = physics::update_horizontal_velocity(
+                    previous_x_velocity,
                     self.player.facing,
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
-                )
+                );
+                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                    form,
+                    previous_x_velocity,
+                ) {
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                        self.walk_visual_accumulator,
+                        new_vel,
+                    );
+                }
+                (new_vel, new_facing)
             }
         } else if self.player.just_jumped {
             (self.player.x_velocity, self.player.facing)
@@ -5171,12 +5201,23 @@ impl OpeningSliceState {
                 };
                 physics::update_air_horizontal_velocity(new_vel, new_facing, h_input, air_table)
             } else {
-                physics::update_horizontal_velocity(
-                    new_vel,
+                let previous_x_velocity = new_vel;
+                let (new_vel, new_facing) = physics::update_horizontal_velocity(
+                    previous_x_velocity,
                     new_facing,
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
-                )
+                );
+                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                    form,
+                    previous_x_velocity,
+                ) {
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                        self.walk_visual_accumulator,
+                        new_vel,
+                    );
+                }
+                (new_vel, new_facing)
             };
         }
         self.player.x_velocity = new_vel;
@@ -5448,12 +5489,23 @@ impl OpeningSliceState {
                     h_input,
                 )
             } else {
-                physics::update_horizontal_velocity(
-                    self.player.x_velocity,
+                let previous_x_velocity = self.player.x_velocity;
+                let (new_vel, new_facing) = physics::update_horizontal_velocity(
+                    previous_x_velocity,
                     self.player.facing,
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
-                )
+                );
+                if should_advance_grounded_walk_visual_accumulator_loc_8456(
+                    form,
+                    previous_x_velocity,
+                ) {
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_8456(
+                        self.walk_visual_accumulator,
+                        new_vel,
+                    );
+                }
+                (new_vel, new_facing)
             }
         } else if self.player.just_jumped {
             (self.player.x_velocity, self.player.facing)

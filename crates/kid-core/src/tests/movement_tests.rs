@@ -5067,67 +5067,88 @@ mod chunk_11 {
     /// move.w (a0),addroffset_sprite(a3)`. Phase 0=$000..$0FF, 1=$100..$1FF,
     /// 2=$200..$2FF.
     ///
-    /// All three labels are visual-only (walking animation frame selection).
-    /// Native does not model the walk accumulator or per-helmet sprite tables.
+    /// All three labels are visual-only for gameplay, but native rendering
+    /// consumes `$FFFFF8F0` to select the same walk phase.
     #[test]
-    fn loc_8456_loc_8460_loc_8470_sub_8446_walk_sprite_is_visual_only() {
-        // sub_8446 is visual-only: it selects walking animation frames from a
-        // per-helmet sprite table indexed by a velocity-accumulated phase counter.
-        // The walk accumulator ($FFFFF8F0) has no gameplay effect — it only drives
-        // the 3-frame walk cycle selection at loc_8470.
-        //
-        // Verify the native walk path completes without modelling the accumulator.
-        // A player walking rightward at ground speed should advance position
-        // regardless of whether sub_8446 sprite selection is modelled.
-        let (vel, dir) = physics::update_air_horizontal_velocity(
-            0,
-            Direction::Right,
-            physics::HorizontalInput {
-                left: false,
-                right: true,
-                run: false,
-            },
-            &physics::AIR_NORMAL,
+    fn loc_8456_loc_8460_loc_8470_sub_8446_walk_phase_advances_from_velocity() {
+        assert_eq!(
+            grounded_walk_visual_accumulator_loc_8456(0x0100, 0x0002_0000),
+            0x0140,
+            "ASM loc_8460: `$20000` -> swap `$0002`, rol #5 -> `$40`"
         );
         assert_eq!(
-            vel, 0x1000,
-            "ASM loc_8456/loc_8460/loc_8470: sub_8446 is visual-only; velocity update proceeds without walk sprite accumulator"
+            grounded_walk_visual_accumulator_loc_8456(0x0100, -0x0002_0000),
+            0x0140,
+            "ASM loc_8456: negative velocity is normalised before the walk phase increment"
         );
         assert_eq!(
-            dir,
-            Direction::Right,
-            "ASM loc_8456: facing preserved through velocity update (sub_8446 doesn't affect direction)"
+            grounded_walk_visual_accumulator_loc_8456(0x02F0, 0x0002_0000),
+            0x0030,
+            "ASM loc_8470 wraps `$FFFFF8F0` once at `$300` for the three-frame off_84A2 table"
         );
     }
 
     /// ASM loc_8460 (kid.asm:9218): the walk accumulator increment is derived
     /// from |x_vel| via `swap; rol.l #5`. At zero velocity the increment is
-    /// zero, so the accumulator stays unchanged. Verify that zero-velocity
-    /// input does not change facing (the decel path preserves facing).
+    /// zero, so the accumulator stays unchanged.
     #[test]
     fn loc_8460_zero_velocity_produces_no_walk_phase_increment() {
-        // At x_vel=0, sub_8446 loc_8456 takes |0|=0, loc_8460 computes
-        // swap(0)=0, rol.l #5 of 0 = 0, so the walk accumulator increment
-        // is 0. The sprite phase stays at whatever it was — no animation advance.
-        // Native: zero velocity with no input returns zero velocity, facing preserved.
-        let (vel, dir) = physics::update_air_horizontal_velocity(
-            0,
-            Direction::Left,
-            physics::HorizontalInput {
-                left: false,
-                right: false,
-                run: false,
-            },
-            &physics::AIR_NORMAL,
-        );
         assert_eq!(
-            vel, 0,
-            "ASM loc_8460: zero x_vel produces zero walk phase increment; velocity stays zero"
+            grounded_walk_visual_accumulator_loc_8456(0x0123, 0),
+            0x0123,
+            "ASM loc_8460: zero x_vel produces zero walk phase increment"
         );
+    }
+
+    #[test]
+    fn sub_8446_flat_grounded_kid_motion_persists_walk_phase_for_renderer() {
+        let input = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
+
+        let mut full_motion = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        full_motion.player.on_ground = true;
+        full_motion.player.facing = Direction::Right;
+        full_motion.player.x_pos = 32 << 16;
+        full_motion.player.x_velocity = 0x1_F000;
+        full_motion.walk_visual_accumulator = 0x0100;
+
+        let moved =
+            full_motion.update_horizontal_motion(input, false, PlayerForm::TheKid, None, false);
+
+        assert!(moved, "flat grounded Kid walk should advance position");
         assert_eq!(
-            dir,
-            Direction::Left,
-            "ASM loc_8460: zero velocity with no input preserves facing"
+            full_motion.walk_visual_accumulator,
+            grounded_walk_visual_accumulator_loc_8456(0x0100, full_motion.player.x_velocity),
+            "ASM sub_8446/loc_8470: full-motion flat walking must persist `$FFFFF8F0` so the renderer selects the next off_84A2 frame instead of freezing phase 0"
+        );
+
+        let mut velocity_only = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        velocity_only.player.on_ground = true;
+        velocity_only.player.facing = Direction::Right;
+        velocity_only.player.x_velocity = 0x1_F000;
+        velocity_only.walk_visual_accumulator = 0x0100;
+
+        let stepped = velocity_only.update_horizontal_velocity_only(
+            input,
+            false,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(stepped, "flat grounded Kid velocity path should run");
+        assert_eq!(
+            velocity_only.walk_visual_accumulator,
+            grounded_walk_visual_accumulator_loc_8456(0x0100, velocity_only.player.x_velocity),
+            "ASM sub_8446/loc_8470: velocity-only flat walking must persist the same `$FFFFF8F0` phase consumed by native-player rendering"
         );
     }
 
