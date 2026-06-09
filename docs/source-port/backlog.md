@@ -134,6 +134,15 @@ edge-only Tank side damage out of the pending queue while preserving edge-only
 frames 223..227; Dragon still needs a sharper current human-shaped route before
 changing stomp priority.
 
+Follow-up 2026-06-09: cache-local Level 00 Dragon single-jump route grid
+(`.cache/debug/issue271-dragon-route-grid/`) did not reproduce a Dragon-specific
+native regression. Short/late jumps (`s115..145`) are the same side-contact HP
+loss family as the existing `loc_1C76` graze audit, while earlier/longer jumps
+(`s100-h14`, `s105-h8`, `s110-*`) avoid or miss the Dragon. Settled oracle
+checks for representative variants `s115-h4` (damage) and `s105-h8` (safe/miss)
+both pass gameplay CRC through 220 frames, so this route family should not drive
+a stomp-priority patch. Keep #271 open for a sharper human Dragon approach.
+
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
