@@ -8012,13 +8012,16 @@ mod tests {
     use super::{
         OpeningSliceState, airborne_slope_landing_handoff_x_velocity_loc_a99e,
         cached_slope_walk_exit_gate_loc_a13a, cached_slope_walk_exit_velocity_loc_a13a,
-        level_entry_title_advance_x, level_entry_title_axis_step,
-        level_entry_title_deferred_number_indices_loc_1ABF4,
+        descending_floor_scan_crossed_sub_902a_boundary,
+        iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a,
+        iron_knight_solid_edge_slopeup_followup_loc_914a, level_entry_title_advance_x,
+        level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
+        prefer_iron_knight_solid_edge_floor_loc_914a,
     };
     use crate::physics::{Direction, LevelBounds};
     use crate::terrain;
@@ -8510,6 +8513,139 @@ mod tests {
                 terrain::CollisionKind::SlopeDown,
             ),
             "ASM loc_A13A should not consume cached SlopeDown from the wrong held direction",
+        );
+    }
+
+    #[test]
+    fn sub_902a_descending_scan_requires_strict_row_crossing() {
+        assert!(
+            descending_floor_scan_crossed_sub_902a_boundary(0x0020_0000, 0x0001_0000),
+            "ASM sub_902A crosses into the next row only when `cmp.w d0,d4; ble loc_913A` is false",
+        );
+        assert!(
+            descending_floor_scan_crossed_sub_902a_boundary(0x0020_0000, 0x0002_0000),
+            "ASM sub_902A row-crossing uses post-minus-pre pixels, not a ratio between post/pre rows",
+        );
+        assert!(
+            !descending_floor_scan_crossed_sub_902a_boundary(0x001F_0000, 0x000F_0000),
+            "ASM sub_902A should not run sub_914A on the exact `ble loc_913A` boundary",
+        );
+        assert!(
+            !descending_floor_scan_crossed_sub_902a_boundary(0x0020_0000, -0x0001_0000),
+            "ASM sub_902A takes the upward branch before the descending floor row-crossing gate",
+        );
+    }
+
+    #[test]
+    fn loc_a75a_equal_boundary_slopeup_skip_requires_grounded_probe() {
+        let w: u16 = 4;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x40, 0x01));
+
+        assert!(
+            !iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a(
+                &grid,
+                0x0018_0000,
+                0x001F_0000,
+                0x000F_0000,
+                0,
+            ),
+            "ASM loc_A75A -> sub_902A equal-boundary skip still requires the sub_914A-style slope probe to be grounded",
+        );
+        assert!(
+            iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a(
+                &grid,
+                0x0018_0000,
+                0x002F_0000,
+                0x000F_0000,
+                0,
+            ),
+            "ASM loc_A75A keeps the equal-boundary SlopeUp skip only once the same probe is on the slope surface",
+        );
+    }
+
+    #[test]
+    fn sub_914a_iron_knight_solid_edge_prefers_left_floor_only_after_slope_contact() {
+        let w: u16 = 5;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x01));
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x02));
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 0x0020_0000;
+        slice.player.y_pos = 0x002F_0000;
+
+        assert!(prefer_iron_knight_solid_edge_floor_loc_914a(
+            &grid,
+            &mut slice.player,
+            &mut slice.terrain,
+            16,
+        ));
+        assert_eq!(
+            slice.player.y_pos, 0x001F_0000,
+            "ASM sub_914A should land Iron Knight on the left solid edge before later slope handoff",
+        );
+        assert!(
+            !slice.player.on_spikes,
+            "ASM sub_914A should not mark `$6000` solid-edge floor support as spikes",
+        );
+
+        let mut no_slope = terrain::BlockGrid::from_level_layout(&data, w, h);
+        no_slope.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x01));
+        let mut no_slope_slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        no_slope_slice.player.x_pos = 0x0020_0000;
+        no_slope_slice.player.y_pos = 0x002F_0000;
+
+        assert!(
+            !prefer_iron_knight_solid_edge_floor_loc_914a(
+                &no_slope,
+                &mut no_slope_slice.player,
+                &mut no_slope_slice.terrain,
+                16,
+            ),
+            "ASM sub_914A solid-edge preference is only the SlopeUp compound-contact path, not ordinary solid floor",
+        );
+    }
+
+    #[test]
+    fn sub_914a_iron_knight_slopeup_followup_requires_grounded_right_solid_edge() {
+        let w: u16 = 5;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x40, 0x01));
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0x60, 0x02));
+
+        assert!(
+            !iron_knight_solid_edge_slopeup_followup_loc_914a(
+                &grid,
+                0x0020_0000,
+                0x001E_0000,
+                16,
+            ),
+            "ASM sub_914A follow-up requires the right solid edge to be grounded, not merely present one row below",
+        );
+
+        let mut no_slope = terrain::BlockGrid::from_level_layout(&data, w, h);
+        no_slope.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0x60, 0x02));
+        assert!(
+            !iron_knight_solid_edge_slopeup_followup_loc_914a(
+                &no_slope,
+                0x0020_0000,
+                0x002F_0000,
+                16,
+            ),
+            "ASM sub_914A follow-up should not treat a right solid edge as the SlopeUp compound-contact path without a SlopeUp probe",
         );
     }
 
