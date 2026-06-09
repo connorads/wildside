@@ -126,6 +126,39 @@ for a native-only no-input wall launch. Keep #249/#270 open for a sharper
 natural well/shaft route; do not patch `sub_ADB8`/`sub_AE6E` from this lower
 wall family.
 
+Follow-up 2026-06-09 latest plush-build playtest: preserve these exact
+human-observed regressions as current acceptance targets before another patch
+round. Intro/title: skipping intro can show the ninja/title figure as a black
+silhouette before transforming, while the normal unskipped animation looks good;
+the old bottom-left flashing artefact is still present. Intro/demo prize
+presentation still appears to produce a diamond where the expected staged helmet
+should appear, but ASM `Load_IntroSequence5` uses its own VRAM helmet animation
+path (`loc_1B100`/`loc_1BCD0`/`loc_1BE88`), so do not "fix" normal prize block
+lookup without a gameplay blocklist oracle repro. Level-card/level-select screen
+still allows movement/jump input and jump SFX while the title card is visible
+despite focused `loc_1AE2E` core tests passing; investigate the live
+native-player shell/audio route. Walking/running now looks like moonwalking for
+Kid/forms, and Samurai slope running is no longer flickering but still has the
+same orientation/animation regression. RockTank floor placement improved, but
+its death keeps normal alive animation while dying and does not leave the
+expected death/body frame; existing #167 tests pass, so a fresh live kill route
+is still required. Red Stealth ground sword can leave the sprite facing/holding
+down after attack; verify whether the hitbox is active or only the sprite is
+wrong. Drips/slime now drops full slime balls part-way down, then turns into a
+blue ball instead of landing as floor slime; hitting the nearby metal block can
+destroy it and emit a red left projectile while dripping continues. Level 3
+Rhino still renders in front of foreground river/blocks, loses held-left when
+jumping from a wall/step unless Left is pressed after take-off, takes damage
+from jumping onto RockTank where another helmet did not, cannot wall-jump while
+climbing, can break the block below while climbing and end up in the floor, and
+side/head block breaks disappear instead of playing the smash animation. One
+death path then shows only the waterfall/bridge level screen without incoming
+text. Later levels still show multiplying prize/grow blocks shooting, spinning
+diamonds shrinking oddly, hell-level floor/collision placement mismatch, and
+later prize blocks that probably should contain helmets still yielding other
+items. Treat this note as triage context; each fix still needs an ASM/oracle
+repro or focused regression test before implementation.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
