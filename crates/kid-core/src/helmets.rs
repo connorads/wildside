@@ -2741,6 +2741,28 @@ pub(crate) fn diamond_power_snake_move_head_loc_3fad4(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn minimal_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("helmets-test"),
+            upstream_commit: String::from("helmets-test"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
 
     #[test]
     fn diamond_power_circle_of_doom_clamps_size_table_upper_bound_loc_3f81a() {
@@ -2905,6 +2927,36 @@ mod tests {
                 pattern: 0x86F2,
                 x: 0x1BA,
             }
+        );
+    }
+
+    #[test]
+    fn maniaxe_axe_spawn_uses_no_dbf_lifetime_loc_8a52_8b32() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.progression.current_form = PlayerForm::Maniaxe;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 0x0140,
+            height_pixels: 0x00E0,
+        });
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0050_0000;
+
+        runtime.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        let axe = runtime
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::ManiaxeAxe)
+            .expect("C press should spawn ManiaxeAxe");
+        assert_eq!(
+            axe.lifetime, 0,
+            "ASM loc_8A52/loc_8B32 loops until collision or camera-relative out-of-bounds, with no DBF lifetime counter",
         );
     }
 
