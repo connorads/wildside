@@ -8809,10 +8809,12 @@ impl NativeRuntime {
                 // CollisionSize_Index row, not `$48/$4A`. Tank body frames
                 // `C7ED0/C7ED8/C7EE0` have zero collision, while the linked
                 // mouth/turret frames (`C7EC8`/`C7F20`/`C7F28`) carry Kid
-                // contact; Tank.asm loc_3B464 then routes child collision
-                // back to the parent.
+                // contact; loc_1CF2 can latch an exact-edge side collision
+                // for Character_CheckCollision's next-frame loc_B700 damage,
+                // then Tank.asm loc_3B464 routes child collision back to the
+                // parent.
                 return enemy.child_attachment_snapshot().and_then(|child| {
-                    if player_touches_enemy_with_half_width(
+                    if player_latches_enemy_collision_with_half_width_loc_1cf2(
                         slice.player,
                         &child,
                         self.progression.current_form.half_width() as i64,
@@ -10404,10 +10406,16 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             // ASM GfxObjects_CollisionKid indexes CollisionSize_Index from the
             // linked mouth/turret sprite mapping. Tank.asm `C7EC8`/`C7F20`
             // rows resolve to `unk_31A26`/`unk_31A54`:
-            // `dc.w -$D,$19,-$10,$10`.
+            // `dc.w -$D,$19,-$10,$10`. ASM loc_1BC2 uses left+width for
+            // unflipped sprites (-13..+12); loc_1BE4 negates left then
+            // subtracts width for flipped sprites (-12..+13).
+            let (left_px, right_px) = match enemy.facing {
+                Some(Direction::Right) => (-12, 13),
+                Some(Direction::Left) | None => (-13, 12),
+            };
             EnemyContactBounds {
-                left_px: -13,
-                right_px: 12,
+                left_px,
+                right_px,
                 top_px: -16,
                 bottom_px: 0,
             }
@@ -10492,6 +10500,24 @@ pub(crate) fn classify_enemy_contact_with_half_width(
     pre_physics_y_velocity: i32,
     _pre_physics_y_pos: u32,
     player_contact_half_width: i64,
+) -> EnemyContactResult {
+    classify_enemy_contact_with_half_width_inner(
+        player,
+        enemy,
+        pre_physics_y_velocity,
+        _pre_physics_y_pos,
+        player_contact_half_width,
+        true,
+    )
+}
+
+fn classify_enemy_contact_with_half_width_inner(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    pre_physics_y_velocity: i32,
+    _pre_physics_y_pos: u32,
+    player_contact_half_width: i64,
+    defer_edge_side_damage: bool,
 ) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
@@ -10607,7 +10633,9 @@ pub(crate) fn classify_enemy_contact_with_half_width(
         return EnemyContactResult::Stomp;
     }
 
-    if enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px) {
+    if defer_edge_side_damage
+        && enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px)
+    {
         return EnemyContactResult::None;
     }
 
@@ -10710,6 +10738,24 @@ pub(crate) fn player_touches_enemy_with_half_width(
             player.y_velocity,
             player.y_pos,
             player_contact_half_width,
+        ),
+        EnemyContactResult::None
+    )
+}
+
+fn player_latches_enemy_collision_with_half_width_loc_1cf2(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    player_contact_half_width: i64,
+) -> bool {
+    !matches!(
+        classify_enemy_contact_with_half_width_inner(
+            player,
+            enemy,
+            player.y_velocity,
+            player.y_pos,
+            player_contact_half_width,
+            false,
         ),
         EnemyContactResult::None
     )

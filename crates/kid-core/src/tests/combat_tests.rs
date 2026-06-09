@@ -108,6 +108,68 @@ fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
 }
 
 #[test]
+fn flipped_rock_tank_edge_contact_latches_next_frame_damage_loc_1cf2() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 182 << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.x_velocity = -0x0002_0000;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let mut tank = test_enemy(EnemyFamily::Tank, 164 << 16, 224 << 16, 2);
+    tank.facing = Direction::Right;
+    tank.x_velocity = 0x0000_8000;
+
+    let child = tank
+        .child_attachment_snapshot()
+        .expect("RockTank should expose its linked mouth collision object");
+    let bounds = enemy_contact_bounds(&child);
+    assert_eq!(
+        (bounds.left_px, bounds.right_px),
+        (-12, 13),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors `dc.w -$D,$19` to -12..+13 for right-facing Tank mouth sprites",
+    );
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &child,
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "exact-edge Tank side contact is not same-frame damage"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.number_hitpoints = 1;
+    runtime.progression.invulnerable_frames = 0;
+    runtime.active_enemies = vec![tank];
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    assert!(
+        !runtime.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            0,
+            frame_start_y,
+            frame_start_x,
+            frame_start_y,
+        ),
+        "ASM loc_1CF2 only latches the edge collision; Character_CheckCollision loc_B700 consumes it on the next frame"
+    );
+    let pending = runtime
+        .pending_player_contact_damage
+        .expect("exact-edge Tank collision should be queued for next frame damage");
+    assert_eq!(pending.enemy_x, 164 << 16);
+    assert_eq!(pending.enemy_family, EnemyFamily::Tank);
+    assert_eq!(runtime.progression.number_hitpoints, 1);
+}
+
+#[test]
 fn pending_contact_damage_spends_before_motion_loc_b700() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
