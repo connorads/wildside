@@ -1,7 +1,7 @@
 # Gameplay Loop
 
 ## Bootstrap
-1. Read `docs/source-port/backlog.md` and pick the highest-priority open `1p-playable` or `visual-parity` issue that does not yet have canonical evidence.
+1. Read the `docs/source-port/backlog.md` **table** (index only) and pick the highest-priority open `1p-playable` or `visual-parity` issue that does not yet have canonical evidence. For the chosen issue's evidence/history, grep `docs/source-port/backlog-archive.md` by `#NNN` (e.g. `grep -n '#144' docs/source-port/backlog-archive.md`) rather than loading the whole tracker.
 2. Skip items marked `blocked:needs-human-repro` or `stalled:agent-blocked`.
 3. Check `.cache/recordings/` and `.cache/cases/` for an existing recording slug or reduced case tied to that issue.
 4. If no evidence exists, capture it first with `play-native --record <slug>` and, for visual issues, `capture-frames`.
@@ -15,7 +15,7 @@
 10. Always finish with `mise run verify-slice-fast`; add `mise run verify-1p-playable` or frame/oracle checks when the issue requires them.
 
 ## Commit
-11. Update `docs/source-port/backlog.md` with the new evidence handle, gate, and next verification commands.
+11. Flip the issue's status in the `docs/source-port/backlog.md` table, and append the new evidence handle, gate, and next verification commands to `docs/source-port/backlog-archive.md` under its `#NNN` (keep `backlog.md` table-only).
 12. If ASM-backed code changed, refresh citations with `kidcli asm-coverage --update`.
 13. Commit only after the chosen gate is green and the backlog entry explains the new evidence.
 

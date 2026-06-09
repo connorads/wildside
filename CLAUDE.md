@@ -137,7 +137,12 @@ cargo run -p kidcli -- asm-coverage --update           # regenerate asm-coverage
 
 ## Iteration workflow
 
-Canonical bug/feature backlog: `docs/source-port/backlog.md`
+Canonical bug/feature backlog: `docs/source-port/backlog.md` — this is now the
+**table index only** (one row per issue: status, priority, system, summary, verify).
+Per-issue evidence/history (follow-ups, rejected hypotheses, investigation notes,
+dated playtest logs) lives in `docs/source-port/backlog-archive.md`; grep it by
+`#NNN` (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) for an issue's
+full history rather than loading the whole tracker.
 Compact live frontier state: `docs/source-port/frontier-state.yaml`
 
 ### Principles (bsnes methodology)
@@ -172,7 +177,9 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 8. Verify visually: capture frames, Read PNGs, compare before/after
 9. Verify mechanically: `mise run verify-slice-fast` must pass. **Gate must be green on main at all times** — never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
 10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, rejected-hypothesis ledger, or `candidate_promotions` list changes
-11. Mark `[x]` in backlog (same commit as the fix)
+11. Close out (same commit as the fix): flip the issue's status to `[x]` in the
+    `backlog.md` table, and append any closing evidence to `backlog-archive.md`
+    under its `#NNN` (keep `backlog.md` table-only)
 12. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
 13. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
