@@ -228,6 +228,10 @@
         "reason": "Rejected 2026-06-09. Fresh `verify-recording --slug issue-260-drips-early-jump-close-probe` fails because the recording manifest requests `pre_death_tail@409` while the 409-frame script only produces oracle frames through `target_close_window@408`. The generated `.cache/cases/issue-260-drips-early-jump-close-probe` 0..120 case also fails as recording-verification blocked: `source recording replay drifted at frame 0`. Do not patch Drips/slime/projectile behaviour from this bundle; re-record the early-jump close route on current native or derive from a replay-matched recording before using it as #260 gameplay evidence."
       },
       {
+        "name": "Backlog #260 `left400`/`wait390` scratch tails are valid metal-block contact repros",
+        "reason": "Rejected 2026-06-09. Extending `.cache/debug/issue260-route-probes/left400.json` and `wait390.json` beyond the previously clean 400..530 prefix still does not reach the reported slime/metal-block interaction. `left400` gets closest to target `(584,543)` at `dx_px +0 dy_px -22 @470`, but only with `lives/hp 3/1`, first leaves `InGame` at frame 606, and enemy-frontier `tas-diff --frame-start 400 --frame-end 701` first diverges authoritatively at frame 625 after native entered death/respawn while oracle remained live. `wait390` reaches only `dx_px +1 dy_px -18 @444`, also with `lives/hp 3/1`, and first leaves `InGame` at frame 587. Do not extend these tails as contact repros; change the pre-380 vertical setup or branch back to the pre-300 route that reached `(456,543)`."
+      },
+      {
         "name": "Recording `issue-267-highwater-flag-floor-contact-audit-20260608` is ready to reduce into Highwater floor-contact evidence",
         "reason": "Rejected 2026-06-09. Fresh `verify-recording --slug issue-267-highwater-flag-floor-contact-audit-20260608` fails with native trace replay drift at frame 0 after warning that oracle captured no Diamond/MiniHoppingSkull snapshots at the later next-level checkpoints. The generated `.cache/cases/issue-267-highwater-flag-floor-contact-audit-20260608` 0..120 case `highwater_flag_floor_contact_audit_02_case_00000_00120` fails as recording-verification blocked: `source recording replay drifted at frame 0`. Do not patch Highwater flag/floor contact or next-level entry from this bundle; re-record it on current native before treating it as gameplay-authoritative."
       },
@@ -1976,7 +1980,8 @@
     "143": 1,
     "175": 3,
     "205": 2,
-    "206": 1
+    "206": 1,
+    "260": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
