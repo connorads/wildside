@@ -11863,6 +11863,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_sentinel_splash_reseeds_parent_before_new_crawler_rng_loc_33488() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = drips_splash_animation_timer_loc_33488(0);
+        drips.drips_surface_table_index = 2;
+        drips.drips_pending_splash_x_pos = 0x0020_0000;
+        drips.drips_pending_splash_y_pos = 0x002A_0000;
+        rt.active_enemies.push(drips);
+
+        rt.step_projectiles();
+
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after sentinel splash");
+        assert_eq!(
+            drips.wait_timer, 0x0030,
+            "ASM Drips.asm loc_33488 queues loc_335D8, then the parent returns to loc_3340E \
+            and consumes the first RNG byte `$C0` for d0 before the child object's loc_335D8 \
+            random branch runs"
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler),
+            "ASM Drips.asm loc_33488 still allocates the loc_335D8 crawler on the negative off_33520 sentinel"
+        );
+    }
+
+    #[test]
     fn drips_same_frame_ready_splashes_share_surface_cap_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         for index in 0..6 {

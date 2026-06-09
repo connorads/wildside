@@ -1979,6 +1979,12 @@ impl NativeRuntime {
                 enemy.drips_surface_table_index = 0;
                 true
             };
+            // ASM Drips.asm loc_33488 allocates the loc_335D8 child object,
+            // then the parent continues through loc_3350E back to loc_3340E.
+            // The newly allocated child does not run its own loc_335D8 random
+            // branch until a later object pass, so the parent's wait reseed
+            // consumes the next RNG byte first.
+            let reseed_random_byte = self.rom_random.next_byte();
             let crawler_random_byte = if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
             {
@@ -2002,7 +2008,6 @@ impl NativeRuntime {
                 self.drips_surface_crawler_count_loc_fffffb42 += 1;
             }
             // ASM loc_3350E branches back to loc_3340E after the splash path.
-            let reseed_random_byte = self.rom_random.next_byte();
             let wait_timer = drips_wait_timer_loc_3340e(reseed_random_byte, kid_x_word);
             reseed_events.push(format!(
                 "#{:02}@{:#010x},{:#010x} table:{}->{} crawler={} crawler_rng={} kid_x={:#06x} reseed_rng={:#04x} wait={:#06x}",
