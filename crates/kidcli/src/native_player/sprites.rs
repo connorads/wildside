@@ -666,6 +666,46 @@ pub(super) fn select_player_transform_frame<'a>(
         .find_map(|step| step.frame.as_ref())
 }
 
+fn transform_frame_palette<'a>(
+    frame: &kid_render::SpriteFrame,
+    player_visuals: &'a kid_render::PlayerVisuals,
+    form_visuals: &'a kid_render::PlayerFormVisuals,
+) -> &'a Palette {
+    if let Some(kid_visuals) = player_visuals.forms.get(&0)
+        && kid_transform_frame_uses_kid_palette_loc_7cd0(frame, kid_visuals)
+    {
+        // ASM Kid_Transform loc_7CD0 (kid.asm:8426) only switches
+        // Current_Helmet after the old-form table. The first-helmet
+        // transforms can therefore render Kid art while the trace already
+        // reports the target helmet; keep that art on Kid's palette instead
+        // of the target transform palette.
+        return &kid_visuals.palette;
+    }
+
+    form_visuals
+        .transform_palette
+        .as_ref()
+        .unwrap_or(&form_visuals.palette)
+}
+
+fn kid_transform_frame_uses_kid_palette_loc_7cd0(
+    frame: &kid_render::SpriteFrame,
+    kid_visuals: &kid_render::PlayerFormVisuals,
+) -> bool {
+    frame == &kid_visuals.idle
+        || kid_visuals.walk.iter().any(|kid_frame| frame == kid_frame)
+        || frame == &kid_visuals.jump_rise
+        || frame == &kid_visuals.jump_fall
+        || kid_visuals
+            .death
+            .as_ref()
+            .is_some_and(|kid_frame| frame == kid_frame)
+        || kid_visuals
+            .pull_up
+            .iter()
+            .any(|kid_frame| frame == kid_frame)
+}
+
 pub(super) fn player_screen_position(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -717,10 +757,7 @@ pub(super) fn push_player_sprite_with_priority_override(
     let (screen_x, screen_y) = player_screen_position(object, trace);
     if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-        let base_palette = form_visuals
-            .transform_palette
-            .as_ref()
-            .unwrap_or(&form_visuals.palette);
+        let base_palette = transform_frame_palette(frame, &level_visuals.player, form_visuals);
         commands.push(DrawCommand::Sprite {
             x: draw_x,
             y: draw_y,

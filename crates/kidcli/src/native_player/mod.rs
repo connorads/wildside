@@ -4242,6 +4242,39 @@ mod tests {
                 transform_steps: Vec::new(),
             },
         );
+        forms.insert(
+            PlayerForm::Cyclone.helmet_id(),
+            PlayerFormVisuals {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(120, 220, 180)],
+                },
+                idle: sample_player_frame(48),
+                walk: vec![sample_player_frame(49)],
+                charge: Vec::new(),
+                climb: Vec::new(),
+                slope_walk: Vec::new(),
+                slope_walk_left: Vec::new(),
+                jump_rise: sample_player_frame(50),
+                jump_fall: sample_player_frame(51),
+                death: None,
+                pull_up: Vec::new(),
+                slash_ground: Vec::new(),
+                slash_air: Vec::new(),
+                transform_palette: Some(Palette {
+                    colours: vec![colour(0, 0, 0), colour(20, 20, 20)],
+                }),
+                transform_steps: vec![
+                    PlayerTransformStep {
+                        duration_frames: 16,
+                        frame: Some(sample_player_frame(2)),
+                    },
+                    PlayerTransformStep {
+                        duration_frames: 4,
+                        frame: Some(sample_player_frame(52)),
+                    },
+                ],
+            },
+        );
 
         PlayerVisuals { forms }
     }
@@ -9799,6 +9832,26 @@ mod tests {
                 }
             )
         }));
+    }
+
+    #[test]
+    fn loc_7cd0_cyclone_transform_uses_kid_palette_for_old_kid_walk_frame() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        trace.form_change_flash_frames = 20;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(2),
+            "ASM Kid_Transform loc_7CD0: first-helmet transform starts on Kid's old-form frame before target helmet art"
+        );
+        assert_eq!(
+            player_sprite_palette(&scene).map(|palette| palette.colours[1]),
+            Some(colour(200, 160, 120)),
+            "ASM loc_7CD0 switches Current_Helmet later, so Kid art must not use Cyclone's dark transform palette"
+        );
     }
 
     #[test]
