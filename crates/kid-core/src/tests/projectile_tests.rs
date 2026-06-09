@@ -7760,9 +7760,10 @@ mod chunk_06 {
     }
 
     /// ASM loc_7820 (kid.asm:7896): entering the walking loop clears the shared
-    /// visual walk accumulator at `$FFFFF8F0`.
+    /// visual walk accumulator at `$FFFFF8F0`, then loc_8D72/loc_8E16 reaches
+    /// sub_942A loc_95DA in the same update and advances from the first x_vel.
     #[test]
-    fn loc_7820_walk_entry_clears_visual_accumulator() {
+    fn loc_7820_walk_entry_clears_then_advances_visual_accumulator_loc_95da() {
         let mut data = vec![0u8; 8 * 6 * 2];
         for col in 2..=3 {
             let offset = (4 * 8 + col) * 2;
@@ -7796,8 +7797,8 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            slice.walk_visual_accumulator, 0,
-            "ASM loc_7820: clear $FFFFF8F0 before entering MoveID_Walking"
+            slice.walk_visual_accumulator, 0x0002,
+            "ASM loc_7820 -> loc_8D72/loc_8E16 -> loc_95DA: clear stale $FFFFF8F0, then advance with first walking x_vel"
         );
     }
 

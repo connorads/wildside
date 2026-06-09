@@ -1529,13 +1529,13 @@ pub(crate) fn grounded_walk_visual_accumulator_loc_95da(
 
 fn should_advance_grounded_walk_visual_accumulator_loc_95da(
     form: PlayerForm,
-    previous_x_velocity: i32,
 ) -> bool {
-    // ASM loc_7820 clears `$FFFFF8F0` when entering MoveID_Walking from
-    // standing still. The upright walk refresh (`sub_942A loc_95DA`) only owns
-    // the later already-moving frames.
-    previous_x_velocity != 0
-        && !matches!(form, PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker)
+    // ASM loc_7820 clears `$FFFFF8F0` when entering MoveID_Walking, then
+    // immediately continues through loc_8D72/loc_8E16 into sub_942A loc_95DA
+    // with the freshly accelerated x_vel. The first moving frame must advance
+    // the renderer phase or Red Stealth/Samurai walks visibly lag while state
+    // positions still match oracle.
+    !matches!(form, PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker)
 }
 
 #[allow(non_snake_case)]
@@ -3622,9 +3622,10 @@ impl OpeningSliceState {
                 //
                 // loc_A99E (kid.asm:13260): landing→walking entry — `move.l
                 //   x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0`. Native:
-                //   on_ground=true with nonzero x_vel enters the walking
-                //   branch on the next frame; sub_942A animation dispatch is
-                //   visual-only (covered by refresh_grounded_helmet_state).
+                //   mirror the sub_942A loc_95DA `$FFFFF8F0` advance on the
+                //   landing frame; deferring it to the next grounded frame
+                //   leaves Red Stealth/Samurai walk cels one phase behind
+                //   while positions still match oracle.
                 //
                 // Native architecture: apply_floor_collision sets on_ground
                 // for all helmets uniformly. The ASM's per-helmet dispatch
@@ -3781,6 +3782,16 @@ impl OpeningSliceState {
                     && self.player.on_ground
                     && airborne_slope_recontact.is_none();
                 let slope_recontact_this_step = airborne_slope_recontact.is_some();
+                if plain_airborne_floor_landing
+                    && self.player.x_velocity != 0
+                    && should_advance_grounded_walk_visual_accumulator_loc_95da(form)
+                {
+                    self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
+                        self.walk_visual_accumulator,
+                        form,
+                        self.player.x_velocity,
+                    );
+                }
                 kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
@@ -5151,10 +5162,7 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_95da(
-                    form,
-                    previous_x_velocity,
-                ) {
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(form) {
                     self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
                         form,
@@ -5214,10 +5222,7 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_95da(
-                    form,
-                    previous_x_velocity,
-                ) {
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(form) {
                     self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
                         form,
@@ -5503,10 +5508,7 @@ impl OpeningSliceState {
                     h_input,
                     form.ground_speed_table(self.terrain.floor_terrain_type),
                 );
-                if should_advance_grounded_walk_visual_accumulator_loc_95da(
-                    form,
-                    previous_x_velocity,
-                ) {
+                if should_advance_grounded_walk_visual_accumulator_loc_95da(form) {
                     self.walk_visual_accumulator = grounded_walk_visual_accumulator_loc_95da(
                         self.walk_visual_accumulator,
                         form,

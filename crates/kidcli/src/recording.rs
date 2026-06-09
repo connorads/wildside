@@ -2473,6 +2473,31 @@ mod tests {
         }
     }
 
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            std::path::PathBuf::from(override_root)
+        } else {
+            let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("kidcli crate should live under <repo>/crates/kidcli")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed recording test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(kid_data::load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+    }
+
     fn sample_trace_frame(frame_index: usize) -> NativeTraceFrame {
         NativeTraceFrame {
             frame_index,
@@ -2995,6 +3020,53 @@ mod tests {
             unsettled_buttons,
             vec![0, 1 << 3, 1 << 3, 0],
             "non-settled recordings keep the local script phase"
+        );
+    }
+
+    #[test]
+    fn red_stealth_walk_replay_exports_loc_95da_visual_accumulator_for_renderer() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut script = vec![0x00; 761];
+        for input in &mut script[60..760] {
+            *input = 0x08;
+        }
+        for start in (90..=750).step_by(60) {
+            for input in &mut script[start..start + 4] {
+                *input = 0x18;
+            }
+        }
+        let scenario = DynamicScenario {
+            slug: "walk_right_red_stealth_00".into(),
+            script,
+            frame_count: 760,
+            checkpoints: Vec::new(),
+            start_position: None,
+            camera_position: None,
+            playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
+            initial_diamond_count: None,
+            warp_to_level: Some(0),
+            settle_oracle_warp: true,
+        };
+        let trace = run_recorded_trace(
+            &manifest,
+            RecordingStart {
+                warp_level: Some(0),
+                settled: true,
+                record_frames: None,
+            },
+            &scenario,
+        )
+        .expect("recording replay trace");
+        let frame = &trace[444];
+
+        assert_eq!(frame.current_helmet_id, PlayerForm::RedStealth.helmet_id());
+        assert_eq!(frame.kid_facing, Some(NativeDirection::Right));
+        assert_eq!(frame.kid_x_velocity, Some(0x0002_0000));
+        assert_eq!(
+            frame.walk_visual_accumulator, 0x0353,
+            "ASM loc_95DA/loc_9600: Red Stealth's flat walk renderer consumes `$FFFFF8F0`; frame 444 of the #211 recording route should select phase 3 (`unk_B6546` / red_stealth_walk_4), not freeze at phase 0 and look like moonwalking"
         );
     }
 
