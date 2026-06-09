@@ -6856,7 +6856,12 @@ impl OpeningSliceState {
                 .clamp(0, i64::from(u32::MAX)) as u32;
             let x_px = (future_x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
-            let row = ((y_px + 1).max(0) >> 4) as u16;
+            let post_vertical_y_px = (post_vertical_y_pos >> 16) as i32;
+            let row = if form == PlayerForm::RedStealth {
+                ((post_vertical_y_px + collision_hw).max(0) >> 4) as u16
+            } else {
+                ((y_px + 1).max(0) >> 4) as u16
+            };
             let current_col =
                 (x_px.max(0) >> 4).min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
             let current_cell = grid.cell_at(current_col, row);
@@ -6867,10 +6872,12 @@ impl OpeningSliceState {
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
             let is_4082_6024_seam = current_cell.skin == 0x82 && next_cell.skin == 0x24;
             let is_406d_606e_seam = current_cell.skin == 0x6D && next_cell.skin == 0x6E;
+            let red_stealth_high_fraction_4082_handoff =
+                form == PlayerForm::RedStealth && is_4082_6024_seam && post_vertical_frac >= 0x4000;
             let applies_solid_edge_low_word_handoff =
                 post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
             let applies_solid_edge_high_borrow = if is_4082_6024_seam {
-                post_vertical_frac <= 0x0800
+                post_vertical_frac <= 0x0800 || red_stealth_high_fraction_4082_handoff
             } else if is_406d_606e_seam {
                 form == PlayerForm::IronKnight && post_vertical_frac >= 0x4000
             } else {
@@ -6898,8 +6905,12 @@ impl OpeningSliceState {
                 // hits the 405C/605D seam at 0x0800 and only takes the
                 // low-word handoff, keeping the airborne handoff's high word.
                 // Earlier frame 428 hits the 4082/6024 seam at post-vertical
-                // fraction 0xAC00 and also keeps the unborrowed high word;
-                // only the low-word handoff applies there.
+                // fraction 0xAC00 as The Kid and keeps the unborrowed high word;
+                // only the low-word handoff applies there. Red Stealth reaches
+                // the same seam through loc_9E94/loc_9EA4; oracle #211 frame
+                // 606 proves that high-fraction special-form branch keeps the
+                // post-loc_9F18 composition directly after borrowing the high
+                // word.
                 let corrected_high = if applies_solid_edge_high_borrow {
                     (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
                 } else {
@@ -6907,9 +6918,12 @@ impl OpeningSliceState {
                 };
                 let corrected_future_x =
                     corrected_high | ((self.player.x_velocity as u32) & 0x0000_FFFF);
-                self.player.x_pos = (i64::from(corrected_future_x)
-                    - i64::from(self.player.x_velocity))
-                .clamp(0, i64::from(u32::MAX)) as u32;
+                self.player.x_pos = if red_stealth_high_fraction_4082_handoff {
+                    corrected_future_x
+                } else {
+                    (i64::from(corrected_future_x) - i64::from(self.player.x_velocity))
+                        .clamp(0, i64::from(u32::MAX)) as u32
+                };
                 self.terrain.floor_terrain_type = TerrainType::Normal;
             }
         }

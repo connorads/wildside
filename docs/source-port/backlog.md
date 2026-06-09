@@ -541,6 +541,20 @@ authoritative checkpoint), then takes repeated damage and loses helmet state.
 Next #126 work should fix or avoid that earlier Level 01 route divergence before
 patching slope animation/movement.
 
+Follow-up 2026-06-09: fixed the natural Level 00 Red Stealth/Samurai slope
+landing miss from `issue-211-samurai-natural-slope-current-20260609`. The
+actionable window was frames 520..640; the first real gameplay miss was frame
+606, where native used `kid_x_pos=0x031f8600,kid_y_pos=0x00c00000` and oracle
+used `0x031ef000,0x00c10000` before camera followed from the bad Y. ASM path:
+`sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22 -> loc_9E94/loc_9EA4 ->
+loc_9F18`. Native now gives Red Stealth's high-fraction `$4082/$6024`
+SlopeUp/Solid seam the ROM row selection and post-`loc_9F18` X composition.
+Regression: `level00_frame_606_red_stealth_slopeup_solid_handoff_loc_a99e`.
+Oracle check: `tas-diff` frames 605..611 on the derived 520..640 scenario is
+6/6 match. This fixes that gameplay landing/camera frontier only; the broader
+human report about Samurai slope animation/pixels remains open until a current
+visual-frame route proves the render mismatch.
+
 Follow-up 2026-06-02: derived the selector-requested base Level 01 reduction
 from native recording `issue-126-level01-walk-right-base`. The source recording
 passes native replay. Case `.cache/cases/issue-126-level01-walk-right-base`

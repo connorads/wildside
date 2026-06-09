@@ -18769,6 +18769,80 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: Red Stealth reaches
+    /// the next Level 00 row-12 `$4082/$6024` SlopeUp/Solid edge from open air.
+    /// Oracle #211 frame 606 keeps the same-frame slope handoff one pixel lower
+    /// and one pixel further left than the generic SlopeUp/Solid seam borrow.
+    #[test]
+    fn level00_frame_606_red_stealth_slopeup_solid_handoff_loc_a99e() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x031d_3800;
+        slice.player.y_pos = 0x00ba_a880;
+        slice.player.x_velocity = 0x0002_6800;
+        slice.player.y_velocity = 0x0002_9040;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice
+                .physics_trace
+                .expect("frame 606 trace")
+                .post_vertical
+                .0,
+            0x00bd_78c0,
+            "ASM sub_902A post-vertical fraction 0x78C0 reaches the `$4082/$6024` SlopeUp/Solid edge",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x031e_f000,
+            "ASM loc_A99E/loc_8BF0 handoff should match oracle #211 frame 606 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00c1_0000,
+            "ASM loc_9D22 recontact should match oracle #211 frame 606 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, -0x0000_1000,
+            "ASM loc_9E94/loc_9EA4 should force Red Stealth downhill on SlopeUp",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x0000_1000,
+            "ASM loc_9D22 stores y_vel = -x_vel on SlopeUp",
+        );
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "ASM loc_9EA4 faces downhill on the SlopeUp recontact",
+        );
+    }
+
     /// ASM sub_A4EE -> loc_A99E -> loc_8BF0 -> loc_9D22: Iron Knight's
     /// wider hitbox reaches the Level 00 row-13 SlopeUp surface during
     /// sub_A4EE's compound x/y integration. The later sub_902A old-X vertical
