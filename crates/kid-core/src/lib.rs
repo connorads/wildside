@@ -1880,14 +1880,14 @@ impl NativeRuntime {
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         self.last_drips_splash_reseed_probe = None;
-        self.wall_cling_boundary_trace_y_velocity =
-            self.wall_cling_boundary_trace_y_velocity
-                .and_then(|(y_velocity, frames)| {
-                    frames
-                        .checked_sub(1)
-                        .filter(|remaining| *remaining > 0)
-                        .map(|remaining| (y_velocity, remaining))
-                });
+        self.wall_cling_boundary_trace_y_velocity = self
+            .wall_cling_boundary_trace_y_velocity
+            .and_then(|(y_velocity, frames)| {
+                frames
+                    .checked_sub(1)
+                    .filter(|remaining| *remaining > 0)
+                    .map(|remaining| (y_velocity, remaining))
+            });
         let replay_demo_1_timeout_handoff_frame = matches!(
             self.boot_state,
             BootState::DemoPlay {
@@ -1926,6 +1926,8 @@ impl NativeRuntime {
             matches!(self.boot_state, BootState::TitleScreen { .. });
         let frame_started_in_level_entry =
             matches!(self.boot_state, BootState::StartingLevel { .. });
+        let level_entry_hibernated_gameplay_input =
+            self.starting_level_title_card_bootstrap_active_loc_1ae2e();
         self.step_boot_state(input, start_pressed);
         self.update_vdp_state();
         if frame_started_in_sega_screen
@@ -2147,7 +2149,17 @@ impl NativeRuntime {
         // ASM loc_C4E (kid.asm:1410): `move.b (Ctrl_1).w,(Ctrl_1_Held).w` —
         // latch current held state for next-frame edge detection. Also
         // loc_C9C: route Ctrl_1_Held/Pressed → Ctrl_Held/Pressed (1P default).
-        self.previous_input = input;
+        self.previous_input = if level_entry_hibernated_gameplay_input {
+            // ASM loc_1AE2E consumes only Ctrl_Pressed Start while the
+            // title-card shell owns mode $0008. Gameplay bits held on that
+            // handoff frame must not become the first live Mode_Level latch.
+            FrameInput {
+                start: input.start,
+                ..FrameInput::default()
+            }
+        } else {
+            input
+        };
         if matches!(self.boot_state, BootState::LevelSkipHold)
             && let Some(transition) = self.level_skip_transition.as_mut()
         {
@@ -2530,12 +2542,7 @@ impl NativeRuntime {
     }
 
     fn starting_level_title_card_bootstrap_active_loc_1ae2e(&self) -> bool {
-        matches!(
-            self.boot_state,
-            BootState::StartingLevel {
-                ..
-            }
-        )
+        matches!(self.boot_state, BootState::StartingLevel { .. })
     }
 
     #[allow(non_snake_case)]

@@ -1630,7 +1630,12 @@ mod tests {
 
         assert_eq!(
             (after.x_pos, after.y_pos, after.x_velocity, after.y_velocity),
-            (before.x_pos, before.y_pos, before.x_velocity, before.y_velocity),
+            (
+                before.x_pos,
+                before.y_pos,
+                before.x_velocity,
+                before.y_velocity
+            ),
             "ASM loc_1AE2E hibernates and only polls Ctrl_Pressed Start; gameplay B/Left must not launch or move Kid under the title card",
         );
         assert!(
@@ -1681,12 +1686,106 @@ mod tests {
         );
         assert_eq!(
             (after.x_pos, after.y_pos, after.x_velocity, after.y_velocity),
-            (before.x_pos, before.y_pos, before.x_velocity, before.y_velocity),
+            (
+                before.x_pos,
+                before.y_pos,
+                before.x_velocity,
+                before.y_velocity
+            ),
             "ASM loc_1AE2E only polls Ctrl_Pressed Start; gameplay B/Right must not launch or move Kid under the title card even after visible workers settle",
         );
         assert!(
             runtime.played_sound_effects.is_empty(),
             "ASM loc_1AE2E idle does not enter loc_A480 jump sound while the level card still owns the shell",
+        );
+    }
+
+    #[test]
+    fn loc_1ae2e_title_card_start_handoff_does_not_buffer_gameplay_input() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let bounds = crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        };
+        runtime.opening_slice = Some(OpeningSliceState::respawn(bounds));
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: false,
+            elapsed_frames: crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 2,
+            uses_load_ingame_bootstrap: false,
+            load_ingame_bootstrap_started: false,
+        };
+        runtime
+            .starting_level_title_workers
+            .push(LevelEntryTitleWorker {
+                gfx_slot_index: 0,
+                glyph: 0x61,
+                activation_frame: crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+                target_x_pos: 0x80,
+                target_y_pos: 0x80,
+                motion: None,
+            });
+
+        let before = runtime
+            .opening_slice
+            .expect("test setup should seed a gameplay slice")
+            .player;
+        runtime.opening_slice = Some(OpeningSliceState {
+            player: before,
+            ..OpeningSliceState::respawn(bounds)
+        });
+
+        let _handoff_trace = runtime.step_frame(FrameInput {
+            start: true,
+            right: true,
+            b: true,
+            ..FrameInput::default()
+        });
+        let after_handoff = runtime
+            .opening_slice
+            .expect("Start handoff keeps the progressed hidden slice")
+            .player;
+
+        assert_eq!(
+            (
+                after_handoff.x_pos,
+                after_handoff.y_pos,
+                after_handoff.x_velocity,
+                after_handoff.y_velocity
+            ),
+            (
+                before.x_pos,
+                before.y_pos,
+                before.x_velocity,
+                before.y_velocity
+            ),
+            "ASM loc_1AE2E must not let B/Right act on the hidden gameplay slice while Start releases the title card",
+        );
+        assert_eq!(
+            runtime.previous_input,
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            },
+            "ASM loc_1AE2E may carry the Start handoff edge, but gameplay held bits must not become live Ctrl_Held",
+        );
+
+        let _gameplay_trace = runtime.step_frame(FrameInput::default());
+        let after_gameplay = runtime
+            .opening_slice
+            .expect("live gameplay keeps the hidden slice")
+            .player;
+
+        assert_eq!(
+            after_gameplay.x_velocity, 0,
+            "ASM loc_1AE2E does not export title-card Right into the first live Mode_Level input latch",
+        );
+        assert!(
+            after_gameplay.y_velocity >= 0,
+            "ASM loc_1AE2E must not export title-card B as an upward loc_A480 jump velocity",
+        );
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "ASM loc_1AE2E handoff must not buffer a loc_A480 jump sound into live gameplay",
         );
     }
 
