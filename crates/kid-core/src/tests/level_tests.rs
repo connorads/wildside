@@ -3687,6 +3687,56 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_later_level_visible_prize_ceiling_uses_helmet_block_list_entry() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(5));
+
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 5 should load its extracted block-list asset");
+        let mut grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("generated level 5 should load its collision grid")
+            .clone();
+        assert_eq!(
+            block_list
+                .prize_block_by_layout_addr_loc_10342(
+                    terrain::BlockList::level_layout_low_word_addr(116, 10, grid.width_cells)
+                )
+                .map(|entry| entry.content),
+            Some(terrain::PrizeContent::Juggernaut),
+            "ASM loc_10342 should map the level 5 visible block at (116,10) to its Juggernaut helmet prize before the collision path runs",
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.x_pos = (116 * 16 + 8) << 16;
+        slice.player.y_pos = (10 * 16 + 31) << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Juggernaut, 116 * 16, 10 * 16)),
+            "ASM sub_BB54/sub_BBE2 -> loc_10342 should dispatch the generated level 5 Juggernaut helmet prize, not the Diamond fallback",
+        );
+    }
+
+    #[test]
     fn level05_recording_settle_counts_lava_special_effect_workers_loc_14c6a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
