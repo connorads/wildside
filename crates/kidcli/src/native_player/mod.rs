@@ -9433,6 +9433,23 @@ mod tests {
                 .all(|colour| *colour == white),
             "ASM Tank_Shooting.asm loc_3B700 recoils the child turret on hurt, so the traced child sprite should share the parent's damage flash",
         );
+        match commands.as_slice() {
+            [
+                DrawCommand::Sprite {
+                    y: body_y,
+                    ..
+                },
+                DrawCommand::Sprite {
+                    y: turret_y,
+                    ..
+                },
+            ] => assert_eq!(
+                *body_y - *turret_y,
+                20,
+                "ASM Tank_Shooting.asm loc_3B5FA uses the same child GfxObject as the plain tank, but native must compensate the shooting turret child offset on the real traced-child path too",
+            ),
+            other => panic!("expected shooting tank body + child turret, got {other:?}"),
+        }
     }
 
     #[test]

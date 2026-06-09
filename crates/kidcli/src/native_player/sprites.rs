@@ -1353,8 +1353,9 @@ pub(super) fn push_enemy_sprite(
             // GfxObject and subtracts 8 from child Y. ASM Make_SpriteFromGfxObject
             // loc_11EE still subtracts the child frame height, so do not add
             // the 8px back here; the child trace already carries the ROM offset.
+            let turret_screen_y = rock_tank_turret_screen_y(object_type, screen_y);
             let (turret_x, turret_y) =
-                sprite_draw_position(&turret_frame, screen_x, screen_y, render_facing);
+                sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
             let palette = enemy_palette_for_damage_flash(
                 select_enemy_palette(enemy_visuals, object.palette_variant),
                 rock_tank_damage_flash(object, trace, object_type),
@@ -1390,10 +1391,11 @@ pub(super) fn push_enemy_sprite(
     {
         // Fallback for traces that only expose the parent. ASM Tank.asm
         // loc_3B372 creates the real child at parent_y-8 before drawing.
+        let turret_screen_y = rock_tank_turret_screen_y(object_type, screen_y - 8);
         let (turret_x, turret_y) = sprite_draw_position(
             &turret_frame,
             screen_x,
-            screen_y - 8,
+            turret_screen_y,
             render_facing,
         );
         let palette = enemy_palette_for_damage_flash(
@@ -1469,6 +1471,18 @@ fn is_rock_tank_parent_without_child_snapshot(
             && candidate.layout_index == object.layout_index
             && is_rock_tank_child_snapshot(object_type, candidate, trace)
     })
+}
+
+fn rock_tank_turret_screen_y(object_type: u8, child_screen_y: i32) -> i32 {
+    if object_type == 0x0B {
+        // ASM Tank_Shooting.asm loc_3B5FA copies the same `y_pos-8` child
+        // setup as the plain tank, but the shooting turret frames are
+        // top-anchored muzzle art. Compensate the child offset so those frames
+        // share the tread baseline instead of stacking a second body above it.
+        child_screen_y + 8
+    } else {
+        child_screen_y
+    }
 }
 
 fn rock_tank_turret_frame(
