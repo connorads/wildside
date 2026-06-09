@@ -5476,11 +5476,18 @@ impl NativeRuntime {
         self.title_screen_ready_frame = self.frame_index.saturating_add(title_pose_ready_frames);
         // ASM Load_IntroSequence6 `loc_1BAB0` runs a separate `$B8` `dbf`
         // loop before it ever reaches Obj_TitleMenu `loc_1BAEA`'s shared
-        // `$280` title idle countdown. Delay this lineage's title arm until
-        // that 185-frame pre-roll has elapsed.
-        self.title_menu_arm_frame = self
-            .frame_index
-            .saturating_add(INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES);
+        // `$280` title idle countdown. The timeout-restart lineage matches
+        // that 185-frame pre-roll exactly (published any-percent TAS frames
+        // 21765.. verified the IntroSequence6 -> DemoPlay hand-off against the
+        // oracle); the natural/cold lineage's Start latch is observed 52
+        // frames later (oracle cold frame 2634), so the two lineages arm the
+        // title menu with different locks.
+        let title_attract_lock_frames = if entered_from_timeout_restart {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES
+        } else {
+            INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES
+        };
+        self.title_menu_arm_frame = self.frame_index.saturating_add(title_attract_lock_frames);
     }
 
     pub(crate) fn title_screen_ready(&self) -> bool {

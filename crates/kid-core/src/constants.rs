@@ -86,7 +86,17 @@ pub(crate) const TITLE_MENU_ACTIVATION_DELAY_FRAMES: usize = 15;
 /// oracle frame probes for the cold IntroSequence6 Start-skip route show the
 /// Start latch is not consumed by `sub_1C246` until cold frame 2634, 237 local
 /// frames after Game_Mode first becomes `$28` at frame 2396.
+/// TODO(fidelity): this is the NATURAL/cold lineage value only; the extra 52
+/// frames over the `loc_1BAB0` `$B8` DBF pre-roll have not been traced to a
+/// specific ASM wait yet.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 237;
+/// ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` then `dbf d0,loc_1BAB4`,
+/// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
+/// before `loc_1BAEA` even seeds the shared `$280` title idle loop. The
+/// published any-percent TAS timeout-restart window (frames 21765..) verified
+/// this lineage against the oracle's IntroSequence6 -> DemoPlay hand-off;
+/// applying the cold-route 237 here delays the demo flip by 52 frames.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
 /// ASM Obj_TitleMenu `loc_1BAEA -> loc_1BAEE` seeds `d0=$280`, then hibernates
 /// once before each inclusive `dbf` pass.
 pub(crate) const TITLE_IDLE_DBF_FRAMES_LOC_1BAEA: u16 = 0x0280 + 1;
