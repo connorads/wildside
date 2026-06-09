@@ -3808,6 +3808,27 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level07_recording_settle_lion_postfire_charge_body_damage_matches_loc_3e11e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(7)
+            .settle_recording_warp()
+            .run(&[0], 96)
+            .into_iter()
+            .last()
+            .expect("settled level 7 frame 95");
+
+        assert_eq!(
+            (trace.number_hitpoints, trace.just_received_damage),
+            (0, true),
+            "ASM Lion.asm loc_3E0F4 resumes loc_3E11E charge movement after the fire animation, so oracle frame 95 receives body-contact damage before the later projectile hit"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

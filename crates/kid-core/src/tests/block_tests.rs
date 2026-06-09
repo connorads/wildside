@@ -10403,7 +10403,34 @@ mod chunk_04 {
         for _ in 0..=LION_POST_FIRE_RESUME_DELAY {
             step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         }
-        assert_eq!(enemy.lion_state, LionState::Charging);
+        assert_eq!(enemy.lion_state, LionState::ResumingCharge);
+    }
+
+    #[test]
+    fn lion_postfire_resume_skips_roar_gate_loc_3e0f4_3e11e() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::PostFire;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = 0;
+        enemy.ufo_beam_segments = 0;
+        let player_x = Some(20u32 << 16);
+        let start_x = enemy.x_pos;
+
+        step_lion(&mut enemy, Some(&grid), player_x, &mut None);
+        assert_eq!(
+            enemy.lion_state,
+            LionState::ResumingCharge,
+            "ASM Lion.asm loc_3E0F4 restores the charge animation and branches to loc_3E11E, not loc_3E078's roar timer gate"
+        );
+
+        step_lion(&mut enemy, Some(&grid), player_x, &mut None);
+        assert!(
+            enemy.x_pos < start_x,
+            "ASM Lion.asm loc_3E11E should resume charge movement on the next frame instead of starting another roar"
+        );
     }
 
     #[test]

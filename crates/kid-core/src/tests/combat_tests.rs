@@ -12090,6 +12090,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn lion_snapshot_reports_postfire_timing_debug_fields_loc_3e078_3e0f4_3e11e() {
+        let mut enemy = test_enemy(EnemyFamily::Lion, 529 << 16, 704 << 16, 2);
+        enemy.lion_state = LionState::PostFire;
+        enemy.wait_timer = 18;
+        enemy.ufo_beam_segments = 1;
+
+        let snapshot = enemy.snapshot();
+
+        assert_eq!(
+            snapshot.wait_timer,
+            Some(18),
+            "ASM Lion.asm loc_3E0F4 ages `$54(a5)` before resuming the charge branch, so Lion snapshots should expose the native timer",
+        );
+        assert_eq!(
+            snapshot.debug_fields.get("lion_state").map(String::as_str),
+            Some("PostFire"),
+            "Lion state should identify whether native is still in the loc_3E0F4 post-fire wait or has resumed loc_3E11E charging",
+        );
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("lion_active_projectiles")
+                .map(String::as_str),
+            Some("1"),
+            "ASM Lion.asm loc_3E078 gates fresh roars on `$5B(a5)`, so the active projectile count must be visible during Level 0x07 timing probes",
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_kid_object_support_candidates() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;

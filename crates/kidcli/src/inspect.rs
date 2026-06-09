@@ -1130,22 +1130,30 @@ pub(crate) fn describe_active_objects(frame: &NativeTraceFrame) -> String {
     frame
         .active_objects
         .iter()
-        .map(|object| match object.kind {
-            kid_core::NativeObjectKind::Player => {
-                format!("player@{:08X},{:08X}", object.x_pos, object.y_pos)
+        .map(|object| {
+            let mut summary = match object.kind {
+                kid_core::NativeObjectKind::Player => {
+                    format!("player@{:08X},{:08X}", object.x_pos, object.y_pos)
+                }
+                kid_core::NativeObjectKind::Enemy { object_type } => {
+                    format!(
+                        "enemy_{object_type:02X}@{:08X},{:08X}",
+                        object.x_pos, object.y_pos
+                    )
+                }
+                kid_core::NativeObjectKind::Platform { kind, subtype } => {
+                    format!(
+                        "platform_{kind:02X}_{subtype:02X}@{:08X},{:08X}",
+                        object.x_pos, object.y_pos
+                    )
+                }
+            };
+            if !object.debug_fields.is_empty() {
+                summary.push('{');
+                summary.push_str(&format_debug_fields(&object.debug_fields));
+                summary.push('}');
             }
-            kid_core::NativeObjectKind::Enemy { object_type } => {
-                format!(
-                    "enemy_{object_type:02X}@{:08X},{:08X}",
-                    object.x_pos, object.y_pos
-                )
-            }
-            kid_core::NativeObjectKind::Platform { kind, subtype } => {
-                format!(
-                    "platform_{kind:02X}_{subtype:02X}@{:08X},{:08X}",
-                    object.x_pos, object.y_pos
-                )
-            }
+            summary
         })
         .collect::<Vec<_>>()
         .join(", ")

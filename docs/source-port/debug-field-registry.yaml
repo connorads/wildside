@@ -438,6 +438,24 @@
       "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
     },
     {
+      "key": "lion_state",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "issue-262-level07-lion",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native Lion parent state machine phase for tracing Level 0x07 skip-settle timing against Lion.asm loc_3E078/loc_3E0F4/loc_3E11E.",
+      "promotion_trigger": "Promote if Lion parent phase starts driving checked-in parity assertions or multiple Lion frontiers."
+    },
+    {
+      "key": "lion_active_projectiles",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "issue-262-level07-lion",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native Lion `$5B(a5)` equivalent, counting live projectile children that suppress fresh roar/fire cycles.",
+      "promotion_trigger": "Promote if projectile-parent coupling is asserted by regression tests rather than used as frontier diagnostics."
+    },
+    {
       "key": "highwater_shooter_barrier_probe",
       "scope": "frame",
       "status": "exploratory",

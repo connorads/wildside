@@ -6371,6 +6371,8 @@ pub(crate) enum LionState {
     Roaring,
     /// Post-projectile roar animation before the charge resumes.
     PostFire,
+    /// Charge branch resumed from the post-fire hibernate loop.
+    ResumingCharge,
     /// Charging toward the player at high speed.
     Charging,
 }
@@ -8815,7 +8817,7 @@ impl ActiveEnemy {
             .then_some(self.shared_walker_patrol_short_next);
         let walk_phase =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
-        let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking)
+        let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
             || (self.death_animation_active && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)
@@ -8865,6 +8867,17 @@ impl ActiveEnemy {
                     format_shared_walker_wall_probe(probe),
                 );
             }
+        }
+        if matches!(self.family, EnemyFamily::Lion) {
+            // ASM Lion.asm loc_3E078/loc_3E0F4/loc_3E11E split the parent
+            // timing across `$54(a5)`, `$5B(a5)`, and the animation callback;
+            // expose native equivalents while Level 0x07 skip-settle parity is
+            // being narrowed.
+            debug_fields.insert("lion_state".into(), format!("{:?}", self.lion_state));
+            debug_fields.insert(
+                "lion_active_projectiles".into(),
+                lion_active_projectile_count(self).to_string(),
+            );
         }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
@@ -18958,9 +18971,12 @@ pub(crate) const LION_COOLDOWN_AFTER_FIRE: u16 = 180;
 /// Lion.asm `stru_3DF0E`: seven 6-tick roar frames before `loc_3E09E`
 /// sees `LnkTo_unk_C7E78` and allocates the projectile.
 pub(crate) const LION_ROAR_FIRE_DELAY: u16 = 7 * 6;
-/// Lion.asm `loc_3E0F4` waits for the remaining fire frame plus
-/// `LnkTo_unk_C7E80` before restoring `$62(a5)` and charging.
-pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 3 + 0x19;
+/// Lion.asm `loc_3E0F4` waits until `$18(a3)` is set after the projectile
+/// frame, then restores `$62(a5)` and resumes `loc_3E11E`. The raw
+/// `stru_3DF0E` tail is 3 + $19 ticks, but the animation engine's callback
+/// timing makes the effective post-fire wait 17 frames in the Level 0x07
+/// oracle trace.
+pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 17;
 
 /// Lion charge overshoot distance for termination: $70 (112px).
 /// ASM does not use a fixed duration — charge ends when Lion overshoots
@@ -19106,7 +19122,7 @@ pub(crate) fn step_lion(
             }
             // ASM Lion.asm loc_3E0F4 restores `$62(a5)` before dispatching to
             // loc_3E11E's direction-specific charge branch.
-            enemy.lion_state = LionState::Charging;
+            enemy.lion_state = LionState::ResumingCharge;
         }
         LionState::Charging => {
             if enemy.wait_timer > 0 {
@@ -19123,84 +19139,94 @@ pub(crate) fn step_lion(
                 return;
             }
 
-            if !enemy.on_ground {
-                // ASM Lion.asm loc_3E6AE/loc_3E77E and loc_3E7CA/loc_3E89A
-                // share the Dragon/Lion airborne walker. The `$54(a5)` roar
-                // timer keeps ageing, but native defers the stationary
-                // loc_3E078 roar/fire transition until floor contact restores
-                // the grounded charge route.
-                step_dragon_walking_airborne(enemy, block_grid);
-                return;
-            }
+            step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
+        }
+        LionState::ResumingCharge => {
+            // ASM Lion.asm loc_3E0F4 falls directly into loc_3E11E after the
+            // fire animation finishes. It must not pass through loc_3E078's
+            // `$54/$5B` roar/cooldown gate, or the Level 0x07 charge body
+            // contact happens several frames late.
+            step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
+        }
+    }
+}
 
-            let speed = lion_charge_speed(enemy.hit_points);
-            let walk_delta = horizontal_velocity(enemy.facing, speed);
-            let moving_right = walk_delta >= 0;
+fn step_lion_charge_movement_loc_3e11e(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
+    if !enemy.on_ground {
+        // ASM Lion.asm loc_3E6AE/loc_3E77E and loc_3E7CA/loc_3E89A
+        // share the Dragon/Lion airborne walker. The `$54(a5)` roar
+        // timer keeps ageing, but native defers the stationary
+        // loc_3E078 roar/fire transition until floor contact restores
+        // the grounded charge route.
+        step_dragon_walking_airborne(enemy, block_grid);
+        return;
+    }
 
-            if let Some(grid) = block_grid {
-                let current_x_px = (enemy.x_pos >> 16) as i32;
-                let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
-                let next_x_px = (next_x >> 16) as i32;
-                let current_y_px = (enemy.y_pos >> 16) as i32;
-                let wall = dragon_walking_probe_wall(
-                    grid,
-                    current_x_px,
-                    next_x_px,
-                    current_y_px,
-                    moving_right,
-                );
-                let floor_support = dragon_walking_floor_support(grid, next_x_px, current_y_px);
-                enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
-                    next_x_px: Some(next_x_px),
-                    wall: Some(wall),
-                    center_floor: Some(floor_support.center),
-                    left_floor: Some(floor_support.left),
-                    right_floor: Some(floor_support.right),
-                };
-                if wall.hit {
-                    enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
-                    enemy.x_velocity = 0;
-                    enemy.y_velocity = 0;
-                    shared_walker_turnaround(enemy);
-                    enemy.lion_state = LionState::Walking;
-                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
-                    return;
-                }
+    let speed = lion_charge_speed(enemy.hit_points);
+    let walk_delta = horizontal_velocity(enemy.facing, speed);
+    let moving_right = walk_delta >= 0;
 
-                let floor = floor_support.selected;
-                if !floor.on_ground {
-                    // ORIGINAL_QUIRK: Lion.asm loc_3E682/loc_3E79E does not
-                    // turn around at ledges. It latches the airborne charge,
-                    // keeps `$50(a5)` as x_vel, nudges y down one pixel, then
-                    // falls through loc_3E6AE/loc_3E7CA until terrain catches it.
-                    enemy.on_ground = false;
-                    enemy.x_velocity = walk_delta;
-                    enemy.y_velocity = 0;
-                    enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
-                    enemy.shared_walker_debug_branch = Some("lion_charge_airborne_start");
-                    return;
-                }
-
-                enemy.y_pos = (floor.floor_y_px as u32) << 16;
-            }
-
-            enemy.x_pos = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+    if let Some(grid) = block_grid {
+        let current_x_px = (enemy.x_pos >> 16) as i32;
+        let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+        let next_x_px = (next_x >> 16) as i32;
+        let current_y_px = (enemy.y_pos >> 16) as i32;
+        let wall =
+            dragon_walking_probe_wall(grid, current_x_px, next_x_px, current_y_px, moving_right);
+        let floor_support = dragon_walking_floor_support(grid, next_x_px, current_y_px);
+        enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
+            next_x_px: Some(next_x_px),
+            wall: Some(wall),
+            center_floor: Some(floor_support.center),
+            left_floor: Some(floor_support.left),
+            right_floor: Some(floor_support.right),
+        };
+        if wall.hit {
+            enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
-            enemy.shared_walker_debug_branch = Some("lion_charge_grounded");
+            shared_walker_turnaround(enemy);
+            enemy.lion_state = LionState::Walking;
+            enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+            return;
+        }
 
-            if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
-                && let Some(px) = player_x_pos
-            {
-                let dx = match enemy.facing {
-                    Direction::Right => (enemy.x_pos as i64 - px as i64) >> 16,
-                    Direction::Left => (px as i64 - enemy.x_pos as i64) >> 16,
-                };
-                if dx > i64::from(LION_CHARGE_OVERSHOOT) {
-                    enemy.lion_state = LionState::Walking;
-                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
-                }
-            }
+        let floor = floor_support.selected;
+        if !floor.on_ground {
+            // ORIGINAL_QUIRK: Lion.asm loc_3E682/loc_3E79E does not
+            // turn around at ledges. It latches the airborne charge,
+            // keeps `$50(a5)` as x_vel, nudges y down one pixel, then
+            // falls through loc_3E6AE/loc_3E7CA until terrain catches it.
+            enemy.on_ground = false;
+            enemy.x_velocity = walk_delta;
+            enemy.y_velocity = 0;
+            enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+            enemy.shared_walker_debug_branch = Some("lion_charge_airborne_start");
+            return;
+        }
+
+        enemy.y_pos = (floor.floor_y_px as u32) << 16;
+    }
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    enemy.shared_walker_debug_branch = Some("lion_charge_grounded");
+
+    if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
+        && let Some(px) = player_x_pos
+    {
+        let dx = match enemy.facing {
+            Direction::Right => (enemy.x_pos as i64 - px as i64) >> 16,
+            Direction::Left => (px as i64 - enemy.x_pos as i64) >> 16,
+        };
+        if dx > i64::from(LION_CHARGE_OVERSHOOT) {
+            enemy.lion_state = LionState::Walking;
+            enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
         }
     }
 }
