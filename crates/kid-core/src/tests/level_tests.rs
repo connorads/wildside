@@ -3783,6 +3783,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level07_recording_settle_lion_first_projectile_damage_matches_loc_3e09e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(7)
+            .settle_recording_warp()
+            .run(&[0], 29)
+            .into_iter()
+            .last()
+            .expect("settled level 7 frame 28");
+
+        assert_eq!(
+            (
+                trace.number_objects,
+                trace.number_hitpoints,
+                trace.just_received_damage
+            ),
+            (6, 1, true),
+            "ASM Lion.asm loc_3E09E/loc_3E12A plus oracle tas-diff frames 28..50 show the settled Level 7 Lion projectile already active and damaging Kid before native's old frame-60 convergence"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

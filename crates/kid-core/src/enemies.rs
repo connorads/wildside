@@ -1710,12 +1710,9 @@ pub(crate) fn lion_projectile_launch_tail_loc_3e180(
     //     setting `wall_bounce: true` (ASM loc_3E260) plus homing/cap.
     //   - `$71` copy and `st $13` are engine slot/hibernate bookkeeping with no
     //     compared-state effect on the simplified projectile carrier.
-    // Reaching an oracle-matching projectile-fire frame is also infeasible: a
-    // settle_oracle_warp probe to Level 0x07 (Isle of the Lion Lord) shows the
-    // Lion's own position/facing diverging from jgenesis at frame 0 (native
-    // @0x02628000 face=Right vs oracle @0x02058000 face=Left, oracle still in
-    // its loc_3E0A2 charge worker), so no clean projectile comparison exists —
-    // the same #239/#240 boss-bootstrap divergence. Only the offset/velocity
+    // Level 0x07 recording-settle probes are now clean enough to compare the
+    // first Lion projectile timing: the respawn-settle hidden camera tail ages
+    // the Lion through loc_3E09E before frame 0. Only the offset/velocity
     // launch tail is modelled here; the prologue art/flag fields are
     // deliberately not ported because they would not change oracle parity.
     match parent_facing {
@@ -40780,9 +40777,10 @@ impl NativeRuntime {
 
         // ASM Manage_EnemyLoading loc_368A8 runs while the hidden spawn settle
         // camera is still converging. Native floor-snap computes that path
-        // atomically, so replay just the load windows here; live enemy object
-        // execution still starts on the first real gameplay frame.
-        for frame in self.inspect_respawn_settle(level_id, 180) {
+        // atomically, so replay the load windows here.
+        let settle_frames = self.inspect_respawn_settle(level_id, 180);
+        let final_camera_x_pos = settle_frames.last().map_or(0, |frame| frame.camera_x_pos);
+        for frame in settle_frames {
             let camera = CameraState {
                 x_pos: frame.camera_x_pos,
                 y_pos: frame.camera_y_pos,
@@ -40802,6 +40800,26 @@ impl NativeRuntime {
                 &self.killed_enemies,
                 &mut self.rom_random,
             );
+            if frame.camera_x_pos == final_camera_x_pos {
+                // ASM Mode_Level's hidden respawn settle continues running the
+                // object scheduler after the horizontal camera axis has reached
+                // its settled target. Level 0x07's Lion proves this: oracle
+                // tas-diff frames 19/28 have the Lion projectile/count/damage
+                // 23 frames earlier than a load-only settle, matching the
+                // camera-X-settled tail of `inspect_respawn_settle`.
+                for enemy in self.active_enemies.iter_mut() {
+                    if enemy.family != EnemyFamily::Lion {
+                        continue;
+                    }
+                    let mut hidden_projectiles = None;
+                    step_lion(
+                        enemy,
+                        self.block_grid.as_ref(),
+                        Some(frame.kid_x_pos),
+                        &mut hidden_projectiles,
+                    );
+                }
+            }
         }
         self.rebuild_active_enemy_roster();
     }
