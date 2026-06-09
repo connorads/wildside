@@ -7280,8 +7280,6 @@ impl NativeRuntime {
                 load_ingame_bootstrap_started,
             } => {
                 let mut enter_gameplay = false;
-                let gameplay_input_active =
-                    input.left || input.right || input.a || input.b || input.c;
                 let title_card_bootstrap_active = (!*uses_load_ingame_bootstrap
                     || !*load_ingame_bootstrap_started)
                     && !self.starting_level_title_workers.is_empty();
@@ -7307,12 +7305,7 @@ impl NativeRuntime {
                 let handoff_ready = if *uses_load_ingame_bootstrap {
                     *elapsed_frames >= EARLY_START_LOAD_INGAME_HANDOFF_FRAMES
                 } else if title_card_bootstrap_active {
-                    let active_input_handoff = gameplay_input_active
-                        && *elapsed_frames
-                            > crate::movement::LEVEL_ENTRY_TITLE_ACTIVE_INPUT_HANDOFF_FRAMES;
-                    active_input_handoff
-                        || *elapsed_frames
-                            > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
+                    *elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
                 } else {
                     *elapsed_frames > 0
                 };
@@ -7322,12 +7315,11 @@ impl NativeRuntime {
                     // `Game_Mode=$000C` and jumps to `loc_6E2`. Oracle-backed
                     // boot traces keep the real title-card lineage on the
                     // hidden bootstrap far longer than the synthetic no-card
-                    // path. The source port's recorded gameplay settle path
-                    // already treats active gameplay input as the visible
-                    // hand-off trigger; ASM loc_1AE2E additionally consumes a
-                    // Start edge, which matters for inter-level title cards.
+                    // path. ASM loc_1AE2E only consumes a Start edge; gameplay
+                    // buttons must not release the title-card hibernate worker
+                    // into live Mode_Level input.
                     enter_gameplay = if title_card_bootstrap_active {
-                        gameplay_input_active || start_pressed
+                        start_pressed
                     } else {
                         *start_latched || start_pressed
                     };

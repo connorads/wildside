@@ -2022,16 +2022,22 @@ impl NativeRuntime {
                 // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
                 // transition; the hidden mode-$0008 level-entry shell still
                 // runs the gameplay/object slice before that visible Start.
+                let title_card_hibernates_gameplay_input =
+                    self.starting_level_title_card_bootstrap_active_loc_1ae2e();
                 let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
                     && self
                         .demo_startup_frame()
                         .is_some_and(|frame| frame > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
-                let gameplay_input = if demo_live_input {
+                let gameplay_input = if title_card_hibernates_gameplay_input {
+                    FrameInput::default()
+                } else if demo_live_input {
                     input
                 } else {
                     self.gameplay_input(input)
                 };
-                let jump_pressed = if demo_live_input {
+                let jump_pressed = if title_card_hibernates_gameplay_input {
+                    false
+                } else if demo_live_input {
                     input.b && !self.previous_input.b
                 } else {
                     self.gameplay_jump_pressed()
@@ -2505,6 +2511,16 @@ impl NativeRuntime {
 
     fn gameplay_jump_pressed(&self) -> bool {
         self.previous_input.b && !self.prior_input.b
+    }
+
+    fn starting_level_title_card_bootstrap_active_loc_1ae2e(&self) -> bool {
+        matches!(
+            self.boot_state,
+            BootState::StartingLevel {
+                uses_load_ingame_bootstrap: false,
+                ..
+            }
+        ) && !self.starting_level_title_workers.is_empty()
     }
 
     #[allow(non_snake_case)]
