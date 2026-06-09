@@ -81,6 +81,7 @@ use scenarios::{
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
     issue_260_drips_early_jump_close_probe_scenario,
+    issue_260_drips_iron_knight_climb_probe_scenario,
     issue_271_level00_dragon_stomp_damage_audit_scenario,
     issue_271_level01_rock_tank_stomp_route_audit_scenario,
     issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
@@ -186,6 +187,8 @@ enum RecordScenarioKind {
     Issue260DripsCleanerPrefixAudit,
     /// cleaner Level 01 Drips prefix extended by a live B-jump climb seed (#260).
     Issue260DripsBJumpClimbSeed,
+    /// Iron Knight variant of the cleaner Level 01 Drips prefix for wall-climb route search (#260).
+    Issue260DripsIronKnightClimbProbe,
     /// close early-jump Level 01 Drips route that stops before the death tail (#260).
     Issue260DripsEarlyJumpCloseProbe,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
@@ -2970,6 +2973,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue260DripsBJumpClimbSeed => {
             issue_260_drips_b_jump_climb_seed_scenario()
         }
+        RecordScenarioKind::Issue260DripsIronKnightClimbProbe => {
+            issue_260_drips_iron_knight_climb_probe_scenario()
+        }
         RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
             issue_260_drips_early_jump_close_probe_scenario()
         }
@@ -3081,6 +3087,9 @@ fn record_scenario_command(
             "issue260-drips-cleaner-prefix-audit"
         }
         RecordScenarioKind::Issue260DripsBJumpClimbSeed => "issue260-drips-b-jump-climb-seed",
+        RecordScenarioKind::Issue260DripsIronKnightClimbProbe => {
+            "issue260-drips-iron-knight-climb-probe"
+        }
         RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
             "issue260-drips-early-jump-close-probe"
         }

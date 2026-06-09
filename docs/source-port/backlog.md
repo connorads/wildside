@@ -2380,6 +2380,18 @@ work should compare native `step_drips` wait/pre-drop phase boundaries against
 ASM `GfxObject_Animate` + `Hibernate_UntilAnimFinished` before changing crawler
 RNG or stomp/contact rules.
 
+Follow-up 2026-06-09 Iron Knight route rejection for #213/#260: added the named
+scenario `issue260-drips-iron-knight-climb-probe` to test whether seeding Iron
+Knight on the cleaner lower-floor Drips prefix opens the row-32 approach. Probe:
+`probe-record-scenario --scenario issue260-drips-iron-knight-climb-probe
+--level 01 --target-point 584,543 --player-motion --summary-only`. Native stays
+`InGame` through frame 536 with healthy Iron Knight (`lives/hp=3/4`), but it
+stalls around `kid=$0216FA00,$024F0000`; closest approach to `(584,543)` is
+manhattan 49px at frame 128 (`dx=+1, dy=-48`), worse than the base-Kid B-jump
+seed's 23px miss. Treat this form seed as rejected route-search evidence, not
+an implementation signal; continue with the Drips `loc_33424`/`loc_33488`
+timing hypothesis above.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0

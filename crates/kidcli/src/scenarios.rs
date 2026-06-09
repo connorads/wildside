@@ -1742,6 +1742,37 @@ pub fn issue_260_drips_b_jump_climb_seed_scenario() -> DynamicScenario {
     }
 }
 
+/// #260 Iron Knight variant of the cleaner Drips route.
+///
+/// This is route-search evidence, not a gameplay fix. It starts from the same
+/// lower-floor Drips prefix as the base-Kid probes but seeds Iron Knight so the
+/// next route pass can test whether the wall-climb form can reach the row-32
+/// Drips/metal-block corridor through an oracle-backed script.
+pub fn issue_260_drips_iron_knight_climb_probe_scenario() -> DynamicScenario {
+    let mut scenario = issue_260_drips_cleaner_prefix_audit_scenario();
+    scenario.slug = "issue_260_drips_iron_knight_climb_probe_01".into();
+    scenario.playtest_form = Some(6);
+    scenario.checkpoints = vec![
+        DynamicCheckpoint {
+            label: "lower_floor_start".into(),
+            frame_index: 0,
+        },
+        DynamicCheckpoint {
+            label: "first_crawler_window".into(),
+            frame_index: 376,
+        },
+        DynamicCheckpoint {
+            label: "second_crawler_window".into(),
+            frame_index: 518,
+        },
+        DynamicCheckpoint {
+            label: "iron_knight_live_tail".into(),
+            frame_index: scenario.frame_count,
+        },
+    ];
+    scenario
+}
+
 /// #260 Drips route probe that isolates the closest early-jump approach.
 ///
 /// This intentionally stops at the frame-408 closest approach to the upper
@@ -2252,6 +2283,7 @@ mod tests {
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
         issue_260_drips_early_jump_close_probe_scenario,
+        issue_260_drips_iron_knight_climb_probe_scenario,
         issue_271_level00_dragon_stomp_damage_audit_scenario,
         issue_271_level01_rock_tank_stomp_route_audit_scenario,
         issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
@@ -2415,6 +2447,49 @@ mod tests {
                 "first_crawler_window",
                 "second_crawler_window",
                 "live_tail"
+            ]
+        );
+    }
+
+    #[test]
+    fn issue_260_drips_iron_knight_climb_probe_seeds_wall_climb_form() {
+        let scenario = issue_260_drips_iron_knight_climb_probe_scenario();
+
+        assert_eq!(scenario.slug, "issue_260_drips_iron_knight_climb_probe_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.playtest_form, Some(6));
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 536);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        const LEFT: u8 = 1 << 2;
+        const RIGHT: u8 = 1 << 3;
+        const B: u8 = 1 << 4;
+        assert_eq!(scenario.script[0], RIGHT);
+        assert_eq!(scenario.script[60], RIGHT | B);
+        assert_eq!(scenario.script[190], LEFT | RIGHT);
+        assert_eq!(scenario.script[261], 0);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "lower_floor_start",
+                "first_crawler_window",
+                "second_crawler_window",
+                "iron_knight_live_tail"
             ]
         );
     }
