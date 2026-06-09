@@ -5452,6 +5452,26 @@ into a separate death-state-machine fix; continue #248 by capturing the
 no-input/progressing oracle respawn timeline for `lose_life -> Game_Mode=$0008
 -> loc_6E2` and then derive the live timeout/title-card rendering from that
 evidence.
+
+Rejected approach 2026-06-09: do not "fix" #248 by making the generated
+title-card `StartingLevel` path consume an old latched Start at
+`level_settle@719`. Fresh repro:
+`cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1`
+first failed with native `Game_Mode=$0008` vs oracle `$000C` at
+`level_settle@719`. A trial patch to let the title-card branch consume
+`start_latched || start_pressed` moved native into `InGame`, but only at frame
+705; the compare then failed on the known opening-dragon timing (`hp 2` vs
+oracle `hp 1`, camera/Kid X still behind). More importantly, that early release
+contradicts the full-frame boot-title contract: cache-backed tests
+`boot_title_start_stays_hidden_through_frame_520_then_enters_ingame` and
+`boot_title_start_level_1_settles_slot_2_and_number_worker_on_frame_719`
+intentionally keep the generated title-card shell hidden at frame 719 with the
+settled loc_1AC70/loc_1AD48 worker pose. Root issue is a comparison-mode split:
+gameplay-state oracle captures expose live gameplay by frame 600, while
+full-frame title-card fidelity keeps mode-$0008 visuals through frame 719. Keep
+the engine contract intact; the next pass should reconcile the gameplay compare
+harness/oracle classification or derive a mode-specific native capture path,
+not shorten `EARLY_START_LOAD_INGAME_HANDOFF_FRAMES` blindly.
 | 249 | [?] | P1 | player | 2026-06-04 playtest: touching a wall auto-launches Kid to the top of the level (no C press) — recurring, causes deaths | In the Level-2 well, hitting the LEFT wall makes Kid "jump straight up to the top" with no C/jump input; also observed with a helmet form. Previously noted in the 2026-06-03 playtest as "wall-grab zoom-to-top teleport (Samurai/Rhino)". The wall-cling/grab live path is firing an upward launch unconditionally on wall contact instead of requiring the ASM climb input. Cross-ref the wall-cling probes (`kid_wall_cling_release_probe`, `sub_ADB8`/`sub_AE6E`) and `kid_grabbed_by_hand`/#219 climb gating. NEEDS: a Level-2 well DynamicScenario walking into the left wall WITHOUT pressing C, capture native vs oracle kid_y/wall_cling state. Min gate: wall contact without climb input does NOT launch Kid upward. INVESTIGATION 2026-06-04 (code read, movement.rs `try_snap_wall_sticky_ledge` ~4545): the base-Kid ledge pull-up that snaps Kid to the top of the grabbed wall (`self.player.y_pos = floor_y_fp...`, sets `ledge_snap_cooldown`) ALREADY requires a jump (`jump_requested = jump_pressed || jump_buffer_frames > 0`; returns false if `on_ground`), is gated to `form == TheKid` only (ASM loc_ABA4 `cmpi.w #The_Kid,(Current_Helmet)`), and has the #147 head-clearance gates (`probe_at` at y-20 and y-36). So for BASE Kid the "fly to top without C" can only happen if `jump_buffer_frames` is spuriously non-zero on wall contact (investigate the jump-buffer set/clear around wall-sticky), OR the well geometry defeats the head-clearance gates so it pulls up cell-by-cell to the shaft top. The HELMET case ("had the other guy's helmet on") is a DIFFERENT mechanism — helmet forms are excluded from this pull-up (returns false at form check), so the helmet "fly up" is a climbing-form path (IronKnight/Skycutter/Cyclone vertical) firing on wall contact. SPLIT #249 into base-Kid (jump-buffer/head-gate) and helmet (climb-form) when reproducing. Reproduction prerequisite: a Level-2 well scenario per form (use `playtest_form` + `capture-scenario-frames` to see the launch), since the mechanism is form-dependent and not safely fixable without seeing which path fires. ROUTE AUDITS 2026-06-04: added reusable `issue249-wall-no-jump-audit`, `issue249-juggernaut-wall-no-jump-audit`, and `issue249-juggernaut-wall-jump-audit` scenarios for the same known Highwater Pass 1 wall column used by #147. Results: base-Kid no-jump, Juggernaut/Rhino no-jump, Red Stealth jump (#147 route re-record), and Juggernaut/Rhino jump all have `trace_match=true` and `oracle_state_match=true`; transcripts have no damage/fall events. The debug probes show `branch=no_button_branch` for no-jump routes, `wall_cling=right` with normal upward jump velocity for jump routes, and no native-only Y launch. `oracle_frame_match=false` is only sprite/palette pixels. CONCLUSION: current wall logic is oracle-clean on this Highwater column; #249 remains open because the user specifically said "Level-2 well / LEFT wall", so the next reproducer must seed the actual well/left-wall geometry rather than this right-wall column. |
 Note 2026-06-04 for #249: added named Blue Lake Woods 2 pit audits
 `issue249-blw2-left-pit-wall-no-jump-audit` and
