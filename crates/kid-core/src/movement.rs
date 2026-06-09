@@ -6162,8 +6162,14 @@ impl OpeningSliceState {
 
                 // If the hidden block contains a prize, dispatch it
                 if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Prize {
+                    let prize_layout_addr = terrain::BlockList::level_layout_low_word_addr(
+                        probe.cell_x,
+                        probe.cell_y,
+                        grid.width_cells,
+                    );
                     let content = block_list
-                        .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
+                        .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
+                        .map(|entry| entry.content)
                         .unwrap_or(terrain::PrizeContent::Diamond);
                     let block_x_px = probe.cell_x * 16;
                     let block_y_px = probe.cell_y * 16;
@@ -6221,13 +6227,16 @@ impl OpeningSliceState {
             {
                 match block_dispatch_probe.cell.block_type {
                     terrain::BlockType::Prize => {
+                        let prize_layout_addr = terrain::BlockList::level_layout_low_word_addr(
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
+                            grid.width_cells,
+                        );
                         let content = block_list
                             .and_then(|bl| {
-                                bl.prize_content_at(
-                                    block_dispatch_probe.cell_x,
-                                    block_dispatch_probe.cell_y,
-                                )
+                                bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr)
                             })
+                            .map(|entry| entry.content)
                             .unwrap_or(terrain::PrizeContent::Diamond);
                         let block_x_px = block_dispatch_probe.cell_x * 16;
                         let block_y_px = block_dispatch_probe.cell_y * 16;

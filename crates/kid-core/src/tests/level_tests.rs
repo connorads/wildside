@@ -17888,6 +17888,69 @@ mod chunk_02 {
     }
 
     #[test]
+    fn visible_prize_ceiling_uses_exact_block_list_layout_addr_for_duplicate_coordinates() {
+        let w = 200u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 161, 1, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![
+                terrain::PrizeBlockEntry {
+                    layout_addr: terrain::BlockList::level_layout_low_word_addr(160, 1, w),
+                    col: 161,
+                    row: 1,
+                    content: terrain::PrizeContent::Diamond,
+                    disguised: false,
+                },
+                terrain::PrizeBlockEntry {
+                    layout_addr: terrain::BlockList::level_layout_low_word_addr(161, 1, w),
+                    col: 161,
+                    row: 1,
+                    content: terrain::PrizeContent::Ankh,
+                    disguised: false,
+                },
+                terrain::PrizeBlockEntry {
+                    layout_addr: terrain::BlockList::level_layout_low_word_addr(162, 1, w),
+                    col: 161,
+                    row: 1,
+                    content: terrain::PrizeContent::IronKnight,
+                    disguised: false,
+                },
+            ],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 3200,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = (161 * 16 + 8) << 16;
+        slice.player.y_pos = 47 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(&block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Ankh, 161 * 16, 16)),
+            "ASM loc_10342 matches the exact Level_Layout low word; duplicate col,row prize records must not collapse to the first Diamond entry",
+        );
+    }
+
+    #[test]
     fn visible_prize_ceiling_suppresses_base_dispatch_when_sub_bbe2_selects_non_block() {
         let w = 6u16;
         let h = 5u16;

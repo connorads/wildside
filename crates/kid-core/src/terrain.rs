@@ -671,6 +671,11 @@ fn is_level_layout_low_word_addr(addr: u16) -> bool {
 }
 
 impl BlockList {
+    pub(crate) fn level_layout_low_word_addr(col: u16, row: u16, width_cells: u16) -> u16 {
+        let offset = ((u32::from(row) * u32::from(width_cells)) + u32::from(col)) * 2;
+        LEVEL_LAYOUT_LOW_WORD_START.wrapping_add(offset as u16)
+    }
+
     /// Parse prize block entries from the raw Block List RAM dump.
     ///
     /// Prize entries are 8 bytes each at the start of the block list.
