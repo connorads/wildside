@@ -240,6 +240,10 @@
         "reason": "Rejected 2026-06-02. ASM `sub_61CA` owns five falling slots and ten impact slots; `loc_625E` refuses to spawn when the five falling slots are occupied, and `loc_62C2` decrements `$FFFFFB3D` when a slot is allocated. Native's prior unbounded projectile list could create a sixth hail particle and left the free-slot word stale. The current fix only enforces the five-slot allocation/free-count semantics; the full worker still needs native falling/impact storage, collision-map splash handling, and Kid `$38=#$28` push-timer wiring."
       },
       {
+        "name": "Recording `wf_geyser_onscreen_05` can be reduced into weather geyser evidence",
+        "reason": "Rejected 2026-06-09. Fresh `verify-recording --slug wf_geyser_onscreen_05` fails with native trace replay drift at frame 0. The generated `.cache/cases/wf_geyser_onscreen_05` 0..120 case `wf_geyser_onscreen_05_case_00000_00120` also fails as recording-verification blocked: `source recording replay drifted at frame 0; re-verify or re-record `wf_geyser_onscreen_05` before treating this case as gameplay-authoritative`. Do not patch weather/geyser behaviour from this stale bundle; re-record it on current native before using it as gameplay-authoritative."
+      },
+      {
         "name": "Backlog #229 can use screen height alone because generated layout metadata already has expanded rows",
         "reason": "Rejected 2026-06-02. Generated level-layout metadata is cache-local and already post-processed by the oracle extraction path, but live runtime bounds come from `LevelHeader`. ASM `Load_LevelData loc_15A0` explicitly adds `Number_blank_top_rows` into the level height and camera max registers after calculating the base screen height. Native must reproduce that from header bits rather than relying on generated dump dimensions or `height_screens * 224`."
       },
