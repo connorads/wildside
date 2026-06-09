@@ -118,6 +118,22 @@ pub(crate) struct TopDivergenceField {
     pub(crate) checkpoints: Option<usize>,
 }
 
+const NATIVE_GAMEPLAY_SMOKE_SCENARIOS: &[GameplayScenario] = &[
+    GameplayScenario::PauseResumeLevel1,
+    GameplayScenario::ProgressTwoTransitions,
+    GameplayScenario::SoakLevel10m,
+];
+
+const STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS: &[GameplayScenario] = &[
+    GameplayScenario::PauseResumeLevel1,
+    GameplayScenario::ProgressTwoTransitions,
+];
+
+const FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS: &[GameplayScenario] = &[
+    GameplayScenario::DeathRespawnLevel1,
+    GameplayScenario::DeathRespawnStartResumeLevel1,
+];
+
 pub(crate) fn run_release_gate(
     repo_root: &Path,
     rom_path: &Path,
@@ -186,13 +202,10 @@ fn run_one_player_playable_gate(
     manifest: &AssetManifest,
     report: &mut ReleaseGateReport,
 ) -> Result<()> {
-    for scenario in [
-        GameplayScenario::PauseResumeLevel1,
-        GameplayScenario::ProgressTwoTransitions,
-        GameplayScenario::DeathRespawnLevel1,
-        GameplayScenario::DeathRespawnStartResumeLevel1,
-        GameplayScenario::SoakLevel10m,
-    ] {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+
+    for &scenario in NATIVE_GAMEPLAY_SMOKE_SCENARIOS {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
         let step_name = format!("native_gameplay:{}", scenario.slug());
         run_release_step(report, &step_name, || {
@@ -204,17 +217,24 @@ fn run_one_player_playable_gate(
         })?;
     }
 
-    for scenario in [
-        GameplayScenario::PauseResumeLevel1,
-        GameplayScenario::DeathRespawnLevel1,
-        GameplayScenario::DeathRespawnStartResumeLevel1,
-    ] {
+    for &scenario in STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
         let step_name = format!("gameplay_compare:{}", scenario.slug());
         run_release_step(report, &step_name, || {
             compare_native_gameplay(repo_root, rom_path, manifest, scenario)?;
             Ok(format!(
                 "native gameplay compare passed for {}",
+                scenario.slug()
+            ))
+        })?;
+    }
+
+    for &scenario in FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS {
+        let step_name = format!("gameplay_verify:{}", scenario.slug());
+        run_release_step(report, &step_name, || {
+            verify_gameplay_scenario(repo_root, &rom_bytes, scenario)?;
+            Ok(format!(
+                "full gameplay verification passed for {}",
                 scenario.slug()
             ))
         })?;
@@ -398,18 +418,24 @@ fn run_one_player_accurate_gate(
         Ok("boot/title/native gameplay bootstrap matches expected flow".to_string())
     })?;
 
-    for scenario in [
-        GameplayScenario::PauseResumeLevel1,
-        GameplayScenario::DeathRespawnLevel1,
-        GameplayScenario::DeathRespawnStartResumeLevel1,
-        GameplayScenario::ProgressTwoTransitions,
-    ] {
+    for &scenario in STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS {
         ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
         let step_name = format!("gameplay_compare:{}", scenario.slug());
         run_release_step(report, &step_name, || {
             compare_native_gameplay(repo_root, rom_path, manifest, scenario)?;
             Ok(format!(
                 "native gameplay compare passed for {}",
+                scenario.slug()
+            ))
+        })?;
+    }
+
+    for &scenario in FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS {
+        let step_name = format!("gameplay_verify:{}", scenario.slug());
+        run_release_step(report, &step_name, || {
+            verify_gameplay_scenario(repo_root, &rom_bytes, scenario)?;
+            Ok(format!(
+                "full gameplay verification passed for {}",
                 scenario.slug()
             ))
         })?;
@@ -663,6 +689,30 @@ mod tests {
         assert_eq!(
             report_path,
             PathBuf::from("/tmp/kc/.cache/release-gate/1p-accurate/1776796430/report.json")
+        );
+    }
+
+    #[test]
+    fn death_respawn_routes_use_full_boot_gameplay_verification() {
+        assert!(!NATIVE_GAMEPLAY_SMOKE_SCENARIOS.contains(&GameplayScenario::DeathRespawnLevel1));
+        assert!(
+            !NATIVE_GAMEPLAY_SMOKE_SCENARIOS
+                .contains(&GameplayScenario::DeathRespawnStartResumeLevel1)
+        );
+        assert!(
+            !STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS
+                .contains(&GameplayScenario::DeathRespawnLevel1)
+        );
+        assert!(
+            !STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS
+                .contains(&GameplayScenario::DeathRespawnStartResumeLevel1)
+        );
+        assert!(
+            FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS.contains(&GameplayScenario::DeathRespawnLevel1)
+        );
+        assert!(
+            FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS
+                .contains(&GameplayScenario::DeathRespawnStartResumeLevel1)
         );
     }
 }

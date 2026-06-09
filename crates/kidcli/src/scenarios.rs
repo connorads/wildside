@@ -231,7 +231,7 @@ const DEATH_RESPAWN_START_RESUME_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 5] = 
     },
     GameplayCheckpoint {
         label: "resumed_tail",
-        frame_index: 1_950,
+        frame_index: 1_941,
     },
 ];
 
@@ -3066,7 +3066,7 @@ mod tests {
                 ("pre_death", 1_254),
                 ("respawn_hidden", 1_919),
                 ("start_release", 1_922),
-                ("resumed_tail", 1_950),
+                ("resumed_tail", 1_941),
             ]
         );
     }
