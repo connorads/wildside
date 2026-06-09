@@ -4280,6 +4280,9 @@ mod chunk_02 {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
+        let mut frame_2420 = None;
+        let mut frame_2428 = None;
+        let mut frame_2432 = None;
         let mut frame_2460 = None;
         let mut frame_2520 = None;
         let mut frame_2640 = None;
@@ -4287,13 +4290,38 @@ mod chunk_02 {
 
         for frame_index in 0..=2_700 {
             let trace = runtime.step_frame(FrameInput::default());
+            if frame_index == 2_420 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    None,
+                    "ASM sub_1B43A/loc_1B446 hibernates for `$2A` frames before the first sub_1BF24 hidden-shell upload",
+                );
+                frame_2420 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 2_428 {
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    None,
+                    "oracle full-frame capture keeps the loc_1B446 shell blank through cold-boot frame 2428",
+                );
+                frame_2428 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 2_432 {
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    Some(0),
+                    "oracle full-frame capture exposes the first loc_1B446/sub_1BF24 hidden-shell upload on cold-boot frame 2432",
+                );
+                frame_2432 = runtime.vdp_state().cloned();
+            }
             if frame_index == 2_460 {
                 assert_eq!(trace.game_mode, GameMode::IntroSequence6);
                 assert!(!trace.title_screen_ready);
                 assert_eq!(
                     runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
-                    Some(0),
-                    "ASM loc_1BA90's fade hold precedes Load_IntroSequence6, so cold-boot frame 2460 still presents the first sub_1B43A/loc_1B446 hidden-shell frame",
+                    Some(1),
+                    "ASM loc_1B446 has advanced past the first upload and presents the next visible hidden-shell frame by cold-boot frame 2460",
                 );
                 assert_eq!(
                     runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
@@ -4307,8 +4335,8 @@ mod chunk_02 {
                 assert!(!trace.title_screen_ready);
                 assert_eq!(
                     runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
-                    Some(4),
-                    "ASM loc_1B446 keeps the first `unk_1B4D6` upload visible through the following object pass, so oracle-backed cold-boot frame 2520 presents sub_1BF24 frame 4",
+                    Some(5),
+                    "ASM loc_1B446 continues advancing the hidden-shell byte stream through cold-boot frame 2520",
                 );
                 frame_2520 = runtime.vdp_state().cloned();
             }
@@ -4342,7 +4370,21 @@ mod chunk_02 {
             }
         }
 
+        let vdp_2420 =
+            frame_2420.expect("IntroSequence6 should keep the loc_1BA90 fade shell at frame 2420");
+        let vdp_2428 =
+            frame_2428.expect("IntroSequence6 should keep the loc_1BA90 fade shell at frame 2428");
+        let vdp_2432 =
+            frame_2432.expect("IntroSequence6 should expose first hidden-shell VDP at frame 2432");
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
+        assert_eq!(
+            vdp_2420.cram, vdp_2428.cram,
+            "oracle frames 2420 and 2428 remain in the same `$AAA` fade shell before the first loc_1B446 upload",
+        );
+        assert!(
+            vdp_2432.vram.iter().any(|&byte| byte != 0),
+            "oracle frame 2432 exposes the first loc_1B446/sub_1BF24 hidden-shell upload",
+        );
         assert!(
             frame_2520.is_some(),
             "IntroSequence6 should still expose hidden title VDP at frame 2520"

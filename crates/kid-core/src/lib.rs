@@ -1604,12 +1604,20 @@ impl NativeRuntime {
                 )
             }),
             BootState::IntroSequence6 { .. }
-                if self.title_screen_elapsed_frames < INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS =>
+                if !self.title_screen_vdp_ready()
+                    && self
+                        .intro_sequence_6_hidden_shell_frame_index_loc_1b43a()
+                        .is_none() =>
             {
                 self.intro_sub_1b850_data.as_ref().map(|data| {
                     // ASM loc_1BA5C writes `Game_Mode=$28`, then loc_1BA90 keeps
-                    // the intro-5 worker shell alive through the fade counter
-                    // before `j_loc_6E2` enters Load_IntroSequence6.
+                    // the intro-5 worker shell alive through the fade counter.
+                    // Load_IntroSequence6 then clears/fills VRAM, but
+                    // sub_1B43A/loc_1B446 still hibernates for `$2A` frames
+                    // before the first sub_1BF24 transformation frame is
+                    // visible. Keep the fully faded `$AAA` shell during that
+                    // blank interval; rebuilding the title-character tilemap
+                    // earlier leaves the stale white ninja silhouette visible.
                     vdp::build_intro_sequence_5_fade_hold_vdp_at_elapsed(
                         data,
                         self.title_screen_region_byte,
@@ -1704,12 +1712,20 @@ impl NativeRuntime {
 
     fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
         let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
+        const LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES: usize = 16;
+
         // ASM loc_1BA90 runs the intro-5 fade hold before j_loc_6E2 enters
         // Load_IntroSequence6. Native's title_screen_elapsed_frames includes
         // that handoff window, but sub_1B43A's `$2A` wait starts afterwards.
+        // Oracle full-frame captures show the first loc_1B446/sub_1BF24
+        // hidden-shell upload already visible at cold-boot frame 2432 and
+        // still blank at 2428, 16 native-local frames earlier than the raw
+        // object-loop count because the VDP upload is presented before the
+        // next traced object snapshot.
         let elapsed = self
             .title_screen_elapsed_frames
-            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS);
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
+            .saturating_add(LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES);
         let initial = usize::from(script.initial_hibernate_frames);
         if elapsed < initial {
             return None;
