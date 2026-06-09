@@ -611,6 +611,12 @@ enum Commands {
         #[arg(long, default_value_t = 1)]
         checkpoint_interval: usize,
     },
+    CompareCachedNativeGameplay {
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+        #[arg(long)]
+        run_slug: String,
+    },
     VerifyRecording {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -1718,6 +1724,10 @@ fn main() -> Result<()> {
                 frame_end,
                 checkpoint_interval,
             )?;
+        }
+        Commands::CompareCachedNativeGameplay { scenario, run_slug } => {
+            let repo_root = current_dir()?;
+            compare_cached_native_gameplay_run(&repo_root, &run_slug, scenario)?;
         }
         Commands::VerifyRecording {
             rom,

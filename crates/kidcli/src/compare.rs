@@ -242,6 +242,37 @@ where
     Ok((run_dir, native_capture, oracle_capture))
 }
 
+pub(crate) fn read_gameplay_capture(path: &Path) -> Result<GameplayCapture> {
+    let bytes = fs::read(path)
+        .with_context(|| format!("failed to read gameplay capture {}", path.display()))?;
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse gameplay capture {}", path.display()))
+}
+
+pub(crate) fn compare_cached_native_gameplay_run(
+    repo_root: &Path,
+    run_slug: &str,
+    scenario: GameplayScenario,
+) -> Result<()> {
+    let run_dir = repo_root
+        .join(".cache/native-gameplay-oracle-runs")
+        .join(run_slug);
+    let native_capture = read_gameplay_capture(&run_dir.join("native/summary.json"))?;
+    let oracle_capture = read_gameplay_capture(&run_dir.join("oracle/summary.json"))?;
+
+    compare_gameplay_checkpoints_against_oracle(
+        &run_dir,
+        scenario,
+        &native_capture.checkpoints,
+        &oracle_capture.checkpoints,
+    )
+    .map_err(|err| {
+        annotate_gameplay_checkpoint_failure(err, &native_capture, &oracle_capture, scenario)
+    })?;
+    println!("cached native gameplay comparison passed for {run_slug}");
+    Ok(())
+}
+
 pub(crate) fn compare_native_gameplay_with<FO, FN, FE>(
     repo_root: &Path,
     scenario: GameplayScenario,
@@ -1896,6 +1927,70 @@ mod tests {
         assert!(hint.contains("native frames 1..5"));
         assert!(hint.contains("oracle one frame earlier"));
         assert!(hint.contains("likely phase-slip onset at frame 1"));
+    }
+
+    #[test]
+    fn compare_cached_native_gameplay_run_reuses_written_summaries() {
+        let repo_root = tempfile::TempDir::new().expect("repo root");
+        let run_slug = "cached_death_window";
+        let run_dir = repo_root
+            .path()
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(run_slug);
+        let capture = GameplayCapture {
+            scenario: run_slug.into(),
+            frame_count: 2,
+            missed_vblank_frames: 0,
+            checkpoints: vec![gameplay_state(1, "frame_00001", 0x0010_0000)],
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x000F_0000),
+                gameplay_state(1, "frame_00001", 0x0010_0000),
+            ],
+        };
+        write_gameplay_capture(&run_dir.join("native"), &capture).expect("native capture");
+        write_gameplay_capture(&run_dir.join("oracle"), &capture).expect("oracle capture");
+
+        compare_cached_native_gameplay_run(
+            repo_root.path(),
+            run_slug,
+            GameplayScenario::DeathRespawnLevel1,
+        )
+        .expect("cached comparison should pass");
+    }
+
+    #[test]
+    fn compare_cached_native_gameplay_run_reports_cached_drift() {
+        let repo_root = tempfile::TempDir::new().expect("repo root");
+        let run_slug = "cached_death_window_drift";
+        let run_dir = repo_root
+            .path()
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(run_slug);
+        let native = GameplayCapture {
+            scenario: run_slug.into(),
+            frame_count: 2,
+            missed_vblank_frames: 0,
+            checkpoints: vec![gameplay_state(1, "frame_00001", 0x0010_0000)],
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x000F_0000),
+                gameplay_state(1, "frame_00001", 0x0010_0000),
+            ],
+        };
+        let mut oracle = native.clone();
+        oracle.checkpoints[0].game_mode = 0x0008;
+        oracle.states[1].game_mode = 0x0008;
+        write_gameplay_capture(&run_dir.join("native"), &native).expect("native capture");
+        write_gameplay_capture(&run_dir.join("oracle"), &oracle).expect("oracle capture");
+
+        let error = compare_cached_native_gameplay_run(
+            repo_root.path(),
+            run_slug,
+            GameplayScenario::DeathRespawnLevel1,
+        )
+        .expect_err("cached comparison should report drift");
+
+        assert!(format!("{error:#}").contains("game mode"));
+        assert!(format!("{error:#}").contains("frame 1"));
     }
 
     #[test]
