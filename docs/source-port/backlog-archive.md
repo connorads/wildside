@@ -7143,3 +7143,98 @@ True fix requires: making native start demo byte consumption on the same frame
 as the oracle (i.e., fixing the 1-frame start offset), likely by restructuring
 how BootState::DemoPlay initialises the counter relative to the ASM's first
 ReadJoypad call in demo mode.
+
+---
+
+Live playtest note 2026-06-09: fresh full human playthrough of the latest pushed
+build (Blue Lake Woods through the death-wall / skull-theme levels). New rows
+filed as #274-#283. Older open rows were re-confirmed as still reproducing on the
+current build — none of the 2026-06-07/08 queue is cleared by this pass.
+
+Re-confirmed still-broken (fresh repro, no status change):
+- #254 intro ninja animation still looks broken in the live intro/menu route.
+- #260 / #213 Level-2 slime Drips still drip only halfway then stop; the metal
+  block is still destroyable when it should not be; slimes also visibly flash
+  (unclear if intended — needs oracle check).
+- #215 water/foreground priority: Kid still walks *in front of* the water on
+  level 3 (should pass behind it). Fresh repro extends #215 (was Level 02) to
+  level 3.
+- #261 / #250 growing blocks still shoot spikes when they grow.
+- #262 / #251 levels 5/6/7 demon/skull theme: map layout still wrong — diamonds
+  render as red skulls (theme-correct), but floor/box placement feels inverted;
+  some blocks are hittable in the right place, others are not. Reconfirmed.
+- #264 / #272 / #242 audio: bouncy-tile SFX is weird/elongated; helmet-pickup
+  SFX also off; crucially the bouncing sound *slows down every other sound in the
+  game* while it plays. This reinforces #264 (tempo/perf regression on certain
+  SFX) — the slowdown is global, not just music-on-block-hit.
+- #265 EOL countdown sound still does not stop when the time bonus finishes — it
+  keeps playing the counting SFX.
+- #266 death-wall level still renders the left-side drills as just a red line.
+- #273 lion/palm-tree level: the lion now patrols (good — that was previously
+  missing), but there are still no helmets in the prize blocks on that level.
+  Keeps #273 open pending the helmet-prize mapping fix landing visibly.
+- #257 death/respawn: on the death-wall level, dying reloads Kid at roughly the
+  same spot he died rather than at the level/checkpoint start (see #283 — split
+  out as its own row because it is a respawn-*position* bug, distinct from the
+  black-screen-until-Start symptom).
+
+New rows:
+- #274 (P1, demo) Attract-mode intro demo: Kid grabs the Cyclops/Eyeclops and is
+  meant to spin around with it, but instead a diamond emerges from a prize box —
+  the demo's scripted grab/spin is being replaced by (or colliding with) a
+  prize-box diamond spawn. Evidence: playtest only; native repro = reproduced in
+  attract loop; oracle repro = unknown (compare attract-demo object spawns to the
+  ROM Demo_InputData path, cf. #026). Min gate: 1p-playable.
+- #275 (P1, render/hud) Collected diamonds do not fly up to the top-right HUD
+  diamond counter — the pickup-to-HUD fly animation is missing entirely. Evidence:
+  playtest; native repro = reproduced; oracle repro = unknown. Min gate: visual-parity.
+- #276 (P1, hud) Player hit-point counter (top-left helmet HP) does not decrement
+  on taking damage — showed 4, took a hit (no death), still 4. Distinct from the
+  lives-count #241 (which was proven correct 2026-06-04); this is the armour/HP
+  readout. Evidence: playtest; native repro = reproduced; oracle repro = unknown.
+  Min gate: 1p-playable.
+- #277 (P1, player/input) Directional jump bias: holding *right* into stairs and
+  pressing jump jumps forward correctly, but holding *left* into a wall and
+  pressing jump drops the left input — the leftward case is not symmetric.
+  Distinct from #249 (wall auto-launch to top) and #270 (well left-wall upward
+  launch): here the symptom is a *dropped/biased* directional input on jump, not
+  an auto-launch. Evidence: playtest; native repro = reproduced; oracle repro =
+  unknown. Min gate: 1p-playable. Likely an input-latch / facing-vs-wall-contact
+  gating asymmetry — trace the jump input path for a left-vs-right divergence.
+- #278 (P1, block/collision) Level 3, below the Heavy Man helmet: three breakable
+  floor blocks should leave a solid stone floor when broken, but breaking them
+  drops Kid through the floor. The terrain underneath the breakable layer is not
+  being treated as solid after the break. Evidence: playtest; native repro =
+  reproduced; oracle repro = unknown. Min gate: 1p-playable.
+- #279 (P1, enemy/block) Rhino/Berzerker cannot destroy the light/breakable
+  blocks it should be able to on level 3 (player suspects it should plough through
+  them). Cross-ref #256 (Rhino render z-order). Evidence: playtest; native repro =
+  reproduced; oracle repro = unknown — verify against ROM Berzerker block-smash
+  logic before treating as a bug (could be a puzzle, player unsure). Min gate:
+  1p-playable.
+- #280 (P2, render/background) Parallax/sky background glitches: the scrolling sky
+  loads in late as you climb to the top of level 3; a stray dark-green block
+  appears in the sky in places; and cloud animation appears not to render on the
+  death-wall level. Possibly all one background-layer load/anim timing root cause.
+  Evidence: playtest; native repro = reproduced; oracle repro = unknown. Min gate:
+  visual-parity.
+- #281 (P1, block) Push-up blocks (two-item blocks): jumping on them from *above*
+  makes them rise with no SFX and Kid falls through them as they go up. The player
+  believes they are meant to be hit from *below* to push them up. So both the
+  trigger direction and the SFX are wrong, and the top surface is non-solid while
+  rising. Distinct from the growing/spike blocks (#261) and lift platforms (#232).
+  Evidence: playtest; native repro = reproduced; oracle repro = unknown. Min gate:
+  1p-playable.
+- #282 (P3, infra/debug) Debug ergonomics request: make the level-skip (Next)
+  control route through the level intro/name card so the level name is visible —
+  makes it far easier to reference levels in playtest notes. Not a game bug; a
+  debug-flow improvement to `warp_to_level` / skip path.
+- #283 (P1, gameflow/death) Death-wall level: after dying, Kid respawns at roughly
+  the spot he died rather than at the level/checkpoint start. Split from #257
+  because it is a respawn-position bug, not the black-screen-until-Start symptom.
+  Evidence: playtest; native repro = reproduced; oracle repro = unknown. Min gate:
+  1p-playable.
+
+Uncertain / not filed (player flagged but unsure): the "continues" flow may be
+broken (player unsure); a Samurai prize block appeared inside the demon/skull
+level (player unsure if intended). Left untracked pending clearer repro.
