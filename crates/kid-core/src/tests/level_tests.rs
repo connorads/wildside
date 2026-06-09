@@ -22306,6 +22306,52 @@ mod chunk_10 {
     }
 
     #[test]
+    fn juggernaut_stomps_plain_rock_tank_mouth_attachment_before_side_damage_loc_3b464() {
+        // ASM Tank.asm loc_3B464 reads the linked mouth collision word, and
+        // Character_CheckCollision handles kid-above `$2C` before the later
+        // side-damage path can spend Juggernaut HP.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        runtime.progression.number_hitpoints = PlayerForm::Juggernaut.max_hitpoints();
+        let mut tank = make_pacer(EnemyFamily::Tank, 2, 100, 224);
+        tank.x_velocity = 0x0000_8000;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 212 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped, "Juggernaut mouth-child contact should resolve as a stomp");
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::Juggernaut.max_hitpoints(),
+            "ASM Character_CheckCollision kid-above route must not also spend Juggernaut HP"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Tank.asm loc_3B464 consumes the queued mouth-child hit on the parent pass"
+        );
+        runtime.apply_pending_enemy_collisions();
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+    }
+
+    #[test]
     fn stomp_nonfatal_tar_monster_hurt_does_not_spawn_burst_loc_323c0() {
         // ASM Tar_Monster.asm loc_323C0 hides the child, decrements HP, and
         // hibernates through the hurt animation. The five-child burst is the
