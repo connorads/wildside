@@ -1745,6 +1745,8 @@ fn is_explicit_block_sound_id(sound_id: u8) -> bool {
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
     let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
     let mut sound_ids = queued_sound_ids.to_vec();
+    let gameplay_sfx_fallback_active =
+        matches!(curr.game_mode, GameMode::InGame | GameMode::DemoPlay);
 
     // Sound test: play the selected track when A/C pressed
     if curr.sound_test_play_pending
@@ -1754,7 +1756,8 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     }
 
     // Jump
-    if !queued_sound_ids.contains(&gems_sfx::JUMP)
+    if gameplay_sfx_fallback_active
+        && !queued_sound_ids.contains(&gems_sfx::JUMP)
         && prev.kid_on_ground == Some(true)
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
@@ -1956,9 +1959,12 @@ impl SfxEngine {
 
 fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut SfxEngine) {
     let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
+    let gameplay_sfx_fallback_active =
+        matches!(curr.game_mode, GameMode::InGame | GameMode::DemoPlay);
 
     // Jump (left ground with upward velocity)
-    if prev.kid_on_ground == Some(true)
+    if gameplay_sfx_fallback_active
+        && prev.kid_on_ground == Some(true)
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
     {
@@ -12598,6 +12604,37 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::JUMP],
             "ASM sub_A432 loc_A480 now queues jump SFX from the core trace, so the native-player fallback must not play a duplicate jump cue"
+        );
+    }
+
+    #[test]
+    fn play_native_does_not_infer_jump_sfx_during_title_card_loc_1ae2e() {
+        let mut prev = sample_trace(GameMode::LevelTransition);
+        let mut curr = sample_trace(GameMode::LevelTransition);
+        prev.kid_on_ground = Some(true);
+        curr.kid_on_ground = Some(false);
+        curr.kid_y_velocity = Some(-0x40000);
+
+        assert!(
+            !gems_event_sound_ids(&prev, &curr).contains(&gems_sfx::JUMP),
+            "ASM loc_1AE2E only polls Start while the title card hibernates; play-native must not infer gameplay jump SFX from stale hidden-player trace deltas"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_does_not_infer_jump_during_title_card_loc_1ae2e() {
+        let mut prev = sample_trace(GameMode::LevelTransition);
+        let mut curr = sample_trace(GameMode::LevelTransition);
+        prev.kid_on_ground = Some(true);
+        curr.kid_on_ground = Some(false);
+        curr.kid_y_velocity = Some(-0x40000);
+        let mut sfx = SfxEngine::new();
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        assert!(
+            sfx.active_tones.is_empty(),
+            "ASM loc_1AE2E title-card hibernate must suppress the non-GEMS jump-tone fallback as well as the GEMS jump cue"
         );
     }
 
