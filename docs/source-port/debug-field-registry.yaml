@@ -4,6 +4,7 @@
     "warn_after_commits": 2,
     "fail_after_commits": 4
   },
+  "candidate_promotions": [],
   "fields": [
     {
       "key": "segment_index",

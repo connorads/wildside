@@ -11,7 +11,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = REPO_ROOT / "docs/source-port/debug-field-registry.yaml"
-FRONTIER_STATE_PATH = REPO_ROOT / "docs/source-port/frontier-state.yaml"
 SCAN_GLOBS = (
     "crates/**/*.rs",
     "scripts/**/*.py",
@@ -70,14 +69,14 @@ def maturity_for_distance(distance: int | None, warn_after: int, fail_after: int
 
 
 def refresh_candidate_maturity(
-    frontier_state: dict,
+    registry: dict,
     registered: dict,
     emitted: set[str],
     warn_after: int,
     fail_after: int,
 ) -> bool:
     mutated = False
-    for item in frontier_state.get("candidate_promotions", []):
+    for item in registry.get("candidate_promotions", []):
         key = item.get("key")
         field = registered.get(key) if key else None
         if field is None or key not in emitted:
@@ -93,7 +92,6 @@ def refresh_candidate_maturity(
 
 def main() -> int:
     registry = load_jsonish(REGISTRY_PATH)
-    frontier_state = load_jsonish(FRONTIER_STATE_PATH)
     defaults = registry.get("defaults", {})
     warn_after = int(defaults.get("warn_after_commits", 2))
     fail_after = int(defaults.get("fail_after_commits", 4))
@@ -127,15 +125,15 @@ def main() -> int:
                 f"candidate key {key}: {distance} commits old, consider promotion to typed state"
             )
 
-    candidate_promotions = frontier_state.get("candidate_promotions", [])
+    candidate_promotions = registry.get("candidate_promotions", [])
     for item in candidate_promotions:
         key = item.get("key")
         if key not in registered:
-            problems.append(f"frontier-state candidate promotion references unknown key: {key}")
+            problems.append(f"registry candidate promotion references unknown key: {key}")
 
-    if refresh_candidate_maturity(frontier_state, registered, emitted, warn_after, fail_after):
-        FRONTIER_STATE_PATH.write_text(
-            json.dumps(frontier_state, indent=2) + "\n", encoding="utf-8"
+    if refresh_candidate_maturity(registry, registered, emitted, warn_after, fail_after):
+        REGISTRY_PATH.write_text(
+            json.dumps(registry, indent=2) + "\n", encoding="utf-8"
         )
 
     print("Debug Field Audit")
@@ -146,7 +144,7 @@ def main() -> int:
         for key in sorted(emitted):
             print(f"    - {key}")
     if candidate_promotions:
-        print("  frontier candidate promotions:")
+        print("  candidate promotions:")
         for item in candidate_promotions:
             maturity = item.get("maturity_status", "exploratory")
             print(f"    - {item['key']} [{maturity}]: {item['reason']}")
