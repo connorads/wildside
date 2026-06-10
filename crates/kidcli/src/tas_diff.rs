@@ -27,6 +27,7 @@ pub fn run_tas_diff(
     include_advisory: bool,
     include_physics_trace: bool,
     show_object_roster_on_match: bool,
+    rng_trace: bool,
     visual: bool,
     frontier_kind: FrontierKind,
 ) -> Result<()> {
@@ -85,6 +86,32 @@ pub fn run_tas_diff(
         &oracle_dir,
         None,
     )?;
+
+    if rng_trace {
+        println!("frame native_rng native_delta oracle_rng oracle_delta");
+        let mut previous_native_rng = None;
+        let mut previous_oracle_rng = None;
+        for frame_idx in start..end {
+            let label = format!("frame_{frame_idx}");
+            let native_rng_offset = native_trace
+                .get(frame_idx)
+                .and_then(|frame| frame.rng_offset);
+            let oracle_rng_offset = checkpoint_state(&oracle.states, &label)
+                .and_then(|state| state.rng_offset);
+            let native_delta = format_rng_delta(previous_native_rng, native_rng_offset);
+            let oracle_delta = format_rng_delta(previous_oracle_rng, oracle_rng_offset);
+            let native_rng = native_rng_offset
+                .map(|offset| format!("{offset:#06x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            let oracle_rng = oracle_rng_offset
+                .map(|offset| format!("{offset:#06x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            println!("{frame_idx:>5} {native_rng:>10} {native_delta:>12} {oracle_rng:>10} {oracle_delta:>12}");
+            previous_native_rng = native_rng_offset;
+            previous_oracle_rng = oracle_rng_offset;
+        }
+        return Ok(());
+    }
 
     // Build per-frame diff index
     let diffs = compare_sweep_states_for_frontier(&native_states, &oracle.states, frontier_kind);
@@ -324,6 +351,16 @@ fn diff_category_tag(diff: &StateDiff) -> &'static str {
 
 fn checkpoint_state<'a>(states: &'a [OracleState], label: &str) -> Option<&'a OracleState> {
     states.iter().find(|state| state.label == label)
+}
+
+fn format_rng_delta(previous: Option<u16>, current: Option<u16>) -> String {
+    match (previous, current) {
+        (Some(previous), Some(current)) => {
+            let delta = current.wrapping_sub(previous) & 0x003f;
+            format!("+{delta:#04x}")
+        }
+        _ => "-".to_owned(),
+    }
 }
 
 fn should_print_object_roster(

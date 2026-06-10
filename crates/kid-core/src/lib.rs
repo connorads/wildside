@@ -2079,6 +2079,14 @@ impl NativeRuntime {
                 self.step_diamond_power(self.prior_input);
             }
             if gameplay_slice_active {
+                if matches!(self.boot_state, BootState::InGame)
+                    || (self.demo_gameplay_active() && self.opening_slice.is_some())
+                {
+                    // ASM Execute_Objects loc_E12 (kid.asm:1636) starts every
+                    // live Mode_Level object pass with Get_RandomNumber_long
+                    // before object coroutines, Diamond Power, and Kid motion.
+                    let _ = self.rom_random.next_long();
+                }
                 // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
                 // transition; the hidden mode-$0008 level-entry shell still
                 // runs the gameplay/object slice before that visible Start.

@@ -877,6 +877,9 @@ enum Commands {
         /// Print object rosters on matching frames as well as divergent ones
         #[arg(long, default_value_t = false)]
         show_object_roster_on_match: bool,
+        /// Print compact native/oracle RNG offsets and skip verbose diffs
+        #[arg(long, default_value_t = false)]
+        rng_trace: bool,
         /// Generate 3-panel visual diff PNGs at divergent frames
         #[arg(long, default_value_t = false)]
         visual: bool,
@@ -2044,6 +2047,7 @@ fn main() -> Result<()> {
             include_advisory,
             include_physics_trace,
             show_object_roster_on_match,
+            rng_trace,
             visual,
             frontier_kind,
         } => {
@@ -2062,6 +2066,7 @@ fn main() -> Result<()> {
                 include_advisory,
                 include_physics_trace,
                 show_object_roster_on_match,
+                rng_trace,
                 visual,
                 frontier_kind,
             )?;
