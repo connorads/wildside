@@ -32,7 +32,8 @@ and stop — never commit churn.
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
-  at frame 596 by native-only DripsSurfaceCrawler damage before metal contact; #285 crawler art);
+  at frame 596 by native-only DripsSurfaceCrawler damage before metal contact; follow-up trace says
+  left Drips layout #07 is one crawler cycle early in native, not a crawler hitbox issue; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
