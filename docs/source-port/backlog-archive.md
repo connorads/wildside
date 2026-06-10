@@ -174,6 +174,20 @@ implementation target: audit `deferred_ceiling_clears` / prize-block
 post-wobble `FreshSmash` timing and any earlier headbutt/block dispatch on this
 route before touching Drips or wall-cling code.
 
+Follow-up 2026-06-10 for #260 after `b318e246`: the same cache-local seed
+`.cache/debug/drips-route-candidates/orig_l480_530_b528.json` no longer proves
+the row-32 blocker. `tas-diff --frame-start 520 --frame-end 550
+--include-advisory --frontier-kind gameplay --include-physics-trace
+--only-divergent` and a follow-up `550..700` run both report only the known
+non-authoritative `number_objects` drift through the route tail at frame 570.
+`probe-record-scenario-file --summary-only` confirms the route remains `InGame`,
+keeps the Drill block solid, gets Kid within 12px of the left Drips floor point
+`(456,592)` at frame 568, and spawns a native `DripsSurfaceCrawler` only on
+frames 565..569. Treat this as a rejected current repro, not an implementation
+signal: the Drill-block no-op fix removed the stale movement blocker, but #260
+still needs a fresh route or human recording that actually reaches the reported
+live slime/metal-block mutation.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
