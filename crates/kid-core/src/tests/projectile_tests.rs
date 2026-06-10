@@ -2421,6 +2421,35 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_airborne_c_press_only_plays_attack_down_sound_in_frame_step() {
+        // ASM loc_8CF8 is reached from the walking-state C-press path, while
+        // airborne Red Stealth C-held behaviour is owned by sub_B270 loc_B350.
+        // Native `step_frame` must not run the walking sword allocation on the
+        // same airborne C press, or the slash queues overlapping attack sounds.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0000_5000;
+        rt.opening_slice = Some(slice);
+
+        let trace = rt.step_frame(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            trace.played_sound_effect_ids,
+            vec![QueuedSoundEffect::RedStealthAttackDown.sound_id()],
+            "ASM loc_B350 should queue only sfx_Red_Stealth_attack_down while airborne; loc_8CF8 ground sword sound is walking-state only",
+        );
+    }
+
+    #[test]
     fn red_stealth_airborne_slash_uses_loc_a466_dynamic_jump_threshold() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;

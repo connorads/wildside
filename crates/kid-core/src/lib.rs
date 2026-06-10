@@ -3007,8 +3007,10 @@ impl NativeRuntime {
         // ASM loc_8CB6 (kid.asm:10100): walking-state C-press → Maniaxe axe throw.
         // ASM loc_8CF8 (kid.asm:10117): walking-state C-press → Red Stealth sword.
         // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 + Eyeclops hard beam.
-        // Native runs all three every frame, not only in the walking state.
-        self.step_red_stealth_sword(input);
+        // Native runs these helpers every frame, so Red Stealth keeps the
+        // C-press allocation gated to the grounded walking path while the
+        // already-allocated sword worker timer can keep ticking.
+        self.step_red_stealth_sword_with_start_gate(input, slice.player.on_ground);
         // ASM sub_B270 loc_B350 (kid.asm:14220-14248) drives the Red Stealth
         // airborne attack-down slash counter independently of the ground swing
         // timer. Wired here so the counter advances even though the renderer

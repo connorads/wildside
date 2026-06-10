@@ -5698,7 +5698,16 @@ impl NativeRuntime {
     ///   #Red_Stealth; tst.b (Red_Stealth_sword_swing); bne.w loc_8D72`,
     ///   init animation stru_8B3C, allocate sub_868E worker,
     ///   `st (Red_Stealth_sword_swing)`. Same gate as loc_76B0.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
+        self.step_red_stealth_sword_with_start_gate(input, true);
+    }
+
+    pub(crate) fn step_red_stealth_sword_with_start_gate(
+        &mut self,
+        input: FrameInput,
+        walking_state_c_press: bool,
+    ) {
         if self.progression.current_form != PlayerForm::RedStealth {
             self.helmet.red_stealth_sword_timer = 0;
             return;
@@ -5707,7 +5716,7 @@ impl NativeRuntime {
         // C rising edge starts a new swing (only if not already swinging)
         let c_pressed = input.c && !self.prior_input.c;
         let mut just_started_swing = false;
-        if c_pressed && self.helmet.red_stealth_sword_timer == 0 {
+        if walking_state_c_press && c_pressed && self.helmet.red_stealth_sword_timer == 0 {
             self.helmet.red_stealth_sword_timer =
                 RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
             just_started_swing = true;
