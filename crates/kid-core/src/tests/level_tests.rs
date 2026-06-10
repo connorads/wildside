@@ -22727,6 +22727,69 @@ mod chunk_10 {
     }
 
     #[test]
+    fn second_stomp_plain_rock_tank_enters_death_animation_loc_3b464_3b480() {
+        // ASM Tank.asm loc_3B464 decrements HP from linked mouth-child `$38(a2)`
+        // collisions; the second `$2C` stomp reaches zero HP and branches to
+        // loc_3B480, keeping the parent visible through `stru_3B29A`.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tank = make_pacer(EnemyFamily::Tank, 2, 100, 224);
+        tank.x_velocity = 0x0000_8000;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+
+        let stomp_tank = |runtime: &mut NativeRuntime| {
+            let mut slice = runtime.opening_slice.unwrap();
+            slice.player.x_pos = 100 << 16;
+            slice.player.y_pos = 212 << 16;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+
+            let pre_y_velocity = slice.player.y_velocity;
+            let pre_y_pos = slice.player.y_pos;
+            let frame_start_x_pos = slice.player.x_pos;
+            let frame_start_y_pos = slice.player.y_pos;
+            assert!(
+                runtime.process_stomps(
+                    &mut slice,
+                    pre_y_velocity,
+                    pre_y_pos,
+                    frame_start_x_pos,
+                    frame_start_y_pos,
+                ),
+                "mouth-child contact should resolve as a RockTank stomp"
+            );
+            runtime.apply_pending_enemy_collisions();
+        };
+
+        stomp_tank(&mut runtime);
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "first ASM loc_3B464 child stomp is nonfatal"
+        );
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "nonfatal loc_3B49A recoil must not enter death animation"
+        );
+
+        stomp_tank(&mut runtime);
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM loc_3B480 hibernates through the Tank death body before loc_3C46E deletes it"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "second ASM loc_3B464 stomp should enter loc_3B480 death animation"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TANK_DEATH_ANIMATION_FRAMES
+        );
+    }
+
+    #[test]
     fn juggernaut_stomps_plain_rock_tank_mouth_attachment_before_side_damage_loc_3b464() {
         // ASM Tank.asm loc_3B464 reads the linked mouth collision word, and
         // Character_CheckCollision handles kid-above `$2C` before the later

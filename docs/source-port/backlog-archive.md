@@ -8922,6 +8922,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #286
 
 - [Verify] Evidence source: human playtest. Cross-ref #271. Tank HP is 2; the second stomp should enter the loc_3B480 death path (sf $13(a2), stru_3B29A, delete). Native appears to play the crush art while keeping the object live. Probe with a two-stomp scripted route once the loc_1CE4 jump gate lands.
+- Follow-up 2026-06-10: added `second_stomp_plain_rock_tank_enters_death_animation_loc_3b464_3b480`, an isolated native regression for two queued mouth-child `$2C` stomps through `process_stomps` plus `apply_pending_enemy_collisions`. It passes: first `Tank.asm loc_3B464` child hit leaves HP 1 and enters nonfatal `loc_3B49A` recoil; second hit leaves the Tank alive only as the waited death body with HP 0, `death_animation_active=true`, and `TANK_DEATH_ANIMATION_FRAMES`, matching `loc_3B480`. This narrows #286 away from the Tank death path itself; the live playtest symptom still needs a fresh route after the `loc_1CE4` movement-mode stomp gate / #271 work, because native may be awarding or replaying visual crush contacts in a state where the ROM would not write `$2C`.
 
 ### #287
 
