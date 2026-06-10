@@ -7395,6 +7395,29 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_render_uses_previous_hitpoint_hud_latch_loc_bdc0() {
+        let mut previous = sample_trace(GameMode::InGame);
+        previous.current_level = LevelId(0x00);
+        previous.number_hitpoints = 5;
+        previous.kid_x_pos = Some(0x00A5_0000);
+
+        let mut trace = previous.clone();
+        trace.number_hitpoints = 4;
+        trace.kid_x_pos = Some(0x00A6_0000);
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.number_hitpoints, previous.number_hitpoints,
+            "ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before Check_for_recent_damge loc_B700, so a same-frame hit still renders the previous HP pips"
+        );
+        assert_eq!(
+            render_trace.kid_x_pos, trace.kid_x_pos,
+            "only the HUD/VDP latch is delayed; gameplay object state stays on the current trace outside loc_C070"
+        );
+    }
+
+    #[test]
     fn forest_parallax_uses_asm_scroll_divisor() {
         let trace = sample_trace(GameMode::InGame);
         let camera_x_px = 307;

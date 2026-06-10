@@ -768,6 +768,11 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // scroll latch while keeping current gameplay objects.
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
+        // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
+        // GfxObjects_CollisionKid path can reach Check_for_recent_damge
+        // loc_B700, so the visible HP pips are also a pre-update latch.
+        render_trace.number_hitpoints = previous_trace.number_hitpoints;
+        render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
     }
     render_trace
 }

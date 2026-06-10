@@ -39,8 +39,7 @@ and stop — never commit churn.
   Drips/hitboxes/floor probes/player movement; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
-  #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
-  resurfaced (ignored gate test, suspect 6f506f6f).
+  #291 #249-regression resurfaced (ignored gate test, suspect 6f506f6f).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
   --frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
@@ -69,7 +68,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 290 | [?] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Fixed candidate: Dragon.asm loc_3CE90/loc_3CF90 breath child object-only count; full published TAS passes all 37759 frames by CRC. Human validation still required to close. |
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Current route seed now has only non-authoritative object-count drift after the Drill-block no-op fix; still needs a route that reaches the reported live slime/metal-block contact. |
 | 277 | [~] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | IronKnight loc_A426 hypothesis disproven; still needs a direct left-wall Rhino/Berzerker repro. |
-| 276 | [ ] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Take a hit, confirm top-left hit-point count drops RECONFIRMED 2026-06-10… |
+| 276 | [?] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Fixed candidate: oracle confirms same-frame HUD delay is original Mode_Level/sub_BDC0 timing; native render latch now preserves previous HP pips for the hit frame. Human validation still required. |
 | 291 | [ ] | P1 | player | #249 regression resurfaced: BLW2 no-jump left-pit wall contact injects y_vel=-32768 at frame 1809 (auto-launch). Found when gating the pinned test; suspect 6f506f6f stomp gates | cargo test -p kidcli gameplay_regression_issue249 -- --ignored; drop the #[ignore] once green |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
