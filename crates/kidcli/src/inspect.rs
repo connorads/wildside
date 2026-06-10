@@ -757,11 +757,12 @@ fn print_trace_frames_in_range(
                 .map(kid_core::FrameInput::from_mask)
                 .unwrap_or_default();
             println!(
-                "frame {} (trace {:08X}): input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                "frame {} (trace {:08X}): input {} mode {:?} rng {:04X} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
                 trace_index,
                 frame.frame_index,
                 describe_frame_input(input),
                 frame.game_mode,
+                frame.rng_offset.unwrap_or_default(),
                 frame.camera_x_pos,
                 frame.camera_y_pos,
                 frame.kid_x_pos.unwrap_or_default(),
@@ -952,12 +953,13 @@ pub(crate) fn probe_native_gameplay_scenario(
             native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
         {
             println!(
-                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} rng {:04X} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
                 frame.current_level.0,
                 frame.current_level_name.as_deref().unwrap_or(""),
+                frame.rng_offset.unwrap_or_default(),
                 frame.camera_x_pos,
                 frame.camera_y_pos,
                 frame.kid_x_pos.unwrap_or_default(),
@@ -1055,12 +1057,13 @@ pub(crate) fn probe_dynamic_record_scenario(
             native_trace_at_checkpoint(&trace, &checkpoint.label, checkpoint.frame_index)
         {
             println!(
-                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} rng {:04X} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
                 frame.current_level.0,
                 frame.current_level_name.as_deref().unwrap_or(""),
+                frame.rng_offset.unwrap_or_default(),
                 frame.camera_x_pos,
                 frame.camera_y_pos,
                 frame.kid_x_pos.unwrap_or_default(),
