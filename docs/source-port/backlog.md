@@ -28,15 +28,18 @@ and stop — never commit churn.
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
 - **Last session** (2026-06-10): #290 TAS frame_7800 object-count divergence proposed fixed.
   Root cause was Dragon.asm loc_3CE90/loc_3CF90 walking-dragon breath child counting,
-  not the suspected tank-pair collapse. Frames 7790..7810 now match and
-  `verify-slice-fast` is green.
+  not the suspected tank-pair collapse. Frames 7790..7810 match, the full
+  published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
+  green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
   resurfaced (ignored gate test, suspect 6f506f6f).
-- **Gates**: verify-slice-fast green. #290 narrow TAS frame window is green; full
-  verify-tas still needs a follow-up rerun before promoting the issue beyond `[?]`.
+- **Gates**: verify-slice-fast green. Full published TAS
+  `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
+  --frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
+  passes all 37759 frames by CRC.
 
 This block replaces the old next-agent.md handoff: rewrite it at the end of every
 loop session.
@@ -58,7 +61,7 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 284 | [?] | P0 | block/prize | 2026-06-10 playtest: later-level prize blocks award diamonds instead of their… | Fixed in b0e2a098; generated RAM-dump parser now rejects foreground-queue spill records masquerading as Diamond prizes. Human playtest still required. |
-| 290 | [?] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Fixed candidate: Dragon.asm loc_3CE90/loc_3CF90 breath child object-only count; narrow TAS 7790..7810 now green. Full TAS rerun still pending. |
+| 290 | [?] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Fixed candidate: Dragon.asm loc_3CE90/loc_3CF90 breath child object-only count; full published TAS passes all 37759 frames by CRC. Human validation still required to close. |
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Current route seed now has only non-authoritative object-count drift after the Drill-block no-op fix; still needs a route that reaches the reported live slime/metal-block contact. |
 | 277 | [~] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | IronKnight loc_A426 hypothesis disproven; still needs a direct left-wall Rhino/Berzerker repro. |
 | 276 | [ ] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Take a hit, confirm top-left hit-point count drops RECONFIRMED 2026-06-10… |

@@ -156,6 +156,15 @@ divergence at frame 204 (native lands/re-jumps differently around
 reported hold-left-into-wall repro. Next #277 pass still needs a direct
 left-wall Rhino/Berzerker route before changing input or wall-cling code.
 
+Follow-up 2026-06-10 for #290: full published TAS verification is now green
+after the Dragon breath object-count fix. `cargo run -q -p kidcli --
+verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
+--frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
+passes all 37759 frames by CRC. This confirms the earlier narrow 7790..7810
+demo-play window was not hiding a later published-route gameplay frontier;
+keep #290 at `[?]` only because backlog policy requires human validation before
+closing proposed-fix rows.
+
 Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
 metal-block/slime repro. The cache-local seed
 `.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within
