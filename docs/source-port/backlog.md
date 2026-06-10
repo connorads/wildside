@@ -35,9 +35,9 @@ and stop — never commit churn.
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
   need a route that reaches the reported live slime/metal-block contact. Current clean
-  near-miss: `.cache/debug/drips-route-candidates/mid_l478_526_b530.json` passes
+  near-miss: `.cache/debug/issue260-tail-grid/l524_b530_540.json` passes
   gameplay CRC and enemy checkpoints through frame 560 and reaches `(456,543)` only as
-  close as healthy `dx=+1 dy=-16` at frame 539. The right-side raw `dx=+13 dy=-1`
+  close as healthy `dx=0 dy=-16` at frame 540. The right-side raw `dx=+13 dy=-1`
   candidates are HP-zero/LevelTransition routes; healthy closest remains `(584,543)`
   `dx=0 dy=-48`, so do not mine them as proof. Do not reuse
   `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` as live
