@@ -58,7 +58,13 @@ and stop — never commit churn.
   retry that late-jump axis unchanged. Source-generated `issue260-drips-cleaner-prefix-audit`
   / `issue260-drips-b-jump-climb-seed` plus the `140..300:none,170..260:left` overlay no
   longer reproduces the archived `dx=-2 dy=0 @496` row-32 branch on current native; treat that
-  archived branch as cache-specific until a current DynamicScenario file is recovered. #285 crawler art);
+  archived branch as cache-specific until a current DynamicScenario file is recovered. Clearing
+  `300..479` on the clean no-settle scratch route and restoring the late tail also leaves the
+  same early healthy approaches (`(456,543)` `dx=-3 dy=-16 @68`, `(584,543)` `dx=0 dy=-48 @127`);
+  do not repeat that idle-window axis unchanged. #270 current wall-pulse probes split the evidence:
+  Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
+  380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
+  diverge before the B pulse and need a natural pickup/well route before any movement patch. #285 crawler art);
   #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; the
   existing natural BLW2 route is not the repro because its frame-207 L+B jump
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
