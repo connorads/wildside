@@ -33,12 +33,13 @@ and stop — never commit churn.
   green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; do not reuse
   `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` as live
-  metal-block evidence. Fresh 2026-06-10 trace reconfirms the route is already Drips-phase
-  shifted before contact: native #08 seeds at frame 13 with wait `$43` while oracle exposes
-  `loc_33424 d0=$5d` at frame 15; backlog archive records this route under rejected
-  recording-settle/Drips-lifecycle evidence. Next useful #260 work is a refreshed route or
-  bootstrap check that starts RNG/object phase clean, not Tank/Drips hitbox/block patches from
-  this stale route; #285 crawler art);
+  metal-block evidence. Fresh 2026-06-10 trace reconfirms that exact route is already
+  Drips-phase shifted before contact because it uses `settle_oracle_warp=true`: native #08
+  seeds at frame 13 with wait `$43` while oracle exposes `loc_33424 d0=$5d` at frame 15.
+  The no-settle copy starts #07/#08 clean but is not a valid late metal-block proof either
+  because the oracle side has lost the comparable Drips slots by frame 590. Next useful #260
+  work is a genuinely refreshed route/bootstrap that starts clean and stays oracle-comparable,
+  not Tank/Drips hitbox/block patches from these stale route files; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
