@@ -26,17 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
-- **Last session** (2026-06-10): #271 stomp-gate CLOSED — loc_1CE4 MoveID_Jump gate +
-  the $FFFFFA74/75 sustained-contact latch (kid.asm:936-937, 3383-3384), WRAM-proven;
-  jugg40/jugg60 CRC-clean 0..420. Filed #290 (full-TAS frame_7800 object counts,
-  pre-existing, suspect 7280bada Tank-pair collapse).
-- **Next**: #290 TAS frame_7800 object counts; #260 metal-block remainder (block must not break
-  from a jump; #285 crawler art); #277 left-jump input drop (phantom-block hypothesis
+- **Last session** (2026-06-10): #290 TAS frame_7800 object-count divergence proposed fixed.
+  Root cause was Dragon.asm loc_3CE90/loc_3CF90 walking-dragon breath child counting,
+  not the suspected tank-pair collapse. Frames 7790..7810 now match and
+  `verify-slice-fast` is green.
+- **Next**: #260 metal-block remainder (block must not break from a jump; #285 crawler art);
+  #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
   resurfaced (ignored gate test, suspect 6f506f6f).
-- **Gates**: verify-slice-fast green. verify-tas-full FAILS at frame_7800 — that is
-  open #290, not a new regression.
+- **Gates**: verify-slice-fast green. #290 narrow TAS frame window is green; full
+  verify-tas still needs a follow-up rerun before promoting the issue beyond `[?]`.
 
 This block replaces the old next-agent.md handoff: rewrite it at the end of every
 loop session.
@@ -58,7 +58,7 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 284 | [?] | P0 | block/prize | 2026-06-10 playtest: later-level prize blocks award diamonds instead of their… | Fixed in b0e2a098; generated RAM-dump parser now rejects foreground-queue spill records masquerading as Diamond prizes. Human playtest still required. |
-| 290 | [ ] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Evidence source: verify-tas full run 2026-06-10. Pre-existing on main at… |
+| 290 | [?] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Fixed candidate: Dragon.asm loc_3CE90/loc_3CF90 breath child object-only count; narrow TAS 7790..7810 now green. Full TAS rerun still pending. |
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Evidence source: human playtest. Symptom: slime still broken on second level;… |
 | 277 | [ ] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | Hold left into wall + jump, confirm leftward jump registers like the right-side… |
 | 276 | [ ] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Take a hit, confirm top-left hit-point count drops RECONFIRMED 2026-06-10… |

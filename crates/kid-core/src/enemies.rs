@@ -8585,6 +8585,19 @@ impl ActiveEnemy {
             && self.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG != 0
     }
 
+    pub(crate) fn has_pending_dragon_walking_breath_child_loc_3ce90(&self) -> bool {
+        // ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and falls through to
+        // loc_3CF6E/loc_3CF90 in the same object pass when the stored timer
+        // becomes zero. Native spawns the projectile during `step`, but trace
+        // counts sample before that mutation, so `wait_timer == 1` already has
+        // a visible Object_RAM breath child in the ROM.
+        matches!(self.family, EnemyFamily::DragonWalking)
+            && self.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+            && self.wait_timer == 1
+            && self.grounded_frames == 0
+            && self.damage_flash_frames != ENEMY_DAMAGE_FLASH_FRAMES
+    }
+
     fn take_dragon_walking_damage_or_queue_death(&mut self) -> bool {
         let parent_spawned_child = self.is_dragon_walking_parent_spawned_child();
         match dragon_walking_damage_route_loc_3cebe(
