@@ -1631,6 +1631,7 @@ struct TargetPointApproach {
 fn target_point_approach(
     trace: &[NativeTraceFrame],
     target_point: TargetPoint,
+    require_healthy_kid: bool,
 ) -> Option<TargetPointApproach> {
     let target_x = target_point.x_px << 16;
     let target_y = target_point.y_px << 16;
@@ -1638,6 +1639,9 @@ fn target_point_approach(
 
     for (replay_frame, frame) in trace.iter().enumerate() {
         if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        if require_healthy_kid && (frame.number_hitpoints == 0 || frame.death_windup_elapsed > 0) {
             continue;
         }
         let (Some(kid_x), Some(kid_y)) = (frame.kid_x_pos, frame.kid_y_pos) else {
@@ -1669,14 +1673,27 @@ pub(crate) fn describe_target_point_approach(
     trace: &[NativeTraceFrame],
     target_point: TargetPoint,
 ) -> String {
-    let Some(approach) = target_point_approach(trace, target_point) else {
+    let Some(approach) = target_point_approach(trace, target_point, false) else {
         return format!(
             "target point {},{}: absent",
             target_point.x_px, target_point.y_px
         );
     };
+    let healthy = target_point_approach(trace, target_point, true)
+        .map(|healthy| {
+            format!(
+                "; closest healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+                healthy.dx_px,
+                healthy.dy_px,
+                healthy.manhattan_px,
+                healthy.replay_frame,
+                healthy.kid_x,
+                healthy.kid_y,
+            )
+        })
+        .unwrap_or_else(|| String::from("; closest healthy kid <none>"));
     format!(
-        "target point {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+        "target point {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
         target_point.x_px,
         target_point.y_px,
         approach.dx_px,
@@ -1685,6 +1702,7 @@ pub(crate) fn describe_target_point_approach(
         approach.replay_frame,
         approach.kid_x,
         approach.kid_y,
+        healthy,
     )
 }
 
@@ -2399,6 +2417,7 @@ mod tests {
             game_mode,
             kid_x_pos: x_pos,
             kid_y_pos: y_pos,
+            number_hitpoints: 1,
             ..NativeTraceFrame::default()
         }
     }
@@ -2464,7 +2483,23 @@ mod tests {
 
         assert_eq!(
             describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
-            "target point 32,64: closest kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000"
+            "target point 32,64: closest kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000; closest healthy kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000"
+        );
+    }
+
+    #[test]
+    fn target_point_approach_reports_closest_healthy_player_position_separately() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x0010_0000), Some(0x0040_0000)),
+            player_frame(11, GameMode::InGame, Some(0x0020_0000), Some(0x0040_0000)),
+            player_frame(12, GameMode::InGame, Some(0x0024_0000), Some(0x003F_0000)),
+        ];
+        trace[1].number_hitpoints = 0;
+        trace[1].death_windup_elapsed = 3;
+
+        assert_eq!(
+            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            "target point 32,64: closest kid dx_px +0 dy_px +0 manhattan_px 0 @1 kid 00200000,00400000; closest healthy kid dx_px -4 dy_px +1 manhattan_px 5 @2 kid 00240000,003F0000"
         );
     }
 
