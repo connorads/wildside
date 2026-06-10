@@ -3094,7 +3094,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_surface_crawler_uses_off_33520_surface_frames() {
+    fn drips_surface_crawler_uses_loc_335d8_moving_frames() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
@@ -3103,7 +3103,7 @@ mod tests {
             x_velocity: 0,
             y_velocity: 0,
             friendly: false,
-            remaining_frames: 192,
+            remaining_frames: u16::MAX,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
         }];
@@ -3111,20 +3111,49 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let crawler_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 26 && *y == 22 => Some(tiles),
+            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x08D => Some(tiles),
             _ => None,
         });
         let tiles =
-            crawler_sprite.expect("ASM Drips.asm off_33520 should render crawler surface frames");
+            crawler_sprite.expect("ASM Drips.asm loc_335D8 should render moving crawler frames");
         assert_eq!(
-            tiles[0].tile.tile_index, 0x0B9,
-            "ASM `unk_C7B9E: sprite_frame_vram $0B9,$06,$00,$0C,$02` is one of the two off_33520 crawler/surface frames",
+            tiles[0].tile.tile_index, 0x08D,
+            "ASM `stru_33F14` starts with `unk_C7B46: sprite_frame_vram $08D,$07,$00,$0F,$0F`, not the tiny off_33520 pool frame",
         );
         assert!(
             scene.commands.iter().all(|command| {
-                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x082)
+                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0B9)
             }),
-            "surface crawlers should not reuse the falling-drop child frame from loc_33424",
+            "moving surface crawlers should not reuse the tiny off_33520 pool/surface frame",
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_startup_uses_stru_33fa6_frames() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 200,
+            animation_elapsed_frames: 31,
+            kind: ActiveProjectileKind::DripsSurfaceCrawler,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let crawler_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0BD => Some(tiles),
+            _ => None,
+        });
+        let tiles =
+            crawler_sprite.expect("ASM Drips.asm loc_335D8 should render stru_33FA6 startup");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0BD,
+            "ASM `stru_33FA6` starts with `unk_C7BAE: sprite_frame_vram $0BD,$08,$00,$0F,$04`",
         );
     }
 
@@ -9441,14 +9470,8 @@ mod tests {
         );
         match commands.as_slice() {
             [
-                DrawCommand::Sprite {
-                    y: body_y,
-                    ..
-                },
-                DrawCommand::Sprite {
-                    y: turret_y,
-                    ..
-                },
+                DrawCommand::Sprite { y: body_y, .. },
+                DrawCommand::Sprite { y: turret_y, .. },
             ] => assert_eq!(
                 *body_y - *turret_y,
                 20,

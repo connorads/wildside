@@ -520,7 +520,8 @@ pub(super) fn select_player_frame<'a>(
         }
     }
 
-    let iron_knight_attach_hibernate = trace.current_helmet_id == PlayerForm::IronKnight.helmet_id()
+    let iron_knight_attach_hibernate = trace.current_helmet_id
+        == PlayerForm::IronKnight.helmet_id()
         && trace.iron_knight_climbing
         && trace.iron_knight_climb_pose_accum == 0
         && y_velocity == -0x4000;
@@ -1392,12 +1393,8 @@ pub(super) fn push_enemy_sprite(
         // Fallback for traces that only expose the parent. ASM Tank.asm
         // loc_3B372 creates the real child at parent_y-8 before drawing.
         let turret_screen_y = rock_tank_turret_screen_y(object_type, screen_y - 8);
-        let (turret_x, turret_y) = sprite_draw_position(
-            &turret_frame,
-            screen_x,
-            turret_screen_y,
-            render_facing,
-        );
+        let (turret_x, turret_y) =
+            sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
         let palette = enemy_palette_for_damage_flash(
             select_enemy_palette(enemy_visuals, object.palette_variant),
             object.damage_flash,

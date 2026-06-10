@@ -8803,6 +8803,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #285
 
 - [Verify] Evidence source: human playtest. The lifecycle is now correct (drip -> splash -> moving crawler, see #260 progress); only the sprite/animation selection for the crawler is wrong. Check off_33520 pool sprites and stru_33FA6/stru_33F14 animation wiring in the native renderer.
+- [Verify] Fixed 2026-06-10: native renderer no longer draws the moving `DripsSurfaceCrawler` with the tiny `off_33520` pool frames. ASM `Drips.asm loc_335D8` uses `stru_33FA6` while the crawler starts up, then `loc_33630` installs `stru_33F14` for the mobile floor crawler. Renderer tests now assert the startup `unk_C7BAE` tile `$0BD` and moving `unk_C7B46` tile `$08D`, and reject the old `unk_C7B9E` pool tile `$0B9`. Verification: `cargo test -q -p kidcli drips_surface_crawler_ -- --nocapture`. Status `[?]` pending human visual confirmation on the next playtest build.
 
 ### #286
 

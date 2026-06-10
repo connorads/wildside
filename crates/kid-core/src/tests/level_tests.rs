@@ -18386,8 +18386,7 @@ mod chunk_02 {
 
         let (drill_hit, drill_grid) = hit_block(0xEC);
         assert_eq!(
-            drill_hit.drill_projectile_hit,
-            None,
+            drill_hit.drill_projectile_hit, None,
             "ASM off_BB80 index C -> return_BBC0: Drill ceiling dispatch must not queue sub_1129C projectile work",
         );
         assert_eq!(

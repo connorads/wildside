@@ -304,26 +304,70 @@ fn fireball_trail_child_frame(
 fn drips_surface_crawler_frame(
     visuals: &kid_render::AnimatedSpriteVisual,
     remaining_frames: u16,
+    animation_elapsed_frames: u16,
 ) -> Option<kid_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
-    let (tile_base_index, origin_x, width_px, height_px) =
-        if (remaining_frames / 8).is_multiple_of(2) {
-            // ASM Drips.asm off_33520: first crawler/surface frame is
-            // `LnkTo_unk_C7B9E`, `sprite_frame_vram $0B9,$06,$00,$0C,$02`.
-            (0x0B9, 0x06, 0x0C, 0x02)
-        } else {
-            // ASM Drips.asm off_33520: second crawler/surface frame is
-            // `LnkTo_unk_C7BA6`, `sprite_frame_vram $0BB,$07,$00,$0F,$03`.
-            (0x0BB, 0x07, 0x0F, 0x03)
-        };
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = if animation_elapsed_frames > 0
+    {
+        let elapsed = 31_u16.saturating_sub(animation_elapsed_frames);
+        match elapsed / 10 {
+            // ASM Drips.asm loc_335D8 initialises `stru_33FA6` before the child
+            // becomes mobile/hostile.
+            0 => (0x0BD, 0x08, 0x00, 0x0F, 0x04), // LnkTo_unk_C7BAE
+            1 => (0x0BF, 0x05, 0x00, 0x0F, 0x08), // LnkTo_unk_C7BB6
+            _ => (0x0C1, 0x07, 0x00, 0x0E, 0x0C), // LnkTo_unk_C7BBE
+        }
+    } else {
+        let elapsed = u16::MAX.wrapping_sub(remaining_frames);
+        // ASM Drips.asm loc_33630 installs `stru_33F14` for the ordinary
+        // horizontal crawler, not the tiny `off_33520` pool-surface table.
+        drips_surface_crawler_stru_33f14_frame(elapsed)
+    };
     Some(kid_render::SpriteFrame {
         origin_x,
-        origin_y: 0x00,
+        origin_y,
         width_px,
         height_px,
         tile_base_index,
         tile_sheet,
     })
+}
+
+fn drips_surface_crawler_stru_33f14_frame(elapsed_frames: u16) -> (u16, i16, i16, u16, u16) {
+    const C7B46: (u16, i16, i16, u16, u16) = (0x08D, 0x07, 0x00, 0x0F, 0x0F);
+    const C7B3E: (u16, i16, i16, u16, u16) = (0x089, 0x07, 0x00, 0x0D, 0x0F);
+    const C7B36: (u16, i16, i16, u16, u16) = (0x085, 0x07, 0x00, 0x0F, 0x10);
+    const C7BE6: (u16, i16, i16, u16, u16) = (0x0DC, 0x07, 0x00, 0x0D, 0x0E);
+    const STRU_33F14: [((u16, i16, i16, u16, u16), u16); 15] = [
+        (C7B46, 0x0C),
+        (C7B3E, 0x0C),
+        (C7B36, 0x0C),
+        (C7B46, 0x0C),
+        (C7B3E, 0x0C),
+        (C7B36, 0x0C),
+        (C7B46, 0x0C),
+        (C7B3E, 0x0C),
+        (C7B36, 0x0C),
+        (C7B46, 0x0C),
+        (C7BE6, 0x08),
+        (C7B36, 0x0C),
+        (C7B46, 0x0C),
+        (C7BE6, 0x08),
+        (C7B36, 0x0C),
+    ];
+
+    let total_frames = STRU_33F14
+        .iter()
+        .map(|(_, duration)| *duration)
+        .sum::<u16>();
+    let mut frame_offset = elapsed_frames % total_frames;
+    for (frame, duration) in STRU_33F14 {
+        if frame_offset < duration {
+            return frame;
+        }
+        frame_offset -= duration;
+    }
+    C7B46
 }
 
 fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
@@ -3949,6 +3993,7 @@ fn build_game_scene_filtered(
                                     drips_surface_crawler_frame(
                                         drips_visuals,
                                         projectile.remaining_frames,
+                                        projectile.animation_elapsed_frames,
                                     )?
                                 }
                                 _ => return None,
