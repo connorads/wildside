@@ -103,6 +103,7 @@ impl Default for AudioLevels {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameState {
+    pub game_mode: u16,
     pub current_level_id: u16,
     pub current_helmet_id: u16,
     pub number_lives: u16,
@@ -806,6 +807,7 @@ impl MdRuntime {
 
     pub fn game_state(&self) -> GameState {
         GameState {
+            game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
             current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
             current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
             number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),

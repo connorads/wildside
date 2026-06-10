@@ -967,10 +967,12 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
                     ScreenState::Playing => {
                         let live_buttons = keyboard_buttons(&events, &settings.bindings)
                             | controller_buttons(controller.as_ref());
-                        gameplay_buttons_after_ui_release(
+                        let released_buttons = gameplay_buttons_after_ui_release(
                             live_buttons,
                             &mut wait_for_gameplay_input_release,
-                        )
+                        );
+                        let game_mode = runtime.game_state().game_mode;
+                        gameplay_buttons_for_mode(released_buttons, game_mode)
                     }
                     _ => 0,
                 };
@@ -1694,12 +1696,24 @@ fn gameplay_buttons_after_ui_release(live_buttons: u8, waiting_for_release: &mut
     0
 }
 
+fn gameplay_buttons_for_mode(buttons: u8, game_mode: u16) -> u8 {
+    const BUTTON_START: u8 = 1 << 7;
+    const MODE_IN_GAME: u16 = 0x000C;
+    const MODE_DEMO_PLAY: u16 = 0x0010;
+
+    match game_mode {
+        MODE_IN_GAME | MODE_DEMO_PLAY => buttons,
+        _ => buttons & BUTTON_START,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         BindingAction, DisplayScale, ErrorView, KeyboardBindings, LaunchState, MainMenuAction,
         PauseMenuAction, PlayerSettings, PlayerSettingsFile, ScreenState, adjust_volume,
-        gameplay_buttons_after_ui_release, initial_screen, main_menu_action, pause_menu_action,
+        gameplay_buttons_after_ui_release, gameplay_buttons_for_mode, initial_screen,
+        main_menu_action, pause_menu_action,
     };
     use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
     use std::path::PathBuf;
@@ -1788,6 +1802,25 @@ mod tests {
             gameplay_buttons_after_ui_release(1 << 3, &mut waiting_for_release),
             1 << 3
         );
+    }
+
+    #[test]
+    fn gameplay_buttons_filter_level_transition_to_start_only() {
+        let buttons = (1 << 2) | (1 << 4) | (1 << 5) | (1 << 7);
+
+        assert_eq!(
+            gameplay_buttons_for_mode(buttons, 0x0008),
+            1 << 7,
+            "level title/transition screens must not receive movement, jump, or action bits"
+        );
+    }
+
+    #[test]
+    fn gameplay_buttons_keep_live_gameplay_inputs() {
+        let buttons = (1 << 2) | (1 << 4) | (1 << 5) | (1 << 7);
+
+        assert_eq!(gameplay_buttons_for_mode(buttons, 0x000C), buttons);
+        assert_eq!(gameplay_buttons_for_mode(buttons, 0x0010), buttons);
     }
 
     #[test]
