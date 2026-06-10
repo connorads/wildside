@@ -37,9 +37,13 @@ and stop — never commit churn.
   need a route that reaches the reported live slime/metal-block contact. Current clean
   near-miss: `.cache/debug/issue260-tail-grid/l524_b530_540.json` passes
   gameplay CRC and enemy checkpoints through frame 560 and reaches `(456,543)` only as
-  close as healthy `dx=0 dy=-16` at frame 540. The right-side raw `dx=+13 dy=-1`
-  candidates are HP-zero/LevelTransition routes; healthy closest remains `(584,543)`
-  `dx=0 dy=-48`, so do not mine them as proof. Do not reuse
+  close as healthy `dx=0 dy=-16` at frame 540. Named route
+  `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
+  reaches exact native DripsDrop overlap at frame 535; oracle diff for frames
+  520..545 has only the known non-authoritative `number_objects` limitation. It
+  is route evidence, not the human metal-block contact repro. The right-side raw
+  `dx=+13 dy=-1` candidates are HP-zero/LevelTransition routes; healthy closest
+  remains `(584,543)` `dx=0 dy=-48`, so do not mine them as proof. Do not reuse
   `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` as live
   metal-block evidence. Fresh 2026-06-10 trace reconfirms that exact route is already
   Drips-phase shifted before contact because it uses `settle_oracle_warp=true`: native #08

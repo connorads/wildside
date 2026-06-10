@@ -78,7 +78,7 @@ use scenarios::{
     issue_249_juggernaut_wall_jump_audit_scenario,
     issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
     issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
-    issue_260_drips_early_jump_close_probe_scenario,
+    issue_260_drips_drop_contact_probe_scenario, issue_260_drips_early_jump_close_probe_scenario,
     issue_260_drips_iron_knight_climb_probe_scenario,
     issue_271_level00_dragon_stomp_damage_audit_scenario,
     issue_271_level01_rock_tank_stomp_route_audit_scenario,
@@ -191,6 +191,8 @@ enum RecordScenarioKind {
     Issue260DripsIronKnightClimbProbe,
     /// close early-jump Level 01 Drips route that stops before the death tail (#260).
     Issue260DripsEarlyJumpCloseProbe,
+    /// refreshed Level 01 Drips tail route that makes native overlap the drop (#260).
+    Issue260DripsDropContactProbe,
     /// drive The Kid into a Level 02 wall without jump/climb input (#249).
     Issue249WallNoJumpAudit,
     /// drive Juggernaut/Rhino into a Level 02 wall without jump/climb input (#249).
@@ -3147,6 +3149,9 @@ fn build_record_scenario(
         RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
             issue_260_drips_early_jump_close_probe_scenario()
         }
+        RecordScenarioKind::Issue260DripsDropContactProbe => {
+            issue_260_drips_drop_contact_probe_scenario()
+        }
         RecordScenarioKind::Issue249WallNoJumpAudit => issue_249_wall_no_jump_audit_scenario(),
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             issue_249_juggernaut_wall_no_jump_audit_scenario()
@@ -3261,6 +3266,7 @@ fn record_scenario_command(
         RecordScenarioKind::Issue260DripsEarlyJumpCloseProbe => {
             "issue260-drips-early-jump-close-probe"
         }
+        RecordScenarioKind::Issue260DripsDropContactProbe => "issue260-drips-drop-contact-probe",
         RecordScenarioKind::Issue249WallNoJumpAudit => "issue249-wall-no-jump-audit",
         RecordScenarioKind::Issue249JuggernautWallNoJumpAudit => {
             "issue249-juggernaut-wall-no-jump-audit"

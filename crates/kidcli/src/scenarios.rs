@@ -2267,6 +2267,58 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
     }
 }
 
+/// #260 Drips-drop contact route discovered from the refreshed tail grid.
+///
+/// This keeps the oracle-clean lower Drips prefix from the #213 delayed-drop
+/// audit, then applies the `l528/b530/r536` tail variant that makes native Kid
+/// overlap the DripsDrop at frame 535. It is a reproducible route-search probe,
+/// not proof of the reported metal-block mutation until oracle comparison
+/// accepts the tail.
+pub fn issue_260_drips_drop_contact_probe_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 560;
+    const LEFT: u8 = 1 << 2;
+    const RIGHT: u8 = 1 << 3;
+    const B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 0, 239, RIGHT);
+    apply_range(&mut script, 60, 119, B);
+    apply_range(&mut script, 190, 299, LEFT);
+    apply_range(&mut script, 478, 528, LEFT);
+    apply_range(&mut script, 530, FRAME_COUNT.saturating_sub(1), B);
+    apply_range(&mut script, 536, FRAME_COUNT.saturating_sub(1), RIGHT);
+
+    DynamicScenario {
+        slug: "issue_260_drips_drop_contact_probe_01".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "pre_damage".into(),
+                frame_index: 523,
+            },
+            DynamicCheckpoint {
+                label: "native_drop_contact".into(),
+                frame_index: 535,
+            },
+            DynamicCheckpoint {
+                label: "post_drop".into(),
+                frame_index: 545,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -2282,6 +2334,7 @@ mod tests {
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
         issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
+        issue_260_drips_drop_contact_probe_scenario,
         issue_260_drips_early_jump_close_probe_scenario,
         issue_260_drips_iron_knight_climb_probe_scenario,
         issue_271_level00_dragon_stomp_damage_audit_scenario,
@@ -2586,6 +2639,56 @@ mod tests {
                 "target_close_window",
                 "pre_death_tail"
             ]
+        );
+    }
+
+    #[test]
+    fn issue_260_drips_drop_contact_probe_preserves_refreshed_tail_grid_contact() {
+        let scenario = issue_260_drips_drop_contact_probe_scenario();
+
+        assert_eq!(scenario.slug, "issue_260_drips_drop_contact_probe_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 560);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        const LEFT: u8 = 1 << 2;
+        const RIGHT: u8 = 1 << 3;
+        const B: u8 = 1 << 4;
+        assert_eq!(scenario.script[0], RIGHT);
+        assert_eq!(scenario.script[60], RIGHT | B);
+        assert_eq!(scenario.script[119], RIGHT | B);
+        assert_eq!(scenario.script[120], RIGHT);
+        assert_eq!(scenario.script[190], LEFT | RIGHT);
+        assert_eq!(scenario.script[239], LEFT | RIGHT);
+        assert_eq!(scenario.script[240], LEFT);
+        assert_eq!(scenario.script[299], LEFT);
+        assert_eq!(scenario.script[300], 0);
+        assert_eq!(scenario.script[478], LEFT);
+        assert_eq!(scenario.script[528], LEFT);
+        assert_eq!(scenario.script[529], 0);
+        assert_eq!(scenario.script[530], B);
+        assert_eq!(scenario.script[535], B);
+        assert_eq!(scenario.script[536], RIGHT | B);
+        assert_eq!(scenario.script[559], RIGHT | B);
+        assert_eq!(scenario.script[560], 0);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec!["pre_damage", "native_drop_contact", "post_drop", "tail"]
         );
     }
 
