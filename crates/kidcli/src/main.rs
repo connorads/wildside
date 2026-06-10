@@ -4,7 +4,6 @@
     clippy::doc_lazy_continuation
 )]
 mod asm_coverage;
-mod autonomy;
 mod bootstrap;
 mod cache;
 mod capture;
@@ -38,7 +37,6 @@ use compare::*;
 use inspect::*;
 
 use anyhow::{Context, Result, anyhow, bail};
-use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
@@ -653,22 +651,6 @@ enum Commands {
         scenario: Scenario,
         #[arg(long, default_value_t = 1)]
         iterations: u32,
-    },
-    AutonomousLoop {
-        #[arg(long)]
-        rom: Option<PathBuf>,
-        #[arg(long)]
-        dir: Option<PathBuf>,
-        #[arg(long, value_enum, default_value_t = AutonomyGoal::Level1OpeningSlice)]
-        goal: AutonomyGoal,
-        #[arg(long, default_value_t = 1)]
-        max_cycles: u32,
-        #[arg(long, default_value_t = false)]
-        no_resume: bool,
-        #[arg(long, default_value_t = false)]
-        emit_json: bool,
-        #[arg(long, default_value_t = 1)]
-        routines_per_task: u32,
     },
     ReferenceBuild {
         #[arg(long)]
@@ -1778,40 +1760,6 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             run_port_loop(&repo_root, &rom_path, &manifest, scenario, iterations)?;
-        }
-        Commands::AutonomousLoop {
-            rom,
-            dir,
-            goal,
-            max_cycles,
-            no_resume,
-            emit_json,
-            routines_per_task,
-        } => {
-            let repo_root = current_dir()?;
-            let (rom_path, upstream_dir) = if matches!(
-                goal,
-                AutonomyGoal::SourcePortFrontier
-                    | AutonomyGoal::CaseQueue
-                    | AutonomyGoal::GameplayBacklog
-                    | AutonomyGoal::ProactiveVerification
-            ) {
-                (None, None)
-            } else {
-                let rom_path = resolve_rom_path(&repo_root, rom)?;
-                let upstream_dir = resolve_upstream_dir(&repo_root, dir);
-                (Some(rom_path), Some(upstream_dir))
-            };
-            run_autonomous_loop(
-                &repo_root,
-                rom_path.as_deref(),
-                upstream_dir.as_deref(),
-                goal,
-                max_cycles,
-                !no_resume,
-                emit_json,
-                routines_per_task,
-            )?;
         }
         Commands::ReferenceBuild {
             rom,
