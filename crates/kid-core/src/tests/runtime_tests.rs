@@ -12139,7 +12139,7 @@ mod chunk_09 {
         let finish = rt.projectiles.first().expect(
             "ASM Drips.asm loc_33588 routes contact to loc_338EA/loc_3392C before deletion",
         );
-        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerBurst);
+        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerFinish);
         assert_eq!(finish.x_velocity, 0);
         assert_eq!(finish.y_velocity, 0);
     }
@@ -13086,7 +13086,7 @@ mod chunk_09 {
         let finish = rt.projectiles.first().expect(
             "ASM Drips.asm loc_335AA routes `x_pos(a3)-8` contact through loc_338EA/loc_3392C",
         );
-        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerBurst);
+        assert_eq!(finish.kind, EnemyProjectileKind::DripsSurfaceCrawlerFinish);
         assert_eq!(finish.x_velocity, 0);
         assert_eq!(finish.y_velocity, 0);
     }
@@ -13112,7 +13112,7 @@ mod chunk_09 {
         );
         assert_eq!(
             upward_finish.kind,
-            EnemyProjectileKind::DripsSurfaceCrawlerBurst
+            EnemyProjectileKind::DripsSurfaceCrawlerFinish
         );
         assert_eq!(upward_finish.x_velocity, 0);
         assert_eq!(upward_finish.y_velocity, 0);
@@ -13138,7 +13138,7 @@ mod chunk_09 {
             .expect("ASM Drips.asm loc_335B0 routes lower contact through loc_338EA/loc_3392C");
         assert_eq!(
             downward_finish.kind,
-            EnemyProjectileKind::DripsSurfaceCrawlerBurst
+            EnemyProjectileKind::DripsSurfaceCrawlerFinish
         );
         assert_eq!(downward_finish.x_velocity, 0);
         assert_eq!(downward_finish.y_velocity, 0);

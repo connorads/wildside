@@ -419,7 +419,7 @@ pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
 
 fn drips_surface_crawler_finish_animation_loc_3392c(crawler: &EnemyProjectile) -> EnemyProjectile {
     EnemyProjectile {
-        kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        kind: EnemyProjectileKind::DripsSurfaceCrawlerFinish,
         x_pos: crawler.x_pos,
         y_pos: crawler.y_pos,
         x_velocity: 0,
@@ -746,7 +746,7 @@ mod drips_surface_crawler_tests {
 
         assert_eq!(
             finish.kind,
-            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+            EnemyProjectileKind::DripsSurfaceCrawlerFinish,
             "ASM Drips.asm loc_3392C keeps an animation shell alive until the finish animation completes"
         );
         assert_eq!(finish.x_pos, crawler.x_pos);
@@ -2356,6 +2356,7 @@ impl NativeRuntime {
                     projectile.kind,
                     EnemyProjectileKind::DripsSurfaceCrawler
                         | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                        | EnemyProjectileKind::DripsSurfaceCrawlerFinish
                 )
             })
             .count();
@@ -2393,7 +2394,7 @@ impl NativeRuntime {
                 && !is_maniaxe_axe
                 && p.lifetime == 0
             {
-                if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
+                if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
                     // ASM Drips.asm loc_3392C decrements `$FFFFFB42` after
                     // the original crawler's finish animation completes.
                     expired_drips_surface_crawler_finishes += 1;
@@ -3052,11 +3053,15 @@ impl NativeRuntime {
                 // later when loc_33650 calls loc_33550 for the surface crawler.
                 return true;
             }
-            if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
+            if matches!(
+                p.kind,
+                EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                    | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+            ) {
                 // ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6
-                // after the crawler has already resolved contact or terrain
-                // exit. The helper carries the finish animation, not another
-                // independent Kid damage check.
+                // after the crawler has already resolved contact, while
+                // loc_3392C keeps the original crawler alive only for its
+                // finish animation. Neither performs a fresh Kid damage check.
                 return true;
             }
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler

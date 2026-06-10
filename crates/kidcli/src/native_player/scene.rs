@@ -370,6 +370,29 @@ fn drips_surface_crawler_stru_33f14_frame(elapsed_frames: u16) -> (u16, i16, i16
     C7B46
 }
 
+fn drips_surface_crawler_finish_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    remaining_frames: u16,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let elapsed = 60_u16.saturating_sub(remaining_frames);
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match elapsed / 4 {
+        // ASM Drips.asm loc_338F8 installs `stru_33F06` on the original
+        // crawler before loc_3392C hibernates until the animation finishes.
+        0 => (0x0C5, 0x07, 0x07, 0x10, 0x10), // LnkTo_unk_C7BC6
+        1 => (0x0C9, 0x0A, 0x09, 0x17, 0x16), // LnkTo_unk_C7BCE
+        _ => (0x0D2, 0x0B, 0x0C, 0x18, 0x18), // LnkTo_unk_C7BD6
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
 fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
     match direction {
         // ASM sub_292E loc_2988: d6=2 uses `unk_29FC`/`unk_2A06`.
@@ -3984,7 +4007,9 @@ fn build_game_scene_filtered(
                         colour: [255, 110, 30],
                     });
                 }
-                ActiveProjectileKind::DripsDrop | ActiveProjectileKind::DripsSurfaceCrawler => {
+                ActiveProjectileKind::DripsDrop
+                | ActiveProjectileKind::DripsSurfaceCrawler
+                | ActiveProjectileKind::DripsSurfaceCrawlerFinish => {
                     let pushed_sprite = level_visuals
                         .enemies
                         .families
@@ -3999,6 +4024,12 @@ fn build_game_scene_filtered(
                                         drips_visuals,
                                         projectile.remaining_frames,
                                         projectile.animation_elapsed_frames,
+                                    )?
+                                }
+                                ActiveProjectileKind::DripsSurfaceCrawlerFinish => {
+                                    drips_surface_crawler_finish_frame(
+                                        drips_visuals,
+                                        projectile.remaining_frames,
                                     )?
                                 }
                                 _ => return None,

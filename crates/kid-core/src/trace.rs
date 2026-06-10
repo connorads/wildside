@@ -47,6 +47,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst {
         return ActiveProjectileKind::DripsSurfaceCrawlerBurst;
     }
+    if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
+        return ActiveProjectileKind::DripsSurfaceCrawlerFinish;
+    }
     if projectile.kind == EnemyProjectileKind::ShooterBlock {
         return ActiveProjectileKind::ShooterBlock;
     }
@@ -6640,6 +6643,7 @@ impl NativeRuntime {
                     EnemyProjectileKind::DripsDrop
                         | EnemyProjectileKind::DripsSurfaceCrawler
                         | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                        | EnemyProjectileKind::DripsSurfaceCrawlerFinish
                 )
             })
             .map(|(index, projectile)| {
@@ -6942,8 +6946,11 @@ impl NativeRuntime {
         }
 
         for (index, projectile) in self.projectiles.iter().enumerate() {
-            if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst
-                || projectile.friendly
+            if matches!(
+                projectile.kind,
+                EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                    | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+            ) || projectile.friendly
             {
                 continue;
             }

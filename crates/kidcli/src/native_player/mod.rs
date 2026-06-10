@@ -3183,6 +3183,42 @@ mod tests {
     }
 
     #[test]
+    fn drips_surface_crawler_finish_uses_stru_33f06_not_tar_blob() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 60,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::DripsSurfaceCrawlerFinish,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let finish_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0C5 => Some(tiles),
+            _ => None,
+        });
+        let tiles = finish_sprite.expect(
+            "ASM Drips.asm loc_338F8/loc_3392C should render `stru_33F06` on the original crawler",
+        );
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0C5,
+            "ASM `stru_33F06` starts with `unk_C7BC6: sprite_frame_vram $0C5,$07,$07,$10,$10`",
+        );
+        assert!(
+            scene.commands.iter().all(|command| {
+                !matches!(command, DrawCommand::Sprite { tiles, .. } if tiles[0].tile.tile_index == 0x0C1)
+            }),
+            "the original crawler finish must not reuse Tar_Monster.asm loc_325E6's tiny `$0C1` burst fragment",
+        );
+    }
+
+    #[test]
     fn drips_parent_controller_is_not_rendered_as_floating_slime() {
         let visuals = sample_level_visuals();
         let drips_palette = visuals
