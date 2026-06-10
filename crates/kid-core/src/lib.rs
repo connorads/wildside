@@ -2900,6 +2900,13 @@ impl NativeRuntime {
                 // hibernate-only special case.
                 slice.player.x_velocity = 0;
                 slice.player.y_velocity = 0;
+                // ASM loc_7CD0 must have written the new helmet before the
+                // cleanup returns. The to-Kid form break (loc_B786) has
+                // transform_anim_frames(TheKid)=0, so its switch point never
+                // matches inside the hibernate window — consume it here.
+                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form.take() {
+                    self.progression.current_form = form;
+                }
             } else if self.prize_helmet_collision_hibernate_delay_frames < 115 {
                 // ASM loc_A6F8 (kid.asm:13038): the airborne path has already
                 // run movement and Hibernate_Object_1Frame. PrizeHelmet*

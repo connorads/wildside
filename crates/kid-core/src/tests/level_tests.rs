@@ -6579,7 +6579,16 @@ mod chunk_02 {
 
         let trace = runtime.trace_frame();
         assert_eq!(trace.number_lives, 3);
-        assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
+        // ASM loc_B786 only sets Check_Helmet_Change; Current_Helmet stays the
+        // OLD form through Kid_Transform's reverse animation table and flips
+        // to The Kid when loc_7CD0 writes the new helmet. Oracle issue-271
+        // jugg40: helmet reads 5 (Juggernaut) for frames after the fatal third
+        // tank hit while number_hitpoints is already reseeded to 2.
+        assert_eq!(
+            trace.current_helmet_id,
+            PlayerForm::IronKnight.helmet_id(),
+            "ASM loc_B786 defers the visible helmet flip to loc_7CD0",
+        );
         assert_eq!(
             trace.number_hitpoints,
             PlayerForm::TheKid.max_hitpoints(),
@@ -6587,6 +6596,19 @@ mod chunk_02 {
         );
         assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
         assert!(runtime.progression.invulnerable_frames > 0);
+
+        // Step through the remaining Iron Knight put-on flash plus the
+        // reverse+forward strip hibernate; the helmet flips to The Kid by the
+        // loc_7CD0 point at the end of the strip window.
+        for _ in 0..200 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.current_helmet_id,
+            PlayerForm::TheKid.helmet_id(),
+            "loc_7CD0 writes the new helmet after the reverse animation",
+        );
     }
 
     #[test]

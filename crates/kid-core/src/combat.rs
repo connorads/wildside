@@ -9192,8 +9192,27 @@ impl NativeRuntime {
             // ASM loc_B786 (kid.asm:14701): zero HP while helmeted sets
             // Check_Helmet_Change and Current_Helmet_Available=0; Kid_Transform
             // then removes the helmet and sub_7EB2 restores The Kid's base HP.
-            self.queue_form_change(PlayerForm::TheKid);
-            self.resolve_pending_form_change();
+            // Current_Helmet itself stays at the OLD form through the reverse
+            // animation table and only flips when loc_7CD0 writes the new
+            // helmet — the issue-271 jugg40 oracle keeps helmet 5 for frames
+            // after its third tank hit while native used to flip instantly.
+            // Route the damage form-break through the same deferred-switch
+            // machinery the prize-helmet pickup path uses (lib.rs loc_7CD0
+            // hibernate), keeping the old form trace-visible until then.
+            let old_frames = transform_anim_frames(self.progression.current_form);
+            let new_frames = transform_anim_frames(PlayerForm::TheKid);
+            self.prize_helmet_collision_hibernate_delay_frames = self
+                .prize_helmet_collision_hibernate_delay_frames
+                .max((old_frames + new_frames + 2) as u8);
+            self.prize_helmet_collision_hibernate_switch_form = Some(PlayerForm::TheKid);
+            // ASM loc_B786 -> Kid_Transform -> sub_7EB2 reseeds The Kid's
+            // base HP within the same Check_Helmet_Change processing: the
+            // jugg40 oracle already reads number_hitpoints=2 on the hit frame
+            // itself, so seed immediately rather than via the hibernate path.
+            self.progression.number_hitpoints = transform_hitpoints_sub_7eb2(
+                PlayerForm::TheKid,
+                self.progression.extra_hitpoint_slots,
+            );
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }
