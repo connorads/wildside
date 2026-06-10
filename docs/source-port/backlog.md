@@ -48,8 +48,9 @@ and stop — never commit churn.
   because the oracle side has lost the comparable Drips slots by frame 590. Next useful #260
   work is a genuinely refreshed route/bootstrap that starts clean and stays oracle-comparable,
   not Tank/Drips hitbox/block patches from these stale route files; #285 crawler art);
-  #277 left-jump input drop fixed candidate (loc_7464 Left+Right now feeds Left
-  into standing/wall-scan helpers; human re-test required);
+  #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; next
+  pass needs a direct left-wall jump repro that compares native/oracle held input
+  through loc_7664 -> loc_A426 -> sub_B084;
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
@@ -78,7 +79,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 284 | [?] | P0 | block/prize | 2026-06-10 playtest: later-level prize blocks award diamonds instead of their… | Fixed in b0e2a098; generated RAM-dump parser now rejects foreground-queue spill records masquerading as Diamond prizes. Human playtest still required. |
 | 290 | [?] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Fixed candidate: Dragon.asm loc_3CE90/loc_3CF90 breath child object-only count; full published TAS passes all 37759 frames by CRC. Human validation still required to close. |
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Drill-skin block no-op is now gameplay-CRC clean on the current close route; still needs a fresh route that reaches the reported live slime/metal-block contact. |
-| 277 | [?] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | Fixed candidate: shared movement helper now mirrors ASM loc_7464 Left+Right conflict resolution before standing/wall-scan probes; focused regression and verify-slice-fast pass. Human re-test required. |
+| 277 | [ ] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | Reconfirmed 2026-06-10 after the loc_7464 Left+Right candidate; direct left-wall jump repro still needed. Compare native/oracle held input through loc_7664 -> loc_A426 -> sub_B084. |
 | 276 | [?] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Fixed candidate: oracle confirms same-frame HUD delay is original Mode_Level/sub_BDC0 timing; native render latch now preserves previous HP pips for the hit frame. Human validation still required. |
 | 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p kidcli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
