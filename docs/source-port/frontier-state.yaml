@@ -7,7 +7,7 @@
     "recording": "any-percent-published",
     "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS full-run verification is CRC-clean through the recorded script end",
-    "status": "complete",
+    "status": "active",
     "recommended_frontier_kind": "gameplay",
     "frontier_frame": 37760,
     "authoritative_clean_through": 37759,
@@ -18,7 +18,7 @@
         "reason": "The strict `verify-tas-frontier` gate now reads `report.json` and fails on CRC or blocking state divergence. Fresh evidence shows `any-percent-published` is CRC-clean and authoritative-clean across frames 0..1346 with per-frame checkpoints. The former frame-1146 post-transform drift is cleared by matching ASM `loc_8E16` / `sub_8600` walking floor-check order and suppressing only the premature post-horizontal support release during the demo post-transform hand-off. The remaining top-level `kid_x_vel` / `kid_y_vel` mismatches from frame 1148 onward are classified as oracle limitations when the oracle's live `0x30(kid_gfx)` object at the player position carries the same velocity as native; this reflects the ROM `Load_DemoPlay loc_119D8` controller/object split, not a gameplay state miss."
       }
     ],
-    "current_blocker": "`any-percent-published` is gameplay-CRC-clean through the recorded script end after repairing the later timeout-restart intro-sequence-2 Start-return deferral. `tas-diff --frame-start 36800 --frame-end 36832 --include-advisory --frontier-kind gameplay` is 32/32 match, and `verify-tas --frame-start 0 --frame-end 37759 --checkpoint-interval 1 --bisect --frontier-kind gameplay` passes all 37759 frames by CRC. This active frontier is complete unless a longer published recording is added.",
+    "current_blocker": "Full-run verification regressed since the 2026-05-21 claim and is being repaired commit-by-commit. Two regressions were bisected and fixed on 2026-06-09/10: (1) commit c60742f3 raised the shared IntroSequence6 attract lock 185->237 from a cold-route oracle measurement, delaying the timeout-restart IntroSequence6 -> DemoPlay flip by 52 frames at frame 21765 — fixed by lineage-splitting the lock (timeout-restart keeps the ASM loc_1BAB0 $B8 DBF 185; natural/cold keeps the observed 237, extra 52 frames still untraced, TODO(fidelity)); (2) stale `deferred_ceiling_clears` prize workers survived level entry (ASM loc_6E2 wipes the sub_1007A coroutines with Object_RAM) and wrote a phantom $E001 Smash cell at (22,14) into the Knight's Isle attract demo at frame 24636, wall-latching the demo Kid at frame 24921 — fixed by clear_block_object_workers_loc_6e2() at every object-RAM wipe site. The ASM-correct sub_8F26 -> sub_922C wall column scan (7319a33a) only exposed the phantom cell. verify-tas 0..27000 now passes at interval-5; a full 0..37759 interval-25 sweep is the next gate for restoring the clean-through-script-end claim.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
