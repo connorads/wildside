@@ -2163,6 +2163,7 @@ impl NativeRuntime {
             // The newly allocated child does not run its own loc_335D8 random
             // branch until a later object pass, so the parent's wait reseed
             // consumes the next RNG byte first.
+            let rng_before = self.rom_random.offset_word();
             let reseed_random_byte = self.rom_random.next_byte();
             let crawler_random_byte = if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
@@ -2171,6 +2172,7 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let rng_after = self.rom_random.offset_word();
             if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
             {
@@ -2189,7 +2191,7 @@ impl NativeRuntime {
             // ASM loc_3350E branches back to loc_3340E after the splash path.
             let wait_timer = drips_wait_timer_loc_3340e(reseed_random_byte, kid_x_word);
             reseed_events.push(format!(
-                "#{:02}@{:#010x},{:#010x} table:{}->{} crawler={} crawler_rng={} kid_x={:#06x} reseed_rng={:#04x} wait={:#06x}",
+                "#{:02}@{:#010x},{:#010x} table:{}->{} crawler={} crawler_rng={} kid_x={:#06x} rng:{:#06x}->{:#06x} reseed_rng={:#04x} wait={:#06x}",
                 enemy.layout_index,
                 enemy.x_pos,
                 enemy.y_pos,
@@ -2200,6 +2202,8 @@ impl NativeRuntime {
                     .map(|byte| format!("{byte:#04x}"))
                     .unwrap_or_else(|| String::from("none")),
                 kid_x_word,
+                rng_before,
+                rng_after,
                 reseed_random_byte,
                 wait_timer
             ));
