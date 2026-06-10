@@ -3737,6 +3737,103 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_later_level_prize_block_list_ignores_fg_queue_spill_diamonds() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(0x14));
+
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 0x14 should load its extracted block-list asset");
+        assert_eq!(
+            block_list.prize_blocks.len(),
+            27,
+            "ASM loc_12434/loc_12480 prize records end before the foreground update queue spill; the duplicate `$0100` records are not diamond prizes",
+        );
+        assert!(
+            block_list
+                .prize_blocks
+                .iter()
+                .any(|entry| entry.layout_addr == 0xA7BE
+                    && entry.content == terrain::PrizeContent::Eyeclops),
+            "ASM loc_10342 should keep the level 0x14 Eyeclops prize at layout `$A7BE` visible after parsing",
+        );
+        assert!(
+            block_list
+                .prize_blocks
+                .iter()
+                .all(|entry| !(entry.layout_addr == 0xA7BE
+                    && entry.content == terrain::PrizeContent::Diamond)),
+            "foreground queue spill must not create a duplicate Diamond entry for the Eyeclops prize layout",
+        );
+
+        assert_eq!(
+            block_list
+                .prize_block_by_layout_addr_loc_10342(0xA7BE)
+                .map(|entry| entry.content),
+            Some(terrain::PrizeContent::Eyeclops),
+            "ASM loc_10342 should dispatch the generated level 0x14 Eyeclops helmet prize, not a duplicate Diamond spill record",
+        );
+    }
+
+    #[test]
+    fn generated_later_level_juggernaut_prize_survives_live_block_lifecycle() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.current_level = LevelId(5);
+        runtime.reload_block_grid_for_level(LevelId(5));
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(5))));
+
+        let slice = runtime.opening_slice.as_mut().unwrap();
+        slice.player.x_pos = (116 * 16 + 8) << 16;
+        slice.player.y_pos = (10 * 16 + 48) << 16;
+        slice.player.y_velocity = -0x0011_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = (112 * 16) << 16;
+        slice.camera.y_pos = 0;
+        slice.terrain.floor_y_pos = (12 * 16) << 16;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        runtime.step_frame(FrameInput::default());
+
+        let pending = runtime
+            .block_state
+            .deferred_ceiling_clears
+            .first()
+            .expect("live step should queue the ASM sub_1007A prize-block worker");
+        assert_eq!(
+            pending.content,
+            terrain::PrizeContent::Juggernaut,
+            "ASM loc_10342 should carry the Level 5 layout `$B09A` Juggernaut content into the live deferred worker, not Diamond",
+        );
+
+        for _ in 0..=NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES + 2 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            runtime
+                .floating_items
+                .iter()
+                .any(|item| item.content == terrain::PrizeContent::Juggernaut),
+            "ASM sub_1007A -> PrizeHelmetJuggernaut_Init should spawn the Juggernaut floating helmet after the live block lifecycle",
+        );
+        assert!(
+            runtime
+                .floating_items
+                .iter()
+                .all(|item| item.content != terrain::PrizeContent::Diamond),
+            "the generated later-level helmet prize must not fall back to a Diamond floating item",
+        );
+    }
+
+    #[test]
     fn level05_recording_settle_counts_lava_special_effect_workers_loc_14c6a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

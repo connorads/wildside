@@ -695,10 +695,18 @@ impl BlockList {
             if enforce_level_layout_addr_bounds && !is_level_layout_low_word_addr(layout_addr) {
                 break;
             }
+            let property_word = u16::from_be_bytes([data[offset + 6], data[offset + 7]]);
+            if enforce_level_layout_addr_bounds && property_word & 0x7FF0 != 0 {
+                // ASM loc_12434/loc_12480 store the raw prize property word:
+                // bit 15 marks disguised prizes, and Prize_Init_Index consumes
+                // the low nibble as the content id. Middle bits belong to the
+                // following RAM sections in generated dumps, not prize records.
+                break;
+            }
             let col = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
             let row = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
-            let disguised = data[offset + 6] & 0x80 != 0;
-            let content_id = data[offset + 7] & 0x0F;
+            let disguised = property_word & 0x8000 != 0;
+            let content_id = (property_word & 0x000F) as u8;
             let content = PrizeContent::from_id(content_id);
 
             prize_blocks.push(PrizeBlockEntry {
@@ -4676,6 +4684,39 @@ mod tests {
         assert_eq!(bl.ghost_blocks[0].col, 8);
         assert_eq!(bl.ghost_blocks[0].row, 14);
         assert_eq!(bl.ghost_blocks[0].count, 2);
+    }
+
+    #[test]
+    fn block_list_from_raw_generated_ram_dump_stops_prizes_before_fg_queue_spill() {
+        // ASM loc_12434 stores the prize property word as `d5`: bit 15 is the
+        // disguised flag and the low nibble is the Prize_Init_Index content id.
+        // The generated Level 0x14 RAM dump exposed the following foreground
+        // update queue as duplicate `$0100` diamond records, making helmet
+        // prizes look like diamonds in later-level audits.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0xA7, 0x12, // prize layout_addr in Level_Layout RAM
+            0x00, 0x10, // col = 16
+            0x00, 0x02, // row = 2
+            0x00, 0x03, // Cyclone
+        ]);
+        data.extend_from_slice(&[
+            0xA7, 0xBE, // prize layout_addr in Level_Layout RAM
+            0x00, 0x16, // col = 22
+            0x00, 0x04, // row = 4
+            0x80, 0x05, // disguised Eyeclops
+        ]);
+        data.extend_from_slice(&[
+            0xA7, 0x12, // foreground queue spill repeats the layout addr
+            0x00, 0x10, 0x00, 0x02, 0x01, 0x00, // invalid prize property word; not a diamond
+        ]);
+
+        let bl = BlockList::from_raw(&data, 40);
+
+        assert_eq!(bl.prize_blocks.len(), 2);
+        assert_eq!(bl.prize_blocks[0].content, PrizeContent::Cyclone);
+        assert_eq!(bl.prize_blocks[1].content, PrizeContent::Eyeclops);
+        assert!(bl.prize_blocks[1].disguised);
     }
 
     #[test]
