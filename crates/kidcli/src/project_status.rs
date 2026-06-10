@@ -6,8 +6,6 @@ use std::io::{self, Write};
 use std::path::Path;
 
 const BACKLOG_PATH: &str = "docs/source-port/backlog.md";
-const FRONTIER_STATE_PATH: &str = "docs/source-port/frontier-state.yaml";
-const NEXT_AGENT_NOTE_PATH: &str = ".cache/autonomy/source-port-frontier/next-agent.md";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub(crate) enum ProjectStatusFormat {
@@ -20,7 +18,6 @@ pub(crate) struct ProjectStatusReport {
     headline_gate: String,
     headline_passed: bool,
     secondary_gates: Vec<GateSignal>,
-    tas_frontier: TasFrontierStatus,
     ready_to_implement_items: Vec<BacklogItem>,
     top_open_playability_items: Vec<BacklogItem>,
     top_open_visual_items: Vec<BacklogItem>,
@@ -35,16 +32,6 @@ struct GateSignal {
     detail: String,
     path: String,
     failing_step: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-struct TasFrontierStatus {
-    slug: String,
-    status: String,
-    recording: String,
-    authoritative_clean_through: u32,
-    note_status: String,
-    summary: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -68,20 +55,6 @@ struct HumanValidationBlocker {
 enum BacklogFocus {
     Playability,
     VisualParity,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct FrontierState {
-    active_frontier: ActiveFrontierState,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct ActiveFrontierState {
-    slug: String,
-    status: String,
-    recording: String,
-    authoritative_clean_through: u32,
-    area: String,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -121,7 +94,6 @@ pub(crate) fn run_project_status(
 fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> {
     let playable_gate = load_gate_signal(repo_root, "1p-playable");
     let accurate_gate = load_gate_signal(repo_root, "1p-accurate");
-    let tas_frontier = load_tas_frontier(repo_root)?;
     let ready_to_implement_items = load_ready_to_implement_items(repo_root, 5)?;
     let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
@@ -140,18 +112,6 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
             accurate_gate.name, accurate_gate.detail
         ));
     }
-    if tas_frontier.note_status != "current" {
-        warnings.push(format!(
-            "source-port frontier handoff note is {}",
-            tas_frontier.note_status
-        ));
-    }
-    if tas_frontier.status == "complete" {
-        warnings.push(
-            "TAS frontier is closed; treat it as replay-matched evidence, not overall completion"
-                .to_owned(),
-        );
-    }
     if !human_validation_blockers.is_empty() {
         warnings.push(format!(
             "{} human validation/repro blocker(s) remain; run `mise run human-validation-review` before claiming completion",
@@ -163,7 +123,6 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         headline_gate: playable_gate.name.clone(),
         headline_passed: playable_gate.passed,
         secondary_gates: vec![accurate_gate],
-        tas_frontier,
         ready_to_implement_items,
         top_open_playability_items,
         top_open_visual_items,
@@ -219,61 +178,6 @@ fn load_gate_signal(repo_root: &Path, gate_name: &str) -> GateSignal {
         path: path.display().to_string(),
         failing_step,
     }
-}
-
-fn load_tas_frontier(repo_root: &Path) -> Result<TasFrontierStatus> {
-    let path = repo_root.join(FRONTIER_STATE_PATH);
-    let bytes = fs::read(&path)
-        .with_context(|| format!("failed to read frontier state {}", path.display()))?;
-    let state: FrontierState = serde_json::from_slice(&bytes)
-        .with_context(|| format!("failed to parse frontier state {}", path.display()))?;
-    let note_path = repo_root.join(NEXT_AGENT_NOTE_PATH);
-    let note_status = next_agent_note_status(&note_path, &state.active_frontier.slug);
-    let summary = if state.active_frontier.status == "complete" {
-        format!(
-            "{} is replay-matched through frame {}; broader 1P work remains open",
-            state.active_frontier.recording, state.active_frontier.authoritative_clean_through
-        )
-    } else {
-        state.active_frontier.area.clone()
-    };
-    Ok(TasFrontierStatus {
-        slug: state.active_frontier.slug,
-        status: state.active_frontier.status,
-        recording: state.active_frontier.recording,
-        authoritative_clean_through: state.active_frontier.authoritative_clean_through,
-        note_status,
-        summary,
-    })
-}
-
-fn next_agent_note_status(note_path: &Path, active_slug: &str) -> String {
-    let Ok(contents) = fs::read_to_string(note_path) else {
-        return "missing".to_owned();
-    };
-    match extract_frontmatter_slug(&contents).as_deref() {
-        Some(slug) if slug == active_slug => "current".to_owned(),
-        Some(_) => "stale".to_owned(),
-        None => "stale".to_owned(),
-    }
-}
-
-fn extract_frontmatter_slug(contents: &str) -> Option<String> {
-    let mut lines = contents.lines();
-    if lines.next()? != "---" {
-        return None;
-    }
-    for line in lines {
-        if line == "---" {
-            break;
-        }
-        if let Some((key, value)) = line.split_once(':')
-            && key.trim() == "slug"
-        {
-            return Some(value.trim().to_owned());
-        }
-    }
-    None
 }
 
 fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
@@ -472,15 +376,6 @@ fn print_project_status(report: &ProjectStatusReport) {
             }
         );
     }
-    println!("  TAS frontier:");
-    println!(
-        "    - {} [{}] clean through frame {}",
-        report.tas_frontier.recording,
-        report.tas_frontier.status,
-        report.tas_frontier.authoritative_clean_through
-    );
-    println!("    - handoff note: {}", report.tas_frontier.note_status);
-    println!("    - summary: {}", report.tas_frontier.summary);
     println!("  ready to implement now:");
     if report.ready_to_implement_items.is_empty() {
         println!("    - none");
@@ -631,11 +526,6 @@ mod tests {
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
             .expect("gate dir");
         fs::write(
-            temp_dir.path().join("docs/source-port/frontier-state.yaml"),
-            r#"{"active_frontier":{"slug":"frontier","status":"complete","recording":"any-percent-published","authoritative_clean_through":37759,"area":"closed frontier"}}"#,
-        )
-        .expect("frontier");
-        fs::write(
             temp_dir.path().join("docs/source-port/backlog.md"),
             "\
 | # | Status | Pri | System | Summary | Verify |
@@ -681,20 +571,6 @@ mod tests {
             .expect("playable gate dir");
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
             .expect("accurate gate dir");
-        fs::create_dir_all(temp_dir.path().join(".cache/autonomy/source-port-frontier"))
-            .expect("autonomy dir");
-        fs::write(
-            temp_dir.path().join("docs/source-port/frontier-state.yaml"),
-            r#"{"active_frontier":{"slug":"frontier","status":"active","recording":"any-percent-published","authoritative_clean_through":100,"area":"active"}} "#,
-        )
-        .expect("frontier");
-        fs::write(
-            temp_dir
-                .path()
-                .join(".cache/autonomy/source-port-frontier/next-agent.md"),
-            "---\nslug: frontier\n---\n",
-        )
-        .expect("note");
         fs::write(
             temp_dir.path().join("docs/source-port/backlog.md"),
             "\
@@ -732,20 +608,6 @@ mod tests {
             .expect("playable gate dir");
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
             .expect("accurate gate dir");
-        fs::create_dir_all(temp_dir.path().join(".cache/autonomy/source-port-frontier"))
-            .expect("autonomy dir");
-        fs::write(
-            temp_dir.path().join("docs/source-port/frontier-state.yaml"),
-            r#"{"active_frontier":{"slug":"frontier","status":"complete","recording":"any-percent-published","authoritative_clean_through":37759,"area":"closed"}}"#,
-        )
-        .expect("frontier");
-        fs::write(
-            temp_dir
-                .path()
-                .join(".cache/autonomy/source-port-frontier/next-agent.md"),
-            "---\nslug: frontier\n---\n",
-        )
-        .expect("note");
         fs::write(
             temp_dir.path().join("docs/source-port/backlog.md"),
             "\
