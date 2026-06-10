@@ -6506,6 +6506,63 @@ mod chunk_09 {
     }
 
     #[test]
+    fn issue260_route_turns_first_rock_tank_left_at_oracle_frame_99() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut script = vec![0x08; 105];
+        script[60..].fill(0x18);
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(1)
+            .settle_recording_warp()
+            .probe_start_position(344, 575)
+            .probe_camera_position(192, 352)
+            .run(&script, script.len());
+        let frame_99 = trace
+            .get(99)
+            .expect("issue #260 route should include frame 99");
+        let first_tank_body = frame_99
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00E0_0000
+                    && object.hit_points == Some(2)
+            })
+            .expect("Level 0x01 first RockTank body should still be active at route frame 99");
+        let first_tank_turret = frame_99
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00D8_0000
+                    && matches!(object.hit_points, None | Some(0))
+            })
+            .expect(
+                "Level 0x01 first RockTank turret child should still be active at route frame 99",
+            );
+
+        assert_eq!(
+            (
+                first_tank_body.x_pos,
+                first_tank_turret.x_pos,
+                first_tank_body.facing,
+                first_tank_turret.facing,
+            ),
+            (
+                0x00D5_8000,
+                0x00D5_0000,
+                Some(Direction::Left),
+                Some(Direction::Left),
+            ),
+            "ASM Tank.asm loc_3B40A enters shared walker loc_3C026/loc_3C04E; loc_3C0A6 must turn at the route's right-edge boundary before storing the predicted X",
+        );
+    }
+
+    #[test]
     fn settled_recording_probe_level_one_suppresses_inner_visible_drips_spawn() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -6717,8 +6774,8 @@ mod chunk_09 {
 
         assert_eq!(
             (first_tank_body.x_pos, first_tank_turret.x_pos),
-            (0x00C4_8000, 0x00C4_0000),
-            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank body one half-pixel ahead of its turret child",
+            (0x00C5_8000, 0x00C5_0000),
+            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank body one half-pixel ahead of its turret child after the loc_3C0A6 boundary-turn frame",
         );
     }
 

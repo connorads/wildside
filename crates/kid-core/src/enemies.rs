@@ -16294,7 +16294,7 @@ fn shared_walker_grounded_scan_requests_turn(
     } else {
         (current_x_px - half_width) & 0xF
     };
-    if tile_remainder >= pixel_delta {
+    if tile_remainder > pixel_delta {
         return false;
     }
 
@@ -16365,21 +16365,13 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
-    if shared_walker_grounded_scan_requests_turn(
+    let turn_after_horizontal_advance = shared_walker_grounded_scan_requests_turn(
         enemy,
         grid,
         enemy.x_velocity,
         probe_half_width,
         probe_height,
-    ) {
-        // ASM loc_3C04E -> loc_3C0A6/loc_3C0B4: the rightward `sub_36972`
-        // scan runs before `move.l d2,x_pos(a3)`, so an edge/no-floor turn
-        // consumes the frame without first storing the predicted X position.
-        reverse_enemy_direction(enemy);
-        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
-        register_shared_walker_turnaround(enemy);
-        return;
-    }
+    );
 
     // Apply horizontal movement.
     // ASM loc_3C1DE (kid.asm:43684-43686): no-collision X path in the leftward
@@ -16412,6 +16404,18 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         } else if enemy.x_pos < wall_fp + edge_fp {
             enemy.x_pos = wall_fp + edge_fp;
         }
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
+
+    if turn_after_horizontal_advance {
+        // ASM Tank.asm loc_3B40A -> kid.asm loc_3C04E/loc_3C0A6: the ROM's
+        // rightward boundary turn exposes the body one extra half-step ahead
+        // before `loc_3C0D2` clears `x_direction`; issue #260's route frame 99
+        // pins that hibernate-boundary body/turret phase against oracle.
+        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         register_shared_walker_turnaround(enemy);

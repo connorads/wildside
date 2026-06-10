@@ -32,10 +32,11 @@ and stop — never commit churn.
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; recording-settle
-  over-advance fixed after oracle settle trace showed Level 1 should end at RNG `$FFCB` and frame 0
-  should start at `$FFCF`; rerun the closer route from
+  over-advance fixed, then the first refreshed route split moved from frame 99 to frame 333 after
+  the RockTank shared-walker right-boundary phase fix. Continue from the remaining Tank
+  return-boundary split in
   `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` before touching
-  hitboxes/floor probes/player movement; #285 crawler art);
+  Drips/hitboxes/floor probes/player movement; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression

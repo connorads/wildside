@@ -266,6 +266,22 @@ oracle Tank phase at frame 0 (`enemy_0A#01@0x00a38000/0x00a30000`) and frame 1
 re-open the stale `$FFD7` RNG consumer hypothesis unless a fresh route shows a
 new split.
 
+Follow-up 2026-06-10 for #260 after the refreshed RockTank route: the closer
+route first split was not Drips. It was plain RockTank layout #1 at frame 99:
+native left the body/turret at `$00D50000/$00D50000` still facing right, while
+oracle had already exposed the hibernate-boundary body half-step
+`$00D58000/$00D50000` and cleared into left-facing patrol. ASM rechecked
+`Tank.asm loc_3B40A` into shared walker `kid.asm loc_3C04E`/`loc_3C0A6`/
+`loc_3C0D2`: the rightward boundary turn consumes the equality case and exports
+one extra horizontal half-step before clearing `x_direction`. Added
+`issue260_route_turns_first_rock_tank_left_at_oracle_frame_99`, and
+`tas-diff --frame-start 95 --frame-end 104 --frontier-kind enemy
+--only-divergent --include-advisory` now reports 9/9 matching frames. Full
+route 0..620 now first diverges at frame 333, still on the same Tank boundary
+family (native body/turret `$00D58000/$00D50000` left, oracle
+`$00D50000/$00D50000` right). Continue #260 from that return-boundary phase;
+do not patch Drips or metal-block hitboxes until Tank route noise is clean.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
