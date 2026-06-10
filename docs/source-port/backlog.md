@@ -34,7 +34,8 @@ and stop — never commit churn.
 - **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
   by native-only Drips timing before metal contact; `tas-diff --drips-trace` shows native layout #08
   starts its drop at frame 258 and spawns a crawler at frame 444 while oracle is still counting down,
-  so trace Drips `loc_3340E`/`loc_33424` initial wait/controller phase before hitboxes or floor probes; #285 crawler art);
+  and `tas-diff --player-trace` shows Kid X/Y/velocity/movement/facing match oracle through frames 80..180,
+  so trace RNG consumer order feeding Drips `loc_3340E` before hitboxes, floor probes, or player movement; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression

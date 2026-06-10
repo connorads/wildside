@@ -29,6 +29,7 @@ pub fn run_tas_diff(
     show_object_roster_on_match: bool,
     rng_trace: bool,
     drips_trace: bool,
+    player_trace: bool,
     visual: bool,
     frontier_kind: FrontierKind,
 ) -> Result<()> {
@@ -112,6 +113,55 @@ pub fn run_tas_diff(
             );
             previous_native_rng = native_rng_offset;
             previous_oracle_rng = oracle_rng_offset;
+        }
+        return Ok(());
+    }
+
+    if player_trace {
+        println!(
+            "frame input native_x native_y native_xv native_yv native_move native_ground native_facing native_rng oracle_x oracle_y oracle_xv oracle_yv oracle_move oracle_ground oracle_dir oracle_rng"
+        );
+        for frame_idx in start..end {
+            let label = format!("frame_{frame_idx}");
+            let native_frame = native_trace.get(frame_idx);
+            let oracle_state = checkpoint_state(&oracle.states, &label);
+            let input = scenario
+                .script
+                .get(frame_idx)
+                .map(|mask| format!("{mask:#04x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            println!(
+                "{frame_idx:>5} {input:>5} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>13} {:>10} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>10} {:>10}",
+                format_opt_u32(native_frame.and_then(|frame| frame.kid_x_pos)),
+                format_opt_u32(native_frame.and_then(|frame| frame.kid_y_pos)),
+                format_opt_i32(native_frame.and_then(|frame| frame.kid_x_velocity)),
+                format_opt_i32(native_frame.and_then(|frame| frame.kid_y_velocity)),
+                format_opt_u16(native_frame.and_then(|frame| frame.character_movement)),
+                format_opt_bool(native_frame.and_then(|frame| frame.kid_on_ground)),
+                native_frame
+                    .and_then(|frame| frame.kid_facing)
+                    .map(|facing| format!("{facing:?}"))
+                    .unwrap_or_else(|| "-".to_owned()),
+                format_opt_u16_hex(native_frame.and_then(|frame| frame.rng_offset)),
+                oracle_state
+                    .map(|state| state.kid_x_pos.to_string())
+                    .unwrap_or_else(|| "-".to_owned()),
+                oracle_state
+                    .map(|state| state.kid_y_pos.to_string())
+                    .unwrap_or_else(|| "-".to_owned()),
+                format_opt_i32(oracle_state.and_then(|state| state.kid_x_vel)),
+                format_opt_i32(oracle_state.and_then(|state| state.kid_y_vel)),
+                format_opt_u16(oracle_state.and_then(|state| state.character_movement)),
+                oracle_state
+                    .and_then(|state| state.gameplay_debug_fields.get("kid_on_ground"))
+                    .cloned()
+                    .unwrap_or_else(|| "-".to_owned()),
+                oracle_state
+                    .and_then(|state| state.kid_x_direction)
+                    .map(|direction| format!("{direction:#04x}"))
+                    .unwrap_or_else(|| "-".to_owned()),
+                format_opt_u16_hex(oracle_state.and_then(|state| state.rng_offset)),
+            );
         }
         return Ok(());
     }
@@ -388,6 +438,36 @@ fn format_rng_delta(previous: Option<u16>, current: Option<u16>) -> String {
         }
         _ => "-".to_owned(),
     }
+}
+
+fn format_opt_u32(value: Option<u32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".to_owned())
+}
+
+fn format_opt_i32(value: Option<i32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".to_owned())
+}
+
+fn format_opt_u16(value: Option<u16>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".to_owned())
+}
+
+fn format_opt_u16_hex(value: Option<u16>) -> String {
+    value
+        .map(|value| format!("{value:#06x}"))
+        .unwrap_or_else(|| "-".to_owned())
+}
+
+fn format_opt_bool(value: Option<bool>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".to_owned())
 }
 
 fn should_print_object_roster(

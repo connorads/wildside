@@ -239,6 +239,18 @@ target: trace RNG consumers before frame 409/414 in this route, especially
 same-frame Drips/controller continuations and any player/enemy object pass that
 can consume a ROM random byte before `Drips.asm loc_3340E`.
 
+Follow-up 2026-06-10 for #260 after `fb67c630`/`8ad98a11`: added
+`tas-diff --player-trace` to rule out an upstream Kid movement explanation for
+the earlier Drips timing split. On
+`.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json`
+frames 80..180, native and oracle Kid X/Y, X/Y velocity, `character_movement`,
+and facing/x-direction all match exactly while the RNG offsets stay displaced
+by eight bytes at the first Drips countdown split (for example frame 90 native
+`0xfff6`, oracle `0xffee`). This rejects the hypothesis that #277-style
+left-jump/player drift causes this route's native-only early Drips drop. The
+remaining #260 target is RNG consumer ordering before `Drips.asm loc_3340E`,
+not player motion, splash timing, crawler hitboxes, or floor probes.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing

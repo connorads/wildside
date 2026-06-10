@@ -883,6 +883,9 @@ enum Commands {
         /// Print compact Drips controller/crawler state and skip verbose diffs
         #[arg(long, default_value_t = false)]
         drips_trace: bool,
+        /// Print compact Kid/player state and skip verbose diffs
+        #[arg(long, default_value_t = false)]
+        player_trace: bool,
         /// Generate 3-panel visual diff PNGs at divergent frames
         #[arg(long, default_value_t = false)]
         visual: bool,
@@ -2052,6 +2055,7 @@ fn main() -> Result<()> {
             show_object_roster_on_match,
             rng_trace,
             drips_trace,
+            player_trace,
             visual,
             frontier_kind,
         } => {
@@ -2072,6 +2076,7 @@ fn main() -> Result<()> {
                 show_object_roster_on_match,
                 rng_trace,
                 drips_trace,
+                player_trace,
                 visual,
                 frontier_kind,
             )?;
