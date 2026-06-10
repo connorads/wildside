@@ -140,6 +140,22 @@ later prize blocks that probably should contain helmets still yielding other
 items. Treat this note as triage context; each fix still needs an ASM/oracle
 repro or focused regression test before implementation.
 
+Follow-up 2026-06-10 for #277: rejected the first Iron Knight wall-jump input
+hypothesis. ASM `loc_A28A -> loc_A426` branches out of Iron Knight climbing on
+the B-press frame and calls the jump launcher before returning to the normal
+jump loop; it does not run same-frame horizontal acceleration. A focused
+regression, `iron_knight_b_press_keeps_held_left_momentum_after_loc_a426`, now
+checks the following `sub_B084` jump-loop frame and passes, proving held-left is
+honoured there on current native. Also rechecked the existing cache-local
+Berzerker route `.cache/scenarios/issue147-berzerker-wall-walk-jump.json`:
+`probe-record-scenario-file --player-motion --summary-only` stays in-game, and
+`tas-diff --frame-start 110 --frame-end 210 --include-advisory --frontier-kind
+gameplay --only-divergent` finds an authoritative rightward slope/jump
+divergence at frame 204 (native lands/re-jumps differently around
+`loc_A6F8`/`loc_9D22`). That route is useful movement evidence but is not the
+reported hold-left-into-wall repro. Next #277 pass still needs a direct
+left-wall Rhino/Berzerker route before changing input or wall-cling code.
+
 Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
 metal-block/slime repro. The cache-local seed
 `.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within

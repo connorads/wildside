@@ -22871,6 +22871,47 @@ mod chunk_05 {
     }
 
     #[test]
+    fn iron_knight_b_press_keeps_held_left_momentum_after_loc_a426() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.helmet.iron_knight_climbing = true;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+
+        rt.step_iron_knight_climb(
+            &mut slice,
+            FrameInput {
+                left: true,
+                b: true,
+                ..FrameInput::default()
+            },
+        );
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::IronKnight,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.x_velocity < 0,
+            "ASM loc_A28A -> loc_A426: B-press exits Iron Knight climbing into the jump loop; the following sub_B084 frame must honour held-left input",
+        );
+    }
+
+    #[test]
     fn iron_knight_loc_a2e2_right_wall_left_input_releases_climb() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
