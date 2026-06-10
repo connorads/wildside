@@ -9199,11 +9199,14 @@ impl NativeRuntime {
             // Route the damage form-break through the same deferred-switch
             // machinery the prize-helmet pickup path uses (lib.rs loc_7CD0
             // hibernate), keeping the old form trace-visible until then.
+            // Oracle issue-271 jugg40: the strip hibernate runs exactly the
+            // old form's reverse-table length (hit at scenario 268, walking
+            // resumes with helmet 0 at 301 = +33 = Juggernaut's stru_7FCA);
+            // the to-Kid forward table is empty.
             let old_frames = transform_anim_frames(self.progression.current_form);
-            let new_frames = transform_anim_frames(PlayerForm::TheKid);
             self.prize_helmet_collision_hibernate_delay_frames = self
                 .prize_helmet_collision_hibernate_delay_frames
-                .max((old_frames + new_frames + 2) as u8);
+                .max(old_frames as u8);
             self.prize_helmet_collision_hibernate_switch_form = Some(PlayerForm::TheKid);
             // ASM loc_B786 -> Kid_Transform -> sub_7EB2 reseeds The Kid's
             // base HP within the same Check_Helmet_Change processing: the

@@ -8770,7 +8770,28 @@ impl NativeRuntime {
         } else {
             0
         };
-        let roster_count = (active_objects.len() as u16).saturating_add(transient_gfx_workers);
+        // ASM Tank.asm loc_3B372 allocates the mouth/turret child through
+        // j_Allocate_GfxObjectSlot_a1 — a GFX slot that never increments
+        // Number_Objects. The native roster intentionally exports body and
+        // turret as separate snapshots for entity-position parity, so the
+        // object COUNT must collapse each tank pair back to its single ROM
+        // object slot (issue-271 jugg40: oracle Number_Objects stays 5 with
+        // one tank object while the native roster carries two 0x0A entries).
+        let tank_turret_child_entries = active_objects
+            .windows(2)
+            .filter(|pair| {
+                matches!(
+                    (&pair[0].kind, &pair[1].kind),
+                    (
+                        NativeObjectKind::Enemy { object_type: a },
+                        NativeObjectKind::Enemy { object_type: b },
+                    ) if (*a == 0x0A || *a == 0x0B) && a == b
+                ) && pair[0].layout_index == pair[1].layout_index
+            })
+            .count() as u16;
+        let roster_count = (active_objects.len() as u16)
+            .saturating_sub(tank_turret_child_entries)
+            .saturating_add(transient_gfx_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
             roster_count,
