@@ -3834,6 +3834,77 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_demo_level_eyeclops_prize_survives_live_block_lifecycle() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.current_level = LevelId(0x14);
+        runtime.reload_block_grid_for_level(LevelId(0x14));
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(0x14))));
+
+        let grid_cell = runtime.block_grid.as_ref().unwrap().cell_at(22, 4);
+        assert_eq!(grid_cell.block_type, terrain::BlockType::Prize);
+        assert!(
+            runtime
+                .block_list
+                .as_ref()
+                .unwrap()
+                .prize_block_by_layout_addr_loc_10342(
+                    terrain::BlockList::level_layout_low_word_addr(
+                        22,
+                        4,
+                        runtime.block_grid.as_ref().unwrap().width_cells,
+                    ),
+                )
+                .is_some_and(|entry| entry.content == terrain::PrizeContent::Eyeclops)
+        );
+
+        let slice = runtime.opening_slice.as_mut().unwrap();
+        slice.player.x_pos = (22 * 16 + 8) << 16;
+        slice.player.y_pos = (4 * 16 + 48) << 16;
+        slice.player.y_velocity = -0x0011_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        slice.terrain.floor_y_pos = (6 * 16) << 16;
+        slice.terrain.floor_terrain_type = TerrainType::Normal;
+
+        runtime.step_frame(FrameInput::default());
+
+        let pending = runtime
+            .block_state
+            .deferred_ceiling_clears
+            .first()
+            .expect("live step should queue the ASM sub_1007A prize-block worker");
+        assert_eq!(
+            pending.content,
+            terrain::PrizeContent::Eyeclops,
+            "ASM loc_10342 should carry the Level 0x14 layout `$A7BE` Eyeclops content into the live deferred worker, not Diamond",
+        );
+
+        for _ in 0..=NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES + 2 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            runtime
+                .floating_items
+                .iter()
+                .any(|item| item.content == terrain::PrizeContent::Eyeclops),
+            "ASM sub_1007A -> PrizeHelmetEyeclops_Init should spawn the Eyeclops floating helmet after the live block lifecycle",
+        );
+        assert!(
+            runtime
+                .floating_items
+                .iter()
+                .all(|item| item.content != terrain::PrizeContent::Diamond),
+            "the generated demo-level Eyeclops prize must not fall back to a Diamond floating item",
+        );
+    }
+
+    #[test]
     fn level05_recording_settle_counts_lava_special_effect_workers_loc_14c6a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

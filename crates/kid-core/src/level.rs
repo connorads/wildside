@@ -4476,6 +4476,44 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
     }
 }
 
+#[allow(non_snake_case)]
+fn reconcile_prize_block_cells_loc_123DC(
+    grid: &mut terrain::BlockGrid,
+    block_list: &terrain::BlockList,
+) {
+    if grid.width_cells == 0 {
+        return;
+    }
+
+    for prize in &block_list.prize_blocks {
+        let Some(cell_index) = prize
+            .layout_addr
+            .checked_sub(0xA652)
+            .filter(|offset| offset % 2 == 0)
+            .map(|offset| offset / 2)
+        else {
+            continue;
+        };
+        let col = cell_index % grid.width_cells;
+        let row = cell_index / grid.width_cells;
+        if row >= grid.height_cells {
+            continue;
+        }
+
+        // ASM loc_123DC/loc_12408 writes `$E102` for visible prize cells and
+        // `$E101` for disguised ones while building Level_Layout. Some generated
+        // RAM fixtures preserve the prize list but capture a later Level_Layout
+        // cell after the demo/play path has consumed it; reconcile the active
+        // grid so the subsequent loc_10342 lookup can ever be reached.
+        let [hi, lo] = if prize.disguised {
+            0xE101u16.to_be_bytes()
+        } else {
+            0xE102u16.to_be_bytes()
+        };
+        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(hi, lo));
+    }
+}
+
 /// Shared run iterator for the loc_122C0/loc_122DA family (types 0,2,5,6,7,9).
 ///
 /// ASM loc_122C0 (kid.asm:24410): `d1 = (a1)+`; return on negative (the run
@@ -18324,9 +18362,14 @@ impl NativeRuntime {
     /// Advance the murder wall position by applying acceleration and speed.
     pub(crate) fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
+            let mut grid = grid;
             let width = grid.width_cells;
+            let block_list = self.load_block_list_for_level(level_id, width);
+            if let Some(block_list) = block_list.as_ref() {
+                reconcile_prize_block_cells_loc_123DC(&mut grid, block_list);
+            }
             self.block_grid = Some(grid);
-            self.block_list = self.load_block_list_for_level(level_id, width);
+            self.block_list = block_list;
             self.block_state.ghost_groups = self
                 .block_list
                 .as_ref()
