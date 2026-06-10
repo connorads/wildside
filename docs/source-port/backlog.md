@@ -33,7 +33,8 @@ and stop — never commit churn.
   green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
   at frame 596 by native-only DripsSurfaceCrawler damage before metal contact; follow-up trace says
-  left Drips layout #07 is one crawler cycle early in native, not a crawler hitbox issue; #285 crawler art);
+  left Drips layout #07 is one crawler cycle early in native because the Drips `loc_3340E` RNG stream
+  is already displaced at the first left reseed, not because of crawler hitbox or splash duration; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression

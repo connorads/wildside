@@ -213,6 +213,32 @@ signal: the Drill-block no-op fix removed the stale movement blocker, but #260
 still needs a fresh route or human recording that actually reaches the reported
 live slime/metal-block mutation.
 
+Follow-up 2026-06-10 for #260 after `8d93c638`: the closer cache-local route
+`.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json`
+is still rejected as metal-block proof because it diverges at frame 596 on
+native-only Drips damage before any block contact, but it now gives a precise
+Drips root-cause target. `probe-record-scenario-file --frame-start 0
+--frame-end 570 --debug-fields --target-projectile drips-drop` shows the left
+Drips layout #07 reseeds at native frame 414 with
+`drips_splash_reseed_probe=#07 ... table:0->1 ... kid_x=0x0219
+reseed_rng=0x4c wait=0x000a`, then again at frame 490 with
+`table:1->2 ... reseed_rng=0x7f wait=0x0009`, so the sentinel/crawler splash
+arrives at frame 565 and the startup crawler hurts Kid at frame 596. The
+matching oracle roster contradicts hitbox and splash-duration fixes: at frame
+409 oracle's left Drips has just returned to `loc_33424` with
+`a0=0x00033522` and `d0=0x37`, and at frame 414 it is still counting down at
+`d0=0x32`, while native is already waiting only `0x0a`. Reading `Drips.asm
+loc_3340E` confirms the wait formula is simply `(rng_byte & $FF) >> 2` with
+the low byte of `Addr_GfxObject_Kid.x_pos` XORed in; with Kid at `0x0219`, the
+oracle counter implies an initial value around `0x38`, not native's `0x0a`.
+So the remaining early-crawler blocker is an RNG stream/order displacement
+before the first left Drips post-splash reseed, not `d3` cadence (ASM reads
+`off_33520` every splash because `d3` is reset to 1), not `stru_33332` splash
+length, and not the `DripsSurfaceCrawler` collision box. Next implementation
+target: trace RNG consumers before frame 409/414 in this route, especially
+same-frame Drips/controller continuations and any player/enemy object pass that
+can consume a ROM random byte before `Drips.asm loc_3340E`.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
