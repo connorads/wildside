@@ -55,8 +55,10 @@
 
 ## Methodology
 
-- `docs/source-port/frontier-state.yaml`
-  - compact machine-readable source of truth for the live frontier, rejected hypotheses, and exact next verification commands
+- `docs/source-port/backlog.md` + `backlog-archive.md`
+  - human-ordered queue with NOW block; per-issue evidence, dead ends, and rejected hypotheses grep-by-`#NNN` in the archive
+- `docs/source-port/loop.md`
+  - the static session prompt: take the top item, archive-grep before hypothesis, ASM before code
 - `docs/source-port/methodology.md`
   - investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol
   - metamorphic relations, mutation testing, divergence classification, fidelity metrics

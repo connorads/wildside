@@ -2,6 +2,11 @@
 
 # Dark-Model Fidelity Triage
 
+> **Historical note (2026-06-10)**: references to `frontier-state.yaml` below
+> predate the autonomy demolition. That ledger is retired — its issue-tagged
+> evidence moved to `backlog-archive.md` (grep `#NNN`), the rest to
+> `tas-era-ledger.md`. Read "frontier-state.yaml audience" as "the backlog".
+
 The [dead-helper census](dead-helper-census.md) mapped ~2540 ASM-faithful, unit-tested helpers carrying `#[cfg_attr(not(test), allow(dead_code))]` that are never wired into the live runtime. The census answered *what is dark*. This triage answers the decision question the census did not: **which dark subsystems close a REAL oracle divergence (worth wiring) vs which have a live fallback that is already oracle-clean (redundant — leave dark).**
 
 Method: one read-only investigator per subsystem (confirm still-dark, find live fallback, read cited ASM, judge oracle divergence, sketch minimal wiring); then an adversarial refuter tries to *refute* every divergence claim — the guard against mistaking "model is dark" for "fallback is wrong". Ranked by fidelity leverage (confirmed > suspected > unknown > clean), lowest effort first.

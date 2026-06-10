@@ -44,20 +44,11 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
 - `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
 - `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
-- `kidcli project-status` summarises repo health with `1p-playable` first, `1p-accurate` second, and TAS frontier state separate.
+- `kidcli project-status` summarises repo health with `1p-playable` first, `1p-accurate` second, plus backlog risks and human blockers.
 - `kidcli release-gate --target 1p-playable` is the primary native-playability gate. It composes native gameplay smoke coverage, the current required gameplay compares, and the core slope/bounce/block regressions.
 - `kidcli release-gate --target 1p-accurate` remains the parity-heavy sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
-- `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
-- `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
-- `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
-- `kidcli autonomous-loop --goal source-port-frontier` is the operator entrypoint: while TAS frontier work is active it packages that frontier, and once TAS is closed it auto-delegates to the next repo-local lane such as `case-queue` or `sweep-parity`.
-- `mise run source-port-rl-prompt` regenerates the live source-port package and prints the canonical prompt for `rl`/Codex runs so operators stay on the current delegated lane.
-- `mise run source-port-rl-run` is the single-run launcher for Codex/RL source-port work; it regenerates the live package, records a cache-local run ledger under `.cache/autonomy/source-port-frontier/run-history.jsonl`, and pipes the generated prompt straight to `cxys`.
-- If tracked git changes already exist, `source-port-rl-run` treats that diff as the first recovery task instead of pretending the tree is clean.
-- Dirty tracked trees now run a compile preflight first and record a dirty-tree fingerprint in run history so repeated red diffs are surfaced as explicit recovery work rather than replayed blindly.
-- Proactive `loc_` coverage now splits into two lanes: genuinely uncovered labels and test-cited labels that still need implementation promotion.
-- If the live package reports `recovery_mode`, finish that recovery step before resuming normal delegated-lane work.
+- Loop sessions follow `docs/source-port/loop.md`: the human-ordered backlog table is the queue and the NOW block at its top is the session handoff (the old autonomous-loop orchestrator and RL prompt machinery were removed — see tag `pre-autonomy-demolition`).
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -132,10 +123,6 @@ cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
 mise run port-loop
-cargo run -p kidcli -- autonomous-loop --goal level1-opening-slice
-cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
-mise run source-port-rl-prompt
-mise run source-port-rl-run
 mise run verify-frames
 mise run verify-audio-output
 mise run verify-oracle
@@ -283,9 +270,7 @@ The native checkpoint comparison artefacts are written under `.cache/native-orac
 
 The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
-The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
-
-The live source-port frontier loop also writes to `.cache/autonomy/source-port-frontier/`. Its `next-task.json` is generated from `docs/source-port/frontier-state.yaml`, and `next-agent.md` is the cache-local handoff note the current agent leaves for the next loop cycle. When the TAS frontier is closed, that package now stays under `source-port-frontier` but points at the next concrete repo-local lane instead of vague broader-work prose.
+Loop sessions are stateless between runs: `docs/source-port/loop.md` is the static session prompt, the backlog table in `docs/source-port/backlog.md` is the queue, and the NOW block at its top carries the handoff. Historical goal contracts from the retired orchestrator remain at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
 Everything under `.cache/` is treated as generated runtime state. If an artefact needs to be durable, reviewable, or versioned, promote it into `docs/source-port/`, code/tests, or explicit checked-in fixtures instead of tracking it in `.cache/`.
 

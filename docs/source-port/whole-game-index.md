@@ -39,8 +39,8 @@ verification lane, or post-1P fidelity push opens fresh work:
 
 ## Explicitly open areas
 
-The current phase has no open blocker in `completion-audit.md`,
-`human-validation-checklist.md`, or the canonical backlog. Post-phase candidates
+As of 2026-05-18 the phase had no open blocker in `completion-audit.md` or the
+canonical backlog (since reopened — see backlog NOW block). Post-phase candidates
 remain:
 
 - Further 1P playable breadth beyond the current smoke scenarios plus 69-level gameplay sweep

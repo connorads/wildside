@@ -2,6 +2,11 @@
 
 # Dead-Helper Census
 
+> **Historical note (2026-06-10)**: references to `frontier-state.yaml` below
+> predate the autonomy demolition. That ledger is retired — its issue-tagged
+> evidence moved to `backlog-archive.md` (grep `#NNN`), the rest to
+> `tas-era-ledger.md`. Read "frontier-state.yaml audience" as "the backlog".
+
 A codebase-wide follow-up to the [enemy fidelity audit](enemy-fidelity-audit.md). That audit found a systemic failure mode in `enemies.rs` — ASM-faithful pure helpers that are modelled and unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step/combat path. This census asks: **how far does that pattern extend across the whole crate, and where is wiring highest-leverage?**
 
 ## Headline findings

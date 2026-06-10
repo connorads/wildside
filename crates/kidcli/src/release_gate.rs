@@ -80,7 +80,7 @@ pub(crate) struct ReleaseGateReport {
     // `camera_y_pos`), that's a meaningful state-shape regression that
     // the existing signal would mask. Persisting the top-field name
     // alongside its diff count lets `latest_release_gate_signal`
-    // self-cite the fingerprint so the next-agent note carries it
+    // self-cite the fingerprint so downstream status readers carry it
     // forward without chasing the linked sweep-runs report. Optional
     // so 1p-playable runs (no sweep) and pre-field reports stay
     // readable, and skipped when the embedded sweep recorded zero
@@ -100,7 +100,7 @@ pub(crate) struct TopDivergenceField {
     // levels — the gate signal would render the same `top_field`
     // fingerprint in both cases. Persisting `levels` lets the signal
     // surface the breadth half of the dominant-field shape so a
-    // shift in concentration is visible from the next-agent note
+    // shift in concentration is visible from the gate signal
     // alone. Optional so pre-field reports stay readable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) levels: Option<usize>,

@@ -2,18 +2,15 @@
 
 This repo keeps source-port research material in cache-local checkouts and repo docs. Treat this file as the canonical guide for finding the right reference fast. `AGENTS.md` should point here as a symlink. `.cache/` is always generated local state; if something needs to be durable or reviewable, move it into docs, code/tests, or explicit fixtures instead of tracking it in `.cache/`.
 
-## Ralph loop (agentic frontier sessions)
+## Loop sessions
 
-If your prompt mentions "Ralph loop", "frontier loop", or "source-port frontier", follow this path **exactly** — do not discover your own:
-
-1. Read `docs/source-port/ralph-source-port-frontier-loop.md` (the loop spec)
-2. Read `.cache/autonomy/source-port-frontier/next-agent.md` (the handoff note — this IS your context)
-3. Read `.cache/autonomy/source-port-frontier/next-task.json` (the machine task package)
-4. Pick one item from "Exact Next Moves" in the handoff note. After committing it, pick the next if time/context allows (aim for 2-3 routines per session).
-5. **Read the ASM first** — the handoff note names ROM routines. Find them in `.cache/upstream/kid-chameleon-disasm/kid.asm`. Understand what the ROM does before writing any native code.
-6. **Do NOT read** `frontier-state.yaml`, `backlog.md`, or `tas-roadmap.md` — the handoff note already distils them.
-7. **Do NOT add more debug fields** unless ASM + oracle leave genuine ambiguity. The answer is in the disassembly.
-8. Commit your work. Update `next-agent.md` before exiting.
+If your prompt mentions a loop session (or you're asked to "take the next item"),
+follow `docs/source-port/loop.md` — it is the whole loop. Orientation is ~10KB:
+the NOW block at the top of `docs/source-port/backlog.md` is the session handoff,
+and the table below it is the queue (order = human playtest priority). Per-issue
+history is grep-by-`#NNN` in `docs/source-port/backlog-archive.md`. Do NOT add
+more debug fields unless ASM + oracle leave genuine ambiguity — the answer is in
+the disassembly.
 
 ## Source precedence
 
@@ -39,7 +36,7 @@ Use sources in this order:
 - `.cache/references/gemsplay`
 
 4. Local skills and repo docs
-- `docs/source-port/frontier-state.yaml`
+- `docs/source-port/backlog.md` (NOW block + queue) and `backlog-archive.md` (grep `#NNN`)
 - `.agents/skills/m68k-kid-asm/SKILL.md`
 - `.agents/skills/as-assembler/SKILL.md`
 - `docs/source-port/methodology.md`
@@ -143,7 +140,7 @@ Per-issue evidence/history (follow-ups, rejected hypotheses, investigation notes
 dated playtest logs) lives in `docs/source-port/backlog-archive.md`; grep it by
 `#NNN` (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) for an issue's
 full history rather than loading the whole tracker.
-Compact live frontier state: `docs/source-port/frontier-state.yaml`
+Session handoff: the NOW block at the top of `backlog.md` (rewrite it each session).
 
 ### Principles (bsnes methodology)
 - Fix behaviours at engine level, never level-specific overrides
@@ -154,34 +151,31 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 - Cross-reference sources — check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
 - Preserve original quirks explicitly — mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
 - Advisory vs authoritative — advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
-- Reject dead ends once — record them in `frontier-state.yaml` so the next session does not retry them from memory or roadmap prose
+- Reject dead ends once — record them in `backlog-archive.md` under the issue's `#NNN` so the next session does not retry them from memory or roadmap prose
 
 ### Session protocol
-1. Run `mise run frontier-status` and read `docs/source-port/frontier-state.yaml` before scanning wider prose
-2. If there is an active frontier, continue that work unless a higher-priority backlog item now blocks it
-3. If no active frontier, follow `docs/source-port/ralph-gameplay-loop.md`:
-   a. Pick the highest-priority open backlog item (skip `blocked:needs-human-repro` and `stalled:agent-blocked`)
-   b. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
-   c. If all backlog items are blocked/stalled, fall through to **Proactive verification** in `ralph-gameplay-loop.md` (mutation testing, enemy audit, sweep expansion, ASM coverage drive). The `--goal proactive-verification` autonomy goal automates this cascade via `docs/source-port/proactive-verification-config.yaml`; `source-port-frontier` delegates to it automatically when all `sub_` labels are covered.
-4. Mark `[~]` when starting work
-5. Investigate (structured):
+1. Follow `docs/source-port/loop.md`: read the NOW block in `backlog.md`, then
+   take the top open (`[ ]`/`[~]`) row in the table — order in table = human
+   playtest priority. Skip `[?]`/`[b]` rows (they wait on a human).
+   a. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
+   b. If all open items are blocked, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
+2. Mark `[~]` when starting work
+3. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug
    b. Classify: timing, collision, state machine, rendering, or audio?
    c. Trace oracle: run same scenario against oracle, capture state checkpoints
    d. Read disassembly: find the relevant ASM routine (use source precedence)
    e. Cross-reference: compare native logic to both ASM and oracle data
    f. Write a probe scenario if one doesn't exist for this behaviour
-6. After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before another gameplay patch
-6a. Handoff-only updates to `.cache/autonomy/*/next-agent.md` do not count as progress and should stay cache-local or ride with the next substantive commit, not land on their own
-7. Fix: implement in focused commit(s)
-8. Verify visually: capture frames, Read PNGs, compare before/after
-9. Verify mechanically: `mise run verify-slice-fast` must pass. **Gate must be green on main at all times** — never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
-10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, rejected-hypothesis ledger, or `candidate_promotions` list changes
-11. Close out (same commit as the fix): flip the issue's status to `[x]` in the
-    `backlog.md` table, and append any closing evidence to `backlog-archive.md`
-    under its `#NNN` (keep `backlog.md` table-only)
-12. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
-13. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
+4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and stop — never commit churn.**
+5. Fix: implement in focused commit(s)
+6. Verify visually: capture frames, Read PNGs, compare before/after
+7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits — do not run the two concurrently, they share `.cache/tas-verify`). **Gate must be green on main at all times** — never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
+8. Close out (same commit as the fix): flip the issue's status in the
+    `backlog.md` table, append any closing evidence to `backlog-archive.md`
+    under its `#NNN` (keep `backlog.md` table-only), and update the NOW block
+9. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
+10. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
 ### Frontier diagnostics defaults
 - For TAS frontier work, start with `cargo run -p kidcli -- verify-tas --scenario <scenario> --bisect --frontier-kind enemy`
@@ -191,7 +185,7 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 ### Debug field promotion workflow
 - Register every emitted `debug_fields` or `gameplay_debug_fields` key in `docs/source-port/debug-field-registry.yaml`
 - New keys start as `exploratory` unless they already drive pass/fail parity or regression checks
-- If a debug key is used to choose, reject, or verify a fix in repeated frontier work, mark it `candidate` and add it to `candidate_promotions` in `docs/source-port/frontier-state.yaml`
+- If a debug key is used to choose, reject, or verify a fix in repeated investigation work, mark it `candidate` and add it to `candidate_promotions` in `docs/source-port/debug-field-registry.yaml`
 - Run `mise run audit-debug-fields` before landing instrumentation changes; unregistered keys are errors, stale `candidate` keys need promotion or an explicit exemption note
 - Promote a key from debug bag to typed state when it is used in parity logic, checked-in regression assertions, or multiple frontiers; keep the debug bag only for raw or temporary correlation data
 

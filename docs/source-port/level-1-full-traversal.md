@@ -38,7 +38,7 @@ This dossier covers the current post-opening frontier:
 - Gameplay movement now latches held left/right/run from the previous frame, removing the frame-720 eagerness against the oracle while keeping jump-edge handling on the current frame
 - Diamonds no longer enter `process_stomps`; falling through a Diamond now collects it without applying stomp bounce, and the stomp regressions now run against the static skull fixture instead of the old Diamond placeholder
 - Level-skip choreography now matches the oracle through both `progress-two-transitions` skips: the first hold sequence freezes/hides/preloads on the native frames, the second skip resumes through the oracle-timed Level 1 hold/blank/entry window, and the Level 2 transition uses its own traced animation arc
-- `cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal` now reports `status: complete`
+- The traversal goal contract reported `status: complete` (evaluator since retired with the orchestrator, 2026-06-10)
 
 ## Closure state
 

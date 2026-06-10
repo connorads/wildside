@@ -99,9 +99,9 @@ The agent lane guardrails:
 - Every investigation commit must either touch `crates/kid-core/src/**` (fix +
   regression test) or `docs/source-port/backlog.md` (new evidence block or
   status transition). Pure cache-local churn does not count as progress.
-- On stall, append to the rejected-hypothesis ledger, increment
-  `bug_investigation_attempts[<issue-id>]` in `frontier-state.yaml`, and leave
-  status at `[~]`.
+- On stall, write the dead end (rejected hypotheses included) under the
+  issue's `#NNN` in `backlog-archive.md` and leave status at `[~]`. No code
+  commit means write the dead end and stop — never commit churn.
 
 ### Trace comparison techniques
 
@@ -150,13 +150,14 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
 - `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
 
-On 2026-04-22 those lanes were green but still intentionally separate:
+On 2026-04-22 those lanes were green but still intentionally separate
+(dated record — bullets below reference the orchestrator retired in the
+2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 
-- `cargo run -p kidcli -- autonomous-loop --goal sweep-parity` completed the delegated sweep-parity lane (`cycle=127` locally). The previous repeated-fingerprint recovery step `refresh_evidence` remains complete; the regenerated source-port package is cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
+- The delegated sweep-parity lane completed (`cycle=127` locally, via the since-retired orchestrator). The previous repeated-fingerprint recovery step `refresh_evidence` remains complete; the regenerated source-port package is cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
 - `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications. The direct sweep report is `.cache/sweep-runs/1776819377/report.json` (`failed=0`, `errors=0`, `advisory=178`, `oracle_limitation=662`), and the release-gate-embedded sweep refreshed `.cache/sweep-runs/1776819420/report.json` with the same zero-blocking shape. Each `field_summary` entry still carries its own `divergence_summary`, concrete BCD `level_ids`, unique checkpoint labels, and checkpoint counts when diffs are present.
 - `mise run release-gate` passed the full `1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` now points at timestamp `1776819385`, with report `.cache/release-gate/1p-accurate/1776819385/report.json`; native bootstrap, all gameplay compares, frame-oracle checks, audio-oracle checks, and `state_sweep:0-104` passed.
 - The older `pause_resume_level1` / `level_settle@719` `game_mode` failure is historical context only. A red future gate should still carry `release-gate-failure` plus the matching persisted `release_gate_focus.summary`; a green gate should instead carry `release-gate-status` and `state-sweep-status` so the durable handoff quotes the latest passing evidence.
-- The operational refresh point remains the release-gate write itself: after `mise run release-gate` updates `.cache/release-gate/<target>/latest.json`, it should immediately regenerate `.cache/autonomy/source-port-frontier/next-task.json` and `.cache/autonomy/source-port-frontier/next-agent.md` from the latest persisted gate + sweep artefacts. Run the delegated trio serially in that order; a newer sweep report paired with an older `latest.json` means the lane is only half-refreshed.
 - Treat the newest persisted state-tier sweep report in `.cache/sweep-runs/<timestamp>/report.json` as equivalent evidence to the mirrored `sweep-history.jsonl` entry when refreshing that handoff. If the report exists but the history append has not landed yet, the autonomy layer should still consume the fresher report so the state-sweep status does not freeze on an older timestamp.
 - Sweep-parity stall detection keys the lane by both persisted evidence timestamps: the latest `1p-accurate` release-gate timestamp and the latest state-sweep timestamp. A successful refresh should move at least one of those values; otherwise the next source-port package correctly treats the handoff as the same stale sweep lane and can re-enter `refresh_evidence` recovery.
 - A missing state-sweep or release-gate artefact populates `task.missing_artefact` on every cycle (not only on `definitively_stalled`), and the runner auto-recovers by running the deterministic regen command — bounded to one attempt per fingerprint via `.cache/autonomy/source-port-frontier/auto_recovery_attempts.json`. After auto-recovery succeeds the runner re-invokes the prompt script so the next iteration sees the refreshed artefact instead of tripping `is_clean_repeat`. Operator unblock hints are state-aware: only commands whose preconditions hold (uncovered ASM coverage, unpromoted backlog items, broaden-PV-config) are rendered, and the missing-artefact regen command becomes the top hint.
@@ -215,19 +216,13 @@ Each case bundle should answer:
 - which fields still match
 - which subsystem is the likeliest owner
 
-Autonomous execution should consume these bundles through the repo-native source-port dispatcher rather than by repeating stale closed-frontier handoffs:
+Loop sessions consume these bundles through `docs/source-port/loop.md`:
 
-- `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint
-- regenerate that source-port package at the start of every loop run; do not reuse an old `next-task.json`
-- while TAS work is active it packages the live frontier
-- once TAS is closed it auto-delegates to `case-queue` first
-- recording-backed cases outrank generic replay slices
-- if no failing reduced case is ready, uncovered recordings should become the next gameplay derivation task before any sweep-only lane
-- only `autonomy-executable` cases may patch code without a human re-triage
-- only when neither a reduced case nor a recording-derived gameplay task exists should the loop pivot to sweep/verification hardening
-- use `mise run source-port-rl-run` for `rl`/Codex operator runs so the launcher regenerates the live package and pipes the generated prompt directly to `cxys`; use `mise run source-port-rl-prompt` only to inspect the generated package by hand
-- if tracked git changes already exist when the launcher starts, the loop should treat them as the highest-priority recovery task instead of rejecting the run; verify/commit or intentionally discard that coherent unit before switching lanes
-- if the same delegated fingerprint stalls repeatedly, emit an explicit recovery step (`finish_dirty_work`, `reverify_current_lane`, `pivot_to_next_lane`, or `refresh_evidence`) rather than replaying the same prompt; repeated sweep stalls should pivot back towards gameplay derivation when recordings still exist
+- the human-ordered backlog table is the queue; the NOW block is the handoff
+- grep `backlog-archive.md` for `#NNN` before forming a hypothesis — dead ends are recorded there
+- recording-backed cases outrank generic replay slices when both exist for an issue
+- if tracked git changes already exist when a session starts, treat them as the highest-priority recovery task; verify/commit or intentionally discard that coherent unit before taking a new item
+- when no backlog item is actionable, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
 
 ### Decision tree
 

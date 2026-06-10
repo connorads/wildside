@@ -2,9 +2,11 @@
 
 Progressive milestones for verifying the native engine against TAS recordings via oracle comparison.
 
-Live bootstrap note: `docs/source-port/frontier-state.yaml` is the compact source of
-truth for the active frontier, rejected hypotheses, and next verification commands.
-Run `mise run frontier-status` before using this roadmap as wider historical context.
+Historical document: the TAS frontier closed replay-matched through frame 37759.
+The frontier ledger (`frontier-state.yaml`) was retired in the 2026-06-10 autonomy
+demolition — issue-tagged evidence moved to `backlog-archive.md` (grep `#NNN`), the
+remainder to `tas-era-ledger.md`. Dated log rows below mention the retired ledger
+verbatim. Re-check the published route with `mise run verify-tas-full`.
 
 ## Recordings
 
@@ -119,7 +121,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | `--bisect` flag for `verify-tas` | M1 | [x] |
 | Local-first TAS frontier gate (`mise run verify-tas-frontier`) | M4 | [x] |
 | CI TAS gate | M4 | [ ] |
-| TAS frontier tracking (`frontier-state.yaml` + `mise run frontier-status`) | M2 | [x] |
+| TAS frontier tracking (ledger since retired; see `tas-era-ledger.md`) | M2 | [x] |
 | Framewise CRC checksumming | M7 | [ ] |
 | Regression snapshots from TAS | M3 | [ ] |
 

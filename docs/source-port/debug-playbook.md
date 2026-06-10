@@ -2,14 +2,9 @@
 
 Anti-loop protocol for debugging frame-level divergences between native and oracle.
 
-Bootstrap first:
-
-```bash
-mise run frontier-status
-```
-
-This prints the live frontier, rejected hypotheses, and the exact next probe window so
-you do not restart from stale roadmap prose.
+Bootstrap first: read the NOW block at the top of `docs/source-port/backlog.md`
+and grep `backlog-archive.md` for the issue's `#NNN` — rejected hypotheses and
+prior probe windows are recorded there, so you do not restart from stale prose.
 
 ## Step 1: Find the divergence frame
 

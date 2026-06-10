@@ -6,7 +6,7 @@ The TAS frontier is in a good place:
 
 - `kc_any_percent_2024` is authoritative-clean through frame `4916`
 - `any-percent-published` is authoritative-clean through frame `37759`
-- the current active frontier in `frontier-state.yaml` is `status: complete`
+- the TAS frontier closed `status: complete` (history in `tas-era-ledger.md`)
 
 That does **not** mean the game is nearly finished.
 
@@ -40,7 +40,7 @@ Tasks:
 - keep this roadmap as the top-level programme document
 - treat `backlog.md` as the canonical queue for active source-port work
 - use `completion-audit.md` before claiming the source-port objective is done
-- keep `frontier-state.yaml` as the compact truth for TAS/frontier status only
+- the backlog NOW block is the compact session truth; `tas-era-ledger.md` holds the retired TAS-frontier ledger
 - archive or rewrite any doc that still says "full playable game", "all done", or similar
 
 Exit criteria:
@@ -50,7 +50,7 @@ Exit criteria:
 - no active doc claims the project is effectively complete
 
 2026-05-18 status: achieved for the current 1P phase. `completion-audit.md`,
-`human-validation-checklist.md`, `backlog.md`, and `project-status` agree that
+`backlog.md`, and `project-status` agreed at the time that
 there are no open phase blockers. This is a phase completion statement, not a
 claim that every post-1P fidelity or tooling idea is exhausted.
 

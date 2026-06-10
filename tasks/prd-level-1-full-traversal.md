@@ -84,8 +84,9 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
-cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 ```
+
+(The `autonomous-loop --goal level1-full-traversal` contract evaluator was retired in the 2026-06-10 autonomy demolition; the compare scenarios above remain the evidence.)
 
 ## Out of scope
 
