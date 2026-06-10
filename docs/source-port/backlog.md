@@ -30,8 +30,7 @@ and stop — never commit churn.
   the $FFFFFA74/75 sustained-contact latch (kid.asm:936-937, 3383-3384), WRAM-proven;
   jugg40/jugg60 CRC-clean 0..420. Filed #290 (full-TAS frame_7800 object counts,
   pre-existing, suspect 7280bada Tank-pair collapse).
-- **Next**: #284 prize blocks award diamonds not helmets (PROGRESSION BLOCKING);
-  #290 TAS frame_7800 object counts; #260 metal-block remainder (block must not break
+- **Next**: #290 TAS frame_7800 object counts; #260 metal-block remainder (block must not break
   from a jump; #285 crawler art); #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
@@ -58,7 +57,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 284 | [ ] | P0 | block/prize | 2026-06-10 playtest: later-level prize blocks award diamonds instead of their… | Evidence source: human playtest on the 325e8622 build. Cross-ref #274 (the… |
+| 284 | [?] | P0 | block/prize | 2026-06-10 playtest: later-level prize blocks award diamonds instead of their… | Fixed in b0e2a098; generated RAM-dump parser now rejects foreground-queue spill records masquerading as Diamond prizes. Human playtest still required. |
 | 290 | [ ] | P1 | trace/objects | Full any-percent TAS diverges at checkpoint frame_7800 (demo_play): native objects=9/4 vs oracle 10/9 | Evidence source: verify-tas full run 2026-06-10. Pre-existing on main at… |
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Evidence source: human playtest. Symptom: slime still broken on second level;… |
 | 277 | [ ] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | Hold left into wall + jump, confirm leftward jump registers like the right-side… |
