@@ -387,10 +387,14 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
 
 fn native_gameplay_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Option<String> {
     let frame = native_frame?;
-    if frame.gameplay_debug_fields.is_empty() {
+    if frame.gameplay_debug_fields.is_empty() && frame.rng_offset.is_none() {
         return None;
     }
-    Some(format!("{:?}", frame.gameplay_debug_fields))
+    let mut fields = frame.gameplay_debug_fields.clone();
+    if let Some(rng_offset) = frame.rng_offset {
+        fields.insert("rng_offset".into(), format!("{rng_offset:#06x}"));
+    }
+    Some(format!("{fields:?}"))
 }
 
 fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
@@ -407,10 +411,14 @@ fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
 
 fn oracle_gameplay_debug(oracle_state: Option<&OracleState>) -> Option<String> {
     let state = oracle_state?;
-    if state.gameplay_debug_fields.is_empty() {
+    if state.gameplay_debug_fields.is_empty() && state.rng_offset.is_none() {
         return None;
     }
-    Some(format_oracle_debug_fields(&state.gameplay_debug_fields))
+    let mut fields = state.gameplay_debug_fields.clone();
+    if let Some(rng_offset) = state.rng_offset {
+        fields.insert("rng_offset".into(), format!("{rng_offset:#06x}"));
+    }
+    Some(format_oracle_debug_fields(&fields))
 }
 
 fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSnapshot) -> String {
