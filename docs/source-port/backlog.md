@@ -31,7 +31,8 @@ and stop — never commit churn.
   not the suspected tank-pair collapse. Frames 7790..7810 match, the full
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
-- **Next**: #260 metal-block remainder (block must not break from a jump; #285 crawler art);
+- **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
+  at frame 596 by native-only DripsSurfaceCrawler damage before metal contact; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
