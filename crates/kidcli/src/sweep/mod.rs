@@ -1261,6 +1261,25 @@ pub(crate) fn compare_sweep_states_for_frontier(
     oracle_states: &[OracleState],
     frontier_kind: FrontierKind,
 ) -> Vec<StateDiff> {
+    compare_sweep_states_for_frontier_with_options(
+        native_states,
+        oracle_states,
+        frontier_kind,
+        SweepStateComparisonOptions::default(),
+    )
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct SweepStateComparisonOptions {
+    pub(crate) ignore_camera_position: bool,
+}
+
+pub(crate) fn compare_sweep_states_for_frontier_with_options(
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+    frontier_kind: FrontierKind,
+    options: SweepStateComparisonOptions,
+) -> Vec<StateDiff> {
     let mut diffs = Vec::new();
 
     for (native, oracle) in native_states.iter().zip(oracle_states.iter()) {
@@ -1284,7 +1303,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
             });
         }
         let cam_x_delta = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
-        if cam_x_delta > POSITION_TOLERANCE {
+        if !options.ignore_camera_position && cam_x_delta > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_x_pos".into(),
@@ -1294,7 +1313,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
             });
         }
         let cam_y_delta = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
-        if cam_y_delta > POSITION_TOLERANCE {
+        if !options.ignore_camera_position && cam_y_delta > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_y_pos".into(),
@@ -3852,6 +3871,49 @@ mod tests {
         let diffs = compare_sweep_states(&native, &oracle);
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "camera_x_pos");
+    }
+
+    #[test]
+    fn compare_sweep_states_can_ignore_probe_camera_drift() {
+        let native = vec![demo_velocity_state(0, 0)];
+        let mut oracle = native.clone();
+        oracle[0].camera_x_pos = 0x0110_0000;
+        oracle[0].camera_y_pos = 0x0020_0000;
+
+        let diffs = compare_sweep_states_for_frontier_with_options(
+            &native,
+            &oracle,
+            FrontierKind::Gameplay,
+            SweepStateComparisonOptions {
+                ignore_camera_position: true,
+            },
+        );
+
+        assert!(
+            diffs.is_empty(),
+            "explicit probe camera drift should not block gameplay-state TAS verification"
+        );
+    }
+
+    #[test]
+    fn compare_sweep_states_ignoring_probe_camera_still_detects_kid_drift() {
+        let native = vec![demo_velocity_state(0, 0)];
+        let mut oracle = native.clone();
+        oracle[0].camera_x_pos = 0x0110_0000;
+        oracle[0].kid_x_pos = 0x0055_CB80;
+
+        let diffs = compare_sweep_states_for_frontier_with_options(
+            &native,
+            &oracle,
+            FrontierKind::Gameplay,
+            SweepStateComparisonOptions {
+                ignore_camera_position: true,
+            },
+        );
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "kid_x_pos");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
     }
 
     #[test]

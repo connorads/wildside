@@ -718,10 +718,13 @@ fn probe_tas(
     )?;
 
     // Compare
-    let state_diffs = crate::sweep::compare_sweep_states_for_frontier(
+    let state_diffs = crate::sweep::compare_sweep_states_for_frontier_with_options(
         &native_states,
         &oracle.states,
         frontier_kind,
+        crate::sweep::SweepStateComparisonOptions {
+            ignore_camera_position: probe_scenario.camera_position.is_some(),
+        },
     );
     let first_auth = state_diffs
         .iter()
@@ -780,7 +783,9 @@ pub fn bisect_tas(
         scenario.slug, frontier_kind
     );
 
-    if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay) {
+    if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
+        && scenario.camera_position.is_none()
+    {
         // Fast path: use per-frame CRC arrays if oracle supports them
         println!("  computing native CRCs ({end} frames)...");
         let crc_scenario = DynamicScenario {
@@ -858,6 +863,8 @@ pub fn bisect_tas(
             );
             return Ok(());
         }
+    } else if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay) {
+        println!("  explicit probe camera present; using field-level authoritative comparison...");
     }
 
     // Fallback: legacy binary search if oracle doesn't provide CRCs
