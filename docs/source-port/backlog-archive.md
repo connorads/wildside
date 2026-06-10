@@ -140,6 +140,27 @@ later prize blocks that probably should contain helmets still yielding other
 items. Treat this note as triage context; each fix still needs an ASM/oracle
 repro or focused regression test before implementation.
 
+Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
+metal-block/slime repro. The cache-local seed
+`.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within
+3px of the left Drips at `(456,543)` on native (`probe-record-scenario-file`
+closest `dx +3 dy +0` at frame 542), but `tas-diff --frame-start 520
+--frame-end 550 --include-advisory --frontier-kind gameplay
+--include-physics-trace` shows the first authoritative divergence at frame 537,
+before any block/slime contact: native keeps ascending
+`kid_y_pos=0x022d6000/y_vel=0xfffc3c00`, while oracle is already snapped to
+`kid_y_pos=0x022f0000/y_vel=0`. Native frame 537 debug reports no
+floor/ceiling hit, then frames 540..542 acquire a false left wall-cling that
+brings Kid to the Drips/metal-block window. ASM read: `sub_902A` upward
+collision (`loc_908C..loc_90F6`) calls `sub_914A` after the head crosses the
+next tile row; `sub_914A` scans `(x_pos-$FA78)>>4` through
+`(x_pos+$FA78)>>4` on the ceiling row. The next useful work is not another
+Drips/block patch: inspect why native's frame-537 vertical collision path misses
+the oracle stop, including the `sub_902A` pre-horizontal x reference versus
+native physics ordering and row-32 cells near col 27/28. Keep #260 `[~]` until
+that movement blocker is fixed or a different oracle-valid route reaches the
+metal-block contact.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
