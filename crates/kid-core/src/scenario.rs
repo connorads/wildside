@@ -149,12 +149,11 @@ impl NativeRuntime {
         // `_settled_recording_oracle` branch. Level 0 comes straight through
         // the title-card gate and waits 60 stable live frames; Level 1 still
         // reaches the ROM's level-skip resume tail that native `boot_to_level`
-        // shortcuts, then records after the first RockTank body has run the
-        // shared-walker hibernate handoff at loc_3C044. The extra frame keeps
-        // the two-object Tank body/turret pair in phase with oracle frame 0.
+        // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
+        // the first scenario frame then advances to $FFCF via Drips loc_3340E.
         self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         let target_live_frames = if level_id == LevelId(1) {
-            ORACLE_SETTLED_WARP_LIVE_FRAMES + 1
+            ORACLE_SETTLED_WARP_LIVE_FRAMES - 1
         } else {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };

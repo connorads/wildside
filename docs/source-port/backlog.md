@@ -31,13 +31,11 @@ and stop — never commit churn.
   not the suspected tank-pair collapse. Frames 7790..7810 match, the full
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
-- **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
-  by native-only Drips timing before metal contact; `tas-diff --drips-trace` shows native layout #08
-  starts its drop at frame 258 and spawns a crawler at frame 444 while oracle is still counting down,
-  `tas-diff --rng-trace` shows native is already one `Get_RandomNumber_word` ahead at frame 0
-  (`0xffd7` vs oracle `0xffcf`), and `tas-diff --player-trace` shows Kid X/Y/velocity/movement/facing
-  match oracle through frames 80..180, so trace recording-settle/bootstrap RNG phase feeding Drips
-  `loc_3340E` before hitboxes, floor probes, or player movement; #285 crawler art);
+- **Next**: #260 metal-block remainder (block must not break from a jump; recording-settle
+  over-advance fixed after oracle settle trace showed Level 1 should end at RNG `$FFCB` and frame 0
+  should start at `$FFCF`; rerun the closer route from
+  `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` before touching
+  hitboxes/floor probes/player movement; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression

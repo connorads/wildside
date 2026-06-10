@@ -120,6 +120,7 @@ pub struct OracleSettleTraceRow {
     pub step: usize,
     pub game_mode: u16,
     pub current_level_id: u16,
+    pub rng_offset: u16,
     pub paused: bool,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
@@ -707,6 +708,7 @@ mod tests {
                         "step": 34,
                         "game_mode": 12,
                         "current_level_id": 1,
+                        "rng_offset": 65491,
                         "paused": false,
                         "camera_x_pos": 0,
                         "camera_y_pos": 1835008,
@@ -726,6 +728,7 @@ mod tests {
         assert_eq!(row.step, 34);
         assert_eq!(row.game_mode, 0x000C);
         assert_eq!(row.current_level_id, 0x0001);
+        assert_eq!(row.rng_offset, 0xFFD3);
         assert_eq!(row.camera_y_pos, 0x001C_0000);
         assert_eq!(row.kid_x_pos, 0x0020_0000);
         assert_eq!(row.kid_y_pos, 0x00BF_0000);

@@ -251,6 +251,21 @@ left-jump/player drift causes this route's native-only early Drips drop. The
 remaining #260 target is RNG consumer ordering before `Drips.asm loc_3340E`,
 not player motion, splash timing, crawler hitboxes, or floor probes.
 
+Follow-up 2026-06-10 for #260 after the recording-settle RNG trace fix: the
+RNG split above was native settled-recording over-advance, not an in-game
+Drips consumer ordering bug. `oracle-probe --capture-settle-trace` on
+`.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json`
+shows the oracle Level 1 target-live window ending at RNG `$FFCB`; scenario
+frame 0 then advances to `$FFCF` through the two Drips `loc_3340E` controller
+reads. Native was starting frame 0 at `$FFD7` because Level 1 recording settle
+waited two extra live frames. Reducing native Level 1 recording settle by two
+frames makes `tas-diff --rng-trace --frame-start 0 --frame-end 2` report native
+`$FFCF,$FFD3` matching oracle, and a baseline Level 1 recording route matches
+oracle Tank phase at frame 0 (`enemy_0A#01@0x00a38000/0x00a30000`) and frame 1
+(`0x00a40000/0x00a40000`). Continue #260 from the refreshed route state; do not
+re-open the stale `$FFD7` RNG consumer hypothesis unless a fresh route shows a
+new split.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
