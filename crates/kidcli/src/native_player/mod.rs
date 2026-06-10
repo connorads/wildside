@@ -775,6 +775,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         }
 
         let elapsed = frame_started.elapsed();
+        audio_diagnostics.record_frame_timing(elapsed, FRAME_TIME);
         if let Some(remaining) = FRAME_TIME.checked_sub(elapsed) {
             thread::sleep(remaining);
         }
@@ -1352,6 +1353,10 @@ struct NativeAudioDiagnostics {
     queue_observations: usize,
     min_queue_bytes_before_queue: Option<u32>,
     max_queue_bytes_before_queue: Option<u32>,
+    frame_timing_observations: usize,
+    max_frame_micros: u128,
+    over_budget_frames: usize,
+    total_over_budget_micros: u128,
 }
 
 impl NativeAudioDiagnostics {
@@ -1369,6 +1374,10 @@ impl NativeAudioDiagnostics {
             queue_observations: 0,
             min_queue_bytes_before_queue: None,
             max_queue_bytes_before_queue: None,
+            frame_timing_observations: 0,
+            max_frame_micros: 0,
+            over_budget_frames: 0,
+            total_over_budget_micros: 0,
         }
     }
 
@@ -1405,6 +1414,15 @@ impl NativeAudioDiagnostics {
         self.queue_errors += 1;
     }
 
+    fn record_frame_timing(&mut self, elapsed: Duration, budget: Duration) {
+        self.frame_timing_observations += 1;
+        self.max_frame_micros = self.max_frame_micros.max(elapsed.as_micros());
+        if elapsed > budget {
+            self.over_budget_frames += 1;
+            self.total_over_budget_micros += elapsed.saturating_sub(budget).as_micros();
+        }
+    }
+
     fn into_lines(self) -> Vec<String> {
         vec![
             format!("gems_loaded={}", self.gems_loaded),
@@ -1427,6 +1445,13 @@ impl NativeAudioDiagnostics {
                 self.max_queue_bytes_before_queue
                     .map_or_else(|| String::from("none"), |value| value.to_string())
             ),
+            format!(
+                "frame_timing_observations={}",
+                self.frame_timing_observations
+            ),
+            format!("max_frame_micros={}", self.max_frame_micros),
+            format!("over_budget_frames={}", self.over_budget_frames),
+            format!("total_over_budget_micros={}", self.total_over_budget_micros),
         ]
     }
 }
@@ -12283,8 +12308,10 @@ mod tests {
 
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
         diagnostics.record_queued_frame(AUDIO_SAMPLES_PER_FRAME * 2, 0);
+        diagnostics.record_frame_timing(Duration::from_micros(12_000), FRAME_TIME);
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
         diagnostics.record_skipped_full_frame(8192);
+        diagnostics.record_frame_timing(Duration::from_micros(20_000), FRAME_TIME);
 
         let lines = diagnostics.into_lines();
         assert!(
@@ -12295,8 +12322,12 @@ mod tests {
                 && lines.contains(&String::from("skipped_full_frames=1"))
                 && lines.contains(&String::from("queue_errors=0"))
                 && lines.contains(&String::from("min_queue_bytes_before_queue=0"))
-                && lines.contains(&String::from("max_queue_bytes_before_queue=8192")),
-            "live play-native recordings need queue evidence to distinguish rendered audio from SDL playback starvation"
+                && lines.contains(&String::from("max_queue_bytes_before_queue=8192"))
+                && lines.contains(&String::from("frame_timing_observations=2"))
+                && lines.contains(&String::from("max_frame_micros=20000"))
+                && lines.contains(&String::from("over_budget_frames=1"))
+                && lines.contains(&String::from("total_over_budget_micros=3333")),
+            "live play-native recordings need queue and timing evidence to distinguish rendered audio from SDL playback starvation or frame-loop slowdown"
         );
     }
 

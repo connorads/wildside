@@ -8842,7 +8842,7 @@ Column of origin shown in brackets; text is verbatim.
 
 ### #264
 
-- [Verify] Evidence source: human playtest. Cross-ref #003/#160/#216 audio rows and block/diamond SFX. Native repro: not yet reproduced with audio transcript/waveform. Oracle status: unknown; real-device/audio timing may be needed. Minimum gate: record audio-events/waveform while repeatedly hitting blocks/collecting diamonds; classify slowdown as CPU load, GEMS tempo, or mixer scheduling.
+- [Verify] Evidence source: human playtest. Cross-ref #003/#160/#216 audio rows and block/diamond SFX. Native repro: not yet reproduced with audio transcript/waveform. Oracle status: unknown; real-device/audio timing may be needed. Minimum gate: record audio-events/waveform while repeatedly hitting blocks/collecting diamonds; classify slowdown as CPU load, GEMS tempo, or mixer scheduling. 2026-06-10 diagnostic follow-up: `play-native` audio sidecars now record `frame_timing_observations`, `max_frame_micros`, `over_budget_frames`, and `total_over_budget_micros`, so the next capture can distinguish real frame-loop slowdown from GEMS/mixer scheduling or waveform content.
 
 ### #265
 

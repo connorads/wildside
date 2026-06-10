@@ -343,7 +343,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 261 | [x] | P1 | block/projectile | 2026-06-07 playtest: fourth-level growing blocks still shoot spikes | archived |
 | 262 | [?] | P1 | level/render | 2026-06-07 playtest: levels 5/6/7 tilesets do not match character placement | Evidence source: human playtest. Cross-ref #238/#251 terrain decoder and… |
 | 263 | [?] | P1 | player/block | 2026-06-07 playtest: Samurai cannot break blocks below him with jump+sword | Evidence source: human playtest. Cross-ref Red Stealth/Samurai attack and… |
-| 264 | [ ] | P1 | audio/perf | 2026-06-07 playtest: music slows down when hitting blocks and collecting diamonds | Evidence source: human playtest. Cross-ref #003/#160/#216 audio rows and… |
+| 264 | [ ] | P1 | audio/perf | 2026-06-07 playtest: music slows down when hitting blocks and collecting diamonds | Evidence source: human playtest. Cross-ref #003/#160/#216 audio rows. `play-native` audio diagnostics now include frame-loop overrun counters; next repro capture should classify CPU/frame budget vs GEMS/mixer timing. |
 | 265 | [ ] | P2 | audio/gameflow | 2026-06-07 playtest: EOL countdown sound does not finish | Evidence source: human playtest. Cross-ref #253 collapsed EOL modelling and… |
 | 266 | [ ] | P1 | render/level | 2026-06-07 playtest: death-wall level does not render left-side drills | Evidence source: human playtest. Exact level ID/name uncertain. Native repro:… |
 | 267 | [~] | P1 | gameflow/eol | 2026-06-07 playtest: EOL flag only activates when jumped on, should activate on floor contact | 2026-06-07 root cause fixed at engine level: native EOL used a point-distance… |
