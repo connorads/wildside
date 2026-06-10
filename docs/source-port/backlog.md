@@ -32,9 +32,9 @@ and stop — never commit churn.
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
 - **Next**: #260 metal-block remainder (block must not break from a jump; latest closer route rejected
-  at frame 596 by native-only DripsSurfaceCrawler damage before metal contact; follow-up trace says
-  left Drips layout #07 is one crawler cycle early in native because the Drips `loc_3340E` RNG stream
-  is already displaced at the first left reseed, not because of crawler hitbox or splash duration; #285 crawler art);
+  by native-only Drips timing before metal contact; `tas-diff --drips-trace` shows native layout #08
+  starts its drop at frame 258 and spawns a crawler at frame 444 while oracle is still counting down,
+  so trace Drips `loc_3340E`/`loc_33424` initial wait/controller phase before hitboxes or floor probes; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
