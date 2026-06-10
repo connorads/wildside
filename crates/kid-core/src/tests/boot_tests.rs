@@ -843,6 +843,54 @@ mod chunk_01 {
         );
     }
 
+    /// ASM off_BB80 (kid.asm:15097): block type C dispatches to return_BBC0.
+    /// A Drill skin ceiling block is still Solid terrain and therefore stops
+    /// upward movement via sub_902A/loc_908C, but the headbutt interaction must
+    /// not erase the cell or queue sub_1129C projectile work.
+    #[test]
+    fn loc_bb6e_off_bb80_dispatch_drill_block_is_noop_for_headbutt() {
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Drill block at cell (3, 2): 0xEC = Solid + has_block + block_type=C.
+        // Skin 0x2D is the real Blue Lake Woods 2 ceiling cell from #260.
+        let idx = (2 * w + 3) as usize * 2;
+        data[idx] = 0xEC;
+        data[idx + 1] = 0x2D;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_BB74: even return_BBC0 block interactions still clear y_vel"
+        );
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0xEC, 0x2D),
+            "ASM off_BB80 index C -> return_BBC0: headbutting a Drill block must leave the terrain cell intact"
+        );
+        assert_eq!(
+            slice.drill_projectile_hit, None,
+            "ASM off_BB80 index C -> return_BBC0: sub_1129C is not queued by headbutting a Drill block"
+        );
+    }
+
     /// ASM loc_BB74 (kid.asm:15089): sub_BB54 cleanup after off_BB80 dispatch.
     /// `movem.w (sp)+,d0-d3; clr.l y_vel(a3); rts` — y_vel is zeroed after the
     /// block interaction completes.  The ceiling path (sub_902A loc_908C) also

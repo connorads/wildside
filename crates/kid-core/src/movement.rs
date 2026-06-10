@@ -6418,14 +6418,10 @@ impl OpeningSliceState {
                         );
                     }
                     terrain::BlockType::Drill => {
-                        let drill_x_fp = (u32::from(block_dispatch_probe.cell_x) * 16 + 8) << 16;
-                        let drill_y_fp = (u32::from(block_dispatch_probe.cell_y) * 16 + 16) << 16;
-                        self.drill_projectile_hit = Some((drill_x_fp, drill_y_fp));
-                        grid.set_cell_at(
-                            block_dispatch_probe.cell_x,
-                            block_dispatch_probe.cell_y,
-                            terrain::Cell::from_be_bytes(0, 0),
-                        );
+                        // ASM off_BB80 index C (kid.asm:15109) dispatches to
+                        // return_BBC0. Drill/projectile work comes from the
+                        // scanner/support-worker paths, not from headbutting
+                        // a type-C ceiling block.
                     }
                     terrain::BlockType::Metal => {
                         self.metal_block_hit =

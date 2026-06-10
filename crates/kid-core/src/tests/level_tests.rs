@@ -18348,7 +18348,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn lift_and_drill_ceiling_headbutts_report_block_coordinates() {
+    fn lift_ceiling_headbutt_reports_block_coordinates_but_drill_is_noop() {
         let hit_block = |hi: u8| {
             let w = 6u16;
             let h = 5u16;
@@ -18387,10 +18387,14 @@ mod chunk_02 {
         let (drill_hit, drill_grid) = hit_block(0xEC);
         assert_eq!(
             drill_hit.drill_projectile_hit,
-            Some((40 << 16, 48 << 16)),
-            "ASM loc_BB6E/off_BB80: Drill ceiling dispatch should spawn from tile centre x and tile-bottom y fixed-point coordinates",
+            None,
+            "ASM off_BB80 index C -> return_BBC0: Drill ceiling dispatch must not queue sub_1129C projectile work",
         );
-        assert_eq!(drill_grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
+        assert_eq!(
+            drill_grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0xEC, 0x01),
+            "ASM off_BB80 index C -> return_BBC0: Drill ceiling dispatch must leave the source cell intact",
+        );
     }
 
     #[test]
@@ -18692,7 +18696,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn drill_block_headbutt_spawns_projectile() {
+    fn drill_block_headbutt_is_off_bb80_noop() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_drill_block());
         start_level(&mut runtime);
@@ -18715,24 +18719,15 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         assert!(
-            !runtime.projectiles.is_empty(),
-            "headbutting drill block should spawn a falling projectile"
+            runtime.projectiles.is_empty(),
+            "ASM off_BB80 index C -> return_BBC0: headbutting a Drill block must not spawn a projectile",
         );
-        let proj = &runtime.projectiles[0];
-        // ASM sub_1129C: drill projectile moves horizontally at ±4px/frame
-        assert!(proj.x_velocity != 0, "drill projectile moves horizontally");
-        assert_eq!(
-            proj.y_velocity, 0,
-            "drill projectile has no vertical velocity"
-        );
-        assert!(!proj.friendly);
 
-        // Block should be cleared from grid
         let grid = runtime.block_grid.as_ref().unwrap();
         let cell = grid.cell_at(2, 2);
         assert!(
-            !cell.has_block,
-            "drill block should be cleared after headbutt"
+            cell.has_block && cell.block_type == terrain::BlockType::Drill,
+            "ASM off_BB80 index C -> return_BBC0: Drill block should remain after headbutt"
         );
     }
 
