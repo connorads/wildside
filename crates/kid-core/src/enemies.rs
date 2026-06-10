@@ -6533,6 +6533,10 @@ pub(crate) struct ActiveEnemy {
     /// Shared walker stuck-turnaround byte `$5A(a5)`. `loc_3C026/loc_3C0D2`
     /// add 4 on each forced turnaround and route to `loc_3C464` on overflow.
     pub(crate) shared_walker_turnaround_counter: u8,
+    /// Native phase debt for right-facing shared walkers that start one pixel
+    /// behind the ROM hibernate pose. False until the first loc_3C04E catch-up
+    /// turn has consumed the extra half-step.
+    pub(crate) shared_walker_right_turn_extra_step_consumed: bool,
     /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
     pub(crate) shared_walker_patrol_short_next: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
@@ -8369,6 +8373,8 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
         shared_walker_turnaround_counter: 0,
+        shared_walker_right_turn_extra_step_consumed:
+            spawn_shared_walker_right_turn_extra_step_consumed(family, sequence.child_facing),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,
@@ -9447,6 +9453,7 @@ fn activate_enemies_with_rng_inner(
                 base_y
             };
 
+            let facing = spawn_facing(family, head_x, player_x);
             let mut enemy = ActiveEnemy {
                 segment_index: view.segment_index,
                 layout_index: index,
@@ -9460,7 +9467,7 @@ fn activate_enemies_with_rng_inner(
                 target_y_velocity: 0,
                 x_acceleration: spawn_x_acceleration(family),
                 y_acceleration: spawn_y_acceleration(family),
-                facing: spawn_facing(family, head_x, player_x),
+                facing,
                 on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
                 hit_points,
                 death_animation_active: false,
@@ -9515,6 +9522,8 @@ fn activate_enemies_with_rng_inner(
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
                 shared_walker_turnaround_counter: 0,
+                shared_walker_right_turn_extra_step_consumed:
+                    spawn_shared_walker_right_turn_extra_step_consumed(family, facing),
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
@@ -16245,20 +16254,26 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
     }
 }
 
-fn shared_walker_grounded_scan_requests_turn(
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SharedWalkerGroundedTurn {
+    RightBoundaryAfterExtraAdvance,
+    RightBoundaryAtCurrentPosition,
+}
+
+fn shared_walker_grounded_scan_turn_plan(
     enemy: &ActiveEnemy,
     grid: &terrain::BlockGrid,
     walk_delta: i32,
     half_width: i32,
     height: i32,
-) -> bool {
+) -> Option<SharedWalkerGroundedTurn> {
     let moving_right = walk_delta >= 0;
     if !moving_right {
         // Native's existing leftward look-ahead path already reaches the Level
         // 0x01 oracle's `$009B` turn point. The missing parity was the
         // rightward `sub_36972` boundary turn, whose lead-column/following-row
         // scan fires before the simpler native floor probe.
-        return false;
+        return None;
     }
     let current_x_px = (enemy.x_pos >> 16) as i32;
     let current_y_px = (enemy.y_pos >> 16) as i32;
@@ -16275,7 +16290,7 @@ fn shared_walker_grounded_scan_requests_turn(
     // mixed/blocked following-row path after the next horizontal step crosses a
     // 16px tile boundary.
     if scan.floor_class_d6 < 0 {
-        return false;
+        return None;
     }
 
     let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
@@ -16286,7 +16301,7 @@ fn shared_walker_grounded_scan_requests_turn(
         current_x_px - next_x_px
     };
     if pixel_delta <= 0 {
-        return false;
+        return None;
     }
 
     let tile_remainder = if moving_right {
@@ -16294,13 +16309,23 @@ fn shared_walker_grounded_scan_requests_turn(
     } else {
         (current_x_px - half_width) & 0xF
     };
-    if tile_remainder > pixel_delta {
-        return false;
-    }
-
     let edge_bit_set = scan.flags_d7 & 0b001 != 0;
     let wall_bit_set = scan.flags_d7 & 0b010 != 0;
-    edge_bit_set || !wall_bit_set
+    if !(edge_bit_set || !wall_bit_set) {
+        return None;
+    }
+
+    if !enemy.shared_walker_right_turn_extra_step_consumed {
+        if tile_remainder <= pixel_delta {
+            Some(SharedWalkerGroundedTurn::RightBoundaryAfterExtraAdvance)
+        } else {
+            None
+        }
+    } else if tile_remainder == 0 {
+        Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition)
+    } else {
+        None
+    }
 }
 
 fn shared_walker_walk_speed(enemy: &ActiveEnemy) -> i32 {
@@ -16365,13 +16390,27 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
-    let turn_after_horizontal_advance = shared_walker_grounded_scan_requests_turn(
+    let grounded_turn_plan = shared_walker_grounded_scan_turn_plan(
         enemy,
         grid,
         enemy.x_velocity,
         probe_half_width,
         probe_height,
     );
+
+    if matches!(
+        grounded_turn_plan,
+        Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition)
+    ) {
+        // ASM Tank.asm loc_3B40A -> kid.asm loc_3C04E/loc_3C0D2: once the
+        // native phase debt has been paid, the later right-edge boundary reaches
+        // the ROM's hibernate pose before turnaround. Flip at the current body
+        // X instead of adding the catch-up half-step used by the first edge.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        register_shared_walker_turnaround(enemy);
+        return;
+    }
 
     // Apply horizontal movement.
     // ASM loc_3C1DE (kid.asm:43684-43686): no-collision X path in the leftward
@@ -16410,7 +16449,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
-    if turn_after_horizontal_advance {
+    if matches!(
+        grounded_turn_plan,
+        Some(SharedWalkerGroundedTurn::RightBoundaryAfterExtraAdvance)
+    ) {
         // ASM Tank.asm loc_3B40A -> kid.asm loc_3C04E/loc_3C0A6: the ROM's
         // rightward boundary turn exposes the body one extra half-step ahead
         // before `loc_3C0D2` clears `x_direction`; issue #260's route frame 99
@@ -16418,6 +16460,7 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        enemy.shared_walker_right_turn_extra_step_consumed = true;
         register_shared_walker_turnaround(enemy);
         return;
     }
@@ -21753,6 +21796,13 @@ pub(crate) fn spawn_shared_walker_patrol_short_next(family: EnemyFamily) -> bool
     matches!(family, EnemyFamily::DragonWalking)
 }
 
+pub(crate) fn spawn_shared_walker_right_turn_extra_step_consumed(
+    _family: EnemyFamily,
+    _facing: Direction,
+) -> bool {
+    false
+}
+
 pub(crate) fn spawn_lion_state_loc_3e030(family: EnemyFamily) -> LionState {
     match family {
         // ASM Lion.asm loc_3E030 dispatches the freshly initialised Lion
@@ -26618,6 +26668,7 @@ mod tests {
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
@@ -35975,6 +36026,7 @@ mod tests {
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
@@ -36071,6 +36123,7 @@ mod tests {
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,

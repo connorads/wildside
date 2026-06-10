@@ -541,6 +541,7 @@ mod drips_surface_crawler_tests {
             shared_walker_state: 0,
             shared_walker_patrol_timer: 0,
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,

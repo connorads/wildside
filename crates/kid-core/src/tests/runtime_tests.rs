@@ -22,6 +22,35 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
     cached_tas_runtime_and_script("kc_any_percent_2024")
 }
 
+fn cached_issue260_floor_probe_route_script() -> Option<Vec<u8>> {
+    if !cache_backed_tests_enabled() {
+        eprintln!(
+            "skipping cache-backed source-port test: set KID_ENABLE_CACHE_BACKED_TESTS=1 to use generated .cache assets"
+        );
+        return None;
+    }
+    let scenario_path = repo_root()
+        .join(".cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json");
+    if !scenario_path.is_file() {
+        eprintln!(
+            "skipping cache-backed source-port test: issue #260 route scenario missing at {}",
+            scenario_path.display()
+        );
+        return None;
+    }
+    let scenario_raw = fs::read_to_string(&scenario_path).expect("read issue #260 route scenario");
+    let scenario_json: serde_json::Value =
+        serde_json::from_str(&scenario_raw).expect("parse issue #260 route scenario");
+    Some(
+        scenario_json["script"]
+            .as_array()
+            .expect("issue #260 route script array")
+            .iter()
+            .map(|value| value.as_u64().expect("issue #260 route script byte") as u8)
+            .collect(),
+    )
+}
+
 #[test]
 fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
     let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
@@ -6510,8 +6539,9 @@ mod chunk_09 {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let mut script = vec![0x08; 105];
-        script[60..].fill(0x18);
+        let Some(script) = cached_issue260_floor_probe_route_script() else {
+            return;
+        };
 
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(1)
@@ -6559,6 +6589,64 @@ mod chunk_09 {
                 Some(Direction::Left),
             ),
             "ASM Tank.asm loc_3B40A enters shared walker loc_3C026/loc_3C04E; loc_3C0A6 must turn at the route's right-edge boundary before storing the predicted X",
+        );
+    }
+
+    #[test]
+    fn issue260_route_turns_first_rock_tank_right_at_oracle_frame_333() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let Some(script) = cached_issue260_floor_probe_route_script() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(1)
+            .settle_recording_warp()
+            .probe_start_position(344, 575)
+            .probe_camera_position(192, 352)
+            .run(&script, script.len());
+        let frame_333 = trace
+            .get(333)
+            .expect("issue #260 route should include frame 333");
+        let first_tank_body = frame_333
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00E0_0000
+                    && object.hit_points == Some(2)
+            })
+            .expect("Level 0x01 first RockTank body should still be active at route frame 333");
+        let first_tank_turret = frame_333
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x0A }
+                    && object.layout_index == Some(1)
+                    && object.y_pos == 0x00D8_0000
+                    && matches!(object.hit_points, None | Some(0))
+            })
+            .expect(
+                "Level 0x01 first RockTank turret child should still be active at route frame 333",
+            );
+
+        assert_eq!(
+            (
+                first_tank_body.x_pos,
+                first_tank_turret.x_pos,
+                first_tank_body.facing,
+                first_tank_turret.facing,
+            ),
+            (
+                0x00D5_0000,
+                0x00D5_0000,
+                Some(Direction::Right),
+                Some(Direction::Right),
+            ),
+            "ASM Tank.asm loc_3B40A enters shared walker loc_3C04E; oracle keeps the route's later right-edge boundary on the pre-turn hibernate frame",
         );
     }
 

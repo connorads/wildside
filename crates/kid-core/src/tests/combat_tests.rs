@@ -8017,6 +8017,7 @@ mod chunk_03 {
                 EnemyFamily::DragonWalking,
             ),
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
                 EnemyFamily::DragonWalking,
             ),
@@ -8775,6 +8776,7 @@ mod chunk_03 {
                 EnemyFamily::DragonWalking,
             ),
             shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
                 EnemyFamily::DragonWalking,
             ),
