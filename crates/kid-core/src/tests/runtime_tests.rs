@@ -6630,13 +6630,13 @@ mod chunk_09 {
         assert_eq!(
             samples,
             vec![
-                (536, 5, 5, false),
-                (537, 6, 5, false),
-                (597, 6, 5, false),
-                (598, 5, 5, false),
-                (629, 5, 5, true),
+                (536, 4, 4, false),
+                (537, 4, 4, false),
+                (597, 4, 4, true),
+                (598, 4, 4, true),
+                (629, 4, 4, false),
             ],
-            "ASM Drips.asm loc_33424 count-exposes the preallocated child object before the falling child becomes a visible DripsDrop; oracle frames 537-597 count that object without increasing Number_GfxObjects",
+            "ASM Drips.asm loc_33424/loc_3345C exposes the Level 1 lower falling child by frames 597-598 for this settled probe; exact tas-diff drips-exact-settled-count-probe shows native/oracle parity through frame 629",
         );
     }
 
