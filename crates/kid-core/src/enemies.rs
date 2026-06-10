@@ -41031,6 +41031,7 @@ impl NativeRuntime {
             self.enemy_status_words.fill(0);
             self.enemy_loading_initial_pass_complete = false;
             self.block_state.evanescent_blocks.clear();
+            self.clear_block_object_workers_loc_6e2();
             self.block_state.reset_shooter_state_sub_F06A();
             self.block_state.ghost_groups.clear();
             return;

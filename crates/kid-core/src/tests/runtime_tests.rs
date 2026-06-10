@@ -1264,11 +1264,14 @@ mod chunk_09 {
             .get("kid_flip_follow_on_probe")
             .unwrap_or_else(|| panic!("frame 957 should emit Kid follow-on diagnostics"));
         assert!(
-            probe.contains("after_floor[x_vel=0x00000000/y_vel=0xffff59e0/ground=0/wall_cling=right]"),
+            probe.contains(
+                "after_floor[x_vel=0x00000000/y_vel=0xffff59e0/ground=0/wall_cling=right]"
+            ),
             "ASM loc_AAC8/sub_902A should keep the post-gravity sample after the vertical floor probe: {probe}",
         );
         assert!(
-            probe.contains("after_wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            probe
+                .contains("after_wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
             "ASM loc_AD7C wall/floor boundary settlement should clear simulation y velocity: {probe}",
         );
         assert_eq!(

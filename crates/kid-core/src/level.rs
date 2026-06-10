@@ -17902,6 +17902,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.block_state.lift_platforms.clear();
@@ -18023,6 +18024,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
@@ -18111,6 +18113,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
@@ -18201,6 +18204,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();
@@ -18303,6 +18307,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();

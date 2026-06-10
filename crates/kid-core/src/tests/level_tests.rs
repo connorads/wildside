@@ -22638,7 +22638,10 @@ mod chunk_10 {
             frame_start_y_pos,
         );
 
-        assert!(stomped, "Juggernaut mouth-child contact should resolve as a stomp");
+        assert!(
+            stomped,
+            "Juggernaut mouth-child contact should resolve as a stomp"
+        );
         assert_eq!(
             runtime.progression.number_hitpoints,
             PlayerForm::Juggernaut.max_hitpoints(),

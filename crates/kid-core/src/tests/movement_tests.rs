@@ -5070,38 +5070,22 @@ mod chunk_11 {
     #[test]
     fn loc_95da_loc_95e4_loc_95f2_upright_walk_phase_advances_from_velocity() {
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_95da(
-                0x0100,
-                PlayerForm::TheKid,
-                0x0002_0000
-            ),
+            grounded_walk_visual_accumulator_loc_95da(0x0100, PlayerForm::TheKid, 0x0002_0000),
             0x0140,
             "ASM loc_95E4: `$20000` -> swap `$0002`, rol #5 -> `$40`"
         );
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_95da(
-                0x0100,
-                PlayerForm::TheKid,
-                -0x0002_0000
-            ),
+            grounded_walk_visual_accumulator_loc_95da(0x0100, PlayerForm::TheKid, -0x0002_0000),
             0x0140,
             "ASM loc_95DA: negative velocity is normalised before the walk phase increment"
         );
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_95da(
-                0x05F0,
-                PlayerForm::TheKid,
-                0x0002_0000
-            ),
+            grounded_walk_visual_accumulator_loc_95da(0x05F0, PlayerForm::TheKid, 0x0002_0000),
             0x0030,
             "ASM loc_95F2 wraps `$FFFFF8F0` once at `$600` for the six-frame off_9618 table"
         );
         assert_eq!(
-            grounded_walk_visual_accumulator_loc_95da(
-                0x0100,
-                PlayerForm::Micromax,
-                0x0002_0000
-            ),
+            grounded_walk_visual_accumulator_loc_95da(0x0100, PlayerForm::Micromax, 0x0002_0000),
             0x0180,
             "ASM loc_95EA: Micromax doubles the `$40` upright-walk phase increment"
         );

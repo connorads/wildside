@@ -2884,6 +2884,23 @@ impl NativeRuntime {
         terrain::Cell::from_be_bytes(0xE9, 0x19)
     }
 
+    /// ASM loc_6E2 / Initialize_ObjectSlots wipes Object_RAM on every level
+    /// (re)entry, killing the sub_1007A prize-block coroutines, floating
+    /// prize objects, and block bounce/destroy effect workers along with the
+    /// enemies. Native models those coroutines as runtime vectors, so every
+    /// level-entry path must drop them: a stale entry from the previous
+    /// level otherwise fires into the freshly loaded grid (published TAS
+    /// frame 24636: a leftover (22,14) prize clear wrote a phantom
+    /// `$E001` Smash cell into the Knight's Isle attract demo, walling the
+    /// demo Kid at frame 24921).
+    pub(crate) fn clear_block_object_workers_loc_6e2(&mut self) {
+        self.block_state.deferred_ceiling_clears.clear();
+        self.block_bounces.clear();
+        self.prize_block_spawn_flashes.clear();
+        self.block_destroy_effects.clear();
+        self.floating_items.clear();
+    }
+
     /// Tick prize-block bounce lifecycles. ASM sub_1007A holds 0x6F, briefly
     /// restores the original prize cell, then writes `$E001` and creates the
     /// prize object.

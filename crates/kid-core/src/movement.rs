@@ -1527,15 +1527,16 @@ pub(crate) fn grounded_walk_visual_accumulator_loc_95da(
     }
 }
 
-fn should_advance_grounded_walk_visual_accumulator_loc_95da(
-    form: PlayerForm,
-) -> bool {
+fn should_advance_grounded_walk_visual_accumulator_loc_95da(form: PlayerForm) -> bool {
     // ASM loc_7820 clears `$FFFFF8F0` when entering MoveID_Walking, then
     // immediately continues through loc_8D72/loc_8E16 into sub_942A loc_95DA
     // with the freshly accelerated x_vel. The first moving frame must advance
     // the renderer phase or Red Stealth/Samurai walks visibly lag while state
     // positions still match oracle.
-    !matches!(form, PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker)
+    !matches!(
+        form,
+        PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
+    )
 }
 
 #[allow(non_snake_case)]
@@ -4544,31 +4545,30 @@ impl OpeningSliceState {
         // are clear, even though the stricter sub_AE6E column-shape mirror
         // rejects the tile pattern. Keep the strict mirror for left-wall
         // shafts such as BLW2; the right-wall path follows the sampled oracle.
-        let right_wall_oracle_release =
-            direction == Direction::Right
-                && !self.ascending_wall_cling_release_column_matches_sub_ae6e(
-                    form,
-                    grid,
-                    pre_vertical_y_px,
-                )
-                && !terrain::probe_wall_column(
-                    grid,
-                    (self.player.x_pos >> 16) as i32,
-                    (self.player.y_pos >> 16) as i32,
-                    form.half_width(),
-                    form.ceiling_probe_height(),
-                    true,
-                )
-                .hit
-                && !terrain::probe_wall_top_edge(
-                    grid,
-                    (self.player.x_pos >> 16) as i32,
-                    (self.player.y_pos >> 16) as i32,
-                    form.half_width(),
-                    form.ceiling_probe_height(),
-                    true,
-                )
-                .hit;
+        let right_wall_oracle_release = direction == Direction::Right
+            && !self.ascending_wall_cling_release_column_matches_sub_ae6e(
+                form,
+                grid,
+                pre_vertical_y_px,
+            )
+            && !terrain::probe_wall_column(
+                grid,
+                (self.player.x_pos >> 16) as i32,
+                (self.player.y_pos >> 16) as i32,
+                form.half_width(),
+                form.ceiling_probe_height(),
+                true,
+            )
+            .hit
+            && !terrain::probe_wall_top_edge(
+                grid,
+                (self.player.x_pos >> 16) as i32,
+                (self.player.y_pos >> 16) as i32,
+                form.half_width(),
+                form.ceiling_probe_height(),
+                true,
+            )
+            .hit;
         if !right_wall_oracle_release
             && !self.ascending_wall_cling_release_column_matches_sub_ae6e(
                 form,
@@ -4723,27 +4723,26 @@ impl OpeningSliceState {
         // ORIGINAL_QUIRK: same right-wall escape as sub_AE6E above. The
         // strict sub_ADB8 column shape protects left-wall shaft parity, while
         // published TAS right-wall releases use the broader clear probes.
-        let right_wall_oracle_release =
-            direction == Direction::Right
-                && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
-                && !terrain::probe_wall_column(
-                    grid,
-                    (self.player.x_pos >> 16) as i32,
-                    (self.player.y_pos >> 16) as i32,
-                    form.half_width(),
-                    form.ceiling_probe_height(),
-                    true,
-                )
-                .hit
-                && !terrain::probe_wall_top_edge(
-                    grid,
-                    (self.player.x_pos >> 16) as i32,
-                    (self.player.y_pos >> 16) as i32,
-                    form.half_width(),
-                    form.ceiling_probe_height(),
-                    true,
-                )
-                .hit;
+        let right_wall_oracle_release = direction == Direction::Right
+            && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
+            && !terrain::probe_wall_column(
+                grid,
+                (self.player.x_pos >> 16) as i32,
+                (self.player.y_pos >> 16) as i32,
+                form.half_width(),
+                form.ceiling_probe_height(),
+                true,
+            )
+            .hit
+            && !terrain::probe_wall_top_edge(
+                grid,
+                (self.player.x_pos >> 16) as i32,
+                (self.player.y_pos >> 16) as i32,
+                form.half_width(),
+                form.ceiling_probe_height(),
+                true,
+            )
+            .hit;
         if !right_wall_oracle_release
             && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
         {
@@ -8087,8 +8086,7 @@ mod tests {
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_target_y, level_entry_title_top_edge_y_loc_1ace6,
-        level_entry_title_two_player_waiter_workers_loc_1AD80,
-        level_entry_title_worker_axis_pos,
+        level_entry_title_two_player_waiter_workers_loc_1AD80, level_entry_title_worker_axis_pos,
         prefer_iron_knight_solid_edge_floor_loc_914a,
     };
     use crate::physics::{Direction, LevelBounds};
@@ -8777,12 +8775,7 @@ mod tests {
         grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0x60, 0x02));
 
         assert!(
-            !iron_knight_solid_edge_slopeup_followup_loc_914a(
-                &grid,
-                0x0020_0000,
-                0x001E_0000,
-                16,
-            ),
+            !iron_knight_solid_edge_slopeup_followup_loc_914a(&grid, 0x0020_0000, 0x001E_0000, 16,),
             "ASM sub_914A follow-up requires the right solid edge to be grounded, not merely present one row below",
         );
 
