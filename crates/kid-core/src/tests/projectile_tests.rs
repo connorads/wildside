@@ -510,6 +510,77 @@ mod chunk_06 {
         );
     }
 
+    /// ASM off_B058[2] (kid.asm:13898): Red Stealth floor-impact Ice jumps to
+    /// `IceBlock_SmashAndLoadBullets`, so it must run `IceBlock_LoadBullets`
+    /// before the shared sub_10F9C cosmetic worker and rebound tail.
+    #[test]
+    fn loc_b01e_red_stealth_ice_block_loads_bullets_loc_11052() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::RedStealth;
+        runtime.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+        runtime.progression.invulnerable_frames = 10;
+        runtime.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES + 1;
+
+        let mut grid = grid_with_floor_at_row(14);
+        grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE2, 0x01));
+        assert!(
+            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 2, 120, 56).is_some_and(
+                |target| target == (5, 13)
+                    && NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(
+                        grid.cell_at(target.0, target.1)
+                    )
+            ),
+            "ASM sub_11006 should find an open upward target cell for this Red Stealth fixture"
+        );
+        runtime.block_grid = Some(grid);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = (5 * 16 + 8) << 16;
+        slice.player.y_pos = 223 << 16;
+        slice.player.y_velocity = 0x0005_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_frame(FrameInput::default());
+
+        let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+        assert!(
+            !cell_after.has_block,
+            "ASM IceBlock_SmashAndLoadBullets should delete the Red Stealth floor-impact ice block"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects.len(),
+            1,
+            "ASM IceBlock_SmashAndLoadBullets should still spawn the sub_10F9C ice effect"
+        );
+        assert_eq!(
+            runtime
+                .projectiles
+                .iter()
+                .map(|p| (
+                    p.kind,
+                    p.x_pos >> 16,
+                    p.y_pos >> 16,
+                    p.x_velocity,
+                    p.y_velocity,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (EnemyProjectileKind::ShooterBlock, 88, 228, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, -(4 << 16)),
+            ],
+            "ASM off_B058[2] should route Red Stealth ice breaks through IceBlock_LoadBullets before the projectile step advances them once",
+        );
+        assert_eq!(
+            runtime.opening_slice.unwrap().player.y_velocity,
+            -0x0003_8000,
+            "ASM sub_B000 rebound tail should still apply after the ice bullets are loaded"
+        );
+    }
+
     /// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
     /// `moveq #1,d6; bsr.w sub_B55C` — probes one pixel below foot with
     /// x_offset=0, y_offset=1.  If tile bit 15 set and block ID ≤ 5,

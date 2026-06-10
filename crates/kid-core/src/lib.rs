@@ -3337,6 +3337,32 @@ impl NativeRuntime {
                             // ASM off_B058 block type 2 (Ice) jumps through
                             // IceBlock_SmashAndLoadBullets before rebounding.
                             helmets::RedStealthFloorImpactKindSubB000::Ice => {
+                                // ASM off_B058[2] -> IceBlock_SmashAndLoadBullets
+                                // (kid.asm:13898, 22849): Red Stealth uses the
+                                // same `d6=2` floor-impact direction as
+                                // loc_B070's smash branch before sub_11006
+                                // remaps it for the shooter-block bullets.
+                                let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    grid.width_cells,
+                                    grid.height_cells,
+                                )
+                                .is_some_and(
+                                    |(target_col, target_row)| {
+                                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                                            grid.cell_at(target_col, target_row),
+                                        )
+                                    },
+                                );
+                                if target_open {
+                                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                                        red_stealth_impact.block_col,
+                                        red_stealth_impact.block_row,
+                                        Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    ));
+                                }
                                 grid.set_cell_at(
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
