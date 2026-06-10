@@ -31,12 +31,14 @@ and stop — never commit churn.
   not the suspected tank-pair collapse. Frames 7790..7810 match, the full
   published TAS now passes all 37759 frames by CRC, and `verify-slice-fast` is
   green.
-- **Next**: #260 metal-block remainder (block must not break from a jump; recording-settle
-  over-advance fixed, then the first refreshed route split moved from frame 99 to frame 333 after
-  the RockTank shared-walker right-boundary phase fix. Continue from the remaining Tank
-  return-boundary split in
-  `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` before touching
-  Drips/hitboxes/floor probes/player movement; #285 crawler art);
+- **Next**: #260 metal-block remainder (block must not break from a jump; do not reuse
+  `.cache/debug/issue260-route-probes/floor-explicit-left-drips-close-617.json` as live
+  metal-block evidence. Fresh 2026-06-10 trace reconfirms the route is already Drips-phase
+  shifted before contact: native #08 seeds at frame 13 with wait `$43` while oracle exposes
+  `loc_33424 d0=$5d` at frame 15; backlog archive records this route under rejected
+  recording-settle/Drips-lifecycle evidence. Next useful #260 work is a refreshed route or
+  bootstrap check that starts RNG/object phase clean, not Tank/Drips hitbox/block patches from
+  this stale route; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
   #291 #249-regression resurfaced (ignored gate test, suspect 6f506f6f).
