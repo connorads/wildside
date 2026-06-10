@@ -51,7 +51,14 @@ and stop — never commit churn.
   The no-settle copy starts #07/#08 clean but is not a valid late metal-block proof either
   because the oracle side has lost the comparable Drips slots by frame 590. Next useful #260
   work is a genuinely refreshed route/bootstrap that starts clean and stays oracle-comparable,
-  not Tank/Drips hitbox/block patches from these stale route files; #285 crawler art);
+  not Tank/Drips hitbox/block patches from these stale route files. Post-floor delayed-jump
+  overlays from the current `l524_b530_540` tail (`release 548/556/560`, neutral/right/left
+  jump variants) still rank the old frame-540 near-miss as the best healthy `(456,543)`
+  approach, and right-biased variants spend HP without improving row-32 contact; do not
+  retry that late-jump axis unchanged. Source-generated `issue260-drips-cleaner-prefix-audit`
+  / `issue260-drips-b-jump-climb-seed` plus the `140..300:none,170..260:left` overlay no
+  longer reproduces the archived `dx=-2 dy=0 @496` row-32 branch on current native; treat that
+  archived branch as cache-specific until a current DynamicScenario file is recovered. #285 crawler art);
   #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; the
   existing natural BLW2 route is not the repro because its frame-207 L+B jump
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
