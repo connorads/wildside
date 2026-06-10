@@ -23688,17 +23688,18 @@ pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
 /// `$16` resolves to `unk_314D0: dc.w -$5,$A,-$1F,$1F`, so the live collision
 /// box spans five pixels left and right of x_pos.
 const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 5;
-/// Vertical reach above the Drips object origin used to detect ceiling contact.
-/// ASM Enemy16_Drip_Init writes `object_meta=$16`; CollisionSize_Index entry
-/// `$16` resolves to `unk_314D0: dc.w -$5,$A,-$1F,$1F`, so the object can
-/// report a ceiling hit before the visible slime top reaches the tile.
-const DRIPS_CEILING_DETECT_HEIGHT: i32 = 0x1F;
-/// Vertical offset used when GfxObjects_Collision writes back attached y_pos.
-/// ASM `GfxObjects_Collision loc_1A6C` indexes collision sizes from the live
-/// `$22(a2)` sprite mapping, after `Enemy16_Drip_Init` has written
-/// `LnkTo_unk_C7B0E-Data_Index`, not from `object_meta=$16`. The issue-260
-/// oracle route `orig_l480_530_b528` shows attached Drips at y=530 under a
-/// row-31 ceiling bottom (512px), so the snap top offset is 18px.
+/// The rising slime's GfxObjects_Collision box top sits 2px above y_pos.
+/// Derived from the loc_1A6C ceiling writeback `y = contact_tile_top - y_off
+/// + $10`: the issue-260 oracle shows the Level 01 Drips attached at y=530
+/// under the row-32 block cells (tile top 512, cells `$E102/$EC2D` carry the
+/// `$4000` collision bit), so `y_off = -2`. The contact row is the BLOCK row
+/// itself, not the rock row above it — the old `0x1F` reach skipped the block
+/// row entirely and only matched y=530 because row-31's bottom edge equals
+/// row-32's top edge (512).
+const DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C: i32 = 2;
+/// Vertical offset from the contact tile TOP when GfxObjects_Collision
+/// writes back the attached y_pos. ASM loc_1A6C: `y = tile_top - y_off +
+/// $10` with `y_off = -2` gives `tile_top + $12` (Level 01: 512 + 18 = 530).
 const DRIPS_CEILING_SNAP_TOP_OFFSET: i32 = 0x12;
 
 pub(crate) fn drips_child_state_bytes_loc_3333e(enemy_level: u8) -> (u8, u8) {
@@ -23722,31 +23723,48 @@ pub(crate) fn step_drips(
     // ROM clears collision_type and y_vel, then enters the wait/drop cycle.
     if !enemy.drips_attached {
         if let Some(grid) = block_grid {
-            // Apply rising velocity to position, then probe for solid tiles
-            // directly above. `probe_ceiling` treats the player coordinate as
-            // a foot position with head at `foot_y - height`; we reuse it by
-            // passing the Drips body position as the foot row.
+            // Apply the -1px/frame rise, then test the box-top row the way
+            // GfxObjects_Collision's tile loop does: contact fires on the
+            // frame the box top (`y - 2`) enters a `$4000`-collision row
+            // (spikes skipped per loc_17C6). The ROM therefore rises ~14
+            // frames from the Level 01 spawn (543 -> 529) before loc_1A6C
+            // snaps the slime to 530 under the row-32 block cells.
             let new_y_fp = enemy
                 .y_pos
                 .wrapping_add(DRIPS_CEILING_ATTACH_RISE_VELOCITY as u32);
             enemy.y_pos = new_y_fp;
             let center_x_px = (enemy.x_pos >> 16) as i32;
-            let body_y_px = (enemy.y_pos >> 16) as i32;
-            let probe = terrain::probe_ceiling(
-                grid,
-                center_x_px,
-                body_y_px,
-                DRIPS_CEILING_PROBE_HALF_WIDTH,
-                DRIPS_CEILING_DETECT_HEIGHT,
-            );
-            if probe.hit {
+            let box_top_px = ((enemy.y_pos >> 16) as i32) - DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C;
+            if box_top_px < 0 {
+                // ASM GfxObjects_Collision_TopBoundary (loc_1B30): a negative
+                // box top clamps the object so its box top rests at 0 and
+                // reports colid_ceiling.
+                enemy.y_pos = (DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C as u32) << 16;
+                enemy.y_velocity = 0;
+                enemy.drips_attached = true;
+                enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
+                return;
+            }
+            let contact_row = terrain::pixel_to_cell(box_top_px).max(0) as u16;
+            let left_col = terrain::pixel_to_cell(center_x_px - DRIPS_CEILING_PROBE_HALF_WIDTH)
+                .max(0) as u16;
+            let right_col = terrain::pixel_to_cell(center_x_px + DRIPS_CEILING_PROBE_HALF_WIDTH)
+                .max(0) as u16;
+            let contact = (left_col..=right_col).any(|col| {
+                matches!(
+                    grid.cell_at(col, contact_row).collision,
+                    terrain::CollisionKind::Solid
+                        | terrain::CollisionKind::SlopeUp
+                        | terrain::CollisionKind::SlopeDown
+                )
+            });
+            if contact {
                 // ASM loc_333F6 exits only after GfxObjects_Collision has
-                // reported colid_ceiling. The shared collision routine
-                // `loc_1A6C` repositions y_pos from the live sprite collision
-                // top offset, after the collision detection pass has already
-                // found the ceiling.
+                // reported colid_ceiling. loc_1A6C then writes back
+                // `y = contact_tile_top - y_off + $10` = tile_top + $12.
+                let contact_tile_top = i32::from(contact_row) * 16;
                 enemy.y_pos =
-                    (probe.ceiling_y_px as u32 + DRIPS_CEILING_SNAP_TOP_OFFSET as u32) << 16;
+                    ((contact_tile_top + DRIPS_CEILING_SNAP_TOP_OFFSET) as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
                 // ASM loc_3340E draws the RNG byte at the object's own
