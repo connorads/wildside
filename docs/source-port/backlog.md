@@ -340,7 +340,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 257 | [?] | P0 | gameflow/death | 2026-06-07 playtest: dying goes black and only recovers when Start is pressed | Evidence source: human playtest. Symptom: dying still goes black and does not… |
 | 258 | [?] | P0 | player/slope | 2026-06-07 playtest: walking left/right/up slopes regressed and Kid/forms get stuck | 2026-06-07 fixed base-Kid Level 00 natural slope route: `verify-tas --scenario… |
 | 259 | [?] | P1 | enemy/render | 2026-06-07 playtest: tanks still appear stuck in the floor | Current Level 02 enemy-clean route shows native/oracle Tank placement matched; low appearance is foreground/terrain occlusion. Needs human validation / death visibility handled via #167/#252. |
-| 261 | [~] | P1 | block/projectile | 2026-06-07 playtest: fourth-level growing blocks still shoot spikes | Evidence source: human playtest. Cross-ref #250; older Highwater `$E919` work… |
+| 261 | [x] | P1 | block/projectile | 2026-06-07 playtest: fourth-level growing blocks still shoot spikes | archived |
 | 262 | [?] | P1 | level/render | 2026-06-07 playtest: levels 5/6/7 tilesets do not match character placement | Evidence source: human playtest. Cross-ref #238/#251 terrain decoder and… |
 | 263 | [?] | P1 | player/block | 2026-06-07 playtest: Samurai cannot break blocks below him with jump+sword | Evidence source: human playtest. Cross-ref Red Stealth/Samurai attack and… |
 | 264 | [ ] | P1 | audio/perf | 2026-06-07 playtest: music slows down when hitting blocks and collecting diamonds | Evidence source: human playtest. Cross-ref #003/#160/#216 audio rows and… |

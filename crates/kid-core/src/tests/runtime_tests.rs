@@ -8960,17 +8960,17 @@ mod chunk_09 {
         );
         assert!(
             rt.block_state.shooter_blocks.is_empty(),
-            "only `sub_114F4`-restored `$E919` support cells are native shooter-live"
+            "only visible `$ECxx` shooter terrain should be native shooter-live through sub_F096"
         );
     }
 
     #[test]
-    fn highwater_pass_2_first_e919_touch_block_spawns_shooter_projectiles() {
+    fn highwater_pass_2_first_e919_touch_block_restores_support_without_projectiles() {
         // ASM off_BB80[9] -> loc_BBC2 -> loc_11430: Highwater Pass 2's first
         // `$E919` touch blocks queue sub_1149C support workers; sub_114F4
-        // restores the empty cells above as `$E919`. Baseline `$E919` terrain
-        // is not a sub_F096 shooter candidate; only the restored support cell's
-        // queued native slot fires.
+        // restores the empty cells above as `$E919`, but does not allocate an
+        // active Process_ShooterObjects slot. Baseline and restored `$E919`
+        // terrain are both non-shooter candidates for sub_F096.
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 40 * 16 * 2];
         let offset = (9usize * 40 + 20usize) * 2;
@@ -8990,18 +8990,15 @@ mod chunk_09 {
         }
         rt.step_shooter_blocks(&slice);
 
-        assert!(
-            rt.projectiles
-                .iter()
-                .any(|projectile| projectile.x_velocity != 0 || projectile.y_velocity != 0),
-            "ASM loc_11430/sub_114F4 should make the first Highwater Pass 2 `$E919` touch block fire after its support worker wakes"
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(20, 8),
+            terrain::Cell::from_be_bytes(0xE9, 0x19),
+            "ASM sub_114F4 restores the empty support cell above the hit `$E919` block"
         );
-        assert!(
-            rt.trace_frame()
-                .active_projectile_details
-                .iter()
-                .any(|projectile| { projectile.kind == ActiveProjectileKind::ShooterBlock }),
-            "ASM Process_ShooterObjects should keep Highwater shooter bullets typed through the trace so the renderer does not treat them as generic dots"
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM sub_114F4 does not allocate a Process_ShooterObjects slot for restored `$E919` support cells"
         );
     }
 
@@ -9610,7 +9607,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn shooter_headbutt_restored_support_cell_registers_without_new_scan_boundary() {
+    fn shooter_headbutt_restored_support_cell_stays_non_shooter_without_scan_slot() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
         rt.block_state.shooter_last_scanned_col = 2;
@@ -9629,24 +9626,15 @@ mod chunk_09 {
         assert_eq!(
             rt.block_grid().expect("block grid").cell_at(5, 3),
             terrain::Cell::from_be_bytes(0xE9, 0x19),
-            "ASM sub_114F4 restores `$E919`; native must not require Kid to cross a fresh sub_F096 scan boundary before the restored touch-then-shoot cell becomes live"
+            "ASM sub_114F4 restores `$E919` to the empty support cell"
         );
 
         rt.step_shooter_blocks(&slice);
 
-        let speed: i32 = 4 << 16;
-        let velocities: Vec<(i32, i32)> = rt
-            .projectiles
-            .iter()
-            .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
-            .collect();
-        assert!(
-            velocities.contains(&(0, -speed)),
-            "ASM loc_11430/sub_114F4 restored `$E919` should fire its up bit even when Kid's scan row/col did not change"
-        );
-        assert!(
-            velocities.contains(&(-speed, 0)),
-            "ASM loc_11430/sub_114F4 restored `$E919` should fire its left bit even when Kid's scan row/col did not change"
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM sub_114F4 only restores the support tile; it does not register restored `$E919` as a shooter slot"
         );
     }
 

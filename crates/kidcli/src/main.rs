@@ -103,6 +103,7 @@ use ymfm_sys::Ym2612;
 enum TargetProjectileKind {
     DripsDrop,
     DripsSurfaceCrawler,
+    ShooterBlock,
 }
 
 impl From<TargetProjectileKind> for ActiveProjectileKind {
@@ -110,6 +111,7 @@ impl From<TargetProjectileKind> for ActiveProjectileKind {
         match value {
             TargetProjectileKind::DripsDrop => ActiveProjectileKind::DripsDrop,
             TargetProjectileKind::DripsSurfaceCrawler => ActiveProjectileKind::DripsSurfaceCrawler,
+            TargetProjectileKind::ShooterBlock => ActiveProjectileKind::ShooterBlock,
         }
     }
 }

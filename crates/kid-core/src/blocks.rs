@@ -469,41 +469,6 @@ impl NativeRuntime {
             || (directions & 0x08 != 0 && left)
     }
 
-    fn register_shooter_block_entry_loc_f106(
-        &mut self,
-        grid: &terrain::BlockGrid,
-        col: u16,
-        row: u16,
-        directions: u8,
-        restored_touch_shooter: bool,
-    ) {
-        if self.block_state.shooter_blocks.len() >= Self::SHOOTER_SLOT_COUNT {
-            // ASM loc_F254 (kid.asm:19827): when `$FFFFF8C4` has no free
-            // shooter slot, the candidate allocation is skipped.
-            return;
-        }
-        if self
-            .block_state
-            .shooter_blocks
-            .iter()
-            .any(|entry| entry.col == col && entry.row == row)
-        {
-            return;
-        }
-
-        self.block_state.shooter_blocks.push(ShooterBlockEntry {
-            col,
-            row,
-            directions,
-            supported_by_neighbour: Self::shooter_has_support_loc_f106(grid, col, row, directions),
-            restored_touch_shooter,
-            // ASM loc_F24E (kid.asm:19823): initialise the new shooter slot
-            // with delay `$0100` and state word zero. Native folds the slot
-            // tick into step_shooter_blocks, so age zero fires on that tick.
-            age: 0,
-        });
-    }
-
     #[allow(non_snake_case)]
     fn shooter_direction_bits_loc_F106(cell: terrain::Cell) -> Option<u8> {
         // ASM sub_F096 loc_F106/loc_F1DE (kid.asm:19673/19789): visible
@@ -3192,7 +3157,6 @@ impl NativeRuntime {
             return;
         };
 
-        let mut restored_shooter_cells = Vec::new();
         self.block_state
             .shooter_headbutt_workers
             .retain_mut(|worker| {
@@ -3249,9 +3213,11 @@ impl NativeRuntime {
                             );
                         }
                         age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
-                            let restored_cell = Self::shooter_support_tile_for_sub_114f4();
-                            grid.set_cell_at(worker.col, worker.row, restored_cell);
-                            restored_shooter_cells.push((worker.col, worker.row, restored_cell));
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_support_tile_for_sub_114f4(),
+                            );
                             return false;
                         }
                         _ => {}
@@ -3261,20 +3227,6 @@ impl NativeRuntime {
                 worker.age = worker.age.saturating_add(1);
                 true
             });
-
-        let grid_snapshot = self.block_grid.clone();
-        if let Some(grid) = grid_snapshot.as_ref() {
-            for (col, row, cell) in restored_shooter_cells {
-                if cell == Self::shooter_support_tile_for_sub_114f4() {
-                    // ASM sub_114F4 (kid.asm:23459) restores support cells as
-                    // `$E919`. Native represents those restored Highwater Pass
-                    // touch cells in the same shooter-slot list used by
-                    // sub_F096, so queue them as soon as the worker finishes
-                    // instead of waiting for an unrelated movement scan edge.
-                    self.register_shooter_block_entry_loc_f106(grid, col, row, cell.skin, true);
-                }
-            }
-        }
     }
 
     #[allow(non_snake_case)]
