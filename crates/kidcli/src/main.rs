@@ -880,6 +880,9 @@ enum Commands {
         /// Print compact native/oracle RNG offsets and skip verbose diffs
         #[arg(long, default_value_t = false)]
         rng_trace: bool,
+        /// Print compact Drips controller/crawler state and skip verbose diffs
+        #[arg(long, default_value_t = false)]
+        drips_trace: bool,
         /// Generate 3-panel visual diff PNGs at divergent frames
         #[arg(long, default_value_t = false)]
         visual: bool,
@@ -2048,6 +2051,7 @@ fn main() -> Result<()> {
             include_physics_trace,
             show_object_roster_on_match,
             rng_trace,
+            drips_trace,
             visual,
             frontier_kind,
         } => {
@@ -2067,6 +2071,7 @@ fn main() -> Result<()> {
                 include_physics_trace,
                 show_object_roster_on_match,
                 rng_trace,
+                drips_trace,
                 visual,
                 frontier_kind,
             )?;

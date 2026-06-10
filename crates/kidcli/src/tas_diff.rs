@@ -28,6 +28,7 @@ pub fn run_tas_diff(
     include_physics_trace: bool,
     show_object_roster_on_match: bool,
     rng_trace: bool,
+    drips_trace: bool,
     visual: bool,
     frontier_kind: FrontierKind,
 ) -> Result<()> {
@@ -96,8 +97,8 @@ pub fn run_tas_diff(
             let native_rng_offset = native_trace
                 .get(frame_idx)
                 .and_then(|frame| frame.rng_offset);
-            let oracle_rng_offset = checkpoint_state(&oracle.states, &label)
-                .and_then(|state| state.rng_offset);
+            let oracle_rng_offset =
+                checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_offset);
             let native_delta = format_rng_delta(previous_native_rng, native_rng_offset);
             let oracle_delta = format_rng_delta(previous_oracle_rng, oracle_rng_offset);
             let native_rng = native_rng_offset
@@ -106,9 +107,35 @@ pub fn run_tas_diff(
             let oracle_rng = oracle_rng_offset
                 .map(|offset| format!("{offset:#06x}"))
                 .unwrap_or_else(|| "-".to_owned());
-            println!("{frame_idx:>5} {native_rng:>10} {native_delta:>12} {oracle_rng:>10} {oracle_delta:>12}");
+            println!(
+                "{frame_idx:>5} {native_rng:>10} {native_delta:>12} {oracle_rng:>10} {oracle_delta:>12}"
+            );
             previous_native_rng = native_rng_offset;
             previous_oracle_rng = oracle_rng_offset;
+        }
+        return Ok(());
+    }
+
+    if drips_trace {
+        println!("frame native_rng oracle_rng native_lifecycle native_reseed oracle_slots");
+        for frame_idx in start..end {
+            let label = format!("frame_{frame_idx}");
+            let native_frame = native_trace.get(frame_idx);
+            let oracle_state = checkpoint_state(&oracle.states, &label);
+            let native_rng = native_frame
+                .and_then(|frame| frame.rng_offset)
+                .map(|offset| format!("{offset:#06x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            let oracle_rng = oracle_state
+                .and_then(|state| state.rng_offset)
+                .map(|offset| format!("{offset:#06x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            println!(
+                "{frame_idx:>5} {native_rng:>10} {oracle_rng:>10} {} {} {}",
+                native_gameplay_field(native_frame, "drips_lifecycle_probe"),
+                native_gameplay_field(native_frame, "drips_splash_reseed_probe"),
+                oracle_gameplay_field(oracle_state, "oracle_drips_object_slots_loc_33488")
+            );
         }
         return Ok(());
     }
@@ -434,6 +461,13 @@ fn native_gameplay_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> O
     Some(format!("{fields:?}"))
 }
 
+fn native_gameplay_field(native_frame: Option<&kid_core::NativeTraceFrame>, key: &str) -> String {
+    native_frame
+        .and_then(|frame| frame.gameplay_debug_fields.get(key))
+        .cloned()
+        .unwrap_or_else(|| "-".to_owned())
+}
+
 fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
     let Some(state) = oracle_state else {
         return "-".to_owned();
@@ -456,6 +490,13 @@ fn oracle_gameplay_debug(oracle_state: Option<&OracleState>) -> Option<String> {
         fields.insert("rng_offset".into(), format!("{rng_offset:#06x}"));
     }
     Some(format_oracle_debug_fields(&fields))
+}
+
+fn oracle_gameplay_field(oracle_state: Option<&OracleState>, key: &str) -> String {
+    oracle_state
+        .and_then(|state| state.gameplay_debug_fields.get(key))
+        .cloned()
+        .unwrap_or_else(|| "-".to_owned())
 }
 
 fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSnapshot) -> String {
