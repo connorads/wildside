@@ -4248,15 +4248,13 @@ impl OpeningSliceState {
     }
 
     /// ASM loc_7464 (kid.asm:7610–7614): when both Left and Right are held,
-    /// the ROM clears `Ctrl_Right_Held` via `sf`, making left win.  Native
-    /// treats simultaneous L+R as no direction (None) — the practical effect
-    /// is the same for movement since the ROM's "left wins" path also
-    /// produces zero net acceleration in most movement branches.
+    /// the ROM clears `Ctrl_Right_Held` via `sf`, making Left win before
+    /// movement and wall-scan branches consume the direction bytes.
     fn held_horizontal_direction(input: FrameInput) -> Option<Direction> {
         match (input.left, input.right) {
-            (true, false) => Some(Direction::Left),
+            (true, _) => Some(Direction::Left),
             (false, true) => Some(Direction::Right),
-            _ => None,
+            (false, false) => None,
         }
     }
 

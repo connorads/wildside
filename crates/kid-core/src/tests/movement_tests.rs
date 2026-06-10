@@ -16494,6 +16494,64 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_7464 -> loc_77E6 (kid.asm:7610, 7871): if Left+Right are held,
+    /// loc_7464 clears only Right. The standing wall gate must therefore probe
+    /// the left wall column, not treat the pair as neutral input.
+    #[test]
+    fn loc_7464_left_wins_reaches_loc_77e6_left_wall_probe() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for row in 2..=3 {
+            set_solid(&mut data, 1, row);
+        }
+        for col in 0..w {
+            set_solid(&mut data, col, 4);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_7464 clears Right only, so loc_77E6 should face/probe left",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "loc_77E6 wall hit should still hold standing after loc_7464 left-wins conflict resolution",
+        );
+    }
+
     /// ASM loc_779C -> sub_922C (kid.asm:7846, 10699): standing-still wall
     /// probing treats `$7000` Spikes the same as a solid wall hit before the
     /// walking transition can start.
