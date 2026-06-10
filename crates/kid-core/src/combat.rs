@@ -10759,7 +10759,7 @@ fn player_latches_enemy_collision_with_half_width_loc_1cf2(
     enemy: &NativeObjectSnapshot,
     player_contact_half_width: i64,
 ) -> bool {
-    if matches!(
+    !matches!(
         classify_enemy_contact_with_half_width_inner(
             player,
             enemy,
@@ -10769,67 +10769,7 @@ fn player_latches_enemy_collision_with_half_width_loc_1cf2(
             false,
         ),
         EnemyContactResult::None
-    ) {
-        return false;
-    }
-    // ASM Tank.asm loc_3B464: the tank only consumes colid $2C (kidabove,
-    // the stomp that decrements `$44`) and $1C; every other colid — including
-    // $28 kidbelow — falls through to loc_3B4BA `clr.w $38(a2)` with no
-    // effect, and the Kid-side dispatch spares $28 from tanks as well.
-    // Oracle issue-271 jugg40 frame 267: a stationary Juggernaut standing
-    // edge-adjacent to the turret child gets `$38=$0028` written on BOTH kid
-    // and child gfx objects, yet HP and helmet are untouched. The latch must
-    // therefore not convert a kidbelow-classified touch into contact damage.
-    !enemy_contact_relation_is_kidbelow_loc_1c42(
-        player,
-        enemy,
-        player.y_velocity,
-        player_contact_half_width,
     )
-}
-
-/// Replicates the GfxObjects_CollisionKid side dispatch (ASM loc_1C42:
-/// object-minus-kid velocity deltas, `lsl.l #8; swap` scaling, then the four
-/// sign-specific overlap comparisons) far enough to answer one question: does
-/// this touch classify as colid $28 kidbelow? With both deltas zero — the
-/// stationary-kid, patrolling-tank case — every product term is zero and the
-/// non-negative/non-negative branch resolves to the Below side, exactly as the
-/// oracle's `$0028` write shows.
-fn enemy_contact_relation_is_kidbelow_loc_1c42(
-    player: PlayerState,
-    enemy: &NativeObjectSnapshot,
-    pre_physics_y_velocity: i32,
-    player_contact_half_width: i64,
-) -> bool {
-    let px = player.x_pos as i64;
-    let py = player.y_pos as i64;
-    let p_left = px - (player_contact_half_width << 16);
-    let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
-
-    let ex = enemy.x_pos as i64;
-    let ey = enemy.y_pos as i64;
-    let bounds = enemy_contact_bounds(enemy);
-    let e_right = ex + (bounds.right_px << 16);
-    let e_bottom = ey + (bounds.bottom_px << 16);
-
-    let kid_left = (p_left >> 16) as i32;
-    let kid_top = (p_top >> 16) as i32;
-    let object_right = (e_right >> 16) as i32;
-    let object_bottom = (e_bottom >> 16) as i32;
-
-    let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
-    let object_y_delta = enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity;
-    let rel_x = object_x_delta >> 8;
-    let rel_y = object_y_delta >> 8;
-
-    if object_x_delta >= 0 && object_y_delta >= 0 {
-        let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
-        let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
-        // ASM loc_1C42 falls to the Below write when `y_term <= x_term`.
-        y_term <= x_term
-    } else {
-        false
-    }
 }
 
 impl NativeRuntime {
