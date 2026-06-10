@@ -187,6 +187,16 @@ pub struct NativeRuntime {
     pending_dragon_death_animations: Vec<PendingDragonDeathAnimation>,
     /// Set each frame if a stomp occurred.
     stomped_this_frame: bool,
+    /// ASM `$FFFFFA74` (kid.asm:936): "Kid touched an enemy LAST frame". Each
+    /// Mode_Level frame copies `$FFFFFA75` here before the
+    /// GfxObjects_CollisionKid passes. While set, GfxObjects_CollisionKid_Collide
+    /// (kid.asm:3384) skips the loc_1C42 side classifier entirely and routes to
+    /// loc_1D4C: `colid_kidbelow` written to the Kid slot only — sustained
+    /// contact can never register a stomp and never writes the enemy colid.
+    kid_touched_enemy_last_frame_loc_fa74: bool,
+    /// ASM `$FFFFFA75` (kid.asm:3383): `st` on any Kid/enemy hitbox overlap in
+    /// GfxObjects_CollisionKid_Collide, cleared each frame after the FA74 copy.
+    kid_touched_enemy_this_frame_loc_fa75: bool,
     /// `kidabove` collisions resolve on the next frame, not immediately on the
     /// overlap frame.
     pending_stomp_bounce: Option<PendingStompBounce>,
@@ -1356,6 +1366,8 @@ impl NativeRuntime {
             pending_dragon_death_children: Vec::new(),
             pending_dragon_death_animations: Vec::new(),
             stomped_this_frame: false,
+            kid_touched_enemy_last_frame_loc_fa74: false,
+            kid_touched_enemy_this_frame_loc_fa75: false,
             pending_stomp_bounce: None,
             pending_player_contact_damage: None,
             pending_grounded_dragon_landing_graze: None,

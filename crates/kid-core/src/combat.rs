@@ -8364,6 +8364,51 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM GfxObjects_CollisionKid_Collide (kid.asm:3383): any Kid/enemy hitbox
+    /// overlap sets `$FFFFFA75` ("touched this frame") before classification.
+    /// TODO(fidelity): the ROM also latches overlaps against enemy projectiles
+    /// in the same GfxObject lists; native projectiles are modelled separately
+    /// and are not swept here.
+    fn kid_overlaps_any_enemy_gfx_object_loc_1c18(
+        &self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) -> bool {
+        if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return false;
+        }
+        let half_width = self.progression.current_form.half_width() as i64;
+        self.stomp_contact_candidates()
+            .into_iter()
+            .any(|candidate| {
+                classify_enemy_contact_with_half_width_inner(
+                    slice.player,
+                    &candidate.snapshot,
+                    pre_physics_y_velocity,
+                    slice.player.y_pos,
+                    half_width,
+                    false,
+                ) != EnemyContactResult::None
+            })
+    }
+
+    /// ASM loc_1CE4 (kid.asm:3479) + GfxObjects_CollisionKid_Collide
+    /// (kid.asm:3384): the `$2C` kidabove stomp colid is only written on a
+    /// FRESH contact frame (`$FFFFFA74` clear) while `Character_Movement` is
+    /// `MoveID_Jump`; otherwise loc_1D4C writes `colid_kidbelow` to the Kid
+    /// slot only and the enemy colid is left untouched. Verified against
+    /// oracle WRAM (jugg60 frames 238-240: FA74=FF, kid col38=$28, tank
+    /// col38=0, Character_Movement=3; frames 267/275: FA74=0, cm=0, col38=$28).
+    pub(crate) fn stomp_registration_blocked_loc_1ce4(&self, player: PlayerState) -> bool {
+        if self.kid_touched_enemy_last_frame_loc_fa74 {
+            return true;
+        }
+        // Character_Movement == MoveID_Jump whenever the Kid is airborne
+        // (loc_A6F8 writes MoveID_Jump on jump/fall entry); grounded movement
+        // IDs (standing/crawling/walking/slope) all fail the loc_1CE4 gate.
+        player.on_ground && !player.just_jumped
+    }
+
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     pub(crate) fn process_stomps(
@@ -8375,6 +8420,9 @@ impl NativeRuntime {
         frame_start_y_pos: u32,
     ) -> bool {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return false;
+        }
+        if self.stomp_registration_blocked_loc_1ce4(slice.player) {
             return false;
         }
 
@@ -8544,6 +8592,11 @@ impl NativeRuntime {
         pre_physics_y_pos: u32,
     ) -> Option<NativeObjectSnapshot> {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return None;
+        }
+        // Mirror the gameplay stomp gates (FA74 latch + loc_1CE4 jump gate) so
+        // probe output matches what process_stomps would actually award.
+        if self.stomp_registration_blocked_loc_1ce4(slice.player) {
             return None;
         }
 
@@ -10807,6 +10860,17 @@ impl NativeRuntime {
         frame_start_x_pos: u32,
         frame_start_y_pos: u32,
     ) -> bool {
+        // ASM Mode_Level (kid.asm:936-937): `move.b ($FFFFFA75).w,($FFFFFA74).w;
+        // sf ($FFFFFA75).w` runs every gameplay frame before the
+        // GfxObjects_CollisionKid passes, so FA74 holds "Kid overlapped an enemy
+        // during the previous frame's collision pass".
+        self.kid_touched_enemy_last_frame_loc_fa74 = self.kid_touched_enemy_this_frame_loc_fa75;
+        // ASM GfxObjects_CollisionKid_Collide (kid.asm:3383): `st ($FFFFFA75).w`
+        // fires on any Kid/enemy hitbox overlap, before classification and
+        // regardless of the classified side or invulnerability.
+        self.kid_touched_enemy_this_frame_loc_fa75 =
+            self.kid_overlaps_any_enemy_gfx_object_loc_1c18(slice, pre_physics_y_velocity);
+
         // Level timer: tick down and kill the player on expiry
         if self.level_timer.tick() {
             self.opening_slice = Some(*slice);

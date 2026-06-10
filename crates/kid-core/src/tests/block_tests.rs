@@ -63,6 +63,12 @@ fn setup_stomp_scenario(runtime: &mut NativeRuntime, stomp: bool) {
             slice.player.on_ground = true;
         }
     }
+    // The activation teleport overlapped the enemy, arming the ASM
+    // $FFFFFA74/$FFFFFA75 sustained-contact latch (kid.asm:936/3383) which
+    // would deny the stomp as a non-fresh contact. Clear it so the staged
+    // pose lands as a first-contact frame, as it would in real play.
+    runtime.kid_touched_enemy_last_frame_loc_fa74 = false;
+    runtime.kid_touched_enemy_this_frame_loc_fa75 = false;
 }
 
 fn manifest_with_tough_skull() -> AssetManifest {
@@ -93,6 +99,10 @@ fn setup_stomp_against_first_active_enemy(runtime: &mut NativeRuntime) {
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
+    // See setup_stomp_scenario: the staged pose must read as a fresh contact,
+    // so disarm the FA74/FA75 sustained-contact latch left by setup frames.
+    runtime.kid_touched_enemy_last_frame_loc_fa74 = false;
+    runtime.kid_touched_enemy_this_frame_loc_fa75 = false;
 }
 
 mod chunk_04 {
@@ -2723,6 +2733,89 @@ mod chunk_04 {
             slice.player.y_velocity < 0,
             "player should bounce upward even when enemy survives (y_vel={})",
             slice.player.y_velocity
+        );
+    }
+
+    #[test]
+    fn sustained_contact_never_stomps_loc_1d4c() {
+        // ASM GfxObjects_CollisionKid_Collide (kid.asm:3384): `tst.b
+        // ($FFFFFA74).w; bne.w loc_1D4C` — while the Kid overlapped an enemy
+        // on the previous frame's collision pass, the loc_1C42 side classifier
+        // is skipped and loc_1D4C writes colid_kidbelow to the Kid slot only,
+        // so a stomp can never register on a sustained-contact frame. Oracle
+        // WRAM proof: jugg60 frames 238-240 show FA74=$FF, kid col38=$28,
+        // tank turret col38=$0000 with Character_Movement=3 (Jump) — the kid
+        // falls past the tank top with no bounce.
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        setup_stomp_scenario(&mut runtime, true);
+        // Re-arm the latch the helper cleared: pretend last frame's collision
+        // pass already overlapped an enemy.
+        runtime.kid_touched_enemy_this_frame_loc_fa75 = true;
+        let hp_before = runtime.active_enemies[0].hit_points;
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, hp_before,
+            "latched (sustained) contact must not register a stomp"
+        );
+        assert!(
+            runtime.pending_stomp_bounce.is_none(),
+            "no stomp bounce may be queued from a sustained-contact frame"
+        );
+    }
+
+    #[test]
+    fn stomp_gate_loc_1ce4_blocks_grounded_fresh_contact() {
+        // ASM loc_1CE4 (kid.asm:3479): `cmpi.w #MoveID_Jump,
+        // (Character_Movement).w; bne.w loc_1D4C` — a fresh kidabove contact
+        // only writes the $2C stomp colid while the Kid is in Jump movement.
+        // Oracle WRAM proof: jugg60 frames 267/275 show FA74=0 (fresh
+        // contact) with Character_Movement=0 (Standing) and kid col38=$28.
+        let runtime = NativeRuntime::new(manifest_with_static_skull());
+        let player = PlayerState {
+            x_pos: 0x0120_0000,
+            y_pos: 0x00D8_0000,
+            x_velocity: 0,
+            y_velocity: 0x0002_0000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        };
+        assert!(
+            !runtime.stomp_registration_blocked_loc_1ce4(player),
+            "airborne fresh contact is Jump movement: stomp allowed"
+        );
+        assert!(
+            !runtime.stomp_registration_blocked_loc_1ce4(PlayerState {
+                on_ground: true,
+                just_jumped: true,
+                ..player
+            }),
+            "jump launch frame still counts as Jump movement"
+        );
+        assert!(
+            runtime.stomp_registration_blocked_loc_1ce4(PlayerState {
+                on_ground: true,
+                ..player
+            }),
+            "grounded movement IDs fail the loc_1CE4 MoveID_Jump gate"
+        );
+
+        let mut latched = NativeRuntime::new(manifest_with_static_skull());
+        latched.kid_touched_enemy_last_frame_loc_fa74 = true;
+        assert!(
+            latched.stomp_registration_blocked_loc_1ce4(player),
+            "the FA74 sustained-contact latch blocks even airborne stomps"
         );
     }
 
