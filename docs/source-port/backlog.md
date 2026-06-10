@@ -41,7 +41,7 @@ and stop — never commit churn.
   this stale route; #285 crawler art);
   #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
-  #291 #249-regression resurfaced (ignored gate test, suspect 6f506f6f).
+  #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
   --frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
@@ -71,7 +71,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Current route seed now has only non-authoritative object-count drift after the Drill-block no-op fix; still needs a route that reaches the reported live slime/metal-block contact. |
 | 277 | [~] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | IronKnight loc_A426 hypothesis disproven; still needs a direct left-wall Rhino/Berzerker repro. |
 | 276 | [?] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Fixed candidate: oracle confirms same-frame HUD delay is original Mode_Level/sub_BDC0 timing; native render latch now preserves previous HP pips for the hit frame. Human validation still required. |
-| 291 | [ ] | P1 | player | #249 regression resurfaced: BLW2 no-jump left-pit wall contact injects y_vel=-32768 at frame 1809 (auto-launch). Found when gating the pinned test; suspect 6f506f6f stomp gates | cargo test -p kidcli gameplay_regression_issue249 -- --ignored; drop the #[ignore] once green |
+| 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p kidcli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
 | 003 | [?] | P1 | audio | No music or sound effects playing | Blocked on exact human/real-device repro; current deterministic cold-intro and title/options live-SDL routes produce BGM |

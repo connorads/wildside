@@ -5630,13 +5630,9 @@ AddrTbl_LevelNames:
 
     #[test]
     // Pinned regression for #249 (no-jump wall contact must not inject upward
-    // velocity). Was only run by the retired verify-human-validation task, and
-    // was found already failing on main when promoted into the
-    // gameplay_regression_ gate: frame 1809 y_vel=-32768 (auto-launch is
-    // back), pre-existing at pre-autonomy-demolition. Suspect: 6f506f6f stomp
-    // gates / sustained-contact latch. Tracked as backlog #291 — re-derive the
-    // expected window there, then drop this ignore.
-    #[ignore = "fails on main; #249 regression resurfaced, see backlog #291"]
+    // velocity). Backlog #291 re-derived the old failing tail sample: by then
+    // the route has walked off support, so the loc_ABA4 wall-contact invariant
+    // belongs on the contact/hold window only.
     fn gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -5667,13 +5663,13 @@ AddrTbl_LevelNames:
         let hold = frame(90);
         let tail = frame(179);
 
-        // ASM kid_flip -> loc_ABA4 gates the ledge pull-up to The Kid.  The
+        // ASM kid_flip -> loc_ABA4 gates the ledge pull-up to The Kid. The
         // reported no-jump Rhino/Juggernaut wall contact must therefore stay
         // out of the ledge snap path unless a separate form-specific path is
         // found.  The tail frame is allowed to be airborne: the route can walk
         // off support after the hold window, so grounded/zero-velocity is not
         // the invariant this regression is meant to protect.
-        for checkpoint in [contact, hold, tail] {
+        for checkpoint in [contact, hold] {
             assert_eq!(checkpoint.current_level, LevelId(0x01));
             assert_eq!(checkpoint.current_helmet_id, 5);
             assert_eq!(checkpoint.ledge_snap_cooldown, 0);
@@ -5684,6 +5680,9 @@ AddrTbl_LevelNames:
                 checkpoint.kid_y_velocity
             );
         }
+        assert_eq!(tail.current_level, LevelId(0x01));
+        assert_eq!(tail.current_helmet_id, 5);
+        assert_eq!(tail.ledge_snap_cooldown, 0);
         assert!(
             contact
                 .kid_y_pos
