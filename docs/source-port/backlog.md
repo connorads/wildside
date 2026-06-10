@@ -349,4 +349,3 @@ For newly opened items, capture these facts in the investigation notes:
 | 287 | [ ] | P2 | audio | 2026-06-10 playtest: Samurai attack plays several overlapping attack sounds instead of one per swing | Evidence source: human playtest. Distinct from #272 (pitch); this is repeated… |
 | 288 | [ ] | P2 | intro/render | 2026-06-10 playtest: intro shows the jacket sprite in the bottom-left before… | Evidence source: human playtest (long-standing). Two related intro-sequence… |
 | 289 | [ ] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Evidence source: human playtest. Check header/start-position decode and layout… |
-

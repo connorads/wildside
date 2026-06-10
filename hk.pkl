@@ -41,6 +41,10 @@ hooks {
                 glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock", ".mise.toml")
                 check = "scripts/quiet-on-success.sh scripts/strict-rust.sh cargo check --workspace --all-targets"
             }
+            ["backlog-lean"] {
+                glob = List("docs/source-port/backlog.md")
+                check = "python3 scripts/check_backlog_lean.py"
+            }
             ["verify-slice-fast"] {
                 glob = List(
                     "crates/**/*.rs",
