@@ -357,6 +357,27 @@ enum Commands {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+    /// Probe many DynamicScenario input variants in one native process.
+    ProbeRecordScenarioFileBatch {
+        /// Path to the base DynamicScenario JSON to replay.
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Candidate overlay, formatted `label=START-END:buttons,START-END:buttons`.
+        #[arg(long)]
+        candidate: Vec<String>,
+        /// Score candidates by closest healthy Kid approach to these x,y pixel targets.
+        #[arg(long, value_parser = parse_target_point)]
+        target_point: Vec<TargetPoint>,
+        /// Print at most this many ranked candidates.
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Optional ROM path (defaults to repo-root resolution).
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Optional upstream-dir path.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
     /// Launch the native runtime. Defaults to the full boot/title/game flow.
     PlayNative {
         #[arg(long)]
@@ -1282,6 +1303,33 @@ fn main() -> Result<()> {
                 summary_only,
                 frame_start,
                 frame_end,
+            )?;
+        }
+        Commands::ProbeRecordScenarioFileBatch {
+            scenario,
+            candidate,
+            target_point,
+            limit,
+            rom,
+            dir,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let base = load_record_scenario_file(&scenario)?;
+            if target_point.is_empty() {
+                bail!("at least one --target-point is required for batch scoring");
+            }
+            if let Some(level) = base.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            probe_dynamic_record_scenario_batch(
+                &manifest,
+                &base,
+                &candidate,
+                &target_point,
+                limit,
             )?;
         }
         Commands::PlayNative {
@@ -2784,6 +2832,150 @@ fn apply_dynamic_scenario_input_overlays(
     Ok(scenario)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BatchProbeCandidate {
+    label: String,
+    input_specs: Vec<String>,
+}
+
+fn parse_batch_probe_candidate(spec: &str) -> Result<BatchProbeCandidate> {
+    let (label, input_spec) = spec
+        .split_once('=')
+        .ok_or_else(|| anyhow!("batch candidate must be LABEL=INPUT[,INPUT...], got {spec}"))?;
+    let label = label.trim();
+    if label.is_empty() {
+        bail!("batch candidate label must not be empty");
+    }
+    let input_specs = input_spec
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            parse_input_spec(part)?;
+            Ok(part.to_string())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if input_specs.is_empty() {
+        bail!("batch candidate {label} must include at least one input overlay");
+    }
+    Ok(BatchProbeCandidate {
+        label: label.to_string(),
+        input_specs,
+    })
+}
+
+#[derive(Debug)]
+struct BatchProbeResult {
+    label: String,
+    final_mode: NativeGameMode,
+    final_mode_value: u16,
+    lives: u16,
+    hitpoints: u16,
+    first_target_score: Option<i64>,
+    target_summaries: Vec<String>,
+}
+
+fn sorted_batch_probe_results(mut results: Vec<BatchProbeResult>) -> Vec<BatchProbeResult> {
+    results.sort_by(|left, right| {
+        left.first_target_score
+            .unwrap_or(i64::MAX)
+            .cmp(&right.first_target_score.unwrap_or(i64::MAX))
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    results
+}
+
+fn probe_dynamic_record_scenario_batch(
+    manifest: &AssetManifest,
+    base: &DynamicScenario,
+    candidate_specs: &[String],
+    target_points: &[TargetPoint],
+    limit: usize,
+) -> Result<()> {
+    let candidates = candidate_specs
+        .iter()
+        .map(|spec| parse_batch_probe_candidate(spec))
+        .collect::<Result<Vec<_>>>()?;
+    if candidates.is_empty() {
+        bail!("at least one --candidate is required");
+    }
+
+    let mut results = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        let mut dynamic =
+            apply_dynamic_scenario_input_overlays(base.clone(), &candidate.input_specs)?;
+        dynamic.slug = format!("{}__{}", base.slug, candidate.label);
+        let trace = run_native_dynamic_scenario(
+            manifest.clone(),
+            &dynamic,
+            NativeDynamicRunOptions {
+                settled_warp: false,
+                trace_physics: false,
+            },
+        )?;
+        let final_frame = trace.last().ok_or_else(|| {
+            anyhow!(
+                "native trace was empty for batch candidate {}",
+                candidate.label
+            )
+        })?;
+        let mut first_target_score = None;
+        let mut target_summaries = Vec::with_capacity(target_points.len());
+        for (index, target_point) in target_points.iter().copied().enumerate() {
+            let summary = target_point_approach(&trace, target_point, true)
+                .map(|approach| {
+                    if index == 0 {
+                        first_target_score = Some(approach.manhattan_px);
+                    }
+                    format!(
+                        "target {},{} healthy dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+                        target_point.x_px,
+                        target_point.y_px,
+                        approach.dx_px,
+                        approach.dy_px,
+                        approach.manhattan_px,
+                        approach.replay_frame,
+                        approach.kid_x,
+                        approach.kid_y,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    format!(
+                        "target {},{} healthy <none>",
+                        target_point.x_px, target_point.y_px
+                    )
+                });
+            target_summaries.push(summary);
+        }
+        results.push(BatchProbeResult {
+            label: candidate.label,
+            final_mode: final_frame.game_mode,
+            final_mode_value: final_frame.game_mode_value,
+            lives: final_frame.number_lives,
+            hitpoints: final_frame.number_hitpoints,
+            first_target_score,
+            target_summaries,
+        });
+    }
+
+    for result in sorted_batch_probe_results(results).into_iter().take(limit) {
+        println!(
+            "candidate {}: final {:?} (0x{:04X}) lives/hp {}/{} score {} | {}",
+            result.label,
+            result.final_mode,
+            result.final_mode_value,
+            result.lives,
+            result.hitpoints,
+            result
+                .first_target_score
+                .map_or_else(|| String::from("<none>"), |score| score.to_string()),
+            result.target_summaries.join(" | "),
+        );
+    }
+
+    Ok(())
+}
+
 fn dynamic_scenario_with_frame_checkpoints(
     mut scenario: DynamicScenario,
     frame_indices: &[usize],
@@ -3379,17 +3571,17 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicCheckpoint, DynamicScenario, GameplayCapture, GameplayScenario, GameplayState,
-        PlayerForm, RecordScenarioKind, ReferenceName, analyse_audio_samples,
+        BatchProbeResult, DynamicCheckpoint, DynamicScenario, GameplayCapture, GameplayScenario,
+        GameplayState, PlayerForm, RecordScenarioKind, ReferenceName, analyse_audio_samples,
         apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
         ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
-        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_scenario_manifest,
-        recording_start_for_dynamic_scenario, selected_reference_repos,
+        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
+        recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -3398,7 +3590,10 @@ mod tests {
         DynamicStartPosition, NativeDynamicRunOptions, run_native_dynamic_scenario,
     };
     use crate::verify::verify_soak_level_10m;
-    use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
+    use kid_core::{
+        GameMode, GameMode as NativeGameMode, LevelId, NativeObjectKind, NativeObjectSnapshot,
+        NativeTraceFrame,
+    };
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
     };
@@ -3620,6 +3815,78 @@ AddrTbl_LevelNames:
             0x88
         );
         assert_eq!(parse_button_mask("none").expect("none should parse"), 0);
+    }
+
+    #[test]
+    fn parses_batch_probe_candidate_specs() {
+        let candidate = parse_batch_probe_candidate("tail=478-524:left,525-529:none,530-540:b")
+            .expect("candidate should parse");
+
+        assert_eq!(candidate.label, "tail");
+        assert_eq!(
+            candidate.input_specs,
+            vec!["478-524:left", "525-529:none", "530-540:b"]
+        );
+    }
+
+    #[test]
+    fn rejects_batch_probe_candidate_without_valid_input() {
+        let err = parse_batch_probe_candidate("bad=not-a-range").expect_err("invalid candidate");
+
+        assert!(
+            err.to_string().contains("input spec must be"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn ranks_batch_probe_results_by_first_target_then_label() {
+        let ranked = sorted_batch_probe_results(vec![
+            BatchProbeResult {
+                label: String::from("z-no-score"),
+                final_mode: NativeGameMode::InGame,
+                final_mode_value: 0x000C,
+                lives: 3,
+                hitpoints: 1,
+                first_target_score: None,
+                target_summaries: Vec::new(),
+            },
+            BatchProbeResult {
+                label: String::from("b"),
+                final_mode: NativeGameMode::InGame,
+                final_mode_value: 0x000C,
+                lives: 3,
+                hitpoints: 1,
+                first_target_score: Some(4),
+                target_summaries: Vec::new(),
+            },
+            BatchProbeResult {
+                label: String::from("a"),
+                final_mode: NativeGameMode::InGame,
+                final_mode_value: 0x000C,
+                lives: 3,
+                hitpoints: 1,
+                first_target_score: Some(4),
+                target_summaries: Vec::new(),
+            },
+            BatchProbeResult {
+                label: String::from("best"),
+                final_mode: NativeGameMode::InGame,
+                final_mode_value: 0x000C,
+                lives: 3,
+                hitpoints: 1,
+                first_target_score: Some(2),
+                target_summaries: Vec::new(),
+            },
+        ]);
+
+        assert_eq!(
+            ranked
+                .iter()
+                .map(|result| result.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["best", "a", "b", "z-no-score"]
+        );
     }
 
     #[test]

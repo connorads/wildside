@@ -1619,16 +1619,16 @@ pub(crate) fn describe_player_motion(trace: &[NativeTraceFrame]) -> String {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct TargetPointApproach {
-    replay_frame: usize,
-    kid_x: u32,
-    kid_y: u32,
-    dx_px: i64,
-    dy_px: i64,
-    manhattan_px: i64,
+pub(crate) struct TargetPointApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) kid_x: u32,
+    pub(crate) kid_y: u32,
+    pub(crate) dx_px: i64,
+    pub(crate) dy_px: i64,
+    pub(crate) manhattan_px: i64,
 }
 
-fn target_point_approach(
+pub(crate) fn target_point_approach(
     trace: &[NativeTraceFrame],
     target_point: TargetPoint,
     require_healthy_kid: bool,
