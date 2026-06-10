@@ -6216,6 +6216,23 @@ impl OpeningSliceState {
         // runtime shell mirrors the `$FFFFFA69` helmet latch.
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
         let above_level_top = y_px - collision_height < 0;
+        if let Some(ref mut trace) = self.physics_trace {
+            let top_y = y_px - collision_height;
+            let (cell_x, cell_y, cell) = if probe.hit || top_y < 0 {
+                (probe.cell_x, probe.cell_y, probe.cell)
+            } else {
+                let col = ((x_px - collision_hw).max(0) / 16) as u16;
+                let row = (top_y.max(0) / 16) as u16;
+                (col, row, grid.cell_at(col, row))
+            };
+            trace.ceiling_probe_cell = Some((
+                cell_x,
+                cell_y,
+                cell.collision as u8,
+                cell.block_type as u8,
+                cell.has_block,
+            ));
+        }
 
         if probe.hit {
             let deferred_prize_ceiling_phase =

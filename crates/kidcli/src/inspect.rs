@@ -787,7 +787,7 @@ fn print_trace_frames_in_range(
             }
             if trace_physics && let Some(physics) = frame.physics_trace {
                 println!(
-                    "  physics: pre_h {:08X},{:08X} post_h {:08X},{:08X} pre_v {:08X},{:08X} post_v {:08X},{:08X} jump {} jump_y {} floor_hit {} floor_y {:?} landing {:?} wall_hit {} wall_x {:?} final_pos {:08X},{:08X} final_vel {:08X},{:08X}",
+                    "  physics: pre_h {:08X},{:08X} post_h {:08X},{:08X} pre_v {:08X},{:08X} post_v {:08X},{:08X} jump {} jump_y {} ceiling_hit {} ceiling_cell {:?} floor_hit {} floor_y {:?} landing {:?} wall_hit {} wall_x {:?} final_pos {:08X},{:08X} final_vel {:08X},{:08X}",
                     physics.pre_horizontal.0,
                     physics.pre_horizontal.1 as u32,
                     physics.post_horizontal.0,
@@ -798,6 +798,8 @@ fn print_trace_frames_in_range(
                     physics.post_vertical.1 as u32,
                     physics.jump_initiated,
                     physics.jump_y_vel.unwrap_or_default() as u32,
+                    physics.ceiling_hit,
+                    physics.ceiling_probe_cell,
                     physics.floor_hit,
                     physics.floor_y_px,
                     physics.landing_path,

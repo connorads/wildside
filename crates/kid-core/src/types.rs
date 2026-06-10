@@ -45,6 +45,7 @@ pub struct PhysicsTrace {
     pub wall_hit: bool,
     pub wall_snap_x: Option<u32>,
     pub ceiling_hit: bool,
+    pub ceiling_probe_cell: Option<(u16, u16, u8, u8, bool)>,
     pub floor_hit: bool,
     pub floor_y_px: Option<i32>,
     pub landing_path: Option<LandingPath>,

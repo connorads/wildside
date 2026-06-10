@@ -161,6 +161,19 @@ native physics ordering and row-32 cells near col 27/28. Keep #260 `[~]` until
 that movement blocker is fixed or a different oracle-valid route reaches the
 metal-block contact.
 
+Follow-up 2026-06-10 for #260, narrowed further: adding the existing
+`PhysicsTrace.ceiling_hit` print plus the probed ceiling cell shows native frame
+537 does run the `sub_902A` ceiling probe but sees row 32 col 28 as empty
+(`ceiling_cell Some((28, 32, 0, 255, false))`). The generated Level_Layout for
+level 01 at row 32 cols 26..31 is `60e8 e102 ec2d e102 60fb 60fb`, so the
+baseline cell at col 28 is a solid block (`0xEC2D`, Drill block), exactly where
+ASM `sub_914A` should stop Kid. This makes the current blocker a block-state
+lifecycle issue: native has already cleared/replaced that ceiling block before
+the frame-537 jump probe, while oracle still treats it as blocking. Next
+implementation target: audit `deferred_ceiling_clears` / prize-block
+post-wobble `FreshSmash` timing and any earlier headbutt/block dispatch on this
+route before touching Drips or wall-cling code.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
