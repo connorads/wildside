@@ -2632,6 +2632,7 @@ impl OpeningSliceState {
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
+            pending_walking_floor_release: false,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -2696,6 +2697,7 @@ impl OpeningSliceState {
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
+            pending_walking_floor_release: false,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -2839,6 +2841,30 @@ impl OpeningSliceState {
             return;
         }
         let mut block_grid = block_grid;
+        // ASM loc_8E06 (kid.asm:10203): the walking loop re-runs the sub_B43A
+        // support scan at the START of each frame, before sub_9A0A/sub_8F26
+        // move the player. A post-move support miss therefore releases the
+        // floor on the NEXT frame through loc_B5F6 (`addq.w #1,y_pos`,
+        // MoveID_Jump). A jump initiated this frame pre-empts the walking
+        // loop entirely, so the deferred release yields to it.
+        if std::mem::take(&mut self.pending_walking_floor_release)
+            && self.player.on_ground
+            && !jump_pressed
+            && let Some(grid) = block_grid.as_deref()
+            && !self.walking_floor_support_exists_at_current_position(grid, form.half_width())
+        {
+            // loc_B5F6 pushes 1px down, flips to MoveID_Jump, and hands off
+            // to loc_A6F8: the hand-off frame consumes the whole walking
+            // frame without moving — the issue-271 Juggernaut oracle keeps
+            // x_pos, x_vel, and y_vel unchanged on the release frame and
+            // starts jump physics the frame after.
+            self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
+            self.player.on_ground = false;
+            self.player.on_spikes = false;
+            self.terrain.floor_terrain_type = TerrainType::Normal;
+            self.update_camera_follow(y_look_offset);
+            return;
+        }
         let on_ground_before = self.player.on_ground;
         self.wall_cling_release_probe = None;
         self.kid_flip_follow_on_stages = None;
@@ -4179,25 +4205,38 @@ impl OpeningSliceState {
                         && grounded_slope_for_loc_9d22.is_none()
                         && !slope_recontact_this_step;
                     if self.player.on_ground
-                        && (grounded_slope_for_loc_9d22.is_some()
-                            || slope_recontact_this_step
-                            || (self.terrain.floor_terrain_type != TerrainType::Rubber
-                                && !exact_flat_hold))
+                        && (grounded_slope_for_loc_9d22.is_some() || slope_recontact_this_step)
                         && self.grounded_slope_collision(Some(grid)).is_none()
                         && !plain_airborne_floor_landing
                         && !suppress_post_horizontal_floor_release
                         && !self
                             .walking_floor_support_exists_at_current_position(grid, collision_hw)
                     {
-                        // ASM loc_8E4E -> loc_8BF0 defers the low-row
-                        // exact-cap flat hand-off seen in
-                        // `issue-126-level01-walk-right-base`. Slope/recontact
-                        // and later flat edge releases stay enabled for the
-                        // existing oracle-backed death route.
+                        // Slope tails release in the SAME frame: the slope
+                        // step already ran inside this frame's sub_9386/
+                        // loc_9D22 handling, and the oracle-backed slope death
+                        // route depends on the same-frame loc_B5F6 hand-off.
                         self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
                         self.player.on_ground = false;
                         self.player.on_spikes = false;
                         self.terrain.floor_terrain_type = TerrainType::Normal;
+                    } else if self.player.on_ground
+                        && self.terrain.floor_terrain_type != TerrainType::Rubber
+                        && !exact_flat_hold
+                        && self.grounded_slope_collision(Some(grid)).is_none()
+                        && !plain_airborne_floor_landing
+                        && !suppress_post_horizontal_floor_release
+                        && !self
+                            .walking_floor_support_exists_at_current_position(grid, collision_hw)
+                    {
+                        // ASM loc_8E06: the FLAT walking loop only re-runs the
+                        // sub_B43A support scan at the start of the NEXT
+                        // frame, so the loc_B5F6 release (+1px, MoveID_Jump)
+                        // is deferred there and the release frame itself does
+                        // not move — the issue-271 Juggernaut ledge probes
+                        // show the oracle keeping x/y/velocities for one more
+                        // frame after the support boundary is crossed.
+                        self.pending_walking_floor_release = true;
                     }
                 }
                 kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();

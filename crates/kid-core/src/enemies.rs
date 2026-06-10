@@ -23746,10 +23746,10 @@ pub(crate) fn step_drips(
                 return;
             }
             let contact_row = terrain::pixel_to_cell(box_top_px).max(0) as u16;
-            let left_col = terrain::pixel_to_cell(center_x_px - DRIPS_CEILING_PROBE_HALF_WIDTH)
-                .max(0) as u16;
-            let right_col = terrain::pixel_to_cell(center_x_px + DRIPS_CEILING_PROBE_HALF_WIDTH)
-                .max(0) as u16;
+            let left_col =
+                terrain::pixel_to_cell(center_x_px - DRIPS_CEILING_PROBE_HALF_WIDTH).max(0) as u16;
+            let right_col =
+                terrain::pixel_to_cell(center_x_px + DRIPS_CEILING_PROBE_HALF_WIDTH).max(0) as u16;
             let contact = (left_col..=right_col).any(|col| {
                 matches!(
                     grid.cell_at(col, contact_row).collision,
@@ -23763,8 +23763,7 @@ pub(crate) fn step_drips(
                 // reported colid_ceiling. loc_1A6C then writes back
                 // `y = contact_tile_top - y_off + $10` = tile_top + $12.
                 let contact_tile_top = i32::from(contact_row) * 16;
-                enemy.y_pos =
-                    ((contact_tile_top + DRIPS_CEILING_SNAP_TOP_OFFSET) as u32) << 16;
+                enemy.y_pos = ((contact_tile_top + DRIPS_CEILING_SNAP_TOP_OFFSET) as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
                 // ASM loc_3340E draws the RNG byte at the object's own

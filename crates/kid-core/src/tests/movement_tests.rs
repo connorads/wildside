@@ -4930,6 +4930,7 @@ mod chunk_11 {
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
+            pending_walking_floor_release: false,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
@@ -20331,6 +20332,107 @@ mod chunk_12 {
             slice.player.y_pos,
             69 << 16,
             "loc_B5F6 adds 1px after the SlopeUp recontact snaps edge support to y=68",
+        );
+    }
+
+    /// ASM loc_8E06 (kid.asm:10203): the FLAT walking loop re-runs the
+    /// sub_B43A support scan only at the START of the next frame, so walking
+    /// off a flat ledge keeps x/y/velocities for one more frame before the
+    /// loc_B5F6 release (+1px, MoveID_Jump) fires — and the release frame
+    /// itself does not move. Verified against the issue-271 Juggernaut ledge
+    /// probe (`jugg40.json` frames 77..80): oracle y stays 207 on the
+    /// boundary frame, becomes 208 with unchanged x/velocities on the release
+    /// frame, and jump physics starts the frame after.
+    #[test]
+    fn flat_walk_off_ledge_defers_loc_b5f6_release_to_next_frame_loc_8e06() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Solid floor row 4 (top y=64) covering cols 0..=2 only: a flat ledge.
+        for col in 0..3usize {
+            data[(4 * usize::from(w) + col) * 2] = 0x60;
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        // Juggernaut walking speed (0x23900) — NOT The Kid's exact 0x20000
+        // cap, so the flat release path (not the exact_flat_hold carve-out)
+        // is exercised.
+        slice.player.x_velocity = 0x0002_3900;
+        slice.player.y_velocity = 0;
+        slice.player.facing = Direction::Right;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        let step = |slice: &mut OpeningSliceState, grid: &mut terrain::BlockGrid| {
+            slice.step_with_order(
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::Juggernaut,
+                Some(grid),
+                None,
+                true,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+        };
+
+        // Walk until the post-move support scan first fails. The boundary
+        // frame must stay grounded with y unchanged (oracle keeps y=207 on
+        // the issue-271 probe's frame 78).
+        let mut boundary_frame_found = false;
+        for _ in 0..32 {
+            step(&mut slice, &mut grid);
+            if slice.pending_walking_floor_release {
+                boundary_frame_found = true;
+                break;
+            }
+            assert!(slice.player.on_ground, "still walking on the ledge");
+        }
+        assert!(
+            boundary_frame_found,
+            "the walk must cross the ledge support boundary within the test budget",
+        );
+        assert!(
+            slice.player.on_ground,
+            "loc_8E06: the boundary frame keeps the walker grounded; the scan only re-runs next frame",
+        );
+        let boundary_x = slice.player.x_pos;
+        let boundary_y = slice.player.y_pos;
+        let boundary_x_vel = slice.player.x_velocity;
+
+        // Release frame: +1px push, MoveID_Jump hand-off, NO movement.
+        step(&mut slice, &mut grid);
+        assert!(
+            !slice.player.on_ground,
+            "loc_B5F6 releases the floor at the start of the next frame",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            boundary_y.wrapping_add(0x0001_0000),
+            "loc_B5F6 adds exactly 1px on the release frame",
+        );
+        assert_eq!(
+            slice.player.x_pos, boundary_x,
+            "the loc_B5F6 -> loc_A6F8 hand-off frame does not move horizontally",
+        );
+        assert_eq!(
+            slice.player.x_velocity, boundary_x_vel,
+            "the hand-off frame applies no airborne x acceleration",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "gravity starts the frame after the loc_B5F6 hand-off",
         );
     }
 
