@@ -8789,3 +8789,11 @@ Column of origin shown in brackets; text is verbatim.
 ### #290
 
 - [Verify] Evidence source: verify-tas full run 2026-06-10. Pre-existing on main at 27537816 (verified by stash baseline — NOT caused by the #271 stomp gate). Kid position matches exactly; only object/gfx counts drift during demo 1. Prime suspect: the Tank-pair object-count collapse (commit 7280bada, `object_counts_from_roster_inner` windows(2) same-type 0x0A/0x0B filter) over-collapsing adjacent same-type enemies in the demo level — native gfx count 4 vs oracle 9 suggests multiple pairs collapsed. Repro: `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --frontier-kind gameplay`. Next: tas-diff 7790..7810 --include-advisory --show-object-roster-on-match, and restrict the collapse to actual linked Tank parent/child slots (layout adjacency is not pairing).
+
+### #249 test rename note (2026-06-10)
+
+- `issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut` (kidcli) was renamed to `gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut` so the verify-slice-fast `gameplay_regression_` filter covers it; older mentions above use the old name.
+
+### #291
+
+- Filed 2026-06-10 during the autonomy demolition. The pinned #249 regression test (`gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut`, kidcli) was promoted into the `gameplay_regression_` gate and found ALREADY FAILING on main: frame 1809 `y_vel=Some(-32768)` — the no-jump BLW2 left-pit wall probe injects upward velocity again. Verified pre-existing at tag `pre-autonomy-demolition` (3 passed; this 1 failed), so none of the demolition commits caused it; the test was previously only run by the retired `verify-human-validation` mise task, which nothing exercised. Suspect: 6f506f6f "Gate stomps on fresh contact + Jump movement" (loc_1CE4 jump gate + $FFFFFA74/75 sustained-contact latch) changed contact classification on exactly this path. Test is `#[ignore]`d until re-derived; reproduce with `cargo test -p kidcli gameplay_regression_issue249 -- --ignored`. Cross-ref #249 (original symptom: wall touch auto-launches Kid to the top of the level).

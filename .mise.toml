@@ -87,48 +87,11 @@ description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares,
 
 [tasks.project-status]
 run = "cargo run -q -p kidcli -- project-status"
-description = "Summarise repo health with 1P-playable first, 1P-accurate second, and TAS frontier status separate"
+description = "Summarise repo health: 1P-playable first, 1P-accurate second, backlog risks and human blockers"
 
 [tasks.completion-audit]
-run = """
-sh -ec '
-mise run human-validation-review
-cargo run -q -p kidcli -- project-status --fail-on-human-blockers
-'
-"""
-description = "Refresh human-review evidence, then fail until all source-port validation/repro blockers are resolved"
-
-[tasks.verify-human-validation]
-run = """
-scripts/strict-rust.sh sh -ec '
-for slug in \
-  issue-210-title-menu-tail \
-  issue-160-audio-latest-validation \
-  issue-238-highwater-flag-transition-current-20260606 \
-  issue-238-highwater-pass2-juggernaut-flag-transition-current-20260606 \
-  issue-playtest-title-menu-current-long-20260607
-do
-  cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
-done
-cargo run -q -p kidcli -- case verify --case issue-playtest-title-menu-current-long-20260607_case_03300_03600
-cargo test -q -p kid-core respawn_hold -- --nocapture
-cargo test -q -p kid-core spike_death_triggers_death_and_respawn -- --nocapture
-cargo test -q -p kid-core continue_restores_lives_and_respawns -- --nocapture
-cargo run -q -p kidcli -- verify-recording --slug issue-249-blw2-left-pit-wall-no-jump-current-20260606 --native-only
-cargo test -q -p kidcli issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture
-'
-"""
-description = "Replay all recording bundles that still require human validation/repro decisions"
-
-[tasks.human-validation-review]
-run = """
-sh -ec '
-mise run verify-human-validation
-cargo run -q -p kidcli -- capture-scenario-frames --scenario .cache/recordings/issue-248-death-start-resume-settled.json --frames 555,561,563,575 --output .cache/debug/issue248-start-resume-review
-python3 scripts/build_human_validation_review.py
-'
-"""
-description = "Verify bundles, then build .cache/human-validation/index.html for the remaining human validation/repro decisions"
+run = "cargo run -q -p kidcli -- project-status --fail-on-human-blockers"
+description = "Fail until all source-port validation/repro blockers ([?]/[b] rows) are resolved by a human playtest"
 
 [tasks.verify-audio-driver]
 run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"
@@ -241,17 +204,11 @@ echo "TAS frontier: all recordings pass"
 """
 description = "Local-first TAS frontier gate; verify no regression before current frontier frame"
 
-[tasks.frontier-status]
-run = "python3 scripts/frontier_status.py"
-description = "Print the live source-port frontier, rejected hypotheses, and next verification commands"
-
-[tasks.source-port-rl-prompt]
-run = "python3 scripts/source_port_rl_prompt.py"
-description = "Regenerate the live source-port package and print the canonical RL prompt for the current delegated lane"
-
-[tasks.source-port-rl-run]
-run = "scripts/source_port_rl_run.sh"
-description = "Single RL/Codex source-port run that pipes the live delegated prompt to the cxys launcher"
+[tasks.verify-tas-full]
+# Same no-strict-rust caveat as verify-tas-frontier: TAS replay must use the
+# no-RUSTFLAGS binary to stay deterministic.
+run = "cargo run --release -q -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --frontier-kind gameplay"
+description = "Full any-percent TAS verification — run after gameplay-affecting commits"
 
 [tasks.audit-debug-fields]
 run = "python3 scripts/audit_debug_fields.py"

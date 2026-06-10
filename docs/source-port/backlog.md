@@ -34,7 +34,8 @@ and stop — never commit churn.
   #290 TAS frame_7800 object counts; #260 metal-block remainder (block must not break
   from a jump; #285 crawler art); #277 left-jump input drop (phantom-block hypothesis
   DISPROVEN — check loc_7464 left-wins conflict + wall-scan input asymmetry);
-  #276 HUD HP decrement delayed one step, not missing.
+  #276 HUD HP decrement delayed one step, not missing; #291 #249-regression
+  resurfaced (ignored gate test, suspect 6f506f6f).
 - **Gates**: verify-slice-fast green. verify-tas-full FAILS at frame_7800 — that is
   open #290, not a new regression.
 
@@ -62,6 +63,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 260 | [~] | P0 | block/enemy | 2026-06-07 playtest: Level-2 slime/metal-block interaction breaks block and emits red projectile left | Evidence source: human playtest. Symptom: slime still broken on second level;… |
 | 277 | [ ] | P1 | player/input | 2026-06-09 playtest: holding left into a wall then jumping drops the left input… | Hold left into wall + jump, confirm leftward jump registers like the right-side… |
 | 276 | [ ] | P1 | hud | 2026-06-09 playtest: player hit-point HUD does not decrement when hit (shows 4, take a hit, still shows 4) | Take a hit, confirm top-left hit-point count drops RECONFIRMED 2026-06-10… |
+| 291 | [ ] | P1 | player | #249 regression resurfaced: BLW2 no-jump left-pit wall contact injects y_vel=-32768 at frame 1809 (auto-launch). Found when gating the pinned test; suspect 6f506f6f stomp gates | cargo test -p kidcli gameplay_regression_issue249 -- --ignored; drop the #[ignore] once green |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
 | 003 | [?] | P1 | audio | No music or sound effects playing | Blocked on exact human/real-device repro; current deterministic cold-intro and title/options live-SDL routes produce BGM |

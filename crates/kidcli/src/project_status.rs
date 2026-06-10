@@ -114,7 +114,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     }
     if !human_validation_blockers.is_empty() {
         warnings.push(format!(
-            "{} human validation/repro blocker(s) remain; run `mise run human-validation-review` before claiming completion",
+            "{} human validation/repro blocker(s) remain; only a human playtest can close [?]/[b] rows",
             human_validation_blockers.len()
         ));
     }
@@ -419,7 +419,7 @@ fn print_project_status(report: &ProjectStatusReport) {
                 item.id, item.status, item.priority, item.system, item.summary
             );
         }
-        println!("    - review: mise run human-validation-review");
+        println!("    - review: human playtest required to close [?]/[b] rows");
     }
     println!("  warnings:");
     if report.warnings.is_empty() {
