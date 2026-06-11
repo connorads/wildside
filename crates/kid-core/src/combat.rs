@@ -2713,8 +2713,8 @@ pub(crate) fn boss_eye_attack_init_sub_37332(
     kid_x: u16,
 ) -> BossEyeAttackInitSub37332 {
     // ASM sub_37332 (kid.asm:39199): allocate gfx slot `$01010002`, seed the
-    // boss-eye projectile sprite, set `y_vel=-4`, and launch left with
-    // `$FFFF8001` or right with `$00007FFF` based on Kid's X position.
+    // boss-eye projectile sprite, write the high word `$FFFC` to `y_vel`, and
+    // launch left with `$FFFF8001` or right with `$00007FFF` based on Kid's X.
     let initial_x_velocity = if x_pos < kid_x {
         -0x0000_7FFF
     } else {
@@ -2734,7 +2734,7 @@ pub(crate) fn boss_eye_attack_init_sub_37332(
         y_pos,
         sprite_word_y_adjust: 2,
         initial_x_velocity,
-        initial_y_velocity: -4,
+        initial_y_velocity: -0x0004_0000,
     }
 }
 
@@ -8579,15 +8579,28 @@ impl NativeRuntime {
                         let boss_x = enemy.x_pos;
                         let boss_y = enemy.y_pos;
                         let is_heady = matches!(enemy.family, EnemyFamily::HeadyMetal);
+                        let heady_eye_init = is_heady.then(|| {
+                            // ASM sub_37332/loc_3739C: HeadyMetal eye attacks
+                            // launch up-and-out once, then use `$BB8` gravity.
+                            boss_eye_attack_init_sub_37332(
+                                (boss_x >> 16) as u16,
+                                (boss_y >> 16) as u16,
+                                (slice.player.x_pos >> 16) as u16,
+                            )
+                        });
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
                             y_pos: boss_y,
-                            x_velocity: 0x2_0000,
-                            y_velocity: -0x1_0000,
+                            x_velocity: heady_eye_init
+                                .map(|init| init.initial_x_velocity)
+                                .unwrap_or(0x2_0000),
+                            y_velocity: heady_eye_init
+                                .map(|init| init.initial_y_velocity)
+                                .unwrap_or(-0x1_0000),
                             lifetime: if is_heady { 120 } else { 90 },
-                            gravity: if is_heady { 0x2710 } else { 0x800 },
+                            gravity: if is_heady { 0x0BB8 } else { 0x800 },
                             friendly: false,
-                            homing_accel: if is_heady { 0x7D0 } else { 0 },
+                            homing_accel: 0,
                             speed_cap: 0,
                             wall_bounce: false,
                             ..Default::default()
@@ -8595,12 +8608,16 @@ impl NativeRuntime {
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
                             y_pos: boss_y,
-                            x_velocity: -0x2_0000,
-                            y_velocity: -0x1_0000,
+                            x_velocity: heady_eye_init
+                                .map(|init| init.initial_x_velocity)
+                                .unwrap_or(-0x2_0000),
+                            y_velocity: heady_eye_init
+                                .map(|init| init.initial_y_velocity)
+                                .unwrap_or(-0x1_0000),
                             lifetime: if is_heady { 120 } else { 90 },
-                            gravity: if is_heady { 0x2710 } else { 0x800 },
+                            gravity: if is_heady { 0x0BB8 } else { 0x800 },
                             friendly: false,
-                            homing_accel: if is_heady { 0x7D0 } else { 0 },
+                            homing_accel: 0,
                             speed_cap: 0,
                             wall_bounce: false,
                             ..Default::default()

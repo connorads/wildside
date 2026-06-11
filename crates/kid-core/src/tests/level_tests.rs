@@ -22857,39 +22857,55 @@ mod chunk_10 {
             2,
             "boss should fire 2 projectiles"
         );
-        // Check all projectile fields to kill deletion mutations.
-        let proj0 = &runtime.projectiles[0];
-        let proj1 = &runtime.projectiles[1];
+        let eye_projectiles: Vec<_> = runtime
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                projectile.gravity == 0x0BB8
+                    && projectile.y_velocity == -0x0004_0000
+                    && projectile.homing_accel == 0
+            })
+            .collect();
         assert_eq!(
-            proj0.x_pos,
-            100 << 16,
-            "projectile 0 x_pos should match boss"
+            eye_projectiles.len(),
+            2,
+            "both projectiles in this legacy stomp-retaliation path should now use ASM sub_37332 HeadyMetal eye physics"
         );
-        assert_eq!(
-            proj0.y_pos,
-            120 << 16,
-            "projectile 0 y_pos should match boss"
-        );
-        assert_eq!(proj0.lifetime, 120, "HeadyMetal projectile lifetime is 120");
-        assert_eq!(proj0.gravity, 0x2710, "HeadyMetal projectile gravity");
-        assert_eq!(proj0.homing_accel, 0x7D0, "HeadyMetal homing accel");
-        assert_eq!(proj0.speed_cap, 0, "HeadyMetal speed cap is 0");
-        assert!(
-            !proj0.wall_bounce,
-            "HeadyMetal projectiles do not wall bounce"
-        );
-        assert_eq!(
-            proj1.x_pos,
-            100 << 16,
-            "projectile 1 x_pos should match boss"
-        );
-        assert_eq!(
-            proj1.y_pos,
-            120 << 16,
-            "projectile 1 y_pos should match boss"
-        );
-        assert_eq!(proj1.lifetime, 120, "HeadyMetal projectile lifetime is 120");
-        assert_eq!(proj1.gravity, 0x2710, "HeadyMetal projectile gravity");
+        // Check all eye-projectile fields to kill deletion mutations.
+        for eye in eye_projectiles {
+            assert_eq!(
+                eye.x_pos,
+                100 << 16,
+                "eye projectile x_pos should match boss"
+            );
+            assert_eq!(
+                eye.y_pos,
+                120 << 16,
+                "eye projectile y_pos should match boss"
+            );
+            assert_eq!(
+                eye.x_velocity, 0x0000_7FFF,
+                "ASM sub_37332/loc_37394 should launch the eye right when Kid is left of or aligned with it",
+            );
+            assert_eq!(
+                eye.y_velocity, -0x0004_0000,
+                "ASM sub_37332 writes `$FFFC` to the high word of y_vel for an upward eye launch",
+            );
+            assert_eq!(
+                eye.lifetime, 120,
+                "TODO(fidelity): HeadyMetal eye still uses native timer deletion until loc_3739C off-screen-below deletion is wired"
+            );
+            assert_eq!(eye.gravity, 0x0BB8, "ASM loc_3739C eye gravity");
+            assert_eq!(
+                eye.homing_accel, 0,
+                "ASM sub_37332 eye launch is not homing"
+            );
+            assert_eq!(eye.speed_cap, 0, "HeadyMetal speed cap is 0");
+            assert!(
+                !eye.wall_bounce,
+                "HeadyMetal projectiles do not wall bounce"
+            );
+        }
     }
 
     #[test]

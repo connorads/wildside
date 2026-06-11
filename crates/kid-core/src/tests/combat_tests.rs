@@ -663,6 +663,38 @@ fn live_heady_metal_tracker_applies_28px_offset_to_piece_y_loc_375b0() {
     );
 }
 
+#[test]
+fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0044_0000),
+        Some(0x0046_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    let projectile = projectiles[0];
+    assert_eq!(
+        projectile.x_velocity, 0x0000_7FFF,
+        "ASM sub_37332/loc_37394 launches right with `$7FFF` when the eye is at or right of Kid"
+    );
+    assert_eq!(
+        projectile.y_velocity, -0x0004_0000,
+        "ASM sub_37332 writes `$FFFC` to the high word of y_vel, not a zero-velocity homing launch"
+    );
+    assert_eq!(
+        projectile.gravity, 0x0000_0BB8,
+        "ASM loc_3739C adds `$BB8` gravity each frame to the eye projectile"
+    );
+    assert_eq!(
+        projectile.homing_accel, 0,
+        "ASM sub_37332 chooses the horizontal launch once; the eye projectile is not homing"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

@@ -171,8 +171,8 @@ mod chunk_07 {
             "ASM sub_37332 should copy `$44/$46(a5)` into the projectile and add 2 to `$A(a3)`",
         );
         assert_eq!(
-            left.initial_y_velocity, -4,
-            "ASM sub_37332 should seed `y_vel(a3)` with `$FFFC` before the first frame",
+            left.initial_y_velocity, -0x0004_0000,
+            "ASM sub_37332 writes `$FFFC` to the high word of `y_vel(a3)`, seeding a 16.16 -4px/frame launch",
         );
         assert_eq!(
             left.initial_x_velocity, -0x0000_7FFF,

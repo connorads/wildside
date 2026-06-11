@@ -5,6 +5,7 @@ use super::{
     ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD, CameraState,
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
+use crate::combat::boss_eye_attack_init_sub_37332;
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
@@ -26505,16 +26506,24 @@ pub(crate) fn step_boss_fire(
 
     match enemy.family {
         EnemyFamily::HeadyMetal => {
-            // Spawn homing eye projectile with gravity
+            // ASM sub_37332/loc_3739C: launch the eye up-and-out once, then
+            // apply `$BB8` gravity each frame. The animation gate remains a
+            // TODO(fidelity) in the surrounding fire scheduler.
+            let kid_x_word = (player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16;
+            let init = boss_eye_attack_init_sub_37332(
+                (enemy.x_pos >> 16) as u16,
+                (enemy.y_pos >> 16) as u16,
+                kid_x_word,
+            );
             projectiles.push(EnemyProjectile {
                 x_pos: enemy.x_pos,
                 y_pos: enemy.y_pos,
-                x_velocity: 0,
-                y_velocity: 0,
+                x_velocity: init.initial_x_velocity,
+                y_velocity: init.initial_y_velocity,
                 lifetime: 120,
-                gravity: 0x2710,
+                gravity: 0x0BB8,
                 friendly: false,
-                homing_accel: 0x7D0, // HeadyMetal ASM
+                homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
                 ..Default::default()

@@ -8409,14 +8409,21 @@ mod chunk_04 {
             2,
             "boss should fire 2 projectiles on damage"
         );
-        assert!(
-            runtime.projectiles[0].x_velocity > 0,
-            "first projectile rightward"
-        );
-        assert!(
-            runtime.projectiles[1].x_velocity < 0,
-            "second projectile leftward"
-        );
+        for projectile in &runtime.projectiles {
+            assert_eq!(
+                projectile.x_velocity, 0x0000_7FFF,
+                "ASM sub_37332/loc_37394 launches the eye right when the boss is aligned with Kid"
+            );
+            assert_eq!(
+                projectile.y_velocity, -0x0004_0000,
+                "ASM sub_37332 writes high-word `$FFFC` to y_vel for the upward eye launch"
+            );
+            assert_eq!(projectile.gravity, 0x0BB8, "ASM loc_3739C eye gravity");
+            assert_eq!(
+                projectile.homing_accel, 0,
+                "ASM sub_37332 eye launch is not homing"
+            );
+        }
     }
 
     #[test]
