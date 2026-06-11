@@ -1353,6 +1353,64 @@ impl NativeRuntime {
     // newly spawned native floating item should be active immediately.
     pub(crate) const PRIZE_ITEM_INITIAL_DORMANT_FRAMES: u16 = 0;
 
+    pub(crate) fn prize_content_for_block_cell_loc_10342(
+        block_list: Option<&terrain::BlockList>,
+        block_col: u16,
+        block_row: u16,
+        layout_width: u16,
+    ) -> terrain::PrizeContent {
+        let prize_layout_addr =
+            terrain::BlockList::level_layout_low_word_addr(block_col, block_row, layout_width);
+        block_list
+            .and_then(|list| list.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
+            .map(|entry| entry.content)
+            .unwrap_or(terrain::PrizeContent::Diamond)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn start_prize_block_wobble_sub_1007A(
+        grid: &mut terrain::BlockGrid,
+        block_list: Option<&terrain::BlockList>,
+        deferred_ceiling_clears: &mut Vec<DeferredCeilingClear>,
+        block_bounces: &mut Vec<BlockBounceAnim>,
+        block_col: u16,
+        block_row: u16,
+    ) -> terrain::PrizeContent {
+        let restore_cell = grid.cell_at(block_col, block_row);
+        let content = Self::prize_content_for_block_cell_loc_10342(
+            block_list,
+            block_col,
+            block_row,
+            grid.width_cells,
+        );
+        // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
+        // write only the high byte `$6F`, preserving the original skin byte,
+        // then the worker restores the prize cell before writing `$E001`.
+        grid.set_cell_at(
+            block_col,
+            block_row,
+            terrain::Cell::from_be_bytes(0x6F, restore_cell.skin),
+        );
+        deferred_ceiling_clears.push(DeferredCeilingClear {
+            col: block_col,
+            row: block_row,
+            content,
+            restore_cell,
+            deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
+            phase: DeferredPrizeBlockPhase::Deleted,
+        });
+        block_bounces.push(BlockBounceAnim {
+            cell_x: block_col,
+            cell_y: block_row,
+            remaining: 31,
+            initial_duration: 31,
+            kind: BlockBounceKind::Prize,
+            prize_content: Some(content),
+            y_offset_px: 0,
+        });
+        content
+    }
+
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_headbutt_worker_loc_FAFE(
@@ -4822,6 +4880,61 @@ mod tests {
                 next_y_velocity: Some(-0x0000_8000),
                 effect: Some(IronKnightBlockEffectSubAF7A::Smash),
             }
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn start_prize_block_wobble_sub_1007A_preserves_floor_support_cell() {
+        let mut grid =
+            terrain::BlockGrid::from_level_layout(&[0x00, 0x00, 0xE1, 0x02, 0x00, 0x00], 3, 1);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(1, 0, 3),
+                col: 1,
+                row: 0,
+                content: terrain::PrizeContent::Berzerker,
+                disguised: false,
+            }],
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: Vec::new(),
+        };
+        let mut deferred_ceiling_clears = Vec::new();
+        let mut block_bounces = Vec::new();
+
+        let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
+            &mut grid,
+            Some(&block_list),
+            &mut deferred_ceiling_clears,
+            &mut block_bounces,
+            1,
+            0,
+        );
+
+        assert_eq!(
+            content,
+            terrain::PrizeContent::Berzerker,
+            "ASM Prize_Init loc_10342 should resolve the floor-hit prize by layout address, not fall back to Diamond",
+        );
+        assert_eq!(
+            grid.cell_at(1, 0),
+            terrain::Cell::from_be_bytes(0x6F, 0x02),
+            "ASM loc_1002E/sub_1007A should leave floor prize blocks collision-solid instead of erasing support under Kid"
+        );
+        assert_eq!(deferred_ceiling_clears.len(), 1);
+        assert_eq!(
+            deferred_ceiling_clears[0].restore_cell,
+            terrain::Cell::from_be_bytes(0xE1, 0x02)
+        );
+        assert_eq!(
+            deferred_ceiling_clears[0].phase,
+            DeferredPrizeBlockPhase::Deleted
+        );
+        assert_eq!(block_bounces.len(), 1);
+        assert_eq!(
+            block_bounces[0].prize_content,
+            Some(terrain::PrizeContent::Berzerker)
         );
     }
 

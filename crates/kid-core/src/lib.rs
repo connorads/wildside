@@ -3296,6 +3296,7 @@ impl NativeRuntime {
                 let px = (slice.player.x_pos >> 16) as i32;
                 let py = (slice.player.y_pos >> 16) as i32;
                 let hw = self.progression.current_form.half_width();
+                let block_list = self.block_list.as_ref();
                 if let Some(ref mut grid) = self.block_grid {
                     let red_stealth_impact = helmets::red_stealth_floor_impact_sub_B000(
                         self.progression.current_form,
@@ -3336,18 +3337,14 @@ impl NativeRuntime {
                             // ASM off_B058 block type 1 (Prize) jumps through
                             // j_loc_1002E before the common rebound tail.
                             helmets::RedStealthFloorImpactKindSubB000::Prize => {
-                                grid.set_cell_at(
+                                Self::start_prize_block_wobble_sub_1007A(
+                                    grid,
+                                    block_list,
+                                    &mut self.block_state.deferred_ceiling_clears,
+                                    &mut self.block_bounces,
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
-                                self.block_destroy_effects.push(BlockDestroyEffect {
-                                    x_px: block_x,
-                                    y_px: block_y,
-                                    remaining: 8,
-                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
-                                    pending_ice_origin_nudge: false,
-                                });
                             }
                             // ASM off_B058 block type 2 (Ice) jumps through
                             // IceBlock_SmashAndLoadBullets before rebounding.
@@ -3479,18 +3476,14 @@ impl NativeRuntime {
                                 slice.player.on_ground = false;
                             }
                             blocks::IronKnightBlockEffectSubAF7A::Prize => {
-                                grid.set_cell_at(
+                                Self::start_prize_block_wobble_sub_1007A(
+                                    grid,
+                                    block_list,
+                                    &mut self.block_state.deferred_ceiling_clears,
+                                    &mut self.block_bounces,
                                     probe.cell_x,
                                     probe.cell_y,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
-                                self.block_destroy_effects.push(BlockDestroyEffect {
-                                    x_px: probe.cell_x * 16,
-                                    y_px: probe.cell_y * 16,
-                                    remaining: 8,
-                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
-                                    pending_ice_origin_nudge: false,
-                                });
                                 slice.player.y_velocity =
                                     collision.next_y_velocity.unwrap_or(-0x8000);
                                 slice.player.on_ground = false;

@@ -9004,6 +9004,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #278
 
 - [Summary] 2026-06-09 playtest: breakable floor blocks (level 3, below the Heavy Man helmet) drop Kid through the floor when broken; should leave a solid stone floor underneath
+- [Verify] Fixed 2026-06-11. Root cause: native Red Stealth/Iron Knight floor-prize impacts wrote `$0000` and spawned a placeholder destroy effect, but ASM `off_B058`/`off_AFD8` dispatch prize blocks through `loc_1002E`/`sub_1007A`. That worker writes `$6F` over the original prize skin, keeps the cell collision-solid during the wobble, restores the prize cell, then writes `$E001` and spawns the prize. Native now uses the same deferred prize-block lifecycle for floor impacts, including `loc_10342` layout-address prize-content lookup. Regression: `start_prize_block_wobble_sub_1007A_preserves_floor_support_cell`. Verification: focused block/prize tests and `mise run verify-slice-fast` passed.
 
 ### #280
 
