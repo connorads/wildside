@@ -127,7 +127,13 @@ and stop — never commit churn.
   `tas-diff` shows oracle has already taken DripsSurfaceCrawler damage while
   native has not. The immediate `530..600` B/B+Left/B+Right climb continuations
   also do not improve the healthy score. Do not reuse this `480..520 B+Left`
-  setup seed as proof. On the comparable left-tail seed
+  setup seed as proof. A fresh post-300 right-run/brake axis over
+  `issue-260-drips-drop-contact-probe-current/scenario.json` (`300..400/430/450`
+  clears, `400..520` right windows, `500..555 B+Right`, and early left brakes)
+  also failed: the best raw right-target proximity was `dx=+3 dy=-8` around
+  frame 456, but Kid was already unhealthy or fell into LevelTransition; every
+  healthy closest stayed at the old early `dx=0 dy=-48 @128`. Do not retry this
+  post-300 right-run/brake family without a different vertical setup. On the comparable left-tail seed
   `.cache/debug/issue260-tail-grid/l524_b530_540.json`, a 360..460 middle-setup
   batch (`B`, `B+Left`, `B+Right`, `Left`, `Right` over `360..420`,
   `380..440`, `400..460`) also failed: B-only variants remain the old clean

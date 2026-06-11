@@ -300,6 +300,18 @@ X restore. Treat this as a cleared Drips initial-seed/contact hypothesis only;
 #260 remains open because no current oracle-comparable route reaches the human
 reported live slime/metal-block mutation.
 
+Follow-up 2026-06-11 route-search rejection: a fresh post-300 right-run/brake
+axis on `.cache/recordings/issue-260-drips-drop-contact-probe-current/scenario.json`
+did not produce usable metal-block evidence. Probes cleared the long idle
+window, then tried `400..520` right windows, `500..555 B+Right`, and early
+left-brake recoveries. The best raw right-target approach was `dx=+3 dy=-8`
+around frame 456, but it was already in death/LevelTransition territory; every
+healthy closest to `(584,543)` remained the old early `dx=0 dy=-48 @128`.
+This rejects the post-300 right-run/brake family as a refreshed #260 route
+unless a future pass first changes the vertical setup. The baseline remains
+live only for the DripsDrop contact slice, not the reported slime/metal-block
+mutation.
+
 Follow-up 2026-06-11 for #260 route search after `513b36d1`: a bounded native
 batch against `.cache/recordings/issue-260-drips-drop-contact-probe-current/scenario.json`
 cleared frames `300..559`, then tested an early `380..388/396 B+Right` pulse
