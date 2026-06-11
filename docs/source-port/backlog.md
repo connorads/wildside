@@ -125,7 +125,10 @@ and stop — never commit churn.
   #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; the
   existing natural BLW2 route is not the repro because its frame-207 L+B jump
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
-  next pass needs a direct human-equivalent left-wall/stair jump repro;
+  a later two-pulse variant (`205..245` and `270..300` Left+B) is also not the
+  repro: frame 272 takes the jump edge, the following airborne frames keep
+  negative held-left x velocity, and frames 260..310 pass gameplay CRC. Next
+  pass needs a direct human-equivalent lower left-wall/stair jump repro;
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
