@@ -26418,8 +26418,9 @@ pub(crate) fn step_tank_shooting_fire(
 }
 
 /// Boss tracking movement: chase the player with fixed velocity components.
-/// HeadyMetal ASM: x_vel ±$8000 towards player, y_vel $4800 down / -$B000 up,
-/// targeting 40px above player. Other bosses use the same pattern at different speeds.
+/// HeadyMetal ASM loc_37582: x_vel ±$8000 towards player, y_vel $4800 down /
+/// `$FFFFB000` (`-0x5000`) up. Other bosses use the same substitute pattern
+/// until their ROM waypoint scripts are wired.
 pub(crate) fn step_tracker(
     enemy: &mut ActiveEnemy,
     player_x_pos: Option<u32>,
@@ -26450,9 +26451,9 @@ pub(crate) fn step_tracker(
         enemy.facing = Direction::Left;
     }
 
-    // Vertical: faster upward (-$B000) than downward ($4800)
+    // Vertical: ASM loc_375BC loads `$FFFFB000`, signed `-0x5000`.
     if target_y < ey {
-        enemy.y_velocity = -0xB000;
+        enemy.y_velocity = -0x5000;
     } else {
         enemy.y_velocity = 0x4800;
     }

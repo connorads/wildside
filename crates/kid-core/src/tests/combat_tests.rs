@@ -639,6 +639,18 @@ fn boss_level_flag_touch_reenables_after_boss_gone_loc_39ebe_c03a() {
     ));
 }
 
+#[test]
+fn live_heady_metal_tracker_uses_signed_b000_up_velocity_loc_375bc() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0081_0000, 0x00A9_0000, 30);
+
+    step_tracker(&mut boss, Some(0x0080_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        boss.y_velocity, -0x0000_5000,
+        "ASM loc_375BC loads longword `$FFFFB000`, which is signed `-0x5000`, not `-0xB000`"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;
