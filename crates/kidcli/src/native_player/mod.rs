@@ -7606,6 +7606,15 @@ mod tests {
             render_trace.kid_x_pos, trace.kid_x_pos,
             "only the HUD/VDP latch is delayed; gameplay object state stays on the current trace outside loc_C070"
         );
+
+        let mut next = trace.clone();
+        next.kid_x_pos = Some(0x00A7_0000);
+        let next_render_trace = render_trace_with_vdp_latched_state(&next, Some(&trace));
+
+        assert_eq!(
+            next_render_trace.number_hitpoints, trace.number_hitpoints,
+            "the loc_BDC0 HUD latch is a one-frame ordering quirk, not a persistent stale HP display"
+        );
     }
 
     #[test]

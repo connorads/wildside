@@ -8998,6 +8998,7 @@ Column of origin shown in brackets; text is verbatim.
 
 - [Verify] Take a hit, confirm top-left hit-point count drops RECONFIRMED 2026-06-10 playtest (post 325e8622 build): new detail: the HP HUD shows 4 -> 4 on the hit frame and only drops to 3 afterwards — a delayed decrement rather than no decrement; check HUD update timing vs loc_B700.
 - [Evidence] 2026-06-10: `issue-212-iron-dragon-contact` confirms native/oracle HP state parity across frames 0..4 (`tas-diff --include-advisory` all match). Oracle frame 1 has already run `Check_for_recent_damge loc_B700` (state HP 5 -> 4) but still displays the pre-hit HUD pips because `Mode_Level` calls `Make_SpriteAttr_HUD/sub_BDC0` before the later collision path reaches `loc_B700`. Native render now latches `number_hitpoints`/`extra_hitpoint_slots` from the previous trace for ordinary in-game rendering, with `gameplay_render_uses_previous_hitpoint_hud_latch_loc_bdc0` guarding the frame-order quirk.
+- [Evidence] 2026-06-11: latest playtest still reports the first helmet/form hit as visually `4 -> 4`. Extended `gameplay_render_uses_previous_hitpoint_hud_latch_loc_bdc0` to prove the native latch is one frame only: the hit frame renders the previous HP pips, but the following in-game frame renders the decremented `number_hitpoints`. Do not treat the same-frame `4 -> 4` as a native bug unless a fresh capture shows the stale pips persist after the next gameplay frame.
 
 ### #277
 
