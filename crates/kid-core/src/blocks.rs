@@ -2691,8 +2691,9 @@ impl NativeRuntime {
         }
     }
 
-    /// When the player is standing on a Shifting block and the cell above is empty,
-    /// move the block up one cell.
+    /// Shifting blocks are activated by the ceiling/headbutt block dispatch,
+    /// not by standing on them from above. ASM off_BB80[7] reaches loc_11364
+    /// only from sub_BB54.
     /// Shooter blocks (type 0x8): fire projectiles in directions encoded in the
     /// skin byte (bit 0=up, 1=right, 2=down, 3=left). Speed: 4px/frame.
     /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock registers each visible
@@ -3331,52 +3332,6 @@ impl NativeRuntime {
         }
     }
 
-    pub(crate) fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {
-        if !slice.player.on_ground {
-            return;
-        }
-        let Some(grid) = &mut self.block_grid else {
-            return;
-        };
-
-        let x_px = (slice.player.x_pos >> 16) as i32;
-        let y_px = (slice.player.y_pos >> 16) as i32;
-        // The floor cell is just below the player's feet
-        let col = terrain::pixel_to_cell(x_px).max(0) as u16;
-        let foot_row = terrain::pixel_to_cell(y_px + 1).max(0) as u16;
-
-        let cell = grid.cell_at(col, foot_row);
-        if cell.block_type != terrain::BlockType::Shifting {
-            return;
-        }
-        if foot_row == 0 {
-            return; // no cell above to shift into
-        }
-
-        let activation =
-            Self::shifting_block_activation_loc_11364(foot_row, grid.cell_at(col, foot_row - 1));
-        if !activation.should_spawn_worker {
-            return;
-        }
-
-        // Move block up: copy cell to row above, clear current cell
-        grid.set_cell_at(col, foot_row - 1, cell);
-        grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
-        // ASM loc_11364 -> sub_113C0 (kid.asm:23303-23339): native keeps the
-        // collision-visible grid swap immediate, but the ROM still draws a
-        // worker sprite rising two pixels for eight hibernated frames from the
-        // source row into the reserved cell above.
-        self.block_bounces.push(BlockBounceAnim {
-            cell_x: col,
-            cell_y: foot_row - 1,
-            remaining: 8,
-            initial_duration: 8,
-            kind: BlockBounceKind::Shifting,
-            prize_content: None,
-            y_offset_px: 16,
-        });
-    }
-
     pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
         self.block_state.lift_platforms.retain_mut(|lift| {
             if !lift.block_erased {
@@ -3653,6 +3608,34 @@ impl NativeRuntime {
                 self.block_state
                     .shooter_headbutt_workers
                     .push(Self::shooter_center_worker_loc_11474(cell_x, cell_y));
+            }
+        }
+
+        if let Some((cell_x, cell_y)) = slice.shifting_block_hit
+            && let Some(grid) = self.block_grid.as_mut()
+        {
+            self.played_sound_effects
+                .push(QueuedSoundEffect::ShiftingBlock);
+            let above_cell = if cell_y == 0 {
+                terrain::Cell::from_be_bytes(0, 0)
+            } else {
+                grid.cell_at(cell_x, cell_y - 1)
+            };
+            let activation = Self::shifting_block_activation_loc_11364(cell_y, above_cell);
+            if let Some(reserved_above_cell) = activation.reserved_above_cell {
+                // ASM loc_11364 (kid.asm:23303): writes `$6F` into the cell
+                // above before the sub_113C0 worker starts rising. The source
+                // block remains solid until the worker commits the row swap.
+                grid.set_cell_at(cell_x, cell_y - 1, reserved_above_cell);
+                self.block_bounces.push(BlockBounceAnim {
+                    cell_x,
+                    cell_y: cell_y - 1,
+                    remaining: 8,
+                    initial_duration: 8,
+                    kind: BlockBounceKind::Shifting,
+                    prize_content: None,
+                    y_offset_px: 16,
+                });
             }
         }
 
@@ -4054,6 +4037,7 @@ impl NativeRuntime {
             .retain(|tail| tail.remaining > 0);
 
         let mut finished_prize_bounce_tail_frames = Vec::new();
+        let mut finished_shifting_blocks = Vec::new();
         self.block_bounces.retain(|b| {
             if b.remaining > 0 {
                 true
@@ -4075,9 +4059,25 @@ impl NativeRuntime {
                         remaining: tail_frames,
                     });
                 }
+                if b.kind == BlockBounceKind::Shifting {
+                    finished_shifting_blocks.push((b.cell_x, b.cell_y));
+                }
                 false
             }
         });
+        if let Some(grid) = &mut self.block_grid {
+            for (col, row) in finished_shifting_blocks {
+                // ASM sub_113C0 (kid.asm:23340-23347): after the eight
+                // upward hibernates, write `$E710` to the reserved upper cell,
+                // then erase the original lower source block.
+                grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE7, 0x10));
+                grid.set_cell_at(
+                    col,
+                    row.saturating_add(1),
+                    terrain::Cell::from_be_bytes(0, 0),
+                );
+            }
+        }
         self.prize_block_worker_tails
             .extend(finished_prize_bounce_tail_frames);
 

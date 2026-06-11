@@ -2625,6 +2625,7 @@ impl OpeningSliceState {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -2691,6 +2692,7 @@ impl OpeningSliceState {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -6456,10 +6458,14 @@ impl OpeningSliceState {
                     // ASM loc_BBD2 (kid.asm:15130): off_BB80 index 7 (Shifting).
                     // `tst.b ($FFFFFA6A); bne return_BBE0` — if $FA6A (on_board)
                     // is set, no-op; otherwise `jmp (j_loc_11364).l` triggers the
-                    // shifting block sound + worker.  Native: shifting block
-                    // activation is handled per-frame in apply_shifting_blocks
-                    // (standing on block), not per-landing.  The $FA6A gate means
-                    // Skycutter on_board landings do NOT trigger shifting blocks.
+                    // shifting block sound + worker. Native queues that worker
+                    // here so standing on the block from above cannot trigger it.
+                    terrain::BlockType::Shifting => {
+                        if !skycutter_on_board {
+                            self.shifting_block_hit =
+                                Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
+                        }
+                    }
                     terrain::BlockType::Rubber => {
                         // ASM loc_91AC/loc_91C0 (kid.asm:10599/10607):
                         // sub_914A hit handler checks for Rubber blocks —

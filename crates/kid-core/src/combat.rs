@@ -48,6 +48,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceOuch3,
     RubberBlock,
     MetalBlock,
+    ShiftingBlock,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -80,6 +81,9 @@ impl QueuedSoundEffect {
             // generic `sfx_Block_hit` headbutt heuristic, i.e. the brick-break
             // crunch).
             Self::MetalBlock => 0x12,
+            // constants.asm: sfx_Shifting_block = $15; played at ASM
+            // loc_11364 before the row/above-cell worker gate.
+            Self::ShiftingBlock => 0x15,
             // constants.asm: Red Stealth ability SFX.
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,

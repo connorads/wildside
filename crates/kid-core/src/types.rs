@@ -2676,6 +2676,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) prize_block_hit: Option<(terrain::PrizeContent, u16, u16)>,
     /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.
     pub(crate) lift_block_hit: Option<(u16, u16)>,
+    /// Shifting block activated this frame — (cell_x, cell_y) of the source block.
+    pub(crate) shifting_block_hit: Option<(u16, u16)>,
     /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
     pub(crate) drill_projectile_hit: Option<(u32, u32)>,
     /// Metal block bounced this frame — (cell_x, cell_y).

@@ -1977,8 +1977,9 @@ mod chunk_06 {
     }
 
     #[test]
-    fn shifting_block_moves_up_when_player_stands_on_it() {
+    fn shifting_block_does_not_move_when_player_stands_on_it_loc_bbd2() {
         let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
         let w: u16 = 16;
         let h: u16 = 16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
@@ -1999,37 +2000,25 @@ mod chunk_06 {
         // Player standing at x = cell 3 centre (3*16+8=56px), y = cell 5 top (5*16-1=79px)
         slice.player.x_pos = 56 << 16;
         slice.player.y_pos = 79 << 16;
+        slice.terrain.floor_y_pos = 79 << 16;
+        rt.opening_slice = Some(slice);
 
-        rt.apply_shifting_blocks(&slice);
+        rt.step_frame(FrameInput::default());
 
         let grid = rt.block_grid.as_ref().unwrap();
-        // Cell (3, 5) should now be empty
-        let old_cell = grid.cell_at(3, 5);
-        assert!(!old_cell.has_block, "original cell should be cleared");
-        // Cell (3, 4) should have the shifted block
-        let new_cell = grid.cell_at(3, 4);
-        assert!(new_cell.has_block, "block should have shifted up");
-        assert_eq!(new_cell.block_type, terrain::BlockType::Shifting);
-
         assert_eq!(
-            rt.block_bounces.len(),
-            1,
-            "ASM loc_11364 should spawn the sub_113C0 visual worker as the shifting block rises",
+            grid.cell_at(3, 5),
+            terrain::Cell::from_be_bytes(0xE7, 0x00),
+            "ASM loc_BBD2 only reaches loc_11364 from the ceiling/headbutt dispatch; standing on the block from above must not shift it",
         );
-        assert_eq!(rt.block_bounces[0].cell_x, 3);
-        assert_eq!(rt.block_bounces[0].cell_y, 4);
-        assert_eq!(rt.block_bounces[0].kind, BlockBounceKind::Shifting);
-        assert_eq!(
-            rt.block_bounces[0].y_offset_px, 16,
-            "ASM sub_113C0 starts the gfx worker at the source row before loc_113F4 rises it into the new row",
+        assert!(
+            !grid.cell_at(3, 4).has_block,
+            "top contact must not reserve or fill the cell above the shifting block",
         );
-
-        rt.step_visual_effects();
-        assert_eq!(
-            rt.block_bounces[0].y_offset_px, 14,
-            "ASM loc_113F4 should move the visual worker up by two pixels on each hibernated frame",
+        assert!(
+            rt.block_bounces.is_empty(),
+            "top contact must not spawn the sub_113C0 visual worker",
         );
-        assert_eq!(rt.block_bounces[0].remaining, 7);
     }
 
     #[test]
@@ -2055,8 +2044,11 @@ mod chunk_06 {
         slice.player.on_ground = true;
         slice.player.x_pos = 56 << 16;
         slice.player.y_pos = 79 << 16;
+        slice.terrain.floor_y_pos = 79 << 16;
+        rt.boot_state = BootState::InGame;
+        rt.opening_slice = Some(slice);
 
-        rt.apply_shifting_blocks(&slice);
+        rt.step_frame(FrameInput::default());
 
         // Block should not have moved
         let grid = rt.block_grid.as_ref().unwrap();

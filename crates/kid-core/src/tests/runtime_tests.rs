@@ -7046,8 +7046,10 @@ mod chunk_09 {
         slice.player.on_ground = false;
         slice.player.x_pos = 56 << 16;
         slice.player.y_pos = 79 << 16;
+        rt.boot_state = BootState::InGame;
+        rt.opening_slice = Some(slice);
 
-        rt.apply_shifting_blocks(&slice);
+        rt.step_frame(FrameInput::default());
 
         // Block should not have moved
         let grid = rt.block_grid.as_ref().unwrap();
@@ -7070,8 +7072,11 @@ mod chunk_09 {
         // Standing on row 0: feet at y = pixel_to_cell boundary (row 0 top = 0px, +1 = 1)
         slice.player.x_pos = 56 << 16;
         slice.player.y_pos = 0 << 16; // at pixel 0 — foot_row = pixel_to_cell(1) = 0
+        slice.terrain.floor_y_pos = 0;
+        rt.boot_state = BootState::InGame;
+        rt.opening_slice = Some(slice);
 
-        rt.apply_shifting_blocks(&slice);
+        rt.step_frame(FrameInput::default());
 
         // Block should still be there
         assert!(
@@ -10844,6 +10849,55 @@ mod chunk_09 {
         assert_eq!(rt.block_state.lift_platforms[0].last_integer_y, 80);
         assert_eq!(rt.block_state.lift_platforms[0].moved_y_steps, 0);
         assert!(!rt.block_state.lift_platforms[0].block_erased);
+    }
+
+    #[test]
+    fn process_block_effects_shifting_headbutt_reserves_then_commits_loc_11364() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(grid_with_cells(8, 8, &[(3, 5, 0xE7, 0x00)]));
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.shifting_block_hit = Some((3, 5));
+
+        rt.process_block_effects(&mut slice);
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::ShiftingBlock],
+            "ASM loc_11364 should play sfx_Shifting_block before the row/above-cell worker gate",
+        );
+        assert_eq!(
+            grid.cell_at(3, 4),
+            terrain::Cell::from_be_bytes(0x6F, 0x00),
+            "ASM loc_11364 should reserve the above cell by writing `$6F` before sub_113C0 rises",
+        );
+        assert_eq!(
+            grid.cell_at(3, 5),
+            terrain::Cell::from_be_bytes(0xE7, 0x00),
+            "ASM sub_113C0 should leave the source shifting block solid during the rise worker",
+        );
+        assert_eq!(rt.block_bounces.len(), 1);
+
+        for _ in 0..8 {
+            rt.step_visual_effects();
+        }
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            grid.cell_at(3, 4),
+            terrain::Cell::from_be_bytes(0xE7, 0x10),
+            "ASM sub_113C0 should commit `$E710` to the reserved upper cell after the eight loc_113F4 hibernates",
+        );
+        assert!(
+            !grid.cell_at(3, 5).has_block,
+            "ASM sub_113C0 should erase the original lower source block after committing the upper cell",
+        );
     }
 
     #[test]

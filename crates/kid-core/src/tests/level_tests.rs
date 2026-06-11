@@ -377,6 +377,24 @@ fn grid_with_lift_block() -> terrain::BlockGrid {
     terrain::BlockGrid::from_level_layout(&data, w, h)
 }
 
+fn grid_with_shifting_block() -> terrain::BlockGrid {
+    let w = 6u16;
+    let h = 5u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+        let offset = (row * usize::from(w) + col) * 2;
+        data[offset] = hi;
+        data[offset + 1] = 0x00;
+    };
+    // Row 2, col 2: shifting block (collision=6 Solid, has_block, block_type=0x7).
+    set_cell(&mut data, 2, 2, 0xE7);
+    // Row 3: solid floor.
+    for col in 0..6 {
+        set_cell(&mut data, col, 3, 0x60);
+    }
+    terrain::BlockGrid::from_level_layout(&data, w, h)
+}
+
 fn grid_with_drill_block() -> terrain::BlockGrid {
     let w = 6u16;
     let h = 5u16;
@@ -8510,6 +8528,7 @@ mod chunk_02 {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -18019,6 +18038,7 @@ mod chunk_02 {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -18103,6 +18123,7 @@ mod chunk_02 {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -18177,6 +18198,7 @@ mod chunk_02 {
             walk_visual_accumulator: 0,
             prize_block_hit: None,
             lift_block_hit: None,
+            shifting_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
@@ -18899,6 +18921,47 @@ mod chunk_02 {
         assert!(
             cell.has_block && cell.block_type == terrain::BlockType::Drill,
             "ASM off_BB80 index C -> return_BBC0: Drill block should remain after headbutt"
+        );
+    }
+
+    #[test]
+    fn shifting_block_headbutt_queues_loc_11364_worker() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_shifting_block());
+        start_level(&mut runtime);
+
+        // Position player just below shifting block at col 2, row 2.
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 80 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::ShiftingBlock],
+            "ASM off_BB80[7] -> loc_11364 should play sfx_Shifting_block on headbutt",
+        );
+        let grid = runtime.block_grid.as_ref().unwrap();
+        assert_eq!(
+            grid.cell_at(2, 1),
+            terrain::Cell::from_be_bytes(0x6F, 0x00),
+            "ASM loc_11364 should reserve the cell above the struck shifting block",
+        );
+        assert_eq!(
+            grid.cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0xE7, 0x00),
+            "ASM sub_113C0 should not erase the source block until the rise worker commits",
+        );
+        assert_eq!(
+            runtime.block_bounces.len(),
+            1,
+            "ASM loc_11364 should spawn the sub_113C0 visual worker",
         );
     }
 

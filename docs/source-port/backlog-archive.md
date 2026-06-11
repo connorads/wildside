@@ -9022,6 +9022,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #281
 
 - [Summary] 2026-06-09 playtest: push-up blocks rise silently when jumped on from above and Kid falls through; should be pushed up by a hit from below, with SFX
+- [Verify] Fixed candidate 2026-06-11. Root cause: native activated Shifting blocks from top contact via a per-frame `apply_shifting_blocks` scan, but ASM reaches `loc_11364` only from the ceiling/headbutt dispatcher `sub_BB54` through `off_BB80[7]`/`loc_BBD2`. Native now queues a `shifting_block_hit` only on that headbutt path, plays `sfx_Shifting_block=$15`, writes `$6F` into the cell above while leaving the source block solid during the eight `loc_113F4` rise hibernates, then commits `$E710` above and erases the lower source cell like `sub_113C0`. Regressions: `shifting_block_does_not_move_when_player_stands_on_it_loc_bbd2`, `shifting_block_headbutt_queues_loc_11364_worker`, and `process_block_effects_shifting_headbutt_reserves_then_commits_loc_11364`. Human route validation still pending.
 
 ### #282
 

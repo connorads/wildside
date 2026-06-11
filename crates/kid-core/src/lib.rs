@@ -2897,6 +2897,7 @@ impl NativeRuntime {
         );
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
+        slice.shifting_block_hit = None;
         slice.drill_projectile_hit = None;
         slice.metal_block_hit = None;
         slice.rubber_block_hit = None;
@@ -3697,9 +3698,6 @@ impl NativeRuntime {
 
         // Ghost blocks: cycle between solid and vanished states
         self.step_ghost_blocks();
-
-        // Shifting blocks: move block up one cell when player stands on it
-        self.apply_shifting_blocks(&slice);
 
         // Lift platforms: step movement and collision
         let player_before_lift_platforms = slice.player;
