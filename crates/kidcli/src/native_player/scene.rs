@@ -12,6 +12,9 @@ const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
 const ROBOT_SHOT_IMPACT_LIFETIME_LOC_3A762: u16 = 3 + 4 + 8;
 const VDP_SPRITE_SCREEN_BIAS_LOC_13C0: i32 = 0x80;
+const MURDER_WALL_FALLBACK_BASE_COLOUR: [u8; 3] = [190, 20, 8];
+const MURDER_WALL_FALLBACK_SHADOW_COLOUR: [u8; 3] = [65, 10, 10];
+const MURDER_WALL_FALLBACK_HIGHLIGHT_COLOUR: [u8; 3] = [255, 160, 70];
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
@@ -2250,6 +2253,50 @@ fn push_murder_wall_warning_sprite_sub_5e02(
     true
 }
 
+fn push_murder_wall_warning_fallback_sub_5e02(
+    commands: &mut Vec<DrawCommand>,
+    min_x: i32,
+    max_x: i32,
+) {
+    let width = (max_x - min_x).max(8);
+    // TODO(fidelity): decode/render exact `Murder_wall.bin` drill art from
+    // ASM Murderwall loc_140D2. This fallback is intentionally conspicuous so
+    // live playtests can see the active `sub_5E02` wall instead of a flat red
+    // placeholder while the ArtComp/Saxman path is still unresolved.
+    commands.push(DrawCommand::Rect {
+        x: min_x,
+        y: 0,
+        width,
+        height: FRAME_HEIGHT as i32,
+        colour: MURDER_WALL_FALLBACK_BASE_COLOUR,
+    });
+    let mut y = -8;
+    while y < FRAME_HEIGHT as i32 {
+        commands.push(DrawCommand::Rect {
+            x: min_x,
+            y,
+            width,
+            height: 6,
+            colour: MURDER_WALL_FALLBACK_SHADOW_COLOUR,
+        });
+        commands.push(DrawCommand::Rect {
+            x: min_x + width / 3,
+            y: y + 6,
+            width: (width * 2 / 3).max(4),
+            height: 4,
+            colour: MURDER_WALL_FALLBACK_HIGHLIGHT_COLOUR,
+        });
+        commands.push(DrawCommand::Rect {
+            x: min_x,
+            y: y + 12,
+            width: (width * 2 / 3).max(4),
+            height: 4,
+            colour: MURDER_WALL_FALLBACK_SHADOW_COLOUR,
+        });
+        y += 24;
+    }
+}
+
 fn push_lava_geyser_chunk_loc_14be8(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::LavaVisuals,
@@ -3759,13 +3806,7 @@ fn build_game_scene_filtered(
                     .map(|sprite| i32::from(sprite.x) - 0x80 + 24)
                     .max(),
             ) {
-                commands.push(DrawCommand::Rect {
-                    x: min_x,
-                    y: 0,
-                    width: max_x - min_x,
-                    height: FRAME_HEIGHT as i32,
-                    colour: [200, 30, 10],
-                });
+                push_murder_wall_warning_fallback_sub_5e02(&mut commands, min_x, max_x);
             }
         }
 

@@ -7515,6 +7515,58 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_murder_wall_fallback_is_visible_warning_strip() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 240;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.murder_wall_x = Some(0);
+        let mut visuals = sample_level_visuals();
+        visuals.level.murder_wall_flags = 2;
+        visuals.murder_wall = None;
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let fallback_rects = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Rect { colour, .. }
+                    if matches!(*colour, [190, 20, 8] | [65, 10, 10] | [255, 160, 70]) =>
+                {
+                    Some(*colour)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            fallback_rects.len() > 8,
+            "ASM sub_5E02 fallback should be a visible warning/drill strip, not the old single red slab"
+        );
+        assert!(
+            fallback_rects.contains(&[65, 10, 10]) && fallback_rects.contains(&[255, 160, 70]),
+            "fallback should include contrast bands so the death wall is visible during play-native validation"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn level08_emits_murder_wall_effects_from_generated_assets_sub_5e02() {
         let Some(manifest) = cached_generated_manifest() else {
