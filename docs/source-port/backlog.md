@@ -72,6 +72,18 @@ and stop — never commit churn.
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
   diverge before the B pulse and need a natural pickup/well route before any movement patch. #285 crawler art);
+  2026-06-11 follow-up: cache-local natural Red Stealth route
+  `.cache/debug/issue270-wall-launch/red_stealth_left_wall.json` is a better seed than the
+  direct `playtest_form=3` probes, but it still blocks before proving the wall launch:
+  `verify-tas --frame-start 0 --frame-end 520 --checkpoint-interval 1 --frontier-kind gameplay`
+  first diverges at frame 266. `tas-diff` frames 250..272 shows oracle already in the
+  Red Stealth wall/jump path (`kid.asm loc_A6F8 -> loc_A74E -> sub_A4EE -> loc_A75A`,
+  trace code `0x00A71C`) with leftward x drift (`kid_x_pos 0x00660000`, then
+  `kid_x_vel 0xffffc000`), while native stays pinned at `0x00670000`/`x_vel=0` with
+  `kid_wall_cling_release_probe branch=sub_ADB8 sub_ADB8=column_shape_blocked`. Treat this
+  as a wall-cling movement parity blocker, not proof of the reported no-input launch; next
+  #270 implementation work should derive the Red Stealth `loc_A6F8` left-wall drift before
+  promoting this route as a wall-launch gate.
   #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; the
   existing natural BLW2 route is not the repro because its frame-207 L+B jump
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
