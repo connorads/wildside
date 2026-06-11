@@ -2523,7 +2523,8 @@ mod chunk_01 {
     /// `remaining = low_digit + high_digit*$A + minutes*$3C;
     /// elapsed = -remaining + $B4 + Clocks_collected*$B4`.
     ///
-    /// Native: `180 - level_timer.seconds + clocks_collected * 180`.
+    /// Native: `LEVEL_TIMER_COMPLETION_BASE_SECONDS - level_timer.seconds
+    /// + clocks_collected * LEVEL_TIMER_CLOCK_BONUS_SECONDS`.
     /// Zero elapsed seconds (full timer remaining, no clocks) → 0.
     #[test]
     #[allow(non_snake_case)]
@@ -2531,9 +2532,9 @@ mod chunk_01 {
         // Timer still at 180, no clocks → elapsed = 0
         let remaining = 180u16;
         let clocks = 0u16;
-        let elapsed = LEVEL_TIMER_START_SECONDS
+        let elapsed = LEVEL_TIMER_COMPLETION_BASE_SECONDS
             .saturating_sub(remaining)
-            .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+            .saturating_add(clocks * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
         assert_eq!(
             elapsed, 0,
             "full timer remaining with no clocks = 0 elapsed"
@@ -2547,9 +2548,9 @@ mod chunk_01 {
     fn loc_C0CC_completion_time_partial_elapsed() {
         let remaining = 120u16;
         let clocks = 0u16;
-        let elapsed = LEVEL_TIMER_START_SECONDS
+        let elapsed = LEVEL_TIMER_COMPLETION_BASE_SECONDS
             .saturating_sub(remaining)
-            .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+            .saturating_add(clocks * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
         assert_eq!(elapsed, 60, "60 seconds consumed = 60 elapsed");
     }
 
@@ -2560,9 +2561,9 @@ mod chunk_01 {
     fn loc_C0CC_completion_time_with_clocks() {
         let remaining = 170u16;
         let clocks = 1u16;
-        let elapsed = LEVEL_TIMER_START_SECONDS
+        let elapsed = LEVEL_TIMER_COMPLETION_BASE_SECONDS
             .saturating_sub(remaining)
-            .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+            .saturating_add(clocks * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
         assert_eq!(elapsed, 190, "10s elapsed + 1 clock×180 = 190");
     }
 
@@ -2574,9 +2575,9 @@ mod chunk_01 {
     fn loc_C10A_completion_time_capped_at_255() {
         let remaining = 0u16;
         let clocks = 1u16;
-        let elapsed = LEVEL_TIMER_START_SECONDS
+        let elapsed = LEVEL_TIMER_COMPLETION_BASE_SECONDS
             .saturating_sub(remaining)
-            .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+            .saturating_add(clocks * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
         let capped = elapsed.min(255) as u8;
         assert_eq!(capped, 255, "360 elapsed capped to 255");
         assert_eq!(elapsed, 360, "raw value before cap is 360");
@@ -2589,9 +2590,9 @@ mod chunk_01 {
     fn loc_C10A_completion_time_exactly_255_not_clamped() {
         let remaining = 105u16;
         let clocks = 1u16;
-        let elapsed = LEVEL_TIMER_START_SECONDS
+        let elapsed = LEVEL_TIMER_COMPLETION_BASE_SECONDS
             .saturating_sub(remaining)
-            .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+            .saturating_add(clocks * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
         let capped = elapsed.min(255) as u8;
         assert_eq!(elapsed, 255, "raw value is exactly 255");
         assert_eq!(capped, 255, "255 passes through without clamping");

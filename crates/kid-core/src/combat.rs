@@ -7623,9 +7623,9 @@ impl NativeRuntime {
             }
 
             if let Some(threshold) = speed_bonus_threshold_loc_d660(self.current_level) {
-                let elapsed_secs = LEVEL_TIMER_START_SECONDS
+                let elapsed_secs = LEVEL_TIMER_COMPLETION_BASE_SECONDS
                     .saturating_sub(self.level_timer.seconds)
-                    .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                    .saturating_add(self.clocks_collected * LEVEL_TIMER_CLOCK_BONUS_SECONDS);
                 let completion_time = elapsed_secs.min(255) as u8;
                 if completion_time <= threshold {
                     tally.speed_bonus_awarded = true;

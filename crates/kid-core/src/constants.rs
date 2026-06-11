@@ -599,11 +599,14 @@ pub(crate) const EVANESCENT_MAX_ENTRIES: usize = 19; // ASM limit $13
 
 // === Level timer ===
 
-// Level timer: every level starts at 3:00 and counts down 1 second per 60 frames.
+// Level timer: Init_Timer_and_Bonus_Flags seeds 3:00, then Init_SpriteAttr_HUD
+// adds one low seconds digit and seeds Time_SubSeconds to 1 before gameplay.
 // Time-up = death. Clocks add 3 minutes (capped at 10:00).
-pub(crate) const LEVEL_TIMER_START_SECONDS: u16 = 180; // 3:00
+pub(crate) const LEVEL_TIMER_START_SECONDS: u16 = 181; // 3:01 pre-decrement
+pub(crate) const LEVEL_TIMER_COMPLETION_BASE_SECONDS: u16 = 180; // ASM loc_C0CC addi #$B4
 pub(crate) const LEVEL_TIMER_MAX_SECONDS: u16 = 600; // 10:00
 pub(crate) const LEVEL_TIMER_CLOCK_BONUS_SECONDS: u16 = 180; // +3:00
+pub(crate) const LEVEL_TIMER_CLOCK_COLLECT_SECONDS: u16 = 181; // loc_FF92 addq + loc_FFDE
 pub(crate) const LEVEL_TIMER_FRAMES_PER_SECOND: u16 = 60;
 
 // === Scoring ===

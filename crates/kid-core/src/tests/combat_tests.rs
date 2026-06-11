@@ -5402,7 +5402,8 @@ mod chunk_03 {
         runtime.apply_prize_content(terrain::PrizeContent::Clock);
         assert_eq!(
             runtime.level_timer.seconds,
-            (secs_before + LEVEL_TIMER_CLOCK_BONUS_SECONDS).min(LEVEL_TIMER_MAX_SECONDS),
+            (secs_before + LEVEL_TIMER_CLOCK_COLLECT_SECONDS).min(LEVEL_TIMER_MAX_SECONDS),
+            "ASM loc_FF92 adds one second before loc_FFDE adds the three-minute clock bonus"
         );
         assert_eq!(
             runtime.played_sound_effects,
@@ -14260,41 +14261,44 @@ mod chunk_05 {
     // --- Level timer ---
 
     #[test]
-    fn level_timer_starts_at_three_minutes() {
+    fn level_timer_starts_with_hud_normalised_extra_second() {
         let timer = LevelTimer::new();
-        assert_eq!(timer.seconds, 180);
-        // ASM starts Time_SubSeconds at 1 so first frame immediately ticks a second
+        assert_eq!(
+            timer.seconds, 181,
+            "ASM Init_SpriteAttr_HUD (kid.asm:27099) adds one low seconds digit after Init_Timer_and_Bonus_Flags seeds 3:00"
+        );
+        // ASM starts Time_SubSeconds at 1 so first frame immediately ticks a second.
         assert_eq!(timer.sub_frames, 1);
     }
 
     #[test]
-    fn level_timer_first_frame_decrements_immediately() {
+    fn level_timer_first_frame_normalises_to_three_minutes() {
         let mut timer = LevelTimer::new();
-        // First tick: sub_frames 1→0, seconds 180→179, sub_frames reloads to 60
+        // First tick: ASM Decrease_Time_Left subtracts Time_SubSeconds 1→0,
+        // then decrements 3:01 to the visible 3:00 and reloads to 60.
         assert!(!timer.tick());
-        assert_eq!(timer.seconds, 179);
+        assert_eq!(timer.seconds, 180);
         assert_eq!(timer.sub_frames, 60);
     }
 
     #[test]
     fn level_timer_ticks_down_one_second_per_60_frames() {
         let mut timer = LevelTimer::new();
-        timer.tick(); // first tick → 179
-        // Then 60 more ticks → 178
+        timer.tick(); // first tick -> 180
+        // Then 60 more ticks -> 179
         for _ in 0..60 {
             assert!(!timer.tick());
         }
-        assert_eq!(timer.seconds, 178);
+        assert_eq!(timer.seconds, 179);
     }
 
     #[test]
     fn level_timer_expires_after_full_countdown() {
         let mut timer = LevelTimer::new();
-        // First tick → 179 seconds, sub_frames=60
-        // Then 179×60 more ticks → 0 seconds, sub_frames=60
-        // Total: 1 + 179×60 = 10741 ticks to reach seconds=0
-        // Then 60 more to drain sub_frames → expired at tick 10801
-        let total_frames = 1 + 179 * 60 + 60;
+        // First tick -> 180 seconds, sub_frames=60.
+        // Then 180*60 more ticks -> 0 seconds, sub_frames=60.
+        // Then 60 more to drain sub_frames -> expired at tick 10861.
+        let total_frames = 1 + 180 * 60 + 60;
         for i in 0..total_frames {
             let expired = timer.tick();
             if i < total_frames - 1 {
@@ -14313,18 +14317,24 @@ mod chunk_05 {
         for _ in 0..(60 * 60) {
             timer.tick();
         }
-        assert_eq!(timer.seconds, 120); // 2:00 remaining
+        assert_eq!(timer.seconds, 121); // 2:01 remaining before next normalising tick
         timer.sub_frames = 37;
         timer.add_clock_bonus();
-        assert_eq!(timer.seconds, 300); // 5:00 remaining
+        assert_eq!(timer.seconds, 302); // 5:02 remaining before the compensating tick
         assert_eq!(
             timer.sub_frames, 1,
             "ASM loc_FFFC / loc_10002 should reset `Time_SubSeconds` to 1 on every collected clock"
         );
+        assert!(!timer.tick());
+        assert_eq!(
+            timer.seconds, 301,
+            "ASM loc_FF92 + loc_FFFC compensates the immediate SubSeconds drain, netting a clean +3:00"
+        );
+        assert_eq!(timer.sub_frames, 60);
     }
 
     #[test]
-    fn level_timer_clock_bonus_loc_ffde_preserves_seconds_below_cap() {
+    fn level_timer_clock_bonus_loc_ffde_clamps_when_plus_one_carries_to_seven_minutes() {
         let mut timer = LevelTimer {
             seconds: 6 * 60 + 59,
             sub_frames: 42,
@@ -14334,8 +14344,8 @@ mod chunk_05 {
 
         assert_eq!(
             timer.seconds,
-            9 * 60 + 59,
-            "ASM loc_FFDE should add three minutes without clearing seconds while the result stays below 10:00"
+            10 * 60,
+            "ASM loc_FF92 carries 6:59 to 7:00 before loc_FFDE adds three minutes and clamps to 10:00"
         );
         assert_eq!(
             timer.sub_frames, 1,
@@ -14366,13 +14376,13 @@ mod chunk_05 {
     #[test]
     fn level_timer_clock_bonus_caps_at_ten_minutes() {
         let mut timer = LevelTimer::new();
-        // At 3:00, add clock → 6:00
+        // At 3:01, add clock -> 6:02 before the compensating tick.
         timer.add_clock_bonus();
-        assert_eq!(timer.seconds, 360);
-        // Add another → 9:00
+        assert_eq!(timer.seconds, 362);
+        // Add another -> 9:03 before the compensating tick.
         timer.add_clock_bonus();
-        assert_eq!(timer.seconds, 540);
-        // Add another → would be 12:00, capped to 10:00
+        assert_eq!(timer.seconds, 543);
+        // Add another -> would exceed 10:00, capped to 10:00.
         timer.sub_frames = 23;
         timer.add_clock_bonus();
         assert_eq!(timer.seconds, 600);

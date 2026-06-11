@@ -9950,7 +9950,7 @@ mod chunk_02 {
         // Flag touch happens after the level timer has already advanced for this frame.
         // Level 0 speed threshold = 20s. Elapsed ~4s after 260 frames, so bonus applies.
         let seconds_remaining = runtime.level_timer.seconds;
-        let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+        let elapsed_secs = LEVEL_TIMER_COMPLETION_BASE_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
         let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000  // no-hit bonus (no damage taken)
@@ -10107,7 +10107,7 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         let seconds_remaining = runtime.level_timer.seconds;
-        let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+        let elapsed_secs = LEVEL_TIMER_COMPLETION_BASE_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
         let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000  // no-prize bonus (no prize blocks hit)
@@ -10135,7 +10135,7 @@ mod chunk_02 {
         runtime.step_frame(FrameInput::default());
 
         let seconds_remaining = runtime.level_timer.seconds;
-        let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+        let elapsed_secs = LEVEL_TIMER_COMPLETION_BASE_SECONDS.saturating_sub(seconds_remaining);
         let speed_threshold = SPEED_BONUS_TABLE[0];
         let expected = crate::combat::time_bonus_loc_d56e(seconds_remaining)
             + 5000 // no-hit bonus (no damage taken)
@@ -10207,7 +10207,8 @@ mod chunk_02 {
 
         runtime.level_damage_taken = true;
         runtime.level_prize_collected = true;
-        runtime.level_timer.seconds = LEVEL_TIMER_START_SECONDS - u16::from(SPEED_BONUS_TABLE[0]);
+        runtime.level_timer.seconds =
+            LEVEL_TIMER_COMPLETION_BASE_SECONDS - u16::from(SPEED_BONUS_TABLE[0]);
 
         runtime.apply_level_completion_bonuses();
 

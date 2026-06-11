@@ -2334,7 +2334,7 @@ impl ActivePlatform {
 /// When it reaches zero the player dies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelTimer {
-    /// Remaining whole seconds (3:00 = 180).
+    /// Remaining whole seconds (3:01 = 181 before the first gameplay tick).
     pub(crate) seconds: u16,
     /// Frames remaining until the next second tick (counts down from 60).
     pub(crate) sub_frames: u16,
@@ -2370,11 +2370,12 @@ impl LevelTimer {
     }
 
     pub(crate) fn add_clock_bonus(&mut self) {
-        // ASM loc_FFDE (kid.asm:21281): add 3 to `Time_Minutes`; if the
-        // result reaches 10 or higher, clamp to 10 and clear both seconds
-        // digits.  The native timer stores total remaining seconds, so this is
-        // equivalent to adding 180 seconds and capping at exactly 10:00.
-        let new_seconds = self.seconds + super::LEVEL_TIMER_CLOCK_BONUS_SECONDS;
+        // ASM loc_FF92..loc_FFDE (kid.asm:21271-21288): first add one second
+        // with BCD carry, then add 3 to `Time_Minutes`; if the result reaches
+        // 10 or higher, clamp to 10 and clear both seconds digits. The native
+        // timer stores total remaining seconds, so this is equivalent to
+        // adding 181 seconds and capping at exactly 10:00.
+        let new_seconds = self.seconds + super::LEVEL_TIMER_CLOCK_COLLECT_SECONDS;
         if new_seconds >= super::LEVEL_TIMER_MAX_SECONDS {
             self.seconds = super::LEVEL_TIMER_MAX_SECONDS;
         } else {
