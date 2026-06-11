@@ -9243,6 +9243,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #294
 
 - Filed 2026-06-11 from combat-fidelity-audit.md (high). Murder-wall crush: ROM routes wall contact to `Crushed_to_Death` unconditionally (no invuln gate); native does single-HP `apply_damage` gated on invulnerability. See doc for `off_B640`/`sub_5E02 loc_5E34` citations.
+- Closed 2026-06-11 as already fixed by `fd2fde77 Fix murder wall crush and respawn path`. Current live `resolve_frame_hazards` calls `begin_death_windup()` directly on `murder_wall_kills_player`, preserving ASM `sub_5E02 loc_5E34 -> colid_rightwall -> off_B640 -> Crushed_to_Death` rather than routing through `apply_damage` or `Check_for_recent_damge`. Regression coverage includes helmeted Kid preserving HP until `lose_life`, invulnerability-flash bypass, and Level 0x08 respawn-from-start. Verification rerun while closing the stale row: `cargo test -q -p kid-core murder_wall -- --nocapture` (22 passed).
 
 ### #295
 
