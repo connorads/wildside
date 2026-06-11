@@ -114,7 +114,12 @@ and stop — never commit churn.
   `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-b540-600.json`
   first diverges at frame 560 on HP (`native=0`, `oracle=1`) after native-only
   DripsSurfaceCrawler damage. Do not repeat post-contact B-climb trimming as
-  metal-block proof without a route-shape change.
+  metal-block proof without a route-shape change. A follow-up avoid-then-climb
+  family around the same damage window (`548..562`, `548..566`, `552..566`
+  right/B+right/left avoidance, then `B`/`B+Left`/`B+Right` recovery through
+  620) also ranked worse than the base route: best healthy right-target approach
+  stayed `dx=-20 dy=-48 @549`. Do not repeat small avoid-window trims unless
+  the pre-548 route shape changes.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

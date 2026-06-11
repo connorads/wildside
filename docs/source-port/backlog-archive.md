@@ -328,6 +328,16 @@ has no hitpoint loss and its right-side Drips/crawler slots are phase-different.
 Treat `540..600 B` and adjacent `520..620` post-contact climb variants as
 route-shape rejections, not Drips hitbox or metal-block evidence.
 
+Follow-up 2026-06-11 for #260 route search: an avoid-then-climb family off the
+same clean drop-contact seed also failed to improve the route. Tested
+rightward/B+right/left avoidance windows around the native crawler-damage frame
+(`548..562`, `548..566`, `552..566`) followed by `B`, `B+Left`, or `B+Right`
+recovery/climb through frame 620. Every candidate stayed `InGame` but ranked no
+better than `dx=-20 dy=-48 @549` for the right target `(584,543)`, worse than
+the existing near-misses and not worth oracle verification as metal-block
+evidence. Do not repeat this small avoid-window family unless the route changes
+before frame 548.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
