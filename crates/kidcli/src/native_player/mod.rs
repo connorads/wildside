@@ -521,17 +521,22 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         trace.current_level,
                         DebugWarpDirection::Next,
                     ) {
-                        session_assets = next_assets;
-                        runtime.set_block_grid(session_assets.block_grid.clone());
-                        trace = runtime.enter_level_debug_title_card(next);
+                        let presentation = enter_debug_hotkey_level(
+                            &mut runtime,
+                            &mut trace,
+                            &mut session_assets,
+                            next,
+                            next_assets,
+                        );
                         current_level_id = next.0;
-                        level_card_frames_remaining = 0;
+                        level_card_frames_remaining = presentation.level_card_frames_remaining;
                         debug_level_card_fallback_frames_remaining =
-                            debug_hotkey_level_card_hold_frames();
-                        fade_alpha = 0;
-                        fading_in = false;
-                        suppress_level_card_for_debug_warp = false;
-                        wait_for_live_input_release = true;
+                            presentation.debug_level_card_fallback_frames_remaining;
+                        fade_alpha = presentation.fade_alpha;
+                        fading_in = presentation.fading_in;
+                        suppress_level_card_for_debug_warp =
+                            presentation.suppress_level_card_for_debug_warp;
+                        wait_for_live_input_release = presentation.wait_for_live_input_release;
                     } else {
                         eprintln!("no playable next level with generated visuals and block layout");
                     }
@@ -551,17 +556,22 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         trace.current_level,
                         DebugWarpDirection::Previous,
                     ) {
-                        session_assets = prev_assets;
-                        runtime.set_block_grid(session_assets.block_grid.clone());
-                        trace = runtime.enter_level_debug_title_card(prev);
+                        let presentation = enter_debug_hotkey_level(
+                            &mut runtime,
+                            &mut trace,
+                            &mut session_assets,
+                            prev,
+                            prev_assets,
+                        );
                         current_level_id = prev.0;
-                        level_card_frames_remaining = 0;
+                        level_card_frames_remaining = presentation.level_card_frames_remaining;
                         debug_level_card_fallback_frames_remaining =
-                            debug_hotkey_level_card_hold_frames();
-                        fade_alpha = 0;
-                        fading_in = false;
-                        suppress_level_card_for_debug_warp = false;
-                        wait_for_live_input_release = true;
+                            presentation.debug_level_card_fallback_frames_remaining;
+                        fade_alpha = presentation.fade_alpha;
+                        fading_in = presentation.fading_in;
+                        suppress_level_card_for_debug_warp =
+                            presentation.suppress_level_card_for_debug_warp;
+                        wait_for_live_input_release = presentation.wait_for_live_input_release;
                     } else {
                         eprintln!(
                             "no playable previous level with generated visuals and block layout"
@@ -937,6 +947,37 @@ fn debug_hotkey_level_card_hold_frames() -> usize {
     // deterministic name card so the hotkey never appears to skip straight
     // into gameplay when the generated title-card shell is blank or brief.
     LEVEL_CARD_HOLD_FRAMES
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DebugHotkeyLevelPresentation {
+    level_card_frames_remaining: usize,
+    debug_level_card_fallback_frames_remaining: usize,
+    fade_alpha: u8,
+    fading_in: bool,
+    suppress_level_card_for_debug_warp: bool,
+    wait_for_live_input_release: bool,
+}
+
+fn enter_debug_hotkey_level(
+    runtime: &mut NativeRuntime,
+    trace: &mut NativeTraceFrame,
+    session_assets: &mut NativeSessionAssets,
+    level_id: LevelId,
+    next_assets: NativeSessionAssets,
+) -> DebugHotkeyLevelPresentation {
+    *session_assets = next_assets;
+    runtime.set_block_grid(session_assets.block_grid.clone());
+    *trace = runtime.enter_level_debug_title_card(level_id);
+
+    DebugHotkeyLevelPresentation {
+        level_card_frames_remaining: 0,
+        debug_level_card_fallback_frames_remaining: debug_hotkey_level_card_hold_frames(),
+        fade_alpha: 0,
+        fading_in: false,
+        suppress_level_card_for_debug_warp: false,
+        wait_for_live_input_release: true,
+    }
 }
 
 #[cfg(test)]
@@ -9299,6 +9340,72 @@ mod tests {
             LEVEL_CARD_HOLD_FRAMES,
             "native-only N/P debug skips should visibly acknowledge the target level even when generated ROM title-card data exists"
         );
+    }
+
+    #[test]
+    fn debug_hotkey_level_skip_enters_visible_card_hold_before_gameplay() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x01;
+        target.display_name = Some(String::from("Hotkey Target"));
+        target.title_text_id = Some(0x4B);
+        target.title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'H', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        fixture.manifest.levels.push(target);
+
+        let start_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("start grid"),
+        };
+        let target_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("target grid"),
+        };
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(0));
+
+        let presentation = enter_debug_hotkey_level(
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(1),
+            target_assets,
+        );
+
+        assert_eq!(trace.current_level, LevelId(1));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_74E0 debug skip path should re-enter Load_TitleCard instead of synthetic gameplay"
+        );
+        assert_eq!(trace.current_level_name.as_deref(), Some("Hotkey Target"));
+        assert_eq!(
+            presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
+            "live N/P hotkeys should hold a visible name card even when generated ROM title-card data exists"
+        );
+        assert_eq!(presentation.level_card_frames_remaining, 0);
+        assert!(presentation.wait_for_live_input_release);
+        assert!(!presentation.suppress_level_card_for_debug_warp);
+        assert!(native_level_card_hold_active(
+            presentation.level_card_frames_remaining,
+            presentation.debug_level_card_fallback_frames_remaining
+        ));
+
+        let render_trace = {
+            let mut overlay = trace.clone();
+            overlay.game_mode = GameMode::LevelTransition;
+            overlay.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            overlay
+        };
+        let scene = build_debug_level_card_fallback_scene(&render_trace);
+        assert!(contains_text(&scene, "LEVEL 01"));
+        assert!(contains_text(&scene, "Hotkey Target"));
     }
 
     #[test]
