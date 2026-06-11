@@ -756,7 +756,9 @@ pub(crate) fn capture_native_audio_oracle_pair(
         },
     };
     write_native_artifacts(&native_dir, &native)?;
-    let oracle = run_jgenesis_capture_dynamic(&env, rom_path, scenario_file, &oracle_dir, None)?;
+    let mut oracle =
+        run_jgenesis_capture_dynamic(&env, rom_path, scenario_file, &oracle_dir, None)?;
+    trim_oracle_audio_to_native_window(&mut oracle, &native.samples, &oracle_dir)?;
     fs::write(
         oracle_dir.join("manifest.json"),
         serde_json::to_vec_pretty(&oracle)?,
@@ -773,6 +775,27 @@ pub(crate) fn capture_native_audio_oracle_pair(
         native,
         oracle,
     })
+}
+
+fn trim_oracle_audio_to_native_window(
+    oracle: &mut OracleManifest,
+    native_samples: &[f32],
+    oracle_dir: &Path,
+) -> Result<()> {
+    let oracle_samples = read_wav_f32(&oracle.audio_path)?;
+    if oracle_samples.len() <= native_samples.len() {
+        return Ok(());
+    }
+    let scenario_window = oracle_scenario_window_samples(&oracle_samples, native_samples.len());
+    let audio_path = oracle_dir.join("audio-scenario-window.wav");
+    write_wav(&audio_path, oracle.sample_rate, scenario_window)?;
+    oracle.audio_path = audio_path;
+    Ok(())
+}
+
+fn oracle_scenario_window_samples(oracle_samples: &[f32], native_sample_count: usize) -> &[f32] {
+    let trim_start = oracle_samples.len().saturating_sub(native_sample_count);
+    &oracle_samples[trim_start..]
 }
 
 pub(crate) fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
@@ -1283,4 +1306,26 @@ pub(crate) fn contains_u16_subsequence(haystack: &[u16], needle: &[u16]) -> bool
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::oracle_scenario_window_samples;
+
+    #[test]
+    fn oracle_scenario_window_samples_keep_tail_matching_native_length() {
+        let oracle = [0.0, 0.1, 0.2, 0.3, 1.0, 1.1];
+
+        assert_eq!(
+            oracle_scenario_window_samples(&oracle, 4),
+            &[0.2, 0.3, 1.0, 1.1]
+        );
+    }
+
+    #[test]
+    fn oracle_scenario_window_samples_keep_short_oracle_whole() {
+        let oracle = [0.0, 0.1];
+
+        assert_eq!(oracle_scenario_window_samples(&oracle, 4), &[0.0, 0.1]);
+    }
 }
