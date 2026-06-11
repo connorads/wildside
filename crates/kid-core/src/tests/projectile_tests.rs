@@ -4276,6 +4276,45 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    fn live_maniaxe_axe_lifetime_zero_damages_and_deletes_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 116 << 16;
+
+        rt.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 0,
+            "ASM loc_8A52: live Maniaxe axe has no generic lifetime counter"
+        );
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 2));
+        rt.active_enemy_roster = rt
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        rt.process_friendly_projectile_hits();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_8ABC: live lifetime-less axe should delete on enemy collision"
+        );
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_8ABC: live lifetime-less axe should still deliver colid_hurt"
+        );
+    }
+
     /// ASM loc_8ABC: when axe hits an enemy with >1 HP, the enemy survives but
     /// the axe is still consumed (ASM `jmp Delete_CurrentObject` runs regardless
     /// of whether the enemy died).

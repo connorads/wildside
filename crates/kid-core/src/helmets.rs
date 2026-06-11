@@ -5885,7 +5885,9 @@ impl NativeRuntime {
         let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
 
         for (pi, proj) in self.projectiles.iter().enumerate() {
-            if !proj.friendly || proj.lifetime == 0 {
+            if !proj.friendly
+                || (proj.lifetime == 0 && proj.kind != EnemyProjectileKind::ManiaxeAxe)
+            {
                 continue;
             }
             let prx = (proj.x_pos >> 16) as i32;
