@@ -5,6 +5,13 @@ use scenarios::{
     run_native_dynamic_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
 
+fn capture_frame_block_grid<'a>(
+    runtime: &'a NativeRuntime,
+    loaded_block_grid: &'a kid_core::terrain::BlockGrid,
+) -> &'a kid_core::terrain::BlockGrid {
+    runtime.block_grid().unwrap_or(loaded_block_grid)
+}
+
 pub(crate) fn capture_frames(
     manifest: &AssetManifest,
     level_id: u8,
@@ -190,7 +197,7 @@ pub(crate) fn capture_scenario_frames(
                     &trace,
                     false,
                     Some(&level_visuals),
-                    Some(&block_grid),
+                    Some(capture_frame_block_grid(&runtime, &block_grid)),
                     filter,
                 );
                 render_scene(&scene, &mut rgb);
@@ -210,7 +217,7 @@ pub(crate) fn capture_scenario_frames(
                 frame,
                 false,
                 Some(&level_visuals),
-                Some(&block_grid),
+                Some(capture_frame_block_grid(&runtime, &block_grid)),
                 filter,
             );
             render_scene(&scene, &mut rgb);
@@ -814,4 +821,54 @@ fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
             rgb[offset] != bg[0] || rgb[offset + 1] != bg[1] || rgb[offset + 2] != bg[2]
         })
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kid_core::terrain::{BlockGrid, Cell};
+    use kid_data::AssetManifest;
+    use std::path::PathBuf;
+
+    fn fixture_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("fixture-rom"),
+            upstream_commit: String::from("fixture-upstream"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn capture_frame_block_grid_prefers_live_runtime_mutations() {
+        let fallback_grid = BlockGrid::from_level_layout(&[0xE1, 0x01], 1, 1);
+        let mut runtime = NativeRuntime::new(fixture_manifest());
+
+        assert_eq!(
+            capture_frame_block_grid(&runtime, &fallback_grid).cell_at(0, 0),
+            Cell::from_be_bytes(0xE1, 0x01),
+            "capture-scenario-frames should fall back to loaded Level_Layout before the runtime has a grid",
+        );
+
+        let live_grid = BlockGrid::from_level_layout(&[0xE0, 0x01], 1, 1);
+        runtime.set_block_grid(live_grid);
+
+        assert_eq!(
+            capture_frame_block_grid(&runtime, &fallback_grid).cell_at(0, 0),
+            Cell::from_be_bytes(0xE0, 0x01),
+            "ASM sub_1007A writes `$E001` before Prize_Init; capture-scenario-frames must render the live runtime grid so struck prize blocks do not appear as stale `$E101` cells",
+        );
+    }
 }
