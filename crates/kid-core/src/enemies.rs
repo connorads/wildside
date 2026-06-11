@@ -26432,7 +26432,6 @@ pub(crate) fn step_tracker(
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let target_y = (py as i64).saturating_sub(0x28 << 16); // 40px above player
 
     // Horizontal: chase player at $8000 (0.5 px/frame)
     // HeadyMetal ASM: X velocity forced to 0 during first 4 hit phases ($3E < 4).
@@ -26452,7 +26451,18 @@ pub(crate) fn step_tracker(
     }
 
     // Vertical: ASM loc_375BC loads `$FFFFB000`, signed `-0x5000`.
-    if target_y < ey {
+    let move_up = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+        // ASM loc_375B0: compare `(centre_piece_y - $28)` with Kid.gfx_y as
+        // signed words. This makes HeadyMetal settle below the player, not above.
+        let piece_y = ((enemy.y_pos >> 16) as u16) as i16;
+        let kid_y = ((py >> 16) as u16) as i16;
+        piece_y.wrapping_sub(0x0028_i16) > kid_y
+    } else {
+        let target_y = (py as i64).saturating_sub(0x28 << 16);
+        target_y < ey
+    };
+
+    if move_up {
         enemy.y_velocity = -0x5000;
     } else {
         enemy.y_velocity = 0x4800;

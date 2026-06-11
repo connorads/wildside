@@ -651,6 +651,18 @@ fn live_heady_metal_tracker_uses_signed_b000_up_velocity_loc_375bc() {
     );
 }
 
+#[test]
+fn live_heady_metal_tracker_applies_28px_offset_to_piece_y_loc_375b0() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0081_0000, 0x0060_0000, 30);
+
+    step_tracker(&mut boss, Some(0x0080_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        boss.y_velocity, 0x0000_4800,
+        "ASM loc_375B0 compares `(centre_piece_y - $28)` against Kid.y; a boss at y=$60 with Kid at y=$80 should move down, not up toward Kid.y-$28"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;
