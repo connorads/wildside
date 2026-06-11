@@ -7776,11 +7776,12 @@ impl NativeRuntime {
             PlayerLifecycle::ContinueCountdown { remaining_frames } => {
                 // ASM loc_D350 (kid.asm:16528): the first CONTINUE? wait loop
                 // hibernates one frame, polls `Ctrl_Held`, and branches to
-                // Use_Continue as soon as Start sets bit 7. Native stores the
-                // whole visual countdown as `remaining_frames` and keeps the
-                // same input-first ordering before decrementing the timer.
-                let any_button = input.a || input.b || input.c || input.start;
-                if any_button {
+                // Use_Continue as soon as Start sets bit 7. A/B/C do not make
+                // Ctrl_Held negative, so they must not consume a continue.
+                // Native stores the whole visual countdown as
+                // `remaining_frames` and keeps the same input-first ordering
+                // before decrementing the timer.
+                if input.start {
                     // Use a continue: restore lives and respawn at current level.
                     // ASM Use_Continue: clears helmet, diamonds, resets to 3 lives / 2 HP.
                     self.progression.number_continues -= 1;

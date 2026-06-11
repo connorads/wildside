@@ -25572,7 +25572,7 @@ mod chunk_12 {
 
     /// ASM loc_D350 (kid.asm:16528): `jsr j_Hibernate_Object_1Frame`;
     /// `tst.b (Ctrl_Held).w`; `bmi.s Use_Continue`; `dbf d0,loc_D350`.
-    /// Native preserves the input-first ordering: a held button on the first
+    /// Native preserves the input-first ordering: held Start on the first
     /// countdown frame consumes the continue instead of decrementing the timer.
     #[test]
     fn loc_d350_start_held_uses_continue_before_countdown_decrements() {
@@ -25599,6 +25599,57 @@ mod chunk_12 {
             },
             "ASM loc_D350 input path should bypass the countdown tail and enter continue respawn"
         );
+    }
+
+    /// ASM loc_D350 / loc_D3AA both use `tst.b (Ctrl_Held).w; bmi.s
+    /// Use_Continue`, so only Start (bit 7) can make Ctrl_Held negative.
+    /// A/B/C must leave the continue countdown running.
+    #[test]
+    fn loc_d350_abc_do_not_use_continue() {
+        for (label, input) in [
+            (
+                "A",
+                FrameInput {
+                    a: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                "B",
+                FrameInput {
+                    b: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                "C",
+                FrameInput {
+                    c: true,
+                    ..FrameInput::default()
+                },
+            ),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            start_level(&mut runtime);
+            runtime.progression.number_continues = 2;
+            runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+                remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
+            };
+
+            runtime.step_frame(input);
+
+            assert_eq!(
+                runtime.progression.number_continues, 2,
+                "{label} alone should not consume a continue; ASM loc_D350 only branches on Start bit 7"
+            );
+            assert_eq!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::ContinueCountdown {
+                    remaining_frames: CONTINUE_COUNTDOWN_FRAMES - 1
+                },
+                "{label} alone should only advance the countdown frame"
+            );
+        }
     }
 
     /// ASM loc_D372 (kid.asm:16539): the optional bonus object pointer at
