@@ -2261,7 +2261,9 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     }
 
     // Clock pickup (timer jumped up)
-    if curr.level_timer_seconds > prev.level_timer_seconds + 5 {
+    if !queued_sound_ids.contains(&gems_sfx::CLOCK_PRIZE)
+        && curr.level_timer_seconds > prev.level_timer_seconds + 5
+    {
         sound_ids.push(gems_sfx::CLOCK_PRIZE);
     }
 
@@ -14151,6 +14153,20 @@ mod tests {
         assert!(
             gems_event_sound_ids(&prev, &count_increment).is_empty(),
             "the diamond cue is anchored to the ASM contact frame, not the delayed Number_Diamonds increment"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_clock_prize_without_timer_jump_duplicate() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::CLOCK_PRIZE];
+        curr.level_timer_seconds = prev.level_timer_seconds + 180;
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::CLOCK_PRIZE],
+            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize=$0E from the core trace; the old timer-jump fallback must not duplicate it"
         );
     }
 

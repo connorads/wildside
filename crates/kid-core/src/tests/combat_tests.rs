@@ -5404,6 +5404,11 @@ mod chunk_03 {
             runtime.level_timer.seconds,
             (secs_before + LEVEL_TIMER_CLOCK_BONUS_SECONDS).min(LEVEL_TIMER_MAX_SECONDS),
         );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::ClockPrize],
+            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize=$0E on clock prize contact"
+        );
     }
 
     #[test]

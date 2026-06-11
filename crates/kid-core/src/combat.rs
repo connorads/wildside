@@ -59,6 +59,7 @@ pub(crate) enum QueuedSoundEffect {
     JumpOnEnemy,
     DiamondPrize,
     AnkhPrize,
+    ClockPrize,
     DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
@@ -123,6 +124,9 @@ impl QueuedSoundEffect {
             // ASM CharacterCollision_TouchAnkh (kid.asm:14883) plays
             // `sfx_Ankh_prize = $29` on the prize contact frame.
             Self::AnkhPrize => 0x29,
+            // ASM PrizeClock_Init (kid.asm:21999) plays
+            // `sfx_Clock_prize = $0E` when the clock prize is collected.
+            Self::ClockPrize => 0x0E,
             // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
             // when the falling child reaches floor collision before loc_33488.
             Self::DripsDripping => 0x58,
@@ -8842,6 +8846,8 @@ impl NativeRuntime {
                 }
             }
             terrain::PrizeContent::Clock => {
+                self.played_sound_effects
+                    .push(QueuedSoundEffect::ClockPrize);
                 self.level_timer.add_clock_bonus();
                 // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
                 // after the timer bonus/sub-second reset path completes.
