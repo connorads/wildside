@@ -3644,7 +3644,7 @@ impl NativeRuntime {
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
 
         let mut collected_contents = Vec::new();
-        let mut collected_prize_diamonds = 0usize;
+        let mut collected_prize_diamonds = Vec::new();
         for item in &mut self.floating_items {
             if item.collected || item.spawn_delay > 0 {
                 continue;
@@ -3720,14 +3720,23 @@ impl NativeRuntime {
                 // coordinates untouched until `step_visual_effects` removes it.
                 item.collected = true;
                 if item.content == terrain::PrizeContent::Diamond {
-                    collected_prize_diamonds += 1;
+                    // ASM PrizeDiamondCollected_Init loc_FE3A/Increase_Diamonds
+                    // (kid.asm:21136): cache the pickup's camera-relative
+                    // `$3E/$42` words before flying the sprite to HUD x=$126,
+                    // y=$30 over 32 hibernated ticks.
+                    let screen_x_fp = i64::from(item.x_pos) - i64::from(slice.camera.x_pos);
+                    let screen_y_fp = item.y_pos - i64::from(slice.camera.y_pos);
+                    collected_prize_diamonds.push((
+                        screen_x_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+                        screen_y_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+                    ));
                 } else {
                     collected_contents.push(item.content);
                 }
             }
         }
-        for _ in 0..collected_prize_diamonds {
-            self.queue_prize_diamond_award();
+        for (screen_x_fp, screen_y_fp) in collected_prize_diamonds {
+            self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
         }
         for content in collected_contents {
             self.apply_prize_content(content);

@@ -8582,6 +8582,50 @@ mod chunk_03 {
         );
     }
 
+    /// ASM PrizeDiamondCollected_Init / Increase_Diamonds
+    /// (kid.asm:21136-21162): cache pickup screen coordinates in `$3E/$42`,
+    /// fly to HUD x=$126/y=$30 over 32 hibernated ticks, then increment
+    /// `Number_Diamonds`.
+    #[test]
+    fn prize_diamond_hud_flight_matches_loc_fe3e_before_delayed_award() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let start_x = 0x0064_0000;
+        let start_y = 0x0050_0000;
+
+        runtime.queue_prize_diamond_award_at_screen_offset(start_x, start_y);
+
+        assert_eq!(
+            runtime.trace_frame().floating_items,
+            vec![(0x0064, 0x0050, 0x01F4, 0x00)],
+            "contact frame should render the collected diamond at the pickup screen offset",
+        );
+
+        for _ in 0..32 {
+            runtime.step_pending_prize_diamond_awards();
+        }
+
+        assert_eq!(
+            runtime.progression.diamond_count, 0,
+            "ASM dbf loop finishes the visible flight before Number_Diamonds increments",
+        );
+        assert_eq!(
+            runtime.trace_frame().floating_items,
+            vec![(0x0126, 0x0030, 0x01D4, 0x00)],
+            "the final visible hibernate tick should place the sprite at the HUD diamond counter",
+        );
+
+        runtime.step_pending_prize_diamond_awards();
+
+        assert_eq!(
+            runtime.progression.diamond_count, 1,
+            "Number_Diamonds increments only after the HUD flight worker completes",
+        );
+        assert!(
+            runtime.trace_frame().floating_items.is_empty(),
+            "the collected-diamond gfx worker deletes after the delayed award",
+        );
+    }
+
     /// ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14693):
     /// damage voice dispatch compares object_meta d5 against `$50`, `$40`,
     /// and `$30`; enemy init stores object type * 4 in that word.

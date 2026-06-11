@@ -6508,11 +6508,33 @@ impl NativeRuntime {
             floating_items: self
                 .floating_items
                 .iter()
+                .filter(|f| !f.collected)
                 .map(|f| {
                     let x_px = (f.x_pos >> 16) as u16;
                     let y_px = (f.y_pos >> 16) as u16;
                     (x_px, y_px, f.remaining, f.content.to_id())
                 })
+                .chain(self.pending_prize_diamond_hud_flights.iter().map(|flight| {
+                    // ASM PrizeDiamondCollected_Init loc_FE3E (kid.asm:21143)
+                    // flies the sprite toward screen x=$126/y=$30 using cached
+                    // camera-relative `$3E/$42`, then rebuilds world x/y from
+                    // the current camera before drawing.
+                    let x_fp = i64::from(flight.screen_x_fp) + i64::from(camera_state.x_pos);
+                    let y_fp = i64::from(flight.screen_y_fp) + i64::from(camera_state.y_pos);
+                    let x_px = (x_fp >> 16).clamp(0, i64::from(u16::MAX)) as u16;
+                    let y_px = (y_fp >> 16).clamp(0, i64::from(u16::MAX)) as u16;
+                    let elapsed = u16::from(
+                        NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES
+                            .saturating_sub(flight.remaining_delay),
+                    );
+                    let remaining = 0x01F4u16.saturating_sub(elapsed);
+                    (
+                        x_px,
+                        y_px,
+                        remaining,
+                        terrain::PrizeContent::Diamond.to_id(),
+                    )
+                }))
                 .collect(),
             enemy_death_effects: self
                 .enemy_death_effects

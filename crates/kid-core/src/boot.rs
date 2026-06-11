@@ -5410,6 +5410,7 @@ impl NativeRuntime {
         self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff = false;
         self.demo_title_snapshot_object_counts = None;
         self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
     }
 
     fn enter_title_screen_from_intro_return(
@@ -5698,6 +5699,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
@@ -5912,6 +5914,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
         self.enemy_death_effects.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
@@ -5971,6 +5974,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);

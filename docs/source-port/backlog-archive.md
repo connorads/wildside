@@ -8899,6 +8899,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #275
 
 - [Verify] Collect a diamond, confirm it animates to the top-right counter RECONFIRMED 2026-06-10 playtest (post 325e8622 build): collected diamonds still do not fly to the top-right HUD counter.
+- [Verify] Fixed candidate 2026-06-11: native now keeps a visual `PrizeDiamondHudFlight` mirror for ASM `PrizeDiamondCollected_Init` / `Increase_Diamonds` (kid.asm:21136-21162), caching pickup `$3E/$42` screen offsets and flying the collected diamond to HUD x=$126/y=$30 before the delayed `Number_Diamonds` increment. Regression: `prize_diamond_hud_flight_matches_loc_fe3e_before_delayed_award`. Verification: `cargo test -q -p kid-core prize_diamond -- --nocapture`; `cargo test -q -p kidcli build_scene_draws_floating_diamond_with_rom_sprite_art -- --nocapture`; `git diff --check`. Broad `cargo test -q -p kid-core --lib` still fails in pre-existing helmet/demo snapshot tests with `floating_items: []`, not this HUD-flight path. Human visual validation still required before marking `[x]`.
 
 ### #276
 

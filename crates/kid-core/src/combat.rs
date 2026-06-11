@@ -7650,6 +7650,8 @@ impl NativeRuntime {
     // the contact frame, so the queued native award needs to survive 33 frame
     // starts before the diamond count increments.
     pub(crate) const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
+    pub(crate) const PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E: i32 = 0x0126_0000;
+    pub(crate) const PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E: i32 = 0x0030_0000;
     const MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES: u8 = 15;
 
     pub(crate) fn apply_pending_stomp_bounce(&mut self, slice: &mut OpeningSliceState) {
@@ -8691,6 +8693,24 @@ impl NativeRuntime {
             .push(Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES);
     }
 
+    pub(crate) fn queue_prize_diamond_award_at_screen_offset(
+        &mut self,
+        screen_x_fp: i32,
+        screen_y_fp: i32,
+    ) {
+        self.queue_prize_diamond_award();
+        let x_step_fp = (Self::PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E - screen_x_fp) >> 5;
+        let y_step_fp = (Self::PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E - screen_y_fp) >> 5;
+        self.pending_prize_diamond_hud_flights
+            .push(PrizeDiamondHudFlight {
+                screen_x_fp,
+                screen_y_fp,
+                x_step_fp,
+                y_step_fp,
+                remaining_delay: Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES,
+            });
+    }
+
     pub(crate) fn step_pending_prize_diamond_awards(&mut self) {
         let mut awards_to_apply = 0usize;
         for delay in &mut self.pending_prize_diamond_awards {
@@ -8700,6 +8720,15 @@ impl NativeRuntime {
             }
         }
         self.pending_prize_diamond_awards.retain(|delay| *delay > 0);
+        for flight in &mut self.pending_prize_diamond_hud_flights {
+            if flight.remaining_delay > 1 {
+                flight.screen_x_fp = flight.screen_x_fp.saturating_add(flight.x_step_fp);
+                flight.screen_y_fp = flight.screen_y_fp.saturating_add(flight.y_step_fp);
+            }
+            flight.remaining_delay = flight.remaining_delay.saturating_sub(1);
+        }
+        self.pending_prize_diamond_hud_flights
+            .retain(|flight| flight.remaining_delay > 0);
         for _ in 0..awards_to_apply {
             self.award_prize_diamond();
         }
