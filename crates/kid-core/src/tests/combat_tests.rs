@@ -7457,7 +7457,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn dragon_spawn_uses_traced_offset_and_drift() {
+    fn dragon_flying_spawn_starts_first_script_hover() {
         let layout = EnemyLayout {
             axis_uses_y_position: false,
             unknown_prefix: 0,
@@ -7512,10 +7512,22 @@ mod chunk_03 {
 
         let dragon = active.first().expect("dragon should activate");
         assert_eq!(dragon.family, EnemyFamily::Dragon);
-        assert_eq!(dragon.x_pos, (226u32 << 16) + 0x8000);
-        assert_eq!(dragon.y_pos, 272u32 << 16);
+        assert_eq!(
+            dragon.x_pos,
+            200u32 << 16,
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init copies layout +4 directly into x_pos(a3)",
+        );
+        assert_eq!(
+            dragon.y_pos,
+            271u32 << 16,
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init copies layout +6 into y_pos(a3) before sub_36FF4",
+        );
         assert_eq!(dragon.x_velocity, 0);
         assert_eq!(dragon.dragon_phase, DragonFlyingState::Hovering);
+        assert_eq!(
+            dragon.dragon_phase_frames, 0x70,
+            "ASM Dragon_Flying.asm loc_346C4/loc_34804 seeds the first Hover($70) command before the first hibernated frame",
+        );
     }
 
     #[test]

@@ -6214,6 +6214,25 @@ mod chunk_04 {
         );
     }
 
+    #[test]
+    fn dragon_flying_spawn_copies_layout_position_before_script_start() {
+        assert_eq!(
+            enemies::spawn_x_pos(EnemyFamily::Dragon, 0x0088),
+            0x0088_0000,
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init copies layout +4 directly into x_pos(a3)",
+        );
+        assert_eq!(
+            enemies::spawn_y_pos_sub_36FF4(EnemyFamily::Dragon, 0x001F, 0),
+            0x001F_0000,
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init copies layout +6 into y_pos(a3); kid.asm sub_36FF4 only adds blank top rows",
+        );
+        assert_eq!(
+            enemies::spawn_y_pos_sub_36FF4(EnemyFamily::Dragon, 0x001F, 2),
+            0x003F_0000,
+            "ASM kid.asm sub_36FF4 shifts Number_blank_top_rows by four before adding it to Dragon Flying y_pos(a3)",
+        );
+    }
+
     // --- Sphere enemy ---
 
     #[test]

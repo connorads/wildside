@@ -6605,9 +6605,6 @@ pub(crate) enum EnemyArchetype {
     Inert,
 }
 
-pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
-/// Dragon families spawn 1px below layout Y. ASM-traced offset.
-const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// Walking dragons also use the 1px Y offset.
 const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// ASM Dragon_Flying.asm loc_3492C: `move.w #2,-(sp); jsr Hibernate_Object`
@@ -9542,6 +9539,12 @@ fn activate_enemies_with_rng_inner(
                 // ASM Tornado.asm seeds a movement pattern before entering the
                 // per-frame loop, so activate the first script entry here.
                 reload_tornado_pattern_script(&mut enemy);
+            }
+            if matches!(family, EnemyFamily::Dragon) {
+                // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init enters
+                // loc_346C4 immediately, so the first script command's DBF
+                // counter is already live before the first hibernated frame.
+                dragon_restart_script(&mut enemy);
             }
             active.push(enemy);
         }
@@ -26543,7 +26546,6 @@ pub(crate) fn step_boss_fire(
 
 pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     match family {
-        EnemyFamily::Dragon => (object_x << 16).saturating_add(DRAGON_SPAWN_X_OFFSET_FP),
         _ => object_x << 16,
     }
 }
@@ -26568,7 +26570,6 @@ pub(crate) fn spawn_y_pos_sub_36FF4(
 ) -> u32 {
     let object_y = object_y.saturating_add(enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows));
     match family {
-        EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
         EnemyFamily::DragonWalking => {
             object_y.saturating_add(DRAGON_WALKING_SPAWN_Y_OFFSET_PX) << 16
         }
