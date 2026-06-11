@@ -8025,6 +8025,7 @@ mod tests {
     #[test]
     fn layered_background_wraps_only_camera_parallax_rows_loc_3050a() {
         let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 9;
         visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
             layer_speeds: vec![0x00, 0x08, 0x10, 0x30],
             has_terminator: true,
@@ -8045,6 +8046,55 @@ mod tests {
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 3),
             "ASM loc_3050A camera-parallax rows should repeat so long-travel forest rows do not disappear"
+        );
+    }
+
+    #[test]
+    fn hills_auto_scroll_rows_wrap_plane_b_loc_3050a() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 3;
+        visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
+            layer_speeds: vec![0x00, 0x08, 0x10],
+            has_terminator: true,
+        });
+
+        assert!(
+            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
+            "ASM loc_3050A keeps Hills `$00` rows on the normal auto-scroll path"
+        );
+        assert!(
+            super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
+            "ASM loc_3050A feeds Hills `$08` rows into the horizontally wrapping Plane B row, avoiding backdrop exposure in Level 0x08"
+        );
+        assert!(
+            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 2),
+            "ASM loc_3050A no-scroll `$10` rows do not need native row repetition"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn level08_hills_auto_scroll_wrap_fills_frame151_sky_hole_loc_3050a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let visuals = load_level_visuals(&manifest, 0x08).expect("Hills of the Warrior 1 visuals");
+        let scenario = crate::scenarios::idle_level_scenario(0x08, Some(170));
+        let frames = kid_core::run_script_with_warp(
+            manifest,
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        );
+        let trace = frames.get(151).expect("frame 151");
+
+        let sample = super::scene::sample_background_pixel_loc_c070(trace, &visuals, 96, 32)
+            .expect("ASM loc_3050A Hills `$08` row should wrap through Plane B at frame 151");
+
+        assert_eq!(
+            sample.rgb,
+            [0x24, 0x49, 0xFF],
+            "oracle frame 151 shows the wrapped Hills sky pixel here; exposing Palette_Buffer slot 0 would leave the dark-green backdrop visible"
         );
     }
 
