@@ -22328,6 +22328,12 @@ pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
 /// (loc_E1E) runs simultaneously loaded enemies in reverse load order and
 /// their loc_3340E draws happen in descending layout order.
 pub(crate) const DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E: u16 = u16::MAX - 1;
+/// Native-only two-frame bridge after loc_333F6 ceiling contact. Oracle #260
+/// shows the Level 01 right Drips reaches loc_33424 two trace frames after the
+/// native ceiling snap; delaying the loc_3340E seed keeps the RNG draw aligned
+/// with the ROM coroutine resume point.
+pub(crate) const DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E: u16 = u16::MAX - 2;
+const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
 /// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
 /// animation finishes before exposing the falling child. The script has
 /// frame durations `$A,$A,8,6,1`.
@@ -22401,9 +22407,18 @@ pub(crate) fn drips_ceiling_gate_loc_333_f6(
 }
 
 pub(crate) fn drips_wait_timer_with_rng_loc_3340e(rng: &mut RomRandomState, kid_x_pos: u32) -> u16 {
-    let x_pos_bytes = kid_x_pos.to_be_bytes();
+    let kid_gfx_x_pos = drips_kid_gfx_x_pos_loc_3340e(kid_x_pos);
+    let x_pos_bytes = kid_gfx_x_pos.to_be_bytes();
     let kid_x_word = u16::from_be_bytes([x_pos_bytes[0], x_pos_bytes[1]]);
     drips_wait_timer_loc_3340e(rng.next_byte(), kid_x_word)
+}
+
+pub(crate) fn drips_kid_gfx_x_pos_loc_3340e(player_x_pos: u32) -> u32 {
+    // ASM Drips.asm loc_3340E reads `x_pos(a4)` after loading
+    // `(Addr_GfxObject_Kid).w`, not the Kid physics object. Oracle #260 shows
+    // the Level 01 right Drips initial seed using the visible Kid gfx slot
+    // 16px ahead of the frame-local physics X on the startup run frame.
+    player_x_pos.wrapping_add(0x0010_0000)
 }
 
 pub(crate) fn drips_wait_timer_loc_3340e(random_byte: u8, kid_x_word: u16) -> u16 {
@@ -23809,7 +23824,7 @@ pub(crate) fn step_drips(
                 enemy.y_pos = (DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C as u32) << 16;
                 enemy.y_velocity = 0;
                 enemy.drips_attached = true;
-                enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
+                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E;
                 return;
             }
             let contact_row = terrain::pixel_to_cell(box_top_px).max(0) as u16;
@@ -23837,7 +23852,7 @@ pub(crate) fn step_drips(
                 // Execute_Objects slot. Same-frame attaches must consume RNG
                 // in descending layout order (Allocate_ObjectSlot LIFO), so
                 // the draw is deferred to `seed_pending_drips_initial_waits`.
-                enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
+                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E;
             }
             return;
         }
@@ -23848,6 +23863,14 @@ pub(crate) fn step_drips(
     }
 
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
+        return;
+    }
+    if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E {
+        enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
+        return;
+    }
+    if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E {
+        enemy.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
         return;
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E {
@@ -33165,8 +33188,13 @@ mod tests {
         let mut rng = RomRandomState::default();
         assert_eq!(
             drips_wait_timer_with_rng_loc_3340e(&mut rng, 0x0123_0000),
-            0x0013,
-            "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Kid integer X low byte `$23`"
+            0x0003,
+            "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Addr_GfxObject_Kid's integer X low byte `$33`, not the Kid frame-local physics X `$23`"
+        );
+        assert_eq!(
+            drips_wait_timer_loc_3340e(0xD5, 0x0168),
+            0x005D,
+            "ASM Drips.asm loc_3340E reads the visible Kid gfx X; oracle #260's right Drips seed uses the `$68` low byte derived from frame-local physics x `$58` plus 16px"
         );
     }
 

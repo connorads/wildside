@@ -10938,6 +10938,18 @@ impl NativeRuntime {
             && !self.kid_is_invulnerable
             && self.projectile_hits_player(slice)
         {
+            if self
+                .last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.starts_with("hit:DripsSurfaceCrawler@"))
+            {
+                // ASM Drips.asm loc_33650/loc_33550 consumes the live crawler
+                // collision during the object pass before Kid spends the same
+                // frame's horizontal movement. Native detects projectile
+                // damage after movement, so restore the issue-260 contact
+                // frame's entry X while preserving the already-matched Y path.
+                slice.player.x_pos = frame_start_x_pos;
+            }
             self.opening_slice = Some(*slice);
             self.apply_damage();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;

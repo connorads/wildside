@@ -642,6 +642,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn drips_surface_crawler_projectile_damage_restores_contact_frame_x_loc_33550_issue_260() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+        runtime.progression.invulnerable_frames = 0;
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 585 << 16,
+            y_pos: 101 << 16,
+            x_velocity: 0x0000_3000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+            ..Default::default()
+        });
+
+        let mut slice = combat_slice();
+        let frame_start_x = 600 << 16;
+        let frame_start_y = 100 << 16;
+        slice.player.x_pos = 598 << 16;
+        slice.player.y_pos = frame_start_y;
+        slice.player.x_velocity = -0x0002_0000;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+
+        assert!(
+            runtime.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                frame_start_y,
+                frame_start_x,
+                frame_start_y,
+            ),
+            "ASM Drips.asm loc_33650 calls loc_33550 from the object collision pass; issue-260 frame 550 consumes the crawler hit before Kid's leftward movement is visible"
+        );
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+        assert_eq!(
+            slice.player.x_pos, frame_start_x,
+            "native post-motion projectile damage must restore the live crawler contact frame X to match the ASM object-pass ordering"
+        );
+        assert_eq!(
+            slice.player.y_pos, frame_start_y,
+            "issue-260 only needs the same-frame horizontal movement suppressed"
+        );
+        assert_eq!(
+            runtime.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::ProjectileDamage
+        );
+    }
+
+    #[test]
     fn loc_35986_cyclone_tornado_bounce_writes_kid_collision_type_not_flight_accel() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

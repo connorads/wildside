@@ -11764,8 +11764,15 @@ mod chunk_04 {
             "Drips must reach the ceiling before its first drop spawns",
         );
         assert_eq!(
+            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E,
+            "ASM Drips.asm loc_333F6/loc_3340E reaches the RNG draw after the oracle #260 two-frame coroutine bridge from ceiling contact",
+        );
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+        assert_eq!(
             enemy.wait_timer, DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E,
-            "the attach frame defers the loc_3340E RNG draw to the same-frame seed pass",
+            "after the loc_333F6 bridge, native defers the loc_3340E RNG draw to the seed ordering pass",
         );
 
         let mut expected_rng = RomRandomState::default();

@@ -96,6 +96,7 @@ fn fire_demon_trail_has_floor_support_loc_3a63c(
 pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 31;
+const DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550: i32 = PROJECTILE_HITBOX_HALF + 9;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 /// ASM Drips.asm loc_3345C exits the fall loop when GfxObjects_Collision
 /// reports `$38(a1) == $C`. GfxObjects_Collision_ChkBoundaries (kid.asm
@@ -3077,7 +3078,17 @@ impl NativeRuntime {
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
-            let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
+            let x_overlaps = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler {
+                // ASM Drips.asm loc_33650/loc_33550 reads the collision word
+                // already produced by GfxObjects_CollisionKid, whose
+                // inclusive compares keep issue-260 frame-550's live crawler
+                // contact at |dx|=15 active instead of using the generic
+                // hostile projectile's strict 14px centre window.
+                (prx - px).abs() <= DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550
+            } else {
+                (prx - px).abs() < half + 8
+            };
+            let overlaps = x_overlaps && (pry - py).abs() < half + 16;
             if overlaps {
                 hit = true;
                 if self.last_projectile_damage_probe.is_none() {

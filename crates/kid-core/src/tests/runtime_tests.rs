@@ -13416,6 +13416,41 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_live_contact_hits_at_issue_260_boundary_loc_33550() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 585 << 16,
+            y_pos: 101 << 16,
+            x_velocity: 0x0000_3000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 600 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_33650 calls loc_33550 after GfxObjects_CollisionKid; issue-260 oracle frame 550 damages Kid with the live crawler at dx=-15, one pixel outside the generic hostile projectile window"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_33550 contact routes the crawler to loc_338F8, so native should consume the live crawler damage source"
+        );
+        assert!(
+            rt.last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.contains("dx=-15 dy=1")),
+            "the issue-260 regression should preserve the boundary geometry in diagnostics"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_burst_helper_does_not_hit_player_loc_338f8() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
