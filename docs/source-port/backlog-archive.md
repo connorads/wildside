@@ -2506,6 +2506,23 @@ session by patching Drips timing from those older notes; the active blocker is
 still finding or recording a route that reaches the row-32 Drips/metal-block
 interaction.
 
+Follow-up 2026-06-11 current-main route rejection for #260: refreshed the named
+`issue260-drips-b-jump-climb-seed` probe and wrote cache-local bundle
+`.cache/recordings/issue-260-drips-b-jump-climb-seed-current/`. Native bundle
+verification still rejects it with `missing native frame b_jump_climb_start@480`,
+so use the scenario JSON for probe/batch replay only, not as a promoted
+recording. Current probe summary reproduces the old best healthy approach to
+the right Drips/block target: `dx=+3 dy=-20` at replay frame 505 for target
+`(584,543)`, with Kid visually on the lower shelf under the row-32
+prize/drill/prize line. Batch overlays against that JSON, scoring after frame
+360, tried early B+Right jump windows `420..600`, left-brake variants after the
+jump, and late tail changes from frames `500..720`; none improved on the
+23-pixel miss, and several variants entered `LevelTransition` or reached HP 0.
+Treat the b-jump climb-tail family as exhausted alongside the older
+`478..528 Left` floor-jump family. Next #260 work needs a genuinely different
+vertical approach/climb path to the row-32 block corridor before changing
+Drips, crawler, or block collision code.
+
 Note 2026-06-04 selector follow-up for #213: selector-picked recording
 `issue-213-drips-floor-probe-512` is stale before any current Drips floor/slime
 comparison. Fresh full and native-only `verify-recording` both fail at frame 0
