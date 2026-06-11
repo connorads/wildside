@@ -66,6 +66,7 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterShoots,
     VoiceNoTime,
     KidPullup,
+    BigHoppingSkullGroan,
     BossDies,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
@@ -142,6 +143,9 @@ impl QueuedSoundEffect {
             // ASM kid_flip loc_ABF0 (kid.asm:13464): The Kid ledge pull-up
             // plays `sfx_The_Kid_pullup = $64` after Init_Animation(stru_8BB4).
             Self::KidPullup => 0x64,
+            // ASM sub_3A292 loc_3A2C0 (kid.asm:43356): boss-head hits reuse
+            // `sfx_Big_Hopping_Skull_groan = $5C`.
+            Self::BigHoppingSkullGroan => 0x5C,
             // ASM boss-head death loc_39EE2 (kid.asm:43034) plays
             // `sfx_Boss_dies = $57` before the loc_39F7A spin loop.
             Self::BossDies => 0x57,
@@ -7873,6 +7877,29 @@ impl NativeRuntime {
                 // j_Hibernate_UntilAnimFinished; freshly written collision
                 // words are not consumed until the death tail deletes the
                 // object.
+                continue;
+            }
+            if is_multi_head_boss(enemy.family) {
+                let result = boss_collision_palette_sub_3A292(
+                    collision.collision_type,
+                    berzerker_charging,
+                    enemy.damage_flash_frames,
+                    i16::from(enemy.hit_points),
+                );
+                // ASM sub_3A292/loc_3A2C0: accepted boss-head collision words
+                // decrement `$3E(a3)`, seed the flash byte in `d1`, and play
+                // the Big Hopping Skull groan before returning d7 status to
+                // the caller's `loc_39EBE` branch.
+                enemy.hit_points = result.next_hit_points.clamp(0, i16::from(u8::MAX)) as u8;
+                enemy.damage_flash_frames = result.next_flash_timer;
+                if result.hit {
+                    self.played_sound_effects
+                        .push(QueuedSoundEffect::BigHoppingSkullGroan);
+                    changed_enemy_state = true;
+                }
+                if result.head_dead {
+                    kill_indices.push(active_idx);
+                }
                 continue;
             }
             if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {

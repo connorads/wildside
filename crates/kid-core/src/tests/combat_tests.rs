@@ -765,6 +765,46 @@ fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
     assert_eq!(active[0].boss_movement_script_index, 1);
 }
 
+#[test]
+fn live_multi_head_boss_collision_uses_sub_3a292() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::Shishkaboss,
+        0x0080_0000,
+        0x0080_0000,
+        5,
+    )];
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let boss = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&boss, 0x001C);
+    runtime.apply_pending_enemy_collisions();
+
+    assert_eq!(
+        runtime.active_enemies[0].hit_points, 4,
+        "ASM sub_3A292 loc_3A2C0: accepted collision_type $1C decrements `$3E(a3)` once"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].damage_flash_frames, 9,
+        "ASM sub_3A292 sets d1=$0A on hit, then loc_3A2E0 decrements the live flash byte to $09"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::BigHoppingSkullGroan],
+        "ASM sub_3A292 loc_3A2C0 plays `sfx_Big_Hopping_Skull_groan` for boss-head hits"
+    );
+    assert_eq!(QueuedSoundEffect::BigHoppingSkullGroan.sound_id(), 0x5C);
+    assert_eq!(
+        runtime.active_enemy_roster[0].damage_flash, true,
+        "live boss-head collision must rebuild the trace roster after the sub_3A292 flash update"
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;
