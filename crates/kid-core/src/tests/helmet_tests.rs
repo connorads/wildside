@@ -8833,6 +8833,50 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_demo_exposes_cyclone_prize_before_later_diamonds() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+
+        let mut frame_1021 = None;
+        let mut frame_1022 = None;
+        let mut frame_1045 = None;
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_046) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                1_021 => frame_1021 = Some(trace),
+                1_022 => frame_1022 = Some(trace),
+                1_045 => {
+                    frame_1045 = Some(trace);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let frame_1021 = frame_1021.expect("frame 1021 trace");
+        let frame_1022 = frame_1022.expect("frame 1022 trace");
+        let frame_1045 = frame_1045.expect("frame 1045 trace");
+        assert!(
+            [
+                &frame_1021.floating_items,
+                &frame_1022.floating_items,
+                &frame_1045.floating_items,
+            ]
+            .iter()
+            .any(|items| {
+                items
+                    .iter()
+                    .any(|&(_, _, _, content)| content == terrain::PrizeContent::Cyclone.to_id())
+            }),
+            "ASM sub_1007A -> PrizeHelmetCyclone_Init should expose a Cyclone item before the later real Diamond prize events; frame_1021={:?} frame_1022={:?} frame_1045={:?}",
+            frame_1021.floating_items,
+            frame_1022.floating_items,
+            frame_1045.floating_items,
+        );
+    }
+
+    #[test]
     fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
