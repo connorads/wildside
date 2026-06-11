@@ -68,7 +68,14 @@ and stop — never commit churn.
   the best live late route as the already-documented `wait390`/`left400` family (`(584,543)`
   healthy `dx=+1 dy=-18 @444` or `dx=0 dy=-22 @470`, both later LevelTransition), while the
   drop-contact prefix variants either stay far left at the Drips Y row or keep the old
-  `dx=0 dy=-48 @128` early pass. Do not repeat this pre-380 left-window axis unchanged. #270 current wall-pulse probes split the evidence:
+  `dx=0 dy=-48 @128` early pass. Do not repeat this pre-380 left-window axis unchanged.
+  A later `450..469 B+Right` overlay on the named drop-contact probe improves the
+  healthy right target proximity to `(584,543)` `dx=-1 dy=-16 @539`, but it is not
+  metal-block evidence: oracle damage at frame 529 comes from a right-side Drips
+  crawler already active at `(588,592)` while native layout #08 is still in
+  `pre_drop:0x8005` and has not spawned that cycle's child. Treat this as another
+  phase-shifted route rejection, not a Drips hitbox or block-break lead.
+  #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
   diverge before the B pulse and need a natural pickup/well route before any movement patch. #285 crawler art);
