@@ -2433,6 +2433,7 @@ pub(crate) struct DeferredCeilingClear {
     pub(crate) row: u16,
     pub(crate) content: terrain::PrizeContent,
     pub(crate) restore_cell: terrain::Cell,
+    pub(crate) reveal_only: bool,
     pub(crate) deleted_frames_remaining: u16,
     pub(crate) phase: DeferredPrizeBlockPhase,
 }
@@ -2667,6 +2668,14 @@ pub(crate) struct ObjectSystemState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeCeilingClear {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) restore_cell: terrain::Cell,
+    pub(crate) reveal_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OpeningSliceState {
     pub(crate) player: PlayerState,
     pub(crate) camera: CameraState,
@@ -2703,7 +2712,7 @@ pub(crate) struct OpeningSliceState {
     /// loc_B5F6, not the current one.
     pub(crate) pending_walking_floor_release: bool,
     /// Prize block ceiling hit: queue the sub_1007A lifecycle for this cell.
-    pub(crate) ceiling_prize_clear: Option<(u16, u16, terrain::Cell)>,
+    pub(crate) ceiling_prize_clear: Option<PrizeCeilingClear>,
     /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.
     /// ASM tests y_vel before sub_B168 (gravity); native applies gravity first.
     pub(crate) pre_gravity_y_vel: i32,

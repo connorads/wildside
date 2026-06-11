@@ -18508,7 +18508,9 @@ mod chunk_02 {
             "ASM sub_914A/loc_91AC: same-row deferred metadata must not suppress the actual prize ceiling dispatch or its 16px tile coordinates",
         );
         assert_eq!(
-            slice.ceiling_prize_clear.map(|(col, row, _)| (col, row)),
+            slice
+                .ceiling_prize_clear
+                .map(|clear| (clear.col, clear.row)),
             Some((2, 2))
         );
     }
@@ -18552,7 +18554,9 @@ mod chunk_02 {
             "ASM loc_E03A/sub_E3C6 fallback: hidden Prize ceiling dispatch should report block col,row as 16px tile coordinates",
         );
         assert_eq!(
-            slice.ceiling_prize_clear.map(|(col, row, _)| (col, row)),
+            slice
+                .ceiling_prize_clear
+                .map(|clear| (clear.col, clear.row)),
             Some((2, 2))
         );
     }
@@ -18740,6 +18744,62 @@ mod chunk_02 {
             slice.prize_block_hit,
             Some((terrain::PrizeContent::Ankh, 161 * 16, 16)),
             "ASM loc_10342 matches the exact Level_Layout low word; duplicate col,row prize records must not collapse to the first Diamond entry",
+        );
+    }
+
+    #[test]
+    fn disguised_prize_ceiling_queues_reveal_only_loc_101d8() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(2, 2, w),
+                col: 2,
+                row: 2,
+                content: terrain::PrizeContent::Eyeclops,
+                disguised: true,
+            }],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(&block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        let clear = slice
+            .ceiling_prize_clear
+            .expect("disguised prize should still queue the sub_1007A worker");
+        assert!(
+            clear.reveal_only,
+            "ASM loc_101D8 reveal path should not run Prize_Init"
+        );
+        assert_eq!((clear.col, clear.row), (2, 2));
+        assert_eq!(clear.restore_cell, terrain::Cell::from_be_bytes(0xE1, 0x01));
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Eyeclops, 32, 32)),
+            "the queued worker should still remember the matching block-list content for the later visible hit"
         );
     }
 

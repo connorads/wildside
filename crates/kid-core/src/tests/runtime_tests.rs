@@ -7148,6 +7148,7 @@ mod chunk_09 {
                 row: 2,
                 content: terrain::PrizeContent::Cyclone,
                 restore_cell,
+                reveal_only: false,
                 deleted_frames_remaining: 2, // shortened for test
                 phase: DeferredPrizeBlockPhase::Deleted,
             });
@@ -7226,6 +7227,7 @@ mod chunk_09 {
                 row: 2,
                 content: terrain::PrizeContent::Diamond,
                 restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x00),
+                reveal_only: false,
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::Deleted,
             });
@@ -7257,6 +7259,46 @@ mod chunk_09 {
     }
 
     #[test]
+    fn deferred_disguised_prize_reveals_visible_block_without_spawning_loc_101d8() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_blocks());
+        rt.block_state
+            .deferred_ceiling_clears
+            .push(DeferredCeilingClear {
+                col: 2,
+                row: 2,
+                content: terrain::PrizeContent::Eyeclops,
+                restore_cell: terrain::Cell::from_be_bytes(0xE1, 0x01),
+                reveal_only: true,
+                deleted_frames_remaining: 0,
+                phase: DeferredPrizeBlockPhase::Deleted,
+            });
+
+        rt.step_deferred_ceiling_clears();
+        assert_eq!(
+            rt.block_state.deferred_ceiling_clears[0].phase,
+            DeferredPrizeBlockPhase::PendingClear,
+            "ASM loc_101D8 should skip Prize_Init and move straight to the visible-block write"
+        );
+
+        rt.finish_deferred_ceiling_clears();
+
+        assert!(
+            rt.block_state.deferred_ceiling_clears.is_empty(),
+            "loc_101D8 deletes the worker after writing the visible prize block"
+        );
+        assert!(
+            rt.floating_items.is_empty(),
+            "loc_101D8 should reveal `$E102` without spawning the prize object"
+        );
+        assert_eq!(
+            rt.block_grid.as_ref().unwrap().cell_at(2, 2),
+            terrain::Cell::from_be_bytes(0xE1, 0x02),
+            "ASM loc_101D8 tail writes visible `$E102`, requiring a second hit to pay"
+        );
+    }
+
+    #[test]
     fn deferred_ankh_ceiling_clear_uses_sub_10c78_lifetime() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_blocks());
@@ -7267,6 +7309,7 @@ mod chunk_09 {
                 row: 2,
                 content: terrain::PrizeContent::Ankh,
                 restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x0B),
+                reveal_only: false,
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::PendingClear,
             });
@@ -7320,6 +7363,7 @@ mod chunk_09 {
                 row: 2,
                 content: terrain::PrizeContent::Cyclone,
                 restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x03),
+                reveal_only: false,
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::PendingClear,
             });
@@ -7381,6 +7425,7 @@ mod chunk_09 {
                 row: 2,
                 content: terrain::PrizeContent::Cyclone,
                 restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x03),
+                reveal_only: false,
                 deleted_frames_remaining: 0,
                 phase: DeferredPrizeBlockPhase::PendingClear,
             });

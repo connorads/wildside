@@ -1396,6 +1396,7 @@ impl NativeRuntime {
             row: block_row,
             content,
             restore_cell,
+            reveal_only: false,
             deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
             phase: DeferredPrizeBlockPhase::Deleted,
         });
@@ -2930,8 +2931,9 @@ impl NativeRuntime {
     }
 
     /// Tick prize-block bounce lifecycles. ASM sub_1007A holds 0x6F, briefly
-    /// restores the original prize cell, then writes `$E001` and creates the
-    /// prize object.
+    /// restores the original prize cell, then either writes `$E001` and creates
+    /// the prize object or, for loc_101D8 disguised prizes, writes visible
+    /// `$E102` without spawning anything.
     pub(crate) fn step_deferred_ceiling_clears(&mut self) {
         let mut early_spawned_prizes = Vec::new();
         if let Some(grid) = &mut self.block_grid {
@@ -2941,7 +2943,9 @@ impl NativeRuntime {
                     DeferredPrizeBlockPhase::Deleted => {
                         if entry.deleted_frames_remaining == 0 {
                             grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
-                            if entry.content == terrain::PrizeContent::Diamond {
+                            if entry.reveal_only {
+                                entry.phase = DeferredPrizeBlockPhase::PendingClear;
+                            } else if entry.content == terrain::PrizeContent::Diamond {
                                 // ASM PrizeDiamond_Init (kid.asm:21604) uses
                                 // `sf is_moved(a3)`, unlike the helmet/shared
                                 // prize initialisers that `st is_moved(a3)`.
@@ -3020,6 +3024,20 @@ impl NativeRuntime {
                 }
                 DeferredPrizeBlockPhase::PendingClear
                 | DeferredPrizeBlockPhase::PendingClearPrizeSpawned => {
+                    if entry.reveal_only {
+                        // ASM loc_101D8 (kid.asm:21459): disguised prize
+                        // blocks finish by writing `$E102`, revealing the
+                        // visible prize block for a later hit without running
+                        // Prize_Init.
+                        if let Some(grid) = self.block_grid.as_mut() {
+                            grid.set_cell_at(
+                                entry.col,
+                                entry.row,
+                                terrain::Cell::from_be_bytes(0xE1, 0x02),
+                            );
+                        }
+                        continue;
+                    }
                     // ASM sub_1007A line 21411: after prize spawns, restore
                     // cell to $E001 (Smash block, skin=1). The player can
                     // then smash this block on a second headbutt.

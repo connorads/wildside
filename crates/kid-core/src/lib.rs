@@ -3775,16 +3775,17 @@ impl NativeRuntime {
         // Queue the full prize-block lifecycle from a headbutt. The tile stays
         // Solid (0x6F) until the coroutine completes, then the same state
         // record clears the tile and spawns the prize object.
-        if let Some((col, row, restore_cell)) = slice.ceiling_prize_clear
+        if let Some(prize_clear) = slice.ceiling_prize_clear
             && let Some((content, _, _)) = slice.prize_block_hit
         {
             self.block_state
                 .deferred_ceiling_clears
                 .push(DeferredCeilingClear {
-                    col,
-                    row,
+                    col: prize_clear.col,
+                    row: prize_clear.row,
                     content,
-                    restore_cell,
+                    restore_cell: prize_clear.restore_cell,
+                    reveal_only: prize_clear.reveal_only,
                     deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
                     phase: DeferredPrizeBlockPhase::Deleted,
                 });
@@ -3794,8 +3795,8 @@ impl NativeRuntime {
             // cumulative y_offset each frame and the renderer applies it to
             // the block draw, replacing the earlier 8-frame placeholder arc.
             self.block_bounces.push(BlockBounceAnim {
-                cell_x: col,
-                cell_y: row,
+                cell_x: prize_clear.col,
+                cell_y: prize_clear.row,
                 remaining: 31,
                 initial_duration: 31,
                 kind: BlockBounceKind::Prize,

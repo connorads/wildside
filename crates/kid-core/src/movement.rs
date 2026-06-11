@@ -6299,6 +6299,9 @@ impl OpeningSliceState {
                         .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
                         .map(|entry| entry.content)
                         .unwrap_or(terrain::PrizeContent::Diamond);
+                    let reveal_only = block_list
+                        .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
+                        .is_some_and(|entry| entry.disguised);
                     let block_x_px = probe.cell_x * 16;
                     let block_y_px = probe.cell_y * 16;
                     self.prize_block_hit = Some((content, block_x_px, block_y_px));
@@ -6308,7 +6311,12 @@ impl OpeningSliceState {
                         probe.cell_y,
                         terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
                     );
-                    self.ceiling_prize_clear = Some((probe.cell_x, probe.cell_y, probe.cell));
+                    self.ceiling_prize_clear = Some(PrizeCeilingClear {
+                        col: probe.cell_x,
+                        row: probe.cell_y,
+                        restore_cell: probe.cell,
+                        reveal_only,
+                    });
                 }
             }
 
@@ -6366,6 +6374,11 @@ impl OpeningSliceState {
                             })
                             .map(|entry| entry.content)
                             .unwrap_or(terrain::PrizeContent::Diamond);
+                        let reveal_only = block_list
+                            .and_then(|bl| {
+                                bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr)
+                            })
+                            .is_some_and(|entry| entry.disguised);
                         let block_x_px = block_dispatch_probe.cell_x * 16;
                         let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
@@ -6380,11 +6393,12 @@ impl OpeningSliceState {
                             block_dispatch_probe.cell_y,
                             terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin),
                         );
-                        self.ceiling_prize_clear = Some((
-                            block_dispatch_probe.cell_x,
-                            block_dispatch_probe.cell_y,
-                            block_dispatch_probe.cell,
-                        ));
+                        self.ceiling_prize_clear = Some(PrizeCeilingClear {
+                            col: block_dispatch_probe.cell_x,
+                            row: block_dispatch_probe.cell_y,
+                            restore_cell: block_dispatch_probe.cell,
+                            reveal_only,
+                        });
                         // ASM sub_914A scans ALL tiles across player width, so
                         // adjacent Smash blocks are cleared on the same frame.
                         // probe_ceiling returns on the first hit, missing the
