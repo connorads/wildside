@@ -671,6 +671,8 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
+    let force_target_level_for_probe = should_force_target_level_for_probe(resolved);
+
     if let Some(target_level) = resolved.warp_to_level {
         let settle_trace_out = capture_settle_trace.then_some(&mut settle_trace);
         boot_and_warp_oracle(
@@ -680,6 +682,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
             &mut save_writer,
             target_level,
             resolved.settle_oracle_warp,
+            force_target_level_for_probe,
             settle_trace_out,
         )?;
     }
@@ -882,6 +885,8 @@ fn run_enemy_layout_trace(rom: &[u8], resolved: &ResolvedScenario) -> Result<()>
     let mut frame_index = 0usize;
     let mut checkpoints_out = Vec::new();
 
+    let force_target_level_for_probe = should_force_target_level_for_probe(resolved);
+
     if let Some(target_level) = resolved.warp_to_level {
         boot_and_warp_oracle(
             &mut emulator,
@@ -890,6 +895,7 @@ fn run_enemy_layout_trace(rom: &[u8], resolved: &ResolvedScenario) -> Result<()>
             &mut save_writer,
             target_level,
             resolved.settle_oracle_warp,
+            force_target_level_for_probe,
             None,
         )?;
     }
@@ -2235,6 +2241,7 @@ fn boot_and_warp_oracle(
     save_writer: &mut NullSaveWriter,
     target_level: u8,
     settle_oracle_warp: bool,
+    force_target_level_for_probe: bool,
     mut settle_trace: Option<&mut Vec<OracleSettleTraceRow>>,
 ) -> Result<()> {
     let no_input = GenesisInputs::default();
@@ -2301,7 +2308,7 @@ fn boot_and_warp_oracle(
             p2: GenesisJoypadState::default(),
         };
         tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
-        if settle_oracle_warp {
+        if settle_oracle_warp || force_target_level_for_probe {
             clear_input_latches(emulator);
         }
 
@@ -2322,7 +2329,7 @@ fn boot_and_warp_oracle(
                 tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
             }
             tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
-            if settle_oracle_warp {
+            if settle_oracle_warp || force_target_level_for_probe {
                 clear_input_latches(emulator);
             }
 
@@ -2366,10 +2373,14 @@ fn boot_and_warp_oracle(
                         emulator, renderer, audio, &no_input, save_writer,
                     )?;
                 }
-            } else if settle_oracle_warp {
+            } else if settle_oracle_warp || force_target_level_for_probe {
                 force_warp_level_registers(emulator, target_level);
             }
-        } else if settle_oracle_warp {
+        } else if settle_oracle_warp || force_target_level_for_probe {
+            // Direct probe scenarios patch live WRAM after this bootstrap.
+            // Native `boot_to_level` has already selected the requested level,
+            // so keep unsettled probe oracles on the same target without
+            // changing legacy no-probe state-sweep timing.
             force_warp_level_registers(emulator, target_level);
         }
 
@@ -2392,7 +2403,7 @@ fn boot_and_warp_oracle(
             p2: GenesisJoypadState::default(),
         };
         tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
-        if settle_oracle_warp {
+        if settle_oracle_warp || force_target_level_for_probe {
             clear_input_latches(emulator);
         }
 
@@ -2437,6 +2448,14 @@ fn boot_and_warp_oracle(
     }
 
     Ok(())
+}
+
+fn should_force_target_level_for_probe(resolved: &ResolvedScenario) -> bool {
+    resolved.start_position.is_some()
+        || resolved.start_velocity.is_some()
+        || resolved.camera_position.is_some()
+        || resolved.playtest_form.is_some()
+        || resolved.initial_diamond_count.is_some()
 }
 
 fn settle_title_card_target_level(

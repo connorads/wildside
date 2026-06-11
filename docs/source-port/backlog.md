@@ -78,10 +78,12 @@ and stop — never commit churn.
   no-settle 720-frame route rebuild found native-live candidate `freshF`
   (`0..160 Right`, `55..125 B+Right`, `160..240 Left`, `240..320 B+Left`,
   `340..430 Right`, `478..528 Left`, `530..567 B+Right`) reaching `(456,543)`
-  healthy `dx=0 dy=-16 @538`, but it is not oracle-comparable: `verify-tas`
-  and `tas-diff` show the oracle side invalid by frame 480/500 (`game_mode=0x4e73`,
-  hibernated/paused, no object roster). Treat `freshF` as no-settle bootstrap
-  evidence only, not route proof or a Drips/block patch lead.
+  healthy `dx=0 dy=-16 @538`, but it is not oracle-comparable. After direct
+  probe oracle warps were fixed to target Level 01 instead of stale Level 00,
+  the no-settle route still diverges immediately: frame 0 enemy roster differs
+  and the oracle enters the scenario with the pause shell active, so Kid never
+  advances from the patched start position. Treat `freshF` as no-settle
+  bootstrap evidence only, not route proof or a Drips/block patch lead.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

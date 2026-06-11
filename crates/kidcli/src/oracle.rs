@@ -684,6 +684,22 @@ mod tests {
     }
 
     #[test]
+    fn helper_forces_target_level_for_direct_probe_warps() {
+        assert!(
+            HELPER_TEMPLATE.contains("let force_target_level_for_probe =")
+                && HELPER_TEMPLATE.contains("resolved.start_position.is_some()")
+                && HELPER_TEMPLATE.contains("|| resolved.camera_position.is_some()")
+                && HELPER_TEMPLATE.contains("resolved.playtest_form.is_some()")
+                && HELPER_TEMPLATE.contains("force_target_level_for_probe,")
+                && HELPER_TEMPLATE.contains(
+                    "} else if settle_oracle_warp || force_target_level_for_probe {"
+                )
+                && HELPER_TEMPLATE.contains("if settle_oracle_warp || force_target_level_for_probe {\n            clear_input_latches(emulator);\n        }"),
+            "direct probe scenarios patch live WRAM after warp_to_level, so the oracle helper must target the same level as native before frame 0"
+        );
+    }
+
+    #[test]
     fn helper_samples_kid_velocity_from_live_kid_gfx_slot() {
         assert!(
             HELPER_TEMPLATE.contains("const KID_X_VEL_ADDR: usize = 0xFF_2506;")
