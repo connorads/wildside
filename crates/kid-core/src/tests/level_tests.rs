@@ -7306,6 +7306,7 @@ mod chunk_02 {
 
         // Give the player a helmet form.
         runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.extra_hitpoint_slots = 2;
         runtime.progression.number_hitpoints = 0;
         runtime.begin_death_windup();
 
@@ -7335,6 +7336,10 @@ mod chunk_02 {
             runtime.progression.number_hitpoints,
             PlayerForm::TheKid.max_hitpoints(),
             "ASM lose_life: Number_Hitpoints should be 2 after death"
+        );
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 0,
+            "ASM Death/lose_life (kid.asm:14719/14764): death respawn clears Extra_hitpoint_slots before reseeding base HP"
         );
     }
 

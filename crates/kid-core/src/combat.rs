@@ -9905,6 +9905,9 @@ impl NativeRuntime {
         // than doing it before the visible tumble.
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
+        // ASM Death/lose_life (kid.asm:14719/14764): both death entry and
+        // respawn clear the extra HP slot counter before base HP is restored.
+        self.progression.extra_hitpoint_slots = 0;
         // ASM `lose_life` (kid.asm:14763): move.w #2,(Number_Hitpoints).w
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
         // ASM `lose_life` (kid.asm:14766): subq.w #1,(Number_Lives).w

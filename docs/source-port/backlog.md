@@ -236,7 +236,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 309 | [ ] | P2 | block | Umbrella: blocks-fidelity-audit.md — 27 gaps (#297/#298/#302 promoted separately) | Per-gap rows in doc |
 | 310 | [ ] | P2 | terrain | Umbrella: terrain-fidelity-audit.md — 18 gaps (#295 promoted separately) | Per-gap rows in doc |
 | 311 | [ ] | P2 | projectile | Umbrella: projectiles-fidelity-audit.md — 16 gaps incl. Juggernaut skull terrain probe and invented below-foot airborne hitbox (#296 promoted separately) | Per-gap rows in doc |
-| 312 | [ ] | P2 | level | Umbrella: level-flow-fidelity-audit.md — 16 gaps incl. death-respawn DP extra-HP slot leak and timer semantics (#299/#300 promoted separately) | Per-gap rows in doc |
+| 312 | [ ] | P2 | level | Umbrella: level-flow-fidelity-audit.md — remaining gaps incl. final-level routing, teleporter MapOrder translation, and timer semantics (#299/#300/#321 promoted separately) | Per-gap rows in doc |
 | 313 | [ ] | P2 | menu/shell | Umbrella: shell-fidelity-audit.md — remaining gaps (#292/#293/#303/#304 promoted separately) incl. `Allow_Pausing` gate and pause-render/game-over hold details | Per-gap rows in doc |
 | 314 | [ ] | P2 | score | Umbrella: scoring-economy-fidelity-audit.md — 9 gaps incl. Hundred-K-Trip timer armed but never decremented (warp can never fire) and one-time-prize anti-farming unwired (1-ups re-farmable) | Per-gap rows in doc |
 | 315 | [ ] | P2 | enemy | Umbrella: enemy-fidelity-audit.md — 25 of 67 still open plus 9 partial remainders (e.g. Big Hopping Skull patrol bounds, Ninja knockdown branch) after the staleness check | Staleness report lists each remainder with current file:line |
@@ -245,6 +245,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 318 | [ ] | P3 | player | Umbrella: movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
 | 319 | [ ] | P3 | audio | Umbrella: audio-triggers-fidelity-audit.md — 20 trigger gaps; loop already wired Ankh/evanescent/ice-block prize SFX (89280c99..9973af5c) | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
+| 321 | [?] | P1 | level | Fixed candidate: death respawn now clears `Extra_hitpoint_slots` on the ROM `Death`/`lose_life` path before restoring base The Kid HP | Die after earning extra HP slots; respawn/next helmet pickup must use base+0 slots, not stale DP slots |
 | 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p kidcli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
