@@ -9238,6 +9238,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #293
 
 - Filed 2026-06-11 from shell-fidelity-audit.md (high). Pause Restart-Round/Give-Up: `Game_Paused_Loop`/`Game_Paused_ChkStart` (kid.asm:6829-6878) cursor + life cost + helmet/HP reset + level restart, last-life `Game_Paused=3` -> `loc_6C0A` bummer/dying/game-over. Native helpers model every constant but are test-only; live pause is `self.paused` toggle (lib.rs:2192, boot.rs:6512-6545). Oracle repro: interactive-only (demo-skipped) — needs the #305 lane; minimum gate 1p-playable.
+- Fixed candidate 2026-06-11: live `NativeRuntime` now dispatches paused frames through the existing ASM-derived helpers. Up/Down fresh edges mirror `Game_Paused_Loop`; Start on Restart Round mirrors `Game_Paused_ChkStart` by spending one life, reloading the current level, clearing `Extra_hitpoint_slots` and current helmet, and restoring The Kid HP; last-life Give Up mirrors `loc_6C0A` by keeping `Number_Lives=1`, clearing pause, and entering native `DeathWindup`. Added runtime regressions for both branches plus the existing pure helper tests. Verification: `cargo test -q -p kid-core live_pause_menu_ -- --nocapture`, `cargo test -q -p kid-core pause_menu -- --nocapture`, `cargo test -q -p kidcli pause_resume -- --nocapture`; final slice gate pending in the implementation commit.
 
 ### #294
 

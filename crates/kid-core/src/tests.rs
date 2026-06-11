@@ -335,6 +335,87 @@ fn scenario_boot_to_level_uses_start_path_and_reaches_ingame() {
 }
 
 #[test]
+fn live_pause_menu_restart_round_spends_life_and_restarts_loc_6b46() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_to_level(LevelId(0));
+    runtime.progression.number_lives = 3;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.extra_hitpoint_slots = 2;
+    runtime.progression.number_hitpoints = 9;
+    runtime.paused = true;
+
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    runtime.step_frame(FrameInput::default());
+    let trace = runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+
+    assert_eq!(
+        trace.number_lives, 2,
+        "ASM Game_Paused_ChkStart loc_6B46 subtracts one Number_Lives before restarting"
+    );
+    assert_eq!(
+        trace.current_helmet_id,
+        PlayerForm::TheKid.helmet_id(),
+        "ASM loc_6B4E clears Current_Helmet on pause-menu restart"
+    );
+    assert_eq!(
+        trace.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints(),
+        "ASM loc_6B52 restores The Kid's base HP on pause-menu restart"
+    );
+    assert_eq!(
+        trace.extra_hitpoint_slots, 0,
+        "ASM loc_6B4A clears Extra_hitpoint_slots on pause-menu restart"
+    );
+    assert!(
+        !trace.paused,
+        "ASM loc_6C3E clears Game_Paused after restart"
+    );
+    assert_eq!(trace.game_mode, GameMode::InGame);
+}
+
+#[test]
+fn live_pause_menu_give_up_last_life_enters_death_windup_loc_6c0a() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_to_level(LevelId(0));
+    runtime.progression.number_lives = 1;
+    runtime.progression.number_hitpoints = 2;
+    runtime.paused = true;
+
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    runtime.step_frame(FrameInput::default());
+    let trace = runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+
+    assert_eq!(
+        trace.number_lives, 1,
+        "ASM loc_6C0A writes Number_Lives=1 on the last-life Give Up path"
+    );
+    assert_eq!(
+        trace.number_hitpoints, 0,
+        "ASM loc_6C0A puts Kid into the dying path after Give Up"
+    );
+    assert!(
+        matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::DeathWindup { .. }
+        ),
+        "ASM loc_6C0A sets Kid action #4/$30, modelled by native DeathWindup"
+    );
+    assert!(!trace.paused, "ASM loc_6C0A clears Game_Paused");
+}
+
+#[test]
 fn scenario_script_wrappers_return_the_requested_trace_length() {
     let physics_order_trace = run_script_with_physics_order(
         manifest(),

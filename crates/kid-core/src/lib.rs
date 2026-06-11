@@ -72,6 +72,7 @@ pub struct NativeRuntime {
     progression: PlayerProgression,
     helmet: HelmetState,
     paused: bool,
+    pause_menu_option: u8,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
     pending_level_skip_resume: bool,
@@ -1303,6 +1304,7 @@ impl NativeRuntime {
             progression: PlayerProgression::default(),
             helmet: HelmetState::default(),
             paused: false,
+            pause_menu_option: 0,
             pause_toggle_pending: false,
             pending_level_skip: None,
             pending_level_skip_resume: false,
@@ -1528,6 +1530,73 @@ impl NativeRuntime {
 
     pub fn set_probe_diamond_count(&mut self, count: u16) {
         self.progression.diamond_count = count;
+    }
+
+    fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
+        // ASM Game_Paused_Loop (kid.asm:6829-6857): Up/Down only move the
+        // two-entry cursor when they are fresh Ctrl_Pressed edges.
+        if input.up && !self.previous_input.up {
+            if let Some(cursor) =
+                boot::pause_loop_up_handler_game_paused_loop(true, self.pause_menu_option)
+            {
+                self.pause_menu_option = cursor.new_pause_option;
+            }
+        } else if input.down
+            && !self.previous_input.down
+            && let Some(cursor) =
+                boot::pause_loop_down_handler_loc_6B0E(true, self.pause_menu_option)
+        {
+            self.pause_menu_option = cursor.new_pause_option;
+        }
+
+        match boot::pause_loop_start_handler_chk_start(
+            start_pressed,
+            self.pause_menu_option,
+            self.progression.number_lives,
+        ) {
+            boot::PauseMenuStartResult::NotPressed => {}
+            boot::PauseMenuStartResult::ContinueGame => {
+                self.paused = false;
+                self.pause_menu_option = 0;
+                self.pause_toggle_pending = false;
+            }
+            boot::PauseMenuStartResult::RestartLevel { remaining_lives } => {
+                // ASM Game_Paused_ChkStart (kid.asm:6865-6876): after
+                // `subi.w #1,(Number_Lives).w`, the restart branch clears
+                // Extra_hitpoint_slots and Current_Helmet, restores Kid HP,
+                // sets the restart flag, then jumps through loc_6E2.
+                self.paused = false;
+                self.pause_menu_option = 0;
+                self.pause_toggle_pending = false;
+                self.boot_to_level(self.current_level);
+                self.progression.number_lives = remaining_lives;
+                self.progression.extra_hitpoint_slots = 0;
+                self.progression.current_form = PlayerForm::TheKid;
+                self.progression.pending_form = None;
+                self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+                self.progression.form_change_flash_frames = 0;
+                self.progression.form_width_delta = 0;
+                self.helmet.reset();
+            }
+            boot::PauseMenuStartResult::LastLifeGameOver => {
+                if let boot::PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver {
+                    number_lives, ..
+                } = boot::pause_menu_unpause_exit_loc_6C0A(3)
+                {
+                    // ASM loc_6C0A (kid.asm:6964-6973): last-life Give Up
+                    // plays the bummer voice, sets Kid's dying action fields,
+                    // writes Number_Lives=1, and clears Game_Paused.
+                    self.progression.number_lives = number_lives;
+                    self.progression.number_hitpoints = 0;
+                    self.player_lifecycle = PlayerLifecycle::DeathWindup {
+                        remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
+                    };
+                    self.paused = false;
+                    self.pause_menu_option = 0;
+                    self.pause_toggle_pending = false;
+                }
+            }
+        }
     }
 
     #[allow(non_snake_case)]
@@ -1980,7 +2049,11 @@ impl NativeRuntime {
         let start_pressed = input.start && !self.previous_input.start;
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
-        self.handle_start_press(input, start_pressed);
+        if self.paused {
+            self.apply_pause_menu_frame_loc_6ae0(input, start_pressed);
+        } else {
+            self.handle_start_press(input, start_pressed);
+        }
         let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });

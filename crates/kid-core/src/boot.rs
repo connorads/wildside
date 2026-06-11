@@ -5814,6 +5814,7 @@ impl NativeRuntime {
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;
+        self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = true;
@@ -5935,6 +5936,7 @@ impl NativeRuntime {
         self.progression.diamond_power_frames = 0;
         self.progression.diamond_count = 0;
         self.paused = false;
+        self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.level_damage_taken = false;
@@ -5989,6 +5991,7 @@ impl NativeRuntime {
         self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
         self.paused = false;
+        self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
     }
 
@@ -6530,6 +6533,7 @@ impl NativeRuntime {
                     } else if self.paused {
                         // ASM loc_74B0 path: unpausing (Game_Paused already set)
                         self.paused = false;
+                        self.pause_menu_option = 0;
                         self.pause_toggle_pending = false;
                     } else {
                         // ASM loc_74B0: st (Game_Paused).w — pause the game
@@ -7524,6 +7528,7 @@ impl NativeRuntime {
         self.clocks_collected = 0;
         self.hundred_k_trip_timer = 0;
         self.paused = false;
+        self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
     }
 
@@ -7568,6 +7573,7 @@ impl NativeRuntime {
             self.just_received_damage = false;
             self.kid_is_invulnerable = false;
             self.paused = false;
+            self.pause_menu_option = 0;
             self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
