@@ -105,7 +105,16 @@ and stop — never commit churn.
   and trying left/right/no recovery ranked only `LevelTransition` candidates.
   The best right-target score was `(584,543)` healthy `dx=+15 dy=-26 @431`,
   worse than the existing `wait390`/`left400` near-misses; do not repeat this
-  two-pulse hybrid axis unchanged.
+  two-pulse hybrid axis unchanged. A later post-contact climb probe on
+  `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`
+  (`540..600 B`, with nearby `520..620` climb variants) improved native raw
+  proximity to `(584,543)` at `dx=-2 dy=-1 @569`, but it is not usable evidence:
+  closest healthy was only `dx=+1 dy=-20 @485`, and enemy-frontier oracle bisect
+  on derived cache scenario
+  `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-b540-600.json`
+  first diverges at frame 560 on HP (`native=0`, `oracle=1`) after native-only
+  DripsSurfaceCrawler damage. Do not repeat post-contact B-climb trimming as
+  metal-block proof without a route-shape change.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

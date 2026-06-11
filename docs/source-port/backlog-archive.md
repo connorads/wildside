@@ -311,6 +311,23 @@ hybrid of the clean Drips contact route with the older right-window geometry;
 next route work still needs a different approach shape or a fresh human route,
 not another replay of this axis.
 
+Follow-up 2026-06-11 for #260 after the ceiling Ice dispatch fix: a new
+post-contact climb axis on the clean drop-contact route was also rejected as
+metal-block proof. Batch probe on
+`.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json` with
+`540..600 B` improved the native right target `(584,543)` to a raw
+`dx=-2 dy=-1 @569`, but the closest healthy point was still only
+`dx=+1 dy=-20 @485`. The derived cache-local scenario
+`.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-b540-600.json`
+bisected with enemy-frontier oracle verification:
+`verify-tas --frame-start 520 --frame-end 600 --checkpoint-interval 1 --bisect
+--frontier-kind enemy` first diverges authoritatively at frame 560 on HP
+(`native=0`, `oracle=1`). `tas-diff` frames 550..562 shows the native frame-559
+damage comes from `DripsSurfaceCrawler@0x024c0000,0x02500000` while oracle still
+has no hitpoint loss and its right-side Drips/crawler slots are phase-different.
+Treat `540..600 B` and adjacent `520..620` post-contact climb variants as
+route-shape rejections, not Drips hitbox or metal-block evidence.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
