@@ -594,6 +594,18 @@ pub(crate) fn verify_audio_output(
     compare_audio_against_oracle(&comparison)
 }
 
+pub(crate) fn verify_native_audio_output_file(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    scenario_file: &Path,
+) -> Result<()> {
+    let comparison =
+        capture_native_audio_oracle_pair(repo_root, rom_path, manifest, scenario, scenario_file)?;
+    compare_audio_against_oracle(&comparison)
+}
+
 pub(crate) fn verify_frames(
     repo_root: &Path,
     rom_path: &Path,
@@ -649,6 +661,102 @@ pub(crate) fn capture_oracle_pair(
     };
     write_native_artifacts(&native_dir, &native)?;
     let oracle = run_jgenesis_capture(&env, rom_path, scenario, &oracle_dir)?;
+    fs::write(
+        oracle_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&oracle)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            oracle_dir.join("manifest.json").display()
+        )
+    })?;
+
+    Ok(OracleComparison {
+        run_dir,
+        native,
+        oracle,
+    })
+}
+
+pub(crate) fn capture_native_audio_oracle_pair(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    scenario_file: &Path,
+) -> Result<OracleComparison> {
+    let env = ensure_oracles(repo_root)?;
+    let run_dir = repo_root
+        .join(".cache/oracle-runs")
+        .join(format!("{}-native-audio", scenario.slug));
+    let native_dir = run_dir.join("native");
+    let oracle_dir = run_dir.join("oracle");
+    if native_dir.exists() {
+        fs::remove_dir_all(&native_dir)
+            .with_context(|| format!("failed to remove {}", native_dir.display()))?;
+    }
+    if oracle_dir.exists() {
+        fs::remove_dir_all(&oracle_dir)
+            .with_context(|| format!("failed to remove {}", oracle_dir.display()))?;
+    }
+    fs::create_dir_all(&native_dir)
+        .with_context(|| format!("failed to create {}", native_dir.display()))?;
+    fs::create_dir_all(&oracle_dir)
+        .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
+
+    let trace = run_native_dynamic_scenario(
+        manifest.clone(),
+        scenario,
+        NativeDynamicRunOptions::default(),
+    )?;
+    let artifacts = native_player::native_audio_artifacts_for_settled_trace(manifest, &trace);
+    let samples = artifacts
+        .audio_samples
+        .ok_or_else(|| anyhow!("native GEMS audio samples were unavailable"))?;
+    if artifacts.audio_channels != 2 {
+        bail!(
+            "native GEMS audio exported {} channels, expected stereo",
+            artifacts.audio_channels
+        );
+    }
+    if !artifacts.audio_events.is_empty() {
+        fs::write(
+            native_dir.join("audio-events.txt"),
+            artifacts.audio_events.join("\n") + "\n",
+        )
+        .with_context(|| {
+            format!(
+                "failed to write {}",
+                native_dir.join("audio-events.txt").display()
+            )
+        })?;
+    }
+    let native_analysis = analyse_audio_samples(&samples, AUDIO_SAMPLE_RATE);
+    let native = ScenarioCapture {
+        samples,
+        frames: Vec::new(),
+        states: Vec::new(),
+        audio_trace: AudioTrace {
+            scenario: scenario.slug.clone(),
+            sample_rate: AUDIO_SAMPLE_RATE,
+            frame_samples: AUDIO_FRAME_SAMPLES,
+            z80_reset_count: 0,
+            first_ym2612_write_frame: None,
+            first_ym2612_write_sample: None,
+            first_ym2612_key_on_frame: None,
+            first_ym2612_key_on_sample: None,
+            first_psg_write_frame: None,
+            first_psg_write_sample: None,
+            first_non_silent_sample: None,
+            first_significant_audio_sample: native_analysis.first_dynamic_frame,
+            peak_left: native_analysis.peak_left,
+            peak_right: native_analysis.peak_right,
+            frames: Vec::new(),
+        },
+    };
+    write_native_artifacts(&native_dir, &native)?;
+    let oracle = run_jgenesis_capture_dynamic(&env, rom_path, scenario_file, &oracle_dir, None)?;
     fs::write(
         oracle_dir.join("manifest.json"),
         serde_json::to_vec_pretty(&oracle)?,

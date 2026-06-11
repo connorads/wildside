@@ -1700,7 +1700,15 @@ pub(crate) fn native_audio_events_for_trace(
     manifest: &AssetManifest,
     trace_frames: &[NativeTraceFrame],
 ) -> Vec<String> {
-    let mut active_bgm_cue = None;
+    native_audio_events_for_trace_with_initial_bgm(manifest, trace_frames, None)
+}
+
+fn native_audio_events_for_trace_with_initial_bgm(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+    initial_active_bgm_cue: Option<NativeBgmCue>,
+) -> Vec<String> {
+    let mut active_bgm_cue = initial_active_bgm_cue;
     let mut events = Vec::new();
     let mut prev_trace: Option<&NativeTraceFrame> = None;
     for (frame_index, trace) in trace_frames.iter().enumerate() {
@@ -1731,7 +1739,33 @@ pub(crate) fn native_audio_artifacts_for_trace(
     manifest: &AssetManifest,
     trace_frames: &[NativeTraceFrame],
 ) -> RecordingBundleArtifacts {
-    let audio_events = native_audio_events_for_trace(manifest, trace_frames);
+    native_audio_artifacts_for_trace_with_initial_bgm(manifest, trace_frames, None)
+}
+
+pub(crate) fn native_audio_artifacts_for_settled_trace(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+) -> RecordingBundleArtifacts {
+    let initial_active_bgm_cue = trace_frames
+        .first()
+        .and_then(|trace| native_bgm_cue_for_trace(trace));
+    native_audio_artifacts_for_trace_with_initial_bgm(
+        manifest,
+        trace_frames,
+        initial_active_bgm_cue,
+    )
+}
+
+fn native_audio_artifacts_for_trace_with_initial_bgm(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+    initial_active_bgm_cue: Option<NativeBgmCue>,
+) -> RecordingBundleArtifacts {
+    let audio_events = native_audio_events_for_trace_with_initial_bgm(
+        manifest,
+        trace_frames,
+        initial_active_bgm_cue,
+    );
     let Some(mut gems) = try_load_gems_engine(manifest) else {
         return RecordingBundleArtifacts {
             audio_events,
@@ -1739,7 +1773,7 @@ pub(crate) fn native_audio_artifacts_for_trace(
         };
     };
 
-    let mut active_bgm_cue = None;
+    let mut active_bgm_cue = initial_active_bgm_cue;
     let mut pending_bgm_start: Option<u8> = None;
     let mut prev_trace: Option<&NativeTraceFrame> = None;
     let mut audio_samples = Vec::with_capacity(trace_frames.len() * AUDIO_SAMPLES_PER_FRAME * 2);
@@ -12676,6 +12710,45 @@ mod tests {
                 ),
             ],
             "scripted recording bundles should expose both BGM transitions and ASM/core queued SFX as live play-native audio events"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn settled_audio_events_do_not_restart_active_level_bgm() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut previous = sample_trace(GameMode::InGame);
+        previous.current_level = LevelId(0);
+        let mut gameplay = sample_trace(GameMode::InGame);
+        gameplay.current_level = LevelId(0);
+        gameplay.played_sound_effect_ids = vec![gems_sfx::RED_STEALTH_SWORD];
+
+        let cold_events =
+            native_audio_events_for_trace(&fixture.manifest, &[previous.clone(), gameplay.clone()]);
+        let settled_events = native_audio_events_for_trace_with_initial_bgm(
+            &fixture.manifest,
+            &[previous, gameplay],
+            Some(NativeBgmCue::Level(LevelId(0))),
+        );
+
+        assert_eq!(
+            cold_events.first().map(String::as_str),
+            Some(
+                "frame=0 mode=InGame level=00 active_before=None active_after=Some(Level(LevelId(0))) command=Start(7)"
+            ),
+            "cold play-native recordings should still queue ASM loc_12004 level music"
+        );
+        assert!(
+            settled_events
+                .iter()
+                .all(|event| !event.contains("command=Start(")),
+            "dynamic oracle probes begin after level-settle, so native comparison audio must not restart the level BGM at scenario frame 0"
+        );
+        assert!(
+            settled_events
+                .iter()
+                .any(|event| event.contains("command=PlaySound(35)")),
+            "settled dynamic probes must still preserve ASM sub_868E Red Stealth sword SFX events"
         );
         Ok(())
     }

@@ -471,6 +471,15 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
     },
+    VerifyNativeAudioOutputFile {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON to compare against the oracle.
+        #[arg(long)]
+        scenario: PathBuf,
+    },
     TraceAudio {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -1545,6 +1554,24 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             verify_audio_output(&repo_root, &rom_path, &rom_bytes, &manifest, scenario)?;
             println!("audio-output verification passed");
+        }
+        Commands::VerifyNativeAudioOutputFile { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!(
+                    "verify-native-audio-output-file currently supports only the known Kid Chameleon ROM dump"
+                );
+            }
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let dynamic = load_record_scenario_file(&scenario)?;
+            if let Some(level) = dynamic.warp_to_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            }
+            verify_native_audio_output_file(&repo_root, &rom_path, &manifest, &dynamic, &scenario)?;
+            println!("native audio-output verification passed: {}", dynamic.slug);
         }
         Commands::TraceAudio { rom, scenario } => {
             let repo_root = current_dir()?;
