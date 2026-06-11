@@ -296,6 +296,11 @@ pub struct DynamicScenario {
     /// specific gameplay window under investigation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_position: Option<DynamicStartPosition>,
+    /// Optional probe-only live Kid velocity applied after a settled level
+    /// warp/start-position patch. 16.16 fixed-point values mirror ASM
+    /// GfxObject x_vel/y_vel offsets `$26`/`$2A`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_velocity: Option<DynamicStartVelocity>,
     /// Optional probe-only camera position applied after a settled level warp.
     /// ASM `Camera_X_pos`/`Camera_Y_pos` live at `$FFFFF81C`/`$FFFFF820`
     /// (variables.asm); visual probes need these patched with Kid so the
@@ -337,6 +342,12 @@ pub struct DynamicStartPosition {
     pub y: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicStartVelocity {
+    pub x: i32,
+    pub y: i32,
+}
+
 #[allow(
     clippy::trivially_copy_pass_by_ref,
     reason = "serde skip_serializing_if requires a reference predicate"
@@ -370,6 +381,9 @@ pub(crate) fn run_native_dynamic_scenario(
     }
     if let Some(position) = scenario.start_position {
         runner = runner.probe_start_position(position.x, position.y);
+    }
+    if let Some(velocity) = scenario.start_velocity {
+        runner = runner.probe_start_velocity(velocity.x, velocity.y);
     }
     if let Some(position) = scenario.camera_position {
         runner = runner.probe_camera_position(position.x, position.y);
@@ -414,6 +428,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
@@ -504,6 +519,7 @@ fn walk_right_scenario_for(
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
@@ -596,6 +612,7 @@ fn level_00_slope_right_probe_scenario_for(
             },
         ],
         start_position: Some(DynamicStartPosition { x: 760, y: 231 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
         playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
@@ -701,6 +718,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
@@ -750,6 +768,7 @@ pub fn issue_216_prize_audio_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -805,6 +824,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
@@ -851,6 +871,7 @@ pub fn lava_weather_audit_scenario(level_id: u8) -> DynamicScenario {
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
@@ -918,6 +939,7 @@ fn diamond_power_activation_audit_scenario(
         frame_count: FRAME_COUNT,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: Some(playtest_form),
         initial_diamond_count: Some(initial_diamond_count),
@@ -1031,6 +1053,7 @@ pub fn highwater_shooter_barrier_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: Some(7),
         initial_diamond_count: None,
@@ -1077,6 +1100,7 @@ pub fn highwater_water_priority_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: Some(7),
         initial_diamond_count: None,
@@ -1125,6 +1149,7 @@ pub fn highwater_flag_transition_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 912, y: 144 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 752, y: 0 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1177,6 +1202,7 @@ pub fn highwater_flag_floor_contact_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 888, y: 144 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 728, y: 0 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1224,6 +1250,7 @@ pub fn highwater_pass2_juggernaut_flag_transition_audit_scenario() -> DynamicSce
             },
         ],
         start_position: Some(DynamicStartPosition { x: 1_552, y: 1_040 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 1_280, y: 896 }),
         playtest_form: Some(5),
         initial_diamond_count: None,
@@ -1266,6 +1293,7 @@ pub fn highwater_pass2_grow_shooter_touch_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 328, y: 143 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 176, y: 0 }),
         playtest_form: Some(5),
         initial_diamond_count: None,
@@ -1327,6 +1355,7 @@ pub fn issue_147_wall_side_jump_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: Some(3),
         initial_diamond_count: None,
@@ -1371,6 +1400,7 @@ fn issue_249_wall_no_jump_audit_scenario_for(
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form,
         initial_diamond_count: None,
@@ -1426,6 +1456,7 @@ pub fn issue_249_juggernaut_wall_jump_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: Some(5),
         initial_diamond_count: None,
@@ -1481,6 +1512,7 @@ fn issue_249_blw2_left_pit_wall_scenario_for(
         // shaft: the lower y=560 probe lands on the rubber/bridge area and
         // immediately diverges before reaching the wall-cling logic.
         start_position: Some(DynamicStartPosition { x: 352, y: 192 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 240, y: 80 }),
         playtest_form,
         initial_diamond_count: None,
@@ -1564,6 +1596,7 @@ pub fn issue_213_drips_metal_block_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 568, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 240, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1624,6 +1657,7 @@ pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1676,6 +1710,7 @@ pub fn issue_260_drips_cleaner_prefix_audit_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1734,6 +1769,7 @@ pub fn issue_260_drips_b_jump_climb_seed_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1817,6 +1853,7 @@ pub fn issue_260_drips_early_jump_close_probe_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -1864,6 +1901,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         frame_count: total_frames,
         checkpoints,
         start_position: None,
+        start_velocity: None,
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
@@ -2032,6 +2070,7 @@ impl Scenario {
                 })
                 .collect(),
             start_position: None,
+            start_velocity: None,
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
@@ -2205,6 +2244,7 @@ impl GameplayScenario {
                 .map(|(frame_index, label)| DynamicCheckpoint { label, frame_index })
                 .collect(),
             start_position: None,
+            start_velocity: None,
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
@@ -2228,6 +2268,7 @@ impl GameplayScenario {
                 })
                 .collect(),
             start_position: None,
+            start_velocity: None,
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
@@ -2311,6 +2352,7 @@ pub fn issue_260_drips_drop_contact_probe_scenario() -> DynamicScenario {
             },
         ],
         start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
@@ -2322,11 +2364,11 @@ pub fn issue_260_drips_drop_contact_probe_scenario() -> DynamicScenario {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayScenario, Scenario,
-        diamond_power_circle_audit_scenario, diamond_power_invulnerability_audit_scenario,
-        diamond_power_samurai_haze_audit_scenario, diamond_power_snake_audit_scenario,
-        diamond_power_wall_audit_scenario, enemy_spawn_audit_scenario,
-        idle_level_full_frame_scenario, idle_level_scenario,
+        DynamicCheckpoint, DynamicScenario, DynamicStartPosition, DynamicStartVelocity,
+        GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
+        diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
+        diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
+        enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
         issue_147_wall_side_jump_audit_scenario, issue_213_drips_delayed_b_drop_audit_scenario,
         issue_213_drips_metal_block_audit_scenario, issue_216_prize_audio_audit_scenario,
         issue_249_blw2_left_pit_wall_kid_no_jump_audit_scenario,
@@ -2816,6 +2858,7 @@ mod tests {
                 "checkpoints": [{"label": "flag_touch", "frame_index": 0}],
                 "warp_to_level": 0,
                 "start_position": {"x": 3152, "y": 176},
+                "start_velocity": {"x": 65536, "y": -262144},
                 "camera_position": {"x": 3008, "y": 64},
                 "playtest_form": 7,
                 "initial_diamond_count": 20,
@@ -2827,6 +2870,13 @@ mod tests {
         assert_eq!(
             scenario.start_position,
             Some(DynamicStartPosition { x: 3152, y: 176 })
+        );
+        assert_eq!(
+            scenario.start_velocity,
+            Some(DynamicStartVelocity {
+                x: 0x0001_0000,
+                y: -0x0004_0000
+            })
         );
         assert_eq!(
             scenario.camera_position,
@@ -2848,6 +2898,7 @@ mod tests {
                 frame_index: 0,
             }],
             start_position: None,
+            start_velocity: None,
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
@@ -2863,6 +2914,10 @@ mod tests {
         );
         assert!(
             !json.contains("camera_position"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+        assert!(
+            !json.contains("start_velocity"),
             "legacy scenarios should keep their compact JSON shape"
         );
         assert!(

@@ -1502,6 +1502,14 @@ impl NativeRuntime {
         }
     }
 
+    pub fn set_player_probe_velocity(&mut self, x_velocity: i32, y_velocity: i32) {
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.player.x_velocity = x_velocity;
+            slice.player.y_velocity = y_velocity;
+            slice.player.on_ground = false;
+        }
+    }
+
     pub fn set_camera_probe_position(&mut self, x_px: u16, y_px: u16) {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.camera.x_pos = u32::from(x_px) << 16;

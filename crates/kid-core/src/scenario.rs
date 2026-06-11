@@ -169,6 +169,7 @@ pub struct ScriptRunner {
     physics_order: Option<PhysicsOrder>,
     trace_physics: bool,
     probe_start_position: Option<(u16, u16)>,
+    probe_start_velocity: Option<(i32, i32)>,
     probe_camera_position: Option<(u16, u16)>,
     playtest_form: Option<PlayerForm>,
     initial_diamond_count: Option<u16>,
@@ -183,6 +184,7 @@ impl ScriptRunner {
             physics_order: None,
             trace_physics: false,
             probe_start_position: None,
+            probe_start_velocity: None,
             probe_camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
@@ -222,6 +224,12 @@ impl ScriptRunner {
     #[must_use]
     pub fn probe_start_position(mut self, x_px: u16, y_px: u16) -> Self {
         self.probe_start_position = Some((x_px, y_px));
+        self
+    }
+
+    #[must_use]
+    pub fn probe_start_velocity(mut self, x_velocity: i32, y_velocity: i32) -> Self {
+        self.probe_start_velocity = Some((x_velocity, y_velocity));
         self
     }
 
@@ -266,6 +274,9 @@ impl ScriptRunner {
         }
         if let Some((x_px, y_px)) = self.probe_start_position {
             runtime.set_player_probe_position(x_px, y_px);
+        }
+        if let Some((x_velocity, y_velocity)) = self.probe_start_velocity {
+            runtime.set_player_probe_velocity(x_velocity, y_velocity);
         }
         if let Some((x_px, y_px)) = self.probe_camera_position {
             runtime.set_camera_probe_position(x_px, y_px);

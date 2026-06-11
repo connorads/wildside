@@ -54,6 +54,8 @@ struct ScenarioFile {
     #[serde(default)]
     start_position: Option<ScenarioStartPosition>,
     #[serde(default)]
+    start_velocity: Option<ScenarioStartVelocity>,
+    #[serde(default)]
     camera_position: Option<ScenarioStartPosition>,
     #[serde(default)]
     playtest_form: Option<u16>,
@@ -69,6 +71,12 @@ struct ScenarioFile {
 struct ScenarioStartPosition {
     x: u16,
     y: u16,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+struct ScenarioStartVelocity {
+    x: i32,
+    y: i32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -89,6 +97,8 @@ struct ResolvedScenario {
     warp_to_level: Option<u8>,
     /// Optional probe-only live Kid position applied after the settled warp.
     start_position: Option<ScenarioStartPosition>,
+    /// Optional probe-only live Kid velocity applied after the settled warp.
+    start_velocity: Option<ScenarioStartVelocity>,
     /// Optional probe-only camera position applied after the settled warp.
     camera_position: Option<ScenarioStartPosition>,
     /// Optional probe-only helmet/form id applied after the settled warp.
@@ -603,6 +613,7 @@ fn resolve_scenario(
                 _owned_labels: Vec::new(),
                 warp_to_level: None,
                 start_position: None,
+                start_velocity: None,
                 camera_position: None,
                 playtest_form: None,
                 initial_diamond_count: None,
@@ -634,6 +645,7 @@ fn resolve_scenario(
                 _owned_labels: owned_labels,
                 warp_to_level: sf.warp_to_level,
                 start_position: sf.start_position,
+                start_velocity: sf.start_velocity,
                 camera_position: sf.camera_position,
                 playtest_form: sf.playtest_form,
                 initial_diamond_count: sf.initial_diamond_count,
@@ -673,6 +685,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     if let Some(position) = resolved.start_position {
         apply_probe_start_position(&mut emulator, position);
+    }
+    if let Some(velocity) = resolved.start_velocity {
+        apply_probe_start_velocity(&mut emulator, velocity);
     }
     if let Some(position) = resolved.camera_position {
         apply_probe_camera_position(&mut emulator, position);
@@ -2499,6 +2514,14 @@ fn apply_probe_start_position(emulator: &mut GenesisEmulator, position: Scenario
     write_emulator_wram_u32(emulator, KID_Y_POS_ADDR, u32::from(position.y) << 16);
     write_emulator_wram_u32(emulator, KID_X_VEL_ADDR, 0);
     write_emulator_wram_u32(emulator, KID_Y_VEL_ADDR, 0);
+}
+
+fn apply_probe_start_velocity(emulator: &mut GenesisEmulator, velocity: ScenarioStartVelocity) {
+    // ASM GfxObject velocity offsets x_vel=$26/y_vel=$2A are signed 16.16
+    // longwords. Probe scenarios may seed these after a direct position patch
+    // to exercise upward collision windows without inventing a natural route.
+    write_emulator_wram_u32(emulator, KID_X_VEL_ADDR, velocity.x as u32);
+    write_emulator_wram_u32(emulator, KID_Y_VEL_ADDR, velocity.y as u32);
 }
 
 fn apply_probe_camera_position(emulator: &mut GenesisEmulator, position: ScenarioStartPosition) {

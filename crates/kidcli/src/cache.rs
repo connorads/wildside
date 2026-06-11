@@ -156,6 +156,7 @@ mod tests {
             frame_count: 1,
             checkpoints: Vec::new(),
             start_position: None,
+            start_velocity: None,
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,

@@ -77,6 +77,7 @@ pub struct NativeScriptedRoute {
     pub script: Vec<u8>,
     pub delay_recording_input: bool,
     pub start_position: Option<DynamicStartPosition>,
+    pub start_velocity: Option<crate::scenarios::DynamicStartVelocity>,
     pub camera_position: Option<DynamicStartPosition>,
     pub playtest_form: Option<u16>,
     pub initial_diamond_count: Option<u16>,
@@ -88,6 +89,7 @@ impl From<DynamicScenario> for NativeScriptedRoute {
             script: scenario.script,
             delay_recording_input: scenario.settle_oracle_warp,
             start_position: scenario.start_position,
+            start_velocity: scenario.start_velocity,
             camera_position: scenario.camera_position,
             playtest_form: scenario.playtest_form,
             initial_diamond_count: scenario.initial_diamond_count,
@@ -965,6 +967,7 @@ fn save_native_recording_bundle(
     )?;
     if let Some(route) = &options.scripted_route {
         recording.manifest.scenario.start_position = route.start_position;
+        recording.manifest.scenario.start_velocity = route.start_velocity;
         recording.manifest.scenario.camera_position = route.camera_position;
         recording.manifest.scenario.playtest_form = route.playtest_form;
         recording.manifest.scenario.initial_diamond_count = route.initial_diamond_count;
@@ -1060,6 +1063,9 @@ fn apply_scripted_route_probe_state(
     };
     if let Some(position) = route.start_position {
         runtime.set_player_probe_position(position.x, position.y);
+    }
+    if let Some(velocity) = route.start_velocity {
+        runtime.set_player_probe_velocity(velocity.x, velocity.y);
     }
     if let Some(position) = route.camera_position {
         runtime.set_camera_probe_position(position.x, position.y);
@@ -8953,6 +8959,10 @@ mod tests {
             frame_count: 2,
             checkpoints: Vec::new(),
             start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+            start_velocity: Some(crate::scenarios::DynamicStartVelocity {
+                x: 0,
+                y: -0x0004_0000,
+            }),
             camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
             playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
             initial_diamond_count: Some(12),
@@ -8965,6 +8975,13 @@ mod tests {
         assert_eq!(
             route.start_position,
             Some(DynamicStartPosition { x: 230, y: 271 })
+        );
+        assert_eq!(
+            route.start_velocity,
+            Some(crate::scenarios::DynamicStartVelocity {
+                x: 0,
+                y: -0x0004_0000,
+            })
         );
         assert_eq!(
             route.camera_position,
@@ -9131,6 +9148,7 @@ mod tests {
                     script: vec![16, 0],
                     delay_recording_input: false,
                     start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+                    start_velocity: None,
                     camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
                     playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
                     initial_diamond_count: Some(12),

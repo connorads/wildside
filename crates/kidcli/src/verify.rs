@@ -603,6 +603,8 @@ pub(crate) fn verify_native_audio_output_file(
 ) -> Result<()> {
     let comparison =
         capture_native_audio_oracle_pair(repo_root, rom_path, manifest, scenario, scenario_file)?;
+    compare_states_against_oracle(&comparison)?;
+    compare_dynamic_audio_form_state(&comparison)?;
     compare_audio_against_oracle(&comparison)
 }
 
@@ -733,10 +735,11 @@ pub(crate) fn capture_native_audio_oracle_pair(
         })?;
     }
     let native_analysis = analyse_audio_samples(&samples, AUDIO_SAMPLE_RATE);
+    let native_states = native_checkpoint_states_for_dynamic_audio(scenario, &trace)?;
     let native = ScenarioCapture {
         samples,
         frames: Vec::new(),
-        states: Vec::new(),
+        states: native_states,
         audio_trace: AudioTrace {
             scenario: scenario.slug.clone(),
             sample_rate: AUDIO_SAMPLE_RATE,
@@ -775,6 +778,73 @@ pub(crate) fn capture_native_audio_oracle_pair(
         native,
         oracle,
     })
+}
+
+fn native_checkpoint_states_for_dynamic_audio(
+    scenario: &DynamicScenario,
+    trace: &[NativeTraceFrame],
+) -> Result<Vec<CapturedState>> {
+    scenario
+        .checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let snapshot = trace.get(checkpoint.frame_index).ok_or_else(|| {
+                anyhow!(
+                    "native trace missing checkpoint {}@{}",
+                    checkpoint.label,
+                    checkpoint.frame_index
+                )
+            })?;
+            Ok(CapturedState {
+                label: checkpoint.label.clone(),
+                frame_index: checkpoint.frame_index,
+                game_mode: snapshot.game_mode_value,
+                current_player: snapshot.current_player,
+                number_hitpoints: snapshot.number_hitpoints,
+                current_helmet_id: snapshot.current_helmet_id,
+                current_level_id: u16::from(snapshot.current_level.0),
+                player_1_level_id: u16::from(snapshot.player_1_level_id.0),
+                camera_x_pos: snapshot.camera_x_pos,
+                camera_y_pos: snapshot.camera_y_pos,
+                kid_x_pos: snapshot.kid_x_pos.unwrap_or(0),
+                kid_y_pos: snapshot.kid_y_pos.unwrap_or(0),
+                number_objects: snapshot.number_objects,
+                number_gfx_objects: snapshot.number_gfx_objects,
+                active_enemies: Vec::new(),
+            })
+        })
+        .collect()
+}
+
+fn compare_dynamic_audio_form_state(comparison: &OracleComparison) -> Result<()> {
+    for (native, oracle) in comparison
+        .native
+        .states
+        .iter()
+        .zip(&comparison.oracle.states)
+    {
+        if native.current_helmet_id != oracle.current_helmet_id {
+            bail!(
+                "state {}@{} diverged in helmet id (native {:04X}, oracle {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_helmet_id,
+                oracle.current_helmet_id,
+                comparison.run_dir.display()
+            );
+        }
+        if native.number_hitpoints != oracle.number_hitpoints {
+            bail!(
+                "state {}@{} diverged in hitpoints (native {}, oracle {}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_hitpoints,
+                oracle.number_hitpoints,
+                comparison.run_dir.display()
+            );
+        }
+    }
+    Ok(())
 }
 
 fn trim_oracle_audio_to_native_window(
