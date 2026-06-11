@@ -133,7 +133,19 @@ and stop — never commit churn.
   `380..440`, `400..460`) also failed: B-only variants remain the old clean
   `(456,543) dx=0 dy=-16 @540`, left/B+Left worsen vertical approach, and
   right/B+Right variants improve only invalid LevelTransition routes. Do not
-  repeat this middle-setup axis unchanged.
+  repeat this middle-setup axis unchanged. 2026-06-11 follow-up: three more
+  route-shape batches failed to improve the current near-misses. On
+  `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`, early
+  420..520 brake/coast/B+Left/B+Right overlays over the right-side route still
+  leave the best healthy `(584,543)` approach at `dx=+1 dy=-20`, and the best
+  left-target approach only `dx=-1 dy=-20`. On
+  `.cache/debug/issue260-tail-grid/l524_b530_540.json`, 430..520 B-pulses,
+  left/right shaping, and B+direction variants preserve or worsen the existing
+  `(456,543) dx=0 dy=-16 @540` clean seed. A final underside-target batch
+  scored `(456,527)` directly with 500..550 B/coast/left/right variants; every
+  healthy result was worse (`best dx=+2 dy=-32` to underside, `dx=+2 dy=-16` to
+  row-32). Do not repeat these 420..550 shaping axes without a different
+  bootstrap/route family.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
