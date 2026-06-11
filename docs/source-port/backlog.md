@@ -156,7 +156,10 @@ and stop — never commit churn.
   a later two-pulse variant (`205..245` and `270..300` Left+B) is also not the
   repro: frame 272 takes the jump edge, the following airborne frames keep
   negative held-left x velocity, and frames 260..310 pass gameplay CRC. Next
-  pass needs a direct human-equivalent lower left-wall/stair jump repro;
+  pass needs a direct human-equivalent lower left-wall/stair jump repro. A
+  2026-06-11 lower-left-wall scratch route (`lower-left-wall-b-current`) is
+  also not the repro: native keeps the held-left wall/jump path, while the
+  first oracle split is a Drips controller/object-count mismatch at frame 103;
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
