@@ -1797,6 +1797,38 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_B700 (kid.asm:14641-14658) subtracts one HP per accepted hit,
+    /// and sub_BDC0 must visibly change the Iron Knight HUD on the second hit:
+    /// 4 HP renders as two full pips, while 3 HP renders one full plus one
+    /// half pip at loc_BE34.
+    #[test]
+    fn loc_b700_iron_knight_second_hit_visibly_changes_sub_bdc0() {
+        let before = make_hud_hitpoint_layout_sub_BDC0(4, 5, false, 0, false);
+        let after = make_hud_hitpoint_layout_sub_BDC0(3, 5, false, 0, false);
+
+        let visible_before = before
+            .iter()
+            .filter(|sprite| sprite.visible)
+            .map(|sprite| (sprite.x_pos, sprite.tile))
+            .collect::<Vec<_>>();
+        let visible_after = after
+            .iter()
+            .filter(|sprite| sprite.visible)
+            .map(|sprite| (sprite.x_pos, sprite.tile))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            visible_before,
+            vec![(0x0090, 0x822D), (0x00A0, 0x822D)],
+            "ASM sub_BDC0: Iron Knight 4 HP still shows two full pips"
+        );
+        assert_eq!(
+            visible_after,
+            vec![(0x0090, 0x822D), (0x00A0, 0x822E)],
+            "ASM loc_BE34: Iron Knight 3 HP shows the second pip as half"
+        );
+    }
+
     /// ASM loc_BE08 (kid.asm:15405): y-position for all hitpoint sprites is $A4.
     /// Verified across multiple sprites: every entry has y_pos=0x00A4.
     #[test]
