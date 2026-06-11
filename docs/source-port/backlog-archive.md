@@ -205,6 +205,17 @@ reported first authoritative divergence at frame 470 on `number_hitpoints`
 (`native=2`, `oracle=1`). Do not retry this `160..320` reverse/jump family as
 metal-block proof without a materially different route/bootstrap.
 
+Follow-up 2026-06-11 for #282 asset precondition: after the pushed-build
+`play-native` warning said debug warp target `0x0D` was missing generated level
+layout/resource `0x37`, reran `mise run extract-assets`. The generated bundle now
+reports 126 levels, `inspect-level --level 0D` resolves The Crystal Crags 2 to
+resource level `0x37` with `foreground/37.bin`, `block/37.bin`, and
+`background/37.bin`, and `capture-frames --level 0D --frames 0,30,60 --output
+.cache/debug/issue282-level0d-after-extract` saved all three PNGs. This clears
+the local extraction precondition from the latest report; it does not by itself
+close #282, because the live `N`/`P` hotkey/name-card presentation still needs a
+fresh SDL validation run.
+
 Follow-up 2026-06-11 for #282: root cause was the native hotkey presentation,
 not core level-entry state. The previous focused test proved `N`/`P` entered
 `GameMode::LevelTransition`, but `play-native` always masked the transition
