@@ -6678,6 +6678,116 @@ mod chunk_06 {
         );
     }
 
+    fn skull_collision_grid(collision: terrain::CollisionKind) -> terrain::BlockGrid {
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let off = (usize::from(2u16) * usize::from(w) + usize::from(2u16)) * 2;
+        let collision_bits = match collision {
+            terrain::CollisionKind::HiddenBlock => 0x20,
+            terrain::CollisionKind::SlopeUp => 0x40,
+            terrain::CollisionKind::SlopeDown => 0x50,
+            terrain::CollisionKind::Solid => 0x60,
+            terrain::CollisionKind::Spikes => 0x70,
+            terrain::CollisionKind::Empty => 0x00,
+        };
+        data[off] = 0x80 | collision_bits;
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_8852 (kid.asm:9674) probes `sub_B55C` then branches only when
+    /// `d5 == $6000`. Hidden blocks, slopes and spikes must fall through to
+    /// loc_88E6 without snapping or consuming a bounce.
+    fn loc_8852_skull_wall_probe_ignores_non_6000_collision_classes() {
+        for collision in [
+            terrain::CollisionKind::HiddenBlock,
+            terrain::CollisionKind::SlopeUp,
+            terrain::CollisionKind::SlopeDown,
+            terrain::CollisionKind::Spikes,
+        ] {
+            let mut rt = NativeRuntime::new(manifest());
+            rt.projectiles.push(EnemyProjectile {
+                x_pos: 30 << 16,
+                y_pos: 40 << 16,
+                x_velocity: 0x4_0000,
+                y_velocity: 0,
+                lifetime: 10,
+                friendly: true,
+                gravity: JUGGERNAUT_SKULL_GRAVITY,
+                reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                ..Default::default()
+            });
+            rt.set_block_grid(skull_collision_grid(collision));
+
+            rt.step_projectiles();
+
+            let p = &rt.projectiles[0];
+            assert_eq!(
+                p.x_pos >> 16,
+                34,
+                "ASM loc_8852: {collision:?} is not `$6000`, so x keeps the raw move"
+            );
+            assert_eq!(
+                p.x_velocity, 0x4_0000,
+                "ASM loc_8852: {collision:?} must not reverse x velocity"
+            );
+            assert_eq!(
+                p.reaim_countdown,
+                u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                "ASM loc_8852: {collision:?} must not consume a bounce"
+            );
+        }
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_8916 (kid.asm:9755) uses the same `cmpi.w #$6000,d5` gate for
+    /// the downward floor probe. Non-solid collision classes keep the raw
+    /// y-motion and do not enter loc_897C's 3/4 rebound.
+    fn loc_8916_skull_floor_probe_ignores_non_6000_collision_classes() {
+        for collision in [
+            terrain::CollisionKind::HiddenBlock,
+            terrain::CollisionKind::SlopeUp,
+            terrain::CollisionKind::SlopeDown,
+            terrain::CollisionKind::Spikes,
+        ] {
+            let mut rt = NativeRuntime::new(manifest());
+            rt.projectiles.push(EnemyProjectile {
+                x_pos: 40 << 16,
+                y_pos: 30 << 16,
+                x_velocity: 0,
+                y_velocity: 0x4_0000,
+                lifetime: 10,
+                friendly: true,
+                gravity: JUGGERNAUT_SKULL_GRAVITY,
+                reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                ..Default::default()
+            });
+            rt.set_block_grid(skull_collision_grid(collision));
+
+            rt.step_projectiles();
+
+            let p = &rt.projectiles[0];
+            assert_eq!(
+                p.y_pos,
+                (30 << 16) + 0x4_0000 + JUGGERNAUT_SKULL_GRAVITY as u32,
+                "ASM loc_8916: {collision:?} is not `$6000`, so y keeps the raw move"
+            );
+            assert_eq!(
+                p.y_velocity,
+                0x4_0000 + JUGGERNAUT_SKULL_GRAVITY,
+                "ASM loc_8916: {collision:?} must not rebound y velocity"
+            );
+            assert_eq!(
+                p.reaim_countdown,
+                u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                "ASM loc_8916: {collision:?} must not consume a bounce"
+            );
+        }
+    }
+
     #[test]
     #[allow(non_snake_case)]
     /// ASM Lion.asm sub_3E2CE / loc_3E1B4 (release path on owner-token match):

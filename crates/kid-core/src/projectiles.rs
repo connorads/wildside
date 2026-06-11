@@ -1695,11 +1695,15 @@ impl NativeRuntime {
             && !projectile.terrain_kill
     }
 
-    fn solid_terrain_at(grid: &terrain::BlockGrid, x_px: i32, y_px: i32) -> bool {
-        let col = terrain::pixel_to_cell(x_px).max(0) as u16;
-        let row = terrain::pixel_to_cell(y_px).max(0) as u16;
-        let cell = grid.cell_at(col, row);
-        cell.has_block && cell.collision != terrain::CollisionKind::Empty
+    fn juggernaut_skull_solid_probe_loc_b55c(
+        grid: &terrain::BlockGrid,
+        x_px: i32,
+        y_px: i32,
+    ) -> bool {
+        // ASM sub_B55C callers in sub_87B0 compare `(tileword & $7000)` with
+        // `$6000`; slopes, spikes and hidden blocks are not skull walls.
+        terrain::probe_relative_collision_sub_B55C(grid, x_px, y_px, 0, 0)
+            == terrain::CollisionKind::Solid
     }
 
     #[allow(non_snake_case)]
@@ -2012,7 +2016,7 @@ impl NativeRuntime {
         // `(x & $FFF0) + $10` (tile right edge). Both paths fall through to
         // loc_88B6 bounce logic: `subq.w #1,d0` (bounce counter), x_vel decay
         // by ±1, `neg.w d7; not.b x_direction` reverses direction.
-        if Self::solid_terrain_at(grid, next_x_px, current_y_px) {
+        if Self::juggernaut_skull_solid_probe_loc_b55c(grid, next_x_px, current_y_px) {
             let snapped_x_px = if x_velocity >= 0 {
                 (next_x_px & !0xF) - 1
             } else {
@@ -2057,7 +2061,7 @@ impl NativeRuntime {
         // y-bounce: `neg.l d7; asr.l #1,d7` + `asr.l #1,d6; add.l d6,d7` = ¾ rebound.
         // ASM loc_8958 (kid.asm:9782): upward ceiling collision mirror —
         // snaps to `(y & $FFF0) + $10`, same ¾ rebound via loc_897C.
-        if Self::solid_terrain_at(grid, current_x_px, next_y_px) {
+        if Self::juggernaut_skull_solid_probe_loc_b55c(grid, current_x_px, next_y_px) {
             let snapped_y_px = if y_velocity >= 0 {
                 (next_y_px & !0xF) - 1
             } else {
