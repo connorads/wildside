@@ -7405,6 +7405,34 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn ledge_snap_cooldown_start_queues_pullup_sfx_loc_abf0() {
+        let mut rt = NativeRuntime::new(manifest());
+
+        rt.queue_kid_pullup_sound_if_started_loc_abf0(0, LEDGE_SNAP_PULLUP_FRAMES);
+
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::KidPullup],
+            "ASM kid_flip loc_ABF0 (kid.asm:13464) plays sfx_The_Kid_pullup=$64 immediately after Init_Animation(stru_8BB4)"
+        );
+    }
+
+    #[test]
+    fn ledge_snap_cooldown_continue_does_not_repeat_pullup_sfx_loc_abf0() {
+        let mut rt = NativeRuntime::new(manifest());
+
+        rt.queue_kid_pullup_sound_if_started_loc_abf0(
+            LEDGE_SNAP_PULLUP_FRAMES,
+            LEDGE_SNAP_PULLUP_FRAMES - 1,
+        );
+
+        assert!(
+            rt.played_sound_effects.is_empty(),
+            "ASM loc_ABF0 plays the pull-up cue only when the stru_8BB4 animation starts, not on hibernated cooldown frames"
+        );
+    }
+
     // --- Process block effects ---
 
     #[test]

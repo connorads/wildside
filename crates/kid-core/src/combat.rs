@@ -64,6 +64,7 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterAppears,
     TarMonsterShoots,
     VoiceNoTime,
+    KidPullup,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -133,6 +134,9 @@ impl QueuedSoundEffect {
             // ASM Decrease_Time_Left no-time path (kid.asm:15500): plays
             // `sfx_Voice_no_time = $51` before collision_type=4 death dispatch.
             Self::VoiceNoTime => 0x51,
+            // ASM kid_flip loc_ABF0 (kid.asm:13464): The Kid ledge pull-up
+            // plays `sfx_The_Kid_pullup = $64` after Init_Animation(stru_8BB4).
+            Self::KidPullup => 0x64,
             // constants.asm: sfx_Thunderstorm = $77.
             Self::Thunderstorm => 0x77,
             // constants.asm: sfx_Navigate_jingle = $2D.

@@ -2632,6 +2632,15 @@ impl NativeRuntime {
         }
     }
 
+    fn queue_kid_pullup_sound_if_started_loc_abf0(&mut self, previous_cooldown: u8, cooldown: u8) {
+        if previous_cooldown == 0 && cooldown == LEDGE_SNAP_PULLUP_FRAMES {
+            // ASM kid_flip loc_ABF0 (kid.asm:13458-13467) initialises
+            // `stru_8BB4`, then plays sfx_The_Kid_pullup before hibernating
+            // until the pull-up animation finishes.
+            self.played_sound_effects.push(QueuedSoundEffect::KidPullup);
+        }
+    }
+
     fn update_demo_transform_parity(&mut self) {
         let transform_active = self.progression.form_change_flash_frames > 0;
         if let BootState::DemoPlay {
@@ -3261,6 +3270,7 @@ impl NativeRuntime {
                 self.queue_jump_sound_from_probe_loc_A480();
             } else {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+                let ledge_snap_cooldown_before = slice.player.ledge_snap_cooldown;
                 // ASM sub_902A lands only after the contact row is reached. The
                 // legacy touch-snap shortcut is useful for non-AsmFaithful
                 // orders, but AsmFaithful must preserve the remaining
@@ -3290,6 +3300,10 @@ impl NativeRuntime {
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
                 self.queue_jump_sound_from_probe_loc_A480();
+                self.queue_kid_pullup_sound_if_started_loc_abf0(
+                    ledge_snap_cooldown_before,
+                    slice.player.ledge_snap_cooldown,
+                );
             }
             self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.

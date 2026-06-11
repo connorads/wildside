@@ -1741,6 +1741,7 @@ mod gems_sfx {
     pub const VOICE_DIE: u8 = 0x60;
     pub const VOICE_OUCH: u8 = 0x61;
     pub const VOICE_DIAMOND: u8 = 0x62;
+    pub const KID_PULLUP: u8 = 0x64;
     pub const VOICE_OUCH_1: u8 = 0x6B;
     pub const VOICE_OUCH_2: u8 = 0x6C;
     pub const VOICE_OUCH_3: u8 = 0x6D;
@@ -14054,6 +14055,19 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::VOICE_NO_TIME, gems_sfx::VOICE_DIE],
             "ASM Decrease_Time_Left (kid.asm:15500) plays sfx_Voice_no_time=$51 before Character_CheckCollision death voice $60"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_kid_pullup_from_core_trace_loc_abf0() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::KID_PULLUP];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::KID_PULLUP],
+            "ASM kid_flip loc_ABF0 (kid.asm:13464) queues sfx_The_Kid_pullup=$64 from the core trace"
         );
     }
 
