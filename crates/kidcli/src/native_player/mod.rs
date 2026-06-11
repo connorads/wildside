@@ -952,10 +952,12 @@ fn should_step_runtime_during_level_card_hold(
     debug_level_card_fallback_frames_remaining: usize,
 ) -> bool {
     // ASM Load_TitleCard loc_1AB26/loc_1AC70 owns the ROM title-card animation.
-    // The native fallback card is static, but a generated VDP title-card hold
-    // must still advance the core with neutral input so the title workers fly
-    // in instead of freezing the first, often blank, transition frame.
-    level_card_frames_remaining > 0 && debug_level_card_fallback_frames_remaining == 0
+    // When N/P overlays the deterministic debug name card, generated VDP
+    // title-card targets still advance underneath with neutral input so the
+    // core remains on the ROM loc_6E2 path instead of freezing the first,
+    // often blank, transition frame.
+    let _ = debug_level_card_fallback_frames_remaining;
+    level_card_frames_remaining > 0
 }
 
 #[cfg(test)]
@@ -1012,11 +1014,7 @@ fn debug_hotkey_level_presentation(
         } else {
             0
         },
-        debug_level_card_fallback_frames_remaining: if has_renderable_title_card {
-            0
-        } else {
-            hold_frames
-        },
+        debug_level_card_fallback_frames_remaining: hold_frames,
         fade_alpha: 0,
         fading_in: false,
         suppress_level_card_for_debug_warp: false,
@@ -9613,8 +9611,8 @@ mod tests {
         );
         assert_eq!(
             debug_hotkey_level_presentation(true).debug_level_card_fallback_frames_remaining,
-            0,
-            "renderable Load_TitleCard targets should not be masked by the debug fallback"
+            LEVEL_CARD_HOLD_FRAMES,
+            "renderable Load_TitleCard targets still get the explicit debug name overlay so SDL hotkeys cannot look like an instant gameplay skip"
         );
         assert_eq!(
             debug_hotkey_level_presentation(false).debug_level_card_fallback_frames_remaining,
@@ -9685,7 +9683,7 @@ mod tests {
         assert_eq!(trace.current_level_name.as_deref(), Some("Hotkey Target"));
         assert_eq!(
             presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
-            "fixture metadata has generated title-card script bytes but no renderable VDP art, so the hotkey must fall back instead of rendering stale gameplay"
+            "the hotkey must render the explicit debug name card before gameplay"
         );
         assert_eq!(presentation.level_card_frames_remaining, 0);
         assert!(presentation.wait_for_live_input_release);
@@ -9729,7 +9727,10 @@ mod tests {
             presentation.level_card_frames_remaining,
             LEVEL_CARD_HOLD_FRAMES
         );
-        assert_eq!(presentation.debug_level_card_fallback_frames_remaining, 0);
+        assert_eq!(
+            presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
+            "even generated title-card targets render the explicit debug name overlay for N/P hotkeys"
+        );
         assert!(runtime.vdp_state().is_some());
         assert!(
             !trace.active_objects.iter().any(|object| {
@@ -9743,6 +9744,17 @@ mod tests {
             presentation.level_card_frames_remaining,
             presentation.debug_level_card_fallback_frames_remaining
         ));
+        let render_trace = {
+            let mut overlay = trace.clone();
+            overlay.game_mode = GameMode::LevelTransition;
+            overlay.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            overlay
+        };
+        let scene = build_debug_level_card_fallback_scene(&render_trace);
+        assert!(
+            contains_text(&scene, trace.current_level_name.as_deref().unwrap_or("")),
+            "the first visible hotkey frame should name the target level instead of relying on a possibly blank ROM title-card frame"
+        );
         let mut title_workers_visible = false;
         for _ in 0..LEVEL_CARD_HOLD_FRAMES {
             let advanced = runtime.step_frame(FrameInput::default());
