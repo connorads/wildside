@@ -503,7 +503,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 250 | [x] | P1 | block | 2026-06-04 playtest: growing/evanescent… | archived |
 | 251 | [x] | P1 | level | 2026-06-04 playtest: skull-theme levels… | archived |
 | 252 | [?] | P2 | enemy | 2026-06-04 playtest: Level-2 tank renders doubled / "half in the floor" and its death is invisible | Reconfirms #145 (RockTank turret vertical offset) and adds: the tank looks like… |
-| 253 | [ ] | P3 | gameflow | Highwater Pass 2 (level 03): native score runs +40 ahead of the oracle (real… | Found while oracle-investigating #250: `verify-tas --scenario… |
+| 253 | [-] | P3 | gameflow | Highwater Pass 2 flag-transition score/object-count gap is collapsed EOL worker modelling, not a current gameplay bug | Archive #253: Kid/game mode/level-complete match at onset; extra oracle objects are EOL/flag workers and only bonus timing differs. Reopen only if final EOL bonus total is wrong or a non-flag mid-level route reproduces it. |
 | 254 | [?] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 255 | [x] | P1 | menu/input | 2026-06-07 playtest: level select accepts… | archived |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. Symptom: Rhino/Berzerker on the third level… |
