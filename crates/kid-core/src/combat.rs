@@ -66,6 +66,7 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterShoots,
     VoiceNoTime,
     KidPullup,
+    BossDies,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -141,6 +142,9 @@ impl QueuedSoundEffect {
             // ASM kid_flip loc_ABF0 (kid.asm:13464): The Kid ledge pull-up
             // plays `sfx_The_Kid_pullup = $64` after Init_Animation(stru_8BB4).
             Self::KidPullup => 0x64,
+            // ASM boss-head death loc_39EE2 (kid.asm:43034) plays
+            // `sfx_Boss_dies = $57` before the loc_39F7A spin loop.
+            Self::BossDies => 0x57,
             // constants.asm: sfx_Thunderstorm = $77.
             Self::Thunderstorm => 0x77,
             // constants.asm: sfx_Navigate_jingle = $2D.
@@ -8061,6 +8065,16 @@ impl NativeRuntime {
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.wait_timer = death_animation_frames;
+            if matches!(
+                family,
+                EnemyFamily::Shishkaboss
+                    | EnemyFamily::BoomerangBosses
+                    | EnemyFamily::BagelBrothers
+            ) {
+                // ASM loc_39EE2: boss-head death sequence plays
+                // `sfx_Boss_dies` before entering the loc_39F7A spin loop.
+                self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+            }
             self.rebuild_active_enemy_roster();
             return;
         }

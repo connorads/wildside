@@ -10167,6 +10167,16 @@ mod chunk_03 {
                 runtime.active_enemy_roster[0].wait_timer,
                 Some(BOSS_HEAD_DEATH_ANIMATION_FRAMES)
             );
+            assert_eq!(
+                runtime.played_sound_effects,
+                vec![QueuedSoundEffect::BossDies],
+                "ASM loc_39EE2 plays `sfx_Boss_dies` during the boss-head death sequence"
+            );
+            assert_eq!(
+                QueuedSoundEffect::BossDies.sound_id(),
+                0x57,
+                "constants.asm defines `sfx_Boss_dies = $57`"
+            );
 
             runtime.active_enemies[0].wait_timer = 0;
             runtime.remove_dead_enemy(0);
