@@ -163,7 +163,14 @@ and stop — never commit churn.
   scored `(456,527)` directly with 500..550 B/coast/left/right variants; every
   healthy result was worse (`best dx=+2 dy=-32` to underside, `dx=+2 dy=-16` to
   row-32). Do not repeat these 420..550 shaping axes without a different
-  bootstrap/route family.
+  bootstrap/route family. 2026-06-11 follow-up after #253 queue correction:
+  a cleared 220..460 / 240..420 / 260..430 mid-route replacement batch
+  (`pre240_clear_*`, `pre260_*`, `pre300_*`, `pre220_*`) also failed to improve
+  the current seed. Every candidate either entered `LevelTransition` or stayed
+  below the targets; best healthy right-target result was still `dy=-33..-48`,
+  and best left-target result was worse than the existing clean `dy=-16` class.
+  Do not retry this broad 220..460 mid-route replacement axis unless the
+  bootstrap/route family changes.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
