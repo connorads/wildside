@@ -25601,6 +25601,35 @@ mod chunk_12 {
         );
     }
 
+    /// ASM Use_Continue (kid.asm:16563-16574): the continue reset clears
+    /// `Extra_hitpoint_slots` before reseeding `Number_Hitpoints=2`.
+    #[test]
+    fn use_continue_clears_extra_hitpoint_slots_loc_d3c4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 1;
+        runtime.progression.extra_hitpoint_slots = 2;
+        runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints() + 2;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
+        };
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 0,
+            "ASM Use_Continue should clear earned extra HP slots instead of carrying them into the restarted level"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+            "ASM Use_Continue should reseed HP from the base TheKid cap after clearing slots"
+        );
+    }
+
     /// ASM loc_D350 / loc_D3AA both use `tst.b (Ctrl_Held).w; bmi.s
     /// Use_Continue`, so only Start (bit 7) can make Ctrl_Held negative.
     /// A/B/C must leave the continue countdown running.

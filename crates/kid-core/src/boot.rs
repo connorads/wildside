@@ -7783,13 +7783,15 @@ impl NativeRuntime {
                 // before decrementing the timer.
                 if input.start {
                     // Use a continue: restore lives and respawn at current level.
-                    // ASM Use_Continue: clears helmet, diamonds, resets to 3 lives / 2 HP.
+                    // ASM Use_Continue (kid.asm:16563): clears helmet,
+                    // diamonds, extra HP slots, and resets to 3 lives / 2 HP.
                     self.progression.number_continues -= 1;
                     self.progression.number_lives = 3;
                     self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
                     self.progression.current_form = PlayerForm::TheKid;
                     self.progression.pending_form = None;
                     self.progression.diamond_count = 0;
+                    self.progression.extra_hitpoint_slots = 0;
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
