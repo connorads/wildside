@@ -8520,8 +8520,7 @@ mod chunk_04 {
     #[test]
     fn multi_head_boss_spawns_three_heads() {
         use enemies::{
-            BOSS_HEAD_NONE, SHISHKABOSS_HEAD_HP, SHISHKABOSS_HEAD_Y_OFFSETS, activate_enemies,
-            is_multi_head_boss,
+            BOSS_HEAD_NONE, SHISHKABOSS_HEAD_Y_OFFSETS, activate_enemies, is_multi_head_boss,
         };
         // Verify multi-head detection
         assert!(is_multi_head_boss(EnemyFamily::Shishkaboss));
@@ -8572,9 +8571,15 @@ mod chunk_04 {
         assert_eq!(active[0].boss_head_index, 0);
         assert_eq!(active[1].boss_head_index, 1);
         assert_eq!(active[2].boss_head_index, 2);
-        assert_eq!(active[0].hit_points, SHISHKABOSS_HEAD_HP[0]);
-        assert_eq!(active[1].hit_points, SHISHKABOSS_HEAD_HP[1]);
-        assert_eq!(active[2].hit_points, SHISHKABOSS_HEAD_HP[2]);
+        assert_eq!(
+            [
+                active[0].hit_points,
+                active[1].hit_points,
+                active[2].hit_points
+            ],
+            [20, 20, 20],
+            "ASM loc_394E2/loc_39608/loc_3972E writes ShishkaBoss_HitPointsPerHead `$14` to every head"
+        );
         // Y offsets applied
         let base_y = 100u32 << 16;
         assert_eq!(active[0].y_pos, base_y);

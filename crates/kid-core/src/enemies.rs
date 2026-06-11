@@ -3474,8 +3474,8 @@ pub(crate) const BOSS_HEAD_NONE: u8 = 0xFF;
 /// Shishkaboss head Y offsets (X is same for all 3).
 pub(crate) const SHISHKABOSS_HEAD_Y_OFFSETS: [i16; 3] = [0, 0x48, 0x90]; // 0, +72, +144
 pub(crate) const SHISHKABOSS_HEAD_X_OFFSETS: [i16; 3] = [0, 0, 0];
-/// Shishkaboss per-head HP: head1=$14(20), head2=$1E(30), head3=$1E(30).
-pub(crate) const SHISHKABOSS_HEAD_HP: [u8; 3] = [20, 30, 30];
+/// Shishkaboss per-head HP: loc_394E2/loc_39608/loc_3972E overwrite all heads with $14.
+pub(crate) const SHISHKABOSS_HEAD_HP: [u8; 3] = [20, 20, 20];
 
 /// BoomerangBosses head X offsets (Y is same for all 3).
 pub(crate) const BOOMERANG_HEAD_X_OFFSETS: [i16; 3] = [0, -0xC8, -0x1C2]; // 0, -200, -450
@@ -27416,8 +27416,8 @@ mod tests {
     fn boss_head_config_matches_multi_head_init_asm() {
         assert_eq!(
             boss_head_config(EnemyFamily::Shishkaboss),
-            ([20, 30, 30], [0, 0, 0], [0, 0x48, 0x90],),
-            "ASM kid.asm Enemy22_Shiskaboss_Init spawns heads at y offsets 0/$48/$90; ShishkaBoss_HitPointsPerHead is `$14` for the first head and later heads use `$1E`",
+            ([20, 20, 20], [0, 0, 0], [0, 0x48, 0x90],),
+            "ASM kid.asm loc_394E2/loc_39608/loc_3972E stores ShishkaBoss_HitPointsPerHead `$14` for all three heads; the `$1E` preload on heads 2/3 is overwritten",
         );
         assert_eq!(
             boss_head_config(EnemyFamily::BoomerangBosses),
