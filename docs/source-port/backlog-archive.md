@@ -9258,6 +9258,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #297
 
 - Filed 2026-06-11 from blocks-fidelity-audit.md (2 highs folded: shared-dispatch + Red Stealth). `off_BB80` index 2 (Ice) -> `j_IceBlock_SmashAndLoadBullets` has no native arm in the live ceiling-headbutt match (movement.rs:6343); type-2 cells fall through to a no-op. Red Stealth `off_B058[2]` smash clears the cell but skips `IceBlock_LoadBullets`. Native ice helpers exist and are wired only via Driller/shooter/Iron-Knight paths.
+- Closed 2026-06-11 as already fixed. `899de537 Wire ceiling ice block dispatch` added the live `BlockType::Ice` arm for `sub_BB54/off_BB80[2]`, queuing `ice_block_hit` with the ROM d6 selector, deleting the ceiling cell, playing `sfx_Prize_block`, spawning the `sub_10F9C` effect, and loading the three ice bullets. The current Red Stealth floor-impact path also routes `off_B058[2]` through `IceBlock_SmashAndLoadBullets` semantics before the rebound tail. Verification rerun while closing the stale row: `cargo test -q -p kid-core ceiling_ice -- --nocapture` and `cargo test -q -p kid-core red_stealth_ice -- --nocapture`.
 
 ### #298
 
