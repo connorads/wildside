@@ -63,6 +63,7 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterDisappears,
     TarMonsterAppears,
     TarMonsterShoots,
+    VoiceNoTime,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -129,6 +130,9 @@ impl QueuedSoundEffect {
             Self::TarMonsterDisappears => 0x53,
             Self::TarMonsterAppears => 0x54,
             Self::TarMonsterShoots => 0x5E,
+            // ASM Decrease_Time_Left no-time path (kid.asm:15500): plays
+            // `sfx_Voice_no_time = $51` before collision_type=4 death dispatch.
+            Self::VoiceNoTime => 0x51,
             // constants.asm: sfx_Thunderstorm = $77.
             Self::Thunderstorm => 0x77,
             // constants.asm: sfx_Navigate_jingle = $2D.
@@ -10953,6 +10957,11 @@ impl NativeRuntime {
         if self.level_timer.tick() {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;
+            // ASM Decrease_Time_Left no-time path (kid.asm:15498-15502):
+            // set collision_type=4 and play sfx_Voice_no_time before the
+            // later Character_CheckCollision death voice.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::VoiceNoTime);
             self.begin_death_windup();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelTimerDeath;
             return true;

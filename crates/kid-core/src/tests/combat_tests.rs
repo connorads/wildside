@@ -14403,6 +14403,11 @@ mod chunk_05 {
             "timer expiry should trigger death, got {:?}",
             runtime.player_lifecycle
         );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceNoTime],
+            "ASM Decrease_Time_Left no-time path (kid.asm:15500) queues sfx_Voice_no_time=$51 before death dispatch"
+        );
     }
 
     #[test]

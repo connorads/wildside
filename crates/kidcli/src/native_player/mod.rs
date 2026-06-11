@@ -14044,6 +14044,20 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_no_time_before_death_voice() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_NO_TIME];
+        curr.number_lives = prev.number_lives - 1;
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::VOICE_NO_TIME, gems_sfx::VOICE_DIE],
+            "ASM Decrease_Time_Left (kid.asm:15500) plays sfx_Voice_no_time=$51 before Character_CheckCollision death voice $60"
+        );
+    }
+
+    #[test]
     fn play_native_delays_eol_score_counter_sfx_until_loc_d770() {
         let mut prev = sample_trace(GameMode::InGame);
         let mut scoreboard_setup = sample_trace(GameMode::InGame);
