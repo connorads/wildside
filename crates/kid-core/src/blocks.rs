@@ -3534,6 +3534,10 @@ impl NativeRuntime {
 
         if let Some((cell_x, cell_y, direction)) = slice.ice_block_hit {
             self.blocks_hit_this_frame += 1;
+            // ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays
+            // `sfx_Prize_block` before IceBlock_LoadBullets and sub_10F9C.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::PrizeBlock);
             let target_open = self.block_grid.as_ref().is_some_and(|grid| {
                 Self::ice_block_bullet_target_cell_sub_11006(
                     cell_x,

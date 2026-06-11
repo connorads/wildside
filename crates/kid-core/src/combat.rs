@@ -48,6 +48,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceOuch3,
     RubberBlock,
     MetalBlock,
+    PrizeBlock,
     EvanescentBlock,
     ShiftingBlock,
     RedStealthSwordSwinging,
@@ -88,6 +89,9 @@ impl QueuedSoundEffect {
             // generic `sfx_Block_hit` headbutt heuristic, i.e. the brick-break
             // crunch).
             Self::MetalBlock => 0x12,
+            // ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays
+            // `sfx_Prize_block = $11` before loading bullets and sub_10F9C.
+            Self::PrizeBlock => 0x11,
             // ASM EvanescentBlock_Trigger (kid.asm:17283) plays
             // `sfx_Evanescent_block = $14` before the free-slot bailout.
             Self::EvanescentBlock => 0x14,

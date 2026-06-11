@@ -7878,6 +7878,11 @@ mod chunk_09 {
         runtime.process_block_effects(&mut slice);
 
         assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::PrizeBlock],
+            "ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays sfx_Prize_block before loading bullets and sub_10F9C"
+        );
+        assert_eq!(
             runtime
                 .projectiles
                 .iter()

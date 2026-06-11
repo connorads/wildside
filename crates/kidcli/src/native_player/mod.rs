@@ -2122,7 +2122,10 @@ fn is_ouch_sound_id(sound_id: u8) -> bool {
 }
 
 fn is_explicit_block_sound_id(sound_id: u8) -> bool {
-    matches!(sound_id, gems_sfx::METAL_BLOCK | gems_sfx::RUBBER_BLOCK)
+    matches!(
+        sound_id,
+        gems_sfx::DESTROY_BLOCK | gems_sfx::METAL_BLOCK | gems_sfx::RUBBER_BLOCK
+    )
 }
 
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
@@ -2237,8 +2240,12 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::BLOCK_HIT);
     }
 
-    // Block destroyed (new destroy effects appeared)
-    if curr.block_destroy_effects.len() > prev.block_destroy_effects.len() {
+    // Block destroyed (new destroy effects appeared). ASM ice blocks queue
+    // sfx_Prize_block=$11 from the core trace on the same frame as sub_10F9C's
+    // destroy effect, so do not replay the historical delta heuristic too.
+    if !queued_sound_ids.contains(&gems_sfx::DESTROY_BLOCK)
+        && curr.block_destroy_effects.len() > prev.block_destroy_effects.len()
+    {
         sound_ids.push(gems_sfx::DESTROY_BLOCK);
     }
 
@@ -13928,6 +13935,21 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::EVANESCENT],
             "ASM EvanescentBlock_Trigger (kid.asm:17283) queues sfx_Evanescent_block=$14 from the core trace"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_ice_prize_block_without_destroy_delta_duplicate() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.blocks_hit_this_frame = 1;
+        curr.played_sound_effect_ids = vec![gems_sfx::DESTROY_BLOCK];
+        curr.block_destroy_effects.push((48, 32, 1, 2));
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::DESTROY_BLOCK],
+            "ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) queues sfx_Prize_block=$11 from the core trace; the destroy-effect delta must not add a duplicate $11"
         );
     }
 
