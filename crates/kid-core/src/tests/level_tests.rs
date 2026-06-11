@@ -3755,6 +3755,56 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_demo_level_visible_prize_ceiling_uses_cyclone_block_list_entry() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(0x1B));
+
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated demo level should load its extracted block-list asset");
+        let mut grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("generated demo level should load its collision grid")
+            .clone();
+        assert_eq!(
+            block_list
+                .prize_block_by_layout_addr_loc_10342(
+                    terrain::BlockList::level_layout_low_word_addr(4, 36, grid.width_cells)
+                )
+                .map(|entry| entry.content),
+            Some(terrain::PrizeContent::Cyclone),
+            "ASM Prize_Init_Index id 3 should expose the demo level Cyclone prize at (4,36)",
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.x_pos = (4 * 16 + 8) << 16;
+        slice.player.y_pos = (36 * 16 + 31) << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.prize_block_hit,
+            Some((terrain::PrizeContent::Cyclone, 4 * 16, 36 * 16)),
+            "ASM sub_BB54/sub_BBE2 -> loc_10342 should dispatch the demo Cyclone prize, not the Diamond fallback",
+        );
+    }
+
+    #[test]
     fn generated_later_level_prize_block_list_ignores_fg_queue_spill_diamonds() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
