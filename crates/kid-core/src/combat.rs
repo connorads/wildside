@@ -10925,12 +10925,17 @@ impl NativeRuntime {
             return true;
         }
 
-        // Spike death: contacting a spike cell is instant death
-        if slice.player.on_spikes {
+        // ASM loc_91A6/loc_92B6: spike floor/ceiling probes write
+        // `colid_kidbelow` ($28); Character_CheckCollision dispatches off_B640
+        // entry 9 through Check_for_recent_damge -> loc_B700, so spikes use the
+        // normal HP/helmet damage path rather than an unconditional Death jump.
+        if slice.player.on_spikes
+            && self.progression.invulnerable_frames == 0
+            && !self.kid_is_invulnerable
+        {
             self.opening_slice = Some(*slice);
-            self.progression.number_hitpoints = 0;
-            self.begin_death_windup();
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::SpikeDeath;
+            self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::SpikeDamage;
             return true;
         }
 

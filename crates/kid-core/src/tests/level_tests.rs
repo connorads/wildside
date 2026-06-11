@@ -8762,7 +8762,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn spike_death_triggers_death_and_respawn() {
+    fn spike_final_hp_triggers_death_and_respawn() {
         let mut runtime = NativeRuntime::new(manifest());
 
         // Solid floor under spawn (col 0..5), spikes from col 5 onward.
@@ -8770,6 +8770,8 @@ mod chunk_02 {
         runtime.set_block_grid(grid_with_spikes_from_col(5));
 
         start_level(&mut runtime);
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
 
         // Walk right until we hit spikes and die
         for _ in 0..300 {
@@ -8793,7 +8795,7 @@ mod chunk_02 {
         );
         assert_eq!(
             runtime.progression.number_hitpoints, 0,
-            "spike death sets HP to 0"
+            "ASM loc_91A6/loc_92B6 -> Check_for_recent_damge -> loc_B700 reaches Death when final HP is removed"
         );
 
         let pre_lives = runtime.progression.number_lives;
@@ -8974,17 +8976,17 @@ mod chunk_02 {
     }
 
     #[test]
-    fn spike_death_ignores_hitpoints() {
+    fn spike_contact_uses_loc_b700_damage_not_instant_death() {
         let mut runtime = NativeRuntime::new(manifest());
 
-        // Give extra HP — spikes should still be instant kill
-        runtime.progression.number_hitpoints = 5;
         runtime.set_block_grid(grid_with_spikes_from_col(5));
 
         start_level(&mut runtime);
+        runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        runtime.progression.invulnerable_frames = 0;
 
         for _ in 0..300 {
-            if !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+            if runtime.just_received_damage {
                 break;
             }
             runtime.step_frame(FrameInput {
@@ -8994,17 +8996,50 @@ mod chunk_02 {
         }
 
         assert!(
-            matches!(
-                runtime.player_lifecycle,
-                PlayerLifecycle::DeathWindup { .. }
-            ),
-            "expected DeathWindup despite 5 HP, got {:?}",
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "ASM loc_91A6/loc_92B6 route should survive non-final spike damage, got {:?}",
             runtime.player_lifecycle
         );
         assert_eq!(
-            runtime.progression.number_hitpoints, 0,
-            "spike death zeroes HP regardless"
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints() - 1,
+            "ASM loc_B700 subtracts one Number_Hitpoints for spike contact"
         );
+        assert!(runtime.just_received_damage);
+        assert!(runtime.progression.invulnerable_frames > 0);
+    }
+
+    #[test]
+    fn spike_contact_respects_recent_damage_gate() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_spikes_from_col(5));
+
+        start_level(&mut runtime);
+        runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        runtime.progression.invulnerable_frames = 12;
+
+        for _ in 0..300 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+            if runtime
+                .opening_slice
+                .is_some_and(|slice| slice.player.on_spikes)
+            {
+                break;
+            }
+        }
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "ASM Check_for_recent_damge returns without loc_B700 while Just_received_damage/invulnerability is active"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints()
+        );
+        assert!(!runtime.just_received_damage);
     }
 
     #[test]
@@ -9015,6 +9050,8 @@ mod chunk_02 {
         start_level(&mut runtime);
         runtime.progression.number_lives = 1; // last life (set after boot so title doesn't reset it)
         runtime.progression.number_continues = 0; // no continues left, so game over → title
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
 
         // Walk into spikes
         for _ in 0..300 {
@@ -9077,6 +9114,8 @@ mod chunk_02 {
         start_level(&mut runtime);
         runtime.progression.number_lives = 1;
         runtime.progression.number_continues = 2;
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
 
         // Walk into spikes
         for _ in 0..300 {
