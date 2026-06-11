@@ -2684,6 +2684,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) rubber_block_hit: Option<(u16, u16)>,
     /// Smash block destroyed this frame — (x_px, y_px).
     pub(crate) smash_block_hit: Option<(u16, u16)>,
+    /// Ice block destroyed this frame — (cell_x, cell_y, ASM `d6` direction).
+    pub(crate) ice_block_hit: Option<(u16, u16, u16)>,
     /// Shooter block headbutted this frame — (cell_x, cell_y).
     pub(crate) shooter_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).

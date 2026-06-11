@@ -3515,6 +3515,32 @@ impl NativeRuntime {
             );
         }
 
+        if let Some((cell_x, cell_y, direction)) = slice.ice_block_hit {
+            self.blocks_hit_this_frame += 1;
+            let target_open = self.block_grid.as_ref().is_some_and(|grid| {
+                Self::ice_block_bullet_target_cell_sub_11006(
+                    cell_x,
+                    cell_y,
+                    direction,
+                    grid.width_cells,
+                    grid.height_cells,
+                )
+                .is_some_and(|(target_col, target_row)| {
+                    Self::ice_block_bullet_target_cell_open_loc_11052(
+                        grid.cell_at(target_col, target_row),
+                    )
+                })
+            });
+            if target_open {
+                self.projectiles
+                    .extend(Self::ice_block_bullets_loc_11052(cell_x, cell_y, direction));
+            }
+            // ASM off_BB80[2] -> IceBlock_SmashAndLoadBullets: after
+            // IceBlock_LoadBullets, sub_10F9C queues the shard effect using
+            // the original `d6` direction from sub_BB54.
+            self.spawn_ice_block_effect_sub_10f9c(cell_x * 16, cell_y * 16, direction);
+        }
+
         if let Some((cell_x, cell_y)) = slice.shooter_block_hit
             && let Some(grid) = self.block_grid.as_mut()
         {

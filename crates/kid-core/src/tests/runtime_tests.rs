@@ -7785,6 +7785,70 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_bb6e_ceiling_ice_block_loads_bullets_loc_11052() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let idx = (2 * w + 3) as usize * 2;
+        data[idx] = 0xE2;
+        data[idx + 1] = 0x01;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert!(
+            !grid.cell_at(3, 2).has_block,
+            "ASM off_BB80[2] routes ceiling Ice through IceBlock_SmashAndLoadBullets, so the cell must be deleted"
+        );
+        assert_eq!(
+            slice.ice_block_hit,
+            Some((3, 2, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE)),
+            "ASM sub_BB54 sets d6=2 for normal ceiling hits before dispatching off_BB80[2]",
+        );
+
+        runtime.set_block_grid(grid);
+        runtime.process_block_effects(&mut slice);
+
+        assert_eq!(
+            runtime
+                .projectiles
+                .iter()
+                .map(|p| (
+                    p.kind,
+                    p.x_pos >> 16,
+                    p.y_pos >> 16,
+                    p.x_velocity,
+                    p.y_velocity,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (EnemyProjectileKind::ShooterBlock, 56, 40, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 52, 44, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 60, 44, 0, -(4 << 16)),
+            ],
+            "ASM sub_BB54 sets d6=2 for normal ceiling hits, so IceBlock_LoadBullets remaps to upward bullets",
+        );
+    }
+
+    #[test]
     fn process_block_effects_sub_1149c_queues_empty_support_workers() {
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);

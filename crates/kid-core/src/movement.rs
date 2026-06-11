@@ -2629,6 +2629,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
+            ice_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
@@ -2694,6 +2695,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
+            ice_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
@@ -4762,9 +4764,8 @@ impl OpeningSliceState {
         // diagnostic column-shape mirror rejects the tile pattern. This was
         // first seen on published TAS right-wall releases; #270 frame 266
         // shows the same loc_AB0A shimmy on the BLW2 Red Stealth left wall.
-        let broad_oracle_release = !self.descending_wall_cling_release_column_matches_sub_adb8(
-            form, grid,
-        )
+        let broad_oracle_release = !self
+            .descending_wall_cling_release_column_matches_sub_adb8(form, grid)
             && !terrain::probe_wall_column(
                 grid,
                 (self.player.x_pos >> 16) as i32,
@@ -6402,6 +6403,22 @@ impl OpeningSliceState {
                         let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.smash_block_hit = Some((block_x_px, block_y_px));
                         // ASM j_Block_LoadSmashBits clears Smash blocks immediately
+                        grid.set_cell_at(
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    terrain::BlockType::Ice => {
+                        // ASM sub_BB54/off_BB80[2]: ceiling Ice dispatches to
+                        // IceBlock_SmashAndLoadBullets. `d6` is 2 for normal
+                        // headbutts and 0 when Skycutter is on_board ($FA6A).
+                        let direction = if skycutter_on_board { 0 } else { 2 };
+                        self.ice_block_hit = Some((
+                            block_dispatch_probe.cell_x,
+                            block_dispatch_probe.cell_y,
+                            direction,
+                        ));
                         grid.set_cell_at(
                             block_dispatch_probe.cell_x,
                             block_dispatch_probe.cell_y,

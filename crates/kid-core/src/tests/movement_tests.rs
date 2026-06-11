@@ -4927,6 +4927,7 @@ mod chunk_11 {
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
+            ice_block_hit: None,
             shooter_block_hit: None,
             teleporter_contact: None,
             telepad_timer: 0x5A,
