@@ -506,8 +506,15 @@ pub(crate) const SPRITE_VISIBILITY_LEFT_MARGIN_PX: i32 = 0x40;
 /// ASM: Game Over display holds for 0x1A3 (419) frames, including the
 /// loc_D15E score-fade hibernate tail before the EOL score objects are live.
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
-/// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.
-pub(crate) const CONTINUE_COUNTDOWN_FRAMES: usize = 319;
+/// ASM: Continue countdown: loc_D31E initial pause, loc_D350 first Start
+/// window, then loc_D3AA post-fade Start window before returning to title.
+pub(crate) const CONTINUE_INITIAL_HOLD_FRAMES: usize = 28;
+pub(crate) const CONTINUE_FIRST_START_WINDOW_FRAMES: usize = 291;
+pub(crate) const CONTINUE_SECOND_START_WINDOW_FRAMES: usize = 239;
+pub(crate) const CONTINUE_FIRST_PHASE_FRAMES: usize =
+    CONTINUE_INITIAL_HOLD_FRAMES + CONTINUE_FIRST_START_WINDOW_FRAMES;
+pub(crate) const CONTINUE_COUNTDOWN_FRAMES: usize =
+    CONTINUE_FIRST_PHASE_FRAMES + CONTINUE_SECOND_START_WINDOW_FRAMES;
 pub(crate) const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 // ASM loc_BC34 (kid.asm:15181): damage-flash thread spawned by sub_7196 at
 // priority $FFFC.  loc_BC40 waits for Just_received_damage, then loc_BC54

@@ -25725,6 +25725,64 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_D3AA (kid.asm:16555): after the first loc_D350 Start window,
+    /// the CONTINUE? objects are kicked into their falling fade and the ROM
+    /// waits another `$EF` frames, still polling Start before loc_D3F0.
+    #[test]
+    fn loc_d3aa_second_start_window_extends_continue_timeout() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 1;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: CONTINUE_SECOND_START_WINDOW_FRAMES + 1,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::ContinueCountdown {
+                remaining_frames: CONTINUE_SECOND_START_WINDOW_FRAMES
+            },
+            "the old 319-frame timeout boundary should now enter the ASM loc_D3AA second window"
+        );
+        assert_eq!(
+            runtime.boot_state,
+            BootState::InGame,
+            "loc_D3AA should not return to title until its post-fade wait drains"
+        );
+    }
+
+    /// ASM loc_D3AA uses the same `tst.b Ctrl_Held; bmi.s Use_Continue`
+    /// Start poll as loc_D350, so Start during the post-fade window still
+    /// spends the continue instead of returning to title.
+    #[test]
+    fn loc_d3aa_start_uses_continue_during_second_window() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 1;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: CONTINUE_SECOND_START_WINDOW_FRAMES,
+        };
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.number_continues, 0,
+            "ASM loc_D3AA should still branch to Use_Continue when Start is held"
+        );
+        assert_eq!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::Respawning {
+                remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+            },
+            "Start during the second window should respawn rather than return to title"
+        );
+    }
+
     /// ASM loc_D40A (kid.asm:16586): the continue-timeout title return copies
     /// `Palette_Buffer` into `Palette_Buffer_2` with `moveq #$1F,d0` and
     /// `move.l (a0)+,(a1)+; dbf d0,loc_D40A`, so all 32 longwords are backed up
