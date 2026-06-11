@@ -9152,6 +9152,8 @@ Column of origin shown in brackets; text is verbatim.
 ### #289
 
 - [Verify] Evidence source: human playtest. Check header/start-position decode and layout resource mapping for the hell-theme levels (resource_level_id indirection); compare native level load vs `dump-level-layout` oracle RAM for one affected level.
+- [Evidence] 2026-06-11 investigation on current pushed changes narrowed the active repro away from a blanket level-header failure. `inspect-level --level 06` reports resource level `0x02`, player start `(16,176)`, flag `(3776,368)`, and expected Dragon Flying layout entries; level 0x05/0x07/0x0D idle TAS slices were gameplay-clean. The recorded route `.cache/recordings/issue289-level06-idle/scenario.json` first diverges at frame 36 on `number_objects` (`native=5`, `oracle=6`) while oracle raw slots show the Dragon Flying parent at `loc_34900` and a descent-fire child at `loc_34C2A`. ASM `Dragon_Flying.asm loc_348A0` allocates the child Object_RAM slot and installs `loc_34BAC`, which then loads the gfx slot and enters `loc_34C26`.
+- [Evidence] Rejected 2026-06-11: simply adding all native `EnemyProjectileKind::DragonFlyingDescentFire` instances to `gameplay_transient_object_only_worker_count` is too broad. It makes frame 36 match, but overcounts frames 24..35 (`native=6`, `oracle=5`) and later frames around 74..89, because native already has a Dragon Flying fire projectile far below the oracle-visible child path. Next useful pass should trace Dragon Flying parent/child scheduling against ASM `loc_348A0`/`loc_34BAC`, or fix off-screen/stale fire projectile lifetime, before changing the trace object counter.
 
 ### #290
 
