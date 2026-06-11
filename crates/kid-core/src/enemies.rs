@@ -41053,7 +41053,9 @@ impl NativeRuntime {
         // atomically, so replay the load windows here.
         let settle_frames = self.inspect_respawn_settle(level_id, 180);
         let final_camera_x_pos = settle_frames.last().map_or(0, |frame| frame.camera_x_pos);
+        let mut final_settle_frame = None;
         for frame in settle_frames {
+            final_settle_frame = Some(frame);
             let camera = CameraState {
                 x_pos: frame.camera_x_pos,
                 y_pos: frame.camera_y_pos,
@@ -41073,24 +41075,72 @@ impl NativeRuntime {
                 &self.killed_enemies,
                 &mut self.rom_random,
             );
-            if frame.camera_x_pos == final_camera_x_pos {
-                // ASM Mode_Level's hidden respawn settle continues running the
+            if frame.camera_x_pos == final_camera_x_pos
+                && level_id != LevelId(0)
+                && level_id != LevelId(1)
+            {
+                // ASM Mode_Level's hidden respawn settle keeps executing the
                 // object scheduler after the horizontal camera axis has reached
-                // its settled target. Level 0x07's Lion proves this: oracle
-                // tas-diff frames 19/28 have the Lion projectile/count/damage
-                // 23 frames earlier than a load-only settle, matching the
-                // camera-X-settled tail of `inspect_respawn_settle`.
-                for enemy in self.active_enemies.iter_mut() {
-                    if enemy.family != EnemyFamily::Lion {
-                        continue;
-                    }
-                    let mut hidden_projectiles = None;
-                    step_lion(
-                        enemy,
-                        self.block_grid.as_ref(),
-                        Some(frame.kid_x_pos),
-                        &mut hidden_projectiles,
-                    );
+                // its settled target. Level 0x07's Lion first exposed this via
+                // loc_3E12A projectile timing; Level 0x06's Flying Dragon now
+                // proves the same tail must age every active family through
+                // Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC before
+                // the recording helper's 60 visible live frames begin.
+                step_active_enemies_with_rng(
+                    &mut self.active_enemies,
+                    self.block_grid.as_ref(),
+                    Some(frame.kid_x_pos),
+                    Some(frame.kid_y_pos),
+                    Some(frame.camera_x_pos >> 16),
+                    Some(frame.camera_y_pos >> 16),
+                    None,
+                    Some(frame.kid_x_velocity),
+                    Some(frame.kid_y_velocity),
+                    self.progression.current_form,
+                    self.frame_index as u16,
+                    false,
+                    Some(&mut self.projectiles),
+                    &mut self.rom_random,
+                    &mut self.drilled_blocks,
+                );
+                materialize_spinning_twins_drop_splits(&mut self.active_enemies);
+                let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
+                for drilled_block in drilled_blocks {
+                    self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
+                }
+            }
+        }
+        if let Some(frame) = final_settle_frame
+            && level_id != LevelId(0)
+            && level_id != LevelId(1)
+        {
+            // The oracle helper's `target_live` trace starts after the direct
+            // level-skip bootstrap has already executed a small untraced
+            // Mode_Level tail. Issue #289 pins this at 24 object-scheduler
+            // ticks: without it, Dragon_Flying.asm loc_348A0 reaches loc_34BAC
+            // 24 recorded frames later than the oracle.
+            for _ in 0..24 {
+                step_active_enemies_with_rng(
+                    &mut self.active_enemies,
+                    self.block_grid.as_ref(),
+                    Some(frame.kid_x_pos),
+                    Some(frame.kid_y_pos),
+                    Some(frame.camera_x_pos >> 16),
+                    Some(frame.camera_y_pos >> 16),
+                    None,
+                    Some(frame.kid_x_velocity),
+                    Some(frame.kid_y_velocity),
+                    self.progression.current_form,
+                    self.frame_index as u16,
+                    false,
+                    Some(&mut self.projectiles),
+                    &mut self.rom_random,
+                    &mut self.drilled_blocks,
+                );
+                materialize_spinning_twins_drop_splits(&mut self.active_enemies);
+                let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
+                for drilled_block in drilled_blocks {
+                    self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
             }
         }

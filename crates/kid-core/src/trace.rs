@@ -8989,6 +8989,11 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonWalkingBreath)
             .count() as u16;
+        let dragon_flying_descent_fire_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
+            .count() as u16;
         let pending_dragon_walking_breath_workers = self
             .active_enemies
             .iter()
@@ -9000,11 +9005,15 @@ impl NativeRuntime {
         // slot; loc_3CE90 reaches loc_3CF90 in the same object pass when the
         // timer decrements from 1 to 0, and `Load_GfxObjectSlot` does not
         // change the sampled Number_GfxObjects at the #290 TAS frontier.
+        // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
+        // pattern for descent fire; native models it as a projectile but ROM
+        // Number_Objects includes the child worker.
         drips_child_workers
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(lion_projectile_workers)
             .saturating_add(dragon_walking_breath_workers)
+            .saturating_add(dragon_flying_descent_fire_workers)
             .saturating_add(pending_dragon_walking_breath_workers)
     }
 

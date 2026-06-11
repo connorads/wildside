@@ -6506,6 +6506,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_level_six_ages_flying_dragon_into_descent_fire() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x06)
+            .settle_recording_warp()
+            .run(&[0; 40], 40);
+        let frame_36 = trace
+            .get(36)
+            .expect("Level 0x06 issue #289 probe should include frame 36");
+
+        assert_eq!(
+            frame_36.number_objects, 6,
+            "ASM Dragon_Flying.asm loc_348A0/loc_34BAC spawns the descent-fire child during the settled recording live window; oracle issue289 frame 36 has the Dragon parent plus fire child active",
+        );
+        assert!(
+            frame_36
+                .active_projectile_details
+                .iter()
+                .any(|projectile| projectile.kind == ActiveProjectileKind::DragonFlyingDescentFire),
+            "ASM Dragon_Flying.asm loc_34BAC child must be present at oracle issue289 frame 36, not a load-only parent still waiting in loc_34710 hover",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
