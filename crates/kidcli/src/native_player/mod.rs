@@ -406,6 +406,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
+    let mut debug_level_card_fallback_frames_remaining: usize = 0;
     let mut suppress_level_card_for_debug_warp = false;
     let mut wait_for_live_input_release = false;
     let mut recorded_script = Vec::new();
@@ -525,6 +526,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         trace = runtime.enter_level_debug_title_card(next);
                         current_level_id = next.0;
                         level_card_frames_remaining = 0;
+                        debug_level_card_fallback_frames_remaining =
+                            debug_level_card_fallback_frames(manifest, next);
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = false;
@@ -553,6 +556,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         trace = runtime.enter_level_debug_title_card(prev);
                         current_level_id = prev.0;
                         level_card_frames_remaining = 0;
+                        debug_level_card_fallback_frames_remaining =
+                            debug_level_card_fallback_frames(manifest, prev);
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = false;
@@ -583,10 +588,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             current_level_id = trace.current_level.0;
             active_bgm_cue = None;
             level_card_frames_remaining = 0;
+            debug_level_card_fallback_frames_remaining = 0;
             suppress_level_card_for_debug_warp = false;
         } else {
             prev_trace = trace.clone();
-            if level_card_frames_remaining == 0 {
+            if !native_level_card_hold_active(
+                level_card_frames_remaining,
+                debug_level_card_fallback_frames_remaining,
+            ) {
                 let live_buttons =
                     keyboard_buttons(&events) | controller_buttons(controller.as_ref());
                 let live_buttons = live_buttons_after_debug_release(
@@ -729,7 +738,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
-        let base_render_trace = if level_card_frames_remaining > 0 {
+        let render_debug_level_card_fallback = debug_level_card_fallback_frames_remaining > 0;
+        let base_render_trace = if native_level_card_hold_active(
+            level_card_frames_remaining,
+            debug_level_card_fallback_frames_remaining,
+        ) {
             let mut overlay_trace = trace.clone();
             overlay_trace.game_mode = GameMode::LevelTransition;
             overlay_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -740,7 +753,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let render_trace =
             render_trace_with_vdp_latched_state(&base_render_trace, Some(&prev_trace));
 
-        if let Some(vdp) = runtime.vdp_state() {
+        if render_debug_level_card_fallback {
+            let scene = build_debug_level_card_fallback_scene(&render_trace);
+            render_scene(&scene, &mut frame);
+        } else if let Some(vdp) = runtime.vdp_state() {
             // Non-gameplay mode with VDP state: render directly using the
             // proven software VDP renderer for pixel-accurate output.
             let snapshot = kid_md::VdpSnapshot {
@@ -799,6 +815,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         canvas.present();
 
         level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
+        debug_level_card_fallback_frames_remaining =
+            debug_level_card_fallback_frames_remaining.saturating_sub(1);
 
         if dump_recording_and_exit {
             break 'running;
@@ -890,6 +908,66 @@ fn live_buttons_after_debug_release(live_buttons: u8, waiting_for_release: &mut 
         *waiting_for_release = false;
     }
     0
+}
+
+fn native_level_card_hold_active(
+    level_card_frames_remaining: usize,
+    debug_level_card_fallback_frames_remaining: usize,
+) -> bool {
+    level_card_frames_remaining > 0 || debug_level_card_fallback_frames_remaining > 0
+}
+
+fn debug_level_card_fallback_frames(manifest: &AssetManifest, level_id: LevelId) -> usize {
+    if level_has_generated_title_card(manifest, level_id) {
+        0
+    } else {
+        LEVEL_CARD_HOLD_FRAMES
+    }
+}
+
+fn level_has_generated_title_card(manifest: &AssetManifest, level_id: LevelId) -> bool {
+    manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == level_id.0)
+        .and_then(|level| level.title_card.as_ref())
+        .is_some()
+}
+
+fn build_debug_level_card_fallback_scene(trace: &NativeTraceFrame) -> Scene {
+    let level_name = trace
+        .current_level_name
+        .clone()
+        .unwrap_or_else(|| format!("LEVEL {:02X}", trace.current_level.0));
+    let title = format!("LEVEL {:02X}", trace.current_level.0);
+    let title_x = centred_text_x(&title, 2);
+    let name_x = centred_text_x(&level_name, 1);
+
+    Scene {
+        background: [0, 0, 0],
+        commands: vec![
+            DrawCommand::Text {
+                x: title_x,
+                y: 82,
+                text: title,
+                colour: [210, 224, 255],
+                scale: 2,
+            },
+            DrawCommand::Text {
+                x: name_x,
+                y: 116,
+                text: level_name,
+                colour: [255, 255, 255],
+                scale: 1,
+            },
+        ],
+    }
+}
+
+fn centred_text_x(text: &str, scale: i32) -> i32 {
+    let glyph_width = 8 * scale;
+    let width = text.chars().count() as i32 * glyph_width;
+    ((FRAME_WIDTH as i32 - width) / 2).max(0)
 }
 
 fn should_start_native_level_card_overlay(
@@ -9048,6 +9126,65 @@ mod tests {
             level_id,
             LevelId(2),
             "N/P debug warp should not enter a level that cannot load visuals and collision"
+        );
+    }
+
+    #[test]
+    fn debug_warp_without_generated_title_card_holds_debug_name_card() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x01;
+        target.display_name = Some(String::from("Debug Target"));
+        target.title_text_id = Some(0x4B);
+        target.title_card = None;
+        fixture.manifest.levels.push(target);
+        fixture.manifest.map_order = vec![0x4A, 0x4B];
+
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        runtime.set_block_grid(try_load_block_grid(&fixture.manifest, 0x00).expect("fixture grid"));
+        runtime.enter_level_playtest(LevelId(0));
+
+        let mut trace = runtime.enter_level_debug_title_card(LevelId(1));
+        let mut fallback_frames = debug_level_card_fallback_frames(&fixture.manifest, LevelId(1));
+
+        assert_eq!(
+            fallback_frames, LEVEL_CARD_HOLD_FRAMES,
+            "debug N/P targets without generated Load_TitleCard script data need a visible tool-only name hold"
+        );
+
+        if !native_level_card_hold_active(0, fallback_frames) {
+            trace = runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+        assert_eq!(trace.current_level_name.as_deref(), Some("Debug Target"));
+        let scene = build_debug_level_card_fallback_scene(&trace);
+        assert!(contains_text(&scene, "LEVEL 01"));
+        assert!(contains_text(&scene, "Debug Target"));
+
+        fallback_frames = fallback_frames.saturating_sub(1);
+        assert!(native_level_card_hold_active(0, fallback_frames));
+    }
+
+    #[test]
+    fn debug_warp_with_generated_title_card_uses_rom_title_shell() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x01;
+        target.display_name = Some(String::from("ROM Card Target"));
+        target.title_text_id = Some(0x4B);
+        target.title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'a', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        fixture.manifest.levels.push(target);
+
+        assert_eq!(
+            debug_level_card_fallback_frames(&fixture.manifest, LevelId(1)),
+            0,
+            "targets with generated Load_TitleCard script data should stay on the ROM VDP/title-worker path, not the debug fallback card"
         );
     }
 
