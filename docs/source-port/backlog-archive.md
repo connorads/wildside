@@ -8952,6 +8952,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #265
 
 - [Verify] Evidence source: human playtest. Cross-ref #253 collapsed EOL modelling and audio #216. Native repro: not yet reproduced. Oracle status: unknown. Minimum gate: EOL route with audio-events transcript and waveform proves countdown SFX duration/stop command matches ASM and does not get cut off by mode transition.
+- [Verify] 2026-06-11 fixed candidate: native BGM transition state now treats `NativeBgmCue::ScoreBoard` like title/level music when trace enters `GameMode::LevelTransition` (ASM mode `$0008`). This follows `loc_D7F4`, which replays `sfx_Socre_counter` before `Teleport`, and `Load_InGame` (kid.asm:23623-23629), which runs `StopMusic` before `loc_12004` queues the next level BGM. Regression `play_native_eol_transition_stops_scoreboard_before_next_level_bgm` locks the reset so the score-counter sound cannot continue across the level-card/load hand-off. Verification: `cargo test -p kidcli play_native_ -- --nocapture`, `cargo test -p kidcli scripted_recording_audio_events_emit_eol_score_counter_at_loc_d770 -- --nocapture`, `cargo fmt --check`, `mise run verify-slice-fast`.
 
 ### #266
 

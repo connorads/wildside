@@ -1756,7 +1756,7 @@ fn native_bgm_state_after_trace(
         }
         if matches!(
             active_bgm_cue,
-            Some(NativeBgmCue::TitleShell | NativeBgmCue::Level(_))
+            Some(NativeBgmCue::TitleShell | NativeBgmCue::Level(_) | NativeBgmCue::ScoreBoard)
         ) && trace.game_mode == GameMode::LevelTransition
         {
             // ASM loc_6E2 dispatches mode 8 through LoadGameModeData; the
@@ -13120,6 +13120,34 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the death-respawn loader reset, the active level cue should restart from the foreground theme instead of continuing over the black hold"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_eol_transition_stops_scoreboard_before_next_level_bgm() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let transition = sample_trace(GameMode::LevelTransition);
+        let level = sample_trace(GameMode::InGame);
+
+        let (active_after_gap, gap_command) = native_bgm_state_after_trace(
+            &fixture.manifest,
+            &transition,
+            Some(NativeBgmCue::ScoreBoard),
+        );
+        assert_eq!(
+            (active_after_gap, gap_command),
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            "ASM loc_D7F4 replays sfx_Score_counter, then Teleport enters mode $0008; Load_InGame (kid.asm:23623-23629) must run StopMusic so the counter sound cannot bleed through the next level card"
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
+            ),
+            "after the EOL loader reset, loc_12004 queues the next level BGM from a clean GEMS state"
         );
         Ok(())
     }
