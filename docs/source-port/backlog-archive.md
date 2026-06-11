@@ -300,6 +300,17 @@ X restore. Treat this as a cleared Drips initial-seed/contact hypothesis only;
 #260 remains open because no current oracle-comparable route reaches the human
 reported live slime/metal-block mutation.
 
+Follow-up 2026-06-11 for #260 route search after `513b36d1`: a bounded native
+batch against `.cache/recordings/issue-260-drips-drop-contact-probe-current/scenario.json`
+cleared frames `300..559`, then tested an early `380..388/396 B+Right` pulse
+with a later `424..504 B+Right` pulse and left/right/no recovery. Ranked by
+healthy `(584,543)` approach after frame 300, every top candidate ended in
+`LevelTransition`; the best score was only `dx=+15 dy=-26 @431`, worse than the
+already-documented `wait390`/`left400` family. This rejects the two-pulse
+hybrid of the clean Drips contact route with the older right-window geometry;
+next route work still needs a different approach shape or a fresh human route,
+not another replay of this axis.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing

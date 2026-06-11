@@ -99,6 +99,13 @@ and stop — never commit churn.
   movement. This clears the stale Drips initial-seed/contact hypothesis, but it
   still is not the reported live slime/metal-block repro; keep #260 `[~]` and
   continue from a refreshed route/bootstrap that reaches metal-block contact.
+  A post-`513b36d1` hybrid route batch over the named drop-contact probe also
+  failed to find a live right-side contact: clearing `300..559`, applying an
+  early `380..388/396 B+Right` pulse plus a later `424..504 B+Right` pulse,
+  and trying left/right/no recovery ranked only `LevelTransition` candidates.
+  The best right-target score was `(584,543)` healthy `dx=+15 dy=-26 @431`,
+  worse than the existing `wait390`/`left400` near-misses; do not repeat this
+  two-pulse hybrid axis unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
