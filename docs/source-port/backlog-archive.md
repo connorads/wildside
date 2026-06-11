@@ -338,6 +338,20 @@ the existing near-misses and not worth oracle verification as metal-block
 evidence. Do not repeat this small avoid-window family unless the route changes
 before frame 548.
 
+Follow-up 2026-06-11 for #260 route search: pre-548 vertical setup overlays on
+the clean drop-contact seed were also rejected. `480..520 B+Left` improves the
+native healthy right-target score to horizontal alignment (`dx=0 dy=-48 @528`),
+but the derived cache scenario
+`.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-bl480-520.json`
+is not oracle-comparable: enemy-frontier `verify-tas --frame-start 500
+--frame-end 545 --checkpoint-interval 1 --bisect` first diverges on HP at frame
+519 (`native=1`, `oracle=0`). `tas-diff` frames 516..521 shows oracle has
+already taken DripsSurfaceCrawler damage while native has not, so the later
+native horizontal alignment is downstream of a damage-phase split. Combining
+that seed with `530..600` B/B+Left/B+Right climbs did not improve the healthy
+score beyond `dx=0 dy=-48 @528`. Do not treat `480..520 B+Left` or its immediate
+climb continuations as route proof.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing

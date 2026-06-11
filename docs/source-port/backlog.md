@@ -119,7 +119,15 @@ and stop — never commit churn.
   right/B+right/left avoidance, then `B`/`B+Left`/`B+Right` recovery through
   620) also ranked worse than the base route: best healthy right-target approach
   stayed `dx=-20 dy=-48 @549`. Do not repeat small avoid-window trims unless
-  the pre-548 route shape changes.
+  the pre-548 route shape changes. A pre-548 setup batch found `480..520 B+Left`
+  can align native horizontally with `(584,543)` at `dx=0 dy=-48 @528`, but
+  derived scenario
+  `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-bl480-520.json`
+  first diverges against oracle at frame 519 on HP (`native=1`, `oracle=0`);
+  `tas-diff` shows oracle has already taken DripsSurfaceCrawler damage while
+  native has not. The immediate `530..600` B/B+Left/B+Right climb continuations
+  also do not improve the healthy score. Do not reuse this `480..520 B+Left`
+  setup seed as proof.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
