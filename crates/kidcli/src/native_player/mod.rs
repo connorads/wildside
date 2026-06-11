@@ -527,7 +527,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         current_level_id = next.0;
                         level_card_frames_remaining = 0;
                         debug_level_card_fallback_frames_remaining =
-                            debug_level_card_fallback_frames(manifest, next);
+                            debug_hotkey_level_card_hold_frames();
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = false;
@@ -557,7 +557,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         current_level_id = prev.0;
                         level_card_frames_remaining = 0;
                         debug_level_card_fallback_frames_remaining =
-                            debug_level_card_fallback_frames(manifest, prev);
+                            debug_hotkey_level_card_hold_frames();
                         fade_alpha = 0;
                         fading_in = false;
                         suppress_level_card_for_debug_warp = false;
@@ -917,6 +917,7 @@ fn native_level_card_hold_active(
     level_card_frames_remaining > 0 || debug_level_card_fallback_frames_remaining > 0
 }
 
+#[cfg(test)]
 fn debug_level_card_fallback_frames(manifest: &AssetManifest, level_id: LevelId) -> usize {
     if level_has_generated_title_card(manifest, level_id) {
         0
@@ -925,6 +926,15 @@ fn debug_level_card_fallback_frames(manifest: &AssetManifest, level_id: LevelId)
     }
 }
 
+fn debug_hotkey_level_card_hold_frames() -> usize {
+    // `N`/`P` are native-only debug hotkeys, not ROM input. The core still
+    // enters ASM `loc_6E2`/`Load_TitleCard`, but play-native overlays a short
+    // deterministic name card so the hotkey never appears to skip straight
+    // into gameplay when the generated title-card shell is blank or brief.
+    LEVEL_CARD_HOLD_FRAMES
+}
+
+#[cfg(test)]
 fn level_has_generated_title_card(manifest: &AssetManifest, level_id: LevelId) -> bool {
     manifest
         .levels
@@ -9264,6 +9274,15 @@ mod tests {
             debug_level_card_fallback_frames(&fixture.manifest, LevelId(1)),
             0,
             "targets with generated Load_TitleCard script data should stay on the ROM VDP/title-worker path, not the debug fallback card"
+        );
+    }
+
+    #[test]
+    fn debug_hotkey_level_skip_always_holds_visible_name_card() {
+        assert_eq!(
+            debug_hotkey_level_card_hold_frames(),
+            LEVEL_CARD_HOLD_FRAMES,
+            "native-only N/P debug skips should visibly acknowledge the target level even when generated ROM title-card data exists"
         );
     }
 
