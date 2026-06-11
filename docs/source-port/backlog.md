@@ -74,7 +74,14 @@ and stop — never commit churn.
   metal-block evidence: oracle damage at frame 529 comes from a right-side Drips
   crawler already active at `(588,592)` while native layout #08 is still in
   `pre_drop:0x8005` and has not spawned that cycle's child. Treat this as another
-  phase-shifted route rejection, not a Drips hitbox or block-break lead.
+  phase-shifted route rejection, not a Drips hitbox or block-break lead. A fresh
+  no-settle 720-frame route rebuild found native-live candidate `freshF`
+  (`0..160 Right`, `55..125 B+Right`, `160..240 Left`, `240..320 B+Left`,
+  `340..430 Right`, `478..528 Left`, `530..567 B+Right`) reaching `(456,543)`
+  healthy `dx=0 dy=-16 @538`, but it is not oracle-comparable: `verify-tas`
+  and `tas-diff` show the oracle side invalid by frame 480/500 (`game_mode=0x4e73`,
+  hibernated/paused, no object roster). Treat `freshF` as no-settle bootstrap
+  evidence only, not route proof or a Drips/block patch lead.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
