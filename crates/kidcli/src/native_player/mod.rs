@@ -693,6 +693,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             suppress_level_card_for_debug_warp = false;
         }
         let mut queued_bgm_start_this_frame = false;
+        let mut suppress_sfx_this_frame = false;
         let (next_bgm_cue, bgm_command) =
             native_bgm_state_after_trace(manifest, &trace, active_bgm_cue);
         if let Some(command) = bgm_command
@@ -716,6 +717,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             {
                 aq.clear();
             }
+            suppress_sfx_this_frame = native_bgm_command_suppresses_same_frame_sfx(command, &trace);
         }
         active_bgm_cue = next_bgm_cue;
 
@@ -726,7 +728,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
                     gems.play_sound(bgm);
                 }
-                detect_gems_events(&prev_trace, &trace, gems);
+                if !suppress_sfx_this_frame {
+                    detect_gems_events(&prev_trace, &trace, gems);
+                }
                 gems.step_frame();
                 Some(gems.generate_samples(AUDIO_SAMPLES_PER_FRAME))
             } else {
@@ -1910,8 +1914,13 @@ fn native_audio_events_for_trace_with_initial_bgm(
         }
         active_bgm_cue = next_bgm_cue;
         if let Some(prev) = prev_trace {
-            for sound_id in gems_event_sound_ids(prev, trace) {
-                events.push(format_native_sound_event(frame_index, trace, sound_id));
+            let suppress_sfx_this_frame = bgm_command.is_some_and(|command| {
+                native_bgm_command_suppresses_same_frame_sfx(command, trace)
+            });
+            if !suppress_sfx_this_frame {
+                for sound_id in gems_event_sound_ids(prev, trace) {
+                    events.push(format_native_sound_event(frame_index, trace, sound_id));
+                }
             }
         }
         prev_trace = Some(trace);
@@ -1973,16 +1982,18 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         let (next_bgm_cue, bgm_command) =
             native_bgm_state_after_trace(manifest, trace, active_bgm_cue);
         let mut queued_bgm_start_this_frame = false;
+        let mut suppress_sfx_this_frame = false;
         if let Some(command) = bgm_command {
             pending_bgm_start = apply_native_bgm_command(&mut gems, command);
             queued_bgm_start_this_frame = pending_bgm_start.is_some();
+            suppress_sfx_this_frame = native_bgm_command_suppresses_same_frame_sfx(command, trace);
         }
         active_bgm_cue = next_bgm_cue;
 
         if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
             gems.play_sound(bgm);
         }
-        if let Some(prev) = prev_trace {
+        if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
             for sound_id in gems_event_sound_ids(prev, trace) {
                 gems.play_sound(sound_id);
             }
@@ -2040,6 +2051,17 @@ fn native_bgm_command_flushes_queued_audio(command: NativeBgmPlaybackCommand) ->
         command,
         NativeBgmPlaybackCommand::StopMusic | NativeBgmPlaybackCommand::StopMusicThenStart(_)
     )
+}
+
+fn native_bgm_command_suppresses_same_frame_sfx(
+    command: NativeBgmPlaybackCommand,
+    trace: &NativeTraceFrame,
+) -> bool {
+    // ASM loc_D7F4 (kid.asm:16906) replays sfx_Score_counter before Teleport,
+    // then Load_InGame (kid.asm:23623-23629) runs StopMusic before the next
+    // level's BGM. Native condenses that handoff into one LevelTransition trace
+    // frame, so any same-frame SFX must be treated as pre-reset driver state.
+    native_bgm_command_flushes_queued_audio(command) && trace.game_mode == GameMode::LevelTransition
 }
 
 fn format_native_bgm_event(
@@ -13525,8 +13547,11 @@ mod tests {
         );
         assert_eq!(
             (active_after_gap, gap_command),
-            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
-            "ASM Obj_TitleMenu calls StopMusic as soon as Start leaves the title shell, before the Blue Lake Woods level card and later Load_InGame BGM",
+            (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic)
+            ),
+            "ASM Obj_TitleMenu calls StopMusic as soon as Start leaves the title shell; native keeps a transition sentinel so the later Load_InGame BGM starts from the reset state",
         );
 
         assert_eq!(
@@ -13657,6 +13682,40 @@ mod tests {
             )),
             "ordinary BGM starts should not clear already-generated audio"
         );
+    }
+
+    #[test]
+    fn play_native_eol_stopmusic_suppresses_same_frame_score_counter_sfx() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut draining = sample_trace(GameMode::InGame);
+        draining.level_complete = true;
+        draining.level_complete_score_counter_elapsed_frames = 1;
+
+        let mut transition = sample_trace(GameMode::LevelTransition);
+        transition.level_complete = true;
+        transition.level_complete_elapsed_frames = 1;
+        transition.level_complete_score_counter_elapsed_frames = 1;
+        transition.level_complete_score_counter_drained = true;
+
+        let events = native_audio_events_for_trace_with_initial_bgm(
+            &fixture.manifest,
+            &[draining, transition],
+            Some(NativeBgmCue::ScoreBoard),
+        );
+
+        assert!(
+            events
+                .iter()
+                .any(|event| event.contains("command=StopMusic")),
+            "ASM Load_InGame (kid.asm:23623-23629) must reset GEMS after the EOL score counter before the next loading/title-card shell"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|event| event.contains("command=PlaySound(12)")),
+            "native condenses ASM loc_D7F4's `sfx_Score_counter` replay and Load_InGame StopMusic into one LevelTransition trace frame; replaying $0C after StopMusic reintroduces the audible counter tail"
+        );
+        Ok(())
     }
 
     #[test]
