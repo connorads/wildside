@@ -9191,3 +9191,129 @@ Column of origin shown in brackets; text is verbatim.
 
 - [Evidence] Human playtest after current pushed changes still reports broad incompleteness. Reopened/updated #284 and #274: attract/demo prize block still awards a Diamond instead of the expected Cyclops/Eyeclops/spin form. Reopened #276: first helmet/form hit still appears to show 4 HP -> 4 HP. Updated #260: Drips now creates a crawler, but the source block is still visually a prize block rather than the expected metal block. Updated #264/#272/#287: diamond/block-break/Samurai/helmet-pickup sounds still slow/low, and Samurai attack still appears to emit too many sounds. Updated #265: end-of-level countdown sound continues into the next loading screen until Start/new-level advance. Updated #282: `N`/`P` skip still bypasses the level-intro/name card. Updated #266/#280/#289: hell/death-wall levels still have wrong spawn/layout/graphics, invisible death wall, and green background artefacts. Updated #288: intro Kid/jacket sprite still appears below the prize block before being thrown. Updated #257: continue screen eventually appears after death but is partly off-screen. These notes are playtest evidence, not oracle proof; each row still needs a reproducible route or frame capture before invasive fixes.
 - [Evidence] Follow-up #274/#284 narrowing: current native evidence no longer supports a generic demo prize-content decode failure. The demo level block-list test and published-demo trace test both see Cyclone before the later Diamond events, so the remaining playtest report should be chased with visual frame capture around the attract-demo block hit/spawn, renderer item selection, or exact route timing.
+
+## 2026-06-11 fidelity-audit promotions (#292-#320)
+
+Source: the 2026-06-10 audit programme — wave-1 docs (f307e9c4), wave-2 docs
+(12c81289), staleness report (b2029fcd). Every promoted gap was adversarially
+verified (independent refuter defaulting to refuted) before its doc entry; the
+docs hold the full per-gap evidence and these entries only anchor #NNN greps.
+Shared facts unless noted: evidence source = ASM audit (read-only, disassembly
+vs live native path); native repro = deterministic from the cited code path;
+oracle repro = authoritative; minimum gate = fast-slice.
+
+### #292
+
+- Filed 2026-06-11 from shell-fidelity-audit.md (high). ASM `Init_SpriteAttr_HUD` (sub_14244, kid.asm:27087-27101) adds +1 to `Time_Seconds_low_digit` after `Init_Timer_and_Bonus_Flags` seeds 3:00, so the ROM starts gameplay at 3:01; native `LevelTimer::new` (types.rs:2344) seeds 180s with the SubSeconds seed mis-attributed in its comment. Native is one second short all level, timer death fires ~60 frames early, and `combat_tests.rs:14225/:14233` pin the wrong model — re-derive them with the fix.
+
+### #293
+
+- Filed 2026-06-11 from shell-fidelity-audit.md (high). Pause Restart-Round/Give-Up: `Game_Paused_Loop`/`Game_Paused_ChkStart` (kid.asm:6829-6878) cursor + life cost + helmet/HP reset + level restart, last-life `Game_Paused=3` -> `loc_6C0A` bummer/dying/game-over. Native helpers model every constant but are test-only; live pause is `self.paused` toggle (lib.rs:2192, boot.rs:6512-6545). Oracle repro: interactive-only (demo-skipped) — needs the #305 lane; minimum gate 1p-playable.
+
+### #294
+
+- Filed 2026-06-11 from combat-fidelity-audit.md (high). Murder-wall crush: ROM routes wall contact to `Crushed_to_Death` unconditionally (no invuln gate); native does single-HP `apply_damage` gated on invulnerability. See doc for `off_B640`/`sub_5E02 loc_5E34` citations.
+
+### #295
+
+- Filed 2026-06-11 from terrain-fidelity-audit.md (2 highs folded). Ceiling spikes: `loc_91A6`/`loc_9188`/`sub_914A` damage on headbutt; native treats the tile as plain solid. Floor spikes: native instant death, ROM routes through the normal helmet/HP/invuln-gated damage path (`loc_91A6`/`loc_92B6`). Both directions wrong in opposite ways.
+
+### #296
+
+- Filed 2026-06-11 from projectiles-fidelity-audit.md (high). Maniaxe axe damage delivery (`loc_8ABC`/`loc_8A52`/`loc_8AF2`) never reaches enemies on the live path; axes pass through without damaging or being consumed.
+
+### #297
+
+- Filed 2026-06-11 from blocks-fidelity-audit.md (2 highs folded: shared-dispatch + Red Stealth). `off_BB80` index 2 (Ice) -> `j_IceBlock_SmashAndLoadBullets` has no native arm in the live ceiling-headbutt match (movement.rs:6343); type-2 cells fall through to a no-op. Red Stealth `off_B058[2]` smash clears the cell but skips `IceBlock_LoadBullets`. Native ice helpers exist and are wired only via Driller/shooter/Iron-Knight paths.
+
+### #298
+
+- Filed 2026-06-11 from blocks-fidelity-audit.md (high; plus the shadowed-helper medium folded). ROM telepad: `sub_B43A` returns warp only at `loc_B522` after `Telepad_timer` counts $5A grounded frames; native warps on first contact, shadowing the faithful `telepad_countdown_loc_B522` helper.
+
+### #299
+
+- Filed 2026-06-11 from level-flow-fidelity-audit.md (high). Ending fires at the last MapOrder entry (logical $69) instead of the hard-coded `Final_LevelID=$33` (`loc_D7F4`).
+
+### #300
+
+- Filed 2026-06-11 from level-flow-fidelity-audit.md (high). Live teleporter path uses `dest_map_id` (a map number) directly as a logical level index, skipping the `loc_BCD6` MapOrder reverse scan.
+
+### #301
+
+- Filed 2026-06-11 as the bosses cluster umbrella (bosses-fidelity-audit.md: 28 gaps, 13 high). The boss layer is an invented substitute: dead `sub_3A292` (collision/HP/palette), `sub_39846`+wrappers (waypoint movement), `loc_37F30`/`38012`/`380F4` (attack FSM), whole HeadyMetal `loc_37582`/`loc_3763A` handler; live heads flat-chase the player and fire on a fixed 180-frame clock; Shishkaboss heads 2/3 HP 30 vs ROM $14; HeadyMetal tracking -0xB000 vs -0x5000; boss-level flagpole suppression `loc_C03A` absent. Treat as one rewiring effort, not 28 patches. Minimum gate: 1p-playable on boss levels.
+
+### #302
+
+- Filed 2026-06-11 from blocks-fidelity-audit.md (high, demoted to P2 for queue order: needs `$E101` cells in the played level). First headbutt of a disguised prize must be reveal-only (`sub_1007A` skin-1 branch `loc_101D8` -> `$E102`); native pays immediately. Faithful `prize_block_deleted_tile_loc_101D8` helper is test-only.
+
+### #303
+
+- Filed 2026-06-11 from shell-fidelity-audit.md (mediums folded). CONTINUE? accepts A/B/C (`any_button`, boot.rs:7782) where ROM `loc_D350`/`loc_D3AA` test Start only (`bmi` on bit 7); the second 239-frame `loc_D3AA` Start window is dropped entirely (CONTINUE_COUNTDOWN_FRAMES=319). Oracle repro: interactive-only; pair with #305.
+
+### #304
+
+- Filed 2026-06-11 from shell-fidelity-audit.md (2 mediums folded; found by the wave-2 completeness critic, each confirmed by an independent refuter). `Permute_ABCButtons` (sub_CCE, called inside ReadJoypad before Ctrl store) and Fast-Action `not.b Ctrl_A_Held` (loc_749C) are both demo-skipped in the ROM and both unwired natively: `with_abc_buttons_permuted` (types.rs:1075) and `with_speed_option_a_inverted` (types.rs:1048) have zero live callers; options fields feed only menu labels. Oracle repro: interactive-only; pair with #305.
+
+### #305
+
+- Filed 2026-06-11 (methodology, from the audit programme's structural finding). The ROM disables options remaps and the pause menu in demo mode, so recorded TAS/demo traces can never expose #293/#303/#304-class gaps. But a fresh DynamicScenario that navigates title -> options -> gameplay drives identical per-frame input paths in native and the jgenesis oracle, so the class IS oracle-verifiable. Deliverable: an interactive-lane scenario suite (options scheme set + remapped-button jump; Fast Action walk/run; pause menu restart/give-up) wired into a gate.
+
+### #306
+
+- Filed 2026-06-11 umbrella: platforms-fidelity-audit.md, 32 of 40 still open after the staleness check (least-worked May audit; only 5 fixed since 2026-05-31). Verdicts with current file:line in fidelity-audit-staleness-2026-06-10.md.
+
+### #307
+
+- Filed 2026-06-11 umbrella: level-loading-fidelity-audit.md, 34 of 55 still open (+11 partial, 1 no-longer-applicable) after the staleness check.
+
+### #308
+
+- Filed 2026-06-11 umbrella: combat-fidelity-audit.md (21 gaps; #294 promoted separately). Largest item: per-sprite-frame `CollisionSize_Index` hitboxes vs the invented fixed 8x16 contact box used for every non-special family; also colid word delivery collapse and the Berzerker reflect keyed to the wrong `object_meta` bit.
+
+### #309
+
+- Filed 2026-06-11 umbrella: blocks-fidelity-audit.md (27 gaps; #297/#298/#302 promoted separately).
+
+### #310
+
+- Filed 2026-06-11 umbrella: terrain-fidelity-audit.md (18 gaps; #295 promoted separately).
+
+### #311
+
+- Filed 2026-06-11 umbrella: projectiles-fidelity-audit.md (16 gaps; #296 promoted separately). Notables: Juggernaut skull treats spikes/slopes/hidden blocks as walls (ASM walls are exactly-Solid $6000 via `sub_B55C`); invented below-foot airborne hitbox damages enemies the ROM never hits.
+
+### #312
+
+- Filed 2026-06-11 umbrella: level-flow-fidelity-audit.md (16 gaps; #299/#300 promoted separately). Notables: death respawn never clears `Extra_hitpoint_slots`; cause-specific death variants.
+
+### #313
+
+- Filed 2026-06-11 umbrella: shell-fidelity-audit.md (15 gaps; #292/#293/#303/#304 promoted separately). Notables: `Allow_Pausing` entry gate, `Use_Continue` extra-HP clear, 2P bank omits `Extra_hitpoint_slots`.
+
+### #314
+
+- Filed 2026-06-11 umbrella: scoring-economy-fidelity-audit.md (9 gaps). Notables: Hundred-K-Trip `$FFFFFB4C` timer armed (combat.rs:8643) but never decremented so the `loc_D980` warp can never fire (its body is also test-only); `OneTimePrize_CheckCollected` anti-farming unwired so 1-ups/10000pt prizes are re-farmable; `collect_diamond` invents +500 score and a life at 50 diamonds.
+
+### #315
+
+- Filed 2026-06-11 umbrella: enemy-fidelity-audit.md, 25 of 67 still open plus 9 partial remainders after the staleness check (e.g. Big Hopping Skull patrol x-bounds reachable only via test-only entry; Ninja `loc_3D8A8`/`loc_3D8BC` knockdown branch). Staleness report lists each remainder with current file:line.
+
+### #316
+
+- Filed 2026-06-11 umbrella: helmets-fidelity-audit.md, 25 of 38 still open after the staleness check.
+
+### #317
+
+- Filed 2026-06-11 umbrella: weather-fidelity-audit.md, 16 of 33 still open after the staleness check.
+
+### #318
+
+- Filed 2026-06-11 umbrella: movement-fidelity-audit.md, 8 of 25 still open after the staleness check.
+
+### #319
+
+- Filed 2026-06-11 umbrella: audio-triggers-fidelity-audit.md (20 trigger gaps, all low/medium). Loop sessions already wired Ankh (89280c99), evanescent-block (b1c6b638) and ice-block (9973af5c) prize SFX directly from the doc on 2026-06-11 — tick entries off in the doc as they land.
+
+### #320
+
+- Filed 2026-06-11 umbrella: camera-fidelity-audit.md (6 gaps, none high; healthiest audited domain).
