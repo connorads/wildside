@@ -61,7 +61,14 @@ and stop — never commit churn.
   archived branch as cache-specific until a current DynamicScenario file is recovered. Clearing
   `300..479` on the clean no-settle scratch route and restoring the late tail also leaves the
   same early healthy approaches (`(456,543)` `dx=-3 dy=-16 @68`, `(584,543)` `dx=0 dy=-48 @127`);
-  do not repeat that idle-window axis unchanged. #270 current wall-pulse probes split the evidence:
+  do not repeat that idle-window axis unchanged. 2026-06-11 follow-up: a current
+  `issue260-drips-drop-contact-probe` pre-380 prefix sweep (`160..330` left-window shifts,
+  no-overlap left windows, split-left windows, and `260..360` coast/brake/right/B+right variants)
+  also failed to improve the late row-32 target. Windowed probes over frames 300..620 still leave
+  the best live late route as the already-documented `wait390`/`left400` family (`(584,543)`
+  healthy `dx=+1 dy=-18 @444` or `dx=0 dy=-22 @470`, both later LevelTransition), while the
+  drop-contact prefix variants either stay far left at the Drips Y row or keep the old
+  `dx=0 dy=-48 @128` early pass. Do not repeat this pre-380 left-window axis unchanged. #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
   diverge before the B pulse and need a natural pickup/well route before any movement patch. #285 crawler art);
