@@ -18409,11 +18409,10 @@ mod chunk_12 {
         );
     }
 
-    /// ASM sub_902A block landing feeds teleporter blocks into the post-motion
-    /// block handler with the contacted tile coordinates, not the player's
-    /// pixel-space coordinates or unrelated block types.
+    /// ASM sub_902A block landing only resolves floor contact. Telepad warp is
+    /// gated later by sub_B43A loc_B522's `$5A` countdown.
     #[test]
-    fn floor_teleporter_contact_reports_tile_coordinates_only_for_teleporters() {
+    fn floor_teleporter_contact_waits_for_loc_b522_countdown() {
         let w: u16 = 8;
         let h: u16 = 8;
         let make_grid = |hi: u8| {
@@ -18447,9 +18446,8 @@ mod chunk_12 {
         );
 
         assert_eq!(
-            teleporter.teleporter_contact,
-            Some((2, 4)),
-            "ASM sub_902A teleporter landing should queue the contacted tile column/row",
+            teleporter.teleporter_contact, None,
+            "ASM sub_902A landing must not bypass sub_B43A loc_B522's telepad countdown",
         );
 
         let mut prize = make_slice();

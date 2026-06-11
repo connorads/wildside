@@ -4214,7 +4214,10 @@ impl OpeningSliceState {
                         && !plain_airborne_floor_landing
                         && !suppress_post_horizontal_floor_release
                         && !self
-                            .walking_floor_support_exists_at_current_position(grid, collision_hw)
+                            .walking_floor_support_exists_at_current_position_without_telepad_countdown(
+                                grid,
+                                collision_hw,
+                            )
                     {
                         // Slope tails release in the SAME frame: the slope
                         // step already ran inside this frame's sub_9386/
@@ -4231,7 +4234,10 @@ impl OpeningSliceState {
                         && !plain_airborne_floor_landing
                         && !suppress_post_horizontal_floor_release
                         && !self
-                            .walking_floor_support_exists_at_current_position(grid, collision_hw)
+                            .walking_floor_support_exists_at_current_position_without_telepad_countdown(
+                                grid,
+                                collision_hw,
+                            )
                     {
                         // ASM loc_8E06: the FLAT walking loop only re-runs the
                         // sub_B43A support scan at the start of the NEXT
@@ -5666,6 +5672,31 @@ impl OpeningSliceState {
         grid: &terrain::BlockGrid,
         collision_hw: i32,
     ) -> bool {
+        self.walking_floor_support_exists_at_current_position_with_telepad_countdown(
+            grid,
+            collision_hw,
+            true,
+        )
+    }
+
+    fn walking_floor_support_exists_at_current_position_without_telepad_countdown(
+        &mut self,
+        grid: &terrain::BlockGrid,
+        collision_hw: i32,
+    ) -> bool {
+        self.walking_floor_support_exists_at_current_position_with_telepad_countdown(
+            grid,
+            collision_hw,
+            false,
+        )
+    }
+
+    fn walking_floor_support_exists_at_current_position_with_telepad_countdown(
+        &mut self,
+        grid: &terrain::BlockGrid,
+        collision_hw: i32,
+        update_telepad_timer: bool,
+    ) -> bool {
         let x_int = (self.player.x_pos >> 16) as i16 as i32;
         let y_int = (self.player.y_pos >> 16) as i16 as i32;
         // ASM loc_B4A0: left_col = (x_pos - d1) >> 4; loc_B4B2: bpl.s (clamp ≥ 0)
@@ -5696,6 +5727,9 @@ impl OpeningSliceState {
             if !cell.has_block || cell.block_type != terrain::BlockType::Teleporter {
                 continue;
             }
+            if !update_telepad_timer {
+                continue;
+            }
 
             let cell_index = u32::from(probe_row) * u32::from(grid.width_cells) + u32::from(col);
             let a0_after_cell_read = ((cell_index + 1) * 2) as u16;
@@ -5717,9 +5751,11 @@ impl OpeningSliceState {
             }
         }
 
-        // ASM loc_B514 (kid.asm:14428): after the dbf scan exhausts without
-        // taking loc_B522, `move.w #$5A,(Telepad_timer).w` resets the timer.
-        self.telepad_timer = 0x5A;
+        if update_telepad_timer {
+            // ASM loc_B514 (kid.asm:14428): after the dbf scan exhausts without
+            // taking loc_B522, `move.w #$5A,(Telepad_timer).w` resets the timer.
+            self.telepad_timer = 0x5A;
+        }
         // ASM loc_B51E (kid.asm:14432): tst.w d7; rts — return NZ if any Solid
         // or Spikes cell found, Z if none.
         floor_found
@@ -6797,14 +6833,6 @@ impl OpeningSliceState {
                         // grounded frame, or native auto-jumps one frame early
                         // on the Level 1 death-respawn route.
                         self.player.jump_buffer_frames = 0;
-                    }
-                    // Teleporter blocks warp player on contact
-                    if probe.cell.has_block
-                        && probe.cell.block_type == terrain::BlockType::Teleporter
-                    {
-                        let tp_col = (x_px / 16).max(0) as u16;
-                        let tp_row = (probe.floor_y_px / 16).max(0) as u16;
-                        self.teleporter_contact = Some((tp_col, tp_row));
                     }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =

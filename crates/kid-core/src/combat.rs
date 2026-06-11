@@ -9075,7 +9075,8 @@ impl NativeRuntime {
         }
     }
 
-    /// Check if the player is standing on a teleporter block and return the destination.
+    /// Check whether sub_B43A loc_B522 has activated a telepad this frame and
+    /// return the loc_BC80 destination.
     ///
     /// ASM loc_BC80 (kid.asm:15219): telepad destination lookup entry.
     /// `move.w ($FFFFF8DE).w,d7; beq loc_BCAC` — load teleporter count from
@@ -9092,11 +9093,11 @@ impl NativeRuntime {
         if block_list.teleporters.is_empty() {
             return None;
         }
-        // Player's feet position in cell coordinates
-        let px = (slice.player.x_pos >> 16) as i32;
-        let py = (slice.player.y_pos >> 16) as i32;
-        let col = terrain::pixel_to_cell(px) as u16;
-        let row = terrain::pixel_to_cell(py) as u16;
+        // ASM loc_B522 (kid.asm:14434) stores the activated telepad layout
+        // address in $FFFFFA86 only after Telepad_timer reaches zero. Native
+        // carries the equivalent cell in `teleporter_contact`; player feet
+        // position alone must not bypass the countdown.
+        let (col, row) = slice.teleporter_contact?;
 
         block_list
             .teleporter_at(col, row)

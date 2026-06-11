@@ -9263,6 +9263,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #298
 
 - Filed 2026-06-11 from blocks-fidelity-audit.md (high; plus the shadowed-helper medium folded). ROM telepad: `sub_B43A` returns warp only at `loc_B522` after `Telepad_timer` counts $5A grounded frames; native warps on first contact, shadowing the faithful `telepad_countdown_loc_B522` helper.
+- Proposed fixed 2026-06-11. Landing through native `apply_floor_collision` no longer queues a teleporter contact; `check_teleporter_contact` now consumes only the `teleporter_contact` cell written by `sub_B43A loc_B522`'s native countdown path. A live regression initially found activation at frame 45 because native post-horizontal support probes re-ran the countdown as a side effect; those release-bookkeeping probes now use a side-effect-free support read, leaving the start-of-frame walking scan as the countdown owner. Added `floor_teleporter_contact_waits_for_loc_b522_countdown`, `teleporter_lookup_ignores_raw_feet_position_before_loc_b522`, and `live_telepad_warps_only_after_90_grounded_frames_loc_b522`. Focused verification: `cargo test -q -p kid-core floor_teleporter_contact_waits_for_loc_b522_countdown -- --nocapture` (red before fix, green after), `cargo test -q -p kid-core live_telepad_warps_only_after_90_grounded_frames_loc_b522 -- --nocapture`, `cargo test -q -p kid-core teleporter_ -- --nocapture`, `cargo test -q -p kid-core telepad -- --nocapture`, and `cargo test -q -p kid-core loc_b522 -- --nocapture`.
 
 ### #299
 

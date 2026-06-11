@@ -8327,6 +8327,71 @@ mod chunk_09 {
         );
     }
 
+    /// ASM sub_B43A loc_B522 decrements `Telepad_timer` from `$5A` while Kid is
+    /// grounded on the telepad. The live frame loop must not warp on first
+    /// contact; loc_BC80 only runs once loc_B522 stores the activated cell.
+    #[test]
+    fn live_telepad_warps_only_after_90_grounded_frames_loc_b522() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.current_level = LevelId(0);
+        rt.set_block_grid(grid_with_cells(8, 8, &[(2, 4, 0xE4, 0)]));
+        rt.block_list = Some(terrain::BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![terrain::TeleporterEntry {
+                layout_addr: 0x0000,
+                col: 2,
+                row: 4,
+                dest_map_id: 0,
+                dest_y: 6,
+                dest_x: 7,
+            }],
+            hidden_blocks: vec![],
+        });
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.x_pos = 39 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.terrain.floor_y_pos = 64;
+        rt.opening_slice = Some(slice);
+
+        for frame in 1..90 {
+            rt.step_frame(FrameInput::default());
+            let slice = rt
+                .opening_slice
+                .as_ref()
+                .expect("telepad countdown frame should keep gameplay slice");
+            assert_eq!(
+                slice.player.x_pos,
+                39 << 16,
+                "loc_B522 frame {frame}: nonzero countdown still returns floor support without warping",
+            );
+        }
+
+        rt.step_frame(FrameInput::default());
+        let slice = rt
+            .opening_slice
+            .as_ref()
+            .expect("telepad activation should keep same-level gameplay slice");
+        assert_eq!(
+            slice.player.x_pos,
+            (7 * 16) << 16,
+            "loc_B522 frame 90 should activate loc_BC80 destination x",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (6 * 16) << 16,
+            "loc_B522 frame 90 should activate loc_BC80 destination y",
+        );
+    }
+
     #[test]
     fn loc_7a60_left_probe_blocked_snaps_right_to_tile_boundary() {
         // ASM loc_7A60 (kid.asm:8126): when x_pos - $E < 0 or left probe finds

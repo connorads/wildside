@@ -2216,15 +2216,47 @@ mod chunk_06 {
             hidden_blocks: vec![],
         });
         let mut slice = OpeningSliceState::new(default_bounds());
-        // Position player on the teleporter cell
+        // ASM loc_B522 stores the activated telepad layout cell for loc_BC80;
+        // raw feet position must not bypass the 90-frame countdown.
         slice.player.x_pos = (5 * 16) << 16;
         slice.player.y_pos = (3 * 16) << 16;
+        slice.teleporter_contact = Some((5, 3));
 
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(
             result,
             Some((7, 20, 10)),
             "should return (map_id, dest_x, dest_y)"
+        );
+    }
+
+    /// ASM loc_BC80 consumes the layout address written by sub_B43A loc_B522.
+    /// Standing on the same tile in pixel space is not enough until the
+    /// `$5A` telepad countdown has produced `teleporter_contact`.
+    #[test]
+    fn teleporter_lookup_ignores_raw_feet_position_before_loc_b522() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_list = Some(terrain::BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![terrain::TeleporterEntry {
+                layout_addr: 0x0000,
+                col: 5,
+                row: 3,
+                dest_map_id: 7,
+                dest_y: 10,
+                dest_x: 20,
+            }],
+            hidden_blocks: vec![],
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = (5 * 16) << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+
+        assert_eq!(
+            rt.check_teleporter_contact(&slice),
+            None,
+            "ASM loc_BC80 must be unreachable before sub_B43A loc_B522 stores the active telepad cell",
         );
     }
 
@@ -2255,6 +2287,7 @@ mod chunk_06 {
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = (5 * 16) << 16;
         slice.player.y_pos = (3 * 16) << 16;
+        slice.teleporter_contact = Some((5, 3));
 
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(
