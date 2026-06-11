@@ -1770,6 +1770,33 @@ mod chunk_01 {
         assert!(!sprites[2].visible, "loc_BE4C: hidden because d1<0");
     }
 
+    /// ASM loc_B700 (kid.asm:14641-14658) caps Iron Knight damage through
+    /// `HelmetHitpoint_Table[6]=5`, then subtracts one HP.  The first
+    /// non-fatal hit therefore changes Number_Hitpoints 5 -> 4, but
+    /// Make_SpriteAttr_HUD/sub_BDC0 hides the odd fifth slot at loc_BE4C, so
+    /// the visible pip row remains two full sprites until the next hit.
+    #[test]
+    fn loc_b700_iron_knight_first_hit_is_visually_hidden_by_sub_bdc0() {
+        let before = make_hud_hitpoint_layout_sub_BDC0(5, 5, false, 0, false);
+        let after = make_hud_hitpoint_layout_sub_BDC0(4, 5, false, 0, false);
+
+        let visible_before = before
+            .iter()
+            .filter(|sprite| sprite.visible)
+            .map(|sprite| (sprite.x_pos, sprite.tile))
+            .collect::<Vec<_>>();
+        let visible_after = after
+            .iter()
+            .filter(|sprite| sprite.visible)
+            .map(|sprite| (sprite.x_pos, sprite.tile))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            visible_before, visible_after,
+            "ASM sub_BDC0: Iron Knight 5 HP and 4 HP both show two visible full pips; the odd fifth slot is hidden"
+        );
+    }
+
     /// ASM loc_BE08 (kid.asm:15405): y-position for all hitpoint sprites is $A4.
     /// Verified across multiple sprites: every entry has y_pos=0x00A4.
     #[test]
