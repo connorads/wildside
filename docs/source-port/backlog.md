@@ -152,7 +152,11 @@ and stop — never commit churn.
   `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`, early
   420..520 brake/coast/B+Left/B+Right overlays over the right-side route still
   leave the best healthy `(584,543)` approach at `dx=+1 dy=-20`, and the best
-  left-target approach only `dx=-1 dy=-20`. On
+  left-target approach only `dx=-1 dy=-20`. A follow-up
+  `320..390 Left` / `390..460 B+Right` reverse-entry axis on the named
+  drop-contact route still produced only the old left-side `dy=-16` near-miss
+  and diverged against oracle at frame 470 on diamonds; do not repeat that
+  axis unchanged. On
   `.cache/debug/issue260-tail-grid/l524_b530_540.json`, 430..520 B-pulses,
   left/right shaping, and B+direction variants preserve or worsen the existing
   `(456,543) dx=0 dy=-16 @540` clean seed. A final underside-target batch
