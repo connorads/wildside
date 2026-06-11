@@ -9248,6 +9248,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #295
 
 - Filed 2026-06-11 from terrain-fidelity-audit.md (2 highs folded). Ceiling spikes: `loc_91A6`/`loc_9188`/`sub_914A` damage on headbutt; native treats the tile as plain solid. Floor spikes: native instant death, ROM routes through the normal helmet/HP/invuln-gated damage path (`loc_91A6`/`loc_92B6`). Both directions wrong in opposite ways.
+- Closed 2026-06-11 as already fixed by `2537e514 Fix spike contact damage route`. Current movement code preserves spike contact from `loc_91A6` ceiling hits and `loc_92B6` floor/wall probes via `player.on_spikes`, while `resolve_frame_hazards` routes spike contact through `apply_damage()` behind the normal damage-invulnerability gate instead of forcing instant death. Regression coverage includes non-final floor spike survival, recent-damage gate, final-HP death/respawn, and ceiling spike damage. Verification rerun while closing the stale row: `cargo test -q -p kid-core spike_contact -- --nocapture`, `cargo test -q -p kid-core ceiling_spike -- --nocapture`, and `cargo test -q -p kid-core loc_91a6 -- --nocapture`.
 
 ### #296
 
