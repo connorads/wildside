@@ -545,6 +545,40 @@ fn gameplay_input_applies_loc_7464_left_right_conflict_resolution() {
 }
 
 #[test]
+fn readjoypad_options_scheme_2_swaps_a_b_before_latch_loc_bb6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.options_controls_scheme = 2;
+
+    runtime.step_frame(FrameInput {
+        a: true,
+        ..FrameInput::default()
+    });
+
+    assert!(
+        runtime.previous_input.b,
+        "ASM Permute_ABCButtons loc_D0A: scheme 2 maps raw A to latched B before loc_C4E"
+    );
+    assert!(
+        !runtime.previous_input.a,
+        "ASM Permute_ABCButtons loc_D14: scheme 2 clears raw A from the latched A slot"
+    );
+}
+
+#[test]
+fn gameplay_input_fast_action_inverts_a_latch_loc_749c() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.options_speed_button_fast = true;
+    runtime.previous_input = FrameInput::default();
+
+    let gameplay_input = runtime.gameplay_input(FrameInput::default());
+
+    assert!(
+        gameplay_input.a,
+        "ASM loc_749C: Fast Action executes not.b Ctrl_A_Held so no held A becomes run-held"
+    );
+}
+
+#[test]
 fn enter_level_playtest_clears_menu_held_input_latches_loc_c4e() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.previous_input = FrameInput {

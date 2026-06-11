@@ -2031,10 +2031,12 @@ impl NativeRuntime {
             self.demo_auto_timeout_return_pending = false;
             self.finish_demo_auto_timeout_return();
         }
+        let demo_mode_active = matches!(self.boot_state, BootState::DemoPlay { .. });
         let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
             self.trace_input = raw_input;
             return self.trace_frame();
         };
+        let input = self.readjoypad_input_with_options_loc_bb6(input, demo_mode_active);
         self.trace_input = input;
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
@@ -2655,6 +2657,17 @@ impl NativeRuntime {
 
     fn gameplay_input(&self, input: FrameInput) -> FrameInput {
         let held = self.previous_input.with_left_right_conflict_resolved();
+        let mut a_held = if self.progression.current_form == PlayerForm::Skycutter {
+            self.prior_input.a
+        } else {
+            self.previous_input.a
+        };
+        if self.options_speed_button_fast {
+            // ASM loc_749C (kid.asm:7616): after loc_7464 unpacks `Ctrl_A_Held`
+            // and resolves Left+Right, Fast Action executes `not.b Ctrl_A_Held`.
+            // Demo play skips `gameplay_input`, matching the `Demo_Mode_flag` gate.
+            a_held = !a_held;
+        }
         FrameInput {
             up: held.up,
             down: held.down,
@@ -2666,16 +2679,25 @@ impl NativeRuntime {
             // The Skycutter ground path at sub_9A20 exposes that older A/run
             // latch in the Invulnerability audit; non-Skycutter movement stays
             // on the existing oracle-locked held latch.
-            a: if self.progression.current_form == PlayerForm::Skycutter {
-                self.prior_input.a
-            } else {
-                self.previous_input.a
-            },
+            a: a_held,
             // Gameplay motion consumes the previous controller state, including jump hold.
             b: self.previous_input.b,
             c: input.c,
             start: input.start,
         }
+    }
+
+    fn readjoypad_input_with_options_loc_bb6(
+        &self,
+        input: FrameInput,
+        demo_mode_active: bool,
+    ) -> FrameInput {
+        if demo_mode_active {
+            return input;
+        }
+        // ASM loc_BB6 (kid.asm:1361-1368) calls Permute_ABCButtons before
+        // loc_C4E computes pressed edges and latches Ctrl_1_Held.
+        input.with_abc_buttons_permuted(self.options_controls_scheme)
     }
 
     fn gameplay_jump_pressed(&self) -> bool {
