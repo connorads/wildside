@@ -352,6 +352,17 @@ that seed with `530..600` B/B+Left/B+Right climbs did not improve the healthy
 score beyond `dx=0 dy=-48 @528`. Do not treat `480..520 B+Left` or its immediate
 climb continuations as route proof.
 
+Follow-up 2026-06-11 for #260 route search: a middle-setup batch on the current
+best comparable left-tail seed
+`.cache/debug/issue260-tail-grid/l524_b530_540.json` did not find a new contact
+route. Varying `360..420`, `380..440`, and `400..460` with `B`, `B+Left`,
+`B+Right`, `Left`, or `Right` leaves the `B`-only variants on the old clean
+left-target near-miss (`(456,543) dx=0 dy=-16 @540`, `InGame`, HP 1). Left/
+B+Left variants worsen to `dy=-48`, while right/B+Right variants move toward
+the right target but end in `LevelTransition` (best right-side healthy score
+`dx=+1 dy=-48 @399` or `dx=+25 dy=-23 @377`, both invalid as proof). Do not
+repeat this 360..460 middle-setup axis unchanged.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing

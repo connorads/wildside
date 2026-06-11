@@ -127,7 +127,13 @@ and stop — never commit churn.
   `tas-diff` shows oracle has already taken DripsSurfaceCrawler damage while
   native has not. The immediate `530..600` B/B+Left/B+Right climb continuations
   also do not improve the healthy score. Do not reuse this `480..520 B+Left`
-  setup seed as proof.
+  setup seed as proof. On the comparable left-tail seed
+  `.cache/debug/issue260-tail-grid/l524_b530_540.json`, a 360..460 middle-setup
+  batch (`B`, `B+Left`, `B+Right`, `Left`, `Right` over `360..420`,
+  `380..440`, `400..460`) also failed: B-only variants remain the old clean
+  `(456,543) dx=0 dy=-16 @540`, left/B+Left worsen vertical approach, and
+  right/B+Right variants improve only invalid LevelTransition routes. Do not
+  repeat this middle-setup axis unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
