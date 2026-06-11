@@ -2386,6 +2386,11 @@ impl NativeRuntime {
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
+            let uses_loc_3263c_post_move_gravity = matches!(
+                p.kind,
+                EnemyProjectileKind::TarMonsterBurstChild
+                    | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+            );
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
@@ -2433,7 +2438,7 @@ impl NativeRuntime {
                 // first support/collision probe runs on the next native frame.
                 return true;
             }
-            if !is_drips_drop {
+            if !is_drips_drop && !uses_loc_3263c_post_move_gravity {
                 p.y_velocity += p.gravity;
             }
 
@@ -2722,10 +2727,10 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
-            if is_drips_drop {
-                // ASM Drips.asm loc_3345C: the hibernated object movement and
-                // collision probe use the previous `$2A(a1)` y-velocity; the
-                // `addi.l #$2000,$2A(a1)` gravity step prepares the next frame.
+            if is_drips_drop || uses_loc_3263c_post_move_gravity {
+                // ASM Drips.asm loc_3345C and Tar_Monster.asm loc_3263C: the
+                // hibernated object movement uses the previous y-velocity; the
+                // gravity step prepares the next frame.
                 p.y_velocity += p.gravity;
             }
 

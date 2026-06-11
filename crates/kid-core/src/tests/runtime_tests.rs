@@ -14078,6 +14078,34 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_3263c_burst_helpers_apply_gravity_after_move() {
+        for kind in [
+            EnemyProjectileKind::TarMonsterBurstChild,
+            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+        ] {
+            let mut rt = NativeRuntime::new(manifest());
+            let mut proj = make_projectile(100, 100);
+            proj.kind = kind;
+            proj.y_velocity = 0x0002_0000;
+            proj.gravity = 0x1000;
+            rt.projectiles.push(proj);
+
+            rt.step_projectiles();
+
+            let moved = &rt.projectiles[0];
+            assert_eq!(
+                moved.y_pos,
+                102 << 16,
+                "ASM Tar_Monster.asm loc_3263C hibernates/moves before adding gravity for {kind:?}"
+            );
+            assert_eq!(
+                moved.y_velocity, 0x0002_1000,
+                "ASM Tar_Monster.asm loc_3263C adds gravity after the movement step for {kind:?}"
+            );
+        }
+    }
+
+    #[test]
     fn step_projectiles_lifetime_decrements() {
         let mut rt = NativeRuntime::new(manifest());
         let mut proj = make_projectile(100, 100);
