@@ -372,6 +372,9 @@ enum Commands {
         /// Score candidates by closest healthy Kid approach to these x,y pixel targets.
         #[arg(long, value_parser = parse_target_point)]
         target_point: Vec<TargetPoint>,
+        /// Ignore earlier frames when scoring closest target approach.
+        #[arg(long, default_value_t = 0)]
+        score_frame_start: usize,
         /// Print at most this many ranked candidates.
         #[arg(long, default_value_t = 20)]
         limit: usize,
@@ -1322,6 +1325,7 @@ fn main() -> Result<()> {
             scenario,
             candidate,
             target_point,
+            score_frame_start,
             limit,
             rom,
             dir,
@@ -1342,6 +1346,7 @@ fn main() -> Result<()> {
                 &base,
                 &candidate,
                 &target_point,
+                score_frame_start,
                 limit,
             )?;
         }
@@ -2930,6 +2935,7 @@ fn probe_dynamic_record_scenario_batch(
     base: &DynamicScenario,
     candidate_specs: &[String],
     target_points: &[TargetPoint],
+    score_frame_start: usize,
     limit: usize,
 ) -> Result<()> {
     let candidates = candidate_specs
@@ -2962,7 +2968,12 @@ fn probe_dynamic_record_scenario_batch(
         let mut first_target_score = None;
         let mut target_summaries = Vec::with_capacity(target_points.len());
         for (index, target_point) in target_points.iter().copied().enumerate() {
-            let summary = target_point_approach(&trace, target_point, true)
+            let summary = target_point_approach_from_frame(
+                &trace,
+                target_point,
+                true,
+                score_frame_start,
+            )
                 .map(|approach| {
                     if index == 0 {
                         first_target_score = Some(approach.manhattan_px);

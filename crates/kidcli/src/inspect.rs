@@ -1633,11 +1633,23 @@ pub(crate) fn target_point_approach(
     target_point: TargetPoint,
     require_healthy_kid: bool,
 ) -> Option<TargetPointApproach> {
+    target_point_approach_from_frame(trace, target_point, require_healthy_kid, 0)
+}
+
+pub(crate) fn target_point_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    target_point: TargetPoint,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetPointApproach> {
     let target_x = target_point.x_px << 16;
     let target_y = target_point.y_px << 16;
     let mut closest: Option<TargetPointApproach> = None;
 
     for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
         if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
             continue;
         }
@@ -2500,6 +2512,27 @@ mod tests {
         assert_eq!(
             describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
             "target point 32,64: closest kid dx_px +0 dy_px +0 manhattan_px 0 @1 kid 00200000,00400000; closest healthy kid dx_px -4 dy_px +1 manhattan_px 5 @2 kid 00240000,003F0000"
+        );
+    }
+
+    #[test]
+    fn target_point_approach_from_frame_ignores_early_matches_without_renumbering() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x0020_0000), Some(0x0040_0000)),
+            player_frame(11, GameMode::InGame, Some(0x0028_0000), Some(0x0044_0000)),
+            player_frame(12, GameMode::InGame, Some(0x0024_0000), Some(0x0042_0000)),
+        ];
+
+        assert_eq!(
+            target_point_approach_from_frame(&trace, TargetPoint { x_px: 32, y_px: 64 }, true, 2),
+            Some(TargetPointApproach {
+                replay_frame: 2,
+                kid_x: 0x0024_0000,
+                kid_y: 0x0042_0000,
+                dx_px: -4,
+                dy_px: -2,
+                manhattan_px: 6,
+            })
         );
     }
 
