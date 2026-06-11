@@ -2148,10 +2148,9 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::JUMP);
     }
 
-    // Stomp enemy (score jumped by 1000+, not from diamond collection)
-    if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
-        sound_ids.push(gems_sfx::JUMP_ON_ENEMY);
-    }
+    // Stomp enemy is now driven by the core trace. ASM Jump_On_Enemy
+    // (kid.asm:14607) plays `sfx_Jump_on_enemy` before any enemy HP/score
+    // consequence, and many real stomps do not award score.
 
     // Diamond collected: the cue is now driven authoritatively by the core
     // trace, not by the visible count. ASM PrizeDiamondCollected_Init
@@ -13781,6 +13780,32 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::DRIPS_DRIPPING],
             "ASM Drips.asm loc_3345C queues sfx_Drips_dripping=$58 from the core trace"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_jump_on_enemy_from_core_trace_loc_b6da() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::JUMP_ON_ENEMY];
+        curr.stomped_this_frame = true;
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::JUMP_ON_ENEMY],
+            "ASM Jump_On_Enemy (kid.asm:14607) queues sfx_Jump_on_enemy=$4C from the core trace before the loc_B6DA bounce tail"
+        );
+    }
+
+    #[test]
+    fn play_native_does_not_infer_jump_on_enemy_from_score_delta() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.score = prev.score + 1000;
+
+        assert!(
+            !gems_event_sound_ids(&prev, &curr).contains(&gems_sfx::JUMP_ON_ENEMY),
+            "ASM Jump_On_Enemy (kid.asm:14607) is keyed to the stomp-bounce path, not to an advisory score delta"
         );
     }
 

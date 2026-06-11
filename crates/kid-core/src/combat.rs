@@ -52,6 +52,7 @@ pub(crate) enum QueuedSoundEffect {
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
+    JumpOnEnemy,
     DiamondPrize,
     DripsDripping,
     TarMonsterDisappears,
@@ -92,6 +93,9 @@ impl QueuedSoundEffect {
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,
             Self::RedStealthAttackDown => 0x13,
+            // ASM Jump_On_Enemy (kid.asm:14607) plays
+            // `sfx_Jump_on_enemy = $4C` before the loc_B6DA bounce tail.
+            Self::JumpOnEnemy => 0x4C,
             // ASM PrizeDiamondCollected_Init loc_2510C (kid.asm:21103): the
             // diamond-prize pickup plays `sfx_Diamond_prize = $2D` on the
             // contact frame, *before* the 32-step fly-to-counter loop that
@@ -7697,6 +7701,10 @@ impl NativeRuntime {
             .x_velocity
             .saturating_add(current_x_velocity >> 1);
         slice.player.on_ground = false;
+        // ASM Jump_On_Enemy (kid.asm:14607) plays `sfx_Jump_on_enemy = $4C`
+        // before entering the loc_B6DA bounce mechanics modelled above.
+        self.played_sound_effects
+            .push(QueuedSoundEffect::JumpOnEnemy);
         self.stomped_this_frame = true;
     }
 

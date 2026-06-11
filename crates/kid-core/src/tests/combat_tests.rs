@@ -393,6 +393,11 @@ fn drips_surface_crawler_burst_helper_stomp_bounces_without_deleting_loc_325b6()
         slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
         "ASM Jump_On_Enemy loc_B6DA should apply the standard stomp bounce after the loc_325B6 helper contact"
     );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::JumpOnEnemy],
+        "ASM Jump_On_Enemy (kid.asm:14607) plays sfx_Jump_on_enemy before the loc_B6DA bounce tail"
+    );
 }
 
 #[test]
