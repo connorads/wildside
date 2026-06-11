@@ -48,8 +48,8 @@ use kid_data::{AssetManifest, find_enemy_definition, load_level_asset_bundle, re
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use native_player::{
-    NativePlayOptions, render_dynamic_gameplay_frame_evidence, render_gameplay_frame_evidence,
-    run_native_player,
+    NativePlayOptions, NativeScriptedRoute, render_dynamic_gameplay_frame_evidence,
+    render_gameplay_frame_evidence, run_native_player,
 };
 use oracle::{
     EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
@@ -1353,10 +1353,23 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let scripted_scenario = scenario
+                .as_deref()
+                .map(load_record_scenario_file)
+                .transpose()?;
+            let effective_warp_level = warp_level.or_else(|| {
+                scripted_scenario
+                    .as_ref()
+                    .and_then(|dynamic| dynamic.warp_to_level)
+            });
+            let effective_settled = settled
+                || scripted_scenario
+                    .as_ref()
+                    .is_some_and(|dynamic| dynamic.settle_oracle_warp);
             // Native level entry depends on generated `level-layout` dumps for
             // floor snap/collision. Preflight the early boot path here so
             // manual play does not open into a misleading loading-screen stall.
-            if let Some(level_id) = warp_level {
+            if let Some(level_id) = effective_warp_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level_id])?;
             } else {
                 ensure_gameplay_level_layouts(
@@ -1383,10 +1396,6 @@ fn main() -> Result<()> {
                 (Some(_), Some(0)) => bail!("--record-frames must be greater than zero"),
                 _ => {}
             }
-            let scripted_scenario = scenario
-                .as_deref()
-                .map(load_record_scenario_file)
-                .transpose()?;
             let record_frames = match (&record_to, record_frames, &scripted_scenario) {
                 (Some(_), None, Some(dynamic)) => Some(dynamic.frame_count),
                 _ => record_frames,
@@ -1397,12 +1406,12 @@ fn main() -> Result<()> {
                     fullscreen,
                     scale,
                     debug_overlay,
-                    warp_level,
-                    settled,
+                    warp_level: effective_warp_level,
+                    settled: effective_settled,
                     record_to,
                     record_frames,
                     record_notes,
-                    scripted_input: scripted_scenario.map(|dynamic| dynamic.script),
+                    scripted_route: scripted_scenario.map(NativeScriptedRoute::from),
                 },
             )?;
         }

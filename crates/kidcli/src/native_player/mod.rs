@@ -2,7 +2,7 @@ use crate::recording::{
     RecordingBundleArtifacts, build_recording, recording_start_from_options,
     save_recording_with_artifacts,
 };
-use crate::scenarios::GameplayCheckpoint;
+use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint};
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
@@ -69,7 +69,30 @@ pub struct NativePlayOptions {
     pub record_to: Option<PathBuf>,
     pub record_frames: Option<usize>,
     pub record_notes: Option<String>,
-    pub scripted_input: Option<Vec<u8>>,
+    pub scripted_route: Option<NativeScriptedRoute>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeScriptedRoute {
+    pub script: Vec<u8>,
+    pub delay_recording_input: bool,
+    pub start_position: Option<DynamicStartPosition>,
+    pub camera_position: Option<DynamicStartPosition>,
+    pub playtest_form: Option<u16>,
+    pub initial_diamond_count: Option<u16>,
+}
+
+impl From<DynamicScenario> for NativeScriptedRoute {
+    fn from(scenario: DynamicScenario) -> Self {
+        Self {
+            script: scenario.script,
+            delay_recording_input: scenario.settle_oracle_warp,
+            start_position: scenario.start_position,
+            camera_position: scenario.camera_position,
+            playtest_form: scenario.playtest_form,
+            initial_diamond_count: scenario.initial_diamond_count,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -567,7 +590,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     &mut wait_for_live_input_release,
                 );
                 let buttons = native_frame_buttons(
-                    options.scripted_input.as_deref(),
+                    options
+                        .scripted_route
+                        .as_ref()
+                        .map(|route| (route.script.as_slice(), route.delay_recording_input)),
                     recorded_trace.len(),
                     live_buttons,
                 );
@@ -834,9 +860,21 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
         .is_some_and(|limit| recorded_frames >= limit)
 }
 
-fn native_frame_buttons(scripted_input: Option<&[u8]>, frame_index: usize, live_buttons: u8) -> u8 {
-    scripted_input.map_or(live_buttons, |script| {
-        script.get(frame_index).copied().unwrap_or(0)
+fn native_frame_buttons(
+    scripted_input: Option<(&[u8], bool)>,
+    frame_index: usize,
+    live_buttons: u8,
+) -> u8 {
+    scripted_input.map_or(live_buttons, |(script, delay_recording_input)| {
+        let input_index = if delay_recording_input {
+            frame_index.checked_sub(1)
+        } else {
+            Some(frame_index)
+        };
+        input_index
+            .and_then(|index| script.get(index))
+            .copied()
+            .unwrap_or_default()
     })
 }
 
@@ -895,6 +933,19 @@ fn save_native_recording_bundle(
         recorded_script.push(0);
         recorded_trace.push(current_trace);
     }
+    if let Some(route) = &options.scripted_route {
+        recorded_script = route
+            .script
+            .iter()
+            .copied()
+            .take(recorded_trace.len())
+            .collect();
+    }
+    let recorded_audio_events = if options.scripted_route.is_some() {
+        native_audio_events_for_trace(manifest, &recorded_trace)
+    } else {
+        recorded_audio_events
+    };
 
     let slug = record_to
         .file_name()
@@ -905,13 +956,19 @@ fn save_native_recording_bundle(
                 record_to.display()
             )
         })?;
-    let recording = build_recording(
+    let mut recording = build_recording(
         manifest,
         slug,
         recording_start_from_options(options),
         recorded_script,
         recorded_trace,
     )?;
+    if let Some(route) = &options.scripted_route {
+        recording.manifest.scenario.start_position = route.start_position;
+        recording.manifest.scenario.camera_position = route.camera_position;
+        recording.manifest.scenario.playtest_form = route.playtest_form;
+        recording.manifest.scenario.initial_diamond_count = route.initial_diamond_count;
+    }
     let artifacts = RecordingBundleArtifacts {
         user_notes: options.record_notes.clone(),
         final_frame_rgb,
@@ -966,8 +1023,13 @@ fn initialise_runtime(
     session_assets: &NativeSessionAssets,
     options: &NativePlayOptions,
 ) -> NativeRuntime {
-    let mut runtime = NativeRuntime::new(manifest.clone());
-    runtime.set_block_grid(session_assets.block_grid.clone());
+    let mut runtime = if options.settled && options.warp_level.is_some() {
+        NativeRuntime::with_generated_level_layout(manifest.clone())
+    } else {
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        runtime
+    };
     if let Some(level_id) = options.warp_level {
         if options.settled {
             // ASM loc_1AE2E/loc_74E0 reaches settled recording warps through
@@ -984,7 +1046,33 @@ fn initialise_runtime(
     } else if options.settled {
         runtime.enter_level_playtest(LevelId(0));
     }
+    apply_scripted_route_probe_state(&mut runtime, options.scripted_route.as_ref())
+        .expect("invalid scripted play-native route");
     runtime
+}
+
+fn apply_scripted_route_probe_state(
+    runtime: &mut NativeRuntime,
+    scripted_route: Option<&NativeScriptedRoute>,
+) -> Result<()> {
+    let Some(route) = scripted_route else {
+        return Ok(());
+    };
+    if let Some(position) = route.start_position {
+        runtime.set_player_probe_position(position.x, position.y);
+    }
+    if let Some(position) = route.camera_position {
+        runtime.set_camera_probe_position(position.x, position.y);
+    }
+    if let Some(helmet_id) = route.playtest_form {
+        let form = PlayerForm::from_helmet_id(helmet_id)
+            .ok_or_else(|| anyhow!("invalid playtest_form helmet id {helmet_id}"))?;
+        runtime.set_playtest_form(form);
+    }
+    if let Some(count) = route.initial_diamond_count {
+        runtime.set_probe_diamond_count(count);
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8764,7 +8852,7 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
-                scripted_input: None,
+                scripted_route: None,
             },
         );
 
@@ -8801,7 +8889,7 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
-                scripted_input: None,
+                scripted_route: None,
             },
         );
 
@@ -8821,6 +8909,38 @@ mod tests {
             GameMode::SegaScreen,
             "settled recording startup must advance beyond cold boot even when the tiny unit-test manifest lacks full title-card assets"
         );
+    }
+
+    #[test]
+    fn native_scripted_route_keeps_dynamic_scenario_probe_metadata() {
+        let route = NativeScriptedRoute::from(DynamicScenario {
+            slug: "live-prize-audio".into(),
+            script: vec![0, 16],
+            frame_count: 2,
+            checkpoints: Vec::new(),
+            start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+            camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
+            playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
+            initial_diamond_count: Some(12),
+            warp_to_level: Some(0),
+            settle_oracle_warp: true,
+        });
+
+        assert_eq!(route.script, vec![0, 16]);
+        assert!(route.delay_recording_input);
+        assert_eq!(
+            route.start_position,
+            Some(DynamicStartPosition { x: 230, y: 271 })
+        );
+        assert_eq!(
+            route.camera_position,
+            Some(DynamicStartPosition { x: 16, y: 136 })
+        );
+        assert_eq!(
+            route.playtest_form,
+            Some(PlayerForm::RedStealth.helmet_id())
+        );
+        assert_eq!(route.initial_diamond_count, Some(12));
     }
 
     #[test]
@@ -8954,10 +9074,12 @@ mod tests {
     }
 
     #[test]
-    fn save_native_recording_bundle_persists_current_trace_when_no_frames_were_stepped() {
+    fn save_native_recording_bundle_persists_scripted_route_metadata_and_sfx_events() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         let record_dir = fixture._root.path().join("recordings").join("freeze-repro");
         let trace = sample_trace(GameMode::LevelTransition);
+        let mut sfx_trace = trace.clone();
+        sfx_trace.played_sound_effect_ids.push(gems_sfx::BLOCK_HIT);
         let final_frame = vec![0x22; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
         save_native_recording_bundle(
@@ -8971,10 +9093,17 @@ mod tests {
                 record_to: Some(record_dir.clone()),
                 record_frames: Some(900),
                 record_notes: Some(String::from("stuck on level card")),
-                scripted_input: None,
+                scripted_route: Some(NativeScriptedRoute {
+                    script: vec![16, 0],
+                    delay_recording_input: false,
+                    start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+                    camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
+                    playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
+                    initial_diamond_count: Some(12),
+                }),
             },
-            Vec::new(),
-            Vec::new(),
+            vec![16, 0],
+            vec![trace.clone(), sfx_trace],
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -8994,8 +9123,18 @@ mod tests {
 
         let scenario_text =
             fs::read_to_string(record_dir.join("scenario.json")).expect("scenario text");
-        assert!(scenario_text.contains("\"frame_count\": 1"));
-        assert!(scenario_text.contains("\"script\": [\n    0\n  ]"));
+        assert!(scenario_text.contains("\"frame_count\": 2"));
+        assert!(scenario_text.contains("\"script\": [\n    16,\n    0\n  ]"));
+        assert!(scenario_text.contains("\"start_position\": {"));
+        assert!(scenario_text.contains("\"x\": 230"));
+        assert!(scenario_text.contains("\"y\": 271"));
+        assert!(scenario_text.contains("\"camera_position\": {"));
+        assert!(scenario_text.contains("\"playtest_form\": 3"));
+        assert!(scenario_text.contains("\"initial_diamond_count\": 12"));
+        let audio_events =
+            fs::read_to_string(record_dir.join("audio-events.txt")).expect("audio events");
+        assert!(audio_events.contains("frame=1"));
+        assert!(audio_events.contains("PlaySound(13)"));
         assert!(manifest_text.contains("\"record_frames\": 900"));
         assert!(manifest_text.contains("--record freeze-repro --record-frames 900"));
     }
@@ -9011,7 +9150,7 @@ mod tests {
             record_to: Some(PathBuf::from("recordings/level2-death")),
             record_frames: Some(3),
             record_notes: None,
-            scripted_input: None,
+            scripted_route: None,
         };
 
         assert!(!recording_frame_limit_reached(&options, 2));
@@ -9030,13 +9169,25 @@ mod tests {
         let script = [0, 0x80, 1 << 3];
 
         assert_eq!(native_frame_buttons(None, 1, 1 << 4), 1 << 4);
-        assert_eq!(native_frame_buttons(Some(&script), 1, 1 << 4), 0x80);
-        assert_eq!(native_frame_buttons(Some(&script), 2, 1 << 4), 1 << 3);
         assert_eq!(
-            native_frame_buttons(Some(&script), 3, 1 << 4),
+            native_frame_buttons(Some((&script, false)), 1, 1 << 4),
+            0x80
+        );
+        assert_eq!(
+            native_frame_buttons(Some((&script, false)), 2, 1 << 4),
+            1 << 3
+        );
+        assert_eq!(
+            native_frame_buttons(Some((&script, false)), 3, 1 << 4),
             0,
             "scripted live-player routes should become idle after the supplied DynamicScenario ends instead of leaking keyboard/controller input"
         );
+        assert_eq!(
+            native_frame_buttons(Some((&script, true)), 0, 1 << 4),
+            0,
+            "recording-oracle settled routes delay the first input byte until after the frame-0 state sample"
+        );
+        assert_eq!(native_frame_buttons(Some((&script, true)), 2, 1 << 4), 0x80);
     }
 
     #[test]
