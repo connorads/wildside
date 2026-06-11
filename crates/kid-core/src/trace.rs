@@ -1742,6 +1742,33 @@ mod tests {
     }
 
     #[test]
+    fn debug_level_change_enters_title_card_not_live_gameplay_loc_1ae2e() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+
+        let trace = runtime.enter_level_debug_title_card(LevelId(1));
+
+        assert_eq!(trace.current_level, LevelId(1));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_74E0 level changes re-enter mode $0008/Load_TitleCard; play-native N/P should expose the level name card instead of the synthetic live-gameplay warp",
+        );
+
+        let held_gameplay_trace = runtime.step_frame(FrameInput {
+            right: true,
+            b: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            held_gameplay_trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E ignores gameplay buttons while the title-card shell owns the transition",
+        );
+    }
+
+    #[test]
     fn loc_1ae2e_title_card_start_handoff_does_not_buffer_gameplay_input() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         let bounds = crate::physics::LevelBounds {

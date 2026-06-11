@@ -9031,6 +9031,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #282
 
 - [Verify] Press Next, confirm level name card displays before gameplay RECONFIRMED 2026-06-10 playtest (post 325e8622 build): level-skip still jumps straight into gameplay without the level name card.
+- [Verify] Fixed candidate 2026-06-11. Root cause: play-native debug `N`/`P` called `enter_level_playtest`, the synthetic direct gameplay helper, then explicitly suppressed the level card overlay. Native now routes those debug level changes through `enter_level_debug_title_card`, which calls the normal `begin_level_entry` path and exposes `GameMode::LevelTransition`/`Load_TitleCard` before gameplay. Regression: `debug_level_change_enters_title_card_not_live_gameplay_loc_1ae2e`. Verification: focused kid-core test, `cargo fmt --check`, and `cargo check -q -p kidcli` passed. Human play-native validation still required.
 
 ### #284
 

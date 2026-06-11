@@ -521,12 +521,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         DebugWarpDirection::Next,
                     ) {
                         session_assets = next_assets;
-                        trace = runtime.enter_level_playtest(next);
+                        runtime.set_block_grid(session_assets.block_grid.clone());
+                        trace = runtime.enter_level_debug_title_card(next);
                         current_level_id = next.0;
                         level_card_frames_remaining = 0;
                         fade_alpha = 0;
                         fading_in = false;
-                        suppress_level_card_for_debug_warp = true;
+                        suppress_level_card_for_debug_warp = false;
                         wait_for_live_input_release = true;
                     } else {
                         eprintln!("no playable next level with generated visuals and block layout");
@@ -548,12 +549,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         DebugWarpDirection::Previous,
                     ) {
                         session_assets = prev_assets;
-                        trace = runtime.enter_level_playtest(prev);
+                        runtime.set_block_grid(session_assets.block_grid.clone());
+                        trace = runtime.enter_level_debug_title_card(prev);
                         current_level_id = prev.0;
                         level_card_frames_remaining = 0;
                         fade_alpha = 0;
                         fading_in = false;
-                        suppress_level_card_for_debug_warp = true;
+                        suppress_level_card_for_debug_warp = false;
                         wait_for_live_input_release = true;
                     } else {
                         eprintln!(

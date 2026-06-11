@@ -18189,6 +18189,13 @@ impl NativeRuntime {
         self.starting_level_title_rng = None;
     }
 
+    /// Enter a level through the normal title-card/loading shell for debug
+    /// controls that change level while live play is running.
+    pub fn enter_level_debug_title_card(&mut self, level_id: LevelId) -> NativeTraceFrame {
+        self.begin_level_entry(level_id);
+        self.trace_frame()
+    }
+
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
