@@ -9253,6 +9253,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #296
 
 - Filed 2026-06-11 from projectiles-fidelity-audit.md (high). Maniaxe axe damage delivery (`loc_8ABC`/`loc_8A52`/`loc_8AF2`) never reaches enemies on the live path; axes pass through without damaging or being consumed.
+- Closed 2026-06-11 as already fixed by `f2a96990 Fix live Maniaxe axe enemy hits`. Current `process_friendly_projectile_hits` skips lifetime-0 friendly projectiles except `EnemyProjectileKind::ManiaxeAxe`, preserving ASM `loc_8A52` lifetime-less flight while allowing `loc_8ABC` enemy contact to damage the target and delete the axe. Verification rerun while closing the stale row: `cargo test -q -p kid-core maniaxe_axe -- --nocapture` (19 passed), including `live_maniaxe_axe_lifetime_zero_damages_and_deletes_loc_8abc`.
 
 ### #297
 
