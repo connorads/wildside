@@ -732,6 +732,43 @@ fn live_multi_head_boss_fire_waits_outside_vertical_window_loc_39506() {
 }
 
 #[test]
+fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0070_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    let projectile = projectiles[0];
+    assert_eq!(
+        projectile.x_pos, 0x0068_0000,
+        "ASM sub_397E4/loc_3980A spawns the arrow `$18` px left of the head when Kid is left"
+    );
+    assert_eq!(
+        projectile.y_pos, 0x0080_0000,
+        "ASM sub_397E4 copies parent y_pos(a3) into `$46(a0)`"
+    );
+    assert_eq!(
+        projectile.x_velocity, -0x0003_0000,
+        "ASM sub_397E4/loc_3980A stores `$48(a0)=$FFFD`, a flat leftward arrow velocity"
+    );
+    assert_eq!(
+        projectile.y_velocity, 0,
+        "ASM sub_397E4 fires the boss-head arrow horizontally; native must not use the old downward skewer"
+    );
+    assert_eq!(
+        projectile.gravity, 0,
+        "ASM loc_3A0D2 arrow is not the invented gravity arc"
+    );
+    assert_eq!(boss.facing, Direction::Left);
+}
+
+#[test]
 fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.boss_head_index = 0;

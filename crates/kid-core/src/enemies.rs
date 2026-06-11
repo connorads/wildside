@@ -5,7 +5,10 @@ use super::{
     ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD, CameraState,
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
-use crate::combat::{boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846};
+use crate::combat::{
+    boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
+    boss_head_projectile_spawn_sub_397E4,
+};
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
@@ -26512,9 +26515,6 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
 
 /// Boss periodic projectile fire interval (frames).
 pub(crate) const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
-/// Boss skewer speed (Shishkaboss downward projectiles).
-pub(crate) const BOSS_SKEWER_SPEED: i32 = 0x2_0000;
-
 /// Bosses periodically fire projectiles at the player.
 pub(crate) fn step_boss_fire(
     enemy: &mut ActiveEnemy,
@@ -26581,58 +26581,40 @@ pub(crate) fn step_boss_fire(
                 ..Default::default()
             });
         }
-        EnemyFamily::Shishkaboss => {
-            // Downward skewer from above
-            projectiles.push(EnemyProjectile {
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
-                x_velocity: 0,
-                y_velocity: BOSS_SKEWER_SPEED,
-                lifetime: 90,
-                gravity: 0,
-                friendly: false,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
-                ..Default::default()
-            });
-        }
-        EnemyFamily::BoomerangBosses => {
-            // Boomerang arc: fast horizontal, slight upward
-            let dir = if let Some(px) = player_x_pos {
-                if px >= enemy.x_pos { 1i32 } else { -1 }
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => {
+            let parent_x = (enemy.x_pos >> 16) as u16;
+            let parent_y = (enemy.y_pos >> 16) as u16;
+            let parent_x_direction = if player_x_pos.is_some_and(|kid_x| kid_x >= enemy.x_pos) {
+                0xFF
             } else {
-                match enemy.facing {
-                    Direction::Right => 1,
-                    Direction::Left => -1,
-                }
+                0
+            };
+            let variant_d1 = if matches!(enemy.family, EnemyFamily::BoomerangBosses) {
+                1
+            } else {
+                0
+            };
+            let spawn = boss_head_projectile_spawn_sub_397E4(
+                parent_x,
+                parent_y,
+                parent_x_direction,
+                variant_d1,
+            );
+            // ASM loc_39506/loc_37F94 sets `x_direction(a3)` from Kid X, then
+            // sub_397E4/loc_3980A copies it into the child and stores `$48=±3`.
+            // Native still approximates the child coroutine, but the spawn
+            // side and initial flat velocity now come from the ROM helper.
+            enemy.facing = if spawn.x_direction == 0 {
+                Direction::Left
+            } else {
+                Direction::Right
             };
             projectiles.push(EnemyProjectile {
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
-                x_velocity: dir * 0x3_0000,
-                y_velocity: -0x1_0000,
-                lifetime: 60,
-                gravity: 0x1000,
-                friendly: false,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
-                ..Default::default()
-            });
-        }
-        EnemyFamily::BagelBrothers => {
-            // Fast horizontal dash projectile
-            let (Some(px), Some(_py)) = (player_x_pos, player_y_pos) else {
-                return;
-            };
-            let dir = if px >= enemy.x_pos { 1i32 } else { -1 };
-            projectiles.push(EnemyProjectile {
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
-                x_velocity: dir * 0x3_0000, // ASM: 3 px/frame (word)
+                x_pos: u32::from(spawn.x_pos) << 16,
+                y_pos: u32::from(spawn.y_pos) << 16,
+                x_velocity: i32::from(spawn.velocity_word_48) << 16,
                 y_velocity: 0,
-                lifetime: 50, // ASM: 50 frames moving phase
+                lifetime: if variant_d1 == 0 { 50 } else { 60 },
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
