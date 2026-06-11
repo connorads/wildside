@@ -26490,6 +26490,22 @@ pub(crate) fn step_boss_fire(
         enemy.wait_timer -= 1;
         return;
     }
+    if matches!(
+        enemy.family,
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
+    ) {
+        let Some(player_y_pos) = player_y_pos else {
+            return;
+        };
+        let head_y = ((enemy.y_pos >> 16) as u16) as i16;
+        let kid_y = ((player_y_pos >> 16) as u16) as i16;
+        let lower_y = head_y.wrapping_sub(0x0040_i16);
+        if kid_y < lower_y || kid_y > head_y {
+            // ASM loc_39506/loc_37F94: outside `head_y-$40..=head_y`,
+            // branch back to the wait loop without starting the attack timer.
+            return;
+        }
+    }
     // HeadyMetal ASM: fire rate is animation-driven, faster in later phases.
     // Phase = 37 - hp. Phases < 6 (hp > 31): slower animation → ~120 frame interval.
     // Phases >= 6 (hp <= 31): rapid-fire animation → ~30 frame interval.

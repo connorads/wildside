@@ -695,6 +695,42 @@ fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
     );
 }
 
+#[test]
+fn live_multi_head_boss_fire_waits_outside_vertical_window_loc_39506() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0080_0000),
+        Some(0x003F_0000),
+    );
+
+    assert!(
+        projectiles.is_empty(),
+        "ASM loc_39506 branches back to the wait loop when Kid Y is above `head_y-$40`"
+    );
+    assert_eq!(
+        boss.wait_timer, 0,
+        "ASM loc_39506 should keep waiting outside the vertical attack window rather than spending the fire cooldown"
+    );
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0080_0000),
+        Some(0x0040_0000),
+    );
+
+    assert_eq!(
+        projectiles.len(),
+        1,
+        "ASM loc_39506 treats `head_y-$40` as an inclusive attack-window edge"
+    );
+    assert_eq!(boss.wait_timer, BOSS_FIRE_INTERVAL);
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;
