@@ -17989,6 +17989,8 @@ impl NativeRuntime {
         self.helmet.reset();
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.death_respawn_trace_profile = None;
@@ -18206,6 +18208,8 @@ impl NativeRuntime {
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
         self.paused = false;
+        self.allow_pausing = true;
+        self.allow_pausing_fade_frames = 17;
         self.boot_state = BootState::InGame;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
@@ -18299,6 +18303,8 @@ impl NativeRuntime {
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
         // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
         // the hidden loc_1AE2E gate up front. The early title-start lineage
         // still needs the worker shell until the later Start edge flips into
@@ -18398,6 +18404,8 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
         self.death_shell_snapshot = None;
         self.reload_block_grid_for_level(level_id);
     }

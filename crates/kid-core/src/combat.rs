@@ -9527,6 +9527,8 @@ impl NativeRuntime {
     fn begin_death_windup_path(&mut self, path: DeathWindupPath) {
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
         self.progression.invulnerable_frames = 0;
         self.death_windup_path = path;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);

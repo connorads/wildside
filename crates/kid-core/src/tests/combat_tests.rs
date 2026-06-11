@@ -16748,6 +16748,7 @@ mod chunk_05 {
         let mut rt = NativeRuntime::new(manifest());
         rt.boot_state = BootState::InGame;
         rt.player_lifecycle = PlayerLifecycle::Alive;
+        rt.allow_pausing = true;
         let input = FrameInput {
             start: true,
             ..Default::default()
@@ -16756,6 +16757,77 @@ mod chunk_05 {
         assert!(
             rt.pause_toggle_pending,
             "ASM loc_74B0: st (Game_Paused) — pause toggled"
+        );
+    }
+
+    /// ASM loc_74C8 (kid.asm:7634): Start cannot pause until
+    /// `Allow_Pausing` is set by sub_73D0/loc_7420 after the level fade-in.
+    #[test]
+    fn loc_74c8_start_before_allow_pausing_is_ignored() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.player_lifecycle = PlayerLifecycle::Alive;
+        rt.allow_pausing = false;
+
+        rt.handle_start_press(
+            FrameInput {
+                start: true,
+                ..Default::default()
+            },
+            true,
+        );
+
+        assert!(
+            !rt.pause_toggle_pending,
+            "ASM loc_74C8: Allow_Pausing clear branches back to loc_7452 without setting Game_Paused"
+        );
+    }
+
+    /// ASM sub_73D0/loc_7420 (kid.asm:7527-7561): Allow_Pausing is restored
+    /// on the seventeenth fullscreen fade refresh, so Start must only pause
+    /// after that worker has completed.
+    #[test]
+    fn sub_73d0_allows_pause_after_seventeenth_ingame_refresh() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut rt);
+        rt.allow_pausing = false;
+        rt.allow_pausing_fade_frames = 0;
+
+        for _ in 0..16 {
+            let frame = rt.step_frame(FrameInput::default());
+            assert!(
+                !frame.paused,
+                "ASM sub_73D0 fade refreshes before loc_7420 must stay unpaused"
+            );
+        }
+
+        let blocked = rt.step_frame(FrameInput {
+            start: true,
+            ..Default::default()
+        });
+        assert!(
+            !blocked.paused,
+            "Start on the seventeenth frame is sampled before loc_7420 sets Allow_Pausing"
+        );
+
+        let release = rt.step_frame(FrameInput::default());
+        assert!(!release.paused);
+        let allowed = rt.step_frame(FrameInput {
+            start: true,
+            ..Default::default()
+        });
+        assert!(
+            !allowed.paused,
+            "ASM loc_C4E defers the pause latch to the next visible frame"
+        );
+        let paused = rt.step_frame(FrameInput {
+            start: true,
+            ..Default::default()
+        });
+        assert!(
+            paused.paused,
+            "after sub_73D0 loc_7420 sets Allow_Pausing, Start should arm Game_Paused"
         );
     }
 

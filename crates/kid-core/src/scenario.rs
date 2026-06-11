@@ -82,6 +82,8 @@ impl NativeRuntime {
         self.level_complete_gfx_snapshot = None;
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
+        self.allow_pausing = true;
+        self.allow_pausing_fade_frames = 17;
     }
 
     pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
@@ -99,6 +101,8 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.level_complete_gfx_snapshot = None;
         self.progression.invulnerable_frames = 0;
+        self.allow_pausing = true;
+        self.allow_pausing_fade_frames = 17;
         self.refresh_active_roster();
         self.trace_frame()
     }
@@ -127,6 +131,8 @@ impl NativeRuntime {
             // hidden/live window, so preserve the same post-initial-pass spawn
             // gate for subsequent probe frames.
             self.enemy_loading_initial_pass_complete = true;
+            self.allow_pausing = true;
+            self.allow_pausing_fade_frames = 17;
         }
     }
 

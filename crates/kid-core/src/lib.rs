@@ -74,6 +74,8 @@ pub struct NativeRuntime {
     paused: bool,
     pause_menu_option: u8,
     pause_toggle_pending: bool,
+    allow_pausing: bool,
+    allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
     pending_level_skip_resume: bool,
     player_lifecycle: PlayerLifecycle,
@@ -1306,6 +1308,8 @@ impl NativeRuntime {
             paused: false,
             pause_menu_option: 0,
             pause_toggle_pending: false,
+            allow_pausing: false,
+            allow_pausing_fade_frames: 0,
             pending_level_skip: None,
             pending_level_skip_resume: false,
             player_lifecycle: PlayerLifecycle::Alive,
@@ -1594,6 +1598,8 @@ impl NativeRuntime {
                     self.paused = false;
                     self.pause_menu_option = 0;
                     self.pause_toggle_pending = false;
+                    self.allow_pausing = false;
+                    self.allow_pausing_fade_frames = 0;
                 }
             }
         }
@@ -2082,6 +2088,7 @@ impl NativeRuntime {
             // oracle-backed freeze range.
             let _ = self.rom_random.next_long();
         }
+        self.step_allow_pausing_fade_sub_73d0();
         if frame_started_in_level_entry
             && let BootState::StartingLevel {
                 elapsed_frames,
@@ -2698,6 +2705,20 @@ impl NativeRuntime {
         // ASM loc_BB6 (kid.asm:1361-1368) calls Permute_ABCButtons before
         // loc_C4E computes pressed edges and latches Ctrl_1_Held.
         input.with_abc_buttons_permuted(self.options_controls_scheme)
+    }
+
+    fn step_allow_pausing_fade_sub_73d0(&mut self) {
+        if self.allow_pausing || !matches!(self.boot_state, BootState::InGame) {
+            return;
+        }
+        // ASM sub_73D0 / loc_7420 (kid.asm:7527-7561): Load_InGame's
+        // fullscreen fade worker adds `$10` to `$FFFFF876` each hibernating
+        // frame and only sets `Allow_Pausing` once the value is greater than
+        // `$0100`, i.e. on the seventeenth refresh.
+        self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
+        if self.allow_pausing_fade_frames >= 17 {
+            self.allow_pausing = true;
+        }
     }
 
     fn gameplay_jump_pressed(&self) -> bool {

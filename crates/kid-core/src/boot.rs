@@ -5763,9 +5763,9 @@ impl NativeRuntime {
         self.title_screen_ready_frame = self.frame_index;
         // ASM loc_74C8 can set Game_Paused on the same Start edge that
         // Load_DemoPlay loc_119D8 consumes, but only once Allow_Pausing is set.
-        // TODO(fidelity): model Allow_Pausing as typed state instead of using
-        // the oracle-backed 12/12 live hand-off signature from published frame
-        // 1837 where loc_119D8 returns to title with Game_Paused still clear.
+        // TODO(fidelity): replace this demo-return heuristic with a direct
+        // loc_119D8/loc_74C8 scheduler model; the 12/12 signature is backed by
+        // published frame 1837 where Game_Paused stays clear.
         self.paused = frozen_counts != (12, 12);
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
@@ -6535,6 +6535,9 @@ impl NativeRuntime {
                         self.paused = false;
                         self.pause_menu_option = 0;
                         self.pause_toggle_pending = false;
+                    } else if !self.allow_pausing {
+                        // ASM loc_74C8 (kid.asm:7634): pause entry is blocked
+                        // until sub_73D0's fade worker sets `Allow_Pausing`.
                     } else {
                         // ASM loc_74B0: st (Game_Paused).w — pause the game
                         self.pause_toggle_pending = true;
@@ -7502,6 +7505,8 @@ impl NativeRuntime {
         self.level_start_frame = Some(self.frame_index);
         self.level_skip_transition = None;
         self.level_skip_resume_hold = true;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
         self.opening_slice = Some(self.level_respawn_slice(self.current_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
@@ -7530,6 +7535,8 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
     }
 
     pub(crate) fn maybe_finish_level_skip_resume(&mut self) {
@@ -7541,6 +7548,8 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
         self.init_murder_wall(self.current_level, 0);
         self.init_weather(self.current_level);
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
     }
 
     /// Returns true if the frame should continue to physics/gameplay processing.
@@ -7575,6 +7584,8 @@ impl NativeRuntime {
             self.paused = false;
             self.pause_menu_option = 0;
             self.pause_toggle_pending = false;
+            self.allow_pausing = false;
+            self.allow_pausing_fade_frames = 0;
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
             self.death_preserved_object_velocity = None;
