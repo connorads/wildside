@@ -216,6 +216,31 @@ the local extraction precondition from the latest report; it does not by itself
 close #282, because the live `N`/`P` hotkey/name-card presentation still needs a
 fresh SDL validation run.
 
+Follow-up 2026-06-11 for #305 Fast Action interactive lane: derived a
+cache-local oracle route instead of guessing another gate scenario. In
+`.cache/debug/issue305/options-entry-500-530-600.json`, the title menu accepts
+Down at frames 500 and 530 and Start at 600; oracle frames show the cursor on
+Options by frame 545, a black transition at frame 630, the options room by frame
+740, and the options text by frame 880. In
+`.cache/debug/issue305/options-field-probe.json`, `oracle-probe` over
+`Options_Suboption_Speed=$FFFFFDC9` proves the 820/850 Down plus 880 Right
+sequence flips Speed to `$FF` starting at frame 882, while
+`Options_Suboption_Controls=$FFFFFDCA` remains zero. Down at 1200 and Start at
+1230 exit back to title; a Start at 1300 enters the Blue Lake Woods 1 title card,
+and oracle rendered frames show the card still waiting at frame 2500. Adding a
+card Start at frame 2600 in
+`.cache/debug/issue305/fast-action-gameplay-probe.json` reaches live gameplay by
+frame 2800 with `options_speed_button_fast=true` in oracle debug fields. Current
+native is not yet gateable on this route: `verify-tas --frame-start 2600
+--frame-end 3200 --checkpoint-interval 50 --frontier-kind gameplay --bisect`
+diverges immediately because native is already in gameplay at frame 2600 while
+oracle is still on the title card; the later `2800..3200` window first diverges
+at frame 2889. `tas-diff --frame-start 2870 --frame-end 2900` shows native has
+already taken dragon-breath damage (`number_hitpoints=1`, then 0 and
+`just_received_damage=true`) while oracle is still at HP 2. Next #305 work should
+align the native level-card hold / Start-to-gameplay shell before promoting this
+Fast Action route into a verifier gate.
+
 Follow-up 2026-06-11 for #282: root cause was the native hotkey presentation,
 not core level-entry state. The previous focused test proved `N`/`P` entered
 `GameMode::LevelTransition`, but `play-native` always masked the transition
