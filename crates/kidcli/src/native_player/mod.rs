@@ -1736,6 +1736,7 @@ mod gems_sfx {
     pub const TAR_MONSTER_DISAPPEARS: u8 = 0x53;
     pub const TAR_MONSTER_APPEARS: u8 = 0x54;
     pub const RUBBER_BLOCK: u8 = 0x56;
+    pub const DRIPS_DRIPPING: u8 = 0x58;
     pub const TAR_MONSTER_SHOOTS: u8 = 0x5E;
     pub const VOICE_DIE: u8 = 0x60;
     pub const VOICE_OUCH: u8 = 0x61;
@@ -13767,6 +13768,19 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::MINI_HOPPING_SKULL_SCREAM, gems_sfx::THUNDERSTORM],
             "a restarted NativeRuntime resets the cumulative core sound list; the next trace frame must treat all current ASM-backed ids as new"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_drips_dripping_from_core_trace_loc_3345c() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::DRIPS_DRIPPING];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::DRIPS_DRIPPING],
+            "ASM Drips.asm loc_3345C queues sfx_Drips_dripping=$58 from the core trace"
         );
     }
 

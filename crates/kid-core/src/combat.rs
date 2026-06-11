@@ -53,6 +53,7 @@ pub(crate) enum QueuedSoundEffect {
     RedStealthHittingTarget,
     RedStealthAttackDown,
     DiamondPrize,
+    DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
     TarMonsterShoots,
@@ -96,6 +97,9 @@ impl QueuedSoundEffect {
             // contact frame, *before* the 32-step fly-to-counter loop that
             // later increments Number_Diamonds.
             Self::DiamondPrize => 0x2D,
+            // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
+            // when the falling child reaches floor collision before loc_33488.
+            Self::DripsDripping => 0x58,
             // ASM Tar_Monster.asm loc_322DA/loc_322C0/loc_32468 play the
             // three Tar Monster sequence sounds directly through j_PlaySound.
             Self::TarMonsterDisappears => 0x53,

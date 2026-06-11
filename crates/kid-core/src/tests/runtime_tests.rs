@@ -13353,14 +13353,27 @@ mod chunk_09 {
             lifetime: DRIPS_DROP_LIFETIME,
             friendly: false,
             terrain_kill: true,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 0,
+                token: 0,
+            }),
             ..Default::default()
         });
+        contact
+            .active_enemies
+            .push(test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1));
 
         contact.step_projectiles();
 
         assert!(
             contact.projectiles.is_empty(),
             "ASM Drips.asm loc_3345C reports floor `$0C` on the frame the `y+$A` bottom edge enters the solid row"
+        );
+        assert_eq!(
+            contact.played_sound_effects,
+            vec![QueuedSoundEffect::DripsDripping],
+            "ASM Drips.asm loc_3345C plays sfx_Drips_dripping before loc_33488"
         );
     }
 

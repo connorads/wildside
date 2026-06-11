@@ -2939,6 +2939,10 @@ impl NativeRuntime {
                     // while `$FFFFFB42 < 5`; loc_335D8 seeds x_vel to
                     // +/-$3000 from `Get_RandomNumber_byte` bit 2.
                     if let Some(owner) = p.owner {
+                        // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping`
+                        // before handing the falling child to loc_33488.
+                        self.played_sound_effects
+                            .push(crate::combat::QueuedSoundEffect::DripsDripping);
                         pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
                     } else if p.drips_spawn_crawler_on_splash
                         && drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
