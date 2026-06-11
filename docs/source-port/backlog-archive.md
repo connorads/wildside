@@ -165,6 +165,30 @@ demo-play window was not hiding a later published-route gameplay frontier;
 keep #290 at `[?]` only because backlog policy requires human validation before
 closing proposed-fix rows.
 
+Live play-native note 2026-06-11 with all pushed changes: keep the following as
+current acceptance failures even where recent focused probes or fixed-candidate
+rows are green. #288 intro still shows Kid/jacket below the prize block before
+the throw. #274/#284 attract/demo prize still looks like a Diamond instead of
+the expected Cyclops/Eyeclops/spin form to the human playthrough, despite
+published-demo and cold-idle traces exposing Cyclone before later real Diamonds;
+next evidence needs an exact live SDL capture or a different later prize route.
+#264/#272/#287 audio still sounds slowed/low when diamonds, block breaks, helmet
+pickup, and Samurai attacks mix over music; grounded repeated-C Samurai audio is
+not enough to close the live overlapping-noise report. #276 first Iron Knight
+hit still visibly reads 4 -> 4, which remains consistent with the ROM-faithful
+fifth hidden HP slot unless a later/non-Iron-Knight hit disproves it. #265 EOL
+score-countdown audio still carries into the next loading/title-card screen and
+stops only once Start advances. #269 Samurai movement/animation still looks
+slightly strange. #260 Drips now creates a crawler, but the visible drip source
+appears to be a prize block rather than a metal block. #282 `N`/`P` debug skip
+still bypasses the loading/name-card presentation. #266/#280/#289 death-wall
+levels still have instant-death behaviour but no visible wall and still show
+green/background or layout corruption; hell levels can start in strange places.
+#257 continue overlay eventually appears after a fall/death but can be late or
+off-screen. Cyclops/Eyeclops/spin-form level skip still does not work as a
+playable form route. Treat this as triage context only; fixes still require ASM
+and oracle evidence before changing engine behaviour.
+
 Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
 metal-block/slime repro. The cache-local seed
 `.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within
