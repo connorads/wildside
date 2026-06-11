@@ -6946,6 +6946,51 @@ mod chunk_06 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e192_has_no_dbf_lifetime_counter() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        slice.player.x_pos = 160 << 16;
+        slice.player.y_pos = 96 << 16;
+        rt.opening_slice = Some(slice);
+
+        let mut projectile = make_projectile(96, 96);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        projectile.lifetime = 1;
+        projectile.homing_accel = 0x2000;
+        projectile.speed_cap = LION_PROJECTILE_SPEED;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm loc_3E192 has no DBF lifetime; in-camera shots survive until collision or sub_3E2CE cull"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 1,
+            "ASM Lion.asm loc_3E192 should not decrement the native lifetime sentinel"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 1,
+            "in-camera live projectile must not release the owning Lion count"
+        );
+    }
+
+    #[test]
     fn drips_drop_loc_3345c_ignores_lion_projectile_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
 

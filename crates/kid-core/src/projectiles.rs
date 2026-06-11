@@ -2390,6 +2390,7 @@ impl NativeRuntime {
             let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
+            let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::TarMonsterBurstChild
@@ -2421,6 +2422,9 @@ impl NativeRuntime {
                 && !is_hail
                 && !is_diamond_power_rain
                 && !is_maniaxe_axe
+                // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
+                // native's deferred-delete marker after a Kid collision.
+                && !is_lion_projectile
             {
                 p.lifetime -= 1;
             }
