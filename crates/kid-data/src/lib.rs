@@ -16,6 +16,7 @@ const COPIED_DIRECTORIES: &[&str] = &[
     "ingame/artcomp",
     "ingame/artunc",
     "ingame/artunc_kid",
+    "ingame/palette",
     "ingame/palette_enemy",
     "ingame/palette_kid",
     "level",
@@ -25,7 +26,7 @@ const COPIED_DIRECTORIES: &[&str] = &[
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
 const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
-pub const GENERATED_BUNDLE_VERSION: u32 = 9;
+pub const GENERATED_BUNDLE_VERSION: u32 = 10;
 pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
 const OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE: usize = 0x1180;
@@ -5369,6 +5370,7 @@ mod tests {
         fs::create_dir_all(source_root.join("ingame/artcomp")).expect("artcomp dir");
         fs::create_dir_all(source_root.join("ingame/artunc")).expect("artunc dir");
         fs::create_dir_all(source_root.join("ingame/artunc_kid")).expect("kid art dir");
+        fs::create_dir_all(source_root.join("ingame/palette")).expect("palette dir");
         fs::create_dir_all(source_root.join("ingame/palette_enemy")).expect("enemy palette dir");
         fs::create_dir_all(source_root.join("ingame/palette_kid")).expect("kid palette dir");
         fs::create_dir_all(source_root.join("level")).expect("level dir");
@@ -5398,6 +5400,8 @@ mod tests {
         )
         .expect("hud numbers");
         fs::write(source_root.join("ingame/artunc/diamond_1.bin"), [0; 32]).expect("diamond");
+        fs::write(source_root.join("ingame/palette/Murder_wall.bin"), [0; 16])
+            .expect("murder wall palette");
         fs::write(
             source_root.join("ingame/palette_enemy/Crystal_1.bin"),
             [0; 30],
@@ -6284,7 +6288,7 @@ AddrTbl_LevelNames:   ;1A842
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
-        assert_eq!(manifest.ingame_assets.len(), 11);
+        assert_eq!(manifest.ingame_assets.len(), 12);
         assert!(
             manifest
                 .ingame_assets
@@ -6308,6 +6312,13 @@ AddrTbl_LevelNames:   ;1A842
                 .ingame_assets
                 .iter()
                 .any(|asset| asset.relative_path == "artunc/diamond_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "palette/Murder_wall.bin"),
+            "ASM Murderwall loc_140D2/loc_140EE loads ingame/palette/Murder_wall.bin into Palette_Buffer+$20"
         );
         assert!(
             manifest

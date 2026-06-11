@@ -3693,6 +3693,7 @@ mod tests {
         fs::create_dir_all(source_root.join("ingame/artcomp")).expect("artcomp dir");
         fs::create_dir_all(source_root.join("ingame/artunc")).expect("artunc dir");
         fs::create_dir_all(source_root.join("ingame/artunc_kid")).expect("kid art dir");
+        fs::create_dir_all(source_root.join("ingame/palette")).expect("palette dir");
         fs::create_dir_all(source_root.join("ingame/palette_enemy")).expect("enemy palette dir");
         fs::create_dir_all(source_root.join("ingame/palette_kid")).expect("kid palette dir");
         fs::create_dir_all(source_root.join("level/platform")).expect("platform dir");
@@ -3741,6 +3742,8 @@ mod tests {
         )
         .expect("vertical platform art");
         fs::write(source_root.join("ingame/artunc/diamond_1.bin"), [0; 32]).expect("diamond");
+        fs::write(source_root.join("ingame/palette/Murder_wall.bin"), [0; 16])
+            .expect("murder wall palette");
         fs::write(source_root.join("ingame/artunc_kid/kid.bin"), [0; 32 * 12]).expect("kid idle");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
