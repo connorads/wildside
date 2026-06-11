@@ -4757,18 +4757,21 @@ impl OpeningSliceState {
         //   `add.w Level_width_tiles,a4; andi.w #$7000; cmpi.w #$6000`
         //   — if NOT wall, return NE. Otherwise `moveq #0,d7; rts` (EQ)
         //   → wall has ended, release cling.
-        // ORIGINAL_QUIRK: same right-wall escape as sub_AE6E above. The
-        // strict sub_ADB8 column shape protects left-wall shaft parity, while
-        // published TAS right-wall releases use the broader clear probes.
-        let right_wall_oracle_release = direction == Direction::Right
-            && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
+        // ORIGINAL_QUIRK: oracle sampled-state releases once the broad wall
+        // and top-edge probes are clear, even when the stricter sub_ADB8
+        // diagnostic column-shape mirror rejects the tile pattern. This was
+        // first seen on published TAS right-wall releases; #270 frame 266
+        // shows the same loc_AB0A shimmy on the BLW2 Red Stealth left wall.
+        let broad_oracle_release = !self.descending_wall_cling_release_column_matches_sub_adb8(
+            form, grid,
+        )
             && !terrain::probe_wall_column(
                 grid,
                 (self.player.x_pos >> 16) as i32,
                 (self.player.y_pos >> 16) as i32,
                 form.half_width(),
                 form.ceiling_probe_height(),
-                true,
+                direction == Direction::Right,
             )
             .hit
             && !terrain::probe_wall_top_edge(
@@ -4777,10 +4780,10 @@ impl OpeningSliceState {
                 (self.player.y_pos >> 16) as i32,
                 form.half_width(),
                 form.ceiling_probe_height(),
-                true,
+                direction == Direction::Right,
             )
             .hit;
-        if !right_wall_oracle_release
+        if !broad_oracle_release
             && !self.descending_wall_cling_release_column_matches_sub_adb8(form, grid)
         {
             return false;

@@ -23473,6 +23473,66 @@ mod chunk_12 {
         assert!(slice.player.right_wall_sticky);
     }
 
+    /// ASM loc_AAC8 -> sub_ADB8 -> loc_AB0A (kid.asm:13350,13609,13372):
+    /// the #270 natural BLW2 Red Stealth route reaches frame 266 with a held
+    /// left-wall cling, no broad wall/top-edge contact, and oracle has already
+    /// applied the one-pixel loc_AB0A shimmy. Native must not let the stricter
+    /// diagnostic column-shape mirror block that sampled release.
+    #[test]
+    fn issue270_red_stealth_left_wall_descending_release_uses_clear_broad_probe() {
+        let w = 10u16;
+        let h = 14u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // BLW2 frame-266 column around x=$0067/y=$00A1 after dumping
+        // Level_Layout: col 5 rows 10/11 clear, rows 12/13 solid. The broad
+        // sub_8F26-style wall/top-edge probes are clear, but the old strict
+        // sub_ADB8 diagnostic shape rejected because row 9 is clear.
+        set_solid(&mut data, 5, 12);
+        set_solid(&mut data, 5, 13);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 103 << 16;
+        slice.player.y_pos = 160 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.x_velocity = 0;
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Left;
+        slice.player.wall_cling_direction = Some(Direction::Left);
+        slice.player.left_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.x_pos,
+            102 << 16,
+            "loc_AB0A should shimmy one pixel left when the held left-wall broad probe is clear",
+        );
+        assert_eq!(slice.player.wall_cling_direction, None);
+        assert!(!slice.player.left_wall_sticky);
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
