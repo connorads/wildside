@@ -30,6 +30,7 @@ const CAMERA_X_POS_ADDR: u32 = 0x00FF_F81C;
 const CAMERA_Y_POS_ADDR: u32 = 0x00FF_F820;
 const NUMBER_OBJECTS_ADDR: u32 = 0x00FF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: u32 = 0x00FF_F85C;
+const GAME_PAUSED_ADDR: u32 = 0x00FF_FAD0;
 const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
 const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
 const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
@@ -39,6 +40,8 @@ const LEVEL_SKIP_CHEAT_ADDR: u32 = 0x00FF_FC37;
 const CURRENT_LEVEL_ID_ADDR: u32 = 0x00FF_FC44;
 const CURRENT_HELMET_ID_ADDR: u32 = 0x00FF_FC46;
 const PLAYER_1_LEVEL_ID_ADDR: u32 = 0x00FF_FC5A;
+const OPTIONS_SUBOPTION_SPEED_ADDR: u32 = 0x00FF_FDC9;
+const OPTIONS_SUBOPTION_CONTROLS_ADDR: u32 = 0x00FF_FDCA;
 const KID_X_POS_ADDR: u32 = 0x00FF_24FA;
 const KID_Y_POS_ADDR: u32 = 0x00FF_24FE;
 const KID_X_VEL_ADDR: u32 = 0x00FF_2506;
@@ -139,6 +142,9 @@ pub struct CpuProbe {
     pub kid_y_vel: i32,
     pub character_movement: u16,
     pub kid_collision_type: u16,
+    pub game_paused: bool,
+    pub options_controls_scheme: u16,
+    pub options_speed_button_fast: bool,
     pub invulnerable_frames: u8,
     pub just_received_damage: bool,
     pub number_objects: u16,
@@ -682,6 +688,18 @@ pub fn probe_rom_with_script(
         kid_y_vel: runtime.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
         character_movement: runtime.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
         kid_collision_type: runtime.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+        game_paused: runtime.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+        // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
+        // Options_Suboption_Speed = $FFFFFDC9.
+        options_controls_scheme: runtime
+            .core
+            .mem
+            .read_work_ram_word(OPTIONS_SUBOPTION_CONTROLS_ADDR),
+        options_speed_button_fast: runtime
+            .core
+            .mem
+            .read_work_ram_byte(OPTIONS_SUBOPTION_SPEED_ADDR)
+            != 0,
         invulnerable_frames: runtime
             .core
             .mem
@@ -886,6 +904,18 @@ impl MdRuntime {
             kid_y_vel: self.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
             character_movement: self.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
             kid_collision_type: self.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+            game_paused: self.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+            // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
+            // Options_Suboption_Speed = $FFFFFDC9.
+            options_controls_scheme: self
+                .core
+                .mem
+                .read_work_ram_word(OPTIONS_SUBOPTION_CONTROLS_ADDR),
+            options_speed_button_fast: self
+                .core
+                .mem
+                .read_work_ram_byte(OPTIONS_SUBOPTION_SPEED_ADDR)
+                != 0,
             invulnerable_frames: self.core.mem.read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
             just_received_damage: self.core.mem.read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR) != 0,
             number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),

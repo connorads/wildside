@@ -771,6 +771,9 @@ pub(crate) fn gameplay_field_value(state: &GameplayState, field: &str) -> String
         "kid_collision_type" => state
             .kid_collision_type
             .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
+        "game_paused" => state.game_paused.to_string(),
+        "options_controls_scheme" => state.options_controls_scheme.to_string(),
+        "options_speed_button_fast" => state.options_speed_button_fast.to_string(),
         "invulnerable_frames" => state
             .invulnerable_frames
             .map_or_else(|| String::from("none"), |value| value.to_string()),
@@ -850,6 +853,18 @@ fn gameplay_state_debug_summary(state: &GameplayState) -> Option<String> {
     }
     if let Some(value) = state.kid_collision_type {
         fields.push(format!("kid_collision_type={value:#06x}"));
+    }
+    if state.game_paused {
+        fields.push(String::from("game_paused=true"));
+    }
+    if state.options_controls_scheme != 0 {
+        fields.push(format!(
+            "options_controls_scheme={}",
+            state.options_controls_scheme
+        ));
+    }
+    if state.options_speed_button_fast {
+        fields.push(String::from("options_speed_button_fast=true"));
     }
     if let Some(value) = state.invulnerable_frames {
         fields.push(format!("invulnerable_frames={value}"));
@@ -1604,6 +1619,9 @@ mod tests {
             kid_y_vel: Some(0),
             character_movement: Some(2),
             kid_collision_type: Some(0),
+            game_paused: false,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
             invulnerable_frames: Some(0),
             just_received_damage: Some(false),
             kid_ground_probe: Some("ground".into()),

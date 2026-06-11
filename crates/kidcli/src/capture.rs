@@ -84,6 +84,12 @@ pub(crate) struct GameplayState {
     pub(crate) kid_y_vel: Option<i32>,
     pub(crate) character_movement: Option<u16>,
     pub(crate) kid_collision_type: Option<u16>,
+    #[serde(default)]
+    pub(crate) game_paused: bool,
+    #[serde(default)]
+    pub(crate) options_controls_scheme: u16,
+    #[serde(default)]
+    pub(crate) options_speed_button_fast: bool,
     pub(crate) invulnerable_frames: Option<u8>,
     pub(crate) just_received_damage: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -370,6 +376,9 @@ pub(crate) fn gameplay_state_from_probe(
         kid_y_vel: Some(snapshot.kid_y_vel),
         character_movement: Some(snapshot.character_movement),
         kid_collision_type: Some(snapshot.kid_collision_type),
+        game_paused: snapshot.game_paused,
+        options_controls_scheme: snapshot.options_controls_scheme,
+        options_speed_button_fast: snapshot.options_speed_button_fast,
         invulnerable_frames: Some(snapshot.invulnerable_frames),
         just_received_damage: Some(snapshot.just_received_damage),
         kid_ground_probe: None,
@@ -465,6 +474,12 @@ pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> G
         kid_y_vel: snapshot.kid_y_velocity.or(hidden_player.then_some(0)),
         character_movement: snapshot.character_movement.or(hidden_player.then_some(0)),
         kid_collision_type: None,
+        game_paused: snapshot.paused,
+        // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
+        // Options_Suboption_Speed = $FFFFFDC9. #305 interactive probes need
+        // these in the shared capture instead of buried in native-only traces.
+        options_controls_scheme: u16::from(snapshot.options_controls_scheme),
+        options_speed_button_fast: snapshot.options_speed_button_fast,
         invulnerable_frames: Some(snapshot.invulnerable_frames.try_into().unwrap_or(u8::MAX)),
         just_received_damage: Some(snapshot.just_received_damage),
         kid_ground_probe: snapshot
@@ -767,5 +782,23 @@ mod tests {
         assert_eq!(state.kid_x_vel, Some(0));
         assert_eq!(state.kid_y_vel, Some(0));
         assert_eq!(state.character_movement, Some(0));
+    }
+
+    #[test]
+    fn gameplay_state_from_native_trace_preserves_pause_and_options_state() {
+        let trace = NativeTraceFrame {
+            frame_index: 120,
+            game_mode_value: 0x000c,
+            paused: true,
+            options_controls_scheme: 4,
+            options_speed_button_fast: true,
+            ..NativeTraceFrame::default()
+        };
+
+        let state = gameplay_state_from_native_trace(&trace);
+
+        assert!(state.game_paused);
+        assert_eq!(state.options_controls_scheme, 4);
+        assert!(state.options_speed_button_fast);
     }
 }

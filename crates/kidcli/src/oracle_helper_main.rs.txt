@@ -398,6 +398,8 @@ struct OracleState {
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
 const GAME_PAUSED_ADDR: usize = 0xFF_FAD0;
+const OPTIONS_SUBOPTION_SPEED_ADDR: usize = 0xFF_FDC9;
+const OPTIONS_SUBOPTION_CONTROLS_ADDR: usize = 0xFF_FDCA;
 const CTRL_1_HELD_ADDR: usize = 0xFF_F80D;
 const CTRL_1_PRESSED_ADDR: usize = 0xFF_F80E;
 const CTRL_HELD_ADDR: usize = 0xFF_F812;
@@ -1153,6 +1155,11 @@ fn capture_state(
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
     let game_paused = read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0;
+    // ASM variables.asm: Options_Suboption_Speed = $FFFFFDC9 and
+    // Options_Suboption_Controls = $FFFFFDCA. These are demo-skipped
+    // gameplay inputs for #305 interactive-lane probes.
+    let options_speed_button_fast = read_wram_u8(&work_ram, OPTIONS_SUBOPTION_SPEED_ADDR) != 0;
+    let options_controls_scheme = read_wram_u16(&work_ram, OPTIONS_SUBOPTION_CONTROLS_ADDR);
     let mut gameplay_debug_fields = BTreeMap::new();
     if currently_transforming {
         gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
@@ -1160,6 +1167,15 @@ fn capture_state(
     }
     if game_paused {
         gameplay_debug_fields.insert("game_paused".into(), "true".into());
+    }
+    if options_controls_scheme != 0 {
+        gameplay_debug_fields.insert(
+            "options_controls_scheme".into(),
+            options_controls_scheme.to_string(),
+        );
+    }
+    if options_speed_button_fast {
+        gameplay_debug_fields.insert("options_speed_button_fast".into(), "true".into());
     }
     if matches!(label, "flag_touch" | "eol_reveal" | "eol_counter" | "eol_tail") {
         gameplay_debug_fields.insert(
