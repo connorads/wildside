@@ -69,12 +69,15 @@ and stop — never commit churn.
   healthy `dx=+1 dy=-18 @444` or `dx=0 dy=-22 @470`, both later LevelTransition), while the
   drop-contact prefix variants either stay far left at the Drips Y row or keep the old
   `dx=0 dy=-48 @128` early pass. Do not repeat this pre-380 left-window axis unchanged.
-  A later `450..469 B+Right` overlay on the named drop-contact probe improves the
-  healthy right target proximity to `(584,543)` `dx=-1 dy=-16 @539`, but it is not
-  metal-block evidence: oracle damage at frame 529 comes from a right-side Drips
-  crawler already active at `(588,592)` while native layout #08 is still in
+  A later `450..469 B+Right` overlay on the named drop-contact probe improves healthy
+  right target proximity to `(584,543)` `dx=-1 dy=-16 @539`, but it is not metal-block
+  evidence: oracle damage at frame 529 comes from a right-side Drips crawler already
+  active at `(588,592)` while native layout #08 is still in
   `pre_drop:0x8005` and has not spawned that cycle's child. Treat this as another
-  phase-shifted route rejection, not a Drips hitbox or block-break lead. A fresh
+  phase-shifted route rejection, not a Drips hitbox or block-break lead. The cleaner
+  `470..500 B+Right` variant verifies cleanly through frame 545 while staying alive,
+  but still only reaches `(584,543)` at healthy `dx=+1 dy=-20`; do not repeat late
+  right-window trimming as metal-block proof without a route-shape change. A fresh
   no-settle 720-frame route rebuild found native-live candidate `freshF`
   (`0..160 Right`, `55..125 B+Right`, `160..240 Left`, `240..320 B+Left`,
   `340..430 Right`, `478..528 Left`, `530..567 B+Right`) reaching `(456,543)`
