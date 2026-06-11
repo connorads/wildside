@@ -6233,6 +6233,11 @@ mod chunk_03 {
             "ASM loc_7C76 same-helmet path replenishes from sub_7EB2 before loc_7E14 cleanup"
         );
         assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::ReplenishHealth],
+            "ASM loc_7C76 (kid.asm:8393) queues sfx_Replenish_Health=$2A on same-helmet replenish"
+        );
+        assert_eq!(
             runtime.progression.form_change_flash_frames, 0,
             "ASM loc_7C76 -> loc_7E14 skips both transform animation phases"
         );

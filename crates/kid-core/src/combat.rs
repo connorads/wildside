@@ -52,6 +52,7 @@ pub(crate) enum QueuedSoundEffect {
     EvanescentBlock,
     ShiftingBlock,
     ElevatorBlock,
+    ReplenishHealth,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -102,6 +103,9 @@ impl QueuedSoundEffect {
             // ASM sub_FCA6 (kid.asm:21021): lift/elevator platform worker
             // opens with `sfx_Elevator_block = $27`.
             Self::ElevatorBlock => 0x27,
+            // ASM loc_7C76 (kid.asm:8393): collecting the current helmet again
+            // plays `sfx_Replenish_Health = $2A`.
+            Self::ReplenishHealth => 0x2A,
             // constants.asm: Red Stealth ability SFX.
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,
@@ -9116,6 +9120,8 @@ impl NativeRuntime {
             // ASM loc_7C76 (kid.asm:8387): equal Current_Helmet and
             // Current_Helmet_Available plays Replenish_Health, then branches
             // directly to loc_7E14 cleanup without reverse or forward tables.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::ReplenishHealth);
             self.progression.form_change_flash_frames = 0;
         } else {
             // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-

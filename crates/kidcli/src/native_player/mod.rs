@@ -14031,6 +14031,19 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_replenish_health_from_core_trace_loc_7c76() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::REPLENISH_HEALTH];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::REPLENISH_HEALTH],
+            "ASM loc_7C76 (kid.asm:8393) queues sfx_Replenish_Health=$2A from the core trace"
+        );
+    }
+
+    #[test]
     fn play_native_delays_eol_score_counter_sfx_until_loc_d770() {
         let mut prev = sample_trace(GameMode::InGame);
         let mut scoreboard_setup = sample_trace(GameMode::InGame);
