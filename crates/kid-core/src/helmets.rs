@@ -6539,6 +6539,8 @@ impl NativeRuntime {
             Self::BLOCK_DESTROY_DIRECTION_LEFT
         };
         let mut smash_effects = Vec::new();
+        let mut ice_effects = Vec::new();
+        let mut ice_projectiles = Vec::new();
         let hit_wall = {
             let Some(grid) = self.block_grid.as_mut() else {
                 return;
@@ -6566,26 +6568,65 @@ impl NativeRuntime {
                 hit_wall = true;
                 if slice.player.on_ground
                     && cell.has_block
-                    && cell.block_type == terrain::BlockType::Smash
+                    && matches!(
+                        cell.block_type,
+                        terrain::BlockType::Smash | terrain::BlockType::Prize
+                    )
                 {
                     // ASM loc_92DE -> loc_92EC: non-Rubber block handlers are
                     // gated behind Berzerker charge and `Character_Movement !=
                     // MoveID_Jump`; native approximates that movement gate with
                     // grounded state while keeping loc_9326's charge-clear below.
+                    // ASM off_933E[0/1]: Smash and Prize both jump through
+                    // Block_LoadSmashBits for Berzerker side impacts.
                     grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
                     smash_effects.push((col * 16, row * 16, smash_direction));
+                }
+                if slice.player.on_ground
+                    && cell.has_block
+                    && cell.block_type == terrain::BlockType::Ice
+                {
+                    // ASM off_933E[2] -> IceBlock_SmashAndLoadBullets
+                    // (kid.asm:10778,22849): side-hit ice blocks use the
+                    // same direction register as the smash-bit path, then
+                    // run the bullet loader before the shard worker.
+                    let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                        col,
+                        row,
+                        smash_direction,
+                        grid.width_cells,
+                        grid.height_cells,
+                    )
+                    .is_some_and(|(target_col, target_row)| {
+                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                            grid.cell_at(target_col, target_row),
+                        )
+                    });
+                    if target_open {
+                        ice_projectiles.extend(Self::ice_block_bullets_loc_11052(
+                            col,
+                            row,
+                            smash_direction,
+                        ));
+                    }
+                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    ice_effects.push((col * 16, row * 16, smash_direction));
                 }
             }
 
             hit_wall
         };
 
+        self.projectiles.extend(ice_projectiles);
         for (block_x_px, block_y_px, direction) in smash_effects {
             // ASM off_933E[0] -> j_Block_LoadSmashBits -> sub_10EDA:
             // Berzerker side Smash hits use d6=1 when moving left and d6=3
             // when moving right, so the visible debris nudges horizontally
             // instead of simply deleting the block.
             self.spawn_smash_block_effect_sub_10eda(block_x_px, block_y_px, direction);
+        }
+        for (block_x_px, block_y_px, direction) in ice_effects {
+            self.spawn_ice_block_effect_sub_10f9c(block_x_px, block_y_px, direction);
         }
 
         if hit_wall {

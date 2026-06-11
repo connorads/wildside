@@ -7434,7 +7434,10 @@ New rows:
   them). Cross-ref #256 (Rhino render z-order). Evidence: playtest; native repro =
   reproduced; oracle repro = unknown — verify against ROM Berzerker block-smash
   logic before treating as a bug (could be a puzzle, player unsure). Min gate:
-  1p-playable.
+  1p-playable. Fixed candidate 2026-06-11: ASM `loc_92DE`/`off_933E` confirms
+  Berzerker side impacts should route Prize blocks through `Block_LoadSmashBits`
+  and Ice blocks through `IceBlock_SmashAndLoadBullets`; native now mirrors those
+  handlers. Human level-3 route validation still pending.
 - #280 (P2, render/background) Parallax/sky background glitches: the scrolling sky
   loads in late as you climb to the top of level 3; a stray dark-green block
   appears in the sky in places; and cloud animation appears not to render on the
@@ -9005,6 +9008,11 @@ Column of origin shown in brackets; text is verbatim.
 
 - [Summary] 2026-06-09 playtest: breakable floor blocks (level 3, below the Heavy Man helmet) drop Kid through the floor when broken; should leave a solid stone floor underneath
 - [Verify] Fixed 2026-06-11. Root cause: native Red Stealth/Iron Knight floor-prize impacts wrote `$0000` and spawned a placeholder destroy effect, but ASM `off_B058`/`off_AFD8` dispatch prize blocks through `loc_1002E`/`sub_1007A`. That worker writes `$6F` over the original prize skin, keeps the cell collision-solid during the wobble, restores the prize cell, then writes `$E001` and spawns the prize. Native now uses the same deferred prize-block lifecycle for floor impacts, including `loc_10342` layout-address prize-content lookup. Regression: `start_prize_block_wobble_sub_1007A_preserves_floor_support_cell`. Verification: focused block/prize tests and `mise run verify-slice-fast` passed.
+
+### #279
+
+- [Summary] 2026-06-09 playtest: Rhino/Berzerker cannot destroy the light/breakable blocks it should be able to in level 3
+- [Verify] Fixed candidate 2026-06-11. Root cause: native `berzerker_break_wall_block` only deleted Smash blocks, but ASM `loc_92DE`/`loc_92EC` dispatches Berzerker side impacts through `off_933E`: Smash and Prize both jump to `Block_LoadSmashBits`, while Ice jumps to `IceBlock_SmashAndLoadBullets`. Native now deletes side-hit Prize blocks with smash-bit debris and side-hit Ice blocks with the shared ice shard/bullet path. Regression: `berzerker_charge_prize_block_uses_block_load_smash_bits_loc_92ec` and `berzerker_charge_ice_block_loads_bullets_loc_92ec_11052`. Verification: focused Berzerker charge tests passed; human level-3 route validation still pending.
 
 ### #280
 

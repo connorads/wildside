@@ -9743,10 +9743,10 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_92EC dispatches by block type. Native Berzerker charge currently
-    /// implements only Smash deletion, so other block types must be preserved.
+    /// ASM off_933E[1] (kid.asm:10777): Berzerker side impacts route Prize
+    /// blocks through `j_Block_LoadSmashBits`, just like Smash blocks.
     #[test]
-    fn berzerker_charge_non_smash_block_is_not_deleted_loc_92ec() {
+    fn berzerker_charge_prize_block_uses_block_load_smash_bits_loc_92ec() {
         let prize = terrain::Cell::from_be_bytes(0xE1, 0x01);
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(berzerker_wall_grid(
@@ -9760,10 +9760,81 @@ mod chunk_06 {
             .block_grid
             .as_ref()
             .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(5, 3)),
+            "ASM off_933E[1] should destroy side-hit Prize blocks through Block_LoadSmashBits"
+        );
+        assert_eq!(
+            rt.block_destroy_effects.len(),
+            2,
+            "ASM loc_930E should continue scanning the column and spawn smash-bit debris for both Prize cells"
+        );
+    }
+
+    /// ASM off_933E[2] (kid.asm:10778): Berzerker side impacts route Ice
+    /// blocks through `IceBlock_SmashAndLoadBullets`.
+    #[test]
+    fn berzerker_charge_ice_block_loads_bullets_loc_92ec_11052() {
+        let ice = terrain::Cell::from_be_bytes(0xE2, 0x03);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(terrain::Cell::from_be_bytes(0, 0), ice));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(5, 3)),
+            "ASM off_933E[2] should destroy side-hit Ice blocks"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            6,
+            "ASM loc_930E should continue scanning both Ice cells, and each IceBlock_LoadBullets call emits three bullets when the target cell is open"
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .all(|projectile| projectile.x_velocity == 4 << 16 && projectile.y_velocity == 0),
+            "ASM sub_11006 remaps side-impact d6=3 into rightward ice bullets"
+        );
+        assert_eq!(rt.block_destroy_effects.len(), 2);
+        assert!(
+            rt.block_destroy_effects
+                .iter()
+                .all(|effect| effect.pending_ice_origin_nudge),
+            "ASM sub_10F9C should use the ice shard worker, not smash debris"
+        );
+    }
+
+    /// ASM off_933E leaves block types without a handler untouched; the side
+    /// collision still reaches loc_9326 and clears Berzerker_charging.
+    #[test]
+    fn berzerker_charge_unhandled_block_is_not_deleted_loc_92ec() {
+        let teleporter = terrain::Cell::from_be_bytes(0xE4, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.helmet.berzerker_charging = true;
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            teleporter,
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
         assert_eq!(
             grid.cell_at(5, 3),
-            prize,
-            "ASM loc_92EC: non-Smash block types are not handled by native Berzerker deletion"
+            teleporter,
+            "ASM off_933E[4] returns without deleting Teleporter blocks"
+        );
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9326 should still clear Berzerker_charging after an unhandled block wall hit"
         );
     }
 
