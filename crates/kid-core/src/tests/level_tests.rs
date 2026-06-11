@@ -3632,8 +3632,10 @@ mod chunk_02 {
         runtime.current_player_index = 1;
         runtime.current_level = LevelId(1);
         runtime.progression.number_lives = 2;
+        runtime.progression.extra_hitpoint_slots = 2;
         runtime.player_slots[0].lives = 3;
         runtime.player_slots[0].level_id = LevelId(0);
+        runtime.player_slots[0].extra_hitpoint_slots = 0;
         runtime.player_slots[1].lives = 2;
         runtime.player_slots[1].level_id = LevelId(1);
 
@@ -3649,6 +3651,14 @@ mod chunk_02 {
             runtime.current_level,
             LevelId(0),
             "ASM loc_B8BA should load P1's saved level after the P2-to-P1 switch",
+        );
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 0,
+            "ASM sub_8A4 should load P1's Extra_hitpoint_slots instead of keeping P2's working value"
+        );
+        assert_eq!(
+            runtime.player_slots[1].extra_hitpoint_slots, 2,
+            "ASM sub_8C2 should save P2's Extra_hitpoint_slots before switching away"
         );
     }
 

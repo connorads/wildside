@@ -1794,6 +1794,7 @@ pub(crate) struct PlayerSlot {
     pub(crate) level_id: LevelId,
     pub(crate) form: PlayerForm,
     pub(crate) continues: u8,
+    pub(crate) extra_hitpoint_slots: u16,
     pub(crate) score: u32,
 }
 
@@ -1815,6 +1816,7 @@ impl Default for PlayerSlot {
             level_id: LevelId(0),
             form: PlayerForm::TheKid,
             continues: 3,
+            extra_hitpoint_slots: 0,
             score: 0,
         }
     }

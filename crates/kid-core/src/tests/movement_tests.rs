@@ -2510,6 +2510,10 @@ mod chunk_11 {
             "ASM loc_65C: move.w #3,(Player_1_Continues).w"
         );
         assert_eq!(
+            slot.extra_hitpoint_slots, 0,
+            "ASM loc_65C: Extra_hitpoint_slots starts cleared in RAM"
+        );
+        assert_eq!(
             slot.diamonds, 0,
             "ASM loc_65C: diamond count starts at zero (no explicit write — RAM-cleared)"
         );
@@ -6434,6 +6438,7 @@ mod chunk_11 {
         rt.current_level = LevelId(7);
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.progression.number_continues = 2;
+        rt.progression.extra_hitpoint_slots = 3;
         rt.progression.score = 55_000;
 
         rt.save_player_slot();
@@ -6447,6 +6452,10 @@ mod chunk_11 {
         assert_eq!(rt.player_slots[0].level_id, LevelId(7));
         assert_eq!(rt.player_slots[0].form, PlayerForm::Maniaxe);
         assert_eq!(rt.player_slots[0].continues, 2);
+        assert_eq!(
+            rt.player_slots[0].extra_hitpoint_slots, 3,
+            "ASM loc_8D8 copies Extra_hitpoint_slots before the score longword"
+        );
         assert_eq!(rt.player_slots[0].score, 55_000);
     }
 

@@ -2026,12 +2026,14 @@ mod chunk_08 {
         runtime.progression.score = 42_000;
         runtime.progression.diamond_count = 30;
         runtime.progression.current_form = PlayerForm::Skycutter;
+        runtime.progression.extra_hitpoint_slots = 2;
 
         runtime.save_player_slot();
 
         // Modify working state
         runtime.progression.number_lives = 1;
         runtime.progression.score = 0;
+        runtime.progression.extra_hitpoint_slots = 0;
 
         // Load it back
         runtime.load_player_slot();
@@ -2040,6 +2042,10 @@ mod chunk_08 {
         assert_eq!(runtime.progression.score, 42_000);
         assert_eq!(runtime.progression.diamond_count, 30);
         assert_eq!(runtime.progression.current_form, PlayerForm::Skycutter);
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 2,
+            "ASM sub_8C2/sub_8A4 copy the Extra_hitpoint_slots word between continues and score"
+        );
     }
 
     /// ASM loc_8B4 (kid.asm:972): sub_8A4 fall-through for player 1 — `moveq #$A,d0;
@@ -2096,6 +2102,7 @@ mod chunk_08 {
         runtime.player_slots[0].level_id = LevelId(42);
         runtime.player_slots[0].form = PlayerForm::Cyclone;
         runtime.player_slots[0].continues = 3;
+        runtime.player_slots[0].extra_hitpoint_slots = 2;
         runtime.player_slots[0].score = 12345;
 
         runtime.current_player_index = 0;
@@ -2111,6 +2118,10 @@ mod chunk_08 {
             "helmet"
         );
         assert_eq!(runtime.progression.number_continues, 3, "continues");
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 2,
+            "extra_hitpoint_slots"
+        );
         assert_eq!(runtime.progression.score, 12345, "score");
     }
 

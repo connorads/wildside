@@ -18304,6 +18304,7 @@ impl NativeRuntime {
         slot.level_id = self.current_level;
         slot.form = self.progression.current_form;
         slot.continues = self.progression.number_continues;
+        slot.extra_hitpoint_slots = self.progression.extra_hitpoint_slots;
         slot.score = self.progression.score;
     }
 
@@ -18324,6 +18325,7 @@ impl NativeRuntime {
         self.progression.current_form = slot.form;
         self.progression.pending_form = None;
         self.progression.number_continues = slot.continues;
+        self.progression.extra_hitpoint_slots = slot.extra_hitpoint_slots;
         self.progression.score = slot.score;
     }
 

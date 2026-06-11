@@ -237,7 +237,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 310 | [ ] | P2 | terrain | Umbrella: terrain-fidelity-audit.md — 18 gaps (#295 promoted separately) | Per-gap rows in doc |
 | 311 | [ ] | P2 | projectile | Umbrella: projectiles-fidelity-audit.md — 16 gaps incl. Juggernaut skull terrain probe and invented below-foot airborne hitbox (#296 promoted separately) | Per-gap rows in doc |
 | 312 | [ ] | P2 | level | Umbrella: level-flow-fidelity-audit.md — 16 gaps incl. death-respawn DP extra-HP slot leak and timer semantics (#299/#300 promoted separately) | Per-gap rows in doc |
-| 313 | [ ] | P2 | menu/shell | Umbrella: shell-fidelity-audit.md — remaining gaps (#292/#293/#303/#304 promoted separately) incl. `Allow_Pausing` gate and 2P state bank | Per-gap rows in doc |
+| 313 | [ ] | P2 | menu/shell | Umbrella: shell-fidelity-audit.md — remaining gaps (#292/#293/#303/#304 promoted separately) incl. `Allow_Pausing` gate and pause-render/game-over hold details | Per-gap rows in doc |
 | 314 | [ ] | P2 | score | Umbrella: scoring-economy-fidelity-audit.md — 9 gaps incl. Hundred-K-Trip timer armed but never decremented (warp can never fire) and one-time-prize anti-farming unwired (1-ups re-farmable) | Per-gap rows in doc |
 | 315 | [ ] | P2 | enemy | Umbrella: enemy-fidelity-audit.md — 25 of 67 still open plus 9 partial remainders (e.g. Big Hopping Skull patrol bounds, Ninja knockdown branch) after the staleness check | Staleness report lists each remainder with current file:line |
 | 316 | [ ] | P2 | form | Umbrella: helmets-fidelity-audit.md — 25 of 38 still open after the staleness check | Per-gap rows in doc; staleness report verdicts |
