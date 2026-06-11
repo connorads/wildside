@@ -11871,6 +11871,7 @@ mod chunk_04 {
             Some(&mut projectiles),
             &mut rng,
             &mut drilled_blocks,
+            None,
         );
 
         assert_eq!(
@@ -11898,6 +11899,7 @@ mod chunk_04 {
             Some(&mut projectiles),
             &mut rng,
             &mut drilled_blocks,
+            None,
         );
 
         assert_eq!(

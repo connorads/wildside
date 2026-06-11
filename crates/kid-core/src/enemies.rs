@@ -9582,6 +9582,7 @@ pub(crate) fn step_active_enemies(
         projectiles,
         &mut rng,
         drilled_blocks,
+        None,
     );
 }
 
@@ -9602,6 +9603,7 @@ pub(crate) fn step_active_enemies_with_rng(
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     for enemy in active.iter_mut() {
         // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set,
@@ -9874,10 +9876,18 @@ pub(crate) fn step_active_enemies_with_rng(
             }
             EnemyArchetype::Stationary => {
                 if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    let mut discarded_sound_effects = Vec::new();
+                    let tar_monster_sound_effects = played_sound_effects
+                        .as_deref_mut()
+                        .unwrap_or(&mut discarded_sound_effects);
                     if let Some(ref mut projs) = projectiles {
-                        step_tar_monster(enemy, projs);
+                        step_tar_monster_with_sounds(enemy, projs, tar_monster_sound_effects);
                     } else {
-                        step_tar_monster(enemy, &mut Vec::new());
+                        step_tar_monster_with_sounds(
+                            enemy,
+                            &mut Vec::new(),
+                            tar_monster_sound_effects,
+                        );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
@@ -21537,12 +21547,25 @@ pub(crate) fn tar_monster_child_init_loc_32200(
 /// ASM: Tar_Monster.asm, jump table off_32290.
 /// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
 /// While Submerged, the enemy is invulnerable and invisible (handled by collision/render).
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+    let mut discarded_sound_effects = Vec::new();
+    step_tar_monster_with_sounds(enemy, projectiles, &mut discarded_sound_effects);
+}
+
+pub(crate) fn step_tar_monster_with_sounds(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    played_sound_effects: &mut Vec<QueuedSoundEffect>,
+) {
     if enemy.wait_timer > 0 {
         // Check if we need to fire during attack sequence
         if enemy.tar_monster_state == TarMonsterState::Attacking {
             let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
             if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
+                // ASM Tar_Monster.asm loc_32468 plays
+                // `sfx_Tar_Monster_shoots` before entering loc_3247E.
+                played_sound_effects.push(QueuedSoundEffect::TarMonsterShoots);
                 // ASM loc_3231C/loc_32348: spawn the glob after the first `dbf` loop.
                 // The spawn setup follows loc_3247E, and loc_324D0 applies the
                 // direction-dependent velocity/mirror offset.
@@ -21578,6 +21601,9 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
     }
     match enemy.tar_monster_state {
         TarMonsterState::Submerged => {
+            // ASM Tar_Monster.asm loc_322BC falls through loc_322C0 to play
+            // `sfx_Tar_Monster_appears` at the start of the appear sequence.
+            played_sound_effects.push(QueuedSoundEffect::TarMonsterAppears);
             enemy.tar_monster_state = TarMonsterState::Emerging;
             enemy.wait_timer = TAR_MONSTER_EMERGE_FRAMES;
         }
@@ -21592,6 +21618,9 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
             enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
         }
         TarMonsterState::Attacking => {
+            // ASM Tar_Monster.asm loc_322DA plays
+            // `sfx_Tar_Monster_disappears` before the submerge animation.
+            played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
             enemy.tar_monster_state = TarMonsterState::Submerging;
             enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
         }
@@ -26734,6 +26763,7 @@ mod tests {
             None,
             &mut rng,
             &mut drilled_blocks,
+            None,
         );
 
         assert_eq!(
@@ -26758,6 +26788,7 @@ mod tests {
             None,
             &mut rng,
             &mut drilled_blocks,
+            None,
         );
 
         assert_eq!(
@@ -26880,6 +26911,7 @@ mod tests {
             None,
             &mut rng,
             &mut drilled_blocks,
+            None,
         );
         diamond = enemies[0];
 
@@ -38913,6 +38945,62 @@ mod tests {
     }
 
     #[test]
+    fn tar_monster_sequence_queues_appear_sound_loc_322c0() {
+        let mut enemy = tar_monster_test_enemy();
+        enemy.tar_monster_state = TarMonsterState::Submerged;
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_tar_monster_with_sounds(&mut enemy, &mut projectiles, &mut sound_effects);
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TarMonsterAppears],
+            "ASM Tar_Monster.asm loc_322BC/loc_322C0 plays sfx_Tar_Monster_appears at emerge start",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x54);
+    }
+
+    #[test]
+    fn tar_monster_attack_queues_shoot_sound_loc_32468() {
+        let mut enemy = tar_monster_test_enemy();
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        for _ in 0..9 {
+            step_tar_monster_with_sounds(&mut enemy, &mut projectiles, &mut sound_effects);
+        }
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TarMonsterShoots],
+            "ASM Tar_Monster.asm loc_32468 plays sfx_Tar_Monster_shoots before loc_3247E initialises the glob",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x5E);
+    }
+
+    #[test]
+    fn tar_monster_sequence_queues_disappear_sound_loc_322da() {
+        let mut enemy = tar_monster_test_enemy();
+        enemy.tar_monster_state = TarMonsterState::Attacking;
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_tar_monster_with_sounds(&mut enemy, &mut projectiles, &mut sound_effects);
+
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TarMonsterDisappears],
+            "ASM Tar_Monster.asm loc_322DA plays sfx_Tar_Monster_disappears before the submerge animation",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x53);
+    }
+
+    #[test]
     fn tar_monster_attack_glob_uses_loc_3247e_and_loc_324d0_spawn_offsets() {
         let mut right_facing = tar_monster_test_enemy();
         right_facing.x_pos = 0x0120_0000;
@@ -41102,6 +41190,7 @@ impl NativeRuntime {
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
+                    None,
                 );
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
@@ -41136,6 +41225,7 @@ impl NativeRuntime {
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
+                    None,
                 );
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
@@ -41296,6 +41386,7 @@ impl NativeRuntime {
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
+                    Some(&mut self.played_sound_effects),
                 );
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();

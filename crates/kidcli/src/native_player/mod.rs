@@ -1733,7 +1733,10 @@ mod gems_sfx {
     pub const MINI_HOPPING_SKULL_SCREAM: u8 = 0x3F;
     pub const JUMP_ON_ENEMY: u8 = 0x4C;
     pub const VOICE_NO_TIME: u8 = 0x51;
+    pub const TAR_MONSTER_DISAPPEARS: u8 = 0x53;
+    pub const TAR_MONSTER_APPEARS: u8 = 0x54;
     pub const RUBBER_BLOCK: u8 = 0x56;
+    pub const TAR_MONSTER_SHOOTS: u8 = 0x5E;
     pub const VOICE_DIE: u8 = 0x60;
     pub const VOICE_OUCH: u8 = 0x61;
     pub const VOICE_DIAMOND: u8 = 0x62;

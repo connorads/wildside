@@ -53,6 +53,9 @@ pub(crate) enum QueuedSoundEffect {
     RedStealthHittingTarget,
     RedStealthAttackDown,
     DiamondPrize,
+    TarMonsterDisappears,
+    TarMonsterAppears,
+    TarMonsterShoots,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -93,6 +96,11 @@ impl QueuedSoundEffect {
             // contact frame, *before* the 32-step fly-to-counter loop that
             // later increments Number_Diamonds.
             Self::DiamondPrize => 0x2D,
+            // ASM Tar_Monster.asm loc_322DA/loc_322C0/loc_32468 play the
+            // three Tar Monster sequence sounds directly through j_PlaySound.
+            Self::TarMonsterDisappears => 0x53,
+            Self::TarMonsterAppears => 0x54,
+            Self::TarMonsterShoots => 0x5E,
             // constants.asm: sfx_Thunderstorm = $77.
             Self::Thunderstorm => 0x77,
             // constants.asm: sfx_Navigate_jingle = $2D.
