@@ -10960,15 +10960,15 @@ impl NativeRuntime {
             return true;
         }
 
-        // Murder wall: advance and damage player on contact.
+        // Murder wall: advance and kill player on contact.
         // ASM loc_7396/loc_73B8: reversed wall can push camera_x.
         self.step_murder_wall(&mut slice.camera.x_pos);
-        if self.murder_wall_kills_player(slice)
-            && self.progression.invulnerable_frames == 0
-            && !self.kid_is_invulnerable
-        {
-            self.apply_damage();
+        if self.murder_wall_kills_player(slice) {
             self.opening_slice = Some(*slice);
+            // ASM sub_5E02 loc_5E34 writes colid_rightwall ($04), and
+            // Character_CheckCollision dispatches it through Crushed_to_Death
+            // to Death without the Check_for_recent_damge invulnerability gate.
+            self.begin_death_windup();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::MurderWallDamage;
             return true;
         }

@@ -15572,6 +15572,63 @@ mod chunk_05 {
     }
 
     #[test]
+    fn murder_wall_contact_crushes_helmeted_kid_loc_5e34_b640() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0050_0000,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 0x0050_0000 + ((MURDER_WALL_CAMERA_OFFSET_PX as u32) << 16);
+        let consumed = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
+
+        assert!(consumed, "murder-wall contact should consume the frame");
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "ASM sub_5E02 loc_5E34 -> colid_rightwall -> off_B640 Crushed_to_Death should start Death, not ordinary HP damage"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints(),
+            "Crushed_to_Death bypasses loc_B700 HP decrement; lose_life resets HP later"
+        );
+    }
+
+    #[test]
+    fn murder_wall_crush_bypasses_damage_invulnerability_loc_5e34_b640() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0050_0000,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+        runtime.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+        runtime.just_received_damage = true;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 0x0050_0000 + ((MURDER_WALL_CAMERA_OFFSET_PX as u32) << 16);
+        let consumed = runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0);
+
+        assert!(consumed, "murder-wall contact should consume the frame");
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "ASM right-wall crush bypasses Check_for_recent_damge, so damage flash must not protect Kid"
+        );
+    }
+
+    #[test]
     fn step_murder_wall_reversed_decrements_position() {
         // ASM: reversed wall moves right-to-left (subtracts from x_pos)
         let mut runtime = NativeRuntime::new(manifest());

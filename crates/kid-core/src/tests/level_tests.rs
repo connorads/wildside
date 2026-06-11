@@ -8884,6 +8884,96 @@ mod chunk_02 {
     }
 
     #[test]
+    fn murder_wall_death_respawns_at_level_start_loc_5e34_b8de() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0x08);
+        let expected = runtime.level_respawn_slice_with_floor_snap(level);
+        runtime.enter_level_playtest(level);
+        runtime.progression.number_lives = 3;
+
+        let death_x = expected.player.x_pos + 0x0040_0000;
+        let mut slice = runtime.opening_slice.expect("level 08 opening slice");
+        slice.player.x_pos = death_x;
+        runtime.opening_slice = Some(slice);
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: i64::from(death_x) - (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16),
+            speed: 0,
+            max_speed: MURDER_WALL_SLOW_MAX_SPEED,
+            reversed: false,
+        });
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "ASM sub_5E02 loc_5E34 -> Crushed_to_Death should enter DeathWindup"
+        );
+        assert_ne!(
+            death_x, expected.player.x_pos,
+            "test route must die away from the level-start pose"
+        );
+
+        for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+            if matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                break;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
+            "expected Dying after murder-wall Death windup, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+            if matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+                break;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "expected Respawning after lose_life -> Teleport loc_B8DE, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let trace = runtime.trace_frame();
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "live-mode handoff should release gameplay after death-wall respawn (got {:?})",
+            runtime.player_lifecycle
+        );
+        assert_eq!(
+            trace.kid_x_pos,
+            Some(expected.player.x_pos),
+            "ASM lose_life -> Teleport loc_B8DE -> loc_6E2 must reload Level 0x08 from the level-start pose, not the murder-wall contact X"
+        );
+        assert_eq!(
+            trace.kid_y_pos,
+            Some(expected.player.y_pos),
+            "death-wall respawn should use the same Load_InGame floor-settled Y as level entry"
+        );
+        assert_eq!(trace.camera_x_pos, expected.camera.x_pos);
+        assert_eq!(trace.camera_y_pos, expected.camera.y_pos);
+    }
+
+    #[test]
     fn spike_death_ignores_hitpoints() {
         let mut runtime = NativeRuntime::new(manifest());
 
