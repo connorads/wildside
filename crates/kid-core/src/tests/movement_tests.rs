@@ -8625,6 +8625,41 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_91a6_spikes_ceiling_sets_damage_contact_latch() {
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let idx = (2 * w + 3) as usize * 2;
+        data[idx] = 0x70; // collision type 7 = Spikes
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+        slice.player.on_ground = false;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            None,
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_spikes,
+            "ASM loc_91A6 writes colid_kidbelow ($28) on a spike ceiling hit so Character_CheckCollision can route through loc_B700"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_91A6 falls through to loc_91AC, so the spike ceiling still behaves as a ceiling stop"
+        );
+    }
+
     /// ASM loc_91AC (kid.asm:10599): sub_914A hit handler.
     /// `st 1(sp)` sets the hit-found flag. Records first-hit tile address in
     /// `$FFFFFB6C` (used by callers to locate the ceiling contact point).

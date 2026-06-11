@@ -9043,6 +9043,64 @@ mod chunk_02 {
     }
 
     #[test]
+    fn ceiling_spike_contact_uses_loc_b700_damage_not_plain_ceiling() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let w: u16 = 10;
+        let h: u16 = 10;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let idx = (w + 2) as usize * 2;
+        data[idx] = 0x70; // ASM loc_91A6: Spikes ceiling cell.
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+        runtime.set_trace_physics(true);
+
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(0))));
+        runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        runtime.progression.invulnerable_frames = 0;
+        runtime.just_received_damage = false;
+        let slice = runtime
+            .opening_slice
+            .as_mut()
+            .expect("level should be live");
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.y_velocity = -0x000E_0000;
+        slice.player.on_ground = false;
+        slice.player.on_spikes = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+
+        runtime.step_frame(FrameInput::default());
+        let trace = runtime.trace_frame();
+        let ceiling_probe = trace
+            .physics_trace
+            .and_then(|physics| physics.ceiling_probe_cell)
+            .expect("physics trace should record the ceiling probe");
+        assert_eq!(
+            (
+                ceiling_probe.0,
+                ceiling_probe.1,
+                ceiling_probe.2,
+                ceiling_probe.4
+            ),
+            (2, 1, terrain::CollisionKind::Spikes as u8, false),
+            "test fixture should cross ASM loc_91A6 spike ceiling geometry"
+        );
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "ASM loc_91A6 -> Check_for_recent_damge -> loc_B700 should survive non-final ceiling spike damage"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints() - 1,
+            "ceiling spike contact should subtract one HP through loc_B700"
+        );
+        assert!(runtime.just_received_damage);
+        assert!(runtime.progression.invulnerable_frames > 0);
+    }
+
+    #[test]
     fn game_over_when_last_life_lost() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_spikes_from_col(5));

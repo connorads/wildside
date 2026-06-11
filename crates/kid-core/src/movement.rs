@@ -6239,6 +6239,13 @@ impl OpeningSliceState {
         }
 
         if probe.hit {
+            if probe.cell.collision == terrain::CollisionKind::Spikes {
+                // ASM loc_91A6: a `$7000` ceiling cell writes
+                // `colid_kidbelow` ($28) before falling through to the normal
+                // ceiling stop; Character_CheckCollision then routes it through
+                // Check_for_recent_damge -> loc_B700.
+                self.player.on_spikes = true;
+            }
             let deferred_prize_ceiling_phase =
                 deferred_prize_ceiling_cells
                     .iter()
