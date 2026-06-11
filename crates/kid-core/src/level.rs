@@ -18193,6 +18193,11 @@ impl NativeRuntime {
     /// controls that change level while live play is running.
     pub fn enter_level_debug_title_card(&mut self, level_id: LevelId) -> NativeTraceFrame {
         self.begin_level_entry(level_id);
+        // ASM loc_74E0 debug level changes re-enter loc_6E2/Load_TitleCard.
+        // play-native can hold that first transition frame without stepping the
+        // core, so refresh the VDP shell immediately instead of leaving the old
+        // gameplay VDP latched until the next frame.
+        self.update_vdp_state();
         self.trace_frame()
     }
 

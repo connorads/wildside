@@ -189,6 +189,19 @@ off-screen. Cyclops/Eyeclops/spin-form level skip still does not work as a
 playable form route. Treat this as triage context only; fixes still require ASM
 and oracle evidence before changing engine behaviour.
 
+Follow-up 2026-06-11 for #282: root cause was the native hotkey presentation,
+not core level-entry state. The previous focused test proved `N`/`P` entered
+`GameMode::LevelTransition`, but `play-native` always masked the transition
+with the plain debug fallback and `enter_level_debug_title_card` returned before
+refreshing VDP state. Native now refreshes the ASM `loc_74E0 -> loc_6E2 ->
+Load_TitleCard` VDP shell immediately on debug entry; hotkeys hold that ROM
+card when the extracted title-card art is actually renderable, and reserve the
+plain fallback for targets with no renderable title-card data. Verification:
+`cargo fmt`, `cargo test -q -p kidcli debug_hotkey_level_skip -- --nocapture`,
+`cargo test -q -p kidcli debug_warp -- --nocapture`, `cargo test -q -p kidcli
+level_card_overlay -- --nocapture`, and `cargo test -q -p kidcli
+live_level_change -- --nocapture`.
+
 Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
 metal-block/slime repro. The cache-local seed
 `.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within

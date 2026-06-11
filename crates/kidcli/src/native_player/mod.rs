@@ -522,6 +522,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         DebugWarpDirection::Next,
                     ) {
                         let presentation = enter_debug_hotkey_level(
+                            manifest,
                             &mut runtime,
                             &mut trace,
                             &mut session_assets,
@@ -557,6 +558,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         DebugWarpDirection::Previous,
                     ) {
                         let presentation = enter_debug_hotkey_level(
+                            manifest,
                             &mut runtime,
                             &mut trace,
                             &mut session_assets,
@@ -943,9 +945,9 @@ fn debug_level_card_fallback_frames(manifest: &AssetManifest, level_id: LevelId)
 
 fn debug_hotkey_level_card_hold_frames() -> usize {
     // `N`/`P` are native-only debug hotkeys, not ROM input. The core still
-    // enters ASM `loc_6E2`/`Load_TitleCard`, but play-native overlays a short
-    // deterministic name card so the hotkey never appears to skip straight
-    // into gameplay when the generated title-card shell is blank or brief.
+    // enters ASM `loc_6E2`/`Load_TitleCard`; play-native holds that generated
+    // shell, or a deterministic fallback for targets without title-card data,
+    // so the hotkey never appears to skip straight into gameplay.
     LEVEL_CARD_HOLD_FRAMES
 }
 
@@ -960,6 +962,7 @@ struct DebugHotkeyLevelPresentation {
 }
 
 fn enter_debug_hotkey_level(
+    manifest: &AssetManifest,
     runtime: &mut NativeRuntime,
     trace: &mut NativeTraceFrame,
     session_assets: &mut NativeSessionAssets,
@@ -969,10 +972,27 @@ fn enter_debug_hotkey_level(
     *session_assets = next_assets;
     runtime.set_block_grid(session_assets.block_grid.clone());
     *trace = runtime.enter_level_debug_title_card(level_id);
+    let has_renderable_title_card =
+        level_has_generated_title_card(manifest, level_id) && runtime.vdp_state().is_some();
 
+    debug_hotkey_level_presentation(has_renderable_title_card)
+}
+
+fn debug_hotkey_level_presentation(
+    has_renderable_title_card: bool,
+) -> DebugHotkeyLevelPresentation {
+    let hold_frames = debug_hotkey_level_card_hold_frames();
     DebugHotkeyLevelPresentation {
-        level_card_frames_remaining: 0,
-        debug_level_card_fallback_frames_remaining: debug_hotkey_level_card_hold_frames(),
+        level_card_frames_remaining: if has_renderable_title_card {
+            hold_frames
+        } else {
+            0
+        },
+        debug_level_card_fallback_frames_remaining: if has_renderable_title_card {
+            0
+        } else {
+            hold_frames
+        },
         fade_alpha: 0,
         fading_in: false,
         suppress_level_card_for_debug_warp: false,
@@ -980,7 +1000,6 @@ fn enter_debug_hotkey_level(
     }
 }
 
-#[cfg(test)]
 fn level_has_generated_title_card(manifest: &AssetManifest, level_id: LevelId) -> bool {
     manifest
         .levels
@@ -9458,6 +9477,21 @@ mod tests {
             LEVEL_CARD_HOLD_FRAMES,
             "native-only N/P debug skips should visibly acknowledge the target level even when generated ROM title-card data exists"
         );
+        assert_eq!(
+            debug_hotkey_level_presentation(true).level_card_frames_remaining,
+            LEVEL_CARD_HOLD_FRAMES,
+            "renderable Load_TitleCard targets should hold the ROM title-card shell"
+        );
+        assert_eq!(
+            debug_hotkey_level_presentation(true).debug_level_card_fallback_frames_remaining,
+            0,
+            "renderable Load_TitleCard targets should not be masked by the debug fallback"
+        );
+        assert_eq!(
+            debug_hotkey_level_presentation(false).debug_level_card_fallback_frames_remaining,
+            LEVEL_CARD_HOLD_FRAMES,
+            "targets without renderable title-card VDP need the deterministic fallback"
+        );
     }
 
     #[test]
@@ -9489,6 +9523,7 @@ mod tests {
         let mut trace = runtime.enter_level_playtest(LevelId(0));
 
         let presentation = enter_debug_hotkey_level(
+            &fixture.manifest,
             &mut runtime,
             &mut trace,
             &mut session_assets,
@@ -9505,7 +9540,7 @@ mod tests {
         assert_eq!(trace.current_level_name.as_deref(), Some("Hotkey Target"));
         assert_eq!(
             presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
-            "live N/P hotkeys should hold a visible name card even when generated ROM title-card data exists"
+            "fixture metadata has generated title-card script bytes but no renderable VDP art, so the hotkey must fall back instead of rendering stale gameplay"
         );
         assert_eq!(presentation.level_card_frames_remaining, 0);
         assert!(presentation.wait_for_live_input_release);
@@ -9514,6 +9549,54 @@ mod tests {
             presentation.level_card_frames_remaining,
             presentation.debug_level_card_fallback_frames_remaining
         ));
+        assert!(
+            runtime.vdp_state().is_none(),
+            "the tiny unit fixture lacks extracted title-card art; live extracted manifests exercise the ROM-card branch"
+        );
+    }
+
+    #[test]
+    fn debug_hotkey_level_skip_uses_fallback_only_without_generated_title_card() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x01;
+        target.display_name = Some(String::from("Hotkey Fallback"));
+        target.title_text_id = Some(0x4B);
+        target.title_card = None;
+        fixture.manifest.levels.push(target);
+
+        let start_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("start grid"),
+        };
+        let target_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("target grid"),
+        };
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(0));
+
+        let presentation = enter_debug_hotkey_level(
+            &fixture.manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(1),
+            target_assets,
+        );
+
+        assert_eq!(trace.current_level, LevelId(1));
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+        assert_eq!(
+            presentation.level_card_frames_remaining, 0,
+            "targets without generated Load_TitleCard data cannot use the ROM title-card shell"
+        );
+        assert_eq!(
+            presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
+            "fallback card is reserved for missing generated title-card data"
+        );
 
         let render_trace = {
             let mut overlay = trace.clone();
@@ -9523,7 +9606,7 @@ mod tests {
         };
         let scene = build_debug_level_card_fallback_scene(&render_trace);
         assert!(contains_text(&scene, "LEVEL 01"));
-        assert!(contains_text(&scene, "Hotkey Target"));
+        assert!(contains_text(&scene, "Hotkey Fallback"));
     }
 
     #[test]
