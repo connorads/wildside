@@ -282,6 +282,24 @@ family (native body/turret `$00D58000/$00D50000` left, oracle
 `$00D50000/$00D50000` right). Continue #260 from that return-boundary phase;
 do not patch Drips or metal-block hitboxes until Tank route noise is clean.
 
+Follow-up 2026-06-11 for #260 after `513b36d1`: the focused right-side Drips
+contact route `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`
+now verifies cleanly for the former HP/contact window:
+`cargo run -q -p kidcli -- verify-tas --scenario .cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json --frame-start 470 --frame-end 559 --checkpoint-interval 1 --bisect --frontier-kind enemy`
+reports `PASS: no authoritative divergences in frames 470..559`, and
+`mise run verify-slice-fast` is green. Root cause for that slice was a Drips
+controller timing/contact mismatch, not a metal-block behaviour: native seeded
+the first wait from Kid's frame-local physics X and exposed live crawler damage
+one post-motion frame late, while the ROM's `Drips.asm loc_3340E` reads
+`Addr_GfxObject_Kid.x_pos`, the initial loc_333F6 ceiling-contact coroutine
+bridges two frames before the seed draw, and live `loc_33650`/`loc_33550`
+contact consumes the frame before Kid's leftward movement becomes visible.
+Regressions cover the visible-gfx X wait byte, the two-frame seed bridge, the
+`dx=-15` live-crawler boundary from issue-260 frame 550, and the contact-frame
+X restore. Treat this as a cleared Drips initial-seed/contact hypothesis only;
+#260 remains open because no current oracle-comparable route reaches the human
+reported live slime/metal-block mutation.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing

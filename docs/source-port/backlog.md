@@ -89,7 +89,16 @@ and stop — never commit churn.
   and the late window first differs on HP at frame 480 (`native=2`,
   `oracle=1`) with oracle already exposing Drips `loc_33488` child/gfx slots.
   Treat `freshF` as no-settle bootstrap evidence only, not route proof or a
-  Drips/block patch lead.
+  Drips/block patch lead. 2026-06-11 follow-up after `513b36d1`: the
+  focused right-side Drips contact route
+  `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`
+  now passes enemy-frontier oracle verification for frames 470..559. The fix
+  aligned `Drips.asm loc_3340E` initial seed timing with the visible Kid gfx
+  slot, preserved the two-frame loc_333F6→loc_3340E coroutine bridge, and made
+  live `loc_33550` crawler contact consume the frame before Kid's horizontal
+  movement. This clears the stale Drips initial-seed/contact hypothesis, but it
+  still is not the reported live slime/metal-block repro; keep #260 `[~]` and
+  continue from a refreshed route/bootstrap that reaches metal-block contact.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
