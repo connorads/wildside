@@ -6488,6 +6488,24 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_level_eight_keeps_murder_wall_level_skip_tail_age() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0x08));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x08));
+
+        let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            first_recorded_frame.murder_wall_x,
+            Some(-0x001B_7B00),
+            "ASM Murderwall loc_140CE starts Level 0x08 at -$30 px, and loc_7316/loc_7334 accelerates one $100 step per frame; oracle issue266 settled warp frame 0 has advanced 102 wall ticks through the level-skip live tail",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

@@ -154,6 +154,14 @@ impl NativeRuntime {
         self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         let target_live_frames = if level_id == LevelId(1) {
             ORACLE_SETTLED_WARP_LIVE_FRAMES - 1
+        } else if level_id == LevelId(0x08) {
+            // ASM loc_74E0's level-skip path has a live target-level tail
+            // before the helper's 60 stable-frame recording window. Level 0x08
+            // exposes that hidden age through Murderwall loc_140CE plus
+            // loc_7316/loc_7334: oracle issue266 frame 0 has advanced 102 wall
+            // ticks from the -$30 px seed, so native must enter the scenario
+            // one pre-frame earlier and let the traced frame supply tick 102.
+            101
         } else {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };
