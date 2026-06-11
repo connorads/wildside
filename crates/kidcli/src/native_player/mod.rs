@@ -13919,6 +13919,19 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_evanescent_block_from_core_trace_loc_df68() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::EVANESCENT];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::EVANESCENT],
+            "ASM EvanescentBlock_Trigger (kid.asm:17283) queues sfx_Evanescent_block=$14 from the core trace"
+        );
+    }
+
+    #[test]
     fn play_native_replays_metal_block_without_generic_block_crunch() {
         let prev = sample_trace(GameMode::InGame);
         let mut curr = sample_trace(GameMode::InGame);

@@ -2420,6 +2420,10 @@ impl NativeRuntime {
         skin: u8,
         load_bullets_now: bool,
     ) {
+        // ASM EvanescentBlock_Trigger (kid.asm:17283) plays
+        // `sfx_Evanescent_block` before checking for a free evanescent slot.
+        self.played_sound_effects
+            .push(QueuedSoundEffect::EvanescentBlock);
         if self
             .block_state
             .evanescent_blocks

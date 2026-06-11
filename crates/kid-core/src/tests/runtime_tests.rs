@@ -9192,6 +9192,11 @@ mod chunk_09 {
             terrain::Cell::from_be_bytes(0xE3, 0x1E),
             "ASM EvanescentBlock_Trigger rewrites the triggered shooter high byte to `$E3` while preserving the direction skin"
         );
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::EvanescentBlock],
+            "ASM EvanescentBlock_Trigger (kid.asm:17283) plays sfx_Evanescent_block before loading shooter bullets"
+        );
     }
 
     #[test]
@@ -10706,6 +10711,22 @@ mod chunk_09 {
             runtime.block_state.evanescent_blocks.len(),
             EVANESCENT_MAX_ENTRIES,
             "should not exceed max entries cap"
+        );
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "the native loc_EAE4 scan skips entering EvanescentBlock_Trigger when the slot list is already full"
+        );
+
+        runtime.trigger_evanescent_block_from_shooter_loc_F04A(2, 3, 28);
+        assert_eq!(
+            runtime.block_state.evanescent_blocks.len(),
+            EVANESCENT_MAX_ENTRIES,
+            "the trigger routine itself still must not allocate past the cap"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::EvanescentBlock],
+            "ASM EvanescentBlock_Trigger (kid.asm:17283) plays sfx_Evanescent_block before the free-slot bailout"
         );
     }
 
