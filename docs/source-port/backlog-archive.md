@@ -8883,6 +8883,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #272
 
 - [Verify] Evidence source: human playtest. Cross-ref #003/#160/#216/#264. Native repro: not yet reproduced with audio transcript/waveform. Oracle status: unknown; may need real-device/audio-timing evidence. Minimum gate: audio-events plus waveform captures for Samurai air attack, helmet pickup voice, and rubber/bouncy block sound, compared with ASM/GEMS command timing and native mixer pitch/rate. RECONFIRMED 2026-06-10 playtest (post 325e8622 build): the Samurai transformation-end voice still plays low/distorted.
+- [Verify] Follow-up 2026-06-11 cue-ID audit: ASM `Kid_Transform -> loc_7CD0 -> unk_7ED8` queues Red Stealth transform `sfx_Red_Stealth_transform=$2E`, while `sub_868E` queues ground sword `sfx_Red_Stealth_sword_swinging=$23` and hit-target `sfx_Red_Stealth_hitting_a_target=$5A`; the airborne attack-down path remains the separate `$13` core cue. Native `play-native` already replays queued core SFX verbatim and maps transform heuristics through the ROM helmet order, with focused regression `play_native_replays_red_stealth_direct_sfx_ids_from_core_trace` now covering `$13/$23/$5A`. Current evidence therefore rejects a simple Red Stealth cue-ID mapping bug. Next #272 gate is still waveform/oracle evidence: render or record a natural Red Stealth pickup route, likely from Woods of Despair 2 (level `0x20`) early RedStealth prize blocks at cols 10,row 8 / 5,row 12, and compare native `audio-events.txt` + `audio.wav` against oracle or real-device timing/pitch.
 
 ### #273
 

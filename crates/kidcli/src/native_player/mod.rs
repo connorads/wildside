@@ -12965,6 +12965,27 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_red_stealth_direct_sfx_ids_from_core_trace() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![
+            gems_sfx::RED_STEALTH_ATTACK_DOWN,
+            gems_sfx::RED_STEALTH_SWORD,
+            gems_sfx::RED_STEALTH_HITTING_TARGET,
+        ];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![
+                gems_sfx::RED_STEALTH_ATTACK_DOWN,
+                gems_sfx::RED_STEALTH_SWORD,
+                gems_sfx::RED_STEALTH_HITTING_TARGET,
+            ],
+            "ASM sub_B270 loc_B350 queues attack-down=$13; sub_868E queues sword=$23 and hit-target=$5A, so play-native must replay core trace IDs verbatim"
+        );
+    }
+
+    #[test]
     fn play_native_transform_sfx_follows_unk_7ed8_helmet_order() {
         let cases = [
             (PlayerForm::Skycutter, gems_sfx::SKYCUTTER_TRANSFORM),
