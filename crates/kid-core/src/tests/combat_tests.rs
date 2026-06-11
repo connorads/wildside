@@ -588,6 +588,57 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
     );
 }
 
+#[test]
+fn boss_level_flag_touch_is_suppressed_while_boss_alive_loc_c03a() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(0x34));
+    runtime.current_level = LevelId(0x10);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::Shishkaboss,
+        0x0100_0000,
+        0x0100_0000,
+        20,
+    )];
+
+    let mut slice = combat_slice();
+    slice.level_bounds.height_pixels = 1024;
+    slice.player.x_pos = (0x0750 + 0x10) << 16;
+    slice.player.y_pos = 0x0300_0000;
+    slice.player.on_ground = true;
+
+    assert!(
+        !runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
+        "ASM loc_C03A sets `$3D` on the boss-level pole bottom, so GfxObjects_CollisionKid should skip flag completion while the boss is alive"
+    );
+    assert!(
+        !matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ),
+        "boss-level flag touch must not enter level-complete until the boss re-enables the flag"
+    );
+}
+
+#[test]
+fn boss_level_flag_touch_reenables_after_boss_gone_loc_39ebe_c03a() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(0x34));
+    runtime.current_level = LevelId(0x10);
+
+    let mut slice = combat_slice();
+    slice.level_bounds.height_pixels = 1024;
+    slice.player.x_pos = (0x0750 + 0x10) << 16;
+    slice.player.y_pos = 0x0300_0000;
+    slice.player.on_ground = true;
+
+    assert!(
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
+        "ASM loc_39EBE re-enables the flag object after boss defeat, so the same flag overlap should complete the level once no boss object remains"
+    );
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::LevelComplete { .. }
+    ));
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

@@ -9013,6 +9013,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn player_touches_flag(&self, slice: &OpeningSliceState) -> bool {
+        if self.boss_flag_collision_suppressed_loc_c03a() {
+            return false;
+        }
+
         let Some(header) = self.level_header(self.current_level) else {
             return false;
         };
@@ -9022,6 +9026,22 @@ impl NativeRuntime {
             header.flag_x,
             header.flag_y,
         )
+    }
+
+    fn boss_flag_collision_suppressed_loc_c03a(&self) -> bool {
+        // ASM Flagpole_Boss loc_C03A (kid.asm:15628): boss levels `$10/$1E/$2A/$33`
+        // hide both flag gfx objects and set `$3D` on the pole bottom. The
+        // collision loop skips that object until the boss death path re-enables it.
+        crate::boot::is_boss_level_loc_C03A(u16::from(self.current_level.0))
+            && self.active_enemies.iter().any(|enemy| {
+                matches!(
+                    enemy.family,
+                    EnemyFamily::HeadyMetal
+                        | EnemyFamily::Shishkaboss
+                        | EnemyFamily::BoomerangBosses
+                        | EnemyFamily::BagelBrothers
+                )
+            })
     }
 
     /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
