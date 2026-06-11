@@ -80,10 +80,13 @@ and stop — never commit churn.
   `340..430 Right`, `478..528 Left`, `530..567 B+Right`) reaching `(456,543)`
   healthy `dx=0 dy=-16 @538`, but it is not oracle-comparable. After direct
   probe oracle warps were fixed to target Level 01 instead of stale Level 00,
-  the no-settle route still diverges immediately: frame 0 enemy roster differs
-  and the oracle enters the scenario with the pause shell active, so Kid never
-  advances from the patched start position. Treat `freshF` as no-settle
-  bootstrap evidence only, not route proof or a Drips/block patch lead.
+  and the direct-probe title-card Start latch was drained/phase-aligned, Kid
+  advances on the same input phase as native. The route still diverges
+  immediately on bootstrap roster shape (`number_objects` native 4 vs oracle 5),
+  and the late window first differs on HP at frame 480 (`native=2`,
+  `oracle=1`) with oracle already exposing Drips `loc_33488` child/gfx slots.
+  Treat `freshF` as no-settle bootstrap evidence only, not route proof or a
+  Drips/block patch lead.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

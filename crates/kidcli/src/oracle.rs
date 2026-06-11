@@ -694,6 +694,10 @@ mod tests {
                 && HELPER_TEMPLATE.contains(
                     "} else if settle_oracle_warp || force_target_level_for_probe {"
                 )
+                && HELPER_TEMPLATE.contains("ASM loc_74B0")
+                && HELPER_TEMPLATE.contains("drain_direct_probe_title_start_latch")
+                && HELPER_TEMPLATE.contains("seed_input_latches")
+                && HELPER_TEMPLATE.contains("ASM ReadJoypad loc_C4E")
                 && HELPER_TEMPLATE.contains("if settle_oracle_warp || force_target_level_for_probe {\n            clear_input_latches(emulator);\n        }"),
             "direct probe scenarios patch live WRAM after warp_to_level, so the oracle helper must target the same level as native before frame 0"
         );
