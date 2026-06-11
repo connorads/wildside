@@ -189,6 +189,22 @@ off-screen. Cyclops/Eyeclops/spin-form level skip still does not work as a
 playable form route. Treat this as triage context only; fixes still require ASM
 and oracle evidence before changing engine behaviour.
 
+Follow-up 2026-06-11 for #260 route search: a fresh early route-shape batch over
+`.cache/recordings/issue-260-drips-drop-contact-probe-current/scenario.json`
+varied the previously under-touched `120..320`/reverse-entry windows and scored
+only after frame 430 (`probe-record-scenario-file-batch --score-frame-start 430
+--target-point 456,543 --target-point 584,543`). The best native-live variants
+were `reverse_jump_160_320` and `reverse_long_160_320`; both stayed `InGame` with
+3 lives / 2 HP but only reproduced the known left target near-miss at
+`(456,543)` `dx=0 dy=-16 @539`, while the right target stayed far away
+(`dx=+45 dy=-48`). A cache-local derived scenario
+`.cache/debug/issue260-route-probes/reverse-jump-160-320-rejected.json` then
+failed enemy-frontier oracle verification immediately:
+`verify-tas --frame-start 470 --frame-end 559 --checkpoint-interval 1 --bisect`
+reported first authoritative divergence at frame 470 on `number_hitpoints`
+(`native=2`, `oracle=1`). Do not retry this `160..320` reverse/jump family as
+metal-block proof without a materially different route/bootstrap.
+
 Follow-up 2026-06-11 for #282: root cause was the native hotkey presentation,
 not core level-entry state. The previous focused test proved `N`/`P` entered
 `GameMode::LevelTransition`, but `play-native` always masked the transition

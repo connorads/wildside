@@ -141,7 +141,11 @@ and stop — never commit churn.
   also failed: the best raw right-target proximity was `dx=+3 dy=-8` around
   frame 456, but Kid was already unhealthy or fell into LevelTransition; every
   healthy closest stayed at the old early `dx=0 dy=-48 @128`. Do not retry this
-  post-300 right-run/brake family without a different vertical setup. On the comparable left-tail seed
+  post-300 right-run/brake family without a different vertical setup. A 2026-06-11
+  early reverse/jump sweep over `160..320` also only reproduced the known
+  `(456,543)` `dx=0 dy=-16` near-miss and was not oracle-comparable at the late
+  window (`number_hitpoints` native 2 vs oracle 1 at frame 470); do not retry
+  that reverse-entry family unchanged. On the comparable left-tail seed
   `.cache/debug/issue260-tail-grid/l524_b530_540.json`, a 360..460 middle-setup
   batch (`B`, `B+Left`, `B+Right`, `Left`, `Right` over `360..420`,
   `380..440`, `400..460`) also failed: B-only variants remain the old clean
