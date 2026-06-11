@@ -22169,33 +22169,24 @@ mod chunk_10 {
     }
 
     #[test]
-    fn homing_y_target_offset_is_16px_above_player() {
-        // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
-        // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
-        // projectile would accelerate downward when it's between player and
-        // player-16px instead of upward.
+    fn homing_y_target_offset_is_16px_below_player() {
+        // ASM Lion.asm loc_3E20E: `y_pos(projectile) - y_pos(Kid) - $10`.
+        // The zero point is 16px below the player anchor, not above it.
         let mut rt = NativeRuntime::new(manifest());
-        // Projectile at y=84 (between player at y=100 and target at y=84).
-        // With correct -16 offset, target_y = 84, dy = 0 → no y accel.
-        // With wrong +16 offset, target_y = 116, dy > 0 → accelerates down.
-        let mut proj = make_projectile(50, 84);
+        let mut proj = make_projectile(50, 116);
         proj.homing_accel = 0x1000;
         proj.speed_cap = 0x6_0000;
         rt.projectiles.push(proj);
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
-        slice.player.y_pos = 100 << 16; // target = 100 - 16 = 84
+        slice.player.y_pos = 100 << 16; // target = 100 + 16 = 116
         rt.opening_slice = Some(slice);
 
         rt.step_projectiles();
 
-        // Projectile is exactly at target y: dy = (100-16) - 84 = 0 in FP.
-        // Actually: target = (100<<16) - (0x10<<16) = 84<<16. proj.y = 84<<16. dy = 0.
-        // dy=0 is not > 0, so -homing_accel should be applied.
-        assert!(
-            rt.projectiles[0].y_velocity < 0,
-            "at exact target y, dy=0 not > 0 → should get -accel, got {}",
-            rt.projectiles[0].y_velocity
+        assert_eq!(
+            rt.projectiles[0].y_velocity, 0,
+            "ASM loc_3E20E: d7 == 0 branches back to loc_3E192 with no y accel"
         );
     }
 
@@ -22204,26 +22195,26 @@ mod chunk_10 {
         // ASM loc_3E192: when no collision branch diverts the projectile, the
         // homing block runs and the routine loops back to this label each frame.
         let mut rt = NativeRuntime::new(manifest());
-        // At exact X match, dx == 0 maps to the "not greater" branch.
-        // At exact Y target (player_y-16), dy == 0 maps to the `beq.s loc_3E192` path.
-        let mut proj = make_projectile(50, 84);
+        // Exact X match and exact Y target both use the `beq.w loc_3E192`
+        // no-acceleration path.
+        let mut proj = make_projectile(50, 116);
         proj.homing_accel = 0x1000;
         proj.speed_cap = 0x6_0000;
         rt.projectiles.push(proj);
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 50 << 16;
-        slice.player.y_pos = 100 << 16; // target = 84
+        slice.player.y_pos = 100 << 16; // target = 116
         rt.opening_slice = Some(slice);
 
         rt.step_projectiles();
 
         assert_eq!(
-            rt.projectiles[0].x_velocity, -0x1000,
-            "loc_3E192 should keep the homing loop and use negative accel when dx <= 0",
+            rt.projectiles[0].x_velocity, 0,
+            "loc_3E1C2 with dx == 0 should branch to loc_3E20E without x accel",
         );
         assert_eq!(
-            rt.projectiles[0].y_velocity, -0x1000,
-            "loc_3E192 with dy = 0 should hit the `beq.w loc_3E192` branch path",
+            rt.projectiles[0].y_velocity, 0,
+            "loc_3E20E with d7 == 0 should hit the `beq.w loc_3E192` branch path",
         );
     }
 
@@ -22283,7 +22274,7 @@ mod chunk_10 {
         rt.projectiles.push(proj);
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 10 << 16; // left of projectile
-        slice.player.y_pos = 10 << 16; // above projectile (target = 10-16 = -6, well above)
+        slice.player.y_pos = 10 << 16; // above projectile (target = 10+16 = 26, still above)
         rt.opening_slice = Some(slice);
 
         rt.step_projectiles();
@@ -22295,7 +22286,7 @@ mod chunk_10 {
         );
         assert!(
             rt.projectiles[0].y_velocity < 0,
-            "homing should accelerate upward toward player-16: got {}",
+            "homing should accelerate upward toward player+16: got {}",
             rt.projectiles[0].y_velocity
         );
     }
@@ -22577,10 +22568,9 @@ mod chunk_10 {
     }
 
     #[test]
-    fn homing_dx_zero_uses_negative_accel() {
-        // When dx == 0, `dx > 0` is false → -homing_accel.
-        // With > mutated to >=, dx=0 would use +homing_accel.
-        // Kills: > with >= on line 43.
+    fn homing_dx_zero_uses_no_accel() {
+        // ASM Lion.asm loc_3E1C2: `beq.w loc_3E20E` when projectile x equals
+        // Kid x, so neither positive nor negative x acceleration is applied.
         let mut rt = NativeRuntime::new(manifest());
         let mut proj = make_projectile(100, 50);
         proj.homing_accel = 0x2000;
@@ -22594,8 +22584,8 @@ mod chunk_10 {
         rt.step_projectiles();
 
         assert_eq!(
-            rt.projectiles[0].x_velocity, -0x2000,
-            "dx=0 should use -homing_accel (> 0 is false)"
+            rt.projectiles[0].x_velocity, 0,
+            "ASM loc_3E1C2: dx=0 should not change x_velocity"
         );
     }
 

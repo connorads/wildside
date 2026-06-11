@@ -2469,27 +2469,30 @@ impl NativeRuntime {
             // Homing: accelerate toward player (per-projectile accel from ASM).
             if p.homing_accel != 0 {
                 if let (Some(px), Some(py)) = (player_x, player_y) {
-                    let dx = px as i64 - p.x_pos as i64;
-                    // Lion.asm loc_3E20E: Y homing target is 16px ($10) above player
-                    let dy = (py as i64 - (0x10 << 16)) - p.y_pos as i64;
-                    p.x_velocity += if dx > 0 {
-                        // ASM loc_3E1F4: if `d7 = x_pos-proj - x_pos(Kid)` is
-                        // negative, increment `x_vel` by `$2000` and clamp later.
-                        p.homing_accel
-                    } else {
-                        // ASM loc_3E1C2: non-negative `d7` keeps the `subi` path
-                        // (`-=$2000`) into the same clamp gate.
-                        -p.homing_accel
-                    };
-                    p.y_velocity += if dy > 0 {
-                        // ASM loc_3E240: if `d7 = y_pos(a3)-y_pos(a4)-$10` is
-                        // negative, add `$2000` and continue to loc_3E192.
-                        p.homing_accel
-                    } else {
-                        // ASM loc_3E20E: `beq/w bge` paths apply `-=$2000`
-                        // on the Y axis when the target is met or above.
-                        -p.homing_accel
-                    };
+                    let dx_from_kid = p.x_pos as i64 - px as i64;
+                    match dx_from_kid.cmp(&0) {
+                        std::cmp::Ordering::Less => {
+                            // ASM loc_3E1F4: projectile left of Kid, add `$2000`.
+                            p.x_velocity += p.homing_accel;
+                        }
+                        std::cmp::Ordering::Greater => {
+                            // ASM loc_3E1C2: projectile right of Kid, subtract `$2000`.
+                            p.x_velocity -= p.homing_accel;
+                        }
+                        std::cmp::Ordering::Equal => {}
+                    }
+                    let dy_from_target = p.y_pos as i64 - py as i64 - (0x10 << 16);
+                    match dy_from_target.cmp(&0) {
+                        std::cmp::Ordering::Less => {
+                            // ASM loc_3E240: projectile above Kid+16, add `$2000`.
+                            p.y_velocity += p.homing_accel;
+                        }
+                        std::cmp::Ordering::Greater => {
+                            // ASM loc_3E20E fallthrough: projectile below Kid+16, subtract `$2000`.
+                            p.y_velocity -= p.homing_accel;
+                        }
+                        std::cmp::Ordering::Equal => {}
+                    }
                 }
                 // Speed cap (Lion.asm: ±$60000 on each axis)
                 if p.speed_cap > 0 {
