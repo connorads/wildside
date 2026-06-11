@@ -929,11 +929,17 @@ pub(crate) fn compare_audio_against_oracle(comparison: &OracleComparison) -> Res
     );
     if similarity < MIN_AUDIO_ENVELOPE_SIMILARITY {
         bail!(
-            "audio envelope similarity {:.3} was below {:.2}; native peaks {:.4}/{:.4}; artefacts in {}; trace {}",
+            "audio envelope similarity {:.3} was below {:.2}; native peaks {:.4}/{:.4}, oracle peaks {:.4}/{:.4}; native onset {:.3}s @ sample {}, oracle onset {:.3}s @ sample {}; artefacts in {}; trace {}",
             similarity,
             MIN_AUDIO_ENVELOPE_SIMILARITY,
             native_analysis.peak_left,
             native_analysis.peak_right,
+            oracle_analysis.peak_left,
+            oracle_analysis.peak_right,
+            native_onset as f32 / AUDIO_SAMPLE_RATE as f32,
+            native_onset,
+            oracle_onset as f32 / comparison.oracle.sample_rate as f32,
+            oracle_onset,
             comparison.run_dir.display(),
             trace_path.display()
         );
