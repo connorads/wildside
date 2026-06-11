@@ -18037,6 +18037,29 @@ impl NativeRuntime {
         self.current_level == LevelId(0x33)
     }
 
+    pub(crate) fn teleporter_dest_level_loc_bcd6(&self, dest_map_id: u8) -> Option<LevelId> {
+        // ASM loc_BCD6 (kid.asm:15259): scan `MapOrder_Index` byte-by-byte
+        // until an entry equals the teleporter record's destination map byte.
+        // `d6` is the zero-based logical level index stored to Current_LevelID.
+        if let Some((logical_level_id, _)) = self
+            .assets
+            .map_order
+            .iter()
+            .enumerate()
+            .find(|(_, map_id)| **map_id == dest_map_id)
+        {
+            return u8::try_from(logical_level_id).ok().map(LevelId);
+        }
+
+        // Unit fixtures without extracted MapOrder data predate the scan model.
+        // Keep them usable while generated assets take the faithful path above.
+        if self.assets.map_order.is_empty() {
+            return Some(LevelId(dest_map_id));
+        }
+
+        None
+    }
+
     pub(crate) fn advance_level(&mut self) {
         let handoff_camera = self.current_camera_state();
         let handoff_player = self.current_player_state();

@@ -9273,6 +9273,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #300
 
 - Filed 2026-06-11 from level-flow-fidelity-audit.md (high). Live teleporter path uses `dest_map_id` (a map number) directly as a logical level index, skipping the `loc_BCD6` MapOrder reverse scan.
+- Proposed fixed 2026-06-11. `teleporter_dest_level_loc_bcd6` now mirrors ASM `loc_BCD6` by scanning `MapOrder_Index` for the teleporter record's destination map byte and returning the zero-based logical level index stored by `loc_BCEA`. The red-first non-identity MapOrder tests observed the old raw `$2D`/45 destination where the ROM route should use logical level 2; fixed coverage includes `teleporter_cross_level_sets_pending_skip_loc_bcd6`, `teleporter_same_level_repositions_loc_bcea`, `process_block_effects_teleporter_warps_player`, and `live_teleporter_pending_skip_uses_map_order_index_loc_bcd6`.
 
 ### #301
 

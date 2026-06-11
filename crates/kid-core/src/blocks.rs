@@ -3709,6 +3709,9 @@ impl NativeRuntime {
         if let Some((cell_x, cell_y)) = slice.teleporter_contact
             && let Some(block_list) = self.block_list.as_ref()
             && let Some(tp) = block_list.teleporter_at(cell_x, cell_y)
+            && self
+                .teleporter_dest_level_loc_bcd6(tp.dest_map_id)
+                .is_some_and(|level_id| level_id == self.current_level)
         {
             // Warp to destination position
             slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;

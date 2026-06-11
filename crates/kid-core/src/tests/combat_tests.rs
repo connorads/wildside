@@ -550,6 +550,44 @@ fn landing_dragon_graze_consumes_after_existing_landing_defer_loc_b700_issue_245
     );
 }
 
+#[test]
+fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
+    let mut manifest = manifest_with_levels(4);
+    manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.current_level = LevelId(0);
+    runtime.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0,
+            col: 5,
+            row: 3,
+            dest_map_id: 0x2D,
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+
+    let mut slice = combat_slice();
+    slice.teleporter_contact = Some((5, 3));
+
+    assert!(
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
+        "teleporter activation should consume the frame"
+    );
+    assert_eq!(
+        runtime.pending_level_skip,
+        Some(LevelId(2)),
+        "ASM loc_BCD6 stores the logical MapOrder index, not raw map byte `$2D`"
+    );
+    assert_eq!(
+        runtime.last_kid_frame_post_motion_mutator,
+        KidFramePostMotionMutator::Teleporter
+    );
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;

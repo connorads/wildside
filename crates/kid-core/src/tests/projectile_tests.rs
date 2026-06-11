@@ -2195,12 +2195,13 @@ mod chunk_06 {
     /// ASM loc_BCD6 (kid.asm:15259): MapOrder_Index scan — `move.b (a4)+,d5;
     /// ext.w d5; cmpi.w #$FFFF,d5; beq loc_BCAC` (end marker = death);
     /// `cmp.w d5,d7; beq loc_BCEA` (found level). d6 counts level index from 0.
-    /// Native stores dest_map_id directly as the level ID in TeleporterEntry,
-    /// so the MapOrder_Index translation is implicit. Verify that cross-level
-    /// teleport sets pending_level_skip with the destination level ID.
+    /// Native must return the logical level index found by the MapOrder scan,
+    /// not the raw destination map byte from the teleporter record.
     #[test]
     fn teleporter_cross_level_sets_pending_skip_loc_bcd6() {
-        let mut rt = NativeRuntime::new(manifest());
+        let mut manifest = manifest_with_levels(4);
+        manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
+        let mut rt = NativeRuntime::new(manifest);
         rt.current_level = LevelId(0);
         rt.block_list = Some(terrain::BlockList {
             prize_blocks: vec![],
@@ -2209,7 +2210,7 @@ mod chunk_06 {
                 layout_addr: 0x0000,
                 col: 5,
                 row: 3,
-                dest_map_id: 7, // Different from current level 0
+                dest_map_id: 0x2D, // MapOrder_Index[2], not logical LevelId(0x2D)
                 dest_y: 10,
                 dest_x: 20,
             }],
@@ -2225,8 +2226,8 @@ mod chunk_06 {
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(
             result,
-            Some((7, 20, 10)),
-            "should return (map_id, dest_x, dest_y)"
+            Some((2, 20, 10)),
+            "loc_BCD6 should translate the destination map byte into its logical MapOrder index",
         );
     }
 
@@ -2269,8 +2270,10 @@ mod chunk_06 {
     /// Verify same-level teleport repositions without setting pending_level_skip.
     #[test]
     fn teleporter_same_level_repositions_loc_bcea() {
-        let mut rt = NativeRuntime::new(manifest());
-        rt.current_level = LevelId(0);
+        let mut manifest = manifest_with_levels(4);
+        manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
+        let mut rt = NativeRuntime::new(manifest);
+        rt.current_level = LevelId(2);
         rt.block_list = Some(terrain::BlockList {
             prize_blocks: vec![],
             ghost_blocks: vec![],
@@ -2278,7 +2281,7 @@ mod chunk_06 {
                 layout_addr: 0x0000,
                 col: 5,
                 row: 3,
-                dest_map_id: 0, // Same as current level
+                dest_map_id: 0x2D, // Same logical level after loc_BCD6 scan.
                 dest_y: 10,
                 dest_x: 20,
             }],
@@ -2292,8 +2295,8 @@ mod chunk_06 {
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(
             result,
-            Some((0, 20, 10)),
-            "same-level: returns current level ID"
+            Some((2, 20, 10)),
+            "same-level: returns current logical level ID after MapOrder scan"
         );
         // pending_level_skip should NOT be set for same-level teleport
         assert!(

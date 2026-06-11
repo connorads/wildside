@@ -9099,9 +9099,10 @@ impl NativeRuntime {
         // position alone must not bypass the countdown.
         let (col, row) = slice.teleporter_contact?;
 
-        block_list
-            .teleporter_at(col, row)
-            .map(|t| (t.dest_map_id, t.dest_x, t.dest_y))
+        block_list.teleporter_at(col, row).and_then(|t| {
+            self.teleporter_dest_level_loc_bcd6(t.dest_map_id)
+                .map(|level_id| (level_id.0, t.dest_x, t.dest_y))
+        })
     }
 
     pub(crate) fn queue_form_change(&mut self, form: PlayerForm) {
@@ -11056,8 +11057,8 @@ impl NativeRuntime {
         // ASM loc_BCD6 (kid.asm:15259): MapOrder_Index scan loop — `move.b
         // (a4)+,d5; ext.w d5; cmpi.w #$FFFF,d5; beq loc_BCAC` (end = death);
         // `cmp.w d5,d7; beq loc_BCEA` (found target level). d6 counts the
-        // level index from 0. Native stores dest_map_id directly as a level
-        // ID, so the MapOrder_Index scan is implicit.
+        // level index from 0. Native now resolves the map byte through
+        // `teleporter_dest_level_loc_bcd6` before comparing/storing the level.
         // ASM loc_BCEA (kid.asm:15270): level transition — `cmp.w
         // (Current_LevelID).w,d6; beq loc_BCF6` (same level skips flag set);
         // different level: `st ($FFFFFC36)` (level-change flag). Then
