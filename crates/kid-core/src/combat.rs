@@ -54,6 +54,7 @@ pub(crate) enum QueuedSoundEffect {
     RedStealthAttackDown,
     JumpOnEnemy,
     DiamondPrize,
+    AnkhPrize,
     DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
@@ -101,6 +102,9 @@ impl QueuedSoundEffect {
             // contact frame, *before* the 32-step fly-to-counter loop that
             // later increments Number_Diamonds.
             Self::DiamondPrize => 0x2D,
+            // ASM CharacterCollision_TouchAnkh (kid.asm:14883) plays
+            // `sfx_Ankh_prize = $29` on the prize contact frame.
+            Self::AnkhPrize => 0x29,
             // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
             // when the falling child reaches floor collision before loc_33488.
             Self::DripsDripping => 0x58,
@@ -8824,6 +8828,9 @@ impl NativeRuntime {
                     self.progression.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
+                // ASM CharacterCollision_TouchAnkh (kid.asm:14883) plays
+                // `sfx_Ankh_prize` before PrizeAnkhCollected_Init grants the life.
+                self.played_sound_effects.push(QueuedSoundEffect::AnkhPrize);
                 self.add_life();
             }
             terrain::PrizeContent::Points10000 => {

@@ -13798,6 +13798,20 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_ankh_prize_from_core_trace_touch_ankh() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::ANKH_PRIZE];
+        curr.number_lives = prev.number_lives + 1;
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::ANKH_PRIZE],
+            "ASM CharacterCollision_TouchAnkh (kid.asm:14883) queues sfx_Ankh_prize=$29 from the core trace"
+        );
+    }
+
+    #[test]
     fn play_native_does_not_infer_jump_on_enemy_from_score_delta() {
         let prev = sample_trace(GameMode::InGame);
         let mut curr = sample_trace(GameMode::InGame);

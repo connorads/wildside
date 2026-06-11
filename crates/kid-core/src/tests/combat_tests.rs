@@ -6010,6 +6010,16 @@ mod chunk_03 {
         let lives_before = runtime.progression.number_lives;
         runtime.apply_prize_content(terrain::PrizeContent::Ankh);
         assert_eq!(runtime.progression.number_lives, lives_before + 1);
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::AnkhPrize],
+            "ASM CharacterCollision_TouchAnkh (kid.asm:14883) plays sfx_Ankh_prize on the contact frame before the life is granted"
+        );
+        assert_eq!(
+            QueuedSoundEffect::AnkhPrize.sound_id(),
+            0x29,
+            "constants.asm sfx_Ankh_prize = $29"
+        );
     }
 
     #[test]
