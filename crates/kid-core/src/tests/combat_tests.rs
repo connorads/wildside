@@ -731,6 +731,40 @@ fn live_multi_head_boss_fire_waits_outside_vertical_window_loc_39506() {
     assert_eq!(boss.wait_timer, BOSS_FIRE_INTERVAL);
 }
 
+#[test]
+fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    boss.boss_head_index = 0;
+    boss.boss_movement_delay_counter = 1;
+    boss.boss_movement_script_index = 0;
+
+    let mut active = [boss];
+    let mut drilled_blocks = Vec::new();
+    step_active_enemies(
+        &mut active,
+        None,
+        Some(0x0100_0000),
+        Some(0x0080_0000),
+        None,
+        None,
+        PlayerForm::TheKid,
+        None,
+        &mut drilled_blocks,
+    );
+
+    assert_eq!(
+        active[0].x_pos, 0x0080_0000,
+        "ASM sub_39846/unk_39872 is fixed-script movement; Kid X must not pull Shishkaboss rightward"
+    );
+    assert_eq!(
+        active[0].y_velocity, -0x0000_8000,
+        "ASM sub_39846 converts first unk_39872 y word -1 with `swap; asr.l #1`"
+    );
+    assert_eq!(active[0].y_pos, 0x007F_8000);
+    assert_eq!(active[0].boss_movement_delay_counter, 0x0168);
+    assert_eq!(active[0].boss_movement_script_index, 1);
+}
+
 mod chunk_03 {
     use super::*;
     use crate::helmets::DiamondPowerType;
@@ -8277,6 +8311,8 @@ mod chunk_03 {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,
@@ -9080,6 +9116,8 @@ mod chunk_03 {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,

@@ -5,7 +5,7 @@ use super::{
     ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD, CameraState,
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
-use crate::combat::boss_eye_attack_init_sub_37332;
+use crate::combat::{boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846};
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
@@ -6510,6 +6510,10 @@ pub(crate) struct ActiveEnemy {
     pub(crate) ufo_beam_interval: u8,
     /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
     pub(crate) boss_head_index: u8,
+    /// ASM `sub_39846` `d0`: per-head movement-script countdown.
+    pub(crate) boss_movement_delay_counter: u16,
+    /// ASM `sub_39846` `a2`: next fixed movement-script entry index.
+    pub(crate) boss_movement_script_index: usize,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
     /// Scorpion.asm loc_3DDEE: frames remaining in `stru_3DB8E` while the
@@ -8361,6 +8365,8 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         ufo_beam_segments: 0,
         ufo_beam_interval: 0,
         boss_head_index: BOSS_HEAD_NONE,
+        boss_movement_delay_counter: 0,
+        boss_movement_script_index: 0,
         scorpion_tracking_lock: false,
         scorpion_sting_frames: 0,
         flight_double_acceleration: false,
@@ -9504,6 +9510,8 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     BOSS_HEAD_NONE
                 },
+                boss_movement_delay_counter: if is_multi_head_boss(family) { 1 } else { 0 },
+                boss_movement_script_index: 0,
                 scorpion_tracking_lock: false,
                 scorpion_sting_frames: 0,
                 crab_frozen: false,
@@ -9901,7 +9909,11 @@ pub(crate) fn step_active_enemies_with_rng(
                 }
             }
             EnemyArchetype::Tracker => {
-                step_tracker(enemy, player_x_pos, player_y_pos);
+                if is_multi_head_boss(enemy.family) {
+                    step_multi_head_boss_movement(enemy);
+                } else {
+                    step_tracker(enemy, player_x_pos, player_y_pos);
+                }
                 // Bosses periodically spawn projectiles while tracking
                 if let Some(ref mut projs) = projectiles {
                     step_boss_fire(enemy, projs, player_x_pos, player_y_pos);
@@ -26474,6 +26486,30 @@ pub(crate) fn step_tracker(
     enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
 }
 
+pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
+    let movement = boss_head_movement_step_for_family_sub_39846(
+        enemy.family,
+        enemy.boss_head_index,
+        enemy.boss_movement_delay_counter,
+        enemy.boss_movement_script_index,
+    );
+    enemy.boss_movement_delay_counter = movement.next_delay_counter;
+    enemy.boss_movement_script_index = movement.next_script_index;
+    if let Some(x_velocity) = movement.next_x_velocity {
+        enemy.x_velocity = x_velocity;
+    }
+    if let Some(y_velocity) = movement.next_y_velocity {
+        enemy.y_velocity = y_velocity;
+    }
+
+    // ASM sub_39846 loads the fixed script velocity; native applies it in the
+    // same active-object step because these boss heads are not player trackers.
+    let next_x = enemy.x_pos as i64 + i64::from(enemy.x_velocity);
+    let next_y = enemy.y_pos as i64 + i64::from(enemy.y_velocity);
+    enemy.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+    enemy.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+}
+
 /// Boss periodic projectile fire interval (frames).
 pub(crate) const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
 /// Boss skewer speed (Shishkaboss downward projectiles).
@@ -26747,6 +26783,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,
@@ -36113,6 +36151,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             crab_frozen: false,
@@ -36210,6 +36250,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             crab_frozen: false,

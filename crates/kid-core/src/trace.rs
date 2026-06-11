@@ -1506,6 +1506,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,

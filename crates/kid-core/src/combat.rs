@@ -6695,6 +6695,74 @@ pub(crate) fn boss_head_movement_wrapper_sub_39EB4(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn boss_head_movement_step_for_family_sub_39846(
+    family: EnemyFamily,
+    boss_head_index: u8,
+    delay_counter_d0: u16,
+    current_script_index: usize,
+) -> BossHeadMovementStepSub39846 {
+    fn step_table(
+        delay_counter_d0: u16,
+        current_script_index: usize,
+        script: &[(i16, i16, i16)],
+    ) -> BossHeadMovementStepSub39846 {
+        let script_index =
+            if delay_counter_d0.wrapping_sub(1) == 0 && current_script_index >= script.len() {
+                // ASM sub_39846/loc_3984C reads `$FFFF` after the final triple
+                // and rewinds `a2` to that head's fixed movement table.
+                0
+            } else {
+                current_script_index
+            };
+        boss_head_movement_step_sub_39846(delay_counter_d0, script_index, script, script)
+    }
+
+    match (family, boss_head_index) {
+        (EnemyFamily::Shishkaboss, _) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872,
+        ),
+        (EnemyFamily::BoomerangBosses, 0) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BOOMERANG_BOSS_HEAD_1_MOVEMENT_SUB_398F0,
+        ),
+        (EnemyFamily::BoomerangBosses, 1) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988,
+        ),
+        (EnemyFamily::BoomerangBosses, _) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BOOMERANG_BOSS_HEAD_3_MOVEMENT_SUB_39A1A,
+        ),
+        (EnemyFamily::BagelBrothers, 0) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39AB2,
+        ),
+        (EnemyFamily::BagelBrothers, 1) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39C2E,
+        ),
+        (EnemyFamily::BagelBrothers, _) => step_table(
+            delay_counter_d0,
+            current_script_index,
+            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80,
+        ),
+        _ => BossHeadMovementStepSub39846 {
+            next_delay_counter: delay_counter_d0,
+            next_script_index: current_script_index,
+            next_x_velocity: None,
+            next_y_velocity: None,
+        },
+    }
+}
+
+#[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'static str {
     // ASM loc_371D4..loc_37200 (kid.asm:39060): choose the timeout sound from
