@@ -4591,6 +4591,7 @@ mod chunk_02 {
         let mut frame_2428 = None;
         let mut frame_2432 = None;
         let mut frame_2460 = None;
+        let mut frame_2481 = None;
         let mut frame_2520 = None;
         let mut frame_2640 = None;
         let mut frame_2700 = None;
@@ -4627,8 +4628,8 @@ mod chunk_02 {
                 assert!(!trace.title_screen_ready);
                 assert_eq!(
                     runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
-                    Some(1),
-                    "ASM loc_1B446 has advanced past the first upload and presents the next visible hidden-shell frame by cold-boot frame 2460",
+                    Some(0),
+                    "oracle VRAM frame 2460 keeps loc_1B446 on the retained first sub_1BF24 hidden-shell frame",
                 );
                 assert_eq!(
                     runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
@@ -4637,13 +4638,21 @@ mod chunk_02 {
                 );
                 frame_2460 = runtime.vdp_state().cloned();
             }
+            if frame_index == 2_481 {
+                assert_eq!(
+                    runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                    Some(1),
+                    "oracle VRAM frame 2481 is the first sampled cold-boot frame that presents the non-zero `unk_1B4D6` hidden-shell mapping",
+                );
+                frame_2481 = runtime.vdp_state().cloned();
+            }
             if frame_index == 2_520 {
                 assert_eq!(trace.game_mode, GameMode::IntroSequence6);
                 assert!(!trace.title_screen_ready);
                 assert_eq!(
                     runtime.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
-                    Some(5),
-                    "ASM loc_1B446 continues advancing the hidden-shell byte stream through cold-boot frame 2520",
+                    Some(4),
+                    "ASM loc_1B446 continues advancing the delayed hidden-shell byte stream through cold-boot frame 2520",
                 );
                 frame_2520 = runtime.vdp_state().cloned();
             }
@@ -4684,6 +4693,8 @@ mod chunk_02 {
         let vdp_2432 =
             frame_2432.expect("IntroSequence6 should expose first hidden-shell VDP at frame 2432");
         let vdp = frame_2460.expect("IntroSequence6 should expose Load_IntroSequence6 VDP");
+        let vdp_2481 = frame_2481
+            .expect("IntroSequence6 should expose first non-zero hidden-shell VDP at frame 2481");
         assert_eq!(
             vdp_2420.cram, vdp_2428.cram,
             "oracle frames 2420 and 2428 remain in the same `$AAA` fade shell before the first loc_1B446 upload",
@@ -4706,6 +4717,9 @@ mod chunk_02 {
             |byte_addr: usize| u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]);
         let word_at_2640 = |byte_addr: usize| {
             u16::from_be_bytes([vdp_2640.vram[byte_addr], vdp_2640.vram[byte_addr + 1]])
+        };
+        let word_at_2481 = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_2481.vram[byte_addr], vdp_2481.vram[byte_addr + 1]])
         };
         let vsram_word_at =
             |byte_addr: usize| u16::from_be_bytes([vdp.vsram[byte_addr], vdp.vsram[byte_addr + 1]]);
@@ -4760,6 +4774,16 @@ mod chunk_02 {
             word_at(0x80 + 0x15 * 2),
             0x20BC,
             "ASM sub_1BF24 should overwrite the hidden shell frame rectangle by cold-boot frame 2460",
+        );
+        assert_eq!(
+            word_at(0x80 + 0x15 * 2),
+            0x20C1,
+            "oracle VRAM frame 2460 keeps sub_1BF24 on the initial `unk_2F7D0`/$20C1 mapping; later `unk_1B4D6` non-zero frames must not be presented early",
+        );
+        assert_eq!(
+            word_at_2481(0x80 + 0x15 * 2),
+            0x210F,
+            "oracle VRAM frame 2481 presents the first non-zero loc_1B446/sub_1BF24 mapping with base tile `$210F`",
         );
         let mut visible_character_pixels = 0usize;
         for row in 0..20usize {

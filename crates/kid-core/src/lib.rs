@@ -1785,7 +1785,13 @@ impl NativeRuntime {
         // reconstruction keeps that first repeated-zero window before applying
         // the ROM's 3-frame byte cadence.
         let step = usize::from(script.loop_hibernate_frames).max(1);
-        let frame_index = local.saturating_sub((step * 2) + 1) / step;
+        // ASM loc_1B446 presents the initial sub_1BF24(d4=0) title mapping
+        // through the first long hidden-shell hold. Oracle VRAM frame 2460
+        // still has the `$20C1` frame-0 mapping and only starts the
+        // `unk_1B4D6` 0/1 flicker at frame 2481, so the native reconstruction
+        // keeps the retained zero frame before advancing through the byte
+        // stream at the ROM's 3-frame cadence.
+        let frame_index = local.saturating_sub((step * 15) + 1) / step;
         script.title_frames.get(frame_index).copied().or_else(|| {
             // ASM sub_1B43A/loc_1B446 stops dispatching sub_1BF24 after the
             // `$FF` sentinel, but it does not clear the VRAM rectangle; the

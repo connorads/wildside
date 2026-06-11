@@ -2599,7 +2599,13 @@ fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
     }
     let local = elapsed - initial;
     let step = usize::from(script.loop_hibernate_frames).max(1);
-    let frame_index = local.saturating_sub((step * 2) + 1) / step;
+    // ASM loc_1B446 presents the initial sub_1BF24(d4=0) title mapping
+    // through the first long hidden-shell hold. Oracle VRAM frame 2460 still
+    // has the `$20C1` frame-0 mapping and only starts the `unk_1B4D6` 0/1
+    // flicker at frame 2481, so the native reconstruction keeps the retained
+    // zero frame before advancing through the byte stream at the ROM's
+    // 3-frame cadence.
+    let frame_index = local.saturating_sub((step * 15) + 1) / step;
     script.title_frames.get(frame_index).copied().or_else(|| {
         // ASM loc_1B446 leaves the last sub_1BF24 frame resident until
         // loc_1B45A clears/restores the title shell.
