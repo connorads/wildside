@@ -2391,6 +2391,7 @@ impl NativeRuntime {
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
+            let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::TarMonsterBurstChild
@@ -2425,6 +2426,9 @@ impl NativeRuntime {
                 // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
                 // native's deferred-delete marker after a Kid collision.
                 && !is_lion_projectile
+                // ASM sub_87B0/loc_8810 has no DBF lifetime; zero remains
+                // native's generic delete marker for this projectile slot.
+                && !is_juggernaut_skull
             {
                 p.lifetime -= 1;
             }
@@ -2504,7 +2508,7 @@ impl NativeRuntime {
                     p.y_velocity = p.y_velocity.clamp(-p.speed_cap, p.speed_cap);
                 }
             }
-            if Self::is_juggernaut_skull_projectile(p) {
+            if is_juggernaut_skull {
                 return Self::step_juggernaut_skull_sub_87B0(p, grid);
             }
 

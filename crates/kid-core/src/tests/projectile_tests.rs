@@ -5454,9 +5454,9 @@ mod chunk_06 {
             ((256 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16
         );
         assert_eq!(rt.projectiles[0].x_velocity, JUGGERNAUT_SKULL_X_SPEED);
-        assert_eq!(
-            rt.projectiles[0].lifetime, JUGGERNAUT_SKULL_LIFETIME,
-            "ASM sub_87B0: native skull projectile should carry the full worker lifetime"
+        assert_ne!(
+            rt.projectiles[0].lifetime, 0,
+            "ASM sub_87B0 has no DBF lifetime; native keeps a nonzero sentinel for its projectile slot"
         );
         assert_eq!(
             rt.projectiles[0].reaim_countdown,
@@ -5487,6 +5487,38 @@ mod chunk_06 {
         assert_eq!(
             rt.projectiles[0].y_velocity, JUGGERNAUT_SKULL_GRAVITY,
             "gravity should increase y_velocity"
+        );
+    }
+
+    #[test]
+    fn juggernaut_skull_loc_8810_has_no_dbf_lifetime_counter() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: JUGGERNAUT_SKULL_X_SPEED,
+            y_velocity: 0,
+            lifetime: 1,
+            friendly: true,
+            gravity: JUGGERNAUT_SKULL_GRAVITY,
+            homing_accel: 0,
+            speed_cap: 0,
+            wall_bounce: false,
+            reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM sub_87B0/loc_8810 has no DBF lifetime; skull deletes via collision or spent rebound budget"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 1,
+            "ASM loc_8810 should not spend native's nonzero lifetime sentinel"
         );
     }
 
