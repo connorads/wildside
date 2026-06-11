@@ -699,6 +699,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         {
             pending_bgm_start = apply_native_bgm_command(gems, command);
             queued_bgm_start_this_frame = pending_bgm_start.is_some();
+            if native_bgm_command_flushes_queued_audio(command)
+                && let Some(ref aq) = audio_queue
+            {
+                aq.clear();
+            }
         }
         active_bgm_cue = next_bgm_cue;
 
@@ -1927,6 +1932,16 @@ fn apply_native_bgm_command(
             Some(bgm)
         }
     }
+}
+
+fn native_bgm_command_flushes_queued_audio(command: NativeBgmPlaybackCommand) -> bool {
+    // ASM StopMusic (kid.asm:49727) resets the Z80/GEMS driver immediately.
+    // play-native queues audio ahead of playback through SDL, so mirror that
+    // hard reset by dropping already-generated samples from the host queue.
+    matches!(
+        command,
+        NativeBgmPlaybackCommand::StopMusic | NativeBgmPlaybackCommand::StopMusicThenStart(_)
+    )
 }
 
 fn format_native_bgm_event(
@@ -13169,6 +13184,26 @@ mod tests {
             "after the EOL loader reset, loc_12004 queues the next level BGM from a clean GEMS state"
         );
         Ok(())
+    }
+
+    #[test]
+    fn play_native_stopmusic_flushes_host_audio_queue_for_eol_handoff() {
+        assert!(
+            native_bgm_command_flushes_queued_audio(NativeBgmPlaybackCommand::StopMusic),
+            "ASM StopMusic resets GEMS immediately; play-native must also drop queued SDL samples so loc_D7F4's score-counter tail cannot bleed over the title-card shell"
+        );
+        assert!(
+            native_bgm_command_flushes_queued_audio(NativeBgmPlaybackCommand::StopMusicThenStart(
+                gems_bgm::CAVE
+            )),
+            "StopMusicThenStart includes the same immediate GEMS reset before the next bgm starts"
+        );
+        assert!(
+            !native_bgm_command_flushes_queued_audio(NativeBgmPlaybackCommand::Start(
+                gems_bgm::CAVE
+            )),
+            "ordinary BGM starts should not clear already-generated audio"
+        );
     }
 
     #[test]
