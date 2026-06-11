@@ -114,6 +114,9 @@ pub enum ActiveProjectileKind {
     /// Boss-head arrow: ASM `loc_3A0D2` moves horizontally for `$40=$32`
     /// frames, then clears x_vel and waits `$42=$C8` frames stuck in place.
     BossHeadArrow,
+    /// Boss-head boomerang fragment: ASM `loc_3A1EA` moves horizontally with
+    /// per-frame `$7D0` deceleration from the latched launch direction.
+    BossHeadBoomerang,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
@@ -2492,6 +2495,8 @@ pub(crate) enum EnemyProjectileKind {
     LionProjectile,
     /// Boss-head arrow child from ASM `sub_397E4` -> `loc_3A0D2`.
     BossHeadArrow,
+    /// Boss-head boomerang child from ASM `sub_397E4` -> `loc_3A1EA`.
+    BossHeadBoomerang,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.
@@ -2577,6 +2582,9 @@ pub(crate) struct EnemyProjectile {
     /// Object animation elapsed frames for projectile workers whose ROM script
     /// is not represented by their lifetime counter.
     pub(crate) animation_elapsed_frames: u16,
+    /// ASM loc_3A1EA stores the high byte of `$48(a5)` in d0 before entering
+    /// loc_3A24C; nonzero keeps adding `+$7D0`, zero keeps adding `-$7D0`.
+    pub(crate) boss_head_boomerang_direction_byte_d0: u8,
     /// DiamondPower_Main_SlashingRain `$3E(a0)`: zero for non-tracking rain;
     /// incremented by loc_3FF6A after Tracking Rain writes `$26/$2A` velocity.
     pub(crate) diamond_power_rain_tracking_word_3e: u16,

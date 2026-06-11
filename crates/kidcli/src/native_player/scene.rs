@@ -3905,6 +3905,18 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
+                ActiveProjectileKind::BossHeadBoomerang => {
+                    // ASM loc_3A1EA uses boss projectile sprite `stru_3A308`;
+                    // render a compact wide marker until the exact C8530 frame
+                    // is compiled into native play.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 4,
+                        y: sy - 2,
+                        width: 8,
+                        height: 4,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::ShooterBlock => {
                     if !push_shooter_block_projectile_sprite_loc_ef62(
                         &mut commands,

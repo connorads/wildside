@@ -10553,6 +10553,7 @@ fn cloud_projectile_spawn_loc_35df0(
         shooter_state_word: 0,
         shooter_skip_projectile_step_frame: None,
         animation_elapsed_frames: 0,
+        boss_head_boomerang_direction_byte_d0: 0,
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
@@ -25692,6 +25693,7 @@ pub(crate) fn step_archer(
         shooter_state_word: 0,
         shooter_skip_projectile_step_frame: None,
         animation_elapsed_frames: 0,
+        boss_head_boomerang_direction_byte_d0: 0,
         diamond_power_rain_tracking_word_3e: 0,
         diamond_power_rain_size_word_24: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
@@ -26602,29 +26604,32 @@ pub(crate) fn step_boss_fire(
             );
             // ASM loc_39506/loc_37F94 sets `x_direction(a3)` from Kid X, then
             // sub_397E4/loc_3980A copies it into the child and stores `$48=±3`.
-            // Native still approximates the child coroutine, but the spawn
-            // side and initial flat velocity now come from the ROM helper.
+            // Native child coroutines now use loc_3A0D2 for arrow heads and
+            // loc_3A1EA/loc_3A24C for boomerangs, seeded from this helper.
             enemy.facing = if spawn.x_direction == 0 {
                 Direction::Left
             } else {
                 Direction::Right
             };
+            let is_boomerang = variant_d1 == 1;
+            let direction_byte_d0 = ((spawn.velocity_word_48 as u16) >> 8) as u8;
             projectiles.push(EnemyProjectile {
                 x_pos: u32::from(spawn.x_pos) << 16,
                 y_pos: u32::from(spawn.y_pos) << 16,
                 x_velocity: i32::from(spawn.velocity_word_48) << 16,
                 y_velocity: 0,
-                lifetime: if variant_d1 == 0 { 50 } else { 60 },
+                lifetime: if is_boomerang { 0x0190 } else { 50 },
                 animation_elapsed_frames: 0,
+                boss_head_boomerang_direction_byte_d0: direction_byte_d0,
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
-                kind: if variant_d1 == 0 {
-                    EnemyProjectileKind::BossHeadArrow
+                kind: if is_boomerang {
+                    EnemyProjectileKind::BossHeadBoomerang
                 } else {
-                    EnemyProjectileKind::Generic
+                    EnemyProjectileKind::BossHeadArrow
                 },
                 ..Default::default()
             });

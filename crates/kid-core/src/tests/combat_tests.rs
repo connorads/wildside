@@ -809,6 +809,72 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
 }
 
 #[test]
+fn live_boomerang_boss_projectile_uses_loc_3a1ea_lifecycle_seed() {
+    let mut boss = test_enemy(EnemyFamily::BoomerangBosses, 0x0080_0000, 0x0080_0000, 20);
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0070_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    let projectile = projectiles[0];
+    assert_eq!(
+        projectile.kind,
+        EnemyProjectileKind::BossHeadBoomerang,
+        "ASM sub_397E4 dispatches Boomerang Bosses with d1=1 into loc_3A1EA, not loc_3A0D2"
+    );
+    assert_eq!(
+        projectile.lifetime, 0x0190,
+        "ASM loc_3A1EA seeds `$40(a3)=$190` for the boomerang countdown"
+    );
+    assert_eq!(
+        projectile.boss_head_boomerang_direction_byte_d0, 0xFF,
+        "ASM loc_3A1EA stores `move.b $48(a5),d0`; `$FFFD` leftward velocity latches nonzero d0"
+    );
+    assert_eq!(
+        projectile.x_velocity, -0x0003_0000,
+        "ASM sub_397E4 stores `$48(a0)=$FFFD` before loc_3A1EA expands it to x_vel"
+    );
+}
+
+#[test]
+fn boss_head_boomerang_loc_3a24c_accelerates_from_latched_direction_byte() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossHeadBoomerang,
+        x_pos: 0x0200_0000,
+        y_pos: 0x0080_0000,
+        x_velocity: -0x0003_0000,
+        y_velocity: 0,
+        lifetime: 0x0190,
+        boss_head_boomerang_direction_byte_d0: 0xFF,
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(runtime.projectiles.len(), 1);
+    let projectile = runtime.projectiles[0];
+    assert_eq!(
+        projectile.x_pos, 0x01FD_0000,
+        "ASM loc_3A24C starts after Hibernate_Object_1Frame, so the first native step moves with the launch velocity"
+    );
+    assert_eq!(
+        projectile.x_velocity,
+        -0x0003_0000 + 0x7D0,
+        "ASM loc_3A24C sees nonzero d0 from `$FFFD` and adds `+$7D0` after movement"
+    );
+    assert_eq!(
+        projectile.lifetime, 0x018F,
+        "ASM loc_3A266 decrements `$40(a3)` after applying the boomerang deceleration"
+    );
+}
+
+#[test]
 fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.boss_head_index = 0;

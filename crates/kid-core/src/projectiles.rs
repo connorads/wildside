@@ -2394,6 +2394,7 @@ impl NativeRuntime {
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
+            let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
@@ -2412,6 +2413,9 @@ impl NativeRuntime {
                     return false;
                 }
             }
+            if is_boss_head_boomerang && p.lifetime == 0 {
+                return false;
+            }
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
@@ -2420,6 +2424,7 @@ impl NativeRuntime {
                 && !is_diamond_power_rain
                 && !is_maniaxe_axe
                 && !is_boss_head_arrow
+                && !is_boss_head_boomerang
                 && p.lifetime == 0
             {
                 if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
@@ -2440,6 +2445,7 @@ impl NativeRuntime {
                 && !is_diamond_power_rain
                 && !is_maniaxe_axe
                 && !is_boss_head_arrow
+                && !is_boss_head_boomerang
                 // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
                 // native's deferred-delete marker after a Kid collision.
                 && !is_lion_projectile
@@ -2769,6 +2775,19 @@ impl NativeRuntime {
                     // decrements `$42(a3)` until the next loop sees zero and
                     // deletes the object.
                     p.animation_elapsed_frames = p.animation_elapsed_frames.saturating_sub(1);
+                }
+            }
+            if is_boss_head_boomerang {
+                let route = crate::combat::fire_demon_fragment_decel_step_loc_3A24C(
+                    p.boss_head_boomerang_direction_byte_d0,
+                    p.lifetime,
+                    (p.x_pos >> 16) as u16,
+                    level_bounds.width_pixels,
+                );
+                p.x_velocity = p.x_velocity.wrapping_add(route.x_vel_delta);
+                p.lifetime = route.next_horizontal_counter_40;
+                if route.delete_current_object {
+                    return false;
                 }
             }
             if is_drips_drop || uses_loc_3263c_post_move_gravity {
