@@ -51,6 +51,7 @@ pub(crate) enum QueuedSoundEffect {
     PrizeBlock,
     EvanescentBlock,
     ShiftingBlock,
+    ElevatorBlock,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -98,6 +99,9 @@ impl QueuedSoundEffect {
             // constants.asm: sfx_Shifting_block = $15; played at ASM
             // loc_11364 before the row/above-cell worker gate.
             Self::ShiftingBlock => 0x15,
+            // ASM sub_FCA6 (kid.asm:21021): lift/elevator platform worker
+            // opens with `sfx_Elevator_block = $27`.
+            Self::ElevatorBlock => 0x27,
             // constants.asm: Red Stealth ability SFX.
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,

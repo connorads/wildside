@@ -10911,6 +10911,11 @@ mod chunk_09 {
 
         rt.process_block_effects(&mut slice);
 
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::ElevatorBlock],
+            "ASM sub_FCA6 (kid.asm:21021) queues sfx_Elevator_block=$27 as the lift platform worker starts",
+        );
         assert_eq!(rt.block_state.lift_platforms.len(), 1);
         assert_eq!(rt.block_state.lift_platforms[0].x_pos, 48 << 16);
         assert_eq!(rt.block_state.lift_platforms[0].y_pos, 80 << 16);

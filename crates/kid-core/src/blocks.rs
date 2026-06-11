@@ -3651,6 +3651,10 @@ impl NativeRuntime {
         if let Some((x_px, y_px)) = slice.lift_block_hit {
             let col = x_px / 16;
             let row = y_px / 16;
+            // ASM sub_FCA6 (kid.asm:21021) plays sfx_Elevator_block before
+            // the lift worker begins its hibernate/rise loop.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::ElevatorBlock);
             self.block_state.lift_platforms.push(LiftPlatform {
                 x_pos: u32::from(x_px) << 16,
                 y_pos: u32::from(y_px) << 16,

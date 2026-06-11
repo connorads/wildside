@@ -13968,6 +13968,19 @@ mod tests {
     }
 
     #[test]
+    fn play_native_replays_elevator_block_from_core_trace_sub_fca6() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::ELEVATOR];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::ELEVATOR],
+            "ASM sub_FCA6 (kid.asm:21021) queues sfx_Elevator_block=$27 from the core trace"
+        );
+    }
+
+    #[test]
     fn play_native_replays_red_stealth_direct_sfx_ids_from_core_trace() {
         let prev = sample_trace(GameMode::InGame);
         let mut curr = sample_trace(GameMode::InGame);
