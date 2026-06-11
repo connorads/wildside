@@ -202,6 +202,18 @@ plain fallback for targets with no renderable title-card data. Verification:
 level_card_overlay -- --nocapture`, and `cargo test -q -p kidcli
 live_level_change -- --nocapture`.
 
+Follow-up 2026-06-11 for #265 after the first SDL queue-clear candidate: the
+remaining live leak can occur when the EOL `LevelTransition` shell is reached
+after the active cue tracker is already `None`, while GEMS/SDL may still be
+releasing the final `loc_D7F4` score-counter SFX. Native now records a
+`StoppedForTransition` sentinel: `LevelTransition` still issues exactly one ASM
+`StopMusic` hard reset for EOL traces even from a cleared cue state, avoids
+repeating it across the held title-card shell, and starts the next level BGM
+cleanly from that sentinel. Verification: `cargo fmt`, `cargo test -q -p kidcli
+play_native_eol_transition -- --nocapture`, `cargo test -q -p kidcli
+play_native_stopmusic -- --nocapture`, and `cargo test -q -p kidcli
+play_native_audio -- --nocapture`.
+
 Follow-up 2026-06-10 for #260: route search rejected another near-miss as a
 metal-block/slime repro. The cache-local seed
 `.cache/debug/drips-route-candidates/orig_l480_530_b528.json` reaches within

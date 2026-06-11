@@ -1782,6 +1782,7 @@ enum NativeBgmCue {
     Options,
     Level(LevelId),
     ScoreBoard,
+    StoppedForTransition,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1823,6 +1824,9 @@ fn native_bgm_state_after_trace(
     active_bgm_cue: Option<NativeBgmCue>,
 ) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
     let Some(cue) = native_bgm_cue_for_trace(trace) else {
+        if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition) {
+            return (active_bgm_cue, None);
+        }
         if trace.game_mode == GameMode::SegaScreen && active_bgm_cue.is_some() {
             // ASM Load_SegaScreen (kid.asm:25444-25445) runs StopMusic before
             // loading the Sega logo, so the following Load_IntroSequence1
@@ -1837,7 +1841,25 @@ fn native_bgm_state_after_trace(
             // ASM loc_6E2 dispatches mode 8 through LoadGameModeData; the
             // subsequent Load_InGame path (kid.asm:23623-23629) resets GEMS
             // with StopMusic before loc_12004 queues the level BGM again.
-            return (None, Some(NativeBgmPlaybackCommand::StopMusic));
+            return (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic),
+            );
+        }
+        if active_bgm_cue.is_none()
+            && trace.game_mode == GameMode::LevelTransition
+            && (trace.level_complete
+                || trace.level_complete_elapsed_frames > 0
+                || trace.level_complete_score_counter_drained)
+        {
+            // If the active cue tracker has already been cleared by an earlier
+            // shell frame, the GEMS driver can still be releasing the final
+            // loc_D7F4 score-counter SFX. StopMusic is harmless with no BGM and
+            // mirrors the ROM hard reset before Load_InGame.
+            return (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic),
+            );
         }
         return (active_bgm_cue, None);
     };
@@ -1847,7 +1869,8 @@ fn native_bgm_state_after_trace(
     let Some(bgm) = bgm_for_native_cue(manifest, cue) else {
         return (active_bgm_cue, None);
     };
-    let command = if active_bgm_cue.is_some()
+    let command = if active_bgm_cue
+        .is_some_and(|active| active != NativeBgmCue::StoppedForTransition)
         || (cue == NativeBgmCue::TitleShell && trace.game_mode == GameMode::IntroSequence1)
     {
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
@@ -2047,6 +2070,7 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
         NativeBgmCue::Level(level) => resolved_level_header(manifest, level.0)
             .and_then(|header| theme_to_bgm(header.level_theme)),
         NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
+        NativeBgmCue::StoppedForTransition => None,
     }
 }
 
@@ -13479,7 +13503,10 @@ mod tests {
         );
         assert_eq!(
             (active_after_gap, gap_command),
-            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic)
+            ),
             "ASM lose_life enters Teleport/loc_6E2; Load_InGame (kid.asm:23623-23629) then runs StopMusic before loc_12004 queues the reloaded level BGM"
         );
 
@@ -13507,7 +13534,10 @@ mod tests {
         );
         assert_eq!(
             (active_after_gap, gap_command),
-            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+            (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic)
+            ),
             "ASM loc_D7F4 replays sfx_Score_counter, then Teleport enters mode $0008; Load_InGame (kid.asm:23623-23629) must run StopMusic so the counter sound cannot bleed through the next level card"
         );
 
@@ -13518,6 +13548,43 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
             ),
             "after the EOL loader reset, loc_12004 queues the next level BGM from a clean GEMS state"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_eol_transition_stops_even_after_cue_tracker_cleared() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut transition = sample_trace(GameMode::LevelTransition);
+        transition.level_complete = true;
+        transition.level_complete_elapsed_frames = 1;
+        transition.level_complete_score_counter_drained = true;
+        let level = sample_trace(GameMode::InGame);
+
+        let (active_after_gap, gap_command) =
+            native_bgm_state_after_trace(&fixture.manifest, &transition, None);
+        assert_eq!(
+            (active_after_gap, gap_command),
+            (
+                Some(NativeBgmCue::StoppedForTransition),
+                Some(NativeBgmPlaybackCommand::StopMusic)
+            ),
+            "live play-native can reach the EOL title-card shell after the cue tracker is already clear; StopMusic must still hard-reset GEMS so the loc_D7F4 score-counter tail cannot keep releasing"
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &transition, active_after_gap),
+            (Some(NativeBgmCue::StoppedForTransition), None),
+            "the forced EOL StopMusic should be one-shot across a held LevelTransition card"
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &level, active_after_gap),
+            (
+                Some(NativeBgmCue::Level(LevelId(0))),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
+            ),
+            "after the hard reset sentinel, the next level BGM starts cleanly without another stop-all"
         );
         Ok(())
     }
