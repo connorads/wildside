@@ -33,6 +33,7 @@ pub(super) const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8
 // the visible frame through `eol_pre_frame_vdp_pixel_samples_loc_c070`, which
 // is 15 worker ticks ahead of the trace's post-frame row counter.
 const EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE: usize = 15;
+const CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E: usize = 0x1C;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -2902,10 +2903,15 @@ fn push_game_over_continue_overlay(
     eol: &kid_render::EolScoreVisuals,
 ) {
     if let Some(_countdown) = trace.continue_countdown {
-        let elapsed = trace.continue_countdown_elapsed_frames;
         // ASM Continue_Screen (kid.asm:16505): allocate Spr_EOL_Continues at
         // `$64=$FF88,$68=$60,$6C=8`, then Object_EOL_Number at
-        // `$64=$134,$68=$80,$6C=$FFF8` using Number_Continues.
+        // `$64=$134,$68=$80,$6C=$FFF8` using Number_Continues. The ROM then
+        // hibernates for `$1C` frames at loc_D31E before loc_D350 starts the
+        // interactive countdown; keep those objects at their spawn coordinates
+        // until the same hold has elapsed.
+        let elapsed = trace
+            .continue_countdown_elapsed_frames
+            .saturating_sub(CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E);
         push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0x78, 0x60, 8, elapsed);
         push_eol_number_loc_c5a2(
             commands,

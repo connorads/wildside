@@ -8684,6 +8684,57 @@ mod tests {
     }
 
     #[test]
+    fn continue_countdown_holds_before_slide_in_loc_d31e() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.game_over = true;
+        trace.number_continues = 3;
+        trace.continue_countdown = Some(319);
+
+        trace.continue_countdown_elapsed_frames = 0x1B;
+        let held_scene = build_scene(&trace, false, Some(&visuals), None);
+        let held_x_positions = held_scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, tiles, .. }
+                    if tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            held_x_positions.contains(&-0x78),
+            "ASM Continue_Screen loc_D31E hibernates `$1C` frames before loc_D350 starts moving the CONTINUES label"
+        );
+
+        trace.continue_countdown_elapsed_frames = 0x1C + 8;
+        let moving_scene = build_scene(&trace, false, Some(&visuals), None);
+        let moving_x_positions = moving_scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, tiles, .. }
+                    if tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            moving_x_positions.contains(&-0x38),
+            "ASM Object_EOL_Text loc_C5A2 applies `$6C=8` only after the initial Continue_Screen hold"
+        );
+    }
+
+    #[test]
     fn no_continue_game_over_uses_rom_game_over_sprites_loc_d25e() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
