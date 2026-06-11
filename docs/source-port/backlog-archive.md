@@ -202,6 +202,21 @@ plain fallback for targets with no renderable title-card data. Verification:
 level_card_overlay -- --nocapture`, and `cargo test -q -p kidcli
 live_level_change -- --nocapture`.
 
+Follow-up 2026-06-11 for #274/#284 after the latest play-native report:
+current generated prize content still does not reproduce the visible Diamond
+fallback. `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p kid-core
+generated_demo_level_eyeclops_prize_survives_live_block_lifecycle` and
+`generated_later_level_juggernaut_prize_survives_live_block_lifecycle` both
+pass against extracted assets, and
+`cargo test -q -p kid-core published_demo_exposes_cyclone_prize_before_later_diamonds`
+passes in the fixture path. The diagnostic path previously suspected of stale
+PNGs is also covered by `cargo test -q -p kidcli
+capture_frame_block_grid_prefers_live_runtime_mutations`: it renders the live
+runtime grid after `sub_1007A` mutates a prize cell rather than the static loaded
+layout. Do not patch `loc_10342` block-list dispatch from the human visual
+report alone; next evidence needs an exact `play-native`/SDL route capture or a
+new later-level prize route that shows the wrong live `FloatingItem.content`.
+
 Follow-up 2026-06-11 for #265 after the first SDL queue-clear candidate: the
 remaining live leak can occur when the EOL `LevelTransition` shell is reached
 after the active cue tracker is already `None`, while GEMS/SDL may still be
@@ -423,6 +438,20 @@ B+Left variants worsen to `dy=-48`, while right/B+Right variants move toward
 the right target but end in `LevelTransition` (best right-side healthy score
 `dx=+1 dy=-48 @399` or `dx=+25 dy=-23 @377`, both invalid as proof). Do not
 repeat this 360..460 middle-setup axis unchanged.
+
+Follow-up 2026-06-11 for #260 route search after the debug-title-card fix:
+two further bounded native batches still failed to produce usable metal-block
+evidence. On `.cache/debug/issue260-tail-grid/l524_b530_540.json`, early-hop
+overlays around `300..360` (`B`, `B+Left`, `B+Right`, plus late left/right
+tails) only rediscovered the old left-side healthy near-miss
+`(456,543) dx=0 dy=-16 @540`; right-biased variants either stayed
+`dy=-48` below `(584,543)` or ended in `LevelTransition`. Earlier release/
+coast overlays (`180..260` and `220..340` neutral windows, late `B`/left/right
+tails) likewise did not reach row-32 contact: best healthy right-side result
+was horizontal alignment but still `dy=-48`, and best surviving late `B`/neutral
+routes stayed around `dx=-34 dy=-17` from `(584,543)`. Do not repeat these
+early-hop or release/coast axes on the same seed unless the route shape before
+frame 180 changes.
 
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
