@@ -26615,11 +26615,17 @@ pub(crate) fn step_boss_fire(
                 x_velocity: i32::from(spawn.velocity_word_48) << 16,
                 y_velocity: 0,
                 lifetime: if variant_d1 == 0 { 50 } else { 60 },
+                animation_elapsed_frames: 0,
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                kind: if variant_d1 == 0 {
+                    EnemyProjectileKind::BossHeadArrow
+                } else {
+                    EnemyProjectileKind::Generic
+                },
                 ..Default::default()
             });
         }

@@ -111,6 +111,9 @@ pub enum ActiveProjectileKind {
     /// Lion roar projectile: ASM `Lion.asm loc_3E12A`/`loc_3E192` allocates a
     /// hostile homing child worker from the parent roar loop.
     LionProjectile,
+    /// Boss-head arrow: ASM `loc_3A0D2` moves horizontally for `$40=$32`
+    /// frames, then clears x_vel and waits `$42=$C8` frames stuck in place.
+    BossHeadArrow,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
@@ -2487,6 +2490,8 @@ pub(crate) enum EnemyProjectileKind {
     /// Lion.asm loc_3E12A/loc_3E192 homing roar child. The ROM allocates this
     /// as a separate object worker and decrements parent `$5B` on delete.
     LionProjectile,
+    /// Boss-head arrow child from ASM `sub_397E4` -> `loc_3A0D2`.
+    BossHeadArrow,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.

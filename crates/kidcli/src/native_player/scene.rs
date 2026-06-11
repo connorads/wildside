@@ -3879,8 +3879,8 @@ fn build_game_scene_filtered(
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
-                ActiveProjectileKind::Generic | ActiveProjectileKind::LionProjectile => commands
-                    .push(DrawCommand::Rect {
+                ActiveProjectileKind::Generic | ActiveProjectileKind::LionProjectile => {
+                    commands.push(DrawCommand::Rect {
                         x: sx - 2,
                         y: sy - 2,
                         width: 4,
@@ -3890,7 +3890,21 @@ fn build_game_scene_filtered(
                         } else {
                             ENEMY_PROJECTILE_COLOUR
                         },
-                    }),
+                    });
+                }
+                ActiveProjectileKind::BossHeadArrow => {
+                    // ASM loc_3A0D2 uses boss projectile sprite `stru_3A1CC`;
+                    // until the exact C8510/C8518 child frame is compiled here,
+                    // keep a thin horizontal footprint matching the live arrow
+                    // path instead of a generic dot.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 5,
+                        y: sy - 1,
+                        width: 10,
+                        height: 2,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::ShooterBlock => {
                     if !push_shooter_block_projectile_sprite_loc_ef62(
                         &mut commands,

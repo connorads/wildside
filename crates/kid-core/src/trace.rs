@@ -68,6 +68,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::LionProjectile {
         return ActiveProjectileKind::LionProjectile;
     }
+    if projectile.kind == EnemyProjectileKind::BossHeadArrow {
+        return ActiveProjectileKind::BossHeadArrow;
+    }
     if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
         return ActiveProjectileKind::TarMonsterGlob;
     }

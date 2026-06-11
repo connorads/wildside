@@ -2393,12 +2393,25 @@ impl NativeRuntime {
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
+            let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::TarMonsterBurstChild
                     | EnemyProjectileKind::DripsSurfaceCrawlerBurst
             );
+            if is_boss_head_arrow && p.lifetime == 0 {
+                if p.animation_elapsed_frames == 0 {
+                    // ASM loc_3A134 -> loc_3A14E: once `$40(a3)` reaches 0,
+                    // clear x_vel, switch to the stuck animation, and seed
+                    // `$42(a3)=$C8` for the wait-before-delete loop.
+                    p.x_velocity = 0;
+                    p.y_velocity = 0;
+                    p.animation_elapsed_frames = 0x00C8;
+                } else if p.animation_elapsed_frames == 1 {
+                    return false;
+                }
+            }
             if !is_tank_bullet
                 && !is_robot_shot
                 && !is_cloud_lightning
@@ -2406,6 +2419,7 @@ impl NativeRuntime {
                 && !is_hail
                 && !is_diamond_power_rain
                 && !is_maniaxe_axe
+                && !is_boss_head_arrow
                 && p.lifetime == 0
             {
                 if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
@@ -2425,6 +2439,7 @@ impl NativeRuntime {
                 && !is_hail
                 && !is_diamond_power_rain
                 && !is_maniaxe_axe
+                && !is_boss_head_arrow
                 // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
                 // native's deferred-delete marker after a Kid collision.
                 && !is_lion_projectile
@@ -2744,6 +2759,18 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            if is_boss_head_arrow {
+                if p.lifetime > 0 {
+                    // ASM loc_3A168: during the moving phase, each hibernated
+                    // frame decrements `$40(a3)` after the object has moved.
+                    p.lifetime -= 1;
+                } else {
+                    // ASM loc_3A15E: after x_vel is cleared, each stuck frame
+                    // decrements `$42(a3)` until the next loop sees zero and
+                    // deletes the object.
+                    p.animation_elapsed_frames = p.animation_elapsed_frames.saturating_sub(1);
+                }
+            }
             if is_drips_drop || uses_loc_3263c_post_move_gravity {
                 // ASM Drips.asm loc_3345C and Tar_Monster.asm loc_3263C: the
                 // hibernated object movement uses the previous y-velocity; the

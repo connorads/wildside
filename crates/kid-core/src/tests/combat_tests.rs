@@ -769,6 +769,46 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 }
 
 #[test]
+fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossHeadArrow,
+        x_pos: 0x0200_0000,
+        y_pos: 0x0080_0000,
+        x_velocity: -0x0003_0000,
+        y_velocity: 0,
+        lifetime: 0x0032,
+        animation_elapsed_frames: 0,
+        ..Default::default()
+    });
+
+    for _ in 0..0x0032 {
+        runtime.step_projectiles();
+    }
+
+    assert_eq!(runtime.projectiles.len(), 1);
+    assert_eq!(
+        runtime.projectiles[0].x_pos, 0x016A_0000,
+        "ASM loc_3A134/loc_3A168 keeps moving the boss arrow while `$40(a3)` decrements from `$32` to zero"
+    );
+    assert_eq!(runtime.projectiles[0].x_velocity, -0x0003_0000);
+    assert_eq!(runtime.projectiles[0].lifetime, 0);
+
+    runtime.step_projectiles();
+
+    assert_eq!(runtime.projectiles.len(), 1);
+    assert_eq!(
+        runtime.projectiles[0].x_pos, 0x016A_0000,
+        "ASM loc_3A134 clears x_vel before entering loc_3A14E's stuck wait, so the first stuck frame must not move"
+    );
+    assert_eq!(runtime.projectiles[0].x_velocity, 0);
+    assert_eq!(
+        runtime.projectiles[0].animation_elapsed_frames, 0x00C7,
+        "ASM loc_3A14E seeds `$42(a3)=$C8`; loc_3A15E decrements it after the first stuck hibernate"
+    );
+}
+
+#[test]
 fn live_shishkaboss_head_uses_fixed_movement_script_sub_39846() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.boss_head_index = 0;
