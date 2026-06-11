@@ -4297,12 +4297,19 @@ fn load_tile_sheet(
             asset.relative_path
         )
     })?;
-    TileSheet::from_4bpp_bytes(&decoded).with_context(|| {
+    let tile_sheet = TileSheet::from_4bpp_bytes(&decoded).with_context(|| {
         format!(
             "failed to parse {family} from {root_name}/{}",
             asset.relative_path
         )
-    })
+    })?;
+    if tile_sheet.tiles.is_empty() {
+        bail!(
+            "decoded {family} from {root_name}/{} produced no tiles",
+            asset.relative_path
+        );
+    }
+    Ok(tile_sheet)
 }
 
 fn load_uncompressed_tile_sheet(

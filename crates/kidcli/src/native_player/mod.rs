@@ -7449,6 +7449,85 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn level08_emits_murder_wall_effects_from_generated_assets_sub_5e02() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x08).expect("Level 0x08 generated visuals");
+        let scenario = crate::scenarios::idle_level_scenario(0x08, Some(400));
+        let trace_frames = kid_core::run_script_with_warp(
+            manifest,
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        );
+
+        let (trace_index, trace, render) = trace_frames
+            .iter()
+            .enumerate()
+            .filter(|(_, frame)| frame.game_mode == GameMode::InGame)
+            .filter_map(|(trace_index, frame)| {
+                let wall_x_fp = frame.murder_wall_x?;
+                let render = kid_core::compile_murder_wall_warning_sprites_sub_5E02(
+                    kid_core::MurderWallWarningInputSub5E02 {
+                        murder_wall_enabled: true,
+                        murder_wall_x_px: (wall_x_fp >> 16) as i16,
+                        murder_wall_reversed: visuals.level.murder_wall_flags & 1 != 0,
+                        kid_hitbox_left_px: 0,
+                        kid_hitbox_right_px: 0,
+                        camera_x_px: (frame.camera_x_pos >> 16) as i16,
+                        camera_y_px: (frame.camera_y_pos >> 16) as u16,
+                        animation_timer: 2,
+                        animation_frame: ((frame.frame_index / 5) & 3) as u8,
+                        starting_number_sprites: 0,
+                    },
+                );
+                (!render.sprites.is_empty()).then_some((trace_index, frame, render))
+            })
+            .next()
+            .expect(
+                "ASM sub_5E02 should emit visible wall sprites before Level 0x08 exits gameplay",
+            );
+        let scene = build_scene_filtered(
+            trace,
+            false,
+            Some(&visuals),
+            Some(&block_grid),
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let visible_wall_effect = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Sprite { tiles, .. } if tiles.len() == 9
+            ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [200, 30, 10])
+        });
+        assert!(
+            visible_wall_effect,
+            "ASM sub_5E02 should render the Level 0x08 murder-wall strip before it crushes Kid; murder_wall_tiles={:?} emitted_sprites={} scene_commands={} trace_index={}",
+            visuals
+                .murder_wall
+                .as_ref()
+                .map(|murder_wall| murder_wall.tile_sheet.tiles.len()),
+            render.sprites.len(),
+            scene.commands.len(),
+            trace_index
+        );
+    }
+
+    #[test]
     fn build_game_scene_draws_lava_geyser_from_loc_14be8_sprite_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

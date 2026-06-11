@@ -3720,26 +3720,26 @@ fn build_game_scene_filtered(
         // warning strip as 24 hardware sprites using `Murder_wall.bin`, which
         // Murderwall loc_140D2 uploads to VRAM tile `$2FB`.
         if let Some(wall_x_fp) = trace.murder_wall_x {
+            // NativeTraceFrame does not yet expose `$FFFFFAC0/$FFFFFABF`;
+            // this keeps the ASM sprite geometry and four ROM tile pages,
+            // with the phase derived from frame time for native-player
+            // presentation only.
+            let animation_frame = ((trace.frame_index / 5) & 3) as u8;
+            let render = kid_core::compile_murder_wall_warning_sprites_sub_5E02(
+                kid_core::MurderWallWarningInputSub5E02 {
+                    murder_wall_enabled: true,
+                    murder_wall_x_px: (wall_x_fp >> 16) as i16,
+                    murder_wall_reversed: level_visuals.level.murder_wall_flags & 1 != 0,
+                    kid_hitbox_left_px: 0,
+                    kid_hitbox_right_px: 0,
+                    camera_x_px: (trace.camera_x_pos >> 16) as i16,
+                    camera_y_px: (trace.camera_y_pos >> 16) as u16,
+                    animation_timer: 2,
+                    animation_frame,
+                    starting_number_sprites: 0,
+                },
+            );
             if let Some(murder_wall_visuals) = &level_visuals.murder_wall {
-                // NativeTraceFrame does not yet expose `$FFFFFAC0/$FFFFFABF`;
-                // this keeps the ASM sprite geometry and four ROM tile pages,
-                // with the phase derived from frame time for native-player
-                // presentation only.
-                let animation_frame = ((trace.frame_index / 5) & 3) as u8;
-                let render = kid_core::compile_murder_wall_warning_sprites_sub_5E02(
-                    kid_core::MurderWallWarningInputSub5E02 {
-                        murder_wall_enabled: true,
-                        murder_wall_x_px: (wall_x_fp >> 16) as i16,
-                        murder_wall_reversed: level_visuals.level.murder_wall_flags & 1 != 0,
-                        kid_hitbox_left_px: 0,
-                        kid_hitbox_right_px: 0,
-                        camera_x_px: (trace.camera_x_pos >> 16) as i16,
-                        camera_y_px: (trace.camera_y_pos >> 16) as u16,
-                        animation_timer: 2,
-                        animation_frame,
-                        starting_number_sprites: 0,
-                    },
-                );
                 for sprite in render.sprites {
                     push_murder_wall_warning_sprite_sub_5e02(
                         &mut commands,
@@ -3747,12 +3747,22 @@ fn build_game_scene_filtered(
                         sprite,
                     );
                 }
-            } else {
-                let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            } else if let (Some(min_x), Some(max_x)) = (
+                render
+                    .sprites
+                    .iter()
+                    .map(|sprite| i32::from(sprite.x) - 0x80)
+                    .min(),
+                render
+                    .sprites
+                    .iter()
+                    .map(|sprite| i32::from(sprite.x) - 0x80 + 24)
+                    .max(),
+            ) {
                 commands.push(DrawCommand::Rect {
-                    x: wall_x_screen - 64,
+                    x: min_x,
                     y: 0,
-                    width: 64,
+                    width: max_x - min_x,
                     height: FRAME_HEIGHT as i32,
                     colour: [200, 30, 10],
                 });
