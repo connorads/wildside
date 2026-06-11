@@ -604,24 +604,33 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             suppress_level_card_for_debug_warp = false;
         } else {
             prev_trace = trace.clone();
-            if !native_level_card_hold_active(
+            let level_card_hold_active = native_level_card_hold_active(
                 level_card_frames_remaining,
                 debug_level_card_fallback_frames_remaining,
-            ) {
-                let live_buttons =
-                    keyboard_buttons(&events) | controller_buttons(controller.as_ref());
-                let live_buttons = live_buttons_after_debug_release(
-                    live_buttons,
-                    &mut wait_for_live_input_release,
-                );
-                let buttons = native_frame_buttons(
-                    options
-                        .scripted_route
-                        .as_ref()
-                        .map(|route| (route.script.as_slice(), route.delay_recording_input)),
-                    recorded_trace.len(),
-                    live_buttons,
-                );
+            );
+            let should_step_during_hold = should_step_runtime_during_level_card_hold(
+                level_card_frames_remaining,
+                debug_level_card_fallback_frames_remaining,
+            );
+            if !level_card_hold_active || should_step_during_hold {
+                let buttons = if should_step_during_hold {
+                    0
+                } else {
+                    let live_buttons =
+                        keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+                    let live_buttons = live_buttons_after_debug_release(
+                        live_buttons,
+                        &mut wait_for_live_input_release,
+                    );
+                    native_frame_buttons(
+                        options
+                            .scripted_route
+                            .as_ref()
+                            .map(|route| (route.script.as_slice(), route.delay_recording_input)),
+                        recorded_trace.len(),
+                        live_buttons,
+                    )
+                };
                 trace = runtime.step_frame(FrameInput::from_mask(buttons));
                 if options.record_to.is_some() {
                     recorded_script.push(buttons);
@@ -936,6 +945,17 @@ fn native_level_card_hold_active(
     debug_level_card_fallback_frames_remaining: usize,
 ) -> bool {
     level_card_frames_remaining > 0 || debug_level_card_fallback_frames_remaining > 0
+}
+
+fn should_step_runtime_during_level_card_hold(
+    level_card_frames_remaining: usize,
+    debug_level_card_fallback_frames_remaining: usize,
+) -> bool {
+    // ASM Load_TitleCard loc_1AB26/loc_1AC70 owns the ROM title-card animation.
+    // The native fallback card is static, but a generated VDP title-card hold
+    // must still advance the core with neutral input so the title workers fly
+    // in instead of freezing the first, often blank, transition frame.
+    level_card_frames_remaining > 0 && debug_level_card_fallback_frames_remaining == 0
 }
 
 #[cfg(test)]
@@ -9604,6 +9624,22 @@ mod tests {
     }
 
     #[test]
+    fn generated_title_card_hold_advances_runtime_with_neutral_input() {
+        assert!(
+            should_step_runtime_during_level_card_hold(LEVEL_CARD_HOLD_FRAMES, 0),
+            "ASM Load_TitleCard loc_1AB26/loc_1AC70 workers need neutral-input frames during the play-native N/P hold",
+        );
+        assert!(
+            !should_step_runtime_during_level_card_hold(0, LEVEL_CARD_HOLD_FRAMES),
+            "the native debug fallback card is static and should not step gameplay while it is visible",
+        );
+        assert!(
+            !should_step_runtime_during_level_card_hold(0, 0),
+            "ordinary gameplay should keep using live/scripted input"
+        );
+    }
+
+    #[test]
     fn debug_hotkey_level_skip_enters_visible_card_hold_before_gameplay() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();
@@ -9661,6 +9697,67 @@ mod tests {
         assert!(
             runtime.vdp_state().is_none(),
             "the tiny unit fixture lacks extracted title-card art; live extracted manifests exercise the ROM-card branch"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_level_skip_with_generated_assets_animates_rom_title_card() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let start_assets =
+            load_native_session_assets(&manifest, 0x00).expect("Blue Lake Woods 1 session assets");
+        let target_assets =
+            load_native_session_assets(&manifest, 0x01).expect("Blue Lake Woods 2 session assets");
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(0x00));
+
+        let presentation = enter_debug_hotkey_level(
+            &manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(0x01),
+            target_assets,
+        );
+
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+        assert_eq!(
+            presentation.level_card_frames_remaining,
+            LEVEL_CARD_HOLD_FRAMES
+        );
+        assert_eq!(presentation.debug_level_card_fallback_frames_remaining, 0);
+        assert!(runtime.vdp_state().is_some());
+        assert!(
+            !trace.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                    && object.debug_fields.contains_key("glyph")
+            }),
+            "ASM loc_6E2/Load_TitleCard can expose the VDP shell before loc_1AB26 title workers surface",
+        );
+
+        assert!(should_step_runtime_during_level_card_hold(
+            presentation.level_card_frames_remaining,
+            presentation.debug_level_card_fallback_frames_remaining
+        ));
+        let mut title_workers_visible = false;
+        for _ in 0..LEVEL_CARD_HOLD_FRAMES {
+            let advanced = runtime.step_frame(FrameInput::default());
+            title_workers_visible = advanced.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                    && object.debug_fields.contains_key("glyph")
+            });
+            if title_workers_visible {
+                break;
+            }
+        }
+
+        assert!(
+            title_workers_visible,
+            "play-native N/P must keep stepping with neutral input until ASM loc_1AB26 exposes title-card workers before the hold expires",
         );
     }
 
