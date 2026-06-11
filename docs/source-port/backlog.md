@@ -74,16 +74,16 @@ and stop — never commit churn.
   diverge before the B pulse and need a natural pickup/well route before any movement patch. #285 crawler art);
   2026-06-11 follow-up: cache-local natural Red Stealth route
   `.cache/debug/issue270-wall-launch/red_stealth_left_wall.json` is a better seed than the
-  direct `playtest_form=3` probes, but it still blocks before proving the wall launch:
+  direct `playtest_form=3` probes. Before commit `1c06f5d8`, it blocked before proving the wall launch:
   `verify-tas --frame-start 0 --frame-end 520 --checkpoint-interval 1 --frontier-kind gameplay`
-  first diverges at frame 266. `tas-diff` frames 250..272 shows oracle already in the
+  first diverged at frame 266. `tas-diff` frames 250..272 showed oracle already in the
   Red Stealth wall/jump path (`kid.asm loc_A6F8 -> loc_A74E -> sub_A4EE -> loc_A75A`,
   trace code `0x00A71C`) with leftward x drift (`kid_x_pos 0x00660000`, then
   `kid_x_vel 0xffffc000`), while native stays pinned at `0x00670000`/`x_vel=0` with
-  `kid_wall_cling_release_probe branch=sub_ADB8 sub_ADB8=column_shape_blocked`. Treat this
-  as a wall-cling movement parity blocker, not proof of the reported no-input launch; next
-  #270 implementation work should derive the Red Stealth `loc_A6F8` left-wall drift before
-  promoting this route as a wall-launch gate.
+  `kid_wall_cling_release_probe branch=sub_ADB8 sub_ADB8=column_shape_blocked`. Fixed candidate
+  `1c06f5d8` allows the sampled `loc_AB0A` broad-probe release on either wall; the natural route now
+  passes gameplay CRC through frame 520. Treat #270 as proposed fixed pending human validation of
+  the original well-hug launch.
   #277 left-jump input drop reconfirmed after the loc_7464 candidate fix; the
   existing natural BLW2 route is not the repro because its frame-207 L+B jump
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
@@ -387,7 +387,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 267 | [x] | P1 | gameflow/eol | 2026-06-07 playtest: EOL flag only activates when jumped on, should activate on floor contact | 2026-06-10 verified fixed: Highwater floor-contact probe is authoritative-clean through the flag contact window once synthetic probe-camera drift is ignored; later frame-111 object-count drift is separate score/transition verifier debt. |
 | 268 | [~] | P1 | form/animation | 2026-06-08 latest-pushed playtest: Iron Knight/Heavy Man wall-climb animation is wrong | Evidence source: human playtest. Symptom: first helmet form ("Benny Manthe… |
 | 269 | [~] | P1 | form/animation | 2026-06-08 latest-pushed playtest: Samurai held-right into slope glitches animation | Evidence source: human playtest. Symptom: running Samurai into a slope while… |
-| 270 | [ ] | P1 | player/wall | 2026-06-08 latest-pushed playtest: Level 2 well left-wall hug launches Samurai/Kid upward | Evidence source: human playtest. Symptom: down the Level 2 well, hugging the… |
+| 270 | [?] | P1 | player/wall | 2026-06-08 latest-pushed playtest: Level 2 well left-wall hug launches Samurai/Kid upward | Fixed candidate: `1c06f5d8` clears the natural Red Stealth BLW2 left-wall frame-266 divergence; route is gameplay CRC-clean through frame 520. Human validation still required. |
 | 271 | [x] | P0 | player/enemy | 2026-06-08 latest-pushed playtest: jumping… | archived |
 | 272 | [ ] | P1 | audio | 2026-06-08 latest-pushed playtest: Samurai air attack, helmet pickup voice, and bouncy sounds play slow/low | Evidence source: human playtest. Cross-ref #003/#160/#216/#264. Native repro:… |
 | 273 | [?] | P1 | block/prize | 2026-06-08 latest-pushed playtest: later-level helmet prize blocks may not be mapped/extracted | Evidence source: human playtest. Symptom: all helmet prize blocks in later… |
