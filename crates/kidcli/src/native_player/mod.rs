@@ -1915,6 +1915,14 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         };
     };
 
+    if let Some(bgm) = settled_audio_initial_bgm_id(manifest, initial_active_bgm_cue) {
+        // Settled dynamic audio probes start after the ROM has already loaded
+        // level music. Suppress duplicate event-log commands, but prime the
+        // standalone GEMS renderer so block/pickup SFX are mixed over the same
+        // active BGM instead of silence until the first SFX.
+        gems.play_sound(bgm);
+    }
+
     let mut active_bgm_cue = initial_active_bgm_cue;
     let mut pending_bgm_start: Option<u8> = None;
     let mut prev_trace: Option<&NativeTraceFrame> = None;
@@ -1948,6 +1956,13 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         audio_events,
         ..RecordingBundleArtifacts::default()
     }
+}
+
+fn settled_audio_initial_bgm_id(
+    manifest: &AssetManifest,
+    initial_active_bgm_cue: Option<NativeBgmCue>,
+) -> Option<u8> {
+    initial_active_bgm_cue.and_then(|cue| bgm_for_native_cue(manifest, cue))
 }
 
 fn apply_native_bgm_command(
@@ -12989,6 +13004,34 @@ mod tests {
             "using source_root/sound drops native play into the no-music fallback on real extracted bundles"
         );
         Ok(())
+    }
+
+    #[test]
+    fn settled_trace_audio_primes_existing_level_bgm_without_duplicate_event() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x00);
+        let frames = vec![trace.clone(), trace];
+
+        assert_eq!(
+            settled_audio_initial_bgm_id(
+                &fixture.manifest,
+                Some(NativeBgmCue::Level(LevelId(0x00)))
+            ),
+            Some(gems_bgm::CAVE),
+            "settled dynamic audio exports must prime GEMS with the already-active level BGM; otherwise the waveform stays silent until the first block/pickup SFX"
+        );
+
+        let events = native_audio_events_for_trace_with_initial_bgm(
+            &fixture.manifest,
+            &frames,
+            Some(NativeBgmCue::Level(LevelId(0x00))),
+        );
+
+        assert!(
+            events.is_empty(),
+            "settled audio transcripts should not log a duplicate level-BGM start when the route begins in-game"
+        );
     }
 
     #[test]
