@@ -1,4 +1,5 @@
 <!-- Generated 2026-05-29 by the `enemy-fidelity-audit` workflow (28 read-only Explore auditors, one per enemy family; every high/medium gap adversarially verified by an independent refuter before inclusion). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
+<!-- Staleness-checked 2026-06-10: of 67 gaps, 33 fixed, 9 partially fixed, 25 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Still-open entries below remain authoritative; fixed entries are superseded. -->
 
 # Enemy Fidelity Audit
 

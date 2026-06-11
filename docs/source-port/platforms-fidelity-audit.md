@@ -1,4 +1,5 @@
 <!-- Generated 2026-05-31 by the `platforms-helmets-weather-fidelity-audit` workflow (1 read-only Explore scout enumerated the platform units; one read-only Explore auditor per unit compared the live native path to kid.asm; every high/medium gap adversarially verified by an independent refuter — defaulting to refuted — before inclusion; low gaps included without a refute pass). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
+<!-- Staleness-checked 2026-06-10: of 40 gaps, 5 fixed, 3 partially fixed, 32 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Still-open entries below remain authoritative; fixed entries are superseded. -->
 
 # Platform Fidelity Audit
 

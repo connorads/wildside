@@ -1,4 +1,5 @@
 <!-- Generated 2026-05-30 by the `level-loading-fidelity-audit` workflow (1 read-only Explore scout enumerated 18 level-loading units; one read-only Explore auditor per unit compared the live native load path to kid.asm; every high/medium gap adversarially verified by an independent refuter — defaulting to refuted — before inclusion; low gaps included without a refute pass). 72 agents total; 16 high/medium claims refuted and dropped. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
+<!-- Staleness-checked 2026-06-10: of 55 gaps, 9 fixed, 11 partially fixed, 34 still open, 1 no longer applicable — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Still-open entries below remain authoritative; fixed entries are superseded. -->
 
 # Level-Loading Fidelity Audit
 
