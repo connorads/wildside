@@ -453,6 +453,26 @@ routes stayed around `dx=-34 dy=-17` from `(584,543)`. Do not repeat these
 early-hop or release/coast axes on the same seed unless the route shape before
 frame 180 changes.
 
+Follow-up 2026-06-11 for #260 visual-source classification: the latest
+playtest noted that the Drips source now looks like a prize block rather than a
+metal block. On the current known route this is ROM-matching, not a native
+render-only bug: `capture-scenario-frames --scenario
+.cache/recordings/issue-260-drips-drop-contact-probe-current/scenario.json
+--frames 523,535,545` saved native PNGs under
+`.cache/debug/issue260-source-block-visual/native/`, and
+`capture-oracle-scenario-frames` saved matching oracle PNGs under
+`.cache/debug/issue260-source-block-visual/oracle/`. Direct inspection of
+native `issue_260_drips_drop_contact_probe_01_frame_00535.png` and oracle
+`0535_frame_00535.png` shows the same row-32 `P` blocks above both Drips
+anchors, consistent with `inspect-level --level 01` reporting prize entries
+around cols 27 and 35. A small early-overlay probe
+`probe-record-scenario --scenario issue260-drips-drop-contact-probe --input
+125-175:left` also failed to improve the metal-block target score, leaving the
+old healthy right-side closest point at `(584,543) dx=0 dy=-48 @129`. Treat the
+`P`-block source observation as route-specific oracle-matching evidence; #260
+still needs a different live route that actually reaches the reported
+slime/metal-block mutation before any Drips/block patch.
+
 Issue #271 triage 2026-06-08: current generic `stomp-enemy` probes do not yet
 prove an expected stomp regression. Level 00 Dragon frames 137/138 reproduce
 damage, but the contact is a side-graze baseline matching the existing
