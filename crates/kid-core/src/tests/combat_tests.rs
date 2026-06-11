@@ -15230,21 +15230,45 @@ mod chunk_05 {
     }
 
     #[test]
-    fn final_level_sets_game_complete_on_advance() {
-        let mut manifest = manifest_with_levels(3);
-        manifest.map_order = vec![0, 1, 2];
+    fn final_level_id_33_sets_game_complete_on_advance_loc_d7f4() {
+        let mut manifest = manifest_with_levels(0x35);
+        manifest.map_order = (0..0x35).collect();
 
         let mut runtime = NativeRuntime::new(manifest);
-        runtime.current_level = LevelId(2); // last in map order
+        runtime.current_level = LevelId(0x33);
         assert!(
             runtime.is_final_level(),
-            "level 2 should be detected as final level"
+            "ASM loc_D7F4 compares Current_LevelID with Final_LevelID=$33"
         );
         assert!(!runtime.game_complete);
         runtime.advance_level();
         assert!(
             runtime.game_complete,
             "game_complete should be set after beating final level"
+        );
+    }
+
+    #[test]
+    fn map_order_tail_after_final_level_does_not_end_game_loc_d7f4() {
+        let mut manifest = manifest_with_levels(0x35);
+        manifest.map_order = (0..0x35).collect();
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.current_level = LevelId(0x34);
+        assert!(
+            !runtime.is_final_level(),
+            "ASM loc_D7F4 must ignore the last MapOrder entry when it is not Final_LevelID=$33"
+        );
+        runtime.advance_level();
+        assert!(
+            !runtime.game_complete,
+            "beating a logical level after $33 should continue through Teleport, not End_Credits"
+        );
+        assert_eq!(
+            runtime.current_level,
+            LevelId(0),
+            "non-final tail level falls back through next_level_id rather than ending"
         );
     }
 

@@ -9268,6 +9268,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #299
 
 - Filed 2026-06-11 from level-flow-fidelity-audit.md (high). Ending fires at the last MapOrder entry (logical $69) instead of the hard-coded `Final_LevelID=$33` (`loc_D7F4`).
+- Proposed fixed 2026-06-11. `NativeRuntime::is_final_level` now mirrors ASM `loc_D7F4` (`cmpi.w #Final_LevelID,(Current_LevelID).w`) by checking logical level `$33` directly, independent of the last valid MapOrder entry. Replaced the old last-entry regression with `final_level_id_33_sets_game_complete_on_advance_loc_d7f4` and added `map_order_tail_after_final_level_does_not_end_game_loc_d7f4`; both failed before the implementation change and pass after it. Focused verification: `cargo test -q -p kid-core final_level -- --nocapture`, `cargo test -q -p kid-core next_level_id -- --nocapture`, and `cargo test -q -p kid-core level_complete_freezes_input_then_advances -- --nocapture`.
 
 ### #300
 

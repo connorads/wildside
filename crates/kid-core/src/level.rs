@@ -18030,10 +18030,11 @@ impl NativeRuntime {
     }
 
     pub(crate) fn is_final_level(&self) -> bool {
-        if let Some(logical_levels) = self.logical_level_ids() {
-            return logical_levels.last().copied() == Some(self.current_level);
-        }
-        false
+        // ASM loc_D7F4 (kid.asm:16912): `cmpi.w #Final_LevelID,(Current_LevelID).w`
+        // branches to End_Credits only for logical level `$33` (Plethora).
+        // MapOrder_Index can contain entries after `$33`; those are normal
+        // logical levels and must not become the ending trigger.
+        self.current_level == LevelId(0x33)
     }
 
     pub(crate) fn advance_level(&mut self) {
