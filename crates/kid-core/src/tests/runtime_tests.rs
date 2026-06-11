@@ -7881,7 +7881,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn iron_knight_ice_block_uses_sub_10f9c_upward_offset() {
+    fn iron_knight_ice_block_uses_sub_10f9c_d6_zero_downward_offset() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;
         runtime.progression.current_form = PlayerForm::IronKnight;
@@ -7914,8 +7914,8 @@ mod chunk_09 {
         runtime.step_visual_effects();
 
         assert_eq!(
-            runtime.block_destroy_effects[0].y_px, 220,
-            "ASM loc_10FDC subtracts 4 from `y_pos(a3)` before the shared loc_10FEC 3-frame hibernate tail"
+            runtime.block_destroy_effects[0].y_px, 228,
+            "ASM sub_AF7A leaves d6=0 for off_AFD8[2], so sub_10F9C falls through to `addq.w #4,y_pos(a3)` before the shared loc_10FEC hibernate tail"
         );
         assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
     }

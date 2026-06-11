@@ -341,8 +341,8 @@ mod chunk_06 {
     }
 
     /// ASM off_AFD8[2] (kid.asm:13845): Iron Knight ice-block break jumps to
-    /// `IceBlock_SmashAndLoadBullets`, which calls `IceBlock_LoadBullets`
-    /// before spawning the cosmetic sub_10F9C effect.
+    /// `IceBlock_SmashAndLoadBullets` with the `d6=0` set by sub_AF7A, then
+    /// calls `IceBlock_LoadBullets` before spawning the cosmetic sub_10F9C effect.
     #[test]
     fn loc_af96_iron_knight_ice_block_loads_bullets_loc_11052() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -356,13 +356,13 @@ mod chunk_06 {
         let ice_cell = grid.cell_at(5, 14);
         assert_eq!(ice_cell.block_type, terrain::BlockType::Ice);
         assert!(
-            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 2, 120, 56).is_some_and(
-                |target| target == (5, 13)
+            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 0, 120, 56).is_some_and(
+                |target| target == (5, 15)
                     && NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(
                         grid.cell_at(target.0, target.1)
                     )
             ),
-            "ASM sub_11006 should find an open upward target cell for this fixture"
+            "ASM sub_AF7A leaves d6=0 before IceBlock_LoadBullets, so sub_11006 should find the open cell below"
         );
         runtime.block_grid = Some(grid);
 
@@ -407,11 +407,11 @@ mod chunk_06 {
                 ))
                 .collect::<Vec<_>>(),
             vec![
-                (EnemyProjectileKind::ShooterBlock, 88, 228, 0, -(4 << 16)),
-                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, -(4 << 16)),
-                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 88, 236, 0, 4 << 16),
+                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, 4 << 16),
+                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, 4 << 16),
             ],
-            "ASM IceBlock_LoadBullets remaps Iron-Knight above-hit d6=2 to upward d6=0 and native's later projectile pass advances the loaded centre, left-lower, then right-lower shooter objects once",
+            "ASM IceBlock_LoadBullets remaps Iron-Knight d6=0 to downward d6=2 and native's later projectile pass advances the loaded centre, right-upper, then left-upper shooter objects once",
         );
         assert_eq!(runtime.opening_slice.unwrap().player.y_velocity, -0x8000);
     }
@@ -525,13 +525,13 @@ mod chunk_06 {
         let mut grid = grid_with_floor_at_row(14);
         grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE2, 0x01));
         assert!(
-            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 2, 120, 56).is_some_and(
-                |target| target == (5, 13)
+            NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 14, 0, 120, 56).is_some_and(
+                |target| target == (5, 15)
                     && NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(
                         grid.cell_at(target.0, target.1)
                     )
             ),
-            "ASM sub_11006 should find an open upward target cell for this Red Stealth fixture"
+            "ASM sub_B000 leaves d6=0 before IceBlock_LoadBullets, so sub_11006 should find the open cell below"
         );
         runtime.block_grid = Some(grid);
 
@@ -568,11 +568,11 @@ mod chunk_06 {
                 ))
                 .collect::<Vec<_>>(),
             vec![
-                (EnemyProjectileKind::ShooterBlock, 88, 228, 0, -(4 << 16)),
-                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, -(4 << 16)),
-                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, -(4 << 16)),
+                (EnemyProjectileKind::ShooterBlock, 88, 236, 0, 4 << 16),
+                (EnemyProjectileKind::ShooterBlock, 92, 232, 0, 4 << 16),
+                (EnemyProjectileKind::ShooterBlock, 84, 232, 0, 4 << 16),
             ],
-            "ASM off_B058[2] should route Red Stealth ice breaks through IceBlock_LoadBullets before the projectile step advances them once",
+            "ASM off_B058[2] reaches IceBlock_SmashAndLoadBullets with d6=0, so IceBlock_LoadBullets remaps to downward bullets before the projectile step advances them once",
         );
         assert_eq!(
             runtime.opening_slice.unwrap().player.y_velocity,

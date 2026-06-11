@@ -3352,14 +3352,13 @@ impl NativeRuntime {
                             // IceBlock_SmashAndLoadBullets before rebounding.
                             helmets::RedStealthFloorImpactKindSubB000::Ice => {
                                 // ASM off_B058[2] -> IceBlock_SmashAndLoadBullets
-                                // (kid.asm:13898, 22849): Red Stealth uses the
-                                // same `d6=2` floor-impact direction as
-                                // loc_B070's smash branch before sub_11006
-                                // remaps it for the shooter-block bullets.
+                                // (kid.asm:13898, 22849): sub_B000 sets d6=0
+                                // before the ice jump-table entry, so sub_11006
+                                // remaps it to downward bullets.
                                 let target_open = Self::ice_block_bullet_target_cell_sub_11006(
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
-                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     grid.width_cells,
                                     grid.height_cells,
                                 )
@@ -3374,7 +3373,7 @@ impl NativeRuntime {
                                     self.projectiles.extend(Self::ice_block_bullets_loc_11052(
                                         red_stealth_impact.block_col,
                                         red_stealth_impact.block_row,
-                                        Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                        Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     ));
                                 }
                                 grid.set_cell_at(
@@ -3383,14 +3382,14 @@ impl NativeRuntime {
                                     terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
                                 self.block_destroy_effects.push(BlockDestroyEffect {
-                                    // ASM loc_10FDC/loc_10FEC: d6=2 nudges
-                                    // ice debris 4 px upward, then the worker
-                                    // hibernates for 3 frames.
+                                    // ASM sub_10F9C (kid.asm:22881): d6=0
+                                    // falls through to the downward ice-shard
+                                    // nudge after the first visible frame.
                                     x_px: block_x,
-                                    y_px: block_y.saturating_sub(4),
-                                    remaining: 3,
-                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
-                                    pending_ice_origin_nudge: false,
+                                    y_px: block_y,
+                                    remaining: 4,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    pending_ice_origin_nudge: true,
                                 });
                             }
                             // ASM off_B058 block types 3/4 return directly to
@@ -3498,12 +3497,13 @@ impl NativeRuntime {
                             blocks::IronKnightBlockEffectSubAF7A::Ice => {
                                 // ASM off_AFD8[2] -> IceBlock_SmashAndLoadBullets
                                 // (kid.asm:13845, 22849): Iron Knight ice
-                                // breaks load bullets through sub_11006 before
-                                // the sub_10F9C cosmetic worker is spawned.
+                                // breaks keep sub_AF7A's d6=0, then load
+                                // bullets through sub_11006 before the
+                                // sub_10F9C cosmetic worker is spawned.
                                 let target_open = Self::ice_block_bullet_target_cell_sub_11006(
                                     probe.cell_x,
                                     probe.cell_y,
-                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     grid.width_cells,
                                     grid.height_cells,
                                 )
@@ -3518,7 +3518,7 @@ impl NativeRuntime {
                                     self.projectiles.extend(Self::ice_block_bullets_loc_11052(
                                         probe.cell_x,
                                         probe.cell_y,
-                                        Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                        Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     ));
                                 }
                                 grid.set_cell_at(
@@ -3529,7 +3529,7 @@ impl NativeRuntime {
                                 self.spawn_ice_block_effect_sub_10f9c(
                                     probe.cell_x * 16,
                                     probe.cell_y * 16,
-                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                 );
                                 slice.player.y_velocity =
                                     collision.next_y_velocity.unwrap_or(-0x8000);
