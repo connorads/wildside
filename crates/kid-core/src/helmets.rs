@@ -5851,13 +5851,15 @@ impl NativeRuntime {
                 if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
                     kill_indices.push(i);
                 }
-                // ASM loc_86EC (kid.asm:9556): on non-zero sword collision,
-                // play `sfx_Red_Stealth_hitting_a_target`, then delete. For
-                // the airborne path the ROM keeps the slash sustained (no
-                // GfxObject to delete) but the hit SFX still plays — only the
-                // ground swing timer is consumed here.
-                self.played_sound_effects
-                    .push(QueuedSoundEffect::RedStealthHittingTarget);
+                // ASM loc_86EC (kid.asm:9556) is reached only by the grounded
+                // `sub_868E` sword worker and plays `$5A` before deleting it.
+                // The airborne attack-down path `sub_B270 loc_B350` has no
+                // equivalent `$5A` call; it only queues `$13` when the slash
+                // counter first reaches `$10`.
+                if ground_active {
+                    self.played_sound_effects
+                        .push(QueuedSoundEffect::RedStealthHittingTarget);
+                }
                 if ground_active {
                     self.helmet.red_stealth_sword_timer = 0;
                 }

@@ -9080,6 +9080,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #287
 
 - [Verify] Evidence source: human playtest. Distinct from #272 (pitch); this is repeated triggering. Check the slash SFX queue for per-frame re-trigger during the attack animation window.
+- [Verify] Fixed candidate 2026-06-11. ASM split: grounded Red Stealth uses the allocated `sub_868E` sword worker, whose `loc_86EC` plays `sfx_Red_Stealth_hitting_a_target=$5A` once before deleting the worker; airborne attack-down uses `sub_B270 loc_B350`, which only plays `sfx_Red_Stealth_attack_down=$13` when `Red_Stealth_sword_swing` first reaches `$10`. Native had one shared sword-hit path, so airborne slash overlap also queued grounded `$5A` on every overlapping frame. Native now keeps airborne slash damage/sustain but suppresses `$5A` outside the grounded `sub_868E` path. Regressions: `red_stealth_airborne_slash_contact_does_not_queue_ground_hit_sfx_loc_b350` plus updated airborne damage test; focused `cargo test -q -p kid-core red_stealth -- --nocapture` passed. Human audio validation still required.
 
 ### #288
 

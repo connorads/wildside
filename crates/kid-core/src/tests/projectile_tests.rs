@@ -2516,13 +2516,41 @@ mod chunk_06 {
         rt.process_sword_hits(&slice);
 
         assert_eq!(rt.active_enemies[0].hit_points, 1);
-        // Airborne counter stays live because the ROM does not delete the
-        // sword GfxObject — the slash sustains as long as C is held.
+        // Airborne counter stays live because the ROM does not allocate the
+        // `sub_868E` sword GfxObject for this path — the slash sustains as
+        // long as C is held.
         assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x40);
         assert!(
-            rt.played_sound_effects
+            !rt.played_sound_effects
                 .contains(&QueuedSoundEffect::RedStealthHittingTarget),
-            "sfx_Red_Stealth_hitting_a_target should play on airborne slash contact",
+            "ASM sub_B270 loc_B350 has no sfx_Red_Stealth_hitting_a_target call; only grounded sub_868E loc_86EC queues `$5A`",
+        );
+    }
+
+    #[test]
+    fn red_stealth_airborne_slash_contact_does_not_queue_ground_hit_sfx_loc_b350() {
+        // ASM sub_B270 loc_B350 is the airborne attack-down renderer and only
+        // queues `$13` when the counter first reaches `$10`. The `$5A` hit
+        // sound belongs to grounded `sub_868E loc_86EC`, where a separate
+        // sword object sees collision before deleting itself.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_airborne_slash_counter = 0x40;
+        let slice = combat_slice();
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            slice.player.x_pos,
+            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
+                * 0x1_0000,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert!(
+            !rt.played_sound_effects
+                .contains(&QueuedSoundEffect::RedStealthHittingTarget),
+            "airborne Red Stealth contact should not layer grounded `$5A` hit-target SFX over the `$13` attack-down cue"
         );
     }
 
