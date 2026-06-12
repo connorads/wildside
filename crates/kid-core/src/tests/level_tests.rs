@@ -19425,6 +19425,28 @@ mod chunk_02 {
             Some((2, 2)),
             "ASM loc_BBC2 -> loc_11430: Level 3 `$E919` type-9 ceiling touch blocks should queue the same timed shooter-style block effect"
         );
+
+        let mut mounted_mushroom_grid = terrain::BlockGrid::from_level_layout(&mushroom_data, w, h);
+        let mut mounted_mushroom_hit = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        mounted_mushroom_hit.player.x_pos = 40 << 16;
+        mounted_mushroom_hit.player.y_pos = 63 << 16;
+        mounted_mushroom_hit.player.y_velocity = -0x0011_0000;
+
+        mounted_mushroom_hit.apply_ceiling_collision_skycutter_on_board(
+            Some(&mut mounted_mushroom_grid),
+            None,
+            PlayerForm::Skycutter,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            mounted_mushroom_hit.shooter_block_hit, None,
+            "ASM loc_BBC2: when `$FFFFFA6A` on_board is set, type-9 Mushroom ceiling blocks return without queuing loc_11430"
+        );
     }
 
     #[test]

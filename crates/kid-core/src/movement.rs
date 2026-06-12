@@ -6506,13 +6506,19 @@ impl OpeningSliceState {
                         self.metal_block_hit =
                             Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
                     }
-                    terrain::BlockType::Shooter | terrain::BlockType::Mushroom => {
-                        // ASM off_BB80 entry 9: Level 3 `$E919` type-9 blocks
-                        // branch through loc_BBC2 -> loc_11430 into the timed
-                        // worker coroutines used by native's shooter_block_hit
-                        // path.
+                    terrain::BlockType::Shooter => {
                         self.shooter_block_hit =
                             Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
+                    }
+                    terrain::BlockType::Mushroom => {
+                        // ASM loc_BBC2 (kid.asm:15121): type-9 Mushroom
+                        // ceiling hits return immediately while `$FFFFFA6A`
+                        // on_board is set; otherwise they jump to loc_11430,
+                        // the timed worker represented by shooter_block_hit.
+                        if !skycutter_on_board {
+                            self.shooter_block_hit =
+                                Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
+                        }
                     }
                     // ASM loc_BBD2 (kid.asm:15130): off_BB80 index 7 (Shifting).
                     // `tst.b ($FFFFFA6A); bne return_BBE0` — if $FA6A (on_board)
