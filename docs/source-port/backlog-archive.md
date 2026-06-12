@@ -236,6 +236,20 @@ axis only nudged the old right-side class from `dx=+1 dy=-20` to
 retry A-speed modulation over these two seeds unless the route/bootstrap changes
 first.
 
+Follow-up 2026-06-12 for #260 route search: extended the distinct early-jump seed
+`.cache/recordings/issue-260-drips-early-jump-close-probe-current/scenario.json`
+cache-locally to `.cache/debug/issue260-route-probes/early-jump-extended-620.json`
+and scored post-409 continuations against `(456,543)` and `(584,543)` from frame
+300. The route-family change still did not reach centre `EC2D` contact:
+`409..520 Left+B` and `409..450 Left,450..560 Left+B` stayed healthy but only
+reached the left target at `dy=-48`; the best right-side healthy continuations
+were `430..560 Left+B` / `450..590 Left+B`, topping out around
+`(584,543) dx=-1 dy=-19 @444/464`. Rightward continuations either reproduced the
+old early near-miss, spent HP, or entered `LevelTransition`. Do not repeat
+post-409 extension/climb overlays on this early-jump seed unchanged; #260 still
+needs a fresh route/bootstrap or human recording that actually reaches live
+slime/centre-block contact.
+
 Follow-up 2026-06-11 for #282 asset precondition: after the pushed-build
 `play-native` warning said debug warp target `0x0D` was missing generated level
 layout/resource `0x37`, reran `mise run extract-assets`. The generated bundle now
