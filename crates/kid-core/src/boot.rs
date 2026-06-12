@@ -748,7 +748,9 @@ pub(crate) fn hud_lives_clamp_loc_BF2A(number_lives: u16) -> u16 {
 /// loc_C03A: sf $13(a4); sf $13(a3); st $3D(a4)
 /// ```
 /// On boss levels, both flagpole objects are hidden (`$13`=0 disables
-/// rendering) and the first object's `$3D` flag is set (boss-mode marker).
+/// rendering) and the first object's `$3D` byte is set so
+/// `GfxObjects_CollisionKid_Loop` skips Kid collision until the boss death
+/// path clears it.
 ///
 /// Boss level IDs: $10, $1E, $2A, $33.
 #[allow(dead_code)]
