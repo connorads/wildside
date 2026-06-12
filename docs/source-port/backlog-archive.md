@@ -5155,6 +5155,26 @@ it blocked with `likely_subsystems=["recording verification"]` and `case reduce`
 refuses with `source recording replay drifted at frame 3`. Use the refreshed
 current `issue-215-highwater-water-priority-audit` route or re-record this
 wrapper before treating it as #215 gameplay or render evidence.
+
+Note 2026-06-12 for #256: rejected the Berzerker C/special-action route family
+as a current waterfall-front repro. Native batch over
+`.cache/recordings/issue-256-highwater-water-priority-current/scenario.json`
+tested `right+c`, `right+b+c`, pulse-C, late-C, and wall-attack overlays from
+frames 600..1080, scored after frame 700 against waterfall-front target
+`(915,1548)` and the known wall cap `(840,1548)`. Best native candidates
+(`attack_wall_800`, `late_c_760`, `attack_wall_840`, `bc_after_680`,
+`late_bc_760`, `pulse_bc_650`) still capped at Kid `x=0x03480000` / 840 px,
+with closest waterfall-front distance `dx=+75`; the remaining C-only starts
+fell further back around `x=0x0318`. A materialised best-candidate scenario
+`.cache/debug/issue256-attack-wall-800.json` confirms this is also not a clean
+oracle route: `verify-tas --frame-start 800 --frame-end 900 --checkpoint-interval
+5 --frontier-kind gameplay --bisect` first diverges at frame 832, and
+`tas-diff --frame-start 828 --frame-end 836 --include-advisory --frontier-kind
+gameplay` shows only frames 832..833 diverge, with native wall-clinging at
+`x=0x03480000` while oracle carries tiny positive x velocity before the route
+resynchronises by frame 834. Do not use this action-button family as #256 visual
+priority evidence; it still does not put Kid/Rhino/Berzerker into the reported
+foreground mask.
 Note 2026-06-01 for #216: scripted recording SFX events exposed a live
 native-player duplication after #226 moved jump SFX into the core trace. The
 Level 00 prize-block route
