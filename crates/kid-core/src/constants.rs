@@ -518,6 +518,10 @@ pub(crate) const PLAYER_GAME_OVER_PRE_HIBERNATE_FRAMES: usize = 0x3C;
 pub(crate) const PLAYER_GAME_OVER_START_SKIP_HOLD_FRAMES: usize = 0x1A3;
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize =
     PLAYER_GAME_OVER_PRE_HIBERNATE_FRAMES + PLAYER_GAME_OVER_START_SKIP_HOLD_FRAMES;
+/// ASM loc_D0C0 plus loc_D15E..loc_D17E: with continues remaining, GAME OVER
+/// runs the shared score/fade setup and branches to Continue_Screen at loc_D25E
+/// without the no-continues `$3C + $1A3` title-return hold.
+pub(crate) const PLAYER_GAME_OVER_CONTINUE_HOLD_FRAMES: usize = 10;
 /// ASM: Continue countdown: loc_D31E initial pause, loc_D350 first Start
 /// window, then loc_D3AA post-fade Start window before returning to title.
 pub(crate) const CONTINUE_INITIAL_HOLD_FRAMES: usize = 28;

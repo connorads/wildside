@@ -1837,6 +1837,32 @@ mod chunk_08 {
         );
     }
 
+    /// ASM loc_D0C0/loc_D15E/loc_D25E (kid.asm:16368-16472): when continues
+    /// remain, GAME OVER takes only the shared score/fade setup before branching
+    /// to Continue_Screen. The long loc_D2CE hold is no-continues only.
+    #[test]
+    fn game_over_with_continues_reaches_continue_screen_after_short_fade() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.progression.number_continues = 1;
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
+        };
+        runtime.boot_state = BootState::InGame;
+
+        for _ in 0..PLAYER_GAME_OVER_CONTINUE_HOLD_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::ContinueCountdown { .. }
+            ),
+            "continues-present GAME OVER should not wait through the no-continues loc_D2CE hold"
+        );
+    }
+
     #[test]
     fn two_player_continue_input_respawns_same_player_and_preserves_other_slot() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));

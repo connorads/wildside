@@ -7830,6 +7830,14 @@ impl NativeRuntime {
                     self.return_to_title();
                     return false;
                 }
+                if self.progression.number_continues > 0
+                    && remaining_frames > PLAYER_GAME_OVER_CONTINUE_HOLD_FRAMES
+                {
+                    self.player_lifecycle = PlayerLifecycle::GameOver {
+                        remaining_frames: PLAYER_GAME_OVER_CONTINUE_HOLD_FRAMES - 1,
+                    };
+                    return false;
+                }
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,

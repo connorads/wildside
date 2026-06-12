@@ -9610,16 +9610,6 @@ mod chunk_02 {
             runtime.step_frame(FrameInput::default());
         }
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::GameOver { .. }),
-            "expected GameOver, got {:?}",
-            runtime.player_lifecycle
-        );
-
-        // Advance through game-over hold — should enter continue countdown
-        for _ in 0..PLAYER_GAME_OVER_HOLD_FRAMES {
-            runtime.step_frame(FrameInput::default());
-        }
-        assert!(
             matches!(
                 runtime.player_lifecycle,
                 PlayerLifecycle::ContinueCountdown { .. }
