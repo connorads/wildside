@@ -3831,16 +3831,97 @@ impl NativeRuntime {
                         screen_y_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
                     ));
                 } else {
-                    collected_contents.push(item.content);
+                    let screen_x_fp = i64::from(item.x_pos) - i64::from(slice.camera.x_pos);
+                    let screen_y_fp = item.y_pos - i64::from(slice.camera.y_pos);
+                    collected_contents.push((
+                        item.content,
+                        item.level_col,
+                        item.level_row,
+                        screen_x_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+                        screen_y_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+                    ));
                 }
             }
         }
         for (screen_x_fp, screen_y_fp) in collected_prize_diamonds {
             self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
         }
-        for content in collected_contents {
-            self.apply_prize_content(content);
+        let layout_width = self.block_grid.as_ref().map(|grid| grid.width_cells);
+        for (content, level_col, level_row, screen_x_fp, screen_y_fp) in collected_contents {
+            let layout_addr = layout_width.map(|layout_width| {
+                terrain::BlockList::level_layout_low_word_addr(level_col, level_row, layout_width)
+            });
+            let resolved_content = layout_addr.map_or(content, |layout_addr| {
+                self.one_time_prize_content_or_diamond_loc_10848(content, layout_addr)
+            });
+            if resolved_content == terrain::PrizeContent::Diamond {
+                self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
+            } else {
+                self.apply_prize_content(resolved_content);
+            }
         }
+    }
+
+    fn one_time_prize_content_or_diamond_loc_10848(
+        &mut self,
+        content: terrain::PrizeContent,
+        prize_layout_addr: u16,
+    ) -> terrain::PrizeContent {
+        if !matches!(
+            content,
+            terrain::PrizeContent::Ankh
+                | terrain::PrizeContent::Continue
+                | terrain::PrizeContent::TenDiamonds
+                | terrain::PrizeContent::Points10000
+        ) {
+            return content;
+        }
+
+        let current_level_id = u16::from(self.current_level.0);
+        let slot = &mut self.player_slots[self.current_player_index as usize];
+        let init = Self::one_time_prize_init_loc_10856(
+            slot.one_time_prize_next_index,
+            slot.one_time_prizes,
+        );
+        slot.one_time_prize_next_index = init.next_write_index as i16;
+        slot.one_time_prizes = init.entries;
+
+        // ASM OneTimePrize_CheckCollected loc_1086A..loc_1088E: scan all
+        // forty packed `(layout_addr, Current_LevelID)` entries. A match
+        // branches directly to PrizeDiamond_Init instead of running the
+        // original one-time prize initialiser.
+        let scan = Self::one_time_prize_scan_start_loc_1086A(prize_layout_addr);
+        let mut remaining = scan.remaining_entry_checks;
+        let mut entry_offset = scan.entry_byte_offset_from_table_base;
+        loop {
+            let entry_index = usize::from((entry_offset - 2) / 4);
+            if Self::one_time_prize_entry_check_loc_10876(
+                slot.one_time_prizes[entry_index],
+                prize_layout_addr,
+                current_level_id,
+            )
+            .should_init_prize_diamond
+            {
+                return terrain::PrizeContent::Diamond;
+            }
+
+            let step = Self::one_time_prize_scan_step_loc_10886(remaining, entry_offset);
+            if !step.should_continue_scan {
+                break;
+            }
+            remaining = step.next_remaining_entry_checks;
+            entry_offset = step.next_entry_byte_offset_from_table_base;
+        }
+
+        let store = Self::one_time_prize_store_loc_1089A(
+            slot.one_time_prize_next_index as u16,
+            slot.one_time_prizes,
+            prize_layout_addr,
+            current_level_id,
+        );
+        slot.one_time_prize_next_index = store.next_write_index as i16;
+        slot.one_time_prizes = store.entries;
+        content
     }
 
     #[allow(non_snake_case)]
@@ -4711,6 +4792,67 @@ mod tests {
                 .map(|effect| (effect.x_px, effect.y_px, effect.remaining))
                 .collect::<Vec<_>>(),
             vec![(0x0020, 0x0028, 8), (0x0060, 0x0068, 8)]
+        );
+    }
+
+    #[test]
+    fn repeated_one_time_prize_collects_as_diamond_loc_10876() {
+        // ASM PrizeAnkh_Init -> OneTimePrize_CheckCollected loc_10876:
+        // once the same layout address and level ID are already recorded,
+        // branch to PrizeDiamond_Init instead of awarding another ankh.
+        let mut runtime = runtime_for_block_tests();
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 640,
+            height_pixels: 448,
+        });
+        runtime.block_grid = Some(terrain::BlockGrid::from_level_layout(&[0; 100], 10, 10));
+        runtime.current_level = LevelId(3);
+        runtime.progression.number_lives = 3;
+        runtime.progression.diamond_count = 0;
+
+        let x_pos = slice.player.x_pos;
+        let y_pos = i64::from(slice.player.y_pos) - (8_i64 << 16);
+        runtime.floating_items = vec![FloatingItem {
+            x_pos,
+            y_pos,
+            y_velocity: 0,
+            remaining: 0x0320,
+            spawn_delay: 0,
+            level_col: 7,
+            level_row: 5,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Ankh,
+            collected: false,
+            collision_latched: false,
+        }];
+        runtime.collect_floating_items(&mut slice);
+
+        assert_eq!(runtime.progression.number_lives, 4);
+        assert_eq!(runtime.progression.diamond_count, 0);
+
+        runtime.floating_items = vec![FloatingItem {
+            x_pos,
+            y_pos,
+            y_velocity: 0,
+            remaining: 0x0320,
+            spawn_delay: 0,
+            level_col: 7,
+            level_row: 5,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Ankh,
+            collected: false,
+            collision_latched: false,
+        }];
+        runtime.collect_floating_items(&mut slice);
+
+        assert_eq!(
+            runtime.progression.number_lives, 4,
+            "ASM loc_10876 should prevent a second Ankh award from the same layout cell on the same level",
+        );
+        assert_eq!(
+            runtime.pending_prize_diamond_hud_flights.len(),
+            1,
+            "ASM loc_10876 branches repeated one-time prizes to PrizeDiamond_Init, so native should queue the normal prize-diamond award path",
         );
     }
 

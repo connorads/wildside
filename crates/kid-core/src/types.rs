@@ -1811,6 +1811,8 @@ pub(crate) struct PlayerSlot {
     pub(crate) continues: u8,
     pub(crate) extra_hitpoint_slots: u16,
     pub(crate) score: u32,
+    pub(crate) one_time_prize_next_index: i16,
+    pub(crate) one_time_prizes: [u32; 0x28],
 }
 
 impl Default for PlayerSlot {
@@ -1833,6 +1835,8 @@ impl Default for PlayerSlot {
             continues: 3,
             extra_hitpoint_slots: 0,
             score: 0,
+            one_time_prize_next_index: -1,
+            one_time_prizes: [0; 0x28],
         }
     }
 }
