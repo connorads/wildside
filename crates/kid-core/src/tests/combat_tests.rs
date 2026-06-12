@@ -172,6 +172,41 @@ fn armadillo_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 88 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let scorpion = test_enemy(EnemyFamily::Scorpion, 101 << 16, 100 << 16, 3);
+    let bounds = enemy_contact_bounds(&scorpion.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-23, 22, -22, -2),
+        "ASM Scorpion.asm stru_3DB60 uses LnkTo_unk_C7DDE..C7E06; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_318EA..unk_3191C"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &scorpion.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Scorpion walking body box reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

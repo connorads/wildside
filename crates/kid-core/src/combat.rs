@@ -10976,6 +10976,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
         } => {
@@ -11076,6 +11077,26 @@ fn goat_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         right_px,
         top_px: -32,
         bottom_px: 0,
+    }
+}
+
+fn scorpion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Scorpion.asm walking script `stru_3DB60` uses `LnkTo_unk_C7DDE..C7E06`,
+    // which map through GfxObjects_CollisionKid loc_1BCE to CollisionSize_Index
+    // rows `unk_318EA..unk_3191C`. The sting script `stru_3DB8E` maps to
+    // `unk_31926/unk_31930`, but NativeObjectSnapshot does not expose the exact
+    // sprite link or sting phase here yet, so this preserves the patrol body
+    // union instead of inventing one box for both phases.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-22, 23),
+        Some(Direction::Left) | None => (-23, 22),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -22,
+        bottom_px: -2,
     }
 }
 
