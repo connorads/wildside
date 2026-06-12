@@ -233,6 +233,76 @@ fn i16_bits(value: i16) -> u16 {
     u16::from_ne_bytes(value.to_ne_bytes())
 }
 
+fn u16_bits_as_i16(value: u16) -> i16 {
+    i16::from_ne_bytes(value.to_ne_bytes())
+}
+
+#[allow(non_snake_case)]
+fn eyeclops_beam_collision_probe_loc_E70A(
+    beam_segment_index: u16,
+    screen_x_word: u16,
+    screen_y_word: u16,
+    latched_x_direction: u8,
+) -> Option<(i16, i16, i16)> {
+    if beam_segment_index < 4 {
+        let segment_span = 0x0010_u16.wrapping_add(beam_segment_index.wrapping_shl(3));
+        let map_probe_screen_x = if latched_x_direction == 0 {
+            screen_x_word.wrapping_add(segment_span)
+        } else {
+            screen_x_word.wrapping_sub(segment_span)
+        };
+        let tile_flip_bit = if latched_x_direction == 0 { 0 } else { 0x0800 };
+        let dispatch = eyeclops_beam_table_dispatch_loc_E512(beam_segment_index)?;
+        let sprites = eyeclops_beam_sprites_loc_E51A(
+            dispatch.table_label,
+            screen_x_word,
+            screen_y_word,
+            latched_x_direction,
+            tile_flip_bit,
+            0,
+        )?;
+        return Some((
+            u16_bits_as_i16(map_probe_screen_x),
+            u16_bits_as_i16(sprites.collision_top_y_word),
+            u16_bits_as_i16(sprites.collision_bottom_y_word),
+        ));
+    }
+
+    let screen_x = u16_bits_as_i16(screen_x_word);
+    let screen_y = u16_bits_as_i16(screen_y_word);
+    let (source_x, d3_span_word, tile_attr_mask, map_probe_screen_x) = if latched_x_direction == 0 {
+        let setup = crate::level::level_sprite_strip_forward_setup_loc_E650(
+            screen_x,
+            beam_segment_index as i16,
+        )?;
+        (
+            setup.source_x,
+            setup.d3_span_word,
+            setup.tile_attr_mask,
+            setup.map_probe_x,
+        )
+    } else {
+        let d3_span_word = (beam_segment_index as i16).wrapping_sub(2).wrapping_mul(6);
+        let setup =
+            crate::level::level_sprite_strip_reverse_setup_loc_E67E(screen_x, d3_span_word)?;
+        (
+            setup.source_x,
+            setup.d3_span_word,
+            setup.tile_attr_mask,
+            setup.map_probe_x,
+        )
+    };
+    let strip = crate::level::level_sprite_strip_first_write_loc_E692(
+        screen_y,
+        0,
+        source_x,
+        d3_span_word,
+        tile_attr_mask,
+    );
+
+    Some((map_probe_screen_x, strip.top_probe_y, strip.bottom_probe_y))
+}
+
 /// Replace the upper word of a 32-bit longword with `hi`, preserving the lower
 /// word. Mirrors the 68k pattern `move.w D0,$3E(a0)` where the destination is
 /// the high half of a longword (e.g. radius longword $3E:$40 or angle $42:$44).
@@ -6271,6 +6341,7 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_counter = 0x8001;
             self.helmet.eyeclops_beam_hard = true;
             fire_beam(self, beam_velocity);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
             return;
         }
 
@@ -6292,8 +6363,109 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_counter = 1;
             self.helmet.eyeclops_beam_hard = false;
             fire_beam(self, beam_velocity);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
         } else if self.helmet.eyeclops_beam_active {
             self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn reveal_eyeclops_beam_hidden_blocks_loc_E70A(&mut self, slice: &OpeningSliceState) {
+        let Some(block_list) = self.block_list.as_ref() else {
+            return;
+        };
+        let Some(grid) = self.block_grid.as_mut() else {
+            return;
+        };
+
+        let latched_x_direction = if slice.player.facing == Direction::Right {
+            0
+        } else {
+            0xFF
+        };
+        let setup = eyeclops_beam_render_setup_loc_E4B2(
+            self.helmet.eyeclops_beam_counter,
+            latched_x_direction,
+        );
+        if setup.beam_counter & 0x8000 != 0 {
+            return;
+        }
+
+        let origin = eyeclops_beam_screen_origin_loc_E4C4(
+            (slice.player.x_pos >> 16) as u16,
+            (slice.player.y_pos >> 16) as u16,
+            (slice.camera.x_pos >> 16) as u16,
+            (slice.camera.y_pos >> 16) as u16,
+            setup.x_offset_px,
+            setup.y_offset_px,
+        );
+        let Some((map_probe_screen_x, top_probe_screen_y, bottom_probe_screen_y)) =
+            eyeclops_beam_collision_probe_loc_E70A(
+                setup.beam_counter,
+                origin.screen_x_word,
+                origin.screen_y_word,
+                latched_x_direction,
+            )
+        else {
+            return;
+        };
+
+        let column = crate::level::level_sprite_strip_collision_column_loc_E70A(
+            crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                addr_next_sprite_slot_offset: 0,
+                number_sprites: 0,
+                map_probe_screen_x,
+                top_probe_screen_y,
+                bottom_probe_screen_y,
+                camera_x: (slice.camera.x_pos >> 16) as i16,
+                camera_y: (slice.camera.y_pos >> 16) as i16,
+                level_width_blocks: grid.width_cells as i16,
+            },
+        );
+        let Some(tile_column) = column.tile_column else {
+            return;
+        };
+        let top_tile_row = crate::level::level_sprite_strip_top_row_upper_clamp_loc_E738(
+            column.top_tile_row_lower_clamped,
+            grid.height_cells as i16,
+        );
+        let bottom_tile_row = crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(
+            crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(column.bottom_world_y),
+            grid.height_cells as i16,
+        );
+        let row_count = bottom_tile_row.wrapping_sub(top_tile_row) as u16;
+        // TODO(fidelity): ASM sub_E446 also queues a `$12C` foreground update
+        // worker for each revealed cell. Native has no typed queue for that
+        // static upload path yet, so this bridge applies the gameplay-visible
+        // Level_Layout mutation and intentionally drops the visual descriptors.
+        block_list.hidden_block_column_updates_sub_E446(
+            grid,
+            tile_column as u16,
+            top_tile_row as u16,
+            row_count,
+        );
+
+        let adjacent_column = if latched_x_direction == 0 {
+            tile_column.checked_sub(1)
+        } else {
+            crate::level::level_sprite_strip_right_adjacent_column_loc_E786(
+                tile_column,
+                0,
+                grid.width_cells as i16,
+            )
+            .map(|adjacent| adjacent.tile_column)
+        };
+        if crate::level::level_sprite_strip_should_scan_adjacent_column_loc_E790(
+            self.helmet.eyeclops_beam_counter,
+        ) && let Some(adjacent_column) = adjacent_column
+        {
+            block_list.hidden_block_column_updates_sub_E446(
+                grid,
+                adjacent_column as u16,
+                top_tile_row as u16,
+                row_count,
+            );
         }
     }
 

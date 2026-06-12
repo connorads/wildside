@@ -5523,6 +5523,45 @@ mod chunk_06 {
         assert_eq!(rt.projectiles.len(), 1);
     }
 
+    /// ASM loc_E70A/loc_E756/sub_E446 (kid.asm:18405/18440/17963): the live
+    /// Eyeclops beam's rendered strip scans its terrain column and reveals
+    /// hidden blocks inside the vertical collision band.
+    #[test]
+    #[allow(non_snake_case)]
+    fn eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.set_block_grid(grid_with_cells(24, 20, &[(10, 15, 0xA0, 0x00)]));
+        rt.block_list = Some(terrain::BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![terrain::HiddenBlockEntry {
+                layout_addr: ((15u16 * 24u16) + 10u16) * 2,
+                col: 10,
+                row: 15,
+                block_type: 0x0A,
+                block_setting: 0x01,
+            }],
+        });
+
+        let mut slice = combat_slice();
+        slice.player.facing = Direction::Right;
+        rt.step_eyeclops_beam(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(10, 15),
+            terrain::Cell::from_be_bytes(0xEA, 0x1D),
+            "ASM sub_E446 should reveal the hidden Evanescent block touched by the first beam strip"
+        );
+    }
+
     // --- Juggernaut skull shot tests ---
 
     #[test]
