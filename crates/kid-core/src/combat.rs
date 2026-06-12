@@ -10978,6 +10978,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x0F } => ufo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy {
@@ -11012,6 +11013,25 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn ufo_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM UFO.asm live saucer animation `stru_34C7E` uses `LnkTo_unk_C8418..C8428`,
+    // which map through GfxObjects_CollisionKid loc_1BCE to `unk_31CEA` (zero
+    // lead row) and `unk_31CE0`: `dc.w -$E,$1C,-$1B,$18`. Native does not expose
+    // the exact sprite phase here yet, so preserve the active nonzero saucer row
+    // instead of the invented generic 8x16 fallback.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-14, 14),
+        Some(Direction::Left) | None => (-14, 14),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -27,
+        bottom_px: -3,
     }
 }
 
