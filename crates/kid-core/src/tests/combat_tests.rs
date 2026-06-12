@@ -1224,6 +1224,34 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
 }
 
 #[test]
+fn live_heady_metal_early_breakup_queues_boss_eye_pop_sfx_loc_3772a() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 37);
+    runtime.active_enemies = vec![boss];
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let collision_target = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&collision_target, 0x002C);
+    runtime.apply_pending_enemy_collisions();
+
+    assert_eq!(
+        runtime.active_enemies[0].hit_points, 36,
+        "ASM sub_37708 loc_3772A increments `$3E(a3)` once for the first HeadyMetal breakup hit"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::BossEyePops],
+        "ASM sub_37708 loc_3772A plays `sfx_Boss_eye_pops` while popping early HeadyMetal pieces"
+    );
+    assert_eq!(QueuedSoundEffect::BossEyePops.sound_id(), 0x48);
+}
+
+#[test]
 fn boss_eye_attack_sub_37332_deletes_only_below_level_height() {
     let mut runtime = NativeRuntime::new(manifest());
     let level_height = runtime.level_bounds(runtime.current_level).height_pixels;

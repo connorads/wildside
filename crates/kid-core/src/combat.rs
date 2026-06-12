@@ -75,6 +75,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceNoTime,
     KidPullup,
     BigHoppingSkullGroan,
+    BossEyePops,
     BossDies,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
@@ -177,6 +178,9 @@ impl QueuedSoundEffect {
             // ASM sub_3A292 loc_3A2C0 (kid.asm:43356): boss-head hits reuse
             // `sfx_Big_Hopping_Skull_groan = $5C`.
             Self::BigHoppingSkullGroan => 0x5C,
+            // ASM sub_37002/sub_393B2/sub_37708 loc_3772A play
+            // `sfx_Boss_eye_pops = $48` when boss eye pieces pop/detach.
+            Self::BossEyePops => 0x48,
             // ASM boss-head death loc_39EE2 (kid.asm:43034) plays
             // `sfx_Boss_dies = $57` before the loc_39F7A spin loop.
             Self::BossDies => 0x57,
@@ -7952,6 +7956,13 @@ impl NativeRuntime {
                     enemy.hit_points = 37u16
                         .saturating_sub(result.next_phase_counter)
                         .min(u16::from(u8::MAX)) as u8;
+                    changed_enemy_state = true;
+                }
+                if result.played_sound_effect == Some("sfx_Boss_eye_pops") {
+                    // ASM sub_37708 loc_3772A plays `sfx_Boss_eye_pops`
+                    // while raising early breakup piece sprite order.
+                    self.played_sound_effects
+                        .push(QueuedSoundEffect::BossEyePops);
                     changed_enemy_state = true;
                 }
 
