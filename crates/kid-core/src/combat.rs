@@ -10972,6 +10972,7 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x00 } => fire_demon_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
@@ -11009,6 +11010,26 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn fire_demon_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Fire_Demon.asm walking scripts `stru_3A31A`/`stru_3A334` use
+    // `LnkTo_unk_C771E..C7736`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to CollisionSize_Index row `unk_31692`: `dc.w -$7,$E,-$1E,$1E`.
+    // Hurt/death animation rows map to zero-sized `unk_3169C`, but native does
+    // not expose the exact current sprite link here yet, so keep the live
+    // walking row for active Fire Demons.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-7, 7),
+        Some(Direction::Left) | None => (-7, 7),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -30,
+        bottom_px: 0,
     }
 }
 
