@@ -4280,9 +4280,10 @@ mod chunk_02 {
 
     #[test]
     fn generated_level20_reported_prize_clusters_use_layout_addr_not_cluster_base_loc_10342() {
-        let Some(mut runtime) = cached_generated_runtime() else {
+        let Some(manifest) = cached_generated_manifest() else {
             return;
         };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
 
         runtime.reload_block_grid_for_level(LevelId(0x20));
         let block_list = runtime
@@ -4311,17 +4312,42 @@ mod chunk_02 {
                 .as_ref()
                 .expect("generated level 0x20 should load its collision grid")
                 .clone();
+            let mut deferred_ceiling_clears = Vec::new();
+            let mut block_bounces = Vec::new();
             let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
                 &mut grid,
                 Some(block_list),
-                &mut Vec::new(),
-                &mut Vec::new(),
+                &mut deferred_ceiling_clears,
+                &mut block_bounces,
                 col,
                 row,
             );
             assert_eq!(
                 content, expected_content,
                 "ASM sub_1007A -> loc_10342 should resolve Level 0x20 cell ({col},{row}) from layout ${layout_addr:04X} as {expected_content:?}, not Diamond",
+            );
+
+            let mut probe_runtime = NativeRuntime::new(manifest.clone());
+            probe_runtime.block_grid = Some(grid);
+            probe_runtime.block_state.deferred_ceiling_clears = deferred_ceiling_clears;
+            for _ in 0..=NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES + 1 {
+                probe_runtime.step_deferred_ceiling_clears();
+            }
+            probe_runtime.finish_deferred_ceiling_clears();
+
+            assert!(
+                probe_runtime
+                    .floating_items
+                    .iter()
+                    .any(|item| item.content == expected_content),
+                "ASM sub_1007A -> PrizeHelmet*_Init should spawn Level 0x20 layout ${layout_addr:04X} as {expected_content:?}",
+            );
+            assert!(
+                probe_runtime
+                    .floating_items
+                    .iter()
+                    .all(|item| item.content != terrain::PrizeContent::Diamond),
+                "Level 0x20 layout ${layout_addr:04X} reported helmet prize must not spawn a Diamond",
             );
         }
     }
