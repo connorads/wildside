@@ -61,6 +61,7 @@ pub(crate) enum QueuedSoundEffect {
     DiamondPrize,
     AnkhPrize,
     ClockPrize,
+    CoinPrize,
     DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
@@ -138,6 +139,10 @@ impl QueuedSoundEffect {
             // ASM PrizeClock_Init (kid.asm:21999) plays
             // `sfx_Clock_prize = $0E` when the clock prize is collected.
             Self::ClockPrize => 0x0E,
+            // ASM CharacterCollision_TouchCoin (kid.asm:14903) increments
+            // `Number_Continues` and plays `sfx_Coin_prize = $2C` when the Kid
+            // collects a Continue prize object.
+            Self::CoinPrize => 0x2C,
             // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
             // when the falling child reaches floor collision before loc_33488.
             Self::DripsDripping => 0x58,
@@ -9012,6 +9017,7 @@ impl NativeRuntime {
                 self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
+                self.played_sound_effects.push(QueuedSoundEffect::CoinPrize);
                 self.progression.number_continues =
                     self.progression.number_continues.saturating_add(1);
             }

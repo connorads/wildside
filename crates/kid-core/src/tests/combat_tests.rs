@@ -5921,6 +5921,30 @@ mod chunk_03 {
     }
 
     #[test]
+    fn prize_content_continue_queues_coin_sound_on_increment_loc_b952() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 1;
+
+        runtime.apply_prize_content(terrain::PrizeContent::Continue);
+
+        assert_eq!(
+            runtime.progression.number_continues, 2,
+            "ASM CharacterCollision_TouchCoin (kid.asm:14903) increments Number_Continues on Continue prize contact"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::CoinPrize],
+            "ASM CharacterCollision_TouchCoin (kid.asm:14903) plays sfx_Coin_prize=$2C on the same increment frame"
+        );
+        assert_eq!(
+            QueuedSoundEffect::CoinPrize.sound_id(),
+            0x2C,
+            "constants.asm sfx_Coin_prize = $2C"
+        );
+    }
+
+    #[test]
     fn prize_ankh_collected_loc_feee_advances_cached_screen_offsets_before_world_write() {
         let step = NativeRuntime::prize_collected_arc_hibernate_step_loc_FEEE(
             0x0028_0000,
