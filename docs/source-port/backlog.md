@@ -148,9 +148,20 @@ and stop — never commit churn.
   `.cache/debug/issue260-route-probes/drop-contact-br460-492-l493-bl480-520.json`
   first diverges against oracle at frame 519 on HP (`native=1`, `oracle=0`);
   `tas-diff` shows oracle has already taken DripsSurfaceCrawler damage while
-  native has not. The immediate `530..600` B/B+Left/B+Right climb continuations
-  also do not improve the healthy score. Do not reuse this `480..520 B+Left`
-  setup seed as proof. A fresh post-300 right-run/brake axis over
+  native has not, so it is another phase-shifted setup rather than metal-block
+  proof. The immediate `530..600` B/B+Left/B+Right climb continuations also do
+  not improve the healthy score. Do not reuse this `480..520 B+Left` setup seed
+  as proof. 2026-06-12 Iron Knight route-shape check: refreshed
+  `issue260-drips-iron-knight-climb-probe`, extended it cache-locally to 700
+  frames, and probed post-536 wall-climb overlays. Best new left-target
+  approach was `500..535 Left` then `536..700 B+Left`, reaching `(456,543)`
+  healthy `dx=-1 dy=-23 @552`; `verify-tas --scenario
+  .cache/debug/issue260-iron-extended/ik-l500-bl536.json --frame-start 500
+  --frame-end 560 --checkpoint-interval 1 --frontier-kind enemy --bisect`
+  passed with no authoritative divergences. This is useful oracle-comparable
+  route evidence, but still not row-32 slime/metal-block contact; do not repeat
+  Iron Knight late B+Left wall-climb trimming unless the pre-500 route shape
+  changes. A fresh post-300 right-run/brake axis over
   `issue-260-drips-drop-contact-probe-current/scenario.json` (`300..400/430/450`
   clears, `400..520` right windows, `500..555 B+Right`, and early left brakes)
   also failed: the best raw right-target proximity was `dx=+3 dy=-8` around
