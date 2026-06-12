@@ -1203,6 +1203,36 @@ pub fn probe_floor_hitbox(
     }
 }
 
+/// Return whether ASM `sub_914A`'s full-width floor row scan would cross any
+/// `$7000` spike cell.
+///
+/// `loc_9188` keeps scanning from `x_pos-FA78` through `x_pos+FA78`, and
+/// `loc_91A6` writes `colid_kidbelow` for any spike before `loc_919E`
+/// continues the loop. This intentionally does not choose floor support; it
+/// only preserves the damage-contact side effect of the row scan.
+pub fn floor_span_contains_spikes(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+) -> bool {
+    if grid.width_pixels() <= 0 {
+        return false;
+    }
+
+    let left_col = pixel_to_cell(center_x_px - half_width).max(0) as u16;
+    let right_col = pixel_to_cell(center_x_px + half_width).max(0) as u16;
+    let row = pixel_to_cell(foot_y_px).max(0) as u16;
+    let max_col = grid.width_cells.saturating_sub(1);
+
+    for col in left_col.min(max_col)..=right_col.min(max_col) {
+        if grid.cell_at(col, row).collision == CollisionKind::Spikes {
+            return true;
+        }
+    }
+    false
+}
+
 /// Probe a horizontal span and return the highest floor support found.
 ///
 /// This is used during level-entry settling where the original game runs a
@@ -3004,6 +3034,25 @@ mod tests {
         // Player at x=40 (col 2), half_width=5. Both edges in cols 2-3 (gap).
         let probe = probe_floor_hitbox(&grid, 40, 48, 5);
         assert!(!probe.on_ground);
+    }
+
+    #[test]
+    fn floor_span_contains_spikes_scans_all_sub_914a_columns() {
+        let w = 8u16;
+        let h = 6u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let spike_offset = (4usize * usize::from(w) + 3) * 2;
+        data[spike_offset] = 0x70;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        assert!(
+            floor_span_contains_spikes(&grid, 32, 64, 17),
+            "ASM sub_914A loc_9188/loc_91A6 scans every floor cell from x-FA78 through x+FA78"
+        );
+        assert!(
+            !floor_span_contains_spikes(&grid, 32, 64, 5),
+            "ASM sub_914A should not report spikes outside the form-specific FA78 span"
+        );
     }
 
     #[test]

@@ -18758,6 +18758,41 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_914A loc_9188/loc_91A6 scans every floor cell across the hitbox
+    /// and writes `colid_kidbelow` ($28) for any `$7000` spike, even if another
+    /// same-row solid is the selected support.
+    #[test]
+    fn loc_91a6_floor_span_spike_survives_selected_solid_support() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let solid_offset = (4usize * usize::from(w)) * 2;
+        data[solid_offset] = 0x60;
+        let spike_offset = (4usize * usize::from(w) + 3) * 2;
+        data[spike_offset] = 0x70;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+
+        slice.apply_floor_collision(Some(&grid), false, false, 17, false);
+
+        assert!(
+            slice.player.on_ground,
+            "test fixture should land on the selected same-row solid support"
+        );
+        assert!(
+            slice.player.on_spikes,
+            "ASM loc_91A6 should preserve spike damage contact from any cell in the full sub_914A floor span"
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> sub_9386 -> loc_9D22:
     /// when an airborne rightward frame lands by the leading edge on SlopeUp,
     /// the same frame must enter the slope-walk handoff and mirror x_vel into

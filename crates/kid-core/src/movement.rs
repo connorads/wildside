@@ -6834,7 +6834,8 @@ impl OpeningSliceState {
                         // on the Level 1 death-respawn route.
                         self.player.jump_buffer_frames = 0;
                     }
-                    self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
+                    self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes
+                        || terrain::floor_span_contains_spikes(grid, x_px, y_px, collision_hw);
                     self.terrain.floor_terrain_type =
                         grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
                     if should_apply_slope_recontact {
