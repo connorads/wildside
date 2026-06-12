@@ -4279,6 +4279,54 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_level20_reported_prize_clusters_use_layout_addr_not_cluster_base_loc_10342() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(0x20));
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 0x20 should load its extracted block-list asset");
+
+        let cases = [
+            (0xADE8, 11, 8, terrain::PrizeContent::RedStealth),
+            (0xADEA, 12, 8, terrain::PrizeContent::RedStealth),
+            (0xBF3A, 68, 26, terrain::PrizeContent::Eyeclops),
+            (0xBF3E, 70, 26, terrain::PrizeContent::Eyeclops),
+        ];
+
+        for (layout_addr, col, row, expected_content) in cases {
+            assert_eq!(
+                block_list
+                    .prize_block_by_layout_addr_loc_10342(layout_addr)
+                    .map(|entry| entry.content),
+                Some(expected_content),
+                "ASM loc_10342 should dispatch Level 0x20 layout ${layout_addr:04X} as {expected_content:?}, not Diamond",
+            );
+
+            let mut grid = runtime
+                .block_grid
+                .as_ref()
+                .expect("generated level 0x20 should load its collision grid")
+                .clone();
+            let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
+                &mut grid,
+                Some(block_list),
+                &mut Vec::new(),
+                &mut Vec::new(),
+                col,
+                row,
+            );
+            assert_eq!(
+                content, expected_content,
+                "ASM sub_1007A -> loc_10342 should resolve Level 0x20 cell ({col},{row}) from layout ${layout_addr:04X} as {expected_content:?}, not Diamond",
+            );
+        }
+    }
+
+    #[test]
     fn level05_recording_settle_counts_lava_special_effect_workers_loc_14c6a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
