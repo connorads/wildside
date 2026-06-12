@@ -236,6 +236,35 @@ fn archer_body_contact_uses_rom_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn cloud_parent_contact_uses_rom_zero_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let cloud = test_enemy(EnemyFamily::Cloud, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&cloud.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Cloud.asm parent frames LnkTo_unk_C78B6..C78CE, death frames LnkTo_unk_C789E..C78AE, and transition frames LnkTo_unk_C787E..C7896 index the zero CollisionSize row unk_314CE through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &cloud.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the ROM Cloud parent uses an empty CollisionSize row; CloudLightning is spawned by Cloud.asm loc_35DF0 as a separate projectile worker"
+    );
+}
+
+#[test]
 fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;
@@ -14067,10 +14096,10 @@ mod chunk_03 {
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        let mut cloud = test_enemy(EnemyFamily::Cloud, 42 << 16, 226 << 16, 1);
-        cloud.layout_index = 1;
+        let mut generic_enemy = test_enemy(EnemyFamily::Drips, 42 << 16, 226 << 16, 1);
+        generic_enemy.layout_index = 1;
         runtime.active_enemy_roster = vec![enemy.snapshot()];
-        runtime.active_enemies = vec![enemy, cloud];
+        runtime.active_enemies = vec![enemy, generic_enemy];
         runtime.active_platforms = vec![make_test_platform(34, 225, 1, 0)];
 
         let trace = runtime.trace_frame();
@@ -14092,11 +14121,11 @@ mod chunk_03 {
             "standing support candidates should be marked as active support",
         );
         assert!(
-            support_debug.contains("enemy_0E#01 dx=0 top_gap=23"),
+            support_debug.contains("enemy_16#01 dx=0 top_gap=23"),
             "the support trace should include the nearby generic enemy candidate, got {support_debug}",
         );
         assert!(
-            support_debug.contains("enemy_0E#01 dx=0 top_gap=23 x_overlap=8 y_overlap=16"),
+            support_debug.contains("enemy_16#01 dx=0 top_gap=23 x_overlap=8 y_overlap=16"),
             "generic enemy support diagnostics should use its positive bottom collision bound, got {support_debug}",
         );
         assert!(

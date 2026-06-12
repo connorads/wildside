@@ -10982,6 +10982,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x08 } => orca_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x0E } => cloud_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0F } => ufo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x11 } => ninja_contact_bounds(enemy),
@@ -11040,6 +11041,15 @@ fn archer_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // through GfxObjects_CollisionKid loc_1BCE to the zero row `unk_314CE`.
     // Fired arrows are separate projectile workers in native, so the archer
     // body itself keeps the ROM's empty contact row.
+    empty_enemy_contact_bounds()
+}
+
+fn cloud_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Cloud.asm parent idle/death/transition frames `LnkTo_unk_C78B6..C78CE`,
+    // `LnkTo_unk_C789E..C78AE`, and `LnkTo_unk_C787E..C7896` route through
+    // GfxObjects_CollisionKid loc_1BCE to the zero row `unk_314CE`. Spawned
+    // lightning uses separate worker `loc_35DF0` in native, so do not fold
+    // projectile rows into the parent enemy contact.
     empty_enemy_contact_bounds()
 }
 
