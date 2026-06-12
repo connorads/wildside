@@ -137,6 +137,41 @@ fn crab_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn armadillo_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 90 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let armadillo = test_enemy(EnemyFamily::Armadillo, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&armadillo.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-21, 18, -20, 0),
+        "ASM Armadillo.asm stru_3C632 uses LnkTo_unk_C76EE..C7716; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize row unk_31686"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &armadillo.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Armadillo walking box reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

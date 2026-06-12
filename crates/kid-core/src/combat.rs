@@ -10972,6 +10972,7 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
@@ -11007,6 +11008,27 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn armadillo_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Armadillo.asm walking scripts `stru_3C632`/`stru_3C64C` use
+    // `LnkTo_unk_C76EE..C7716`, and damage-roll scripts `stru_3C666`/`stru_3C680`
+    // use `LnkTo_unk_C76A6..C76CE`; both map through GfxObjects_CollisionKid
+    // loc_1BCE to CollisionSize_Index rows `unk_31686`/`unk_3167A`:
+    // `dc.w -$15,$27,-$14,$14`. The launch/death row `unk_31684` is zero-sized,
+    // but native does not expose the exact current sprite link here yet, so use
+    // the live walking/rolling union for active Armadillos.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-18, 21),
+        Some(Direction::Left) | None => (-21, 18),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -20,
+        bottom_px: 0,
     }
 }
 
