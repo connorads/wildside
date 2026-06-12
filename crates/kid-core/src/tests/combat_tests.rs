@@ -10843,8 +10843,23 @@ mod chunk_03 {
             );
             assert_eq!(
                 runtime.played_sound_effects,
+                Vec::<QueuedSoundEffect>::new(),
+                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish"
+            );
+
+            runtime.active_enemies[0].wait_timer = BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A + 1;
+            assert!(NativeRuntime::hibernate_enemy_death_animation_frame(
+                &mut runtime.active_enemies[0]
+            ));
+            runtime.queue_death_animation_frame_sounds(0);
+            assert_eq!(
+                runtime.active_enemies[0].wait_timer, BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
+                "ASM loc_39EE2 should play the boss-death sound immediately before loc_39F7A's spin loop"
+            );
+            assert_eq!(
+                runtime.played_sound_effects,
                 vec![QueuedSoundEffect::BossDies],
-                "ASM loc_39EE2 plays `sfx_Boss_dies` during the boss-head death sequence"
+                "ASM loc_39EE2 plays `sfx_Boss_dies` after the eight pre-spin scripts"
             );
             assert_eq!(
                 QueuedSoundEffect::BossDies.sound_id(),

@@ -8197,16 +8197,6 @@ impl NativeRuntime {
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.wait_timer = death_animation_frames;
-            if matches!(
-                family,
-                EnemyFamily::Shishkaboss
-                    | EnemyFamily::BoomerangBosses
-                    | EnemyFamily::BagelBrothers
-            ) {
-                // ASM loc_39EE2: boss-head death sequence plays
-                // `sfx_Boss_dies` before entering the loc_39F7A spin loop.
-                self.played_sound_effects.push(QueuedSoundEffect::BossDies);
-            }
             self.rebuild_active_enemy_roster();
             return;
         }

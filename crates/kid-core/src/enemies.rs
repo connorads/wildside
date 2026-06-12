@@ -6716,7 +6716,10 @@ pub(crate) const DRIPS_DEATH_ANIMATION_FRAMES: u16 = 4 + 4 + 4;
 /// ASM loc_39EBE/loc_39F7A: boss heads play eight hibernate-until-finished
 /// animation scripts (120 ticks total), then loop four 1-tick sweep scripts
 /// ten times (17 ticks per loop) before `j_Delete_CurrentObject`.
-pub(crate) const BOSS_HEAD_DEATH_ANIMATION_FRAMES: u16 = 120 + (10 * 17);
+pub(crate) const BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2: u16 = 120;
+pub(crate) const BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A: u16 = 10 * 17;
+pub(crate) const BOSS_HEAD_DEATH_ANIMATION_FRAMES: u16 =
+    BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2 + BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A;
 
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
@@ -41850,6 +41853,20 @@ impl NativeRuntime {
         true
     }
 
+    pub(crate) fn queue_death_animation_frame_sounds(&mut self, idx: usize) {
+        let Some(enemy) = self.active_enemies.get(idx) else {
+            return;
+        };
+        if is_multi_head_boss(enemy.family)
+            && enemy.death_animation_active
+            && enemy.wait_timer == BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A
+        {
+            // ASM loc_39EE2: `sfx_Boss_dies` plays after the first eight
+            // hibernate-until-finished scripts, immediately before loc_39F7A.
+            self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+        }
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;
@@ -41970,10 +41987,19 @@ impl NativeRuntime {
                 );
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();
+                let mut death_animation_sound_indices = Vec::new();
                 for (idx, enemy) in self.active_enemies.iter_mut().enumerate() {
                     if Self::hibernate_enemy_death_animation_frame(enemy) {
+                        if is_multi_head_boss(enemy.family)
+                            && enemy.wait_timer == BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A
+                        {
+                            death_animation_sound_indices.push(idx);
+                        }
                         death_animation_hibernated_indices.push(idx);
                     }
+                }
+                for idx in death_animation_sound_indices {
+                    self.queue_death_animation_frame_sounds(idx);
                 }
                 let dead_enemy_indices: Vec<usize> = self
                     .active_enemies
