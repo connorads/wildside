@@ -10977,6 +10977,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x03 } => robot_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x06 } => sphere_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x08 } => orca_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0F } => ufo_contact_bounds(enemy),
@@ -11018,6 +11019,25 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn orca_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Orca.asm walk/jump/hurt scripts use `LnkTo_unk_C7656..C769E`,
+    // which map through GfxObjects_CollisionKid loc_1BCE to `unk_31664` and
+    // `unk_3166E`: `dc.w -$E,$1C,-$1B,$1B`. Native does not expose the exact
+    // sprite link here yet, so this keeps the active body row and leaves the
+    // death-tail zero row `unk_31662` unmodelled.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-14, 14),
+        Some(Direction::Left) | None => (-14, 14),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -27,
+        bottom_px: 0,
     }
 }
 

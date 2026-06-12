@@ -172,6 +172,41 @@ fn armadillo_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 91 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let orca = test_enemy(EnemyFamily::Orca, 101 << 16, 100 << 16, 4);
+    let bounds = enemy_contact_bounds(&orca.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-14, 14, -27, 0),
+        "ASM Orca.asm walk/jump/hurt frames use LnkTo_unk_C7656..C769E; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_31664/unk_3166E"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &orca.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Orca active body reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 88 << 16;
