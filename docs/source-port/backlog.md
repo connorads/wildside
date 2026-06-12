@@ -229,7 +229,13 @@ and stop — never commit churn.
   820 ranked no better than `(456,543) dx=-5 dy=-39` and `(584,543)
   dx=+55 dy=-16`, so the direct Iron Knight post-tail route moves away from
   centre `EC2D` contact. Do not repeat this post-536 Iron Knight continuation
-  axis without changing the pre-536 route shape.
+  axis without changing the pre-536 route shape. A distinct pre-478 slingback
+  family over the named contact probe (`0..160 Right+B`, `161..220 Left`,
+  `221..420 Right+B`, `421..477 Left`) also failed after tail refinement:
+  best live result was `sling_tail_right_early` at `(456,543) dx=-1 dy=-17`
+  and `(584,543) dx=0 dy=-48`, with a focused probe staying `InGame`/HP 1 and
+  showing only the earlier floor `DripsSurfaceCrawler` window, not centre-cell
+  block contact. Do not repeat this pre-478 slingback family unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
