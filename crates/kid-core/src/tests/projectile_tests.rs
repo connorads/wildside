@@ -6696,19 +6696,19 @@ mod chunk_06 {
             "ASM loc_34C4A clears has_level_collision before the two cleanup sprites"
         );
 
-        for _ in 0..5 {
+        for _ in 0..7 {
             rt.step_projectiles();
             assert_eq!(
                 rt.projectiles.len(),
                 1,
-                "ASM loc_34C4A hibernates three frames on each cleanup sprite"
+                "ASM loc_34C4A hibernates three frames on each cleanup sprite; native sampled state also includes the resumed cleanup-label frame"
             );
         }
         rt.step_projectiles();
 
         assert!(
             rt.projectiles.is_empty(),
-            "ASM Dragon_Flying.asm loc_34C4A deletes after both three-frame cleanup sprites"
+            "ASM Dragon_Flying.asm loc_34C4A deletes after both cleanup sprites finish their sampled hibernate windows"
         );
     }
 

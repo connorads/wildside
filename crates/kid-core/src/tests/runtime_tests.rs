@@ -6514,10 +6514,19 @@ mod chunk_09 {
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(0x06)
             .settle_recording_warp()
-            .run(&[0; 40], 40);
+            .run(&[0; 75], 75);
         let frame_36 = trace
             .get(36)
             .expect("Level 0x06 issue #289 probe should include frame 36");
+        let frame_68 = trace
+            .get(68)
+            .expect("Level 0x06 issue #289 probe should include frame 68");
+        let frame_73 = trace
+            .get(73)
+            .expect("Level 0x06 issue #289 probe should include frame 73");
+        let frame_74 = trace
+            .get(74)
+            .expect("Level 0x06 issue #289 probe should include frame 74");
 
         assert_eq!(
             frame_36.number_objects, 6,
@@ -6529,6 +6538,18 @@ mod chunk_09 {
                 .iter()
                 .any(|projectile| projectile.kind == ActiveProjectileKind::DragonFlyingDescentFire),
             "ASM Dragon_Flying.asm loc_34BAC child must be present at oracle issue289 frame 36, not a load-only parent still waiting in loc_34710 hover",
+        );
+        assert_eq!(
+            frame_68.number_objects, 6,
+            "ASM Dragon_Flying.asm loc_34C4A cleanup hibernates the descent-fire child through oracle issue289 frame 68",
+        );
+        assert_eq!(
+            frame_73.number_objects, 6,
+            "ASM Dragon_Flying.asm loc_34C4A cleanup keeps the descent-fire child allocated through oracle issue289 frame 73",
+        );
+        assert_eq!(
+            frame_74.number_objects, 5,
+            "ASM Dragon_Flying.asm loc_34C3A/loc_34C4A has cleaned up the descent-fire child by oracle issue289 frame 74 while the Dragon parent continues",
         );
     }
 

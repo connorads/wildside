@@ -108,6 +108,7 @@ const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 /// fires exactly when `y+$A` enters the solid row-37 tile, not `y+$1F`.
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
+const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectilePlayerContactLocB640 {
@@ -123,7 +124,11 @@ fn dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile: &mut EnemyProj
     projectile.terrain_kill = cleanup.has_level_collision;
     projectile.dragon_flying_descent_fire_state =
         DragonFlyingDescentFireState::CleanupFirstLoc34C4A;
-    projectile.dragon_flying_descent_fire_counter = cleanup.first_animation_hibernate_frames;
+    // ASM Dragon_Flying.asm loc_34C4A enters cleanup after the hibernated
+    // loc_34C3A collision/offscreen frame has already resumed. Native stores
+    // the coroutine label between projectile passes, so keep one extra sampled
+    // frame for each cleanup sprite to match the Object_RAM lifetime.
+    projectile.dragon_flying_descent_fire_counter = cleanup.first_animation_hibernate_frames + 1;
 }
 
 fn dragon_flying_descent_fire_offscreen_flag_loc_34c3a(
@@ -188,7 +193,7 @@ fn step_dragon_flying_descent_fire_loc_34c26(
                 projectile.dragon_flying_descent_fire_state =
                     DragonFlyingDescentFireState::CleanupSecondLoc34C4A;
                 projectile.dragon_flying_descent_fire_counter =
-                    DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A;
+                    DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A + 1;
                 true
             }
         }
@@ -830,6 +835,30 @@ fn projectile_terrain_contact_loc_3345c(
 ) -> bool {
     let px_i = (projectile.x_pos >> 16) as i32;
     let py_i = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
+        // ASM Dragon_Flying.asm loc_34C3A tests `collision_type(a3)` after
+        // GfxObjects_Collision runs. Object meta `$0C` maps through
+        // CollisionSize_Index to `unk_314D0` (kid.asm:36561), a narrow
+        // `-$5,$A,-$1F,$1F` hitbox; visual sprite bounds are wider and collide
+        // too early in the issue #289 settled-warp route.
+        let foot_row = terrain::pixel_to_cell(py_i).max(0) as u16;
+        let left_col = terrain::pixel_to_cell(
+            px_i - DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A,
+        )
+        .max(0) as u16;
+        let right_col = terrain::pixel_to_cell(
+            px_i + DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A,
+        )
+        .max(0) as u16;
+        return (left_col..=right_col).any(|col| {
+            matches!(
+                grid.cell_at(col, foot_row).collision,
+                terrain::CollisionKind::Solid
+                    | terrain::CollisionKind::SlopeUp
+                    | terrain::CollisionKind::SlopeDown
+            )
+        });
+    }
     if projectile.kind == EnemyProjectileKind::DripsDrop {
         // ASM Drips.asm loc_3345C waits until the falling child reports
         // collision_type `$0C` (floor). GfxObjects_Collision's tile loop
