@@ -161,7 +161,14 @@ and stop — never commit churn.
   passed with no authoritative divergences. This is useful oracle-comparable
   route evidence, but still not row-32 slime/metal-block contact; do not repeat
   Iron Knight late B+Left wall-climb trimming unless the pre-500 route shape
-  changes. A fresh post-300 right-run/brake axis over
+  changes. 2026-06-12 follow-up: a small pre-500 replacement batch over
+  `.cache/debug/issue260-iron-extended/ik-l500-bl536.json` changed the setup
+  before the late Iron Knight wall-climb tail (`300..499` left-return, high-arc,
+  brake-drop, and slingback variants). Best candidate was `pre300_high_arc`,
+  still final `InGame` with `lives/hp 3/3`, but only reached `(456,543)` at
+  healthy `dx=0 dy=-17 @546`; right target stayed at the old `dy=-48` class.
+  This does not improve on the existing comparable near-miss and should not be
+  mined as Drips/block proof. A fresh post-300 right-run/brake axis over
   `issue-260-drips-drop-contact-probe-current/scenario.json` (`300..400/430/450`
   clears, `400..520` right windows, `500..555 B+Right`, and early left brakes)
   also failed: the best raw right-target proximity was `dx=+3 dy=-8` around
