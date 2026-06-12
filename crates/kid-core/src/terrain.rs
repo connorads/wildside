@@ -1146,23 +1146,23 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
 
 /// Find the floor Y position below a given point by scanning downward.
 /// Used during entry animation to find where the player should land.
-/// Returns the pixel Y of the floor surface (interpolated for slopes)
-/// of the first solid cell below `start_y_px`.
+/// Returns the pixel Y of the floor surface of the first Solid/Spikes cell
+/// below `start_y_px`.
 ///
 /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up —
 /// `add.w (Level_width_tiles),a4; addi.w #$10,d6; move.w (a4),d7;
 /// andi.w #$7000,d7; cmpi.w #$6000,d7; blt.s loc_ABF0`.  Walks down
-/// tile rows until a solid cell is found.  Native: same row-walk with
-/// `is_solid_floor()` instead of the $7000/$6000 bitmask test.
+/// tile rows until a Solid ($6000) or Spikes ($7000) cell is found; slope
+/// classes $4000/$5000 are intentionally skipped.
 pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<i32> {
     let col = pixel_to_cell(x_px).max(0) as u16;
     let start_row = pixel_to_cell(start_y_px).max(0) as u16;
 
     for row in start_row..grid.height_cells {
         let cell = grid.cell_at(col, row);
-        if cell.is_solid_floor() {
+        if matches!(cell.collision, CollisionKind::Solid | CollisionKind::Spikes) {
             let cell_top = i32::from(row) * 16;
-            return Some(slope_floor_y(cell.collision, cell_top, x_px));
+            return Some(cell_top);
         }
     }
     None
@@ -2670,6 +2670,22 @@ mod tests {
         // Starting from y=0, should find floor at row 2 = y=32
         let floor_y = find_floor_below(&grid, 8, 0);
         assert_eq!(floor_y, Some(32));
+    }
+
+    #[test]
+    fn find_floor_below_loc_abf0_skips_slopes_until_solid_or_spikes() {
+        let mut grid = make_empty_grid(4, 5);
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0x40, 0x01));
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x50, 0x01));
+        grid.set_cell_at(1, 4, Cell::from_be_bytes(0x60, 0x01));
+
+        let floor_y = find_floor_below(&grid, 24, 0);
+
+        assert_eq!(
+            floor_y,
+            Some(64),
+            "ASM loc_ABF0 (kid.asm:13449) masks (cell & $7000) and only stops at classes >= $6000, so slope classes $4000/$5000 are skipped",
+        );
     }
 
     #[test]
