@@ -7480,54 +7480,6 @@ mod chunk_09 {
 
     // --- Process block effects ---
 
-    #[test]
-    fn process_block_effects_drill_projectile_fires_rightward() {
-        // ASM sub_1129C/sub_10EDA: a drill hit spawns a plain horizontal
-        // projectile at the block effect origin, moving 4px/frame.
-        let mut rt = NativeRuntime::new(manifest());
-        let mut slice = OpeningSliceState::new(default_bounds());
-        slice.player.x_pos = 200 << 16;
-        let origin = (100 << 16, 50 << 16);
-        slice.drill_projectile_hit = Some(origin);
-
-        rt.process_block_effects(&mut slice);
-
-        assert_eq!(rt.projectiles.len(), 1);
-        let projectile = &rt.projectiles[0];
-        assert!(
-            projectile.x_velocity > 0,
-            "drill projectile should fire rightward when player is right of block"
-        );
-        assert_eq!(projectile.x_pos, origin.0);
-        assert_eq!(projectile.y_pos, origin.1);
-        assert_eq!(projectile.x_velocity, 0x4_0000);
-        assert_eq!(projectile.y_velocity, 0);
-        assert_eq!(projectile.lifetime, 120);
-    }
-
-    #[test]
-    fn process_block_effects_drill_projectile_fires_leftward() {
-        let mut rt = NativeRuntime::new(manifest());
-        let mut slice = OpeningSliceState::new(default_bounds());
-        slice.player.x_pos = 50 << 16;
-        let origin = (100 << 16, 50 << 16);
-        slice.drill_projectile_hit = Some(origin);
-
-        rt.process_block_effects(&mut slice);
-
-        assert_eq!(rt.projectiles.len(), 1);
-        let projectile = &rt.projectiles[0];
-        assert!(
-            projectile.x_velocity < 0,
-            "drill projectile should fire leftward when player is left of block"
-        );
-        assert_eq!(projectile.x_pos, origin.0);
-        assert_eq!(projectile.y_pos, origin.1);
-        assert_eq!(projectile.x_velocity, -0x4_0000);
-        assert_eq!(projectile.y_velocity, 0);
-        assert_eq!(projectile.lifetime, 120);
-    }
-
     /// ASM `loc_110D0` (kid.asm:23019) drives the metal-block ±8 y_pos arc via
     /// `BlockBounceAnim`; ASM `sub_10DE4` (kid.asm:22717) drives the rubber
     /// block through a skin-swap coroutine without ever touching `y_pos(a3)`,

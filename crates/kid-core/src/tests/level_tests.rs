@@ -8789,7 +8789,6 @@ mod chunk_02 {
             prize_block_hit: None,
             lift_block_hit: None,
             shifting_block_hit: None,
-            drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
@@ -18537,7 +18536,6 @@ mod chunk_02 {
             prize_block_hit: None,
             lift_block_hit: None,
             shifting_block_hit: None,
-            drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
@@ -18622,7 +18620,6 @@ mod chunk_02 {
             prize_block_hit: None,
             lift_block_hit: None,
             shifting_block_hit: None,
-            drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
@@ -18697,7 +18694,6 @@ mod chunk_02 {
             prize_block_hit: None,
             lift_block_hit: None,
             shifting_block_hit: None,
-            drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
@@ -19171,8 +19167,8 @@ mod chunk_02 {
 
         let (drill_hit, drill_grid) = hit_block(0xEC);
         assert_eq!(
-            drill_hit.drill_projectile_hit, None,
-            "ASM off_BB80 index C -> return_BBC0: Drill ceiling dispatch must not queue sub_1129C projectile work",
+            drill_hit.shooter_block_hit, None,
+            "ASM off_BB80 index C -> return_BBC0: Drill ceiling dispatch must not queue shooter/projectile block work",
         );
         assert_eq!(
             drill_grid.cell_at(2, 2),

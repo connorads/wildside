@@ -2716,8 +2716,6 @@ pub(crate) struct OpeningSliceState {
     pub(crate) lift_block_hit: Option<(u16, u16)>,
     /// Shifting block activated this frame — (cell_x, cell_y) of the source block.
     pub(crate) shifting_block_hit: Option<(u16, u16)>,
-    /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
-    pub(crate) drill_projectile_hit: Option<(u32, u32)>,
     /// Metal block bounced this frame — (cell_x, cell_y).
     pub(crate) metal_block_hit: Option<(u16, u16)>,
     /// Rubber block contacted this frame — (cell_x, cell_y).

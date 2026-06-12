@@ -3687,21 +3687,6 @@ impl NativeRuntime {
             });
         }
 
-        // Drill block: headbutt spawns a horizontal projectile (ASM sub_1129C: ±4px/frame)
-        if let Some((x_fp, y_fp)) = slice.drill_projectile_hit {
-            // Direction based on player position relative to drill block
-            let dir = if slice.player.x_pos >= x_fp { 1i32 } else { -1 };
-            self.projectiles.push(EnemyProjectile {
-                x_pos: x_fp,
-                y_pos: y_fp,
-                x_velocity: dir * 0x4_0000, // 4 px/frame horizontal
-                lifetime: 120,
-                // ASM sub_1129C/sub_10EDA creates the simple horizontal drill
-                // effect; the remaining projectile fields stay at native defaults.
-                ..Default::default()
-            });
-        }
-
         // Teleporter block: warp player to destination
         if let Some((cell_x, cell_y)) = slice.teleporter_contact
             && let Some(block_list) = self.block_list.as_ref()

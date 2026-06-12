@@ -4928,7 +4928,6 @@ mod chunk_11 {
             prize_block_hit: None,
             lift_block_hit: None,
             shifting_block_hit: None,
-            drill_projectile_hit: None,
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,

@@ -886,8 +886,8 @@ mod chunk_01 {
             "ASM off_BB80 index C -> return_BBC0: headbutting a Drill block must leave the terrain cell intact"
         );
         assert_eq!(
-            slice.drill_projectile_hit, None,
-            "ASM off_BB80 index C -> return_BBC0: sub_1129C is not queued by headbutting a Drill block"
+            slice.shooter_block_hit, None,
+            "ASM off_BB80 index C -> return_BBC0: headbutting a Drill block must not queue any block projectile worker"
         );
     }
 
