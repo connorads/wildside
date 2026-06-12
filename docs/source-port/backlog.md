@@ -115,6 +115,13 @@ and stop — never commit churn.
   and is not oracle-comparable: `verify-tas --frame-start 500 --frame-end 559`
   first diverges at frame 500 on HP (`native=1`, `oracle=0`). Treat this as
   another phase-shifted route rejection, not a Drips hitbox or block-break lead.
+  2026-06-12 follow-up: pre-damage clears on the same
+  `.cache/debug/issue260-approach-br448-465.json` candidate do not produce a
+  usable route. Clearing `524..528`, `525..528`, `520..528`, or `512..528`
+  keeps Kid healthy but collapses back to the old `dx=+1 dy=-20 @473` closest
+  approach; clearing only `528` or `526..528` preserves the raw late approach
+  but still enters death windup by frame 559. Do not repeat this pre-damage
+  left-window-clear threshold axis without changing the earlier route shape.
   A post-`513b36d1` hybrid route batch over the named drop-contact probe also
   failed to find a live right-side contact: clearing `300..559`, applying an
   early `380..388/396 B+Right` pulse plus a later `424..504 B+Right` pulse,
