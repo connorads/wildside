@@ -9978,7 +9978,13 @@ pub(crate) fn step_active_enemies_with_rng(
                         }
                     }
                 } else if let Some(ref mut projs) = projectiles {
-                    step_archer(enemy, projs, player_x_pos, player_y_pos);
+                    step_archer(
+                        enemy,
+                        projs,
+                        player_x_pos,
+                        player_y_pos,
+                        played_sound_effects.as_deref_mut(),
+                    );
                 }
             }
             EnemyArchetype::Tracker => {
@@ -25694,6 +25700,7 @@ pub(crate) fn step_archer(
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     // Face towards player.
     if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
@@ -25795,6 +25802,11 @@ pub(crate) fn step_archer(
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
     });
+    if let Some(sound_effects) = played_sound_effects {
+        // ASM Archer.asm loc_34266: `Enemy07_ArcherArrow_Init` plays
+        // `sfx_Archer_shoots` before loading the arrow object.
+        sound_effects.push(QueuedSoundEffect::ArcherShoots);
+    }
 }
 
 /// Scorpion tracking callback (Scorpion.asm loc_3DD7E).
@@ -27164,6 +27176,60 @@ mod tests {
             enemies[0].ufo_beam_segments, UFO_BEAM_SEGMENT_COUNT,
             "ASM UFO.asm loc_34EEC should arm the beam segment counter after the start cue",
         );
+    }
+
+    #[test]
+    fn archer_live_step_queues_shoot_sound_when_arrow_spawns() {
+        let archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 0,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [archer];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Archer.asm loc_34266 should load the arrow object when the shooting timer expires",
+        );
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::ArcherArrow,
+            "ASM Archer.asm loc_34248/loc_34266 should spawn an Archer arrow before playing the shot cue",
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::ArcherShoots],
+            "ASM Archer.asm loc_34266 should play `sfx_Archer_shoots` before loading the arrow object",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x59);
     }
 
     fn tar_monster_test_enemy() -> ActiveEnemy {

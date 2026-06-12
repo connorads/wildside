@@ -68,6 +68,7 @@ pub(crate) enum QueuedSoundEffect {
     TankDriving,
     RobotShoots,
     UfoShoots,
+    ArcherShoots,
     VoiceNoTime,
     KidPullup,
     BigHoppingSkullGroan,
@@ -154,6 +155,9 @@ impl QueuedSoundEffect {
             // constants.asm: sfx_UFO_shoots = $3A; UFO.asm loc_34EDC and
             // loc_34FAE play this when the beam sequence starts.
             Self::UfoShoots => 0x3A,
+            // constants.asm: sfx_Archer_shoots = $59; Archer.asm loc_34266
+            // plays this before loading the arrow object.
+            Self::ArcherShoots => 0x59,
             // ASM Decrease_Time_Left no-time path (kid.asm:15500): plays
             // `sfx_Voice_no_time = $51` before collision_type=4 death dispatch.
             Self::VoiceNoTime => 0x51,

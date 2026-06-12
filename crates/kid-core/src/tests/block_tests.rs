@@ -7234,7 +7234,7 @@ mod chunk_04 {
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
-        step_archer(&mut enemy, &mut projs, player_x, Some(100u32 << 16));
+        step_archer(&mut enemy, &mut projs, player_x, Some(100u32 << 16), None);
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
         assert!(projs.is_empty(), "should not fire while timer > 0");
     }
@@ -7306,7 +7306,7 @@ mod chunk_04 {
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
         let player_y = Some(100u32 << 16);
-        step_archer(&mut enemy, &mut projs, player_x, player_y);
+        step_archer(&mut enemy, &mut projs, player_x, player_y, None);
         assert_eq!(projs.len(), 1, "should spawn an arrow");
         assert_eq!(
             projs[0].kind,
@@ -7345,6 +7345,7 @@ mod chunk_04 {
             &mut projs,
             Some(200u32 << 16),
             Some(100u32 << 16),
+            None,
         );
 
         assert_eq!(
@@ -7368,6 +7369,7 @@ mod chunk_04 {
             &mut projs,
             Some(200u32 << 16),
             Some(100u32 << 16),
+            None,
         );
 
         assert_eq!(
@@ -7904,6 +7906,7 @@ mod chunk_04 {
             &mut projs,
             Some(200u32 << 16),
             Some(100u32 << 16),
+            None,
         );
         assert_eq!(projs.len(), 1, "should spawn one arrow");
         let arrow = &projs[0];
@@ -7932,6 +7935,7 @@ mod chunk_04 {
                 &mut projs,
                 Some(200u32 << 16),
                 Some(100u32 << 16),
+                None,
             );
         }
 
@@ -7946,6 +7950,7 @@ mod chunk_04 {
             &mut projs,
             Some(200u32 << 16),
             Some(100u32 << 16),
+            None,
         );
 
         assert_eq!(projs.len(), 1);
@@ -8041,6 +8046,7 @@ mod chunk_04 {
             &mut projs,
             Some(200u32 << 16),
             Some(100u32 << 16),
+            None,
         );
         let arrow = &projs[0];
         // Facing Right → X offset +8px (negate of -8). Y offset: horizontal → -17px.
