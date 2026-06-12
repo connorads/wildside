@@ -6519,6 +6519,8 @@ pub(crate) struct ActiveEnemy {
     /// `$3E(a3)` spawn-animation counter from `loc_375DE`.
     pub(crate) boss_movement_delay_counter: u16,
     /// ASM `sub_39846` `a2`: next fixed movement-script entry index.
+    /// HeadyMetal reuses this boss-only slot for the `$FFFFFB4F` active
+    /// eye-pop/thrown-head worker count that freezes `loc_37582` tracking.
     pub(crate) boss_movement_script_index: usize,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
@@ -26615,7 +26617,7 @@ pub(crate) fn step_tracker(
             (enemy.x_pos >> 16) as u16,
             (enemy.y_pos >> 16) as u16,
             37u16.saturating_sub(u16::from(enemy.hit_points)),
-            false,
+            enemy.boss_movement_script_index != 0,
         );
         enemy.x_velocity = tracking.x_velocity;
         enemy.y_velocity = tracking.y_velocity;

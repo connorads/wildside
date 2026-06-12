@@ -681,6 +681,27 @@ fn live_heady_metal_tracker_clears_x_velocity_in_opening_phases_loc_375c2() {
 }
 
 #[test]
+fn live_heady_metal_tracker_honours_global_freeze_loc_375d4() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0081_0000, 0x00A9_0000, 30);
+    // ASM sub_3729E increments `$FFFFFB4F` while eye-pop/thrown-head workers
+    // are active; loc_375D4 clears both d6/d7 before sub_376EC updates pieces.
+    boss.boss_movement_script_index = 1;
+
+    step_tracker(&mut boss, Some(0x0080_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        (boss.x_velocity, boss.y_velocity),
+        (0, 0),
+        "ASM loc_375D4 should freeze HeadyMetal movement while `$FFFFFB4F` is nonzero"
+    );
+    assert_eq!(
+        (boss.x_pos, boss.y_pos),
+        (0x0081_0000, 0x00A9_0000),
+        "ASM loc_375DE feeds the zeroed d6/d7 into the worker update, so live position should not drift"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
     let mut projectiles = Vec::new();
