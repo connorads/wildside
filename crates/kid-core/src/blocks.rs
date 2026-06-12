@@ -3528,16 +3528,11 @@ impl NativeRuntime {
             let contacts = self.rubber_block_contact_cells_sub_10da4(slice, cx, cy);
             self.played_sound_effects
                 .extend(contacts.iter().map(|_| QueuedSoundEffect::RubberBlock));
-            let active_objects = self.active_objects();
-            let camera_state = self.current_camera_state();
-            let (number_objects, _) = self.object_counts_from_roster(
-                &active_objects,
-                camera_state.x_pos,
-                camera_state.y_pos,
-            );
-            // ASM loc_10DA4 compares the live Number_Objects-style counter at
-            // `$FFFFFB5A` with ten before allocating each sub_10DE4 worker.
-            let mut remaining_object_slots = 10usize.saturating_sub(usize::from(number_objects));
+            // ASM loc_10DA4 (kid.asm:22697): `$FFFFFB5A` is a dedicated
+            // rubber-worker counter, distinct from Number_Objects at
+            // `$FFFFF84A`; existing gameplay objects do not consume the cap.
+            let mut remaining_object_slots =
+                10usize.saturating_sub(self.block_state.rubber_block_animations.len());
             for (contact_x, contact_y) in contacts {
                 self.start_rubber_block_animation_sub_10de4_with_budget(
                     contact_x,
@@ -5976,10 +5971,10 @@ mod tests {
     }
 
     #[test]
-    fn rubber_block_process_effects_caps_against_live_object_count_loc_10da4() {
-        // ASM loc_10DA4 (kid.asm:22697): the allocation gate compares the
-        // current `$FFFFFB5A` object count against ten, so existing gameplay
-        // objects reduce the number of rubber workers that can be added.
+    fn rubber_block_process_effects_caps_against_rubber_worker_count_loc_10da4() {
+        // ASM loc_10DA4 (kid.asm:22697): `$FFFFFB5A` is a rubber-worker
+        // counter touched only by loc_10DA4/sub_10DE4, not Number_Objects
+        // at `$FFFFF84A`; ordinary gameplay objects must not consume the cap.
         let mut runtime = runtime_for_block_tests();
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(2);
@@ -6004,18 +5999,17 @@ mod tests {
             runtime.process_block_effects(&mut slice);
         }
 
-        let expected_workers = 10usize.saturating_sub(usize::from(base_number_objects));
         assert_eq!(
             runtime.block_state.rubber_block_animations.len(),
-            expected_workers,
-            "loc_10DA4 should stop once base gameplay objects plus rubber workers reach ten",
+            10,
+            "loc_10DA4 should stop only once the dedicated `$FFFFFB5A` rubber-worker counter reaches ten",
         );
         let (number_objects, number_gfx_objects) = runtime.object_counts_from_roster(
             &runtime.active_objects(),
             camera_state.x_pos,
             camera_state.y_pos,
         );
-        assert_eq!(number_objects, 10);
+        assert_eq!(number_objects, base_number_objects.saturating_add(10));
         assert_eq!(
             number_gfx_objects, base_number_gfx_objects,
             "sub_10DE4 workers should consume object slots without gfx slots",
