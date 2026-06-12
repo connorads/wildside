@@ -3994,6 +3994,41 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_level15_duplicate_prize_layout_uses_first_record_loc_10342() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(0x15));
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 0x15 should load its extracted block-list asset");
+        let entries: Vec<_> = block_list
+            .prize_blocks
+            .iter()
+            .filter(|entry| entry.layout_addr == 0xAFC8)
+            .map(|entry| entry.content)
+            .collect();
+
+        assert_eq!(
+            entries,
+            vec![
+                terrain::PrizeContent::Diamond,
+                terrain::PrizeContent::IronKnight,
+            ],
+            "Level 0x15 currently has duplicate generated prize records for layout `$AFC8`; ASM Prize_Init loc_10342 scans from `$FFFFF8D4`, so the first record is the one the live worker consumes",
+        );
+        assert_eq!(
+            block_list
+                .prize_block_by_layout_addr_loc_10342(0xAFC8)
+                .map(|entry| entry.content),
+            Some(terrain::PrizeContent::Diamond),
+            "ASM loc_10342 first-match semantics classify the Level 0x15 duplicate `$AFC8` record as a real Diamond, not the later IronKnight duplicate",
+        );
+    }
+
+    #[test]
     fn generated_later_level_juggernaut_prize_survives_live_block_lifecycle() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
@@ -4115,6 +4150,130 @@ mod chunk_02 {
                 .iter()
                 .all(|item| item.content != terrain::PrizeContent::Diamond),
             "the generated demo-level Eyeclops prize must not fall back to a Diamond floating item",
+        );
+    }
+
+    #[test]
+    fn generated_visible_helmet_prizes_spawn_configured_content_from_live_worker() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+        let mut checked = Vec::new();
+
+        for level in manifest.levels.iter().map(|level| LevelId(level.level_id)) {
+            runtime.reload_block_grid_for_level(level);
+            let Some(block_list) = runtime.block_list.clone() else {
+                continue;
+            };
+            let Some(base_grid) = runtime.block_grid.clone() else {
+                continue;
+            };
+
+            for prize in block_list.prize_blocks.iter().filter(|entry| {
+                !entry.disguised
+                    && matches!(
+                        entry.content,
+                        terrain::PrizeContent::Skycutter
+                            | terrain::PrizeContent::Cyclone
+                            | terrain::PrizeContent::RedStealth
+                            | terrain::PrizeContent::Eyeclops
+                            | terrain::PrizeContent::Juggernaut
+                            | terrain::PrizeContent::IronKnight
+                            | terrain::PrizeContent::Berzerker
+                            | terrain::PrizeContent::Maniaxe
+                            | terrain::PrizeContent::Micromax
+                    )
+                    && block_list
+                        .prize_block_by_layout_addr_loc_10342(entry.layout_addr)
+                        .is_some_and(|first| first.content == entry.content)
+            }) {
+                let expected_layout_addr = terrain::BlockList::level_layout_low_word_addr(
+                    prize.col,
+                    prize.row,
+                    base_grid.width_cells,
+                );
+                if prize.layout_addr != expected_layout_addr {
+                    continue;
+                }
+
+                let cell = base_grid.cell_at(prize.col, prize.row);
+                if cell.block_type != terrain::BlockType::Prize {
+                    continue;
+                }
+
+                let mut grid = base_grid.clone();
+                let mut deferred_ceiling_clears = Vec::new();
+                let mut block_bounces = Vec::new();
+                let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
+                    &mut grid,
+                    Some(&block_list),
+                    &mut deferred_ceiling_clears,
+                    &mut block_bounces,
+                    prize.col,
+                    prize.row,
+                );
+                assert_eq!(
+                    content, prize.content,
+                    "ASM loc_10342 should dispatch generated level {:02X} prize ({},{}) as {:?}, not the Diamond fallback",
+                    level.0, prize.col, prize.row, prize.content,
+                );
+
+                let mut probe_runtime = NativeRuntime::new(manifest.clone());
+                probe_runtime.block_grid = Some(grid);
+                probe_runtime.block_state.deferred_ceiling_clears = deferred_ceiling_clears;
+                for _ in 0..=NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES + 1 {
+                    probe_runtime.step_deferred_ceiling_clears();
+                }
+                probe_runtime.finish_deferred_ceiling_clears();
+
+                assert!(
+                    probe_runtime
+                        .floating_items
+                        .iter()
+                        .any(|item| item.content == prize.content),
+                    "ASM sub_1007A -> PrizeHelmet*_Init should spawn generated level {:02X} prize ({},{}) as {:?}",
+                    level.0,
+                    prize.col,
+                    prize.row,
+                    prize.content,
+                );
+                assert!(
+                    probe_runtime
+                        .floating_items
+                        .iter()
+                        .all(|item| item.content != terrain::PrizeContent::Diamond),
+                    "generated level {:02X} visible helmet prize ({},{}) must not spawn a Diamond",
+                    level.0,
+                    prize.col,
+                    prize.row,
+                );
+
+                checked.push((level.0, prize.col, prize.row, prize.content));
+            }
+        }
+
+        assert!(
+            checked.len() >= 10,
+            "expected the generated asset cache to expose many visible helmet prize blocks; checked {checked:?}",
+        );
+        assert!(
+            checked
+                .iter()
+                .any(|&(level, col, row, content)| level == 0x05
+                    && col == 116
+                    && row == 10
+                    && content == terrain::PrizeContent::Juggernaut),
+            "the broad #284 audit should include the Level 0x05 Juggernaut prize previously used as the focused live-worker probe",
+        );
+        assert!(
+            checked
+                .iter()
+                .any(|&(level, col, row, content)| level == 0x14
+                    && col == 16
+                    && row == 2
+                    && content == terrain::PrizeContent::Cyclone),
+            "the broad #284 audit should include the Level 0x14 Cyclone prize from the rejected direct route",
         );
     }
 
