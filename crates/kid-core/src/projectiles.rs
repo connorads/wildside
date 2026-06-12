@@ -109,6 +109,13 @@ const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProjectilePlayerContactLocB640 {
+    None,
+    Damage,
+    StompBounce,
+}
+
 fn dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile: &mut EnemyProjectile) {
     let cleanup = dragon_flying_descent_fire_cleanup_loc_34C4A();
     projectile.x_velocity = cleanup.x_velocity;
@@ -3159,8 +3166,12 @@ impl NativeRuntime {
     }
 
     /// Check if any projectile overlaps the player hitbox, returning true if hit.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn projectile_hits_player(&mut self, slice: &OpeningSliceState) -> bool {
-        self.projectile_hits_player_inner(slice, false)
+        matches!(
+            self.projectile_player_contact_loc_b640(slice, false),
+            ProjectilePlayerContactLocB640::Damage
+        )
     }
 
     /// During the invulnerability gate, native mirrors ASM sub_1D76/loc_1E94
@@ -3170,19 +3181,30 @@ impl NativeRuntime {
         &mut self,
         slice: &OpeningSliceState,
     ) -> bool {
-        self.projectile_hits_player_inner(slice, true)
+        !matches!(
+            self.projectile_player_contact_loc_b640(slice, true),
+            ProjectilePlayerContactLocB640::None
+        )
     }
 
-    fn projectile_hits_player_inner(
+    pub(crate) fn projectile_player_contact_after_step_loc_b640(
+        &mut self,
+        slice: &OpeningSliceState,
+    ) -> ProjectilePlayerContactLocB640 {
+        self.projectile_player_contact_loc_b640(slice, false)
+    }
+
+    fn projectile_player_contact_loc_b640(
         &mut self,
         slice: &OpeningSliceState,
         skip_shooter_blocks: bool,
-    ) -> bool {
+    ) -> ProjectilePlayerContactLocB640 {
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
-        let mut hit = false;
+        let mut contact = ProjectilePlayerContactLocB640::None;
         let mut released_owners = Vec::new();
+        let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.last_projectile_damage_probe = None;
         self.projectiles.retain_mut(|p| {
             if p.kind == EnemyProjectileKind::DripsDrop {
@@ -3230,7 +3252,12 @@ impl NativeRuntime {
             };
             let overlaps = x_overlaps && (pry - py).abs() < half + 16;
             if overlaps {
-                hit = true;
+                if contact == ProjectilePlayerContactLocB640::None {
+                    contact = projectile_player_contact_kind_loc_b640(
+                        pry - py,
+                        stomp_registration_blocked,
+                    );
+                }
                 if self.last_projectile_damage_probe.is_none() {
                     let dx = prx - px;
                     let dy = pry - py;
@@ -3284,7 +3311,7 @@ impl NativeRuntime {
                 true
             }
         });
-        hit |= self.fire_demon_trails.iter().any(|trail| {
+        let trail_hit = self.fire_demon_trails.iter().any(|trail| {
             let prx = (trail.x_pos >> 16) as i32;
             let pry = (trail.y_pos >> 16) as i32;
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
@@ -3298,8 +3325,26 @@ impl NativeRuntime {
             }
             overlaps
         });
+        if trail_hit && contact == ProjectilePlayerContactLocB640::None {
+            contact = ProjectilePlayerContactLocB640::Damage;
+        }
         self.release_lion_projectile_owners(released_owners);
-        hit
+        contact
+    }
+}
+
+fn projectile_player_contact_kind_loc_b640(
+    projectile_delta_y: i32,
+    stomp_registration_blocked: bool,
+) -> ProjectilePlayerContactLocB640 {
+    // ASM off_B640 (kid.asm:14546-14558): projectile colid `$2C`
+    // dispatches to Jump_On_Enemy, while `$1C`/`$28` dispatch through
+    // Check_for_recent_damge. ASM loc_1CE4 still gates `$2C` registration to
+    // fresh airborne contacts.
+    if projectile_delta_y >= PROJECTILE_HITBOX_HALF && !stomp_registration_blocked {
+        ProjectilePlayerContactLocB640::StompBounce
+    } else {
+        ProjectilePlayerContactLocB640::Damage
     }
 }
 

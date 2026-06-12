@@ -1,6 +1,7 @@
 use super::*;
 use crate::projectiles::{
-    drips_surface_crawler_burst_helper_loc_338f8, drips_surface_crawler_burst_offset_loc_33550,
+    ProjectilePlayerContactLocB640, drips_surface_crawler_burst_helper_loc_338f8,
+    drips_surface_crawler_burst_offset_loc_33550,
 };
 
 const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
@@ -11382,23 +11383,42 @@ impl NativeRuntime {
         }
 
         self.step_projectiles();
-        if !kid_damage_invulnerable && self.projectile_hits_player(slice) {
-            if self
-                .last_projectile_damage_probe
-                .as_deref()
-                .is_some_and(|probe| probe.starts_with("hit:DripsSurfaceCrawler@"))
-            {
-                // ASM Drips.asm loc_33650/loc_33550 consumes the live crawler
-                // collision during the object pass before Kid spends the same
-                // frame's horizontal movement. Native detects projectile
-                // damage after movement, so restore the issue-260 contact
-                // frame's entry X while preserving the already-matched Y path.
-                slice.player.x_pos = frame_start_x_pos;
+        if !kid_damage_invulnerable {
+            match self.projectile_player_contact_after_step_loc_b640(slice) {
+                ProjectilePlayerContactLocB640::None => {}
+                ProjectilePlayerContactLocB640::Damage => {
+                    if self
+                        .last_projectile_damage_probe
+                        .as_deref()
+                        .is_some_and(|probe| probe.starts_with("hit:DripsSurfaceCrawler@"))
+                    {
+                        // ASM Drips.asm loc_33650/loc_33550 consumes the live crawler
+                        // collision during the object pass before Kid spends the same
+                        // frame's horizontal movement. Native detects projectile
+                        // damage after movement, so restore the issue-260 contact
+                        // frame's entry X while preserving the already-matched Y path.
+                        slice.player.x_pos = frame_start_x_pos;
+                    }
+                    self.opening_slice = Some(*slice);
+                    self.apply_damage();
+                    self.last_kid_frame_post_motion_mutator =
+                        KidFramePostMotionMutator::ProjectileDamage;
+                    return true;
+                }
+                ProjectilePlayerContactLocB640::StompBounce => {
+                    // ASM off_B640 (kid.asm:14556) routes projectile colid
+                    // `$2C` to Jump_On_Enemy, whose loc_B6DA bounce is applied
+                    // at the next frame start by the existing pending-stomp path.
+                    self.pending_stomp_bounce = Some(PendingStompBounce {
+                        anchor_x_pos: frame_start_x_pos,
+                        anchor_y_pos: frame_start_y_pos,
+                    });
+                    self.opening_slice = Some(*slice);
+                    self.last_kid_frame_post_motion_mutator =
+                        KidFramePostMotionMutator::StompBounce;
+                    return true;
+                }
             }
-            self.opening_slice = Some(*slice);
-            self.apply_damage();
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
-            return true;
         }
 
         // Murder wall: advance and kill player on contact.

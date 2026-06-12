@@ -11627,6 +11627,47 @@ mod chunk_09 {
     }
 
     #[test]
+    fn projectile_top_contact_bounces_without_damage_loc_b640_jump_on_enemy() {
+        let mut rt = runtime_with_projectile_and_player(100, 116, 100, 100);
+        let hitpoints_before = rt.progression.number_hitpoints;
+        let mut slice = rt.opening_slice.unwrap();
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0001_0000;
+        rt.opening_slice = Some(slice);
+
+        let mut slice = rt.opening_slice.unwrap();
+        let consumed = rt.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            0x0001_0000,
+            100 << 16,
+            100 << 16,
+            100 << 16,
+        );
+
+        assert!(
+            consumed,
+            "ASM off_B640 routes hostile projectile colid `$2C` through Jump_On_Enemy"
+        );
+        assert_eq!(
+            rt.progression.number_hitpoints, hitpoints_before,
+            "ASM Jump_On_Enemy only falls through to Check_for_recent_damge when object bit 14 is set"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM sub_1D84 still consumes the projectile collision object before dispatching colid `$2C`"
+        );
+        assert!(
+            rt.pending_stomp_bounce.is_some(),
+            "ASM Jump_On_Enemy queues the loc_B6DA bounce mechanics"
+        );
+        assert_eq!(
+            rt.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::StompBounce,
+        );
+    }
+
+    #[test]
     fn drips_falling_drop_overlap_does_not_damage_player_loc_3345c_issue_260() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
