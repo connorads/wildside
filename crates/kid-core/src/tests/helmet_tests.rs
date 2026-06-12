@@ -1690,11 +1690,12 @@ mod chunk_08 {
         );
     }
 
-    /// ASM loc_B8D0 (kid.asm:14819): P1 dead (Player_1_Lives==0), P2 alive —
-    /// `st (Current_player).w` forces P2 active, then falls to loc_B8A8 for
-    /// game-over check. If P2 has lives, restarts on P2's level.
+    /// ASM loc_D17E/loc_D25E (kid.asm:16428/16472): once the current player
+    /// reaches the zero-lives GameOver path, 2P only allocates score-screen
+    /// player labels before falling into the same continue/title branch. The
+    /// surviving-player handoff is the non-zero-lives `loc_B8BA` death path.
     #[test]
-    fn loc_b8d0_p1_dead_p2_alive_forces_p2_active() {
+    fn loc_d25e_p1_game_over_does_not_force_p2_active() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));
         runtime.set_block_grid(grid_with_floor_at_row(17));
         runtime.two_player = true;
@@ -1713,13 +1714,11 @@ mod chunk_08 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.current_player_index, 1,
-            "ASM loc_B8D0: st (Current_player) should force P2 active when P1 has no lives"
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM loc_D25E/loc_D3F0 should return to title rather than switching to a surviving player"
         );
-        assert_eq!(
-            runtime.progression.number_lives, 2,
-            "ASM loc_B8D0: P2's lives should be loaded after switch"
-        );
+        assert_eq!(runtime.current_player_index, 0);
     }
 
     #[test]
@@ -1782,7 +1781,7 @@ mod chunk_08 {
     }
 
     #[test]
-    fn two_player_game_over_switches_when_other_has_lives() {
+    fn two_player_game_over_returns_to_title_even_when_other_has_lives() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(4));
         runtime.set_block_grid(grid_with_floor_at_row(17));
         runtime.two_player = true;
@@ -1802,13 +1801,11 @@ mod chunk_08 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.current_player_index, 1,
-            "should switch to P2 when P1 is game over"
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM loc_D25E/loc_D3F0 should return to title rather than switching to the surviving player"
         );
-        assert_eq!(
-            runtime.progression.number_lives, 2,
-            "should have P2's lives"
-        );
+        assert_eq!(runtime.current_player_index, 0);
     }
 
     #[test]

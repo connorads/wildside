@@ -7828,9 +7828,11 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
                         remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
                     };
-                } else if self.try_switch_player() {
-                    self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
+                    // ASM loc_D17E allocates optional 2P score-screen labels,
+                    // then loc_D25E falls through to the same continue/title
+                    // branch. Surviving-player handoff belongs only to the
+                    // non-zero-lives Dying path above (`loc_B8BA`).
                     self.return_to_title();
                 }
                 return false;
