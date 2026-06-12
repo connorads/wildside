@@ -389,17 +389,17 @@ pub(crate) fn flag_hud_dma_upload_sub_5DA6(frame_table_byte_offset: u8) -> FlagH
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HudTimerSpritePositionSubBD0A {
-    pub(crate) y_pos: u16,
-    pub(crate) x_pos: u16,
+pub struct HudTimerSpritePositionSubBD0A {
+    pub y_pos: u16,
+    pub x_pos: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HudTimerSpriteLayoutSubBD0A {
-    pub(crate) minutes: HudTimerSpritePositionSubBD0A,
-    pub(crate) separator: HudTimerSpritePositionSubBD0A,
-    pub(crate) seconds_tens: HudTimerSpritePositionSubBD0A,
-    pub(crate) seconds_ones: HudTimerSpritePositionSubBD0A,
+pub struct HudTimerSpriteLayoutSubBD0A {
+    pub minutes: HudTimerSpritePositionSubBD0A,
+    pub separator: HudTimerSpritePositionSubBD0A,
+    pub seconds_tens: HudTimerSpritePositionSubBD0A,
+    pub seconds_ones: HudTimerSpritePositionSubBD0A,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -414,7 +414,7 @@ pub(crate) struct HudAnimationStepSub44DC {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub(crate) fn hud_timer_sprite_layout_sub_BD0A(
+pub fn hud_timer_sprite_layout_sub_BD0A(
     mut layout: HudTimerSpriteLayoutSubBD0A,
     track_kid: bool,
     timer_frozen: bool,
@@ -649,9 +649,9 @@ pub(crate) fn hud_timer_digit_tiles_loc_BEE8(
 /// `sub_BD0A` is called with `d7=1` to switch timer sprites to Kid-tracking
 /// mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HudTimerLowTimeCheckEndDecreaseTimeLeft {
+pub struct HudTimerLowTimeCheckEndDecreaseTimeLeft {
     /// Whether the timer is low enough to track Kid (`d7=1` path).
-    pub(crate) track_kid: bool,
+    pub track_kid: bool,
 }
 
 /// ASM End_Decrease_Time_Left (kid.asm:15518): low-time detection.
@@ -663,7 +663,7 @@ pub(crate) struct HudTimerLowTimeCheckEndDecreaseTimeLeft {
 /// ```
 /// Returns `track_kid=true` when minutes==0 and seconds_tens<=2 (i.e. ≤29s).
 #[allow(dead_code)]
-pub(crate) fn hud_timer_low_time_check_end_decrease_time_left(
+pub fn hud_timer_low_time_check_end_decrease_time_left(
     time_minutes: u16,
     time_seconds_high_digit: u16,
 ) -> HudTimerLowTimeCheckEndDecreaseTimeLeft {

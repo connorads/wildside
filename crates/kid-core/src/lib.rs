@@ -33,6 +33,10 @@ pub use scenario::{
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
+pub use boot::{
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A,
+    hud_timer_low_time_check_end_decrease_time_left, hud_timer_sprite_layout_sub_BD0A,
+};
 pub use combat::{speed_bonus_threshold_loc_d660, time_bonus_loc_d56e};
 pub use level::{
     EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,

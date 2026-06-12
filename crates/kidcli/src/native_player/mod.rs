@@ -13011,6 +13011,39 @@ mod tests {
     }
 
     #[test]
+    fn game_hud_low_time_tracks_kid_with_loc_bd40_layout() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_timer_seconds = 29;
+        trace.kid_x_pos = Some(0x0130_0000);
+        trace.kid_y_pos = Some(0x0180_0000);
+        trace.camera_x_pos = 0x0100_0000;
+        trace.camera_y_pos = 0x0120_0000;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12).is_none(),
+            "ASM End_Decrease_Time_Left should route <=0:29 through sub_BD0A d7=1 instead of keeping seconds tens on the fixed HUD row"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 0xA5 - 128, 0x90 - 128, 12).is_none(),
+            "ASM loc_BD40 should move seconds ones away from the fixed HUD row"
+        );
+
+        let (_, seconds_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xA9 - 128, 0xB4 - 128, 12)
+                .expect("Kid-tracking seconds tens tile");
+        let (_, seconds_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xB1 - 128, 0xB4 - 128, 12)
+                .expect("Kid-tracking seconds ones tile");
+
+        assert_eq!(
+            (seconds_tens.tile_index, seconds_ones.tile_index),
+            (2, 9),
+            "ASM loc_BD40 positions the low-time seconds digits at Kid-Camera screen space plus unk_BD8A offsets -7/+1"
+        );
+    }
+
+    #[test]
     fn level_complete_pre_hologram_hud_timer_uses_loc_c070_latched_previous_second() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_timer_seconds = 178;

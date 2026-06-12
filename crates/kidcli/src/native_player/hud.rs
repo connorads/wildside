@@ -4,14 +4,6 @@ const HUD_LIVES_X: i32 = 0x190 - 128;
 const HUD_LIVES_Y: i32 = 0x90 - 128;
 const HUD_ANKH_X: i32 = 0x1A1 - 128;
 const HUD_ANKH_Y: i32 = 0x8D - 128;
-// ASM Make_SpriteAttr_HUD loc_BEE8 calls sub_BD0A with d7=0, which rewrites
-// the visible timer sprites from the Init_SpriteAttr_HUD seed table to the
-// fixed `unk_BD8E` X positions $90,$98,$9D,$A5 on row $90.
-const HUD_MINUTES_X: i32 = 0x90 - 128;
-const HUD_TIMER_Y: i32 = 0x90 - 128;
-const HUD_COLON_X: i32 = 0x98 - 128;
-const HUD_SECONDS_TENS_X: i32 = 0x9D - 128;
-const HUD_SECONDS_ONES_X: i32 = 0xA5 - 128;
 const HUD_DIAMOND_X: i32 = 0x1A0 - 128;
 const HUD_DIAMOND_Y: i32 = 0xA2 - 128;
 const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
@@ -281,6 +273,55 @@ fn hud_timer_seconds_loc_c070(trace: &NativeTraceFrame) -> u16 {
     }
 }
 
+fn hud_timer_layout_loc_bd0a(
+    trace: &NativeTraceFrame,
+    minutes: u16,
+    seconds_tens: u16,
+) -> kid_core::HudTimerSpriteLayoutSubBD0A {
+    let seeded = kid_core::hud_timer_sprite_layout_sub_BD0A(
+        kid_core::HudTimerSpriteLayoutSubBD0A {
+            minutes: kid_core::HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            separator: kid_core::HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_tens: kid_core::HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_ones: kid_core::HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+        },
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+    );
+    let track_kid =
+        kid_core::hud_timer_low_time_check_end_decrease_time_left(minutes, seconds_tens).track_kid;
+    let Some(kid_x_pos) = trace.kid_x_pos else {
+        return seeded;
+    };
+    let Some(kid_y_pos) = trace.kid_y_pos else {
+        return seeded;
+    };
+
+    // ASM End_Decrease_Time_Left calls sub_BD0A with d7=1 only at <=0:29.
+    // loc_BD38 returns early while the timer-frozen flag is set; native keeps
+    // the fixed seeded row for level-complete frozen-HUD frames.
+    kid_core::hud_timer_sprite_layout_sub_BD0A(
+        seeded,
+        track_kid,
+        trace.level_complete,
+        (kid_x_pos >> 16) as u16,
+        (kid_y_pos >> 16) as u16,
+        (trace.camera_x_pos >> 16) as u16,
+        (trace.camera_y_pos >> 16) as u16,
+    )
+}
+
+fn hud_timer_coord_loc_bd0a(position: kid_core::HudTimerSpritePositionSubBD0A) -> (i32, i32) {
+    (
+        i32::from(position.x_pos) - 128,
+        i32::from(position.y_pos) - 128,
+    )
+}
+
 pub(super) fn push_game_hud(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -312,7 +353,15 @@ pub(super) fn push_game_hud(
     let timer_seconds = hud_timer_seconds_loc_c070(trace);
     let minutes = timer_seconds / 60;
     let seconds = timer_seconds % 60;
-    push_hud_fixed_digit(commands, level_visuals, minutes, HUD_MINUTES_X, HUD_TIMER_Y);
+    let seconds_tens = seconds / 10;
+    let seconds_ones = seconds % 10;
+    let timer_layout = hud_timer_layout_loc_bd0a(trace, minutes, seconds_tens);
+    let (minutes_x, minutes_y) = hud_timer_coord_loc_bd0a(timer_layout.minutes);
+    let (separator_x, separator_y) = hud_timer_coord_loc_bd0a(timer_layout.separator);
+    let (seconds_tens_x, seconds_tens_y) = hud_timer_coord_loc_bd0a(timer_layout.seconds_tens);
+    let (seconds_ones_x, seconds_ones_y) = hud_timer_coord_loc_bd0a(timer_layout.seconds_ones);
+
+    push_hud_fixed_digit(commands, level_visuals, minutes, minutes_x, minutes_y);
     if let Some(tile) = resolve_ingame_vram_tile(
         level_visuals,
         TileRef {
@@ -326,21 +375,21 @@ pub(super) fn push_game_hud(
             flip_y: false,
         },
     ) {
-        push_resolved_tile(commands, HUD_COLON_X, HUD_TIMER_Y, tile);
+        push_resolved_tile(commands, separator_x, separator_y, tile);
     }
     push_hud_fixed_digit(
         commands,
         level_visuals,
-        seconds / 10,
-        HUD_SECONDS_TENS_X,
-        HUD_TIMER_Y,
+        seconds_tens,
+        seconds_tens_x,
+        seconds_tens_y,
     );
     push_hud_fixed_digit(
         commands,
         level_visuals,
-        seconds % 10,
-        HUD_SECONDS_ONES_X,
-        HUD_TIMER_Y,
+        seconds_ones,
+        seconds_ones_x,
+        seconds_ones_y,
     );
 
     push_hud_two_digit_counter(
