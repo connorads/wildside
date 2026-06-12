@@ -7921,6 +7921,73 @@ impl NativeRuntime {
                 // object.
                 continue;
             }
+            if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+                let phase_counter = 37u16.saturating_sub(u16::from(enemy.hit_points));
+                let piece = HeadyMetalBreakupPieceSub37708 {
+                    sprite_word_y: 0,
+                    x_pos: (enemy.x_pos >> 16) as u16,
+                    y_pos: (enemy.y_pos >> 16) as u16,
+                };
+                let result = heady_metal_breakup_step_sub_37708(
+                    true,
+                    collision.collision_type as i16,
+                    phase_counter,
+                    enemy.wait_timer,
+                    self.frame_index as u16,
+                    [Some(piece); 13],
+                );
+
+                if result.next_phase_counter != phase_counter {
+                    // ASM sub_37708 loc_3772A increments `$3E(a3)` for
+                    // collision `$2C`; native stores the inverse as remaining
+                    // HeadyMetal HP.
+                    enemy.hit_points = 37u16
+                        .saturating_sub(result.next_phase_counter)
+                        .min(u16::from(u8::MAX)) as u8;
+                    changed_enemy_state = true;
+                }
+
+                if let Some((x_pos, y_pos)) = result.spawned_pop_effect_at {
+                    let init = boss_eye_pop_effect_init_sub_3729E(x_pos, y_pos);
+                    // ASM sub_3729E increments `$FFFFFB4F`; loc_375D4 freezes
+                    // HeadyMetal while any of these workers are alive.
+                    enemy.boss_movement_script_index =
+                        enemy.boss_movement_script_index.saturating_add(1);
+                    self.projectiles.push(EnemyProjectile {
+                        x_pos: u32::from(init.x_pos) << 16,
+                        y_pos: u32::from(init.y_pos) << 16,
+                        lifetime: init.chase_frames,
+                        friendly: false,
+                        kind: EnemyProjectileKind::BossEyePopEffect,
+                        ..Default::default()
+                    });
+                    changed_enemy_state = true;
+                }
+
+                if let Some((x_pos, y_pos)) = result.spawned_attack_at {
+                    let kid_x = self
+                        .opening_slice
+                        .as_ref()
+                        .map_or((enemy.x_pos >> 16) as u16, |slice| {
+                            (slice.player.x_pos >> 16) as u16
+                        });
+                    let init = boss_eye_attack_init_sub_37332(x_pos, y_pos, kid_x);
+                    self.projectiles.push(EnemyProjectile {
+                        x_pos: u32::from(init.x_pos) << 16,
+                        y_pos: u32::from(init.y_pos) << 16,
+                        x_velocity: init.initial_x_velocity,
+                        y_velocity: init.initial_y_velocity,
+                        lifetime: 120,
+                        gravity: 0x0BB8,
+                        friendly: false,
+                        kind: EnemyProjectileKind::BossEyeAttack,
+                        ..Default::default()
+                    });
+                    changed_enemy_state = true;
+                }
+
+                continue;
+            }
             if is_multi_head_boss(enemy.family) {
                 let result = boss_collision_palette_sub_3A292(
                     collision.collision_type,

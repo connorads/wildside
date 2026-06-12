@@ -1075,6 +1075,47 @@ fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_3763
 }
 
 #[test]
+fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
+    boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
+    runtime.active_enemies = vec![boss];
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let collision_target = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&collision_target, 0x002C);
+    runtime.apply_pending_enemy_collisions();
+
+    assert_eq!(
+        runtime.active_enemies[0].hit_points, 12,
+        "ASM sub_37708 loc_3772A increments the HeadyMetal breakup phase counter once for collision_type `$2C`"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].boss_movement_script_index, 1,
+        "ASM sub_3729E increments `$FFFFFB4F`; loc_375D4 must see a nonzero freeze count after the phase worker spawns"
+    );
+    assert!(
+        runtime
+            .projectiles
+            .iter()
+            .any(|projectile| projectile.kind == EnemyProjectileKind::BossEyePopEffect),
+        "ASM sub_37708 loc_37778 allocates sub_3729E for breakup phases `$19..=$24`"
+    );
+    assert!(
+        runtime
+            .projectiles
+            .iter()
+            .any(|projectile| projectile.kind == EnemyProjectileKind::BossEyeAttack),
+        "ASM sub_37708 loc_37778 also allocates sub_37332 at the same selected worker position"
+    );
+}
+
+#[test]
 fn boss_eye_attack_sub_37332_deletes_only_below_level_height() {
     let mut runtime = NativeRuntime::new(manifest());
     let level_height = runtime.level_bounds(runtime.current_level).height_pixels;

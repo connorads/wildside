@@ -2406,6 +2406,7 @@ impl NativeRuntime {
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_boss_eye_attack = p.kind == EnemyProjectileKind::BossEyeAttack;
+            let is_boss_eye_pop_effect = p.kind == EnemyProjectileKind::BossEyePopEffect;
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             let uses_loc_3263c_post_move_gravity = matches!(
@@ -2438,6 +2439,7 @@ impl NativeRuntime {
                 && !is_boss_head_arrow
                 && !is_boss_head_boomerang
                 && !is_boss_eye_attack
+                && !is_boss_eye_pop_effect
                 && !is_boss_skewer
                 && p.lifetime == 0
             {
@@ -2462,6 +2464,7 @@ impl NativeRuntime {
                 && !is_boss_head_boomerang
                 && !is_boss_skewer
                 && !is_boss_eye_attack
+                && !is_boss_eye_pop_effect
                 // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
                 // native's deferred-delete marker after a Kid collision.
                 && !is_lion_projectile
@@ -3134,6 +3137,19 @@ impl NativeRuntime {
         self.drips_surface_crawler_count_loc_fffffb42 = self
             .drips_surface_crawler_count_loc_fffffb42
             .saturating_sub(expired_drips_surface_crawler_finishes);
+        let active_heady_eye_pop_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyePopEffect)
+            .count();
+        for enemy in &mut self.active_enemies {
+            if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+                // ASM loc_3731C decrements `$FFFFFB4F` when each sub_3729E
+                // worker deletes; native derives the same freeze count from
+                // the remaining timed workers after retain/drop processing.
+                enemy.boss_movement_script_index = active_heady_eye_pop_workers;
+            }
+        }
         for interaction in pending_shooter_layout_interactions {
             self.apply_shooter_object_layout_interaction_loc_F00A(interaction);
         }

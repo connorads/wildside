@@ -2515,6 +2515,9 @@ pub(crate) enum EnemyProjectileKind {
     BossHeadBoomerang,
     /// HeadyMetal boss-eye attack child from ASM `sub_37332`.
     BossEyeAttack,
+    /// HeadyMetal eye-pop worker from ASM `sub_3729E`; live workers freeze
+    /// the parent tracker through `$FFFFFB4F`.
+    BossEyePopEffect,
     /// Shishkaboss skewer piece from ASM `loc_384E8..loc_388D8`.
     BossSkewer,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
