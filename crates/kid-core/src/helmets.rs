@@ -4354,12 +4354,9 @@ fn helmet_enemy_berzerker_damage_target_snapshot(
 fn berzerker_charge_reflects_player_velocity_loc_b678(enemy: &ActiveEnemy) -> bool {
     // ASM Character_CheckCollision loc_B678: Kid-side contact copies the other
     // object's `object_meta` into d6, then `bclr #$F,d6; bne.w loc_B692`.
-    // Regular enemy init metadata has bit 15 clear; multi-head boss objects
-    // set it in their head init paths before the common collision setup.
-    matches!(
-        enemy.family,
-        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
-    )
+    // Scorpion.asm loc_3DDEE ORs `$C000` into `object_meta` during the sting
+    // animation. Multi-head boss init sets bit 7 only, so it must not reflect.
+    matches!(enemy.family, EnemyFamily::Scorpion) && enemy.scorpion_sting_frames > 0
 }
 
 fn helmet_enemy_projectile_damage_target_snapshots(

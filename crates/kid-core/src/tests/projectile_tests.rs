@@ -9587,9 +9587,10 @@ mod chunk_06 {
     }
 
     /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
-    /// side contact only negates x_vel when copied object_meta bit 15 was set.
+    /// side contact does not negate x_vel for boss heads because their
+    /// `object_meta` setup sets bit 7, not bit 15.
     #[test]
-    fn berzerker_charge_loc_b692_reflects_player_x_velocity_once_for_bit_15_collision() {
+    fn berzerker_charge_loc_b692_skips_boss_heads_with_only_object_meta_bit_7() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charging = true;
@@ -9614,11 +9615,35 @@ mod chunk_06 {
         rt.process_berzerker_charge_hits(&mut slice);
 
         assert_eq!(
-            slice.player.x_velocity, -0x0002_0000,
-            "ASM loc_B692 negates Kid x_vel once even if multiple bit-15 objects overlap"
+            slice.player.x_velocity, 0x0002_0000,
+            "ASM boss-head init sets object_meta bit 7 only, so loc_B678 must skip loc_B692"
         );
         assert_eq!(rt.active_enemies[0].hit_points, 1);
         assert_eq!(rt.active_enemies[1].hit_points, 1);
+    }
+
+    /// ASM loc_B678 -> loc_B692 (kid.asm:14582-14597): charging Berzerker
+    /// side contact only negates x_vel when copied object_meta bit 15 was set.
+    #[test]
+    fn berzerker_charge_loc_b692_reflects_player_x_velocity_once_for_scorpion_sting_bit_15() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0002_0000;
+
+        let mut scorpion = test_enemy(EnemyFamily::Scorpion, 0x0040_0000, 0x0040_0000, 3);
+        scorpion.scorpion_sting_frames = 3;
+        rt.active_enemies.push(scorpion);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            slice.player.x_velocity, -0x0002_0000,
+            "ASM Scorpion.asm loc_3DDEE ORs `$C000` into object_meta during the sting, so loc_B692 reflects Kid x_vel"
+        );
     }
 
     /// ASM Berzerker charging contact only fires when the contact boxes overlap;
