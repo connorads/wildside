@@ -1189,6 +1189,14 @@ pub fn probe_floor_hitbox(
     let select_higher_floor = |a: FloorProbe, b: FloorProbe| {
         if a.floor_y_px <= b.floor_y_px { a } else { b }
     };
+    let interior_solid_or_spike = || {
+        probe_floor_solid_span_loc_914a(
+            grid,
+            center_x_px - half_width,
+            center_x_px + half_width,
+            foot_y_px,
+        )
+    };
 
     match (left.on_ground, right.on_ground) {
         (true, true) => select_higher_floor(left, right),
@@ -1198,9 +1206,40 @@ pub fn probe_floor_hitbox(
             (true, true) => select_higher_floor(left, right),
             (true, false) => left,
             (false, true) => right,
-            (false, false) => left,
+            (false, false) => interior_solid_or_spike().unwrap_or(left),
         },
     }
+}
+
+fn probe_floor_solid_span_loc_914a(
+    grid: &BlockGrid,
+    left_x_px: i32,
+    right_x_px: i32,
+    foot_y_px: i32,
+) -> Option<FloorProbe> {
+    if grid.width_pixels() <= 0 {
+        return None;
+    }
+
+    let left_col = pixel_to_cell(left_x_px.min(right_x_px)).max(0) as u16;
+    let right_col = pixel_to_cell(left_x_px.max(right_x_px)).max(0) as u16;
+    let row = pixel_to_cell(foot_y_px).max(0) as u16;
+    let max_col = grid.width_cells.saturating_sub(1);
+
+    for col in left_col.min(max_col)..=right_col.min(max_col) {
+        let cell = grid.cell_at(col, row);
+        if matches!(cell.collision, CollisionKind::Solid | CollisionKind::Spikes) {
+            let cell_top = i32::from(row) * 16;
+            return Some(FloorProbe {
+                on_ground: true,
+                floor_y_px: cell_top,
+                cell,
+                cell_x: col,
+                cell_y: row,
+            });
+        }
+    }
+    None
 }
 
 /// Return whether ASM `sub_914A`'s full-width floor row scan would cross any
@@ -3034,6 +3073,25 @@ mod tests {
         // Player at x=40 (col 2), half_width=5. Both edges in cols 2-3 (gap).
         let probe = probe_floor_hitbox(&grid, 40, 48, 5);
         assert!(!probe.on_ground);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_scans_interior_sub_914a_solid_columns() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let solid_offset = (3usize * usize::from(w) + 2) * 2;
+        data[solid_offset] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        let probe = probe_floor_hitbox(&grid, 31, 48, 23);
+        assert!(
+            probe.on_ground,
+            "ASM sub_914A loc_9188 scans every tile from x-FA78 through x+FA78, so Juggernaut-width interior solid support must be visible"
+        );
+        assert_eq!(probe.cell.collision, CollisionKind::Solid);
+        assert_eq!(probe.cell_x, 2);
+        assert_eq!(probe.floor_y_px, 48);
     }
 
     #[test]

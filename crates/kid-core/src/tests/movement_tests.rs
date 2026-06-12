@@ -18826,6 +18826,40 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_914A loc_9188 scans every floor cell from `x_pos-FA78`
+    /// through `x_pos+FA78`, so Juggernaut's wide hitbox can land on support
+    /// between the centre and edge sample columns.
+    #[test]
+    fn loc_9188_juggernaut_lands_on_interior_solid_floor_span() {
+        let w: u16 = 6;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let solid_offset = (3usize * usize::from(w) + 2) * 2;
+        data[solid_offset] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 31 << 16;
+        slice.player.y_pos = 48 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+
+        slice.apply_floor_collision(Some(&grid), false, false, 23, false);
+
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_914A loc_9188 must land on the interior Solid cell in Juggernaut's FA78 span"
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            47 << 16,
+            "ASM sub_902A landing on Solid subtracts one pixel from the contact row"
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> sub_9386 -> loc_9D22:
     /// when an airborne rightward frame lands by the leading edge on SlopeUp,
     /// the same frame must enter the slope-walk handoff and mirror x_vel into
