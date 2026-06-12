@@ -190,6 +190,14 @@ and stop — never commit churn.
   different-but-useless left-air branch at `dx=+79 dy=-1 @548`; a targeted
   `548..620 B+Right` recovery still only found an early `dx=+2 dy=-17 @66`.
   Do not retry this early-jump/left-air/right-recovery family unchanged.
+  Another 2026-06-12 alternate-bootstrap batch over the named contact probe
+  cleared `0..239`/`0..299`, rebuilt early low/high arcs, left-air recovery,
+  slowdown, double-jump, and right-sling shapes, then restored the known
+  `478..528 Left`, `530..559 B`, `536..559 Right` tail. Scoring after frame
+  300 still failed: best live result was `early_left_air_recover` at
+  `(456,543) dx=-19 dy=-16 @539`, while row-aligned variants stayed far left
+  (`dx=+78 dy=0 @546`) and right-biased variants transitioned. Do not repeat
+  this alternate `0..299` bootstrap rebuild unless the base route changes.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
