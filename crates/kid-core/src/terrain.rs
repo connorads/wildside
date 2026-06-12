@@ -1152,13 +1152,14 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
 /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up —
 /// `add.w (Level_width_tiles),a4; addi.w #$10,d6; move.w (a4),d7;
 /// andi.w #$7000,d7; cmpi.w #$6000,d7; blt.s loc_ABF0`.  Walks down
-/// tile rows until a Solid ($6000) or Spikes ($7000) cell is found; slope
-/// classes $4000/$5000 are intentionally skipped.
+/// tile rows starting one row below the aligned start until a Solid ($6000)
+/// or Spikes ($7000) cell is found; slope classes $4000/$5000 are
+/// intentionally skipped.
 pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<i32> {
     let col = pixel_to_cell(x_px).max(0) as u16;
     let start_row = pixel_to_cell(start_y_px).max(0) as u16;
 
-    for row in start_row..grid.height_cells {
+    for row in start_row.saturating_add(1)..grid.height_cells {
         let cell = grid.cell_at(col, row);
         if matches!(cell.collision, CollisionKind::Solid | CollisionKind::Spikes) {
             let cell_top = i32::from(row) * 16;
@@ -2685,6 +2686,21 @@ mod tests {
             floor_y,
             Some(64),
             "ASM loc_ABF0 (kid.asm:13449) masks (cell & $7000) and only stops at classes >= $6000, so slope classes $4000/$5000 are skipped",
+        );
+    }
+
+    #[test]
+    fn find_floor_below_loc_abf0_skips_aligned_start_row_before_first_read() {
+        let mut grid = make_empty_grid(4, 5);
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0x60, 0x01));
+        grid.set_cell_at(1, 3, Cell::from_be_bytes(0x60, 0x01));
+
+        let floor_y = find_floor_below(&grid, 24, 16);
+
+        assert_eq!(
+            floor_y,
+            Some(48),
+            "ASM loc_ABF0 (kid.asm:13449) increments a4/d6 by one row before reading, so the aligned start row is skipped",
         );
     }
 
