@@ -18818,7 +18818,7 @@ mod chunk_02 {
 
         assert_eq!(
             slice.smash_block_hit,
-            Some((48, 32)),
+            Some((48, 32, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE)),
             "ASM sub_914A caches the left-edge Prize cell, then sub_BB54/sub_BBE2 selects the solid right-hand Smash block when Kid's centre tile is past the cached column",
         );
         assert!(slice.prize_block_hit.is_none());
@@ -19093,8 +19093,41 @@ mod chunk_02 {
 
         assert_eq!(
             slice.smash_block_hit,
-            Some((32, 32)),
+            Some((32, 32, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE)),
             "ASM loc_BB6E/off_BB80 -> j_Block_LoadSmashBits: Smash ceiling dispatch should report block col,row as 16px tile coordinates",
+        );
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
+    }
+
+    #[test]
+    fn smash_ceiling_headbutt_reports_board_direction_when_skycutter_on_board() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (2 * usize::from(w) + 2) * 2;
+        data[offset] = 0xE0;
+        data[offset + 1] = 0x01;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision_skycutter_on_board(
+            Some(&mut grid),
+            None,
+            PlayerForm::Skycutter,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.smash_block_hit,
+            Some((32, 32, NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW)),
+            "ASM sub_BB54 sets d6=0 when `$FFFFFA6A` on_board is set before off_BB80[0] calls j_Block_LoadSmashBits",
         );
         assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0, 0));
     }

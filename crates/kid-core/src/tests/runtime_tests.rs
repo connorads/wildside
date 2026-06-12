@@ -7897,14 +7897,21 @@ mod chunk_09 {
     fn process_block_effects_smash_creates_destroy_effect() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
-        slice.smash_block_hit = Some((80, 48));
+        slice.smash_block_hit = Some((80, 48, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE));
 
         rt.process_block_effects(&mut slice);
 
         assert_eq!(rt.block_destroy_effects.len(), 1);
         assert_eq!(rt.block_destroy_effects[0].x_px, 80);
-        assert_eq!(rt.block_destroy_effects[0].y_px, 52);
+        assert_eq!(
+            rt.block_destroy_effects[0].y_px, 44,
+            "ASM sub_BB54 sets d6=2 for ordinary smash-block headbutts, so sub_10EDA should nudge the effect upward through loc_10F1A",
+        );
         assert_eq!(rt.block_destroy_effects[0].remaining, 2);
+        assert_eq!(
+            rt.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE
+        );
     }
 
     #[test]

@@ -6460,7 +6460,11 @@ impl OpeningSliceState {
                     terrain::BlockType::Smash => {
                         let block_x_px = block_dispatch_probe.cell_x * 16;
                         let block_y_px = block_dispatch_probe.cell_y * 16;
-                        self.smash_block_hit = Some((block_x_px, block_y_px));
+                        // ASM sub_BB54/off_BB80[0]: Smash dispatch uses the
+                        // same `d6` direction as Ice: 2 for ordinary headbutts,
+                        // 0 when Skycutter is mounted on-board (`$FFFFFA6A`).
+                        let direction = if skycutter_on_board { 0 } else { 2 };
+                        self.smash_block_hit = Some((block_x_px, block_y_px, direction));
                         // ASM j_Block_LoadSmashBits clears Smash blocks immediately
                         grid.set_cell_at(
                             block_dispatch_probe.cell_x,

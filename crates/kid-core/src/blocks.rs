@@ -3542,13 +3542,9 @@ impl NativeRuntime {
         }
 
         // Smash block destruction effect
-        if let Some((x_px, y_px)) = slice.smash_block_hit {
+        if let Some((x_px, y_px, direction)) = slice.smash_block_hit {
             self.blocks_hit_this_frame += 1;
-            self.spawn_smash_block_effect_sub_10eda(
-                x_px,
-                y_px,
-                Self::BLOCK_DESTROY_DIRECTION_BELOW,
-            );
+            self.spawn_smash_block_effect_sub_10eda(x_px, y_px, direction);
         }
 
         if let Some((cell_x, cell_y, direction)) = slice.ice_block_hit {
