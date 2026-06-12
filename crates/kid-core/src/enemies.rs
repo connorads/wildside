@@ -26689,8 +26689,9 @@ pub(crate) const BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538: u16 =
 #[cfg(test)]
 pub(crate) const BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566: u16 =
     BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538;
-/// ASM loc_39570/loc_37FF4: at least one hibernate after sub_397E4 before returning to wait.
-pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 1;
+/// ASM sub_397E4 loc_39836 starts `stru_39FD8`; loc_39570/loc_37FF4 then
+/// hibernate/check `$18(a3)` until its five frame holds complete.
+pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 0x22 + 0x05 + 0x0A + 0x0A + 0x0A;
 /// ASM Enemy20_HeadyMetal_Init (kid.asm:39264): the `$FFFFFB7A` anchor starts
 /// its `$3E(a3)` counter at `$A` before `loc_375DE` starts eye spawns.
 pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;

@@ -784,7 +784,12 @@ fn live_multi_head_boss_fire_spawns_after_attack_animation_gate_loc_39566() {
     );
     assert_eq!(
         boss.wait_timer, BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570,
-        "ASM loc_39570 hibernates after sub_397E4 before returning to the activation wait loop"
+        "ASM sub_397E4 loc_39836 starts parent animation `stru_39FD8`; loc_39570/loc_3958E should wait for that full script before returning to the activation wait loop"
+    );
+    assert_eq!(
+        boss.wait_timer,
+        0x22 + 0x05 + 0x0A + 0x0A + 0x0A,
+        "ASM `stru_39FD8` is the post-projectile parent animation gate, not a one-frame hibernate"
     );
 }
 
