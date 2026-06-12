@@ -2,7 +2,7 @@
 
 # Block Lifecycle & Interaction Fidelity Audit
 
-Adversarially-verified per-unit audit of the Kid Chameleon source-port block subsystem. The dominant failure pattern is the same one that recurs across the codebase: ASM-faithful pure helpers exist and are unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step path, so the runtime falls back on an invented substitute. Here that pattern manifests three ways — (1) entire dispatch arms silently dropped (no `BlockType::Ice` arm on the shared `off_BB80` ceiling headbutt; the immediate telepad warp shadowing the 90-frame `loc_B522` countdown), (2) the correct helper present but fed a hardcoded or wrong selector value (smash-debris direction, ice-bullet direction, metal-bounce arc), and (3) gating logic computed against the wrong counter (rubber jiggle budget capped against global `Number_Objects` rather than the dedicated `$FFFFFB5A` rubber-worker count). Several of these are confined to revisit/edge paths, but three high-severity gaps — Ice ceiling headbutt, Red-Stealth ice bullets, and immediate telepad warp — are reachable in ordinary play.
+Adversarially-verified per-unit audit of the Kid Chameleon source-port block subsystem. The dominant failure pattern is the same one that recurs across the codebase: ASM-faithful pure helpers exist and are unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step path, so the runtime falls back on an invented substitute. The original audit found three recurring forms: (1) entire dispatch arms silently dropped, (2) the correct helper present but fed a hardcoded or wrong selector value, and (3) gating logic computed against the wrong counter. Several high/medium findings have since been wired into the live path and are marked as resolved candidates below; remaining open rows should be re-checked against the current code before implementation.
 
 ## Coverage summary
 
@@ -117,8 +117,8 @@ The live path now steps through the same two-frame intermediate states as ASM `s
 
 - **One-time-prize collected gate fixed candidate** (`OneTimePrize_CheckCollected`) — formerly tracked by `dead-helper-census.md` lines 71 and 267; native now wires the scan/store helpers through live floating-prize collection.
 - **Shooter-block standing-collision unwired** (`sub_F568` / `sub_1F52`) — backlog `#207` (generic collision primitives unwired engine-wide); `backlog-archive.md` lines 1771, 7581-7583, 8572 enumerate `support_overlap_detected_sub_1F52`.
-- **Telepad warp fires on first contact frame** (`loc_B522`) — `dead-helper-census.md` lines 74 and 296 (`loc_B522`/`telepad_countdown_loc_B522` listed unwired/partially-wired).
-- **Faithful telepad timer path shadowed** (`loc_B522`) — `dead-helper-census.md`.
+- **Telepad warp fires on first contact frame** (`loc_B522`) — fixed candidate here; `dead-helper-census.md` lines 74 and 296 may still contain stale `loc_B522`/`telepad_countdown_loc_B522` wording.
+- **Faithful telepad timer path shadowed** (`loc_B522`) — fixed candidate here; re-check `dead-helper-census.md` before reviving this gap.
 - **Inline reposition substitutes for the full-screen Teleport transition** (`Teleport` / `loc_6E2`) — `level-loading-fidelity-audit.md` (Warp section, lines 205-206).
 - **Berzerker wall-break only handles Smash** (`off_933E`) — backlog `#279`.
 
@@ -126,10 +126,10 @@ The live path now steps through the same two-frame intermediate states as ASM `s
 
 | # | Status | Pri | System | Summary | Verify |
 |---|---|---|---|---|---|
-| NEW | [ ] | P1 | block | Ice ceiling headbutt unhandled (`off_BB80[2]`) — no smash, no ice bullets; add `BlockType::Ice` arm in `movement.rs:6343` wiring `IceBlock_SmashAndLoadBullets` | Headbutt an `$E203` Ice ceiling as TheKid; assert cell erased + up-to-three ShooterBlock ice projectiles spawned (oracle/object-count probe) |
+| NEW | [x] | P1 | block | Ice ceiling headbutt now routes `off_BB80[2]` through `IceBlock_SmashAndLoadBullets`, deleting the cell and loading the ice bullets | `loc_bb6e_ceiling_ice_block_loads_bullets_loc_11052` |
 | NEW | [?] | P1 | block | Fixed candidate: disguised `$E101` prize first hit runs reveal-only `loc_101D8`, leaves `$E102`, and spawns no prize | Place an `$E101` prize cell; first headbutt yields no prize and leaves `$E102`; second headbutt drops the prize |
-| NEW | [ ] | P1 | projectile | Red Stealth ice-block smash fires no red bullets; wire `ice_block_bullets_loc_11052` into the `off_B058[2]` Ice arm (`lib.rs:3339`) | Break an isolated ice block (open neighbour) as Red Stealth; assert red bullet pair spawns |
-| NEW | [ ] | P1 | terrain | Telepad warps on first contact frame instead of after 90-frame `Telepad_timer`; route the live warp through `telepad_countdown_loc_B522`, drop the immediate `apply_floor_collision`/`check_teleporter_contact` warps | Walk over a telepad without stopping: no warp; stand still ~90 frames: warp fires (frame-count probe) |
+| NEW | [x] | P1 | projectile | Red Stealth ice-block floor impact now routes `off_B058[2]` through `IceBlock_SmashAndLoadBullets` and loads the downward bullet trio | `loc_b01e_red_stealth_ice_block_loads_bullets_loc_11052` |
+| NEW | [x] | P1 | terrain | Telepad warp now waits for the 90-frame `Telepad_timer` countdown before queueing live teleporter contact | `sub_b43a_live_telepad_floor_support_counts_down_before_contact`; `live_telepad_warps_only_after_90_grounded_frames_loc_b522` |
 | NEW | [x] | P2 | projectile | Shooter-object ice smash now routes `loc_F02A` through `IceBlock_SmashAndLoadBullets`, including the secondary red bullet trio when the adjacent cell is open | `shooter_object_loc_f02a_ice_block_loads_bullets_loc_11052` |
 | NEW | [?] | P2 | block | Fixed candidate: one-time-prize gate redirects repeat Ankh/Continue/10-diamonds/10000-points to a single diamond via `OneTimePrize_CheckCollected` | `repeated_one_time_prize_collects_as_diamond_loc_10876` |
 | NEW | [x] | P2 | projectile | Retracted stale audit claim: Iron Knight / Red Stealth ice breaks already pass `d6=0` into `IceBlock_SmashAndLoadBullets`, producing downward bullets and shard nudge | `cargo test -q -p kid-core ice_block_loads_bullets_loc_11052 -- --nocapture` |
