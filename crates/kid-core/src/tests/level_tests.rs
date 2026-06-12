@@ -17451,6 +17451,40 @@ mod chunk_02 {
     }
 
     #[test]
+    fn stomp_bounce_on_skycutter_board_sets_zero_y_velocity_loc_b6da() {
+        // ASM Jump_On_Enemy (kid.asm:14616): `tst.b ($FFFFFA6A).w; beq.w
+        // loc_B6DA; moveq #0,d7`, so the mounted Skycutter board keeps y_vel 0
+        // instead of receiving the normal -4px stomp bounce.
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.helmet.skycutter_on_board = true;
+
+        let slice = runtime.opening_slice.as_mut().unwrap();
+        slice.player.x_pos = 0x0100_4000;
+        slice.player.y_pos = 0x0200_8000;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0002_0000;
+
+        runtime.pending_stomp_bounce = Some(PendingStompBounce {
+            anchor_x_pos: 0x0150_0000,
+            anchor_y_pos: 0x0180_0000,
+        });
+
+        let mut slice = runtime.opening_slice.take().unwrap();
+        runtime.apply_pending_stomp_bounce(&mut slice);
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "loc_B6DA should use d7=0 while $FA6A/Skycutter on-board is set"
+        );
+        assert_eq!(
+            slice.player.x_velocity,
+            0x0001_0000 + 0x0000_8000,
+            "loc_B6DA x velocity scaling still applies on the mounted board path"
+        );
+    }
+
+    #[test]
     fn damage_preserves_wall_sticky_loc_b700() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));

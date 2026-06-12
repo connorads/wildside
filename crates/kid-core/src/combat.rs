@@ -7792,7 +7792,7 @@ impl NativeRuntime {
         };
         // ASM loc_B6DA (kid.asm:14621): Jump_On_Enemy bounce tail.
         //   move.l  d7,y_vel(a3)        — store bounce y_vel (d7 is $FFFC0000
-        //     unless $FA6A on-board, then 0; native always uses STOMP_BOUNCE_VELOCITY)
+        //     unless $FA6A on-board, then 0)
         //   move.l  x_vel(a3),d7        — d7 = current x_vel
         //   sub.l   d7,x_pos(a3)        — rewind x_pos by one frame of x movement
         //   asr.l   #1,d7               — d7 = x_vel / 2 (arithmetic shift)
@@ -7805,7 +7805,11 @@ impl NativeRuntime {
             (pending.anchor_x_pos & 0xFFFF_0000) | (slice.player.x_pos & 0x0000_FFFF);
         slice.player.y_pos =
             (pending.anchor_y_pos & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
-        slice.player.y_velocity = STOMP_BOUNCE_VELOCITY;
+        slice.player.y_velocity = if self.helmet.skycutter_on_board {
+            0
+        } else {
+            STOMP_BOUNCE_VELOCITY
+        };
         let rewound_x = i64::from(slice.player.x_pos) - i64::from(current_x_velocity);
         slice.player.x_pos = rewound_x.clamp(0, i64::from(u32::MAX)) as u32;
         slice.player.x_velocity = slice
