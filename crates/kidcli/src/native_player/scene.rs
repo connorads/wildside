@@ -34,6 +34,10 @@ pub(super) const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8
 // is 15 worker ticks ahead of the trace's post-frame row counter.
 const EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE: usize = 15;
 const CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E: usize = 0x1C;
+const PAUSE_MENU_TEXT_X_LOC_69D2: i32 = 0x78;
+const PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT: i32 = 0x48;
+const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
+const PAUSE_MENU_CURSOR_X_LOC_6A84: i32 = 0x68;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -2934,6 +2938,42 @@ fn push_game_over_continue_overlay(
     }
 }
 
+fn push_pause_menu_text_loc_69d2(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
+    // ASM loc_69D2/restart_text writes a 16x5-tile pause menu block at
+    // screen-space Camera_X+$60, Camera_Y+$40. The ROM chooses the lower row
+    // text from Number_Lives: >1 means Restart Round, otherwise Give Up.
+    let lower_row = if trace.number_lives > 1 {
+        "RESTART ROUND"
+    } else {
+        "GIVE UP"
+    };
+
+    // ASM loc_6A84 seeds Pause_Option=0 and writes the upper cursor command at
+    // Camera_X+$68, Camera_Y+$48. Native trace does not expose the live cursor
+    // value yet, so this render hook mirrors the entry/default selection.
+    commands.push(text(
+        PAUSE_MENU_CURSOR_X_LOC_6A84,
+        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+        ">",
+        [255, 224, 96],
+        1,
+    ));
+    commands.push(text(
+        PAUSE_MENU_TEXT_X_LOC_69D2,
+        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+        "CONTINUE",
+        [255, 255, 255],
+        1,
+    ));
+    commands.push(text(
+        PAUSE_MENU_TEXT_X_LOC_69D2,
+        PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT,
+        lower_row,
+        [255, 255, 255],
+        1,
+    ));
+}
+
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
 // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
 const FOREST_RIPPLE: [i8; 64] = [
@@ -4459,29 +4499,7 @@ fn build_game_scene_filtered(
 
     // Pause overlay
     if trace.paused && filter.hud {
-        let pause_text = "PAUSED";
-        let text_w = pause_text.len() as i32 * 8 * 2;
-        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
-        push_panel(
-            &mut commands,
-            text_x - 12,
-            text_y - 6,
-            text_w + 24,
-            44,
-            [0, 0, 0],
-            [255, 255, 255],
-        );
-        commands.push(text(text_x, text_y, pause_text, [255, 255, 255], 2));
-        let hint = "Press Start to resume";
-        let hint_w = hint.len() as i32 * 8;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - hint_w) / 2,
-            text_y + 24,
-            hint,
-            [140, 140, 140],
-            1,
-        ));
+        push_pause_menu_text_loc_69d2(&mut commands, trace);
     }
 
     // Level complete overlay

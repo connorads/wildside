@@ -8845,6 +8845,39 @@ mod tests {
     }
 
     #[test]
+    fn pause_menu_uses_rom_positioned_restart_text_loc_69d2() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.number_lives = 3;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(contains_text(&scene, "CONTINUE"));
+        assert!(contains_text(&scene, "RESTART ROUND"));
+        assert!(
+            !contains_text(&scene, "PAUSED"),
+            "ASM loc_69D2/restart_text writes the pause menu mappings; native should not render the old centred PAUSED panel"
+        );
+        assert!(
+            !contains_text(&scene, "Press Start to resume"),
+            "ASM loc_6A84 only writes cursor locations; native should not add an invented instruction hint"
+        );
+    }
+
+    #[test]
+    fn pause_menu_uses_give_up_text_on_last_life_restart_text() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.number_lives = 1;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(contains_text(&scene, "CONTINUE"));
+        assert!(contains_text(&scene, "GIVE UP"));
+        assert!(!contains_text(&scene, "RESTART ROUND"));
+    }
+
+    #[test]
     fn continue_countdown_holds_before_slide_in_loc_d31e() {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
