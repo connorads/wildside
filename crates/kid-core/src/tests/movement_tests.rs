@@ -8659,6 +8659,31 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_902A (kid.asm:10440-10441): `tst.l y_vel(a3); bmi.w loc_908C`.
+    /// The `Level_height_pixels` compare that reaches loc_9142 only exists on
+    /// the non-negative y-velocity path, so upward movement below the level
+    /// boundary must not trigger PitDeath.
+    #[test]
+    fn loc_908c_sub_902a_upward_below_level_height_does_not_trigger_pit_death() {
+        let w: u16 = 6;
+        let h: u16 = 4;
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = -0x1_0000;
+        slice.player.y_pos = (u32::from(h) * 16 + 1) << 16;
+
+        let runtime = NativeRuntime::new(manifest());
+
+        assert!(
+            !runtime.fell_below_level(&slice),
+            "ASM loc_908C upward path has no Level_height_pixels pit-death compare"
+        );
+    }
+
     /// ASM loc_9188 (kid.asm:10583): sub_914A ceiling tile scan loop body.
     /// `move.w (a4)+,d7; andi.w #$7000,d7; cmpi.w #$6000,d7; beq.w loc_91AC`
     /// — each tile's collision bits are extracted; $6000 (Solid) routes to

@@ -9310,8 +9310,12 @@ impl NativeRuntime {
 
     #[allow(clippy::unused_self, reason = "semantically a method on game state")]
     pub(crate) fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
+        if slice.player.y_velocity < 0 {
+            return false;
+        }
         let player_y_px = slice.player.y_pos >> 16;
-        // ASM loc_9142 (kid.asm:10549): `cmp.w Level_height_pixels,d7; bge.w loc_9142`.
+        // ASM sub_902A (kid.asm:10440-10455): `bmi.w loc_908C` skips the
+        // `cmp.w Level_height_pixels,d7; bge.w loc_9142` pit-death compare.
         player_y_px >= u32::from(slice.level_bounds.height_pixels)
     }
 
