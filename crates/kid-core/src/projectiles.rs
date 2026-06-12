@@ -3194,6 +3194,40 @@ impl NativeRuntime {
         self.projectile_player_contact_loc_b640(slice, false)
     }
 
+    pub(crate) fn hostile_projectile_overlaps_player_for_fa75_loc_1c18(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> bool {
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let half = PROJECTILE_HITBOX_HALF;
+        self.projectiles.iter().any(|p| {
+            if p.kind == EnemyProjectileKind::DripsDrop {
+                return false;
+            }
+            if matches!(
+                p.kind,
+                EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                    | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+            ) {
+                return false;
+            }
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
+            {
+                return false;
+            }
+            if p.friendly {
+                return false;
+            }
+            projectile_overlaps_player_loc_1c18(p, px, py, half)
+        }) || self.fire_demon_trails.iter().any(|trail| {
+            let prx = (trail.x_pos >> 16) as i32;
+            let pry = (trail.y_pos >> 16) as i32;
+            (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16
+        })
+    }
+
     fn projectile_player_contact_loc_b640(
         &mut self,
         slice: &OpeningSliceState,
@@ -3240,17 +3274,7 @@ impl NativeRuntime {
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
-            let x_overlaps = if p.kind == EnemyProjectileKind::DripsSurfaceCrawler {
-                // ASM Drips.asm loc_33650/loc_33550 reads the collision word
-                // already produced by GfxObjects_CollisionKid, whose
-                // inclusive compares keep issue-260 frame-550's live crawler
-                // contact at |dx|=15 active instead of using the generic
-                // hostile projectile's strict 14px centre window.
-                (prx - px).abs() <= DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550
-            } else {
-                (prx - px).abs() < half + 8
-            };
-            let overlaps = x_overlaps && (pry - py).abs() < half + 16;
+            let overlaps = projectile_overlaps_player_loc_1c18(p, px, py, half);
             if overlaps {
                 if contact == ProjectilePlayerContactLocB640::None {
                     contact = projectile_player_contact_kind_loc_b640(
@@ -3331,6 +3355,27 @@ impl NativeRuntime {
         self.release_lion_projectile_owners(released_owners);
         contact
     }
+}
+
+fn projectile_overlaps_player_loc_1c18(
+    projectile: &EnemyProjectile,
+    player_x_px: i32,
+    player_y_px: i32,
+    half: i32,
+) -> bool {
+    let prx = (projectile.x_pos >> 16) as i32;
+    let pry = (projectile.y_pos >> 16) as i32;
+    let x_overlaps = if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler {
+        // ASM Drips.asm loc_33650/loc_33550 reads the collision word
+        // already produced by GfxObjects_CollisionKid, whose inclusive
+        // compares keep issue-260 frame-550's live crawler contact at |dx|=15
+        // active instead of using the generic hostile projectile's strict
+        // 14px centre window.
+        (prx - player_x_px).abs() <= DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550
+    } else {
+        (prx - player_x_px).abs() < half + 8
+    };
+    x_overlaps && (pry - player_y_px).abs() < half + 16
 }
 
 fn projectile_player_contact_kind_loc_b640(

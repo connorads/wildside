@@ -8693,11 +8693,9 @@ impl NativeRuntime {
         }
     }
 
-    /// ASM GfxObjects_CollisionKid_Collide (kid.asm:3383): any Kid/enemy hitbox
-    /// overlap sets `$FFFFFA75` ("touched this frame") before classification.
-    /// TODO(fidelity): the ROM also latches overlaps against enemy projectiles
-    /// in the same GfxObject lists; native projectiles are modelled separately
-    /// and are not swept here.
+    /// ASM GfxObjects_CollisionKid_Collide (kid.asm:3383): any Kid/gfx-object
+    /// hitbox overlap sets `$FFFFFA75` ("touched this frame") before
+    /// classification, including the enemy-projectile object lists.
     fn kid_overlaps_any_enemy_gfx_object_loc_1c18(
         &self,
         slice: &OpeningSliceState,
@@ -8719,6 +8717,7 @@ impl NativeRuntime {
                     false,
                 ) != EnemyContactResult::None
             })
+            || self.hostile_projectile_overlaps_player_for_fa75_loc_1c18(slice)
     }
 
     /// ASM loc_1CE4 (kid.asm:3479) + GfxObjects_CollisionKid_Collide

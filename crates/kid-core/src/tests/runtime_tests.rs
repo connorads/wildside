@@ -11668,6 +11668,62 @@ mod chunk_09 {
     }
 
     #[test]
+    fn projectile_overlap_latches_fa75_and_blocks_next_frame_fresh_stomp_loc_1c18() {
+        let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
+        rt.progression.invulnerable_frames = 1;
+        let hitpoints_before = rt.progression.number_hitpoints;
+        let mut slice = rt.opening_slice.unwrap();
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0001_0000;
+
+        assert!(
+            !rt.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0x0001_0000,
+                100 << 16,
+                100 << 16,
+                100 << 16,
+            ),
+            "ASM loc_1D00 suppresses invulnerable damage after the projectile-side contact is consumed"
+        );
+        assert_eq!(rt.progression.number_hitpoints, hitpoints_before);
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_1E94 still consumes the overlapping projectile during the invulnerability frame"
+        );
+        assert!(
+            rt.kid_touched_enemy_this_frame_loc_fa75,
+            "ASM GfxObjects_CollisionKid_Collide loc_1C18 latches FA75 for projectile-list overlaps too"
+        );
+
+        rt.progression.invulnerable_frames = 0;
+        rt.projectiles.push(make_projectile(100, 116));
+        let mut next_slice = slice;
+
+        assert!(
+            rt.resolve_frame_hazards(
+                &mut next_slice,
+                FrameInput::default(),
+                0x0001_0000,
+                100 << 16,
+                100 << 16,
+                100 << 16,
+            ),
+            "next-frame projectile contact still consumes the hazard frame"
+        );
+        assert_eq!(
+            rt.progression.number_hitpoints,
+            hitpoints_before - 1,
+            "ASM loc_1CE4 sees FA74 from the prior projectile overlap and falls through loc_1D4C to damage instead of a fresh `$2C` stomp"
+        );
+        assert!(
+            rt.pending_stomp_bounce.is_none(),
+            "sustained contact must not queue Jump_On_Enemy"
+        );
+    }
+
+    #[test]
     fn drips_falling_drop_overlap_does_not_damage_player_loc_3345c_issue_260() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
