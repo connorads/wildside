@@ -223,6 +223,13 @@ and stop — never commit churn.
   `(456,543) dx=-19 dy=-16 @539`, while row-aligned variants stayed far left
   (`dx=+78 dy=0 @546`) and right-biased variants transitioned. Do not repeat
   this alternate `0..299` bootstrap rebuild unless the base route changes.
+  A narrower 2026-06-12 Iron Knight continuation check from the named
+  `issue-260-drips-iron-knight-climb-probe-current` seed also failed: post-536
+  B+Left/B+Right holds through 620/660/700/760 and directional recoveries to
+  820 ranked no better than `(456,543) dx=-5 dy=-39` and `(584,543)
+  dx=+55 dy=-16`, so the direct Iron Knight post-tail route moves away from
+  centre `EC2D` contact. Do not repeat this post-536 Iron Knight continuation
+  axis without changing the pre-536 route shape.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
