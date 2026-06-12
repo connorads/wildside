@@ -66,6 +66,7 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterAppears,
     TarMonsterShoots,
     TankDriving,
+    RobotShoots,
     VoiceNoTime,
     KidPullup,
     BigHoppingSkullGroan,
@@ -146,6 +147,9 @@ impl QueuedSoundEffect {
             // Tank.asm loc_3B40A and Tank_Shooting.asm loc_3B690 when the
             // first visible Rock Tank enters the shared walker.
             Self::TankDriving => 0x1F,
+            // constants.asm: sfx_Robot_shoots = $3A; Robot.asm loc_3AC0C
+            // plays this after the shot object's first hibernate.
+            Self::RobotShoots => 0x3A,
             // ASM Decrease_Time_Left no-time path (kid.asm:15500): plays
             // `sfx_Voice_no_time = $51` before collision_type=4 death dispatch.
             Self::VoiceNoTime => 0x51,

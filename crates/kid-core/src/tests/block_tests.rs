@@ -10858,6 +10858,7 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
+            None,
         );
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert!(projs.is_empty());
@@ -10868,6 +10869,7 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
+            None,
         );
         assert_eq!(
             enemy.robot_state,
@@ -10923,6 +10925,7 @@ mod chunk_04 {
             player_x,
             &mut Some(&mut projs),
             &mut rng,
+            None,
         );
 
         assert_eq!(

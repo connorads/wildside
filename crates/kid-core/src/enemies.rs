@@ -9748,7 +9748,14 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
-                    step_robot_with_rng(enemy, block_grid, player_x_pos, &mut projectiles, rng);
+                    step_robot_with_rng(
+                        enemy,
+                        block_grid,
+                        player_x_pos,
+                        &mut projectiles,
+                        rng,
+                        played_sound_effects.as_deref_mut(),
+                    );
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     if enemy.wait_timer == ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA {
                         step_orca_berzerker_knockback(enemy);
@@ -20084,7 +20091,11 @@ fn robot_facing_from_x_direction_byte(x_direction: u8) -> Direction {
     }
 }
 
-fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyProjectile>>) {
+fn push_robot_shot(
+    enemy: &ActiveEnemy,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+    sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+) {
     if let Some(projs) = projectiles {
         let child_x_direction = robot_x_direction_byte(enemy.facing);
         let spawn = robot_shot_spawn_loc_3ac0c(child_x_direction, 18);
@@ -20105,6 +20116,11 @@ fn push_robot_shot(enemy: &ActiveEnemy, projectiles: &mut Option<&mut Vec<EnemyP
             wall_bounce: false,
             ..Default::default()
         });
+        if let Some(sound_effects) = sound_effects {
+            // ASM Robot.asm loc_3AC0C: after the allocated shot hibernates
+            // one frame, a clear `$19(a3)` gate plays `sfx_Robot_shoots`.
+            sound_effects.push(QueuedSoundEffect::RobotShoots);
+        }
     }
 }
 
@@ -20126,7 +20142,7 @@ pub(crate) fn step_robot(
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
     let mut rng = RomRandomState::default();
-    step_robot_with_rng(enemy, block_grid, player_x_pos, projectiles, &mut rng);
+    step_robot_with_rng(enemy, block_grid, player_x_pos, projectiles, &mut rng, None);
 }
 
 pub(crate) fn step_robot_with_rng(
@@ -20135,6 +20151,7 @@ pub(crate) fn step_robot_with_rng(
     player_x_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     match enemy.robot_state {
         RobotState::Walking => {
@@ -20208,7 +20225,7 @@ pub(crate) fn step_robot_with_rng(
 
                 enemy.facing = robot_facing_from_x_direction_byte(result.next_parent_x_direction);
                 if result.branch_to_robot_shoot {
-                    push_robot_shot(enemy, projectiles);
+                    push_robot_shot(enemy, projectiles, played_sound_effects.as_deref_mut());
                     finish_robot_shoot_sequence(enemy);
                 } else if result.next_child_counter_word_4e != 0 {
                     // ASM sub_3C4F8 loc_3C58E -> loc_3C5A2 arms the head turn
@@ -20229,7 +20246,7 @@ pub(crate) fn step_robot_with_rng(
                 }
             }
             if enemy.wait_timer == 0 {
-                push_robot_shot(enemy, projectiles);
+                push_robot_shot(enemy, projectiles, played_sound_effects.as_deref_mut());
                 finish_robot_shoot_sequence(enemy);
             }
         }
@@ -27033,6 +27050,56 @@ mod tests {
             sound_effects.is_empty(),
             "ASM loc_3B40A/loc_3B690 are visible-init tails, so an already refcounted live Tank must not restart the drive loop every frame",
         );
+    }
+
+    #[test]
+    fn robot_live_step_queues_shoot_sound_when_loc_3ac0c_spawns_projectile() {
+        let robot = ActiveEnemy {
+            family: EnemyFamily::Robot,
+            robot_state: RobotState::Aiming,
+            wait_timer: 1,
+            facing: Direction::Right,
+            hit_points: 2,
+            x_pos: 100 << 16,
+            y_pos: 80 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [robot];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(140 << 16),
+            Some(80 << 16),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Robot.asm loc_3AC0C should allocate the shot object when the aiming sequence reaches its shoot tail",
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::RobotShoots],
+            "ASM Robot.asm loc_3AC0C should play `sfx_Robot_shoots` after the spawned shot object's one-frame hibernate",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x3A);
     }
 
     fn tar_monster_test_enemy() -> ActiveEnemy {
