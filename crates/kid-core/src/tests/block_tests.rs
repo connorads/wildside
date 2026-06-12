@@ -9139,7 +9139,7 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::UFO, 0x0100_0000, 0x0080_0000, 1);
         let mut projectiles = Vec::new();
 
-        enemies::step_ufo_beam_with_rng(&mut enemy, &mut projectiles, None, None, &mut rng);
+        enemies::step_ufo_beam_with_rng(&mut enemy, &mut projectiles, None, None, &mut rng, None);
 
         assert_eq!(
             enemy.ufo_beam_segments, 4,

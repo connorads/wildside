@@ -9721,7 +9721,14 @@ pub(crate) fn step_active_enemies_with_rng(
                     if matches!(enemy.family, EnemyFamily::UFO)
                         && let Some(ref mut projs) = projectiles
                     {
-                        step_ufo_beam_with_rng(enemy, projs, player_x_pos, player_y_pos, rng);
+                        step_ufo_beam_with_rng(
+                            enemy,
+                            projs,
+                            player_x_pos,
+                            player_y_pos,
+                            rng,
+                            played_sound_effects.as_deref_mut(),
+                        );
                     }
                 }
             }
@@ -11320,7 +11327,7 @@ pub(crate) fn step_ufo_beam(
     player_y: Option<u32>,
 ) {
     let mut rng = RomRandomState::default();
-    step_ufo_beam_with_rng(enemy, projectiles, player_x, player_y, &mut rng);
+    step_ufo_beam_with_rng(enemy, projectiles, player_x, player_y, &mut rng, None);
 }
 
 pub(crate) fn step_ufo_beam_with_rng(
@@ -11329,6 +11336,7 @@ pub(crate) fn step_ufo_beam_with_rng(
     player_x: Option<u32>,
     player_y: Option<u32>,
     rng: &mut RomRandomState,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     // Active beam sequence: spawn segments at intervals
     if enemy.ufo_beam_segments > 0 {
@@ -11366,12 +11374,22 @@ pub(crate) fn step_ufo_beam_with_rng(
         // Player must be below UFO and within ±2px horizontally
         if ky > ey && kx.abs_diff(ex) <= 2 {
             apply_ufo_beam_start_loc_34eec(enemy);
+            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+                // ASM UFO.asm loc_34EDC: targeted beam starts play
+                // `sfx_UFO_shoots` before loading the beam counters.
+                sound_effects.push(QueuedSoundEffect::UfoShoots);
+            }
             return;
         }
     }
 
     if ufo_random_beam_should_start_loc_34f8e(rng.next_byte()) {
         apply_ufo_beam_start_loc_34eec(enemy);
+        if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+            // ASM UFO.asm loc_34FAE: random beam starts use the same
+            // `sfx_UFO_shoots` cue before setting Some_UFO_Shooting.
+            sound_effects.push(QueuedSoundEffect::UfoShoots);
+        }
     }
 }
 
@@ -27100,6 +27118,52 @@ mod tests {
             "ASM Robot.asm loc_3AC0C should play `sfx_Robot_shoots` after the spawned shot object's one-frame hibernate",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x3A);
+    }
+
+    #[test]
+    fn ufo_live_step_queues_shoot_sound_when_targeted_beam_starts() {
+        let ufo = ActiveEnemy {
+            family: EnemyFamily::UFO,
+            hit_points: 2,
+            x_pos: 100 << 16,
+            y_pos: 80 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [ufo];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(100 << 16),
+            Some(100 << 16),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::UfoShoots],
+            "ASM UFO.asm loc_34EDC should play `sfx_UFO_shoots` when Kid is directly below and the targeted beam starts",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x3A);
+        assert_eq!(
+            enemies[0].ufo_beam_segments, UFO_BEAM_SEGMENT_COUNT,
+            "ASM UFO.asm loc_34EEC should arm the beam segment counter after the start cue",
+        );
     }
 
     fn tar_monster_test_enemy() -> ActiveEnemy {
