@@ -18140,6 +18140,38 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn step_hundred_k_trip_timer_loc_7452(&mut self) -> bool {
+        if !matches!(self.boot_state, BootState::InGame) || self.hundred_k_trip_timer == 0 {
+            return false;
+        }
+
+        // ASM loc_7452 (kid.asm:7578-7582): after `Hibernate_Object_1Frame`,
+        // test `$FFFFFB4C`, decrement it when non-zero, and branch to loc_D980
+        // when the post-decrement value reaches zero.
+        self.hundred_k_trip_timer = self.hundred_k_trip_timer.wrapping_sub(1);
+        if self.hundred_k_trip_timer != 0 {
+            return false;
+        }
+
+        self.apply_hundred_k_trip_teleport_loc_da4a();
+        true
+    }
+
+    fn apply_hundred_k_trip_teleport_loc_da4a(&mut self) {
+        let teleport = end_credits_hundred_k_trip_teleport_loc_DA4A();
+        self.progression.score = teleport.score;
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.form_change_flash_frames = 0;
+        self.progression.form_width_delta = 0;
+        self.pending_player_start_override_loc_11bd2 =
+            Some((teleport.player_start_x, teleport.player_start_y));
+        // TODO(fidelity): loc_D980-loc_DA3E perform object cleanup and a fade
+        // worker before loc_DA4A. Native currently applies the terminal
+        // loc_DA4A Teleport state directly when `$FFFFFB4C` expires.
+        self.begin_level_entry(LevelId(teleport.current_level_id as u8));
+    }
+
     /// Previous logical level ID (for debug warping).
     pub fn prev_level_id(&self) -> LevelId {
         if let Some(logical_levels) = self.logical_level_ids() {
@@ -18277,7 +18309,8 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.reload_block_grid_for_level(level_id);
-        self.opening_slice = Some(if self.block_grid.is_some() {
+        let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
+        self.opening_slice = Some(if self.block_grid.is_some() && !preserves_player_start {
             // ASM Load_InGame seeds the level header pose and spends hidden
             // frames settling Kid onto the real floor before visible gameplay.
             // Booted level entry should therefore start from the same settled
@@ -18324,6 +18357,7 @@ impl NativeRuntime {
         self.starting_level_title_rng = (uses_load_ingame_bootstrap
             && !self.starting_level_title_workers.is_empty())
         .then(|| self.rom_random.clone());
+        self.pending_player_start_override_loc_11bd2 = None;
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).
@@ -18991,17 +19025,23 @@ impl NativeRuntime {
                 camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
             };
         };
+        let (player_start_x, player_start_y) = self
+            .pending_player_start_override_loc_11bd2
+            .unwrap_or((header.player_start_x, header.player_start_y));
+        // ASM loc_11BD2 (kid.asm:23777-23782): when `$FFFFFC29` is set, skip
+        // the header start pair and preserve the PlayerStart_X/Y words written
+        // by the caller. loc_DA4A uses that path for Hundred K Trip Teleport.
         // ASM loc_7526 (kid.asm:7674–7676): Kid gfx object setup —
         // `move.w (PlayerStart_X_pos).w,x_pos(a3)`.
-        let kid_x_pos = u32::from(header.player_start_x) << 16;
+        let kid_x_pos = u32::from(player_start_x) << 16;
         // ASM loc_7526 (kid.asm:7675–7676): `move.w (PlayerStart_Y_pos).w,
         // y_pos(a3); subq.w #1,y_pos(a3)` — places Kid 1 pixel above the
         // header spawn Y (into the floor cell above, not the empty cell below).
-        let kid_y_pos = u32::from(header.player_start_y.saturating_sub(1)) << 16;
+        let kid_y_pos = u32::from(player_start_y.saturating_sub(1)) << 16;
         // Camera snaps to screen boundary: floor(pos / screen_size) * screen_size
         // This matches the ASM at Load_InGame (divu.w #$140 / mulu.w #$140).
-        let camera_x_pos = u32::from((header.player_start_x / 320) * 320) << 16;
-        let camera_y_pos = u32::from((header.player_start_y / 224) * 224) << 16;
+        let camera_x_pos = u32::from((player_start_x / 320) * 320) << 16;
+        let camera_y_pos = u32::from((player_start_y / 224) * 224) << 16;
         LevelStartPose {
             kid_x_pos,
             kid_y_pos,

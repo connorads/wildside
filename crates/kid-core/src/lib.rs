@@ -79,6 +79,10 @@ pub struct NativeRuntime {
     allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
     pending_level_skip_resume: bool,
+    /// ASM loc_DA4A writes PlayerStart_X/Y and sets `$FFFFFC29` before the
+    /// Teleport tail. Load_InGame's loc_11BD2 then preserves those start words
+    /// instead of reading the destination level header pair.
+    pending_player_start_override_loc_11bd2: Option<(u16, u16)>,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     starting_level_title_workers: Vec<LevelEntryTitleWorker>,
@@ -1322,6 +1326,7 @@ impl NativeRuntime {
             allow_pausing_fade_frames: 0,
             pending_level_skip: None,
             pending_level_skip_resume: false,
+            pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             starting_level_title_workers: Vec::new(),
@@ -2174,7 +2179,13 @@ impl NativeRuntime {
         let preserve_demo_title_snapshot_frame =
             matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.preserve_demo_title_snapshot;
-        if !freeze_demo_auto_timeout_snapshot && !preserve_demo_title_snapshot_frame {
+        let hundred_k_trip_teleport_started = !freeze_demo_auto_timeout_snapshot
+            && !preserve_demo_title_snapshot_frame
+            && self.step_hundred_k_trip_timer_loc_7452();
+        if !freeze_demo_auto_timeout_snapshot
+            && !preserve_demo_title_snapshot_frame
+            && !hundred_k_trip_teleport_started
+        {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
