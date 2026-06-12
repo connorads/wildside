@@ -242,6 +242,41 @@ fn lion_parent_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn ninja_active_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 91 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let ninja = test_enemy(EnemyFamily::Ninja, 101 << 16, 100 << 16, 3);
+    let bounds = enemy_contact_bounds(&ninja.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-11, 11, -29, 0),
+        "ASM Ninja.asm live frames use LnkTo_unk_C7D6E..C7DBE; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize row unk_318DE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &ninja.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Ninja active body reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn fire_demon_walking_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;
