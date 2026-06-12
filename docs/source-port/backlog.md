@@ -236,6 +236,19 @@ and stop — never commit churn.
   and `(584,543) dx=0 dy=-48`, with a focused probe staying `InGame`/HP 1 and
   showing only the earlier floor `DripsSurfaceCrawler` window, not centre-cell
   block contact. Do not repeat this pre-478 slingback family unchanged.
+  2026-06-12 follow-up: two fresh route-shape batches also failed to improve
+  the centre `EC2D` target. On oracle-comparable
+  `.cache/debug/issue260-iron-extended/ik-l500-bl536.json`, first-jump,
+  early-left, slingback, reverse/coast, and `260..430` up/down/B variants still
+  ranked no better than the existing `dy=-23` left-target class or
+  right-target `dx=-2 dy=-20`; every row-aligned right-side improvement stayed
+  below the row-32 line. On the current
+  `.cache/recordings/issue-260-drips-b-jump-climb-seed-current/scenario.json`,
+  pre-360 lift/drop, double-rise, late-switch, and `430..580` lift variants
+  left the best live/nonzero-HP candidate at `(456,543) dx=+6 dy=-19 @488`,
+  worse than the baseline, while closer right-side passes were HP-zero or
+  `LevelTransition`. Do not repeat these first-jump/early-sling/pre-360
+  vertical setup probes unless the base route changes.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
