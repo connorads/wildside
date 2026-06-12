@@ -67,6 +67,41 @@ fn rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e() {
 }
 
 #[test]
+fn goat_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 89 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let goat = test_enemy(EnemyFamily::Goat, 100 << 16, 100 << 16, 4);
+    let bounds = enemy_contact_bounds(&goat.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-17, 15, -32, 0),
+        "ASM Goat.asm stru_3C996 uses LnkTo_unk_C7C9E..C7CC6; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_31824..unk_31856"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &goat.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Goat walking box reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

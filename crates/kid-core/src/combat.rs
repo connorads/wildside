@@ -10957,6 +10957,7 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
         } => {
@@ -10989,6 +10990,33 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn goat_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Goat.asm uses walking scripts `stru_3C97C`/`stru_3C996`, whose
+    // `LnkTo_unk_C7C9E..C7CC6` entries map through GfxObjects_CollisionKid
+    // loc_1BCE to CollisionSize_Index rows `unk_31824..unk_31856`. Native
+    // does not yet expose the exact current sprite link here, so use the ROM
+    // union for the live walking rows; damage frames use the wider
+    // `unk_317E4..unk_31816` union.
+    let (left_px, right_px) = if enemy.damage_flash {
+        match enemy.facing {
+            Some(Direction::Right) => (-20, 18),
+            Some(Direction::Left) | None => (-18, 20),
+        }
+    } else {
+        match enemy.facing {
+            Some(Direction::Right) => (-15, 17),
+            Some(Direction::Left) | None => (-17, 15),
+        }
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -32,
+        bottom_px: 0,
     }
 }
 
