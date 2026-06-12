@@ -7719,8 +7719,13 @@ impl NativeRuntime {
                     // 2P: both have lives, switch turns
                     self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
+                    // ASM loc_BC40/loc_BC5C (kid.asm:15187-15210): only a
+                    // prior damage hit latches Just_received_damage and starts
+                    // the post-respawn 66-frame flash; pit/timer deaths do not.
+                    let respawn_damage_flash = self.just_received_damage;
                     let death_respawn_trace_profile = self.death_respawn_trace_profile_for_route();
                     self.reset_current_level_runtime_state_for_respawn();
+                    self.just_received_damage = respawn_damage_flash;
                     self.death_respawn_trace_profile = death_respawn_trace_profile;
                     self.rebuild_death_respawn_title_workers_loc_b8de();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -7757,7 +7762,13 @@ impl NativeRuntime {
                         self.respawn_live_handoff_frames.saturating_sub(1);
                     if self.respawn_live_handoff_frames == 0 {
                         self.player_lifecycle = PlayerLifecycle::Alive;
-                        self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                        // ASM loc_BC5C/loc_BC6E damage-flash duration: 11
+                        // cycles of 2+4 hibernate frames = 66 frames.
+                        self.progression.invulnerable_frames = if self.just_received_damage {
+                            PLAYER_DAMAGE_INVULNERABLE_FRAMES
+                        } else {
+                            0
+                        };
                         self.just_received_damage = false;
                         self.kid_is_invulnerable = false;
                     } else {

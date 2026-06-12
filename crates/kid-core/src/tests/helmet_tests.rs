@@ -2015,6 +2015,81 @@ mod chunk_08 {
         assert_eq!(runtime.progression.number_lives, 2);
     }
 
+    /// ASM loc_BC40/loc_BC5C (kid.asm:15187-15210) only runs the 66-frame
+    /// damage-flash thread when `Just_received_damage` was latched by the hit.
+    /// Pit/timer deaths enter lose_life without that latch, so the respawn
+    /// hand-off must not grant the damage flash.
+    #[test]
+    fn respawn_handoff_without_damage_latch_does_not_seed_invulnerability() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 1,
+        };
+        runtime.respawn_live_handoff_frames = 1;
+        runtime.just_received_damage = false;
+        runtime.progression.invulnerable_frames = 0;
+
+        runtime.step_lifecycle(FrameInput::default());
+
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+        assert_eq!(
+            runtime.progression.invulnerable_frames, 0,
+            "without ASM Just_received_damage, respawn should not start the loc_BC5C damage flash"
+        );
+    }
+
+    /// ASM loc_BC40 (kid.asm:15187) keeps `Just_received_damage` as the source
+    /// of the post-hit flash; lose_life/reset must not erase that latch before
+    /// the respawn hand-off decides whether to seed invulnerability.
+    #[test]
+    fn damage_latched_dying_reset_preserves_respawn_invulnerability_source() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 1,
+        };
+        runtime.progression.number_lives = 2;
+        runtime.just_received_damage = true;
+
+        runtime.step_lifecycle(FrameInput::default());
+
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::Respawning { .. }
+        ));
+        assert!(
+            runtime.just_received_damage,
+            "damage-latched lose_life reset must preserve Just_received_damage until the live respawn hand-off consumes it"
+        );
+    }
+
+    /// ASM loc_BC5C/loc_BC6E (kid.asm:15203-15210): the damage-flash thread
+    /// runs 11 cycles of 2+4 hibernate frames, so a damage-latched respawn seeds
+    /// exactly 66 invulnerable frames when gameplay resumes.
+    #[test]
+    fn respawn_handoff_with_damage_latch_seeds_invulnerability() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: 1,
+        };
+        runtime.respawn_live_handoff_frames = 1;
+        runtime.just_received_damage = true;
+        runtime.progression.invulnerable_frames = 0;
+
+        runtime.step_lifecycle(FrameInput::default());
+
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+        assert_eq!(
+            runtime.progression.invulnerable_frames, PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+            "damage-latched respawn should start the ASM loc_BC5C damage flash"
+        );
+    }
+
     #[test]
     fn save_load_player_slot_round_trips() {
         let mut runtime = NativeRuntime::new(manifest());
