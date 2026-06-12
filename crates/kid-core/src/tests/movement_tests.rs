@@ -7763,6 +7763,43 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_779C/loc_77E6 -> sub_922C loc_9288: the standing-still wall
+    /// gate uses the same short-body scan as moving wall collision for
+    /// Juggernaut. A wall tile in the extra full-height row must not suppress
+    /// the transition into walking.
+    #[test]
+    fn loc_779c_juggernaut_standing_wall_gate_uses_short_body_scan() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.x_velocity = 0;
+        let grid = grid_with_cells(8, 8, &[(4, 4, 0x60, 0x00)]);
+
+        let moved = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::Juggernaut,
+            Some(&grid),
+            false,
+        );
+
+        assert!(
+            moved,
+            "ASM sub_922C loc_9288 skips the extra 16px head row for Juggernaut; row-4 wall should not hold standing still"
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "ASM sub_922C loc_9288 skips the extra 16px head row for Juggernaut; row-4 wall should not hold standing still"
+        );
+    }
+
     /// ASM sub_8F26 wall hit returns NE for a side collision, but wall-cling
     /// entry is an airborne Kid-flip behaviour (`loc_A8DE`). Grounded side hits
     /// must zero x_vel without setting either sticky latch.

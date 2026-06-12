@@ -4490,7 +4490,7 @@ impl OpeningSliceState {
             x_px,
             y_px,
             form.half_width(),
-            PLAYER_HEIGHT,
+            form.ceiling_probe_height(),
             direction == Direction::Right,
         );
         if wall_probe.hit {
