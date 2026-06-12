@@ -5366,6 +5366,7 @@ impl NativeRuntime {
         };
         self.title_menu_active = false;
         self.title_menu_cursor_pending = false;
+        self.title_menu_hidden_prearm_pending = false;
         self.title_menu_selection_pending = None;
         self.title_menu_selection_delay_frames = 0;
         self.demo_buffered_input = None;
@@ -6564,6 +6565,7 @@ impl NativeRuntime {
             self.demo_auto_timeout_intro_sequence_4_frames_override;
         let intro_sequence_5_frames_override =
             self.demo_auto_timeout_intro_sequence_5_frames_override;
+        let current_level_has_title_card = self.level_has_title_card(self.current_level);
         let mut activate_intro_sequence_3_roster = false;
         let mut play_navigate_jingle = false;
         match &mut self.boot_state {
@@ -7115,10 +7117,21 @@ impl NativeRuntime {
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
                 } else if !self.title_menu_active {
-                    if start_pressed {
+                    if start_pressed
+                        && self.frame_index < self.title_screen_ready_frame
+                        && self.frame_index <= self.title_menu_arm_frame
+                    {
+                        // ASM Obj_TitleMenu loc_1BAEA/loc_1BAEE consumes the
+                        // arm-frame Start before the visible title pose can
+                        // select a row, but the title-loop countdown still
+                        // carries the cursor-build latency seen by TAS routes.
+                        self.title_menu_active = true;
+                        self.title_menu_hidden_prearm_pending = true;
+                    } else if start_pressed {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
+                        self.title_menu_hidden_prearm_pending = false;
                         self.title_menu_arm_frame = self
                             .frame_index
                             .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
@@ -7146,8 +7159,16 @@ impl NativeRuntime {
                             self.begin_demo_play(self.demo_toggle);
                         }
                     }
+                } else if start_pressed && self.title_menu_hidden_prearm_pending {
+                    self.title_idle_frames = 0;
+                    self.title_menu_hidden_prearm_pending = false;
+                    self.title_menu_cursor_pending = true;
+                    self.title_menu_arm_frame = self
+                        .frame_index
+                        .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
                 } else if start_pressed {
                     self.title_idle_frames = 0;
+                    self.title_menu_hidden_prearm_pending = false;
                     // ASM Obj_TitleMenu loc_1BBD6: after Start selects the
                     // current row, the object marks the hand-off latch and
                     // jumps through loc_6E2 / level-select entry.
@@ -7189,6 +7210,7 @@ impl NativeRuntime {
                     && self.frame_index >= self.title_menu_arm_frame
                 {
                     self.title_menu_cursor_pending = false;
+                    self.title_menu_hidden_prearm_pending = false;
                 }
                 self.title_screen_elapsed_frames += 1;
                 if self.preserve_demo_title_snapshot
@@ -7325,7 +7347,8 @@ impl NativeRuntime {
                 let mut enter_gameplay = false;
                 let title_card_bootstrap_active = (!*uses_load_ingame_bootstrap
                     || !*load_ingame_bootstrap_started)
-                    && !self.starting_level_title_workers.is_empty();
+                    && (current_level_has_title_card
+                        || !self.starting_level_title_workers.is_empty());
                 if *uses_load_ingame_bootstrap && !*load_ingame_bootstrap_started {
                     if *start_latched {
                         // ASM loc_1AE2E hibernates first, then consumes the
@@ -7362,11 +7385,20 @@ impl NativeRuntime {
                     // buttons must not release the title-card hibernate worker
                     // into live Mode_Level input.
                     enter_gameplay = if title_card_bootstrap_active {
-                        start_pressed
+                        if *start_latched {
+                            !self.previous_input.start
+                        } else {
+                            if start_pressed {
+                                *start_latched = true;
+                            }
+                            false
+                        }
                     } else {
                         *start_latched || start_pressed
                     };
-                    *start_latched = false;
+                    if enter_gameplay {
+                        *start_latched = false;
+                    }
                 }
                 *elapsed_frames = elapsed_frames.saturating_add(1);
                 if enter_gameplay {

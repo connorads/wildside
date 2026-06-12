@@ -230,15 +230,17 @@ sequence flips Speed to `$FF` starting at frame 882, while
 and oracle rendered frames show the card still waiting at frame 2500. Adding a
 card Start at frame 2600 in
 `.cache/debug/issue305/fast-action-gameplay-probe.json` reaches live gameplay by
-frame 2800 with `options_speed_button_fast=true` in oracle debug fields. Current
-native is not yet gateable on this route: `verify-tas --frame-start 2600
---frame-end 3200 --checkpoint-interval 50 --frontier-kind gameplay --bisect`
-diverges immediately because native is already in gameplay at frame 2600 while
-oracle is still on the title card; the later `2800..3200` window first diverges
-at frame 2889. `tas-diff --frame-start 2870 --frame-end 2900` shows native has
-already taken dragon-breath damage (`number_hitpoints=1`, then 0 and
-`just_received_damage=true`) while oracle is still at HP 2. Next #305 work should
-align the native level-card hold / Start-to-gameplay shell before promoting this
+frame 2800 with `options_speed_button_fast=true` in oracle debug fields. Native
+now keeps the hidden title-loop pre-arm countdown from ASM `Obj_TitleMenu
+loc_1BAEE` but prevents that hidden Start from selecting/releasing the level on
+the later Start, consumes the title-card Start per `Load_TitleCard loc_1AE2E`,
+and waits the extra hibernate frame before entering `$000C`. `tas-diff --frame-start 2598
+--frame-end 2603 --frontier-kind gameplay --include-advisory` now matches frames
+2598..2601. The route is still not gateable: first divergence moved to frame
+2602, with mode aligned but native already exposing gameplay camera/player/object
+state (`camera_y_pos=$00730000`, Kid at `$00200000,$010F0000`, enemy `$0D`
+loaded) while oracle still has the title-card worker/object hand-off settling.
+Next #305 work should align that post-card gameplay hand-off before promoting the
 Fast Action route into a verifier gate.
 
 Follow-up 2026-06-11 for #282: root cause was the native hotkey presentation,

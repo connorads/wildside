@@ -3597,7 +3597,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn title_screen_level_entry_after_ready_starts_on_first_mode_8_frame() {
+    fn title_screen_level_entry_after_ready_waits_for_title_card_start_edge() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
@@ -3610,17 +3610,97 @@ mod chunk_02 {
             matches!(
                 runtime.boot_state,
                 BootState::StartingLevel {
-                    start_latched: true,
+                    start_latched: false,
                     elapsed_frames: 1,
                     uses_load_ingame_bootstrap: false,
                     ..
                 }
             ),
-            "ready title-screen level entry should skip the Load_InGame bootstrap and count the already-visible mode-$0008 hand-off frame as local frame 1",
+            "ready title-screen level entry should skip the Load_InGame bootstrap, count the already-visible mode-$0008 hand-off frame as local frame 1, and wait for the title-card Start edge",
         );
         assert!(
             runtime.starting_level_title_rng.is_none(),
             "ready title-screen hand-off should not preserve early-bootstrap title worker RNG",
+        );
+
+        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E clears the title-menu Start press and keeps Load_TitleCard in mode $0008 until a later Start edge"
+        );
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E consumes the later Start edge during the hibernating title-card frame before the mode-$000C hand-off",
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E keeps one more hibernate frame after consuming the later Start edge",
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::InGame,
+            "ASM loc_1AE2E should write Game_Mode=$000C after the post-Start hibernate frame",
+        );
+    }
+
+    #[test]
+    fn title_card_metadata_waits_one_frame_after_start_even_without_visible_workers() {
+        let mut assets = manifest_with_levels(1);
+        assets.levels[0].title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![0xFF],
+            line_destinations: Vec::new(),
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame;
+
+        runtime.begin_level_entry(LevelId(0));
+        assert!(
+            runtime.starting_level_title_workers.is_empty(),
+            "empty synthetic title script should prove the gate comes from title-card metadata rather than visible workers"
+        );
+
+        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E still hibernates for the Start-consume frame when the level has title-card metadata but no visible glyph workers"
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E still hibernates for one frame after consuming Start even without visible glyph workers"
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::InGame,
+            "ASM loc_1AE2E should expose gameplay after the post-Start hibernate"
         );
     }
 
@@ -9734,8 +9814,24 @@ mod chunk_02 {
 
         assert_eq!(
             runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E `bclr #Button_Start,(Ctrl_Pressed)` should consume the Start edge before the mode-$000C hand-off",
+        );
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E should keep the post-Start hibernate frame in mode-$0008",
+        );
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.trace_frame().game_mode,
             GameMode::InGame,
-            "ASM loc_1AE2E `bclr #Button_Start,(Ctrl_Pressed)` should consume the Start edge and write Game_Mode=$000C",
+            "ASM loc_1AE2E should write Game_Mode=$000C after the post-Start hibernate frame",
         );
         assert_eq!(runtime.current_level, LevelId(1));
         assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));

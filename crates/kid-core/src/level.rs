@@ -18244,8 +18244,16 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) && self.title_screen_ready()
             && !uses_load_ingame_bootstrap;
+        let start_latched = !uses_load_ingame_bootstrap
+            && !level_has_title_card
+            && !matches!(self.boot_state, BootState::TitleScreen { .. });
         self.boot_state = BootState::StartingLevel {
-            start_latched: !uses_load_ingame_bootstrap,
+            // ASM loc_1AE2E: Load_TitleCard hibernates, clears the current
+            // Ctrl_Pressed Start bit, and waits for a later Start edge before
+            // writing Game_Mode=$000C. A title-menu selection Start, or a
+            // level-complete transition with no Start edge, must not carry
+            // through as the title-card release edge.
+            start_latched,
             // ASM Obj_TitleMenu `Title_InputLoop` writes `Game_Mode=$0008`
             // before it jumps to `loc_6E2`, so the cold-boot title-card
             // lineage should treat that visible hand-off frame as local

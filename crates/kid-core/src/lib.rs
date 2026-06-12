@@ -384,6 +384,10 @@ pub struct NativeRuntime {
     /// True on the exact frame the title menu gets armed; the cursor sprite
     /// only becomes visible on the following traced frame.
     title_menu_cursor_pending: bool,
+    /// Hidden title Start consumed before trace-facing readiness. The ROM's
+    /// title-loop countdown is live, but the next Start should expose the
+    /// interactive menu rather than selecting the current row.
+    title_menu_hidden_prearm_pending: bool,
     /// Pending title-menu selection (0=1P, 1=2P, 2=options) applied on the
     /// following frame to match Obj_TitleMenu's deferred hand-off.
     title_menu_selection_pending: Option<u8>,
@@ -1427,6 +1431,7 @@ impl NativeRuntime {
             title_menu_arm_frame: 0,
             title_menu_active: false,
             title_menu_cursor_pending: false,
+            title_menu_hidden_prearm_pending: false,
             title_menu_selection_pending: None,
             title_menu_selection_delay_frames: 0,
             demo_buffered_input: None,
