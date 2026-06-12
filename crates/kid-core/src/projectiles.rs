@@ -2350,6 +2350,16 @@ impl NativeRuntime {
                 y_pos: (enemy.y_pos >> 16) as u16 as i16,
             })
             .collect();
+        let active_lion_projectile_owners: Vec<EnemyProjectileOwner> = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Lion)
+            .map(|enemy| EnemyProjectileOwner {
+                segment_index: enemy.segment_index,
+                layout_index: enemy.layout_index,
+                token: enemy.ufo_beam_interval,
+            })
+            .collect();
         let mut released_owners = Vec::new();
         // ASM Drips.asm loc_33488 increments `$FFFFFB42` when loc_335D8 is
         // allocated. The count is decremented only at loc_3392C, after the
@@ -2960,6 +2970,14 @@ impl NativeRuntime {
             if let (Some(owner), Some(camera)) = (p.owner, camera)
                 && p.kind != EnemyProjectileKind::DripsDrop
             {
+                if p.kind == EnemyProjectileKind::LionProjectile
+                    && !active_lion_projectile_owners.contains(&owner)
+                {
+                    // ASM Lion.asm sub_3E2CE: `cmp.b $71(a0),d6;
+                    // bne.s loc_3E314` deletes on owner-token mismatch
+                    // without reaching loc_3E30E's `$5B` decrement.
+                    return false;
+                }
                 let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
                 let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
                 let in_camera_box =

@@ -7299,6 +7299,46 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE (kid.asm: via Lion.asm:287): `cmp.b $71(a0),d6;
+    /// bne.s loc_3E314` deletes the projectile immediately when the owner's
+    /// token no longer matches. The mismatch branch skips loc_3E30E, so a
+    /// reused Lion slot must not absorb a `$5B` active-shot decrement.
+    fn lion_projectile_sub_3e2ce_deletes_owner_token_mismatch_without_release() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x66; // mismatches projectile owner token
+        lion.ufo_beam_segments = 3;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0x0100 << 16;
+        slice.camera.y_pos = 0x0100 << 16;
+        rt.opening_slice = Some(slice);
+
+        let mut projectile = make_projectile(0x0108, 0x0108);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM Lion.asm sub_3E2CE: owner-token mismatch branches straight to loc_3E314 delete even while the projectile is inside the camera box"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 3,
+            "ASM loc_3E314 token-mismatch delete skips loc_3E30E, so the reused Lion slot must not decrement `$5B`"
+        );
+    }
+
     // --- sub_3E2CE called from loc_3E2A8: post-bounce camera-box re-check ---
 
     /// Build an `n × n`-cell grid (n × 16 px on each axis) with solid blocks
