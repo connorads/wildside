@@ -235,6 +235,13 @@ the local extraction precondition from the latest report; it does not by itself
 close #282, because the live `N`/`P` hotkey/name-card presentation still needs a
 fresh SDL validation run.
 
+Follow-up 2026-06-12 for #282 asset precondition: current checkout still clears
+the `0x0D` warning. `cargo run -q -p kidcli -- capture-frames --level 0D
+--frames 0 --output .cache/debug/issue282-level0d-smoke` saved
+`level_0d_frame_00000.png`, exercising the same native player layout/decoder
+fallback path without the pushed-build "missing generated level layout" error.
+Keep #282 `[?]` for human-visible `N`/`P` card validation only.
+
 Follow-up 2026-06-11 for #305 Fast Action interactive lane: derived a
 cache-local oracle route instead of guessing another gate scenario. In
 `.cache/debug/issue305/options-entry-500-530-600.json`, the title menu accepts
