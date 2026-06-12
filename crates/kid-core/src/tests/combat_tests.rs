@@ -794,6 +794,59 @@ fn live_multi_head_boss_fire_spawns_after_attack_animation_gate_loc_39566() {
 }
 
 #[test]
+fn live_multi_head_boss_fire_uses_activation_facing_cache_loc_39538() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    let mut projectiles = Vec::new();
+
+    // ASM loc_39534 clears `x_direction(a3)` because head_x > Kid.x, then
+    // loc_39538 caches that byte to `$FFFFFB86` before `stru_39FC6` starts.
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0070_0000),
+        Some(0x0080_0000),
+    );
+
+    assert!(projectiles.is_empty());
+    assert_eq!(boss.wait_timer, BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538);
+    assert_eq!(
+        boss.facing,
+        Direction::Left,
+        "ASM loc_39534 clears x_direction when head_x > Kid.x before loc_39538 caches it"
+    );
+
+    for _ in 0..BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6 {
+        step_boss_fire(
+            &mut boss,
+            &mut projectiles,
+            Some(0x0090_0000),
+            Some(0x0080_0000),
+        );
+        assert!(
+            projectiles.is_empty(),
+            "ASM loc_39566 still waits on the activation-time `stru_39FC6` gate after Kid crosses"
+        );
+    }
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    assert_eq!(
+        projectiles[0].x_velocity, -0x0003_0000,
+        "ASM sub_397E4 uses the loc_39538 cached x_direction, not Kid's later X"
+    );
+    assert_eq!(
+        projectiles[0].x_pos, 0x0068_0000,
+        "ASM sub_397E4/loc_3980A spawns `$18` px left when cached x_direction is clear"
+    );
+}
+
+#[test]
 fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;

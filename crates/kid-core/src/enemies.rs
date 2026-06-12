@@ -26748,8 +26748,16 @@ pub(crate) fn step_boss_fire(
             return;
         }
         if !attack_windup_remaining {
-            // ASM loc_39538/loc_37FC6: entering the Kid Y window starts
-            // `stru_39FC6`; sub_397E4 only runs after `$18(a3)` becomes nonzero.
+            let head_x = ((enemy.x_pos >> 16) as u16) as i16;
+            let kid_x = ((player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16) as i16;
+            enemy.facing = if head_x > kid_x {
+                Direction::Left
+            } else {
+                Direction::Right
+            };
+            // ASM loc_39534/loc_37FC2 sets `x_direction(a3)`, then
+            // loc_39538/loc_37FC6 caches it to `$FFFFFB86/87/88` and starts
+            // `stru_39FC6`; native carries that cached byte as `enemy.facing`.
             enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
             return;
         }
@@ -26806,10 +26814,9 @@ pub(crate) fn step_boss_fire(
         EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => {
             let parent_x = (enemy.x_pos >> 16) as u16;
             let parent_y = (enemy.y_pos >> 16) as u16;
-            let parent_x_direction = if player_x_pos.is_some_and(|kid_x| kid_x >= enemy.x_pos) {
-                0xFF
-            } else {
-                0
+            let parent_x_direction = match enemy.facing {
+                Direction::Left => 0,
+                Direction::Right => 0xFF,
             };
             let variant_d1 = if matches!(enemy.family, EnemyFamily::BoomerangBosses) {
                 1
@@ -26822,15 +26829,10 @@ pub(crate) fn step_boss_fire(
                 parent_x_direction,
                 variant_d1,
             );
-            // ASM loc_39506/loc_37F94 sets `x_direction(a3)` from Kid X, then
-            // sub_397E4/loc_3980A copies it into the child and stores `$48=±3`.
-            // Native child coroutines now use loc_3A0D2 for arrow heads and
-            // loc_3A1EA/loc_3A24C for boomerangs, seeded from this helper.
-            enemy.facing = if spawn.x_direction == 0 {
-                Direction::Left
-            } else {
-                Direction::Right
-            };
+            // ASM sub_397E4/loc_3980A copies the cached parent x_direction
+            // into the child and stores `$48=±3`. Native child coroutines now
+            // use loc_3A0D2 for arrow heads and loc_3A1EA/loc_3A24C for
+            // boomerangs, seeded from this helper.
             let is_boomerang = variant_d1 == 1;
             let direction_byte_d0 = ((spawn.velocity_word_48 as u16) >> 8) as u8;
             projectiles.push(EnemyProjectile {
