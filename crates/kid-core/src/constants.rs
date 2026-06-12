@@ -512,9 +512,12 @@ pub(crate) const SPRITE_VISIBILITY_BOTTOM_MARGIN_PX: i32 = 0x80;
 pub(crate) const SPRITE_VISIBILITY_TOP_MARGIN_PX: i32 = 0x80;
 pub(crate) const SPRITE_VISIBILITY_RIGHT_MARGIN_PX: i32 = 0x40;
 pub(crate) const SPRITE_VISIBILITY_LEFT_MARGIN_PX: i32 = 0x40;
-/// ASM: Game Over display holds for 0x1A3 (419) frames, including the
-/// loc_D15E score-fade hibernate tail before the EOL score objects are live.
-pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
+/// ASM loc_D2C4/loc_D2CE: no-continue GAME OVER waits through a `$3C`
+/// text-fall hibernate before the `$1A3` Start-skippable title-return loop.
+pub(crate) const PLAYER_GAME_OVER_PRE_HIBERNATE_FRAMES: usize = 0x3C;
+pub(crate) const PLAYER_GAME_OVER_START_SKIP_HOLD_FRAMES: usize = 0x1A3;
+pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize =
+    PLAYER_GAME_OVER_PRE_HIBERNATE_FRAMES + PLAYER_GAME_OVER_START_SKIP_HOLD_FRAMES;
 /// ASM: Continue countdown: loc_D31E initial pause, loc_D350 first Start
 /// window, then loc_D3AA post-fade Start window before returning to title.
 pub(crate) const CONTINUE_INITIAL_HOLD_FRAMES: usize = 28;

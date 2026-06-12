@@ -25754,6 +25754,27 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_D2C4/loc_D2CE (kid.asm:16491-16495): the zero-continues GAME
+    /// OVER path runs a `$3C` hibernate before entering the `$1A3`
+    /// Start-skippable wait loop. Native collapses both waits into the
+    /// `GameOver` lifecycle hold, so the constant must include both terms.
+    #[test]
+    fn loc_d2ce_zero_continue_game_over_hold_includes_pre_hibernate() {
+        assert_eq!(
+            PLAYER_GAME_OVER_PRE_HIBERNATE_FRAMES, 0x3C,
+            "ASM loc_D2C4 pushes `$3C` before calling Hibernate_Object"
+        );
+        assert_eq!(
+            PLAYER_GAME_OVER_START_SKIP_HOLD_FRAMES, 0x1A3,
+            "ASM loc_D2CE seeds the Start-skippable wait with `$1A3`"
+        );
+        assert_eq!(
+            PLAYER_GAME_OVER_HOLD_FRAMES,
+            0x3C + 0x1A3,
+            "native GameOver hold should preserve both ROM waits"
+        );
+    }
+
     /// ASM loc_D350 (kid.asm:16528): `jsr j_Hibernate_Object_1Frame`;
     /// `tst.b (Ctrl_Held).w`; `bmi.s Use_Continue`; `dbf d0,loc_D350`.
     /// Native preserves the input-first ordering: held Start on the first
