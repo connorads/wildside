@@ -10508,6 +10508,53 @@ mod chunk_02 {
         );
     }
 
+    /// ASM Init_Timer_and_Bonus_Flags (kid.asm:6559) clears both
+    /// NoHit_Bonus_Flag and NoPrize_Bonus_Flag when FC36 requests a level
+    /// runtime reset. The death/continue respawn path reaches that same reset.
+    #[test]
+    fn fc36_respawn_reset_clears_nohit_and_noprize_flags() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = true;
+
+        runtime.reset_current_level_runtime_state_for_respawn();
+
+        assert!(
+            !runtime.level_damage_taken,
+            "ASM Init_Timer_and_Bonus_Flags should clear NoHit_Bonus_Flag on respawn reset"
+        );
+        assert!(
+            !runtime.level_prize_collected,
+            "ASM Init_Timer_and_Bonus_Flags should also clear NoPrize_Bonus_Flag on respawn reset"
+        );
+    }
+
+    /// ASM Teleport sets FC36 before the cross-level resume shell, so the
+    /// `maybe_begin_pending_level_skip_resume` path must clear the same bonus
+    /// flags as death/continue respawn.
+    #[test]
+    fn fc36_level_skip_resume_clears_nohit_and_noprize_flags() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = true;
+        runtime.pending_level_skip_resume = true;
+
+        runtime.maybe_begin_pending_level_skip_resume();
+
+        assert!(
+            !runtime.level_damage_taken,
+            "ASM Init_Timer_and_Bonus_Flags should clear NoHit_Bonus_Flag on level-skip resume"
+        );
+        assert!(
+            !runtime.level_prize_collected,
+            "ASM Init_Timer_and_Bonus_Flags should also clear NoPrize_Bonus_Flag on level-skip resume"
+        );
+    }
+
     /// ASM loc_D5D2 (kid.asm:16732): `tst.b (NoPrize_Bonus_Flag).w; bne.w
     /// loc_D60E`; flag zero falls through and allocates a 5000-point
     /// "No Prize" bonus before continuing to the path-bonus branch.
