@@ -868,6 +868,71 @@ fn live_multi_head_boss_fire_uses_activation_facing_cache_loc_39538() {
 }
 
 #[test]
+fn live_multi_head_boss_hit_during_fire_wait_enters_loc_39ebe_before_projectile() {
+    for (wait_timer, asm_label) in [
+        (
+            BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538,
+            "loc_37FD6/loc_38062/loc_38144",
+        ),
+        (
+            BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570,
+            "loc_37FF4/loc_380D6/loc_381B8",
+        ),
+    ] {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 1);
+        boss.wait_timer = wait_timer;
+        runtime.active_enemies = vec![boss];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, 0x001C);
+        runtime.apply_pending_enemy_collisions();
+        let mut drilled_blocks = Vec::new();
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            Some(0x0070_0000),
+            Some(0x0080_0000),
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut runtime.projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM {asm_label} stores sub_39952/sub_399E4/sub_39A7C d7 and branches to loc_39EBE on a lethal hit"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "ASM loc_39EBE starts the boss-head death animation instead of finishing the fire state"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer, BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+            "ASM loc_39EBE replaces the live fire wait with the death script timer"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM {asm_label} checks the collision status before loc_37FEA/loc_38076/loc_38158 can call sub_397E4"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::BigHoppingSkullGroan],
+            "ASM sub_3A292 loc_3A2C0 plays the hurt groan before the loc_39EBE branch"
+        );
+    }
+}
+
+#[test]
 fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
     boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;

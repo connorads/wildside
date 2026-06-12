@@ -7932,7 +7932,9 @@ impl NativeRuntime {
                 // decrement `$3E(a3)`, seed the flash byte in `d1`, and play
                 // the Big Hopping Skull groan before returning d7 status to
                 // the caller's `loc_39EBE` branch.
-                enemy.hit_points = result.next_hit_points.clamp(0, i16::from(u8::MAX)) as u8;
+                if !result.head_dead {
+                    enemy.hit_points = result.next_hit_points.clamp(0, i16::from(u8::MAX)) as u8;
+                }
                 enemy.damage_flash_frames = result.next_flash_timer;
                 if result.hit {
                     self.played_sound_effects
@@ -7940,6 +7942,10 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                 }
                 if result.head_dead {
+                    // ASM sub_3A292 returns d7 to the caller, which then
+                    // branches to loc_39EBE while the live object still owns
+                    // the death-script transition. Keep HP nonzero until
+                    // remove_dead_enemy installs that transition.
                     kill_indices.push(active_idx);
                 }
                 continue;
