@@ -7,7 +7,7 @@ use super::{
 };
 use crate::combat::{
     boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
-    boss_head_projectile_spawn_sub_397E4,
+    boss_head_projectile_spawn_sub_397E4, heady_metal_tracking_velocity_loc_37582,
 };
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -26451,15 +26451,29 @@ pub(crate) fn step_tracker(
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
 
-    // Horizontal: chase player at $8000 (0.5 px/frame)
-    // HeadyMetal ASM: X velocity forced to 0 during first 4 hit phases ($3E < 4).
-    // Phase = 37 - current_hp, so phase < 4 means hp > 33.
-    let x_chase_speed: i32 =
-        if matches!(enemy.family, EnemyFamily::HeadyMetal) && enemy.hit_points > 33 {
-            0 // Early phases: vertical-only tracking
+    if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+        let tracking = heady_metal_tracking_velocity_loc_37582(
+            (px >> 16) as u16,
+            (py >> 16) as u16,
+            (enemy.x_pos >> 16) as u16,
+            (enemy.y_pos >> 16) as u16,
+            37u16.saturating_sub(u16::from(enemy.hit_points)),
+            false,
+        );
+        enemy.x_velocity = tracking.x_velocity;
+        enemy.y_velocity = tracking.y_velocity;
+        enemy.facing = if (px as i64) > ex {
+            Direction::Right
         } else {
-            0x8000
+            Direction::Left
         };
+        enemy.x_pos = (ex + i64::from(enemy.x_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+        enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+        return;
+    }
+
+    // Horizontal: chase player at $8000 (0.5 px/frame)
+    let x_chase_speed: i32 = 0x8000;
     if (px as i64) > ex {
         enemy.x_velocity = x_chase_speed;
         enemy.facing = Direction::Right;
@@ -26468,17 +26482,10 @@ pub(crate) fn step_tracker(
         enemy.facing = Direction::Left;
     }
 
-    // Vertical: ASM loc_375BC loads `$FFFFB000`, signed `-0x5000`.
-    let move_up = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
-        // ASM loc_375B0: compare `(centre_piece_y - $28)` with Kid.gfx_y as
-        // signed words. This makes HeadyMetal settle below the player, not above.
-        let piece_y = ((enemy.y_pos >> 16) as u16) as i16;
-        let kid_y = ((py >> 16) as u16) as i16;
-        piece_y.wrapping_sub(0x0028_i16) > kid_y
-    } else {
-        let target_y = (py as i64).saturating_sub(0x28 << 16);
-        target_y < ey
-    };
+    // Vertical: remaining tracker-family bosses still use the temporary
+    // player-relative substitute until their ASM movement scripts are wired.
+    let target_y = (py as i64).saturating_sub(0x28 << 16);
+    let move_up = target_y < ey;
 
     if move_up {
         enemy.y_velocity = -0x5000;

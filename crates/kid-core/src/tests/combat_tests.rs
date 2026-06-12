@@ -664,6 +664,23 @@ fn live_heady_metal_tracker_applies_28px_offset_to_piece_y_loc_375b0() {
 }
 
 #[test]
+fn live_heady_metal_tracker_clears_x_velocity_in_opening_phases_loc_375c2() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0070_0000, 0x0080_0000, 35);
+
+    step_tracker(&mut boss, Some(0x0080_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        boss.x_velocity, 0,
+        "ASM loc_375C2 clears `d6` while the HeadyMetal anchor counter is below four"
+    );
+    assert_eq!(
+        boss.facing,
+        Direction::Right,
+        "native keeps the live facing update toward Kid while the ASM helper owns velocity selection"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
     let mut projectiles = Vec::new();
