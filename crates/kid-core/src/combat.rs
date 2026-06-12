@@ -10976,6 +10976,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x01 } => diamond_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x03 } => robot_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x06 } => sphere_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0F } => ufo_contact_bounds(enemy),
@@ -11014,6 +11015,25 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Sphere.asm live loop animation `stru_36174` uses
+    // `LnkTo_unk_C8120..C8130`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to `unk_31AAE` (zero row) and `unk_31AB0`/`unk_31ABA`:
+    // `dc.w -$7,$E,-$7,$E`. Native does not expose the exact sprite phase
+    // here yet, so keep the active nonzero sphere body row.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-7, 7),
+        Some(Direction::Left) | None => (-7, 7),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -7,
+        bottom_px: 0,
     }
 }
 
