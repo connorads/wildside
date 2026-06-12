@@ -8114,6 +8114,9 @@ impl NativeRuntime {
         if !matches!(family, EnemyFamily::HeadyMetal) {
             return;
         }
+        // ASM sub_378C8 loc_378D6: the HeadyMetal breakup split impulse plays
+        // `sfx_Boss_dies` while the five worker pieces scatter.
+        self.played_sound_effects.push(QueuedSoundEffect::BossDies);
         self.enemy_death_effects.push(EnemyDeathEffect {
             x_pos,
             y_pos,

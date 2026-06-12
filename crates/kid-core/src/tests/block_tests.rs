@@ -8586,6 +8586,11 @@ mod chunk_04 {
             runtime.enemy_death_effects[0].remaining,
             HEADYMETAL_DEATH_EFFECT_FRAMES
         );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::BossDies],
+            "ASM HeadyMetal sub_378C8 loc_378D6 plays `sfx_Boss_dies` as the breakup pieces scatter"
+        );
     }
 
     #[test]
