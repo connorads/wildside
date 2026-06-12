@@ -172,6 +172,41 @@ fn armadillo_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 90 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let tar_monster = test_enemy(EnemyFamily::TarMonster, 101 << 16, 100 << 16, 2);
+    let bounds = enemy_contact_bounds(&tar_monster.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-5, 5, -31, 0),
+        "ASM Tar_Monster.asm live frames LnkTo_unk_C77DE..C7816 index CollisionSize row unk_314D0 through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &tar_monster.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Tar Monster live row reaches vertically above the previous generic 16px-tall fallback"
+    );
+}
+
+#[test]
 fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;

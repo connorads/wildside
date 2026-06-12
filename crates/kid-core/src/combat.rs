@@ -10976,6 +10976,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x01 } => diamond_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x03 } => robot_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x05 } => tar_monster_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x06 } => sphere_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x08 } => orca_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
@@ -11021,6 +11022,25 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn tar_monster_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Tar_Monster.asm attack/hurt/death frames `LnkTo_unk_C77DE..C7816`
+    // route through GfxObjects_CollisionKid loc_1BCE to `unk_314D0`:
+    // `dc.w -$5,$A,-$1F,$1F`. Native does not expose the current sprite
+    // selector here yet, so keep the nonzero live row and leave the hidden /
+    // emerge zero-row frames (`unk_314CE`) unmodelled.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-5, 5),
+        Some(Direction::Left) | None => (-5, 5),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -31,
+        bottom_px: 0,
     }
 }
 
