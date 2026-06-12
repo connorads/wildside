@@ -10981,6 +10981,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0F } => ufo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x12 } => lion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
@@ -11016,6 +11017,26 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn lion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Lion.asm parent scripts `stru_3DEDA`/`stru_3DEF4` (walk/charge),
+    // `stru_3DF0E` (roar), `stru_3DF42` (hurt), and `stru_3DF48` (death)
+    // use `LnkTo_unk_C7E38..C7EB0`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to parent body rows `unk_3194E..unk_31A12`. Native does not
+    // expose the exact current sprite link here yet, so keep the parent union
+    // instead of the invented generic fallback.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-23, 21),
+        Some(Direction::Left) | None => (-21, 23),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -45,
+        bottom_px: 0,
     }
 }
 

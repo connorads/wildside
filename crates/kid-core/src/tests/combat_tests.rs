@@ -207,6 +207,41 @@ fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn lion_parent_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 87 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let lion = test_enemy(EnemyFamily::Lion, 101 << 16, 100 << 16, 6);
+    let bounds = enemy_contact_bounds(&lion.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-21, 23, -45, 0),
+        "ASM Lion.asm stru_3DEDA/stru_3DEF4/stru_3DF0E/stru_3DF42/stru_3DF48 use LnkTo_unk_C7E38..C7EB0; GfxObjects_CollisionKid loc_1BCE indexes parent rows unk_3194E..unk_31A12"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &lion.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Lion parent body reaches far beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn fire_demon_walking_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;
