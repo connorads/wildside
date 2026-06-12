@@ -10985,6 +10985,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x11 } => ninja_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x12 } => lion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x14 } => spinning_twins_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
         } => {
@@ -11020,6 +11021,24 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn spinning_twins_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Spinning_Twins.asm live orbit/walk frames route through
+    // GfxObjects_CollisionKid loc_1BCE to `unk_314D0`: `dc.w -$5,$A,-$1F,$1F`.
+    // Native does not expose the current sprite selector here yet, so keep the
+    // nonzero live row and leave the `unk_314CE` zero-row frames unmodelled.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-5, 5),
+        Some(Direction::Left) | None => (-5, 5),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -31,
+        bottom_px: 0,
     }
 }
 

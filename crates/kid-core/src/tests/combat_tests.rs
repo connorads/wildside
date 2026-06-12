@@ -242,6 +242,41 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn spinning_twins_live_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 90 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let twins = test_enemy(EnemyFamily::SpinningTwins, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&twins.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-5, 5, -31, 0),
+        "ASM Spinning_Twins.asm live orbit/walk frames LnkTo_unk_C7D26..C7D4E and LnkTo_unk_C7CF6..C7D1E index CollisionSize row unk_314D0 through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &twins.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Spinning Twins live row reaches vertically above the previous generic 16px-tall fallback"
+    );
+}
+
+#[test]
 fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 88 << 16;
