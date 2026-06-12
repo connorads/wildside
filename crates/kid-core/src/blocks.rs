@@ -345,9 +345,13 @@ pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
 ];
-/// ASM sub_11120 / loc_11196 (kid.asm:23090-23098): the Iron-Knight-hit
-/// metal block runs four `subq.w #2,y_pos(a3)` hibernated frames then four
-/// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 → -8 → 0 arc.
+/// ASM sub_11120 / loc_1117A (kid.asm:23077-23088): `$4C(a5)==0` metal
+/// blocks run four `addq.w #2,y_pos(a3)` hibernated frames then four
+/// `subq.w #2,y_pos(a3)` hibernated frames, producing a 0 -> +8 -> 0 arc.
+pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A: [i16; 8] = [2, 2, 2, 2, -2, -2, -2, -2];
+/// ASM sub_11120 / loc_11196 (kid.asm:23090-23098): `$4C(a5)!=0` metal
+/// blocks run four `subq.w #2,y_pos(a3)` hibernated frames then four
+/// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 -> -8 -> 0 arc.
 pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196: [i16; 8] = [-2, -2, -2, -2, 2, 2, 2, 2];
 /// ASM sub_113C0 / loc_113F4 (kid.asm:23335-23339): shifting/lift block
 /// workers rise by two pixels for eight hibernated frames before the layout
@@ -1407,6 +1411,7 @@ impl NativeRuntime {
             initial_duration: 31,
             kind: BlockBounceKind::Prize,
             prize_content: Some(content),
+            metal_direction: 0,
             y_offset_px: 0,
         });
         content
@@ -3493,7 +3498,7 @@ impl NativeRuntime {
         }
 
         // Metal block bounce animation
-        if let Some((cx, cy)) = slice.metal_block_hit {
+        if let Some((cx, cy, direction)) = slice.metal_block_hit {
             let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cx, cy);
             // ASM loc_110D0 (kid.asm:23021) plays `sfx_Metal_block = $12`
             // directly for the springy-block bounce. Emit it from core like the
@@ -3508,6 +3513,7 @@ impl NativeRuntime {
                 initial_duration: 8,
                 kind: BlockBounceKind::Metal,
                 prize_content: None,
+                metal_direction: direction,
                 y_offset_px: 0,
             });
         }
@@ -3657,6 +3663,7 @@ impl NativeRuntime {
                     initial_duration: 8,
                     kind: BlockBounceKind::Shifting,
                     prize_content: None,
+                    metal_direction: 0,
                     y_offset_px: 16,
                 });
             }
@@ -4112,13 +4119,19 @@ impl NativeRuntime {
         // ASM sub_1007A (kid.asm:21345-21599), sub_11120 (kid.asm:23050),
         // and sub_113C0 (kid.asm:23322): each hibernate cycle applies one
         // entry from the relevant y-position script. Prize blocks use the
-        // long wobble table, metal blocks use the loc_11196 up/down bounce,
-        // and shifting blocks use loc_113F4's eight two-pixel rise steps.
+        // long wobble table, metal blocks select loc_1117A vs loc_11196 from
+        // `$4C(a5)`/d6, and shifting blocks use loc_113F4's rise steps.
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
             let delta_table: &[i16] = match b.kind {
                 BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
-                BlockBounceKind::Metal => &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196,
+                BlockBounceKind::Metal => {
+                    if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
+                        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
+                    } else {
+                        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+                    }
+                }
                 BlockBounceKind::Shifting => &SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4,
             };
             if let Some(delta) = delta_table.get(usize::from(elapsed)) {

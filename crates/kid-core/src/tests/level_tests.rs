@@ -127,6 +127,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         initial_duration: 8,
         kind: BlockBounceKind::Metal,
         prize_content: None,
+        metal_direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
         y_offset_px: 0,
     });
     runtime.block_destroy_effects.push(BlockDestroyEffect {
@@ -18457,30 +18458,47 @@ mod chunk_02 {
         }
     }
 
-    /// ASM sub_11120 / loc_11196 (kid.asm:23050-23097): the Iron-Knight-hit
-    /// metal block runs four `subq.w #2,y_pos(a3)` hibernated frames then
-    /// four `addq.w #2,y_pos(a3)` frames. The engine `BlockBounceAnim` for
-    /// metal/rubber bounces must follow that table so the renderer offset
-    /// is a 0 → -8 → 0 arc, not a softer ±4 triangle.
+    /// ASM sub_11120 (kid.asm:23050-23104): `$4C(a5)` selects the metal
+    /// block y-position arc. Zero takes loc_1117A down-then-up, non-zero
+    /// takes loc_11196 up-then-down.
     #[test]
-    fn metal_block_bounce_y_deltas_loc_11196_match_asm_four_up_four_down() {
+    fn metal_block_bounce_y_deltas_match_asm_direction_tables() {
+        assert_eq!(
+            blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A,
+            [2, 2, 2, 2, -2, -2, -2, -2],
+            "ASM loc_1117A d6=0 path is four +2 steps then four -2 steps"
+        );
         assert_eq!(
             blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196,
             [-2, -2, -2, -2, 2, 2, 2, 2],
             "ASM loc_11196 ascending path is four -2 steps then four +2 steps"
         );
-        let mut cumulative = 0i16;
-        let cumulative_steps: Vec<i16> = blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+        let mut down_then_up = 0i16;
+        let down_then_up_steps: Vec<i16> = blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
             .iter()
             .map(|d| {
-                cumulative += d;
-                cumulative
+                down_then_up += d;
+                down_then_up
             })
             .collect();
         assert_eq!(
-            cumulative_steps,
+            down_then_up_steps,
+            vec![2, 4, 6, 8, 6, 4, 2, 0],
+            "cumulative d6=0 metal-block y_offset must reach +8 and return to 0"
+        );
+
+        let mut up_then_down = 0i16;
+        let up_then_down_steps: Vec<i16> = blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+            .iter()
+            .map(|d| {
+                up_then_down += d;
+                up_then_down
+            })
+            .collect();
+        assert_eq!(
+            up_then_down_steps,
             vec![-2, -4, -6, -8, -6, -4, -2, 0],
-            "cumulative metal-block y_offset must reach -8 at the apex and return to 0"
+            "cumulative d6!=0 metal-block y_offset must reach -8 and return to 0"
         );
     }
 
@@ -19359,8 +19377,8 @@ mod chunk_02 {
 
         assert_eq!(
             metal_hit.metal_block_hit,
-            Some((3, 2)),
-            "ASM loc_BB6E/off_BB80: Metal ceiling headbutt should queue the metal block effect at the hit cell",
+            Some((3, 2, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE)),
+            "ASM loc_BB6E/off_BB80: Metal ceiling headbutt should queue the metal block effect at the hit cell with d6=2",
         );
 
         let w = 6u16;

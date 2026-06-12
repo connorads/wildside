@@ -1619,6 +1619,9 @@ pub(crate) struct BlockBounceAnim {
     /// `sf is_moved(a3)` in `PrizeDiamond_Init`, making their scheduler timing
     /// differ from helmet/shared prize initialisers that set `is_moved`.
     pub(crate) prize_content: Option<terrain::PrizeContent>,
+    /// ASM `sub_11120` reads `$4C(a5)` (copied from `d6`) to choose the metal
+    /// y-position arc: zero uses loc_1117A, non-zero uses loc_11196.
+    pub(crate) metal_direction: u16,
     /// Current y-pixel offset for visual rendering. Negative = rising (block
     /// moves up after a head-bonk). Maintained by `process_block_effects`.
     pub(crate) y_offset_px: i16,
@@ -2726,8 +2729,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) lift_block_hit: Option<(u16, u16)>,
     /// Shifting block activated this frame — (cell_x, cell_y) of the source block.
     pub(crate) shifting_block_hit: Option<(u16, u16)>,
-    /// Metal block bounced this frame — (cell_x, cell_y).
-    pub(crate) metal_block_hit: Option<(u16, u16)>,
+    /// Metal block bounced this frame — (cell_x, cell_y, ASM `d6` direction).
+    pub(crate) metal_block_hit: Option<(u16, u16, u16)>,
     /// Rubber block contacted this frame — (cell_x, cell_y).
     pub(crate) rubber_block_hit: Option<(u16, u16)>,
     /// Smash block destroyed this frame — (x_px, y_px, ASM `d6` direction).

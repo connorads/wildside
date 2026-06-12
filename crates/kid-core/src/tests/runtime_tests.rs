@@ -7488,7 +7488,7 @@ mod chunk_09 {
     fn process_block_effects_metal_pushes_bounce_rubber_does_not_push_bounce() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
-        slice.metal_block_hit = Some((5, 3));
+        slice.metal_block_hit = Some((5, 3, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE));
         slice.rubber_block_hit = Some((7, 4));
 
         rt.process_block_effects(&mut slice);
@@ -7511,6 +7511,26 @@ mod chunk_09 {
                 QueuedSoundEffect::RubberBlock
             ],
             "ASM loc_110D0 (kid.asm:23021) plays sfx_Metal_block ($12) for the springy bounce and loc_10DA4 (kid.asm:22692) plays sfx_Rubber_block ($56); both are queued from core in block-effect order"
+        );
+    }
+
+    #[test]
+    fn iron_knight_metal_block_bounce_uses_loc_1117a_down_then_up_arc() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.metal_block_hit = Some((5, 3, NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW));
+
+        rt.process_block_effects(&mut slice);
+        assert_eq!(
+            rt.block_bounces[0].metal_direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW,
+            "ASM sub_AF7A stores d6=0 into loc_110D0's `$4C(a5)` field for Iron Knight metal hits"
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(
+            rt.block_bounces[0].y_offset_px, 2,
+            "ASM sub_11120 loc_1117A: `$4C(a5)==0` takes the first addq.w #2 y_pos frame"
         );
     }
 
@@ -10646,6 +10666,7 @@ mod chunk_09 {
             initial_duration: 8,
             kind: BlockBounceKind::Metal,
             prize_content: None,
+            metal_direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
             y_offset_px: 0,
         });
 

@@ -6504,7 +6504,7 @@ impl OpeningSliceState {
                     }
                     terrain::BlockType::Metal => {
                         self.metal_block_hit =
-                            Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y));
+                            Some((block_dispatch_probe.cell_x, block_dispatch_probe.cell_y, 2));
                     }
                     terrain::BlockType::Shooter => {
                         self.shooter_block_hit =

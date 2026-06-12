@@ -762,6 +762,7 @@ mod tests {
             kind: BlockBounceKind::Prize,
             initial_duration: 31,
             prize_content: Some(terrain::PrizeContent::Diamond),
+            metal_direction: 0,
             y_offset_px: 0,
         });
         runtime.prize_block_worker_tails.push(PrizeBlockWorkerTail {
@@ -3402,6 +3403,7 @@ mod tests {
                 initial_duration: 1,
                 kind: BlockBounceKind::Metal,
                 prize_content: None,
+                metal_direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
                 y_offset_px: 0,
             }));
         runtime

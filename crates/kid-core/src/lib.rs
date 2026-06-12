@@ -3559,6 +3559,7 @@ impl NativeRuntime {
                                 slice.metal_block_hit = Some((
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                 ));
                             }
                             helmets::RedStealthFloorImpactKindSubB000::None => {}
@@ -3693,7 +3694,11 @@ impl NativeRuntime {
                             // blocks bounce, play the steel hit effect, then
                             // restore $E50B instead of being deleted.
                             blocks::IronKnightBlockEffectSubAF7A::Metal => {
-                                slice.metal_block_hit = Some((probe.cell_x, probe.cell_y));
+                                slice.metal_block_hit = Some((
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                ));
                                 self.iron_knight_last_metal_block_hit =
                                     Some((probe.cell_x, probe.cell_y));
                                 slice.player.y_velocity =
@@ -3943,6 +3948,7 @@ impl NativeRuntime {
                 initial_duration: 31,
                 kind: BlockBounceKind::Prize,
                 prize_content: Some(content),
+                metal_direction: 0,
                 y_offset_px: 0,
             });
         }
