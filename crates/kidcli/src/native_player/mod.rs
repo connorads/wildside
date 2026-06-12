@@ -13328,6 +13328,43 @@ mod tests {
     }
 
     #[test]
+    fn game_hud_non_iron_later_hit_visibly_decrements_loc_be34() {
+        let mut before_hit = sample_trace(GameMode::InGame);
+        before_hit.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        before_hit.number_hitpoints = 2;
+
+        let mut after_hit = before_hit.clone();
+        after_hit.number_hitpoints -= 1;
+
+        let before_hit_scene = build_ingame_scene(&before_hit, false, None);
+        let after_hit_scene = build_ingame_scene(&after_hit, false, None);
+
+        let (_, before_tile, _) =
+            indexed_tile_at_with_sheet_len(&before_hit_scene, 0x90 - 128, 0xA4 - 128, 4)
+                .expect("pre-hit Red Stealth pip");
+        let (_, hit_first, _) =
+            indexed_tile_at_with_sheet_len(&after_hit_scene, 0x90 - 128, 0xA4 - 128, 4)
+                .expect("post-hit Red Stealth pip");
+
+        assert_eq!(
+            before_tile.tile_index, 0,
+            "ASM sub_BDC0 loc_BE20: a non-Iron form at 2 HP renders one visible full pip"
+        );
+        assert_eq!(
+            hit_first.tile_index, 1,
+            "ASM loc_B700 decrements non-Iron helmet HP 2 -> 1, and sub_BDC0 loc_BE34 renders the slot as a visible half pip"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&before_hit_scene, 0xA0 - 128, 0xA4 - 128, 4).is_none(),
+            "ASM sub_BDC0 exits after the single non-Iron 2 HP slot"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&after_hit_scene, 0xA0 - 128, 0xA4 - 128, 4).is_none(),
+            "ASM sub_BDC0 exits after the single non-Iron 1 HP slot"
+        );
+    }
+
+    #[test]
     fn game_hud_includes_extra_hitpoint_slots_for_grey_empty_pips() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
