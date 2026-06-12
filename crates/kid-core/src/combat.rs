@@ -11006,6 +11006,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             }
         }
         NativeObjectKind::Enemy { object_type: 0x18 } => tornado_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x1A } => driller_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
             left_px: -MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
             right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
@@ -11019,6 +11020,27 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Driller.asm parent walk frames `LnkTo_unk_C80E0..C80E8` map through
+    // GfxObjects_CollisionKid loc_1BCE to `unk_31A86`: `dc.w -$7,$F,-$F,$E`.
+    // The linked drill children use `LnkTo_unk_C80A8..C80C0` -> `unk_31A7A`
+    // (`dc.w $1,$F,-$B,$9`) at +/-24px from the parent. Native does not expose
+    // the exact child sprite link in this contact helper, so keep the live
+    // parent+drill union and leave the zero death rows (`unk_31A78/31A84`)
+    // unmodelled.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-23, 23),
+        Some(Direction::Left) | None => (-23, 23),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -15,
+        bottom_px: -1,
     }
 }
 

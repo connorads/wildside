@@ -207,6 +207,41 @@ fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 83 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let driller = test_enemy(EnemyFamily::Driller, 101 << 16, 100 << 16, 4);
+    let bounds = enemy_contact_bounds(&driller.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-23, 23, -15, -1),
+        "ASM Driller.asm parent LnkTo_unk_C80E0..C80E8 and linked drill LnkTo_unk_C80A8..C80C0 frames index CollisionSize rows unk_31A86/unk_31A7A through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &driller.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Driller linked drill/body union reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 88 << 16;
