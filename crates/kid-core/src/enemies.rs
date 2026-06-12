@@ -8601,6 +8601,13 @@ fn enemy_spawn_inside_visible_inner_window_loc_36900(
 }
 
 impl ActiveEnemy {
+    pub(crate) fn stomp_bounce_causes_contact_damage_loc_b6da(&self) -> bool {
+        // ASM Scorpion.asm loc_3DDEE ORs `$C000` into the linked tail object's
+        // object_meta while `stru_3DB8E` is active; Jump_On_Enemy loc_B6DA
+        // tests bit14 with `bclr #$E,d6` after applying the stomp bounce.
+        matches!(self.family, EnemyFamily::Scorpion) && self.scorpion_sting_frames > 0
+    }
+
     pub(crate) fn is_dragon_walking_parent_spawned_child(&self) -> bool {
         matches!(self.family, EnemyFamily::DragonWalking)
             && self.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG != 0

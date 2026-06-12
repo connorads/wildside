@@ -401,6 +401,55 @@ fn drips_surface_crawler_burst_helper_stomp_bounces_without_deleting_loc_325b6()
 }
 
 #[test]
+fn stomp_bounce_bit14_object_meta_also_applies_damage_loc_b6da() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.number_hitpoints = 2;
+    runtime.active_enemies = vec![{
+        let mut enemy = test_enemy(EnemyFamily::Scorpion, 0x0080_0000, 0x0100_0000, 2);
+        enemy.scorpion_sting_frames = 1;
+        enemy
+    }];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x00F8_0000;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0x0003_0000;
+    slice.player.on_ground = false;
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    assert!(
+        runtime.process_stomps(
+            &mut slice,
+            0x0003_0000,
+            frame_start_y,
+            frame_start_x,
+            frame_start_y,
+        ),
+        "ASM loc_1CF2 should write `$2C` for the Scorpion kidabove stomp"
+    );
+
+    runtime.apply_pending_stomp_bounce(&mut slice);
+
+    assert_eq!(
+        slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
+        "ASM Jump_On_Enemy loc_B6DA still applies the bounce before testing bit14"
+    );
+    assert_eq!(
+        runtime.progression.number_hitpoints, 1,
+        "ASM loc_B6DA `bclr #$E,d6; bne.w Check_for_recent_damge` should spend one HP when object_meta bit14 was set"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::JumpOnEnemy, QueuedSoundEffect::VoiceOuch],
+        "bit14 damage follows the default Check_for_recent_damge loc_B778 ouch route after the stomp SFX"
+    );
+}
+
+#[test]
 fn attached_drips_controller_is_not_a_stomp_candidate_loc_33424() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
@@ -13968,6 +14017,7 @@ mod chunk_03 {
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0020_0000,
             anchor_y_pos: 0x0030_0000,
+            causes_contact_damage: false,
         });
 
         let trace = runtime.trace_frame();

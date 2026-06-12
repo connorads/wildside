@@ -7857,6 +7857,13 @@ impl NativeRuntime {
         self.played_sound_effects
             .push(QueuedSoundEffect::JumpOnEnemy);
         self.stomped_this_frame = true;
+        if pending.causes_contact_damage
+            && self.progression.invulnerable_frames == 0
+            && !self.kid_is_invulnerable
+            && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+        {
+            self.apply_damage();
+        }
     }
 
     pub(crate) fn queue_pending_enemy_collision(
@@ -8793,6 +8800,12 @@ impl NativeRuntime {
             return false;
         }
 
+        let stomp_bounce_causes_contact_damage = stomped_indices.iter().any(|&active_idx| {
+            self.active_enemies
+                .get(active_idx)
+                .is_some_and(ActiveEnemy::stomp_bounce_causes_contact_damage_loc_b6da)
+        });
+
         let mut stomped_drips_projectile_indices = stomped_drips_surface_crawler_indices
             .into_iter()
             .map(|index| {
@@ -8926,6 +8939,7 @@ impl NativeRuntime {
         self.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: frame_start_x_pos,
             anchor_y_pos: frame_start_y_pos,
+            causes_contact_damage: stomp_bounce_causes_contact_damage,
         });
         true
     }
@@ -11411,6 +11425,7 @@ impl NativeRuntime {
                     self.pending_stomp_bounce = Some(PendingStompBounce {
                         anchor_x_pos: frame_start_x_pos,
                         anchor_y_pos: frame_start_y_pos,
+                        causes_contact_damage: false,
                     });
                     self.opening_slice = Some(*slice);
                     self.last_kid_frame_post_motion_mutator =

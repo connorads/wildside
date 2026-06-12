@@ -17606,6 +17606,7 @@ mod chunk_02 {
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0150_0000, // anchor integer 0x0150
             anchor_y_pos: 0x0180_0000, // anchor integer 0x0180
+            causes_contact_damage: false,
         });
 
         let mut slice = runtime.opening_slice.take().unwrap();
@@ -17661,6 +17662,7 @@ mod chunk_02 {
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0150_0000,
             anchor_y_pos: 0x0180_0000,
+            causes_contact_damage: false,
         });
 
         let mut slice = runtime.opening_slice.take().unwrap();

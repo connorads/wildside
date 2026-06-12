@@ -1258,6 +1258,7 @@ pub(crate) fn sound_driver_write_command_0E_two_bytes_loc_E15E0(
 struct PendingStompBounce {
     anchor_x_pos: u32,
     anchor_y_pos: u32,
+    causes_contact_damage: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
