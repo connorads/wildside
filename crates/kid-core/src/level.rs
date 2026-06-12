@@ -18446,6 +18446,7 @@ impl NativeRuntime {
                             solid_time: g.solid_time,
                             vanished_time: g.vanished_time,
                             timer: g.timer,
+                            state: g.state,
                             solid: g.solid,
                         })
                         .collect()

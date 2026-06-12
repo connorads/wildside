@@ -582,6 +582,8 @@ pub struct GhostBlockEntry {
     pub vanished_time: u16,
     /// Current timer (counts down to next transition).
     pub timer: u16,
+    /// ASM `sub_F730` visibility state word.
+    pub state: u16,
     /// True when the ghost blocks are currently solid.
     pub solid: bool,
 }
@@ -724,7 +726,7 @@ impl BlockList {
         let mut ghost_blocks = Vec::new();
         while offset + GHOST_BLOCK_RECORD_BYTES <= data.len() {
             let timer = u16::from_be_bytes([data[offset], data[offset + 1]]);
-            let mapping_frame = data[offset + 3];
+            let state = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
             let solid_time = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
             let vanished_time = u16::from_be_bytes([data[offset + 6], data[offset + 7]]);
             let layout_addr = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
@@ -736,7 +738,7 @@ impl BlockList {
             let row = u16::from_be_bytes([data[offset + 12], data[offset + 13]]);
             let count = (data[offset + 14] & 0x0F) + 1;
             let vertical = data[offset + 15] & 0x01 != 0;
-            let solid = mapping_frame == 0;
+            let solid = state == 0;
 
             ghost_blocks.push(GhostBlockEntry {
                 col,
@@ -746,6 +748,7 @@ impl BlockList {
                 solid_time,
                 vanished_time,
                 timer,
+                state,
                 solid,
             });
             offset = offset.saturating_add(GHOST_BLOCK_RECORD_BYTES);
@@ -3474,13 +3477,13 @@ mod tests {
 
         // --- Ghost block entry (16 bytes) ---
         // The ghost's timer=0 acts as prize terminator (layout_addr=0).
-        // timer=0, flags=0, mapping_frame=0 (solid), solid_time=25,
+        // timer=0, state=0 (solid `$E304` hold), solid_time=25,
         // vanished_time=15, layout_addr=0x0020, col=4, row=6,
         // count_nibble=0x03→4, vertical=1
         data.extend_from_slice(&[
             0x00, 0x00, // timer = 0 (doubles as prize terminator)
-            0x00, // flags
-            0x00, // mapping_frame = 0 → solid
+            0x00, // state high byte
+            0x00, // state low byte = 0 -> solid `$E304` hold
             0x00, 0x19, // solid_time = 25
             0x00, 0x0F, // vanished_time = 15
             0x00, 0x20, // layout_addr (non-zero → valid ghost)
@@ -3534,6 +3537,7 @@ mod tests {
         assert_eq!(bl.ghost_blocks[0].solid_time, 25);
         assert_eq!(bl.ghost_blocks[0].vanished_time, 15);
         assert_eq!(bl.ghost_blocks[0].timer, 0);
+        assert_eq!(bl.ghost_blocks[0].state, 0);
         assert!(bl.ghost_blocks[0].solid);
 
         // Teleporter assertions
@@ -4860,12 +4864,12 @@ mod tests {
 
     #[test]
     fn block_list_from_raw_ghost_non_solid() {
-        // Ghost with mapping_frame != 0 should have solid=false
+        // Ghost with non-zero ASM sub_F730 state should have solid=false.
         let mut data = Vec::new();
-        // Prize terminator + ghost entry with mapping_frame=1 (non-solid)
+        // Prize terminator + ghost entry with state=1 (non-solid)
         data.extend_from_slice(&[
             0x00, 0x00, // timer=0 (prize terminator)
-            0x00, 0x01, // flags=0, mapping_frame=1 → NOT solid
+            0x00, 0x01, // state=1 -> NOT solid
             0x00, 0x0A, // solid_time=10
             0x00, 0x05, // vanished_time=5
             0x00, 0x30, // layout_addr
@@ -4878,7 +4882,8 @@ mod tests {
 
         let bl = BlockList::from_raw(&data, 20);
         assert_eq!(bl.ghost_blocks.len(), 1);
-        assert!(!bl.ghost_blocks[0].solid, "mapping_frame=1 means not solid");
+        assert_eq!(bl.ghost_blocks[0].state, 1);
+        assert!(!bl.ghost_blocks[0].solid, "state=1 means not solid");
         assert!(!bl.ghost_blocks[0].vertical);
         assert_eq!(bl.ghost_blocks[0].count, 2);
     }

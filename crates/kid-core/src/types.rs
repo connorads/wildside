@@ -2473,6 +2473,7 @@ pub(crate) struct GhostGroup {
     pub(crate) solid_time: u16,
     pub(crate) vanished_time: u16,
     pub(crate) timer: u16,
+    pub(crate) state: u16,
     pub(crate) solid: bool,
 }
 

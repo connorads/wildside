@@ -2665,38 +2665,43 @@ impl NativeRuntime {
         self.process_new_shooter_objects_loc_EC22(first_new_projectile);
     }
 
-    /// Ghost blocks: tick timers, toggle solid/vanished, update block grid.
+    /// Ghost blocks: tick ASM `sub_F730` timers and update collision grid.
     pub(crate) fn step_ghost_blocks(&mut self) {
         let Some(grid) = &mut self.block_grid else {
             return;
         };
         for group in &mut self.block_state.ghost_groups {
-            if group.timer > 0 {
-                group.timer -= 1;
-                continue;
-            }
-            // Transition
-            group.solid = !group.solid;
-            group.timer = if group.solid {
-                group.solid_time
-            } else {
-                group.vanished_time
-            };
+            let old_state = group.state;
+            let (timer, state) = Self::shooter_slot_tick_sub_F730(
+                group.timer,
+                group.state,
+                group.solid_time,
+                group.vanished_time,
+            );
+            group.timer = timer;
+            group.state = state;
 
-            // Update grid cells for each block in the group
-            for i in 0..group.count {
-                let (col, row) = if group.vertical {
-                    (group.col, group.row + u16::from(i))
-                } else {
-                    (group.col + u16::from(i), group.row)
-                };
-                if group.solid {
-                    // Restore solid ghost block (collision type 6 = Solid, block type 3 = SolidGhost)
-                    let hi = 0x80 | (0x06 << 4) | 0x03;
-                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(hi, 0));
-                } else {
-                    // Clear the cell (vanished)
-                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+            let vanished_at_loc_f8a6 = old_state == 0 && state == 0x8001;
+            let solid_at_loc_f7aa = old_state == 0x8005 && state == 0;
+            if vanished_at_loc_f8a6 || solid_at_loc_f7aa {
+                group.solid = solid_at_loc_f7aa;
+                for i in 0..group.count {
+                    let (col, row) = if group.vertical {
+                        (group.col, group.row + u16::from(i))
+                    } else {
+                        (group.col + u16::from(i), group.row)
+                    };
+                    if solid_at_loc_f7aa {
+                        // ASM loc_F7AA writes `$E304` back to Level_Layout for
+                        // the state `$8005 -> 0` solid hold.
+                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, 0x04));
+                    } else {
+                        // ASM loc_F8A6 restores the original terrain bytes for
+                        // the state `0 -> $8001` vanish lead-in. The live path
+                        // lacks the original terrain byte here, so clearing
+                        // preserves the collision-visible effect.
+                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    }
                 }
             }
         }

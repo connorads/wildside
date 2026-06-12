@@ -6961,12 +6961,10 @@ mod chunk_09 {
     // --- Ghost blocks: step_ghost_blocks through NativeRuntime ---
 
     #[test]
-    fn ghost_block_step_transitions_solid_to_vanished_and_clears_grid() {
-        // Ghost group starts solid with timer=0 → should transition to vanished,
-        // clearing the grid cells.
+    fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_clears_grid() {
+        // ASM sub_F730/loc_F8A6: state 0 is the solid `$E304` hold. On timer
+        // expiry it advances to `$8001` and restores the original terrain.
         let mut rt = NativeRuntime::new(manifest());
-        // Place a solid ghost block at (3, 5): has_block=1, collision=Solid(6), block_type=SolidGhost(3)
-        // hi = 0x80 | (0x06 << 4) | 0x03 = 0xE3
         let grid = grid_with_cells(8, 8, &[(3, 5, 0xE3, 0)]);
         rt.block_grid = Some(grid);
         rt.block_state.ghost_groups.push(GhostGroup {
@@ -6976,16 +6974,16 @@ mod chunk_09 {
             vertical: false,
             solid_time: 10,
             vanished_time: 5,
-            timer: 0,
+            timer: 1,
+            state: 0,
             solid: true,
         });
 
         rt.step_ghost_blocks();
 
-        // Should have transitioned to vanished
         assert!(!rt.block_state.ghost_groups[0].solid);
-        assert_eq!(rt.block_state.ghost_groups[0].timer, 5);
-        // Grid cell should be cleared
+        assert_eq!(rt.block_state.ghost_groups[0].state, 0x8001);
+        assert_eq!(rt.block_state.ghost_groups[0].timer, 2);
         let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 5);
         assert!(
             !cell.has_block,
@@ -6994,7 +6992,9 @@ mod chunk_09 {
     }
 
     #[test]
-    fn ghost_block_step_transitions_vanished_to_solid_and_restores_grid() {
+    fn ghost_block_step_sub_f730_final_flash_restores_solid_grid() {
+        // ASM sub_F730/loc_F7AA: state `$8005` expires to state 0 and writes
+        // `$E304` back for the solid hold.
         let mut rt = NativeRuntime::new(manifest());
         let grid = grid_with_cells(8, 8, &[]);
         rt.block_grid = Some(grid);
@@ -7005,15 +7005,16 @@ mod chunk_09 {
             vertical: false,
             solid_time: 10,
             vanished_time: 5,
-            timer: 0,
+            timer: 1,
+            state: 0x8005,
             solid: false,
         });
 
         rt.step_ghost_blocks();
 
         assert!(rt.block_state.ghost_groups[0].solid);
+        assert_eq!(rt.block_state.ghost_groups[0].state, 0);
         assert_eq!(rt.block_state.ghost_groups[0].timer, 10);
-        // Grid cell should be restored to solid ghost
         let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 5);
         assert!(cell.has_block, "restored ghost block should have has_block");
         assert_eq!(cell.block_type, terrain::BlockType::SolidGhost);
@@ -7034,6 +7035,7 @@ mod chunk_09 {
             solid_time: 10,
             vanished_time: 5,
             timer: 3,
+            state: 0,
             solid: true,
         });
 
@@ -7050,7 +7052,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn ghost_block_vertical_group_clears_correct_cells() {
+    fn ghost_block_vertical_group_sub_f730_vanish_clears_correct_cells() {
         // Vertical group of 3 blocks starting at (2, 4)
         let mut rt = NativeRuntime::new(manifest());
         let grid = grid_with_cells(8, 8, &[(2, 4, 0xE3, 0), (2, 5, 0xE3, 0), (2, 6, 0xE3, 0)]);
@@ -7062,7 +7064,8 @@ mod chunk_09 {
             vertical: true,
             solid_time: 10,
             vanished_time: 5,
-            timer: 0,
+            timer: 1,
+            state: 0,
             solid: true,
         });
 

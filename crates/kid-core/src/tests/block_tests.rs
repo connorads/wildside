@@ -12758,24 +12758,22 @@ mod chunk_04 {
             solid_time: 10,
             vanished_time: 5,
             timer: 1,
+            state: 0,
             solid: true,
         };
-        // Timer = 1: tick it down, still solid (timer goes to 0)
-        assert!(group.solid);
-        // Simulate one step
-        if group.timer > 0 {
-            group.timer -= 1;
-        }
-        assert_eq!(group.timer, 0);
-        // Next step: timer is 0, transition happens
-        group.solid = !group.solid;
-        group.timer = if group.solid {
-            group.solid_time
-        } else {
-            group.vanished_time
-        };
-        assert!(!group.solid, "should become vanished");
-        assert_eq!(group.timer, 5, "vanished timer should be set");
+        let (timer, state) = NativeRuntime::shooter_slot_tick_sub_F730(
+            group.timer,
+            group.state,
+            group.solid_time,
+            group.vanished_time,
+        );
+        group.timer = timer;
+        group.state = state;
+        group.solid = false;
+
+        assert_eq!(group.state, 0x8001, "ASM loc_F8A6 starts vanish lead-in");
+        assert_eq!(group.timer, 2, "vanish lead-in uses the two-frame ladder");
+        assert!(!group.solid, "state 0 -> $8001 should leave the solid hold");
     }
 
     #[test]
@@ -12788,6 +12786,7 @@ mod chunk_04 {
             solid_time: 10,
             vanished_time: 10,
             timer: 0,
+            state: 0,
             solid: true,
         };
         let cells: Vec<(u16, u16)> = (0..group.count)
@@ -12812,6 +12811,7 @@ mod chunk_04 {
             solid_time: 10,
             vanished_time: 10,
             timer: 0,
+            state: 0,
             solid: true,
         };
         let cells: Vec<(u16, u16)> = (0..group.count)
@@ -12832,7 +12832,7 @@ mod chunk_04 {
         // then ghost parser picks up). This mirrors a level with no prizes.
         let ghost_entry: [u8; 16] = [
             0x00, 0x00, // timer = 0 (also acts as prize terminator since layout_addr=0)
-            0x00, 0x00, // flags, mapping_frame = 0 (solid)
+            0x00, 0x00, // ASM sub_F730 state = 0 (solid `$E304` hold)
             0x00, 0x14, // solid_time = 20
             0x00, 0x0A, // vanished_time = 10
             0x00, 0x10, // layout_addr (non-zero → not a ghost terminator)
@@ -12857,7 +12857,8 @@ mod chunk_04 {
         assert!(bl.ghost_blocks[0].vertical);
         assert_eq!(bl.ghost_blocks[0].solid_time, 20);
         assert_eq!(bl.ghost_blocks[0].vanished_time, 10);
-        assert!(bl.ghost_blocks[0].solid, "mapping_frame=0 means solid");
+        assert_eq!(bl.ghost_blocks[0].state, 0);
+        assert!(bl.ghost_blocks[0].solid, "state=0 means solid `$E304` hold");
     }
 
     // --- Terrain type speed table selection ---
