@@ -3882,6 +3882,7 @@ mod chunk_06 {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -3901,7 +3902,51 @@ mod chunk_06 {
 
         assert!(
             rt.helmet.maniaxe_axe_active,
-            "ASM sub_78E8 should preserve Maniaxe's grounded throw pose while the axe is still live",
+            "ASM sub_78E8 should preserve Maniaxe's grounded throw pose while `$18(a3)` is clear",
+        );
+    }
+
+    #[test]
+    fn grounded_helmet_state_sub_78e8_releases_maniaxe_gate_after_throw_animation() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let slice = combat_slice();
+
+        rt.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+        assert_eq!(rt.projectiles.len(), 1);
+
+        for _ in 0..MANIAXE_THROW_LATCH_FRAMES_LOC_794C {
+            rt.refresh_grounded_helmet_state_sub_78E8();
+        }
+
+        assert!(
+            !rt.helmet.maniaxe_axe_active,
+            "ASM sub_78E8 loc_794C clears Maniaxe_throwing_axe when the Kid throw animation finishes, even if ManiaxeAxe_Init is still live",
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_8A52: the first axe object keeps flying after the Kid throw latch clears",
+        );
+
+        rt.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert_eq!(
+            rt.projectiles.len(),
+            2,
+            "ASM loc_76E4/loc_794C: a second axe may be thrown after the throw animation clears the latch",
         );
     }
 
@@ -4869,14 +4914,16 @@ mod chunk_06 {
         assert_eq!(rt.projectiles[0].lifetime, 0);
     }
 
-    /// ASM loc_8A52 keeps `Maniaxe_throwing_axe` live while the axe object
-    /// exists; the flag clears when loc_8ABC/loc_8AF2 deletes the object, not
-    /// when a generic lifetime reaches zero.
+    /// ASM loc_8A52 gives the axe object no generic lifetime counter, while
+    /// `sub_78E8` keeps `Maniaxe_throwing_axe` live only during the Kid throw
+    /// animation window. A zero lifetime must not by itself delete the axe or
+    /// clear the latch while that window is active.
     #[test]
     fn maniaxe_axe_active_preserves_zero_lifetime_live_axe_loc_8a52() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
         rt.helmet.maniaxe_turnaround = 5;
         let slice = combat_slice();
         rt.projectiles.push(EnemyProjectile {
@@ -4893,7 +4940,7 @@ mod chunk_06 {
 
         assert!(
             rt.helmet.maniaxe_axe_active,
-            "ASM loc_8A52: live axe object keeps Maniaxe_throwing_axe set even with no native lifetime"
+            "ASM loc_8A52/sub_78E8: zero axe lifetime must not clear Maniaxe_throwing_axe during the throw animation"
         );
     }
 

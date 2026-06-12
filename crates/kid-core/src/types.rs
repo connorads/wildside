@@ -734,6 +734,10 @@ pub(crate) struct HelmetState {
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,
     pub(crate) maniaxe_axe_active: bool,
+    /// Native mirror of Maniaxe's Kid throw-animation `$18(a3)` done gate in
+    /// `sub_78E8 loc_794C`. While non-zero, C remains blocked; once it reaches
+    /// zero, another axe may be thrown even while the previous axe object flies.
+    pub(crate) maniaxe_throw_latch_frames: u8,
     pub(crate) maniaxe_turnaround: u8,
     pub(crate) juggernaut_skull_delay_frames: u8,
     pub(crate) iron_knight_climbing: bool,

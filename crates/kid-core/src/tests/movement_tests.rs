@@ -2802,13 +2802,15 @@ mod chunk_11 {
 
     /// ASM loc_78C6 (kid.asm:7957): the platform-gone path also clears velocity
     /// via `moveq #0,d0 / move.l d0,x_vel(a3) / move.l d0,y_vel(a3)`.
-    /// Verify that for a Maniaxe player with a live projectile, sub_78E8
-    /// preserves the axe flag even when reached from the platform-gone path.
+    /// Verify that for a Maniaxe player whose throw animation is still live,
+    /// sub_78E8 preserves the axe flag even when reached from the
+    /// platform-gone path.
     #[test]
     fn platform_gone_maniaxe_preserves_live_axe_loc_78c6() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -2828,25 +2830,23 @@ mod chunk_11 {
 
         assert!(
             rt.helmet.maniaxe_axe_active,
-            "ASM loc_78C6 → sub_78E8: Maniaxe axe flag should survive platform-gone path when projectile is live",
+            "ASM loc_78C6 -> sub_78E8: Maniaxe axe flag should survive platform-gone path while the throw animation is live",
         );
     }
 
     /// ASM sub_78E8 (kid.asm:7973) Maniaxe arm preserves the thrown-axe flag
-    /// only while the Maniaxe axe object still exists. Native keys that
-    /// identity off `EnemyProjectileKind::ManiaxeAxe`; generic friendly shots
-    /// and hostile axes must not hold the latch open.
+    /// only while the Kid throw animation has not set `$18(a3)`. A stale
+    /// projectile must not hold the latch open after the animation gate clears.
     #[test]
     fn maniaxe_sub_78e8_clears_axe_when_only_live_projectile_is_unfriendly() {
-        // ASM sub_78E8 Maniaxe arm: predicate's `friendly` leg.
-        // Mutation guard: `friendly && lifetime>0 → friendly || lifetime>0`
-        // would restore the axe flag from a hostile projectile.
+        // ASM sub_78E8 Maniaxe arm: with the throw animation already done,
+        // loc_794C clears the latch regardless of stale projectile identity.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
         rt.projectiles.push(EnemyProjectile {
             lifetime: 0,
-            friendly: false, // hostile projectile must not preserve axe
+            friendly: false,
             gravity: 0,
             kind: EnemyProjectileKind::ManiaxeAxe,
             ..Default::default()
@@ -2856,14 +2856,14 @@ mod chunk_11 {
 
         assert!(
             !rt.helmet.maniaxe_axe_active,
-            "ASM sub_78E8 / loc_9454: Maniaxe axe must clear when no friendly projectile is live",
+            "ASM sub_78E8 loc_794C: a stale hostile axe object must not preserve Maniaxe_throwing_axe",
         );
     }
 
     #[test]
     fn maniaxe_sub_78e8_clears_axe_when_projectile_is_not_maniaxe_axe() {
-        // ASM sub_78E8 Maniaxe arm is preserving the specific ManiaxeAxe_Init
-        // worker, not any friendly projectile in the global list.
+        // ASM sub_78E8 loc_794C clears the latch after the throw animation;
+        // unrelated friendly projectiles must not reopen it.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
@@ -2879,14 +2879,14 @@ mod chunk_11 {
 
         assert!(
             !rt.helmet.maniaxe_axe_active,
-            "ASM sub_78E8 / loc_9454: only the Maniaxe axe object preserves the latch",
+            "ASM sub_78E8 loc_794C: unrelated friendly projectiles must not preserve the latch",
         );
     }
 
     #[test]
     fn maniaxe_sub_78e8_clears_axe_when_only_live_projectile_has_gravity() {
         // Gravity-bearing friendly projectiles such as Juggernaut skulls must
-        // not be mistaken for the ManiaxeAxe_Init worker.
+        // not reopen a latch whose throw animation has already finished.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
@@ -2901,7 +2901,7 @@ mod chunk_11 {
 
         assert!(
             !rt.helmet.maniaxe_axe_active,
-            "ASM sub_78E8 / loc_9454: only a zero-gravity friendly projectile preserves the axe",
+            "ASM sub_78E8 loc_794C: gravity-bearing projectiles must not preserve the axe latch",
         );
     }
 

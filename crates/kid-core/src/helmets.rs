@@ -4918,6 +4918,7 @@ impl NativeRuntime {
         self.helmet.red_stealth_sword_timer = 0;
         self.helmet.red_stealth_airborne_slash_counter = 0;
         self.helmet.maniaxe_axe_active = false;
+        self.helmet.maniaxe_throw_latch_frames = 0;
         self.helmet.berzerker_charging = false;
         self.helmet.berzerker_charge_accum = 0;
         self.helmet.iron_knight_climbing = false;
@@ -4989,18 +4990,23 @@ impl NativeRuntime {
         match self.progression.current_form {
             PlayerForm::Juggernaut | PlayerForm::Micromax | PlayerForm::Skycutter => {}
             PlayerForm::Maniaxe => {
-                if previous_maniaxe_axe_active
-                    && self.projectiles.iter().any(|projectile| {
-                        projectile.kind == EnemyProjectileKind::ManiaxeAxe && projectile.friendly
-                    })
-                {
-                    self.helmet.maniaxe_axe_active = true;
+                if previous_maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
+                    self.helmet.maniaxe_throw_latch_frames -= 1;
+                    if self.helmet.maniaxe_throw_latch_frames > 0 {
+                        self.helmet.maniaxe_axe_active = true;
+                    } else {
+                        // ASM loc_794C: the throw animation's done flag
+                        // routes Maniaxe through the default-pose refresh,
+                        // clearing the C gate while the axe object may remain.
+                        self.helmet.maniaxe_axe_active = false;
+                    }
                 } else {
                     // ASM loc_794C: the default-pose refresh clears only
                     // Maniaxe's axe and Red Stealth's sword latch. Full
                     // transient-state cleanup belongs to explicit sub_DB22
                     // call sites such as landing and recovery.
                     self.helmet.maniaxe_axe_active = false;
+                    self.helmet.maniaxe_throw_latch_frames = 0;
                     self.helmet.red_stealth_sword_timer = 0;
                     self.helmet.red_stealth_airborne_slash_counter = 0;
                 }
@@ -6330,6 +6336,7 @@ impl NativeRuntime {
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;
+            self.helmet.maniaxe_throw_latch_frames = 0;
             return;
         }
 
@@ -6337,6 +6344,7 @@ impl NativeRuntime {
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && !self.helmet.maniaxe_axe_active {
             self.helmet.maniaxe_axe_active = true;
+            self.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
             self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
             let player_x_velocity_word = slice.player.x_velocity >> 16;
             let base_x_velocity_word = if slice.player.facing == Direction::Right {
@@ -6381,15 +6389,16 @@ impl NativeRuntime {
                     self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
                 }
             }
-            // ASM loc_8ABC/loc_8AF2 clear Maniaxe_throwing_axe by deleting the
-            // axe object; native mirrors that by checking object existence,
-            // not a generic lifetime.
+            // ASM loc_8ABC/loc_8AF2 delete the axe object, while `sub_78E8
+            // loc_794C` clears `Maniaxe_throwing_axe` independently when the
+            // Kid throw animation completes.
             if !self
                 .projectiles
                 .iter()
                 .any(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
             {
                 self.helmet.maniaxe_axe_active = false;
+                self.helmet.maniaxe_throw_latch_frames = 0;
             }
         }
     }

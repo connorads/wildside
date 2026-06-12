@@ -727,6 +727,9 @@ pub(crate) const RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX: i32 = 12;
 /// reverses for 12 frames. Damages enemies on contact, breaks on walls.
 pub(crate) const MANIAXE_BASE_SPEED: i32 = 5;
 pub(crate) const MANIAXE_TRAVEL_FRAMES: u8 = 12;
+/// ASM `stru_8B4E`/`stru_8B60`: Maniaxe's throw animation releases
+/// `Maniaxe_throwing_axe` through `sub_78E8 loc_794C` after the pose finishes.
+pub(crate) const MANIAXE_THROW_LATCH_FRAMES_LOC_794C: u8 = 17;
 /// ASM ManiaxeAxe_Init uses `stru_8B86`; active frames map through
 /// `LnkTo_unk_A5924`/`LnkTo_unk_A59AA` to `CollisionSize_Index` entry
 /// `unk_318B2`: left=-7, width=14, top=-14, height=14.
