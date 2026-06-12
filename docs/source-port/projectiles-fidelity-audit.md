@@ -2,7 +2,7 @@
 
 # Projectile System Fidelity Audit
 
-Adversarially-verified audit of the player-form projectile and melee weapon paths in the Kid Chameleon source-port. At audit time, the dominant failure pattern was the same one the enemy audit found, sharpened here onto player weapons: an ASM-faithful collision predicate exists in `terrain.rs` (`probe_relative_collision_sub_B55C`, the exact `& $7000 == $6000` gate) and is wired into live movement, yet projectile terrain probes substituted the generic `solid_terrain_at` (`collision != Empty`). Several of those rows have since been resolved below. Remaining motifs include invented per-projectile timers and gates with no ASM basis (the Juggernaut skull lifetime/startup gaps), and invented hitboxes/behaviours (the Red Stealth below-foot airborne stomp the ROM never performs). Several faithful helpers — `hidden_block_column_updates_sub_E446`, the Lion owner-token cull helpers — sit dead beside the live path that does not call them.
+Adversarially-verified audit of the player-form projectile and melee weapon paths in the Kid Chameleon source-port. At audit time, the dominant failure pattern was the same one the enemy audit found, sharpened here onto player weapons: an ASM-faithful collision predicate exists in `terrain.rs` (`probe_relative_collision_sub_B55C`, the exact `& $7000 == $6000` gate) and is wired into live movement, yet projectile terrain probes substituted the generic `solid_terrain_at` (`collision != Empty`). Several of those rows have since been resolved below. Remaining motifs originally included invented per-projectile timers, gates with no ASM basis, and invented hitboxes/behaviours; the live Red Stealth below-foot airborne stomp has since been removed. The remaining active projectile-system gap is the EyeClops hidden-block foreground update worker.
 
 ## Coverage summary
 
@@ -21,7 +21,7 @@ Adversarially-verified audit of the player-form projectile and melee weapon path
 | offscreen-and-lifetime-culling-rules | partial | 3 |
 | per-form-ammo-cooldown-gating | partial | 1 |
 
-Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The audit originally found 17 confirmed gaps after refutation; 4 high/medium claims were adversarially refuted and dropped (skull probed-every-frame vs tile-boundary; Maniaxe axe deleted on throw-anim completion; Red Stealth ground re-swing invented-timer; EyeClops gate reopens on enemy contact). After the fixes recorded below, 2 confirmed gaps remain active here, with 1 open backlog candidate because the Red Stealth airborne hitbox is already tracked elsewhere for rerating.
+Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The audit originally found 17 confirmed gaps after refutation; 4 high/medium claims were adversarially refuted and dropped (skull probed-every-frame vs tile-boundary; Maniaxe axe deleted on throw-anim completion; Red Stealth ground re-swing invented-timer; EyeClops gate reopens on enemy contact). After the fixes recorded below, 1 confirmed gap remains active here, with 1 open backlog candidate for the EyeClops foreground-update worker.
 
 ## Resolved since audit
 
@@ -36,13 +36,13 @@ Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The aud
 - **Lion projectile owner-token cull** (`sub_3E2CE / loc_3E314 / loc_3E30E`) — fixed by wiring the live owner-token check before the Lion camera-box cull. Native now deletes a Lion projectile whose `(segment, layout, token)` no longer matches an active Lion, and mirrors the ASM branch by skipping the `$5B` release decrement on token mismatch; covered by `lion_projectile_sub_3e2ce_deletes_owner_token_mismatch_without_release` plus the existing `lion_projectile_sub_3e2ce_*` camera-box tests.
 - **Juggernaut skull concurrent startup workers** (`loc_A87A / loc_7718 / sub_86FA / sub_87B0`) — fixed by modelling pending `sub_86FA` workers as independent 3-frame counters instead of one scalar delay. Native now accepts consecutive C presses while `$FFFFFB70` is below 8, queues multiple startup workers, and spawns each skull when that worker's own counter reaches zero; covered by `juggernaut_skull_c_press_queues_concurrent_sub_86fa_workers`.
 - **EyeClops beam hidden-block gameplay reveal** (`loc_E70A / loc_E756 / sub_E446`) — fixed by wiring the live beam render/collision column scan to `hidden_block_column_updates_sub_E446`. Native now mutates hidden cells touched by the beam into their revealed block type, including the adjacent-column scan once the beam counter reaches the ASM `loc_E790` threshold; covered by `eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column`. The `$12C` foreground upload worker returned by `sub_E446` still has no native queue and remains tracked below as visual fidelity work.
+- **Red Stealth invented below-foot airborne hitbox** (`loc_B350 / loc_B380 / sub_868E / loc_76B0 / loc_8CF8`) — fixed by removing enemy damage from the airborne attack-down counter path. Native `process_sword_hits` now only checks the spawned `sub_868E` side sword worker hitbox, while `sub_B270 loc_B350/loc_B380` remains animation/sound/floor-impact state only; covered by `red_stealth_airborne_slash_does_not_damage_enemy_below_kid_loc_b350` and `red_stealth_airborne_slash_does_not_damage_shooting_rock_tank_below_kid`.
 
 ## Confirmed gaps
 
 ### High severity
 
-**Invented below-foot airborne hitbox damages enemies the ROM never hits** (`loc_B350 / loc_B380 / sub_868E / loc_86CE / loc_76B0 / loc_8CF8`)
-In the ROM, `sub_B270` `loc_B350`/`loc_B380` only writes `Red_Stealth_sword_swing` (`$FFFFFA6F`) to pick the down-slash SPRITE phase and play `sfx_Red_Stealth_attack_down`; it allocates NO hitbox object. The only Red Stealth damage source is the `sub_868E` sword worker, spawned solely on a C-press while the swing byte is `0` (loc_76B0:7781 / loc_8CF8:10126); it fixes its position ONCE at spawn to x = kid_x ±$1C (28px to the SIDE) and y = kid_y−$A (10px ABOVE the foot), never below. Native `process_sword_hits` instead builds an independent hitbox at `(kid_x, kid_foot_y + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX = 12)` whenever `red_stealth_airborne_slash_counter > 0`, which `step_red_stealth_airborne_slash` sets every frame the player is RedStealth + airborne + descending + C held, independent of any sword-worker spawn. This grants a phantom below-foot stomp a player/TAS would observe (enemies dying from falling onto them with C held) that does not exist in the ROM. The native's own constants.rs:697-703 comment admits "The ROM doesn't allocate a separate hitbox GfxObject for this path"; tests at projectile_tests.rs:2410-2460 pin the deviating below-foot kill. Kind: deviating, live, player-observable. Cited native: helmets.rs:5807/5820/5823, constants.rs:703, lib.rs:3016, combat.rs:10995. (Already tracked — see below — but understated.)
+None active after the Red Stealth below-foot hitbox fix.
 
 ### Medium severity
 
@@ -51,7 +51,7 @@ In the ROM, `sub_E49A`'s render/collision tail (`loc_E70A` onward) computes the 
 
 ## Already tracked
 
-- **Invented below-foot airborne hitbox damages enemies the ROM never hits** (`loc_B350 / loc_B380 / sub_868E`) — tracked at helmets-fidelity-audit.md:159-160 (understated as "invented AABB extents / approximation, not a hard bug", low severity) and backlog-archive #153 (archive:8332-8335), which asserts the OPPOSITE — that the below-foot hitbox is a correct part of the ASM `sub_B270` flow. The refuter corrected this to high severity; the tracking record materially understates and in part contradicts the verified finding, so it warrants a re-rating rather than closure. Excluded from the backlog candidates below.
+- **RESOLVED 2026-06-12: Invented below-foot airborne hitbox damages enemies the ROM never hits** (`loc_B350 / loc_B380 / sub_868E`) — this audit corrected the older #153 tracking record, which had asserted the opposite. Native now treats `sub_B270 loc_B350/loc_B380` as animation/sound/floor-impact state only and leaves enemy damage to the `sub_868E` side sword worker.
 
 ## Backlog candidates
 

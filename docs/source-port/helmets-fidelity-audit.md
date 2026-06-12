@@ -157,8 +157,8 @@ The ROM latches `x_direction` into `$FFFFFABE` once at fire and `sub_E49A` reads
 **Maniaxe axe — velocity reversal negates `x_vel`; ROM flips a direction flag (architectural)** (`loc_8A74`, `kid.asm:9879-9882`)
 The ROM turnaround flips `x_direction`/`$17` and lets the generic mover re-derive motion; it does not negate `x_vel`. Native directly negates the stored velocity (`helmets.rs:5676`), which also inverts the embedded Kid-velocity bias from the throw — may differ subtly from the ROM's direction-flag reconstruction. Lower confidence (mover not traced).
 
-**Red Stealth — sword/airborne hit detection uses invented AABB extents instead of ROM `collision_type`** (`sub_868E loc_86D8/loc_86EC`, `loc_B350`)
-The ROM detects sword hits via the engine's per-object `collision_type` from the spawned hitbox object. Native `process_sword_hits` uses fixed AABBs: ground `6×8` at `±28/-10`, airborne an invented `12`px down-reach (`constants.rs:628-629,636`; `helmets.rs:5136-5156`). The half-extents and down-reach have no direct ROM basis; the anchor offsets are faithful. Approximation, not a hard bug.
+**PARTIAL 2026-06-12: Red Stealth grounded sword hit detection still uses fixed AABB extents; airborne enemy hitbox removed** (`sub_868E loc_86D8/loc_86EC`, `loc_B350`)
+The ROM detects grounded sword hits via the engine's per-object `collision_type` from the spawned `sub_868E` hitbox object. Native `process_sword_hits` still approximates that grounded worker with a fixed `6×8` AABB at the faithful `±28/-10` anchor. The previously invented airborne `loc_B350` below-foot enemy hitbox is fixed: native now treats `sub_B270 loc_B350/loc_B380` as animation/sound/floor-impact state only and leaves enemy damage to the spawned side sword worker.
 
 **Maniaxe axe — turnaround decrement off-by-one on throw frame** (`ManiaxeAxe_Init loc_8A42/8A52/8A74`, `kid.asm:9858-9882`)
 The ROM decrements the turnaround counter only after the first `Hibernate_Object_1Frame` (12→11 after one frame). Native decrements to 11 on the throw frame itself before the projectile has moved (`helmets.rs:5642-5671`), shifting the reversal by one frame. Cosmetic timing.

@@ -5896,7 +5896,7 @@ impl NativeRuntime {
             && self.helmet.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
     }
 
-    /// Check sword hitbox against active enemies during active frames.
+    /// Check the grounded sword-worker hitbox against active enemies.
     /// Damages hit enemies and removes dead ones.
     /// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
     /// `sfx_Red_Stealth_hitting_a_target`, then `bra.s loc_86E8` (delete).
@@ -5904,25 +5904,16 @@ impl NativeRuntime {
     /// worker deletion path.
     pub(crate) fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
         let ground_active = self.sword_is_active();
-        let airborne_active = self.helmet.red_stealth_airborne_slash_counter > 0;
-        if !ground_active && !airborne_active {
+        if !ground_active {
             return;
         }
 
-        // ASM sub_868E (kid.asm:9522) anchors the ground swing 28px ahead of
-        // Kid and 10px above the foot. The airborne attack-down (sub_B270
-        // loc_B350) sweeps the sword DOWN from the kid's body; the visible
-        // sprite extends below the foot. Use a hitbox centred below the
-        // player's feet for the airborne path so falling onto an enemy with C
-        // held actually damages it.
-        let (sword_x, sword_y) = if airborne_active {
-            let kid_x = (slice.player.x_pos >> 16) as i32;
-            let kid_foot_y = (slice.player.y_pos >> 16) as i32;
-            (kid_x, kid_foot_y + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX)
-        } else {
-            let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
-            ((sword_x_fp >> 16) as i32, (sword_y_fp >> 16) as i32)
-        };
+        // ASM sub_868E (kid.asm:9522) anchors the only damaging Red Stealth
+        // sword worker 28px ahead of Kid and 10px above the foot. ASM sub_B270
+        // loc_B350/loc_B380 only drives the airborne attack-down sprite/sound
+        // byte and allocates no below-foot enemy hitbox.
+        let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let (sword_x, sword_y) = ((sword_x_fp >> 16) as i32, (sword_y_fp >> 16) as i32);
 
         let mut kill_indices = Vec::new();
         for i in 0..self.active_enemies.len() {
@@ -5945,13 +5936,9 @@ impl NativeRuntime {
                 // The airborne attack-down path `sub_B270 loc_B350` has no
                 // equivalent `$5A` call; it only queues `$13` when the slash
                 // counter first reaches `$10`.
-                if ground_active {
-                    self.played_sound_effects
-                        .push(QueuedSoundEffect::RedStealthHittingTarget);
-                }
-                if ground_active {
-                    self.helmet.red_stealth_sword_timer = 0;
-                }
+                self.played_sound_effects
+                    .push(QueuedSoundEffect::RedStealthHittingTarget);
+                self.helmet.red_stealth_sword_timer = 0;
                 break;
             }
         }

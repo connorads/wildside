@@ -2529,29 +2529,26 @@ mod chunk_06 {
     }
 
     #[test]
-    fn red_stealth_airborne_slash_damages_enemy_below_kid() {
-        // ASM sub_B270 loc_B350 visibly extends the sword sprite below Kid's
-        // foot during the airborne attack-down. Native models this with a
-        // hitbox centred at `(kid_x, kid_foot_y + 12)` and the same width as
-        // the ground swing, so fast-falling onto an enemy with C held deals
-        // damage even though `red_stealth_sword_timer` is zero.
+    fn red_stealth_airborne_slash_does_not_damage_enemy_below_kid_loc_b350() {
+        // ASM sub_B270 loc_B350/loc_B380 only advances
+        // `Red_Stealth_sword_swing` for the airborne attack-down sprite and
+        // sound. Enemy damage still belongs to the side sword worker allocated
+        // by loc_76B0/loc_8CF8, so a below-foot enemy must not take a phantom
+        // hit just because C is held while fast-falling.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.helmet.red_stealth_airborne_slash_counter = 0x40;
         let slice = combat_slice();
-        // Place the enemy directly below the player's feet at the airborne
-        // hitbox centre (kid foot = 256, reach = +12 -> y = 268).
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
             slice.player.x_pos,
-            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
-                * 0x1_0000,
+            ((slice.player.y_pos >> 16) as i32 + 12) as u32 * 0x1_0000,
             2,
         ));
 
         rt.process_sword_hits(&slice);
 
-        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
         // Airborne counter stays live because the ROM does not allocate the
         // `sub_868E` sword GfxObject for this path — the slash sustains as
         // long as C is held.
@@ -2576,8 +2573,7 @@ mod chunk_06 {
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
             slice.player.x_pos,
-            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
-                * 0x1_0000,
+            ((slice.player.y_pos >> 16) as i32 + 12) as u32 * 0x1_0000,
             2,
         ));
 
@@ -2591,17 +2587,15 @@ mod chunk_06 {
     }
 
     #[test]
-    fn red_stealth_airborne_slash_damages_shooting_rock_tank_below_kid() {
-        // ASM Tank_Shooting.asm loc_3B6DE decrements current_hp for `$1C/$2C`
-        // turret collisions; Red Stealth's airborne slash should feed the same
-        // generic enemy damage path for Level 2 shooting RockTanks.
+    fn red_stealth_airborne_slash_does_not_damage_shooting_rock_tank_below_kid() {
+        // ASM sub_B270 loc_B350/loc_B380 does not allocate the `sub_868E`
+        // side sword worker or any below-foot hitbox, so even enemies with a
+        // `$1C/$2C` damage path must ignore this animation-only airborne slash.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.helmet.red_stealth_airborne_slash_counter = 0x40;
         let slice = combat_slice();
-        let tank_y = ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX)
-            as u32
-            * 0x1_0000;
+        let tank_y = ((slice.player.y_pos >> 16) as i32 + 12) as u32 * 0x1_0000;
         rt.active_enemies.push(test_enemy(
             EnemyFamily::TankShooting,
             slice.player.x_pos,
@@ -2611,7 +2605,7 @@ mod chunk_06 {
 
         rt.process_sword_hits(&slice);
 
-        assert_eq!(rt.active_enemies[0].hit_points, 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
         assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0x40);
     }
 
@@ -2626,8 +2620,7 @@ mod chunk_06 {
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
             slice.player.x_pos,
-            ((slice.player.y_pos >> 16) as i32 + RED_STEALTH_AIRBORNE_SLASH_DOWN_REACH_PX) as u32
-                * 0x1_0000,
+            ((slice.player.y_pos >> 16) as i32 + 12) as u32 * 0x1_0000,
             2,
         ));
 
