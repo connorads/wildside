@@ -13160,6 +13160,21 @@ mod chunk_06 {
     }
 
     #[test]
+    fn enemy_death_burst_homing_step_loc_37078_uses_signed_word_compares() {
+        let step = enemy_death_burst_homing_step_sub_37002(0x8001, 0x8001, 0x7FFF, 0x7FFF);
+
+        assert_eq!(
+            step.x_direction, 0xFF,
+            "ASM loc_37078 uses signed `cmp.w d5,d3; bgt.s loc_3709E`, so $8001 is left of $7FFF"
+        );
+        assert_eq!(
+            (step.x_velocity_delta, step.y_velocity_delta),
+            (0x0000_0FA0, 0x0000_0FA0),
+            "ASM loc_37078/loc_370AA should accelerate the burst toward Kid using signed word order on both axes"
+        );
+    }
+
+    #[test]
     fn boss_death_burst_init_sub_370d2_seeds_fall_homing_and_animation_constants() {
         let init = boss_death_burst_init_sub_370D2(0x0044, 0x0046);
 
@@ -13235,6 +13250,21 @@ mod chunk_06 {
             ),
             (-0x0000_07D0, 0x0000_07D0),
             "ASM loc_3719E should add `$7D0` to `y_vel(a3)` when the burst is above or level with Kid after landing",
+        );
+    }
+
+    #[test]
+    fn boss_death_burst_homing_step_loc_3716c_uses_signed_word_compares() {
+        let step = boss_death_burst_homing_step_sub_370D2(0x8001, 0x8001, 0x7FFF, 0x7FFF);
+
+        assert_eq!(
+            step.x_direction, 0xFF,
+            "ASM loc_3716C uses signed `cmp.w d5,d3; bgt.s loc_37192`, so $8001 is left of $7FFF"
+        );
+        assert_eq!(
+            (step.x_velocity_delta, step.y_velocity_delta),
+            (0x0000_07D0, 0x0000_07D0),
+            "ASM loc_3716C/loc_3719E should steer the boss burst toward Kid using signed word order"
         );
     }
 
@@ -13349,6 +13379,15 @@ mod chunk_06 {
             boss_death_burst_timeout_face_kid_loc_37246(0x005F, 0x0060),
             0xFF,
             "ASM loc_3720A should set `x_direction(a3)` when the burst is left of Kid before branching to loc_3724A",
+        );
+    }
+
+    #[test]
+    fn boss_death_burst_timeout_face_kid_loc_37246_uses_signed_word_compare() {
+        assert_eq!(
+            boss_death_burst_timeout_face_kid_loc_37246(0x8001, 0x7FFF),
+            0xFF,
+            "ASM loc_3720A/loc_37246 uses signed `cmp.w d5,d3; bgt.s`, so $8001 is not right of $7FFF"
         );
     }
 }

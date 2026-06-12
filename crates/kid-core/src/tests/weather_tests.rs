@@ -123,6 +123,15 @@ mod chunk_07 {
     }
 
     #[test]
+    fn boss_eye_pop_effect_face_kid_loc_37300_uses_signed_word_compare() {
+        assert_eq!(
+            boss_eye_pop_effect_face_kid_sub_3729E(0x8001, 0x7FFF),
+            0xFF,
+            "ASM loc_37300 uses signed `cmp.w d5,d3; bgt.s loc_37316`, so $8001 is left of $7FFF"
+        );
+    }
+
+    #[test]
     fn boss_eye_pop_effect_finish_sub_3729e_plays_the_final_anim_and_decrements_the_counter() {
         let finish = boss_eye_pop_effect_finish_sub_3729E();
 
@@ -181,6 +190,16 @@ mod chunk_07 {
         assert_eq!(
             right.initial_x_velocity, 0x0000_7FFF,
             "ASM sub_37332 should launch right with `$7FFF` when Kid is at or left of the projectile",
+        );
+    }
+
+    #[test]
+    fn boss_eye_attack_init_loc_37394_uses_signed_word_compare() {
+        let attack = boss_eye_attack_init_sub_37332(0x8001, 0x0046, 0x7FFF);
+
+        assert_eq!(
+            attack.initial_x_velocity, -0x0000_7FFF,
+            "ASM sub_37332 uses signed `cmp.w d5,d3; bge.s loc_37394`, so $8001 launches left when Kid is at $7FFF"
         );
     }
 

@@ -372,7 +372,7 @@ pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     // ASM loc_37078..loc_370C0 (kid.asm:38930): compare the spawned burst
     // sprite against Kid and accelerate toward him by `$FA0` on each axis.
     let homing_accel = 0x0000_0FA0;
-    let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+    let (x_direction, x_velocity_delta) = if word_gt_signed(effect_x, kid_x) {
         // ASM loc_3709E (kid.asm:38943): burst right of Kid clears
         // `x_direction(a3)` and subtracts `$FA0` from `x_vel(a3)`.
         (0, -homing_accel)
@@ -381,7 +381,7 @@ pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     };
     // ASM loc_370AA (kid.asm:38947): after horizontal steering, compare
     // `y_pos(a3)` against Kid's y position and accelerate vertically toward it.
-    let y_velocity_delta = if effect_y > kid_y {
+    let y_velocity_delta = if word_gt_signed(effect_y, kid_y) {
         // ASM loc_370B8 (kid.asm:38954): burst below Kid subtracts `$FA0`
         // from `y_vel(a3)`.
         -homing_accel
@@ -2592,7 +2592,7 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     // ASM loc_3716C..loc_371B4 (kid.asm:39017): same chase logic as sub_37002
     // but with the slower `$7D0` per-axis acceleration.
     let homing_accel = 0x0000_07D0;
-    let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+    let (x_direction, x_velocity_delta) = if word_gt_signed(effect_x, kid_x) {
         // ASM loc_37192 (kid.asm:39030): burst right of Kid clears
         // `x_direction(a3)` and subtracts `$7D0` from `x_vel(a3)`.
         (0, -homing_accel)
@@ -2601,7 +2601,7 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     };
     // ASM loc_3719E (kid.asm:39034): compare `y_pos(a3)` with Kid's `$1E`;
     // add `$7D0` when the burst is above or level with Kid, subtract otherwise.
-    let y_velocity_delta = if effect_y > kid_y {
+    let y_velocity_delta = if word_gt_signed(effect_y, kid_y) {
         // ASM loc_371AC (kid.asm:39041): burst below Kid subtracts `$7D0`
         // from `y_vel(a3)`.
         -homing_accel
@@ -2645,7 +2645,11 @@ pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: 
     // ASM loc_3720A/loc_37246 (kid.asm:39094-39103): `cmp.w d5,d3; bgt.s`
     // only clears `x_direction(a3)` at loc_37246 when the burst is strictly
     // right of Kid. Equal X falls through the `st x_direction(a3)` path.
-    if effect_x > kid_x { 0 } else { 0xFF }
+    if word_gt_signed(effect_x, kid_x) {
+        0
+    } else {
+        0xFF
+    }
 }
 
 #[allow(non_snake_case)]
@@ -2727,7 +2731,11 @@ pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) 
     // ASM loc_37300..loc_3731A (kid.asm:39170): if the effect is to the right
     // of Kid, ASM loc_37316 clears `x_direction(a3)`; otherwise loc_37300
     // sets it to `$FF`.
-    if effect_x > kid_x { 0 } else { 0xFF }
+    if word_gt_signed(effect_x, kid_x) {
+        0
+    } else {
+        0xFF
+    }
 }
 
 #[allow(non_snake_case)]
@@ -2753,7 +2761,7 @@ pub(crate) fn boss_eye_attack_init_sub_37332(
     // ASM sub_37332 (kid.asm:39199): allocate gfx slot `$01010002`, seed the
     // boss-eye projectile sprite, write the high word `$FFFC` to `y_vel`, and
     // launch left with `$FFFF8001` or right with `$00007FFF` based on Kid's X.
-    let initial_x_velocity = if x_pos < kid_x {
+    let initial_x_velocity = if word_lt_signed(x_pos, kid_x) {
         -0x0000_7FFF
     } else {
         // ASM loc_37394 (kid.asm:39224): `move.l #$7FFF,x_vel(a3)`.
