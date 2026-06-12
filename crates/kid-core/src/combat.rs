@@ -11381,18 +11381,15 @@ impl NativeRuntime {
         self.kid_touched_enemy_this_frame_loc_fa75 =
             self.kid_overlaps_any_enemy_gfx_object_loc_1c18(slice, pre_physics_y_velocity);
 
-        // Level timer: tick down and kill the player on expiry
-        if self.level_timer.tick() {
-            self.opening_slice = Some(*slice);
+        // ASM Decrease_Time_Left no-time path (kid.asm:15494-15502): timer
+        // expiry writes collision_type=4 and queues sfx_Voice_no_time, but
+        // does not branch to Death immediately. A same-frame sub_902A loc_9142
+        // pit fall therefore wins before the deferred timer crush is consumed.
+        let level_timer_expired = self.level_timer.tick();
+        if level_timer_expired {
             self.progression.number_hitpoints = 0;
-            // ASM Decrease_Time_Left no-time path (kid.asm:15498-15502):
-            // set collision_type=4 and play sfx_Voice_no_time before the
-            // later Character_CheckCollision death voice.
             self.played_sound_effects
                 .push(QueuedSoundEffect::VoiceNoTime);
-            self.begin_death_windup();
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelTimerDeath;
-            return true;
         }
 
         // ASM loc_9142 (kid.asm:10549): sub_902A downward floor probe path
@@ -11404,6 +11401,13 @@ impl NativeRuntime {
             self.progression.number_hitpoints = 0;
             self.begin_pit_death_windup();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PitDeath;
+            return true;
+        }
+
+        if level_timer_expired {
+            self.opening_slice = Some(*slice);
+            self.begin_death_windup();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelTimerDeath;
             return true;
         }
 

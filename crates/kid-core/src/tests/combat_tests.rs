@@ -15588,6 +15588,46 @@ mod chunk_05 {
         );
     }
 
+    /// ASM Decrease_Time_Left (kid.asm:15494-15500) only writes collision_type=4
+    /// when time expires; the same frame can still reach sub_902A loc_9142
+    /// immediately from the downward floor probe, so PitFall wins over the
+    /// deferred timer-crush path for coincident below-level frames.
+    #[test]
+    fn loc_9142_pit_death_wins_over_same_frame_timer_expiry() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.level_timer.seconds = 0;
+        runtime.level_timer.sub_frames = 1;
+
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0x1_0000;
+        slice.player.y_pos = u32::from(slice.level_bounds.height_pixels) << 16;
+        let pre_physics_y_velocity = slice.player.y_velocity;
+        let pre_physics_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        let consumed = runtime.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            pre_physics_y_velocity,
+            pre_physics_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(consumed, "coincident timer/pit hazard should consume frame");
+        assert_eq!(
+            runtime.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::PitDeath,
+            "ASM loc_9142 immediate Death path should outrank deferred timer collision_type=4"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceNoTime, QueuedSoundEffect::VoiceDie],
+            "ASM Decrease_Time_Left still queues no-time before loc_9142 branches to Death"
+        );
+    }
+
     #[test]
     fn level_timer_exposed_in_trace_frame() {
         let timer = LevelTimer::new();
