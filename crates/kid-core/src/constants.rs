@@ -428,6 +428,15 @@ pub(crate) const PLAYER_DEATH_RESPAWN_START_HELD_FRAMES: u8 = 2;
 // bootstrap trace pose owns Kid/camera/object counts.
 pub(crate) const PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES: u8 =
     EARLY_START_LOAD_INGAME_VISIBLE_FRAME as u8;
+// ASM `loc_1AE2E -> loc_6E2 -> Load_InGame` on the normal title-card path
+// writes live `Game_Mode=$000C` before the old title-card object slots and the
+// fresh level bootstrap finish cycling through WRAM. The Fast Action route
+// oracle keeps that carry visible through local frames 0..93, then settles on
+// the normal Level 1 gameplay slice on local frame 94.
+pub(crate) const TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E: u8 = 94;
+pub(crate) const TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E: usize = 27;
+pub(crate) const TITLE_CARD_LIVE_HANDOFF_ZEROED_TITLE_WORKER_FRAMES_LOC_1AE2E: usize = 31;
+pub(crate) const TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E: usize = 69;
 // ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
 // bootstrap before `Load_InGame` later restores the grounded respawn pose.
 // Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose

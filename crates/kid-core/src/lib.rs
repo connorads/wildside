@@ -66,6 +66,7 @@ pub struct NativeRuntime {
     previous_input: FrameInput,
     respawn_start_held_frames: u8,
     respawn_live_handoff_frames: u8,
+    title_card_live_handoff_frames: u8,
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
@@ -1304,6 +1305,7 @@ impl NativeRuntime {
             previous_input: FrameInput::default(),
             respawn_start_held_frames: 0,
             respawn_live_handoff_frames: 0,
+            title_card_live_handoff_frames: 0,
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
@@ -2003,6 +2005,12 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        let title_card_live_handoff_active_at_frame_start = self.title_card_live_handoff_frames > 0;
+        if title_card_live_handoff_active_at_frame_start {
+            self.title_card_live_handoff_frames =
+                self.title_card_live_handoff_frames.saturating_sub(1);
+        }
+
         let raw_input = input;
         self.trace_input = input;
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;

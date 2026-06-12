@@ -7,6 +7,49 @@ const FLOATING_PRIZE_CANDIDATE_LIMIT: usize = 4;
 const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
+const LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y: [u32; 13] = [
+    0x00FF_0000,
+    0x0100_0000,
+    0x0100_4000,
+    0x0100_C000,
+    0x0101_8000,
+    0x0102_8000,
+    0x0103_C000,
+    0x0105_4000,
+    0x0107_0000,
+    0x0109_0000,
+    0x010B_4000,
+    0x010D_C000,
+    0x010F_0000,
+];
+const LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y: [u32; 26] = [
+    0x00D8_0000,
+    0x00D0_0000,
+    0x00C8_0000,
+    0x00C0_0000,
+    0x00B8_0000,
+    0x00B0_0000,
+    0x00A8_0000,
+    0x00A0_0000,
+    0x0099_0000,
+    0x0093_0000,
+    0x008E_0000,
+    0x008A_0000,
+    0x0087_0000,
+    0x0084_0000,
+    0x0081_0000,
+    0x007F_0000,
+    0x007D_0000,
+    0x007B_0000,
+    0x007A_0000,
+    0x0079_0000,
+    0x0078_0000,
+    0x0077_0000,
+    0x0076_0000,
+    0x0075_0000,
+    0x0074_0000,
+    0x0073_0000,
+];
 
 fn floating_diamond_in_player_horizontal_band_loc_10396(
     item: &FloatingItem,
@@ -5223,6 +5266,15 @@ impl NativeRuntime {
         }
     }
 
+    fn title_card_live_handoff_elapsed_frames_loc_1ae2e(&self) -> Option<usize> {
+        (self.title_card_live_handoff_frames > 0).then(|| {
+            usize::from(
+                TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E
+                    .saturating_sub(self.title_card_live_handoff_frames),
+            )
+        })
+    }
+
     fn early_start_title_menu_cursor_pose_carry_active(&self) -> bool {
         self.early_start_title_shell_elapsed_frames()
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES)
@@ -5320,23 +5372,71 @@ impl NativeRuntime {
         // grounded hold, then settles back onto the normal respawn slice with
         // the same discrete Y steps the oracle shows on frames 238..250.
         player.x_pos = 0x0020_0000;
-        const LEVEL_ONE_PLAYER_RAMP_Y: [u32; 13] = [
-            0x00FF_0000,
-            0x0100_0000,
-            0x0100_4000,
-            0x0100_C000,
-            0x0101_8000,
-            0x0102_8000,
-            0x0103_C000,
-            0x0105_4000,
-            0x0107_0000,
-            0x0109_0000,
-            0x010B_4000,
-            0x010D_C000,
-            0x010F_0000,
-        ];
         let visible_elapsed = elapsed.saturating_sub(EARLY_START_LOAD_INGAME_VISIBLE_FRAME);
-        player.y_pos = LEVEL_ONE_PLAYER_RAMP_Y
+        player.y_pos = LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y
+            .get(visible_elapsed)
+            .copied()
+            .unwrap_or(0x010F_0000);
+        if (1..=11).contains(&visible_elapsed) {
+            player.on_ground = false;
+            player.y_velocity =
+                i32::try_from(visible_elapsed.saturating_sub(1)).unwrap_or_default() * 0x0000_4000;
+        } else {
+            player.on_ground = true;
+            player.y_velocity = 0;
+        }
+        Some(player)
+    }
+
+    fn title_card_live_handoff_player_state_loc_1ae2e(&self) -> Option<PlayerState> {
+        let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        if self.current_level != LevelId(0) {
+            return None;
+        }
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
+            return Some(PlayerState {
+                // ASM loc_1AE2E -> loc_6E2 has entered live mode, but the
+                // Fast Action oracle still exposes the old title-card slot-2
+                // worker pose through frames 2602..2628.
+                x_pos: 0x0040_0000,
+                y_pos: 0x0068_0000,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            });
+        }
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some(PlayerState {
+                // ASM loc_6E2 clears the old player mirrors before the later
+                // Load_InGame visible settle rehydrates Kid.
+                x_pos: 0,
+                y_pos: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            });
+        }
+        let mut player = self.opening_slice?.player;
+        let visible_elapsed =
+            elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
+        player.x_pos = 0x0020_0000;
+        player.y_pos = LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y
             .get(visible_elapsed)
             .copied()
             .unwrap_or(0x010F_0000);
@@ -5376,36 +5476,8 @@ impl NativeRuntime {
         }
 
         if self.current_level == LevelId(0) {
-            const LEVEL_ONE_CAMERA_RAMP_Y: [u32; 26] = [
-                0x00D8_0000,
-                0x00D0_0000,
-                0x00C8_0000,
-                0x00C0_0000,
-                0x00B8_0000,
-                0x00B0_0000,
-                0x00A8_0000,
-                0x00A0_0000,
-                0x0099_0000,
-                0x0093_0000,
-                0x008E_0000,
-                0x008A_0000,
-                0x0087_0000,
-                0x0084_0000,
-                0x0081_0000,
-                0x007F_0000,
-                0x007D_0000,
-                0x007B_0000,
-                0x007A_0000,
-                0x0079_0000,
-                0x0078_0000,
-                0x0077_0000,
-                0x0076_0000,
-                0x0075_0000,
-                0x0074_0000,
-                0x0073_0000,
-            ];
             let visible_elapsed = elapsed.saturating_sub(EARLY_START_LOAD_INGAME_VISIBLE_FRAME);
-            let y_pos = LEVEL_ONE_CAMERA_RAMP_Y
+            let y_pos = LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y
                 .get(visible_elapsed)
                 .copied()
                 .unwrap_or(0x0073_0000);
@@ -5416,6 +5488,50 @@ impl NativeRuntime {
             .opening_slice
             .map(|slice| slice.camera.y_pos)
             .unwrap_or_default();
+        Some(CameraState { x_pos: 0, y_pos })
+    }
+
+    fn title_card_live_handoff_camera_state_loc_1ae2e(&self) -> Option<CameraState> {
+        let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        if elapsed + 12 == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            });
+        }
+        if elapsed + 11 == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0x00C0_0000,
+            });
+        }
+        if elapsed + 10 >= TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E
+            && elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E
+        {
+            // ASM loc_6E2/Load_InGame camera preload on the normal title-card
+            // route does not include the early-start `$FF00_0000` wrap frame;
+            // oracle #305 instead cycles `$00E0`, `$00C0`, then `$00E0` until
+            // the visible Level 1 camera ramp begins.
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            });
+        }
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some(CameraState::default());
+        }
+        if self.current_level != LevelId(0) {
+            return self
+                .opening_slice
+                .map(|slice| slice.camera)
+                .or(Some(CameraState::default()));
+        }
+        let visible_elapsed =
+            elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
+        let y_pos = LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y
+            .get(visible_elapsed)
+            .copied()
+            .unwrap_or(0x0073_0000);
         Some(CameraState { x_pos: 0, y_pos })
     }
 
@@ -5434,6 +5550,31 @@ impl NativeRuntime {
         }
         if elapsed == EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
             return Some((5, 4));
+        }
+        Some((4, 5))
+    }
+
+    fn title_card_live_handoff_object_counts_loc_1ae2e(&self) -> Option<(u16, u16)> {
+        let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
+            return Some((15, 14));
+        }
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_ZEROED_TITLE_WORKER_FRAMES_LOC_1AE2E {
+            return Some((15, 0));
+        }
+        if elapsed + 1 < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some((0, 0));
+        }
+        if elapsed + 1 == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some((4, 2));
+        }
+        if elapsed == TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some((5, 4));
+        }
+        let visible_elapsed =
+            elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
+        if visible_elapsed <= 16 {
+            return Some((5, 5));
         }
         Some((4, 5))
     }
@@ -5545,6 +5686,18 @@ impl NativeRuntime {
             // by writing Game_Mode=$00 and jumping through loc_6E2. The title
             // snapshot can still carry Kid's pose, but oracle WRAM exposes an
             // inert Character_Movement while this mode-0 shell is active.
+            return MOVE_STANDINGSTILL;
+        }
+        if self
+            .title_card_live_handoff_elapsed_frames_loc_1ae2e()
+            .is_some_and(|elapsed| {
+                elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E
+            })
+        {
+            // ASM loc_1AE2E -> loc_6E2 has already switched to live mode, but
+            // oracle #305 keeps Character_Movement inert until the hidden
+            // Load_InGame carry exposes Kid; the visible ramp then reports the
+            // usual jump movement while y_velocity is non-zero.
             return MOVE_STANDINGSTILL;
         }
         if let BootState::DemoPlay {
@@ -6015,6 +6168,7 @@ impl NativeRuntime {
             .collect::<Vec<_>>();
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
+            .or_else(|| self.title_card_live_handoff_object_counts_loc_1ae2e())
             .or_else(|| self.demo_1_late_controller_sample_counts())
             .or_else(|| self.demo_1_late_title_return_controller_counts())
             .unwrap_or_else(|| {
@@ -7900,6 +8054,10 @@ impl NativeRuntime {
                     && self.dying_hidden_shell_still_visible()
                 {
                     Some(snapshot.frozen_player)
+                } else if let Some(player_state) =
+                    self.title_card_live_handoff_player_state_loc_1ae2e()
+                {
+                    Some(player_state)
                 } else if let Some(player_state) = self.death_respawn_bootstrap_player_state() {
                     Some(player_state)
                 } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -8071,6 +8229,9 @@ impl NativeRuntime {
         }
         if let Some(camera) = self.level_entry_camera_handoff_state() {
             return camera;
+        }
+        if let Some(camera_state) = self.title_card_live_handoff_camera_state_loc_1ae2e() {
+            return camera_state;
         }
         if let Some(camera_state) = self.early_start_load_ingame_camera_state() {
             return camera_state;

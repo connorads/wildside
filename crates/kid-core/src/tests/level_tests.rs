@@ -3655,6 +3655,62 @@ mod chunk_02 {
             GameMode::InGame,
             "ASM loc_1AE2E should write Game_Mode=$000C after the post-Start hibernate frame",
         );
+        let first_live = runtime.trace_frame();
+        assert_eq!(
+            first_live.kid_x_pos,
+            Some(0x0040_0000),
+            "ASM loc_1AE2E -> loc_6E2 keeps the title-card slot-2 pose visible on the first live Fast Action frame"
+        );
+        assert_eq!(first_live.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(first_live.camera_y_pos, 0);
+        assert_eq!(first_live.number_objects, 15);
+
+        for _ in 0..27 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let zeroed_title_workers = runtime.trace_frame();
+        assert_eq!(
+            zeroed_title_workers.kid_x_pos,
+            Some(0),
+            "ASM loc_6E2 clears Kid's WRAM mirrors before the visible Load_InGame settle begins"
+        );
+        assert_eq!(zeroed_title_workers.kid_y_pos, Some(0));
+        assert_eq!(zeroed_title_workers.number_objects, 15);
+
+        for _ in 0..4 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let blank_rebuild = runtime.trace_frame();
+        assert_eq!(blank_rebuild.kid_x_pos, Some(0));
+        assert_eq!(blank_rebuild.kid_y_pos, Some(0));
+        assert_eq!(
+            blank_rebuild.number_objects, 0,
+            "ASM loc_6E2 leaves the object counters blank while Load_InGame rebuilds the level slice"
+        );
+
+        for _ in 0..38 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let first_load_ingame = runtime.trace_frame();
+        assert_eq!(first_load_ingame.kid_x_pos, Some(0x0020_0000));
+        assert_eq!(first_load_ingame.kid_y_pos, Some(0x00FF_0000));
+        assert_eq!(first_load_ingame.camera_y_pos, 0x00D8_0000);
+        assert_eq!(first_load_ingame.number_objects, 5);
+
+        for _ in 0..24 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let last_handoff_camera = runtime.trace_frame();
+        assert_eq!(last_handoff_camera.kid_x_pos, Some(0x0020_0000));
+        assert_eq!(last_handoff_camera.kid_y_pos, Some(0x010F_0000));
+        assert_eq!(last_handoff_camera.camera_y_pos, 0x0074_0000);
+
+        runtime.step_frame(FrameInput::default());
+        let settled_gameplay = runtime.trace_frame();
+        assert_eq!(
+            settled_gameplay.camera_y_pos, 0x0073_0000,
+            "ASM Load_InGame has settled back onto the normal Level 1 camera slice after the loc_1AE2E live carry"
+        );
     }
 
     #[test]
