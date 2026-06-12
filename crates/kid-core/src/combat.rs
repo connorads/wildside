@@ -10974,6 +10974,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x00 } => fire_demon_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x01 } => diamond_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x03 } => robot_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
@@ -11011,6 +11012,37 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn robot_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    let (left_px, right_px, top_px) = if enemy.on_ground.is_none() {
+        // ASM Robot.asm linked head animation `stru_3A716` uses
+        // `LnkTo_unk_C82D8..C8300`, whose normal head frames map through
+        // GfxObjects_CollisionKid loc_1BCE to rows `unk_31BE4..unk_31C0C`:
+        // `dc.w -$12,$1E,-$10,$10`. The shooting head row `unk_31C20` is a
+        // zero-row, but native does not expose the exact child sprite phase yet.
+        match enemy.facing {
+            Some(Direction::Right) => (-12, 18, -16),
+            Some(Direction::Left) | None => (-18, 12, -16),
+        }
+    } else {
+        // ASM Robot.asm body animation `stru_3A6E2` uses `LnkTo_unk_C82A8..C82D0`,
+        // where the nonzero walk frames map to `unk_31BDA` (`-$A,$14,-$12,$12`).
+        // Charge/shoot body rows `unk_31C16`/`unk_31C22` widen the same live parent
+        // object to `-$12,$1E,-$10,$10`; RobotState is not in the snapshot, so use
+        // the parent union instead of the generic fallback.
+        match enemy.facing {
+            Some(Direction::Right) => (-12, 18, -18),
+            Some(Direction::Left) | None => (-18, 12, -18),
+        }
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px,
+        bottom_px: 0,
     }
 }
 

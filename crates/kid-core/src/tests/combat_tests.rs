@@ -277,6 +277,56 @@ fn diamond_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn robot_parent_and_head_contact_use_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 89 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let robot = test_enemy(EnemyFamily::Robot, 101 << 16, 100 << 16, 3);
+    let parent_bounds = enemy_contact_bounds(&robot.snapshot());
+    assert_eq!(
+        (
+            parent_bounds.left_px,
+            parent_bounds.right_px,
+            parent_bounds.top_px,
+            parent_bounds.bottom_px
+        ),
+        (-18, 12, -18, 0),
+        "ASM Robot.asm body scripts use LnkTo_unk_C82A8..C82D0 plus charge/shoot rows C8308/C8330; GfxObjects_CollisionKid loc_1BCE indexes the parent union from unk_31BDA/unk_31C16/unk_31C22"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &robot.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Robot parent body reaches beyond the previous generic 8px-wide fallback"
+    );
+
+    let head = robot
+        .child_attachment_snapshot()
+        .expect("Robot.asm loc_3A7EE allocates a linked head object");
+    let head_bounds = enemy_contact_bounds(&head);
+    assert_eq!(
+        (
+            head_bounds.left_px,
+            head_bounds.right_px,
+            head_bounds.top_px,
+            head_bounds.bottom_px
+        ),
+        (-18, 12, -16, 0),
+        "ASM Robot.asm head script stru_3A716 uses LnkTo_unk_C82D8..C8300; GfxObjects_CollisionKid loc_1BCE indexes rows unk_31BE4..unk_31C0C"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;
