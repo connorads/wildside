@@ -174,7 +174,14 @@ and stop — never commit churn.
   below the targets; best healthy right-target result was still `dy=-33..-48`,
   and best left-target result was worse than the existing clean `dy=-16` class.
   Do not retry this broad 220..460 mid-route replacement axis unless the
-  bootstrap/route family changes.
+  bootstrap/route family changes. 2026-06-12 follow-up: early-vertical route
+  batches over `.cache/debug/issue260-tail-grid/l524_b530_540.json` also failed
+  to improve the seed. Varying the first jump (`55..145`, `70..135`, split
+  holds), early left-air setup, and early right recovery (`190..360`) either
+  reproduced `(456,543) dx=0 dy=-16 @540`, worsened to `dy=-48`, or made a
+  different-but-useless left-air branch at `dx=+79 dy=-1 @548`; a targeted
+  `548..620 B+Right` recovery still only found an early `dx=+2 dy=-17 @66`.
+  Do not retry this early-jump/left-air/right-recovery family unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

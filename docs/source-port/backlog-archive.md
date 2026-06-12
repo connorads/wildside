@@ -205,6 +205,25 @@ reported first authoritative divergence at frame 470 on `number_hitpoints`
 (`native=2`, `oracle=1`). Do not retry this `160..320` reverse/jump family as
 metal-block proof without a materially different route/bootstrap.
 
+Follow-up 2026-06-12 for #260 route search: early-vertical route-shape batches
+over `.cache/debug/issue260-tail-grid/l524_b530_540.json` rejected another
+non-late-tail axis. Batch command:
+`cargo run -q -p kidcli -- probe-record-scenario-file-batch --scenario
+.cache/debug/issue260-tail-grid/l524_b530_540.json --target-point 456,543
+--target-point 584,543 --score-frame-start 300`. Varying the first jump
+(`55..105/140`, `70..135`, split holds), early left-air setup, and early right
+recovery (`190..360`) did not beat the existing clean near-miss: most candidates
+reproduced `(456,543) dx=0 dy=-16 @540`; right-recovery variants worsened to
+`dy=-48`; the only different vertical shape (`early_left_air` /
+`early_release_left`) reached `dy=-1` but was far left at `dx=+79 @548`. A
+targeted recovery probe
+`probe-record-scenario-file --input 55-125:right+b --input 125-190:left
+--input 548-620:right+b --target-point 456,543 --target-point 584,543`
+extended to frame 620 but still only found an early healthy `(456,543)` approach
+`dx=+2 dy=-17 @66` and later stayed below/away from the row-32 target. Do not
+repeat the early-jump/left-air/right-recovery family unchanged; #260 still needs
+a refreshed route/bootstrap that reaches live slime/metal-block contact.
+
 Follow-up 2026-06-11 for #282 asset precondition: after the pushed-build
 `play-native` warning said debug warp target `0x0D` was missing generated level
 layout/resource `0x37`, reran `mise run extract-assets`. The generated bundle now
