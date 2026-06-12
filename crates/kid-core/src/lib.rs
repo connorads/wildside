@@ -3271,10 +3271,11 @@ impl NativeRuntime {
             }
 
             // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
-            // pull-back adjustments run once per frame inside sub_71E4, before
-            // the loc_728C offset application.  Applied here so the adjusted
-            // y_look_offset is used by whichever physics branch calls
-            // update_camera_follow below.
+            // pull-back adjustments run once per frame inside sub_71E4.
+            // loc_728C's bottom-bound adjustment happens after the shifted
+            // target is clamped, so it affects the accumulator for future
+            // frames while the current camera step still uses the pre-decrement
+            // target.
             {
                 let kid_y = (slice.player.y_pos >> 16) as i16;
                 let cam_y = (slice.camera.y_pos >> 16) as i16;
@@ -3289,6 +3290,11 @@ impl NativeRuntime {
                 );
                 self.y_look_offset +=
                     physics::camera_y_viewport_top_look_adjust_loc_727e(kid_y, cam_y);
+                self.y_look_offset += physics::camera_y_bottom_look_adjust_loc_728c(
+                    target_y,
+                    max_y,
+                    self.y_look_offset,
+                );
                 // ASM loc_75D4 (kid.asm:7712–7714):
                 //   move.w x_pos(a3),($FFFFFA2C).w
                 //   move.w y_pos(a3),($FFFFFA2E).w

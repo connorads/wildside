@@ -1003,6 +1003,37 @@ pub fn camera_y_viewport_top_look_adjust_loc_727e(kid_y: i16, camera_y: i16) -> 
     }
 }
 
+/// ASM loc_728C (kid.asm:7391): Y-axis look-offset pull-back at the level
+/// bottom.
+///
+/// Once `$FFFFFB58 >= $1E`, the ROM shifts the target down by
+/// `offset - $1E`. If that shifted target reaches or exceeds `max_y`, it
+/// clamps the current target to `max_y` and decrements the accumulator by 1.
+///
+/// ```asm
+/// loc_728C:
+///   cmpi.w  #$1E,($FFFFFB58).w
+///   blt.s   loc_72A8
+///   add.w   ($FFFFFB58).w,d0
+///   subi.w  #$1E,d0
+///   cmp.w   d1,d0
+///   bcs.s   loc_72A8
+///   move.w  d1,d0
+///   subi.w  #1,($FFFFFB58).w
+/// ```
+///
+/// Returns the adjustment to apply to `y_look_offset` (0 or -1). The camera
+/// target itself is still computed from the pre-adjustment accumulator; this
+/// decrement affects future frames.
+pub fn camera_y_bottom_look_adjust_loc_728c(target_y: i32, max_y: i32, y_look_offset: i16) -> i16 {
+    if y_look_offset < 0x1E {
+        return 0;
+    }
+
+    let shifted_target = target_y + i32::from(y_look_offset) - 0x1E;
+    if shifted_target >= max_y { -1 } else { 0 }
+}
+
 /// ASM loc_7396–loc_73B8 (kid.asm:7499–7514): reverse murder wall camera push.
 ///
 /// After the reversed wall decelerates leftward, compare camera to wall:
@@ -3137,6 +3168,44 @@ mod proptests {
         let result = update_camera_axis(40, player_y, max_y);
         // target == camera → delta = (0+4)>>3 = 0, no movement
         assert_eq!(result, 40);
+    }
+
+    // --- loc_728C: Y-axis look-down bottom clamp pull-back ---
+
+    #[test]
+    fn loc_728c_bottom_look_adjust_ignores_below_threshold_offset() {
+        assert_eq!(
+            camera_y_bottom_look_adjust_loc_728c(288, 288, 0x1D),
+            0,
+            "ASM loc_728C: `$FFFFFB58 < $1E` branches directly to loc_72A8"
+        );
+    }
+
+    #[test]
+    fn loc_728c_bottom_look_adjust_keeps_offset_below_max_y() {
+        assert_eq!(
+            camera_y_bottom_look_adjust_loc_728c(280, 288, 0x25),
+            0,
+            "ASM loc_728C: shifted target below max_y uses `bcs.s loc_72A8`"
+        );
+    }
+
+    #[test]
+    fn loc_728c_bottom_look_adjust_decrements_on_equal_max_y() {
+        assert_eq!(
+            camera_y_bottom_look_adjust_loc_728c(280, 288, 0x26),
+            -1,
+            "ASM loc_728C: `cmp.w d1,d0; bcs` is strict, so target == max_y decrements"
+        );
+    }
+
+    #[test]
+    fn loc_728c_bottom_look_adjust_decrements_on_overshoot() {
+        assert_eq!(
+            camera_y_bottom_look_adjust_loc_728c(288, 288, 0x28),
+            -1,
+            "ASM loc_728C: shifted target past max_y clamps and subtracts one from `$FFFFFB58`"
+        );
     }
 
     // --- loc_72A8: Y-axis near-top-edge nudge ---

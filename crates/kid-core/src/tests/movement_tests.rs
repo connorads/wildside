@@ -6121,6 +6121,39 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_728c_bottom_bound_decrements_look_offset_before_down_increment() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_cells(8, 20, &[(2, 16, 0x60, 0x00)]));
+        runtime.y_look_offset = 40;
+        runtime.camera_last_kid_y = 256;
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 20 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 256 << 16;
+        slice.camera.y_pos = 96 << 16;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        assert_eq!(
+            runtime.y_look_offset, 40,
+            "ASM loc_728C decrements `$FFFFFB58` when the shifted target hits max_y; the Down-held state then adds one back later in the frame"
+        );
+    }
+
     // ---------------------------------------------------------------------------
     // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 (Juggernaut 5-way arm)
     // + Eyeclops hard beam check. Duplicate of loc_7606 in the walking loop:
