@@ -342,6 +342,30 @@ fn drips_surface_crawler_stomp_allocates_loc_325b6_helper_via_loc_338f8() {
 }
 
 #[test]
+fn generic_enemy_exact_edge_contact_reaches_damage_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let enemy = test_enemy(EnemyFamily::Goat, 109 << 16, 200 << 16, 2);
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &enemy.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "ASM GfxObjects_CollisionKid_SubBoxLoop loc_1BCE/loc_1BD4 rejects only `left > kid_right` or `right < kid_left`, so exact-edge generic enemy contact still reaches loc_1C18",
+    );
+}
+
+#[test]
 fn drips_surface_crawler_burst_helper_stomp_bounces_without_deleting_loc_325b6() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

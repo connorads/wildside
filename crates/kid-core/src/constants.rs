@@ -382,7 +382,7 @@ pub(crate) const ENEMY_CONTACT_HALF_WIDTH: i64 = 4;
 // registers a false graze hit.
 pub(crate) const MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH: i64 = 1;
 pub(crate) const ENEMY_CONTACT_HALF_HEIGHT: i64 = 8;
-pub(crate) const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
+pub(crate) const MINI_HOPPING_SKULL_MIN_CONTACT_OVERLAP_FP: i64 = 0x0001_0000;
 
 // === Player death/respawn timing ===
 

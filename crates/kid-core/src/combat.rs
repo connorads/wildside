@@ -11025,11 +11025,17 @@ fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
         // GfxObjects_CollisionKid accepts edge contacts on real collision
         // boxes; the previous 1px gate was an invented guard that suppressed
         // DragonWalking's frame-3399 stomp and the Level 01 RockTank frame-143
-        // contact that spends Kid HP on frame 144.
+        // contact that spends Kid HP on frame 144. Generic enemy contacts use
+        // the same inclusive loc_1BCE/loc_1BD4 overlap checks; only the Tank
+        // side-contact path below has an oracle-backed next-frame damage
+        // deferral for exact-edge side hits. MiniHoppingSkull keeps its own
+        // oracle-backed graze guard because its native static box is narrower
+        // than the full sprite but still needs positive overlap to damage.
+        NativeObjectKind::Enemy { object_type: 0x1C } => MINI_HOPPING_SKULL_MIN_CONTACT_OVERLAP_FP,
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B | 0x0D,
         } => 0,
-        _ => ENEMY_CONTACT_MIN_OVERLAP_FP,
+        _ => 0,
     }
 }
 
