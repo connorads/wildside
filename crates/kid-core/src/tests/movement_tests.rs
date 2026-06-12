@@ -6020,10 +6020,11 @@ mod chunk_11 {
     fn loc_8c12_walking_down_held_preserves_y_look_offset() {
         // When Ctrl_Down_Held is set, loc_8C12 branches to loc_8C26 immediately,
         // so $FFFFFB58 is NOT decremented — instead it increments by 1 (down-held
-        // accumulation path). Native: `if input.down && on_ground { +1 }`.
+        // accumulation path). The ROM does not cap the accumulator at `$1E`;
+        // loc_728C uses `$1E` only as the camera-shift threshold.
         let decay = |v: i16, down_held: bool| -> i16 {
             if down_held {
-                (v + 1).min(30)
+                v + 1
             } else if v > 0 {
                 (v - 8).max(0)
             } else {
@@ -6040,6 +6041,44 @@ mod chunk_11 {
             decay(10, false),
             2,
             "ASM loc_8C12: subi.w #8,($FFFFFB58) — 10 - 8 = 2"
+        );
+        assert_eq!(
+            decay(30, true),
+            31,
+            "ASM loc_8C12: down held keeps applying addq.w #1 past the loc_728C threshold"
+        );
+    }
+
+    #[test]
+    fn loc_8c12_refresh_opening_slice_increments_look_offset_past_threshold() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+        runtime.y_look_offset = 30;
+        runtime.camera_last_kid_y = 96;
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.camera.y_pos = 64 << 16;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        assert_eq!(
+            runtime.y_look_offset, 31,
+            "ASM loc_8C70/loc_8C12 adds 1 to $FFFFFB58 when Down is held; loc_728C's $1E threshold is not a cap"
         );
     }
 

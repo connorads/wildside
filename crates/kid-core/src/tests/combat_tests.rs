@@ -17417,11 +17417,14 @@ mod chunk_05 {
     /// `input.down && on_ground` arm that increments instead of decrementing.
     #[test]
     fn loc_7650_look_offset_increments_when_down_held_and_grounded() {
-        // Native: y_look_offset = (y_look_offset + 1).min(30)
-        let incr = |v: i16| -> i16 { (v + 1).min(30) };
+        // ASM loc_7772/loc_82D8/loc_8C70: down-held grounded paths use
+        // `addq.w #1,($FFFFFB58)` with no `$1E` cap. loc_728C merely treats
+        // `$1E` as the camera-shift threshold.
+        let incr = |v: i16| -> i16 { v + 1 };
         assert_eq!(incr(0), 1, "ASM: +1/frame while crouching");
-        assert_eq!(incr(29), 30, "ASM: capped at 30");
-        assert_eq!(incr(30), 30, "ASM: stays at 30 when already max");
+        assert_eq!(incr(29), 30, "ASM: reaches the loc_728C threshold");
+        assert_eq!(incr(30), 31, "ASM: continues growing past threshold");
+        assert_eq!(incr(40), 41, "ASM: no 30-frame cap is applied");
     }
 
     // --- loc_7396: reverse murder wall camera push ---
