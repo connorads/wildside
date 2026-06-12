@@ -107,6 +107,14 @@ and stop — never commit churn.
   movement. This clears the stale Drips initial-seed/contact hypothesis, but it
   still is not the reported live slime/metal-block repro; keep #260 `[~]` and
   continue from a refreshed route/bootstrap that reaches metal-block contact.
+  2026-06-12 current-route approach-offset batch around frames `430..477`
+  found no usable centre-`EC2D` contact. The most interesting right-side
+  candidate, `approach_br448_465`, reaches `(584,543)` raw `dx=-10 dy=-1`
+  by frame 559 but takes native DripsSurfaceCrawler damage at frame 549
+  (`kid_projectile_damage_probe=hit:DripsSurfaceCrawler@0x024a2000,0x02500000`)
+  and is not oracle-comparable: `verify-tas --frame-start 500 --frame-end 559`
+  first diverges at frame 500 on HP (`native=1`, `oracle=0`). Treat this as
+  another phase-shifted route rejection, not a Drips hitbox or block-break lead.
   A post-`513b36d1` hybrid route batch over the named drop-contact probe also
   failed to find a live right-side contact: clearing `300..559`, applying an
   early `380..388/396 B+Right` pulse plus a later `424..504 B+Right` pulse,
