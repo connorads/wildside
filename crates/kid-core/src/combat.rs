@@ -8158,6 +8158,49 @@ impl NativeRuntime {
         });
     }
 
+    fn spawn_shishkaboss_skewer_fan_loc_384d6(&mut self, anchor_x: u32, anchor_y: u32) {
+        // ASM loc_384D6/loc_38554/...: each skewer piece waits until
+        // `($FFFFFB4E)==3`, then launches from its cached `$44/$46` anchor.
+        // TODO(fidelity): native still lacks the separate boss-body worker
+        // that owns those anchors, so use the third dying head as the live
+        // anchor until the body-coordination row is wired.
+        let piece_1 = boomerang_boss_skewer_piece_1_launch_loc_384E8();
+        let piece_2 = boomerang_boss_skewer_piece_2_launch_loc_38566();
+        let piece_3 = boomerang_boss_skewer_piece_3_launch_loc_385E4();
+        let piece_4 = boomerang_boss_skewer_piece_4_launch_loc_38662();
+        let piece_5 = boomerang_boss_skewer_piece_5_launch_loc_386E0();
+        let piece_6 = boomerang_boss_skewer_piece_6_launch_loc_3875E();
+        let piece_7 = boomerang_boss_skewer_piece_7_launch_loc_387DC();
+        let piece_8 = boomerang_boss_skewer_piece_8_launch_loc_3885A();
+        let piece_9 = boomerang_boss_skewer_piece_9_launch_loc_388D8();
+        let launches = [
+            (piece_1.x_vel, piece_1.y_vel, piece_1.gravity_per_frame),
+            (piece_2.x_vel, piece_2.y_vel, piece_2.gravity_per_frame),
+            (piece_3.x_vel, piece_3.y_vel, piece_3.gravity_per_frame),
+            (piece_4.x_vel, piece_4.y_vel, piece_4.gravity_per_frame),
+            (piece_5.x_vel, piece_5.y_vel, piece_5.gravity_per_frame),
+            (piece_6.x_vel, piece_6.y_vel, piece_6.gravity_per_frame),
+            (piece_7.x_vel, piece_7.y_vel, piece_7.gravity_per_frame),
+            (piece_8.x_vel, piece_8.y_vel, piece_8.gravity_per_frame),
+            (piece_9.x_vel, piece_9.y_vel, piece_9.gravity_per_frame),
+        ];
+        for (x_velocity, y_velocity, gravity) in launches {
+            // ASM loc_38494..loc_38884 allocates nine independent GfxObject
+            // workers; this is not limited by native's four-slot helper-shot
+            // cap used for ordinary enemy projectiles.
+            self.projectiles.push(EnemyProjectile {
+                x_pos: anchor_x,
+                y_pos: anchor_y,
+                x_velocity,
+                y_velocity: i32::from(y_velocity) << 16,
+                lifetime: u16::MAX,
+                gravity,
+                kind: EnemyProjectileKind::BossSkewer,
+                ..Default::default()
+            });
+        }
+    }
+
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
@@ -8186,6 +8229,16 @@ impl NativeRuntime {
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
         {
+            let should_launch_shishkaboss_skewers = if matches!(family, EnemyFamily::Shishkaboss) {
+                self.multi_head_boss_death_count_fb4e =
+                    self.multi_head_boss_death_count_fb4e.saturating_add(1);
+                self.multi_head_boss_death_count_fb4e == 3
+            } else {
+                false
+            };
+            if should_launch_shishkaboss_skewers {
+                self.spawn_shishkaboss_skewer_fan_loc_384d6(enemy.x_pos, enemy.y_pos);
+            }
             let enemy = &mut self.active_enemies[idx];
             // ASM Goat.asm loc_3CB64, Ninja.asm loc_3DB4E, Crab.asm loc_3B094,
             // Dragon.asm loc_3CEFC, and Mini_Hopping_Skull.asm loc_3F158:
@@ -9221,6 +9274,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.multi_head_boss_death_count_fb4e = 0;
         self.floating_items.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.enemy_death_effects.clear();

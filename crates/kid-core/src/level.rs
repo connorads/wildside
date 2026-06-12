@@ -17945,6 +17945,7 @@ impl NativeRuntime {
         self.block_state.ghost_groups.clear();
         self.block_state.lift_platforms.clear();
         self.projectiles.clear();
+        self.multi_head_boss_death_count_fb4e = 0;
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
@@ -18093,6 +18094,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.multi_head_boss_death_count_fb4e = 0;
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
@@ -18183,6 +18185,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.multi_head_boss_death_count_fb4e = 0;
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();

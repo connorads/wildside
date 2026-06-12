@@ -3917,6 +3917,18 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
+                ActiveProjectileKind::BossSkewer => {
+                    // ASM loc_384E8..loc_388D8 uses the Shishkaboss skewer
+                    // child sprites; render a tall marker until those exact
+                    // C85E8/C85F0/C85F8 frames are compiled into native play.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 2,
+                        y: sy - 8,
+                        width: 4,
+                        height: 16,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::ShooterBlock => {
                     if !push_shooter_block_projectile_sprite_loc_ef62(
                         &mut commands,

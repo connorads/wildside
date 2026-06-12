@@ -120,6 +120,9 @@ pub struct NativeRuntime {
     game_complete: bool,
     block_state: BlockInteractionState,
     projectiles: Vec<EnemyProjectile>,
+    /// ASM `$FFFFFB4E`: multi-head boss death counter. Shared death entry
+    /// `loc_39EBE` increments it; Shishkaboss skewer pieces launch once it is 3.
+    pub(crate) multi_head_boss_death_count_fb4e: u8,
     diamond_power_rain_slots: Vec<DiamondPowerRainSlot>,
     diamond_power_circle_slots: Vec<helmets::CircleOfDoomSlot>,
     diamond_power_wall_slots: Vec<helmets::WallOfDeathSlot>,
@@ -1347,6 +1350,7 @@ impl NativeRuntime {
             game_complete: false,
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
+            multi_head_boss_death_count_fb4e: 0,
             diamond_power_rain_slots: Vec::new(),
             diamond_power_circle_slots: Vec::new(),
             diamond_power_wall_slots: Vec::new(),

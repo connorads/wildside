@@ -10879,6 +10879,70 @@ mod chunk_03 {
     }
 
     #[test]
+    fn shishkaboss_third_head_death_spawns_skewer_fan_loc_384d6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = (0..3)
+            .map(|head| {
+                let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0040_0000, 1);
+                boss.boss_head_index = head;
+                boss.y_pos += u32::from(head) * (0x48 << 16);
+                boss.layout_index = usize::from(head);
+                boss
+            })
+            .collect();
+
+        runtime.remove_dead_enemy(0);
+        runtime.remove_dead_enemy(1);
+        assert_eq!(
+            runtime.projectiles.len(),
+            0,
+            "ASM loc_384D6/loc_38554 skewer pieces loop while `$FFFFFB4E` is below 3"
+        );
+
+        runtime.remove_dead_enemy(2);
+
+        assert_eq!(
+            runtime.multi_head_boss_death_count_fb4e, 3,
+            "ASM loc_39EBE increments `$FFFFFB4E` once for each boss head entering its death routine"
+        );
+        let skewer_velocities: Vec<(i32, i32, i32)> = runtime
+            .projectiles
+            .iter()
+            .map(|projectile| {
+                assert_eq!(
+                    projectile.kind,
+                    EnemyProjectileKind::BossSkewer,
+                    "ASM loc_384E8..loc_388D8 should launch typed skewer pieces"
+                );
+                assert_eq!(
+                    projectile.gravity, 0x1B58,
+                    "ASM skewer launch loops add `$1B58` to y_vel each frame"
+                );
+                (
+                    projectile.x_velocity,
+                    projectile.y_velocity,
+                    projectile.gravity,
+                )
+            })
+            .collect();
+        assert_eq!(
+            skewer_velocities,
+            vec![
+                (-0xE000, -7 << 16, 0x1B58),
+                (0xE000, -7 << 16, 0x1B58),
+                (-0xC000, -7 << 16, 0x1B58),
+                (0xC000, -7 << 16, 0x1B58),
+                (-0xA000, -7 << 16, 0x1B58),
+                (0xA000, -7 << 16, 0x1B58),
+                (-0x8000, -7 << 16, 0x1B58),
+                (0x8000, -8 << 16, 0x1B58),
+                (-0xA000, -6 << 16, 0x1B58),
+            ],
+            "ASM loc_384E8..loc_388D8 launches the 9-piece upward skewer fan after `$FFFFFB4E==3`"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

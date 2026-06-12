@@ -117,6 +117,9 @@ pub enum ActiveProjectileKind {
     /// Boss-head boomerang fragment: ASM `loc_3A1EA` moves horizontally with
     /// per-frame `$7D0` deceleration from the latched launch direction.
     BossHeadBoomerang,
+    /// Shishkaboss skewer piece: ASM `loc_384E8..loc_388D8` launches the
+    /// `$FFFFFB4E==3` upward fan and deletes after falling below level height.
+    BossSkewer,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
@@ -2512,6 +2515,8 @@ pub(crate) enum EnemyProjectileKind {
     BossHeadBoomerang,
     /// HeadyMetal boss-eye attack child from ASM `sub_37332`.
     BossEyeAttack,
+    /// Shishkaboss skewer piece from ASM `loc_384E8..loc_388D8`.
+    BossSkewer,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.
