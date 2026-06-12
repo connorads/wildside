@@ -15979,6 +15979,60 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_object_loc_f02a_ice_block_loads_bullets_loc_11052() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE2, 0x01)]));
+        runtime.projectiles.clear();
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: ((5 * 16 - 4) as u32) << 16,
+            y_pos: ((3 * 16 + 8) as u32) << 16,
+            x_velocity: 4 << 16,
+            y_velocity: 0,
+            lifetime: 120,
+            kind: EnemyProjectileKind::ShooterBlock,
+            ..EnemyProjectile::default()
+        });
+
+        runtime.step_projectiles();
+
+        assert_eq!(
+            runtime.block_grid().expect("block grid").cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM ShooterObject_InteractBlock_Ice -> IceBlock_SmashAndLoadBullets should erase the struck type-2 ice block"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects.len(),
+            1,
+            "ASM loc_F02A should still spawn the sub_10F9C ice shard worker"
+        );
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+            "ASM loc_F02A applies `eori.w #2,d6`; a right-moving shooter reaches IceBlock_SmashAndLoadBullets with d6=3"
+        );
+        assert_eq!(
+            runtime
+                .projectiles
+                .iter()
+                .map(|p| (
+                    p.kind,
+                    p.x_pos >> 16,
+                    p.y_pos >> 16,
+                    p.x_velocity,
+                    p.y_velocity,
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (EnemyProjectileKind::ShooterBlock, 88, 56, 4 << 16, 0),
+                (EnemyProjectileKind::ShooterBlock, 84, 52, 4 << 16, 0),
+                (EnemyProjectileKind::ShooterBlock, 84, 60, 4 << 16, 0),
+            ],
+            "ASM loc_F02A calls IceBlock_LoadBullets; with d6=3 it remaps to the rightward red bullet trio"
+        );
+    }
+
+    #[test]
     fn shooter_slot_loc_f808_restores_cells_and_queues_visible_horizontal_span() {
         let span = NativeRuntime::shooter_horizontal_span_loc_F808(10, 30, 4, 18, 12, 7, 3);
 

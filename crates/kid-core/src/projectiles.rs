@@ -1947,6 +1947,31 @@ impl NativeRuntime {
                 );
             }
             terrain::BlockType::Ice => {
+                // ASM loc_F02A (kid.asm:19559): shooter-object ice hits call
+                // IceBlock_SmashAndLoadBullets after `eori.w #2,d6`, so the
+                // bullet helper must see the remapped direction saved on the
+                // interaction, then perform its own sub_11006 XOR internally.
+                let target_open = self.block_grid.as_ref().is_some_and(|grid| {
+                    Self::ice_block_bullet_target_cell_sub_11006(
+                        interaction.col,
+                        interaction.row,
+                        interaction.destroy_direction,
+                        grid.width_cells,
+                        grid.height_cells,
+                    )
+                    .is_some_and(|(target_col, target_row)| {
+                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                            grid.cell_at(target_col, target_row),
+                        )
+                    })
+                });
+                if target_open {
+                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                        interaction.col,
+                        interaction.row,
+                        interaction.destroy_direction,
+                    ));
+                }
                 if let Some(grid) = &mut self.block_grid {
                     grid.set_cell_at(
                         interaction.col,
