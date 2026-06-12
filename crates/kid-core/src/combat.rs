@@ -10973,6 +10973,7 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x00 } => fire_demon_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x01 } => diamond_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
@@ -11010,6 +11011,26 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn diamond_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Diamond.asm normal animation `stru_3ACA8` uses `LnkTo_unk_C8160..C8180`,
+    // which map through GfxObjects_CollisionKid loc_1BCE to CollisionSize_Index
+    // rows `unk_31ACE`, `unk_31AD0`, `unk_31ADA`, `unk_31AE4`, and `unk_31AEE`.
+    // `unk_31ACE` is the zero-row lead frame and the hurt/death script also uses
+    // splinter rows that native does not expose here yet, so preserve the active
+    // nonzero live body row rather than pretending we know exact sprite phase.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-10, 10),
+        Some(Direction::Left) | None => (-10, 10),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -32,
+        bottom_px: 0,
     }
 }
 

@@ -242,6 +242,41 @@ fn fire_demon_walking_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn diamond_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 87 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let diamond = test_enemy(EnemyFamily::Diamond, 101 << 16, 100 << 16, 3);
+    let bounds = enemy_contact_bounds(&diamond.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-10, 10, -32, 0),
+        "ASM Diamond.asm stru_3ACA8 uses LnkTo_unk_C8160..C8180; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_31AD0..unk_31AEE for the active nonzero body frames"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &diamond.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Diamond walking body box reaches beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;
