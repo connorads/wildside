@@ -224,6 +224,18 @@ extended to frame 620 but still only found an early healthy `(456,543)` approach
 repeat the early-jump/left-air/right-recovery family unchanged; #260 still needs
 a refreshed route/bootstrap that reaches live slime/metal-block contact.
 
+Follow-up 2026-06-12 for #260 route search: A-button speed-modifier overlays
+also failed to improve the two current seeds. On
+`.cache/debug/issue260-tail-grid/l524_b530_540.json`, `240..540` A/A+Left/A+Right
+windows either reproduced the clean `(456,543) dx=0 dy=-16 @540` near-miss,
+worsened to `dy=-48`, or became invalid LevelTransition routes; the best
+right-target variant still stayed at `(584,543) dy=-48`. On
+`.cache/debug/issue260-route-probes/drop-contact-br460-492-l493.json`, the same
+axis only nudged the old right-side class from `dx=+1 dy=-20` to
+`dx=+2 dy=-18 @483`, with final HP already zero and no row-32 contact. Do not
+retry A-speed modulation over these two seeds unless the route/bootstrap changes
+first.
+
 Follow-up 2026-06-11 for #282 asset precondition: after the pushed-build
 `play-native` warning said debug warp target `0x0D` was missing generated level
 layout/resource `0x37`, reran `mise run extract-assets`. The generated bundle now
