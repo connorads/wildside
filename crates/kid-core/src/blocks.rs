@@ -1937,12 +1937,13 @@ impl NativeRuntime {
                     phase: 0,
                     frames_until_next_write: Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE[0].1,
                 });
-        }
 
-        // ASM loc_10E0A (kid.asm:22733): `addq.w #1,d0; bsr.w sub_11530`
-        // writes the `base+1` rubber frame immediately before the first
-        // hibernate, so the contact frame already shows the jiggled rubber.
-        self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
+            // ASM loc_10E0A (kid.asm:22733): `addq.w #1,d0; bsr.w sub_11530`
+            // writes the `base+1` rubber frame only after loc_10DA4 allocates
+            // the sub_10DE4 worker. When the `$FFFFFB5A` cap returns through
+            // return_10DE2, no immediate jiggle skin is written.
+            self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
+        }
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -6024,6 +6025,36 @@ mod tests {
         assert_eq!(
             number_gfx_objects, base_number_gfx_objects,
             "sub_10DE4 workers should consume object slots without gfx slots",
+        );
+    }
+
+    #[test]
+    fn rubber_block_loc_10da4_budget_cap_returns_before_first_skin_write() {
+        // ASM loc_10DA4 (kid.asm:22697) branches to return_10DE2 before
+        // allocating sub_10DE4 when `$FFFFFB5A >= 10`; the first `$E60D/$E60F`
+        // skin write lives in sub_10DE4 loc_10E0A, so it must not happen.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 9], 3, 3);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+        let mut remaining_object_slots = 0;
+
+        runtime.start_rubber_block_animation_sub_10de4_with_budget(
+            1,
+            1,
+            &mut remaining_object_slots,
+        );
+
+        assert_eq!(runtime.block_state.rubber_block_animations.len(), 0);
+        assert_eq!(
+            runtime
+                .block_grid
+                .as_ref()
+                .expect("block grid")
+                .cell_at(1, 1)
+                .skin,
+            0x0C,
+            "return_10DE2 should skip sub_10DE4 loc_10E0A's immediate base+1 skin write when the worker budget is exhausted",
         );
     }
 
