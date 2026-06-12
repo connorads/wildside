@@ -362,6 +362,41 @@ fn ufo_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 67 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = false;
+
+    let tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&tornado.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-7, 7, -33, 0),
+        "ASM Tornado.asm stru_35B10 uses LnkTo_unk_C784E..C785E; GfxObjects_CollisionKid loc_1BCE indexes active body row unk_316CE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &tornado.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Tornado body reaches much higher than the previous generic 16px-tall fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

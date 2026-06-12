@@ -11001,6 +11001,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
                 bottom_px: 0,
             }
         }
+        NativeObjectKind::Enemy { object_type: 0x18 } => tornado_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
             left_px: -MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
             right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
@@ -11013,6 +11014,25 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Tornado.asm live loop animation `stru_35B10` uses
+    // `LnkTo_unk_C784E..C785E`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to `unk_316CC` (zero row) and `unk_316CE`:
+    // `dc.w -$7,$E,-$21,$21`. Native does not expose the exact sprite phase
+    // here yet, so keep the active nonzero tornado body row.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-7, 7),
+        Some(Direction::Left) | None => (-7, 7),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -33,
+        bottom_px: 0,
     }
 }
 
