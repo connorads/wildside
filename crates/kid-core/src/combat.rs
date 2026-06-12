@@ -8990,10 +8990,11 @@ impl NativeRuntime {
         // boundaries crossed by that post-clamp value.
         let old_score = self.progression.score;
         self.progression.score = self.progression.score.saturating_add(points).min(SCORE_CAP);
-        // ASM: award extra life for every 50,000 point boundary crossed.
-        let old_lives = old_score / SCORE_EXTRA_LIFE_INTERVAL;
-        let new_lives = self.progression.score / SCORE_EXTRA_LIFE_INTERVAL;
-        for _ in old_lives..new_lives {
+        // ASM loc_10AAE has one `addq.w #1,(Number_Lives).w` after comparing
+        // the old and post-clamp `score / 50000` quotients.
+        let old_quotient = old_score / SCORE_EXTRA_LIFE_INTERVAL;
+        let new_quotient = self.progression.score / SCORE_EXTRA_LIFE_INTERVAL;
+        if old_quotient != new_quotient {
             self.add_life();
         }
         self.arm_hundred_k_trip_timer_loc_10_ac2();

@@ -17514,7 +17514,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn add_score_crossing_two_50k_boundaries_awards_two_lives() {
+    fn add_score_loc_10aae_crossing_multiple_50k_boundaries_awards_one_life() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
@@ -17525,8 +17525,8 @@ mod chunk_02 {
 
         assert_eq!(
             runtime.progression.number_lives,
-            lives_before + 2,
-            "crossing two 50K boundaries should award two extra lives"
+            lives_before + 1,
+            "ASM loc_10AAE has exactly one `addq.w #1,(Number_Lives).w` when the old and new score quotients differ"
         );
     }
 
