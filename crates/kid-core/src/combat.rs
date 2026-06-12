@@ -10978,6 +10978,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x04 } => armadillo_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x05 } => tar_monster_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x06 } => sphere_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x07 } => archer_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x08 } => orca_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
@@ -11023,6 +11024,23 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
     }
+}
+
+fn empty_enemy_contact_bounds() -> EnemyContactBounds {
+    EnemyContactBounds {
+        left_px: 1,
+        right_px: 0,
+        top_px: 1,
+        bottom_px: 0,
+    }
+}
+
+fn archer_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Archer.asm body/aim/death frames `LnkTo_unk_C8188..C81F0` all route
+    // through GfxObjects_CollisionKid loc_1BCE to the zero row `unk_314CE`.
+    // Fired arrows are separate projectile workers in native, so the archer
+    // body itself keeps the ROM's empty contact row.
+    empty_enemy_contact_bounds()
 }
 
 fn tar_monster_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
@@ -11476,6 +11494,10 @@ fn classify_enemy_contact_with_half_width_inner(
     let e_right = ex + (bounds.right_px << 16);
     let e_top = ey + (bounds.top_px << 16);
     let e_bottom = ey + (bounds.bottom_px << 16);
+
+    if bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px {
+        return EnemyContactResult::None;
+    }
 
     // MiniHoppingSkull immunity while airborne and rising
     if matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x1C })

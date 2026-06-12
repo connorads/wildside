@@ -207,6 +207,35 @@ fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn archer_body_contact_uses_rom_zero_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let archer = test_enemy(EnemyFamily::Archer, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&archer.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Archer.asm body/aim/death frames LnkTo_unk_C8188..C81F0 index the zero CollisionSize row unk_314CE through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &archer.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the ROM Archer body uses an empty CollisionSize row; fired arrows are separate projectile workers"
+    );
+}
+
+#[test]
 fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;
