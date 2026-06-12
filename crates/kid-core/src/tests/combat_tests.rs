@@ -9220,6 +9220,26 @@ mod chunk_03 {
         assert_eq!(runtime.progression.number_hitpoints, 1);
     }
 
+    /// ASM loc_B786 -> Death (kid.asm:14701,14714): fatal TheKid damage jumps
+    /// directly to Death, which plays `sfx_Voice_die`; it does not fall through
+    /// to loc_B73C's enemy-family ouch dispatch.
+    #[test]
+    fn fatal_thekid_contact_damage_queues_voice_die_without_ouch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 1;
+        let mut slice = combat_slice();
+
+        runtime.apply_damage_with_knockback(&mut slice, 0, EnemyFamily::Goat);
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceDie],
+            "Death should play sfx_Voice_die ($60), not Goat's loc_B750 ouch",
+        );
+        assert_eq!(QueuedSoundEffect::VoiceDie.sound_id(), 0x60);
+    }
+
     #[test]
     fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -14891,8 +14911,8 @@ mod chunk_05 {
         );
         assert_eq!(
             runtime.played_sound_effects,
-            vec![QueuedSoundEffect::VoiceNoTime],
-            "ASM Decrease_Time_Left no-time path (kid.asm:15500) queues sfx_Voice_no_time=$51 before death dispatch"
+            vec![QueuedSoundEffect::VoiceNoTime, QueuedSoundEffect::VoiceDie],
+            "ASM Decrease_Time_Left no-time path (kid.asm:15500) queues sfx_Voice_no_time=$51 before Death queues sfx_Voice_die=$60"
         );
     }
 

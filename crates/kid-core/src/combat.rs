@@ -46,6 +46,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceOuch1,
     VoiceOuch2,
     VoiceOuch3,
+    VoiceDie,
     RubberBlock,
     MetalBlock,
     PrizeBlock,
@@ -88,6 +89,9 @@ impl QueuedSoundEffect {
             Self::VoiceOuch1 => 0x6B,
             Self::VoiceOuch2 => 0x6C,
             Self::VoiceOuch3 => 0x6D,
+            // ASM Death (kid.asm:14714): `moveq #sfx_Voice_die,d0`;
+            // constants.asm: sfx_Voice_die = $60.
+            Self::VoiceDie => 0x60,
             // ASM loc_10DA4 (kid.asm:22692): rubber contact plays
             // `sfx_Rubber_block = $56` before spawning the skin-swap worker.
             Self::RubberBlock => 0x56,
@@ -9435,8 +9439,25 @@ impl NativeRuntime {
         // the original comes from bounding-box separation, not an
         // impulse. Previous native code applied KNOCKBACK_X/Y_VELOCITY
         // which was an invented approximation.
-        self.played_sound_effects
-            .push(contact_damage_ouch_sound_loc_b73c(enemy_family));
+        let max_hitpoints = self
+            .progression
+            .current_form
+            .max_hitpoints()
+            .saturating_add(self.progression.extra_hitpoint_slots);
+        let effective_hitpoints = if self.progression.number_hitpoints == 0 {
+            1
+        } else {
+            self.progression.number_hitpoints.min(max_hitpoints)
+        };
+        let fatal_thekid_hit =
+            self.progression.current_form == PlayerForm::TheKid && effective_hitpoints <= 1;
+        // ASM loc_B72C -> loc_B786 -> Death (kid.asm:14655,14701,14714):
+        // last-pip TheKid contact jumps to Death and never reaches loc_B73C.
+        // Helmet loss still branches back to loc_B73C, so it keeps the ouch.
+        if !fatal_thekid_hit {
+            self.played_sound_effects
+                .push(contact_damage_ouch_sound_loc_b73c(enemy_family));
+        }
         self.apply_damage();
     }
 
@@ -9528,6 +9549,9 @@ impl NativeRuntime {
     }
 
     fn begin_death_windup_path(&mut self, path: DeathWindupPath) {
+        // ASM Death (kid.asm:14714): the death routine plays sfx_Voice_die
+        // before clearing extra hitpoints and switching lifecycle state.
+        self.played_sound_effects.push(QueuedSoundEffect::VoiceDie);
         self.paused = false;
         self.pause_toggle_pending = false;
         self.allow_pausing = false;

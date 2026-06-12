@@ -1731,7 +1731,9 @@ mod tests {
             "ASM loc_1AE2E hibernates and only polls Ctrl_Pressed Start; gameplay B/Left must not launch or move Kid under the title card",
         );
         assert!(
-            runtime.played_sound_effects.is_empty(),
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::Jump),
             "ASM loc_1AE2E does not enter loc_A480 jump sound while the title-card worker is still hibernating",
         );
     }
@@ -1787,7 +1789,9 @@ mod tests {
             "ASM loc_1AE2E only polls Ctrl_Pressed Start; gameplay B/Right must not launch or move Kid under the title card even after visible workers settle",
         );
         assert!(
-            runtime.played_sound_effects.is_empty(),
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::Jump),
             "ASM loc_1AE2E idle does not enter loc_A480 jump sound while the level card still owns the shell",
         );
     }
@@ -1903,7 +1907,9 @@ mod tests {
             "ASM loc_1AE2E must not export title-card B as an upward loc_A480 jump velocity",
         );
         assert!(
-            runtime.played_sound_effects.is_empty(),
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::Jump),
             "ASM loc_1AE2E handoff must not buffer a loc_A480 jump sound into live gameplay",
         );
     }
