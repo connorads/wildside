@@ -11205,14 +11205,21 @@ impl NativeRuntime {
             return true;
         }
 
+        let kid_damage_invulnerable =
+            self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable;
+
         // Projectiles: advance and damage player on hit.
-        // ASM Character_CheckCollision checks invulnerability timer before all
-        // non-spike damage, including projectiles.
+        // ASM sub_1D76/loc_1E94 resolves already-live Kid-projectile contact
+        // before loc_1D00's KidIsInvulnerable gate can suppress the later
+        // damage. Native-created same-frame ShooterBlock bullets still wait
+        // until after the projectile step, matching the existing ice-block
+        // ordering tests.
+        if kid_damage_invulnerable {
+            self.projectile_hits_player_during_invulnerability(slice);
+        }
+
         self.step_projectiles();
-        if self.progression.invulnerable_frames == 0
-            && !self.kid_is_invulnerable
-            && self.projectile_hits_player(slice)
-        {
+        if !kid_damage_invulnerable && self.projectile_hits_player(slice) {
             if self
                 .last_projectile_damage_probe
                 .as_deref()

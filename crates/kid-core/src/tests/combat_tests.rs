@@ -1157,6 +1157,44 @@ mod chunk_03 {
     }
 
     #[test]
+    fn hostile_projectile_contact_during_iframes_consumes_projectile_without_damage_loc_1e94() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+        runtime.progression.invulnerable_frames = 12;
+        runtime.projectiles.push(make_projectile(100, 100));
+
+        let mut slice = combat_slice();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        let frame_start_x = slice.player.x_pos;
+        let frame_start_y = slice.player.y_pos;
+
+        let consumed = runtime.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            0,
+            frame_start_y,
+            frame_start_x,
+            frame_start_y,
+        );
+
+        assert!(
+            !consumed,
+            "ASM sub_1D76/loc_1E94 resolves the projectile contact before loc_1D00's Kid invulnerability gate, so the frame should not take damage"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_1E94 marks the projectile collision source even when loc_1D00 later suppresses Kid damage during iframes"
+        );
+        assert_eq!(runtime.progression.number_hitpoints, 2);
+        assert_ne!(
+            runtime.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::ProjectileDamage
+        );
+    }
+
+    #[test]
     fn loc_35986_cyclone_tornado_bounce_writes_kid_collision_type_not_flight_accel() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

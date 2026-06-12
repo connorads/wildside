@@ -3113,6 +3113,24 @@ impl NativeRuntime {
 
     /// Check if any projectile overlaps the player hitbox, returning true if hit.
     pub(crate) fn projectile_hits_player(&mut self, slice: &OpeningSliceState) -> bool {
+        self.projectile_hits_player_inner(slice, false)
+    }
+
+    /// During the invulnerability gate, native mirrors ASM sub_1D76/loc_1E94
+    /// for ordinary already-live hostile projectiles without disturbing
+    /// same-frame ShooterBlock bullets emitted by IceBlock_LoadBullets.
+    pub(crate) fn projectile_hits_player_during_invulnerability(
+        &mut self,
+        slice: &OpeningSliceState,
+    ) -> bool {
+        self.projectile_hits_player_inner(slice, true)
+    }
+
+    fn projectile_hits_player_inner(
+        &mut self,
+        slice: &OpeningSliceState,
+        skip_shooter_blocks: bool,
+    ) -> bool {
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
@@ -3147,6 +3165,9 @@ impl NativeRuntime {
             }
             if p.friendly {
                 return true; // player-fired projectiles don't damage player
+            }
+            if skip_shooter_blocks && p.kind == EnemyProjectileKind::ShooterBlock {
+                return true;
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
