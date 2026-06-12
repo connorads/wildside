@@ -17551,14 +17551,31 @@ mod chunk_02 {
     }
 
     #[test]
-    fn add_life_caps_at_nine() {
+    fn add_life_loc_10aae_allows_lives_above_nine_until_hud_clamp_loc_bf2a() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
 
         runtime.progression.number_lives = 9;
         runtime.add_life();
 
-        assert_eq!(runtime.progression.number_lives, 9, "lives should cap at 9");
+        assert_eq!(
+            runtime.progression.number_lives, 10,
+            "ASM loc_10AAE and prize life paths use bare `addq.w #1,(Number_Lives).w`; loc_BF2A clamps only during HUD display"
+        );
+    }
+
+    #[test]
+    fn live_hud_path_loc_bf2a_clamps_lives_to_ninety_nine() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_lives = 100;
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.number_lives, 99,
+            "ASM loc_BF2A should clamp Number_Lives >= 100 to 99 when the live HUD path runs"
+        );
     }
 
     #[test]

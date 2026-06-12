@@ -8975,11 +8975,11 @@ impl NativeRuntime {
         None
     }
 
-    /// Add one life, capped at 9 per ASM.
+    /// Add one life. ASM prize and score-award paths are bare
+    /// `addq.w #1,(Number_Lives).w`; the only ROM ceiling is the HUD
+    /// display clamp at loc_BF2A.
     pub(crate) fn add_life(&mut self) {
-        if self.progression.number_lives < 9 {
-            self.progression.number_lives += 1;
-        }
+        self.progression.number_lives = self.progression.number_lives.saturating_add(1);
     }
 
     /// Add points with score cap (9,999,999) and extra-life-per-50K tracking.

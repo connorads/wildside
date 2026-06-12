@@ -2317,6 +2317,11 @@ impl NativeRuntime {
             // frame is sampled.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
+            // ASM loc_BF2A (kid.asm:15526): the lives HUD path clamps
+            // Number_Lives to 99 during display, not when prizes/score award
+            // extra lives.
+            self.progression.number_lives =
+                boot::hud_lives_clamp_loc_BF2A(self.progression.number_lives);
         }
 
         let trace = self.trace_frame();

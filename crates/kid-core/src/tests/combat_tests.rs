@@ -7083,14 +7083,14 @@ mod chunk_03 {
     }
 
     #[test]
-    fn lives_capped_at_nine() {
+    fn ankh_life_award_loc_fefe_allows_tenth_life_before_hud_clamp_loc_bf2a() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         runtime.progression.number_lives = 9;
         runtime.apply_prize_content(terrain::PrizeContent::Ankh);
         assert_eq!(
-            runtime.progression.number_lives, 9,
-            "lives should not exceed 9"
+            runtime.progression.number_lives, 10,
+            "ASM loc_FEFE awards an Ankh life with bare `addq.w #1,(Number_Lives).w`; loc_BF2A is the later HUD clamp"
         );
     }
 
