@@ -19110,6 +19110,69 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_B9A2 -> loc_9D58 -> loc_9F18: after Red Stealth has settled on
+    /// the Level 00 row-13 SlopeUp, the grounded slope-walk frame keeps the
+    /// downhill y_vel mirror. Oracle #269 frame 554 has x_vel=-$14000 and
+    /// y_vel=+$14000; clearing y_vel makes the renderer pick the wrong slope
+    /// pose even though the coarse CRC gate stays clean.
+    #[test]
+    fn level00_frame_554_red_stealth_slopeup_preserves_y_velocity_loc_9f18() {
+        let w: u16 = 60;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        for col in 47..=49 {
+            set(&mut data, col, 13, 0x40, 0x82);
+            set(&mut data, col, 14, 0x60, 0x24);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 0x030e_e000;
+        slice.player.y_pos = 0x00d1_0000;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.player.x_velocity = -0x0001_4000;
+        slice.player.y_velocity = 0x0001_4000;
+        slice.terrain.slope_sliding = true;
+        slice.terrain.slope_walk_kind = Some(terrain::CollisionKind::SlopeUp);
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.grounded_slope_collision(Some(&grid)),
+            Some(terrain::CollisionKind::SlopeUp),
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9F18 must preserve Red Stealth's downhill SlopeUp y_vel mirror after the grounded floor pass",
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: Red Stealth reaches
     /// the next Level 00 row-12 `$4082/$6024` SlopeUp/Solid edge from open air.
     /// Oracle #211 frame 606 keeps the same-frame slope handoff one pixel lower

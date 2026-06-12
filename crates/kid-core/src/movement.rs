@@ -3451,8 +3451,16 @@ impl OpeningSliceState {
                 }
                 if self.player.on_ground
                     && self.terrain.floor_terrain_type == TerrainType::Normal
-                    && let (Some(grid), Some(_slope)) =
+                    && let (Some(grid), Some(slope)) =
                         (block_grid.as_deref(), grounded_slope_for_loc_9d22)
+                    && !matches!(
+                        (slope, self.player.x_velocity.cmp(&0)),
+                        (terrain::CollisionKind::SlopeUp, std::cmp::Ordering::Less)
+                            | (
+                                terrain::CollisionKind::SlopeDown,
+                                std::cmp::Ordering::Greater
+                            )
+                    )
                     && let Some(floor_y_px) = slope_to_solid_exit_floor_y_loc_9fbc(
                         grid,
                         self.player.x_pos,
@@ -4154,7 +4162,15 @@ impl OpeningSliceState {
                     // Native: visual-only — slope walk animation sprites and the
                     // $FFFFF8F0 accumulator are not modelled.
                     if self.player.on_ground
-                        && grounded_slope_for_loc_9d22.is_some()
+                        && let Some(slope) = grounded_slope_for_loc_9d22
+                        && !matches!(
+                            (slope, self.player.x_velocity.cmp(&0)),
+                            (terrain::CollisionKind::SlopeUp, std::cmp::Ordering::Less)
+                                | (
+                                    terrain::CollisionKind::SlopeDown,
+                                    std::cmp::Ordering::Greater
+                                )
+                        )
                         && self.grounded_slope_collision(Some(grid)).is_none()
                         && self.player.y_velocity != 0
                     {
@@ -4245,6 +4261,21 @@ impl OpeningSliceState {
                         // show the oracle keeping x/y/velocities for one more
                         // frame after the support boundary is crossed.
                         self.pending_walking_floor_release = true;
+                    }
+                    if self.player.on_ground
+                        && let Some(slope) = self.grounded_slope_collision(Some(grid))
+                    {
+                        // ASM loc_A13A -> loc_9D22: if the slope-walk tail
+                        // still has slope support after the generic floor/wall
+                        // helpers, the next coroutine iteration keeps y_vel
+                        // mirrored from the final x_vel. Oracle #269 frame 554
+                        // is Red Stealth downhill on SlopeUp after a solid-edge
+                        // probe; native must not leave the generic floor clear.
+                        self.player.y_velocity = match slope {
+                            terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
+                            terrain::CollisionKind::SlopeDown => self.player.x_velocity,
+                            _ => self.player.y_velocity,
+                        };
                     }
                 }
                 kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
