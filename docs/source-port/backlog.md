@@ -226,10 +226,15 @@ and stop — never commit churn.
   stays CRC-clean and honours held-left through loc_7664 -> loc_A426 -> sub_B084;
   a later two-pulse variant (`205..245` and `270..300` Left+B) is also not the
   repro: frame 272 takes the jump edge, the following airborne frames keep
-  negative held-left x velocity, and frames 260..310 pass gameplay CRC. Next
-  pass needs a direct human-equivalent lower left-wall/stair jump repro. A
-  2026-06-11 lower-left-wall scratch route (`lower-left-wall-b-current`) is
-  also not the repro: native keeps the held-left wall/jump path, while the
+  negative held-left x velocity, and frames 260..310 pass gameplay CRC. A
+  2026-06-12 later lower-left edge scan over the same clean fixture (`300..330`,
+  `320..350`, `340..370`, `360..390`, `400..430`, `500..540`, and short
+  `310`/`330`/`360` Left+B pulses) is also not the repro: frame 302 consumes
+  Left+B as `jump_pressed`, then the level-edge clamp zeros x velocity only
+  after several held-left airborne frames. Next pass needs a direct
+  human-equivalent lower left-wall/stair jump repro. A 2026-06-11 lower-left-wall
+  scratch route (`lower-left-wall-b-current`) is also not the repro: native
+  keeps the held-left wall/jump path, while the
   first oracle split is a Drips controller/object-count mismatch at frame 103;
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
