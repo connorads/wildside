@@ -7,7 +7,8 @@ use super::{
 };
 use crate::combat::{
     boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
-    boss_head_projectile_spawn_sub_397E4, heady_metal_tracking_velocity_loc_37582,
+    boss_head_projectile_spawn_sub_397E4, heady_metal_spawn_animation_loc_3761E,
+    heady_metal_tracking_velocity_loc_37582,
 };
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -6514,6 +6515,8 @@ pub(crate) struct ActiveEnemy {
     /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
     pub(crate) boss_head_index: u8,
     /// ASM `sub_39846` `d0`: per-head movement-script countdown.
+    /// HeadyMetal reuses this boss-only slot for the `$FFFFFB7A` anchor's
+    /// `$3E(a3)` spawn-animation counter from `loc_375DE`.
     pub(crate) boss_movement_delay_counter: u16,
     /// ASM `sub_39846` `a2`: next fixed movement-script entry index.
     pub(crate) boss_movement_script_index: usize,
@@ -9513,7 +9516,13 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     BOSS_HEAD_NONE
                 },
-                boss_movement_delay_counter: if is_multi_head_boss(family) { 1 } else { 0 },
+                boss_movement_delay_counter: if is_multi_head_boss(family) {
+                    1
+                } else if matches!(family, EnemyFamily::HeadyMetal) {
+                    HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264
+                } else {
+                    0
+                },
                 boss_movement_script_index: 0,
                 scorpion_tracking_lock: false,
                 scorpion_sting_frames: 0,
@@ -26682,6 +26691,24 @@ pub(crate) const BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566: u16 =
     BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538;
 /// ASM loc_39570/loc_37FF4: at least one hibernate after sub_397E4 before returning to wait.
 pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 1;
+/// ASM Enemy20_HeadyMetal_Init (kid.asm:39264): the `$FFFFFB7A` anchor starts
+/// its `$3E(a3)` counter at `$A` before `loc_375DE` starts eye spawns.
+pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;
+/// ASM `stru_37B98`: high-count eye-spawn animation duration before `$18(a3)`.
+pub(crate) const HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98: u16 =
+    0x2D + 0x32 + 0x05 + 0x14 + 0x14 + 0x19 + 0x05 + 0x0F;
+/// ASM `stru_37BC0` then `stru_37BC6`: low-count rapid eye-spawn animation
+/// duration before `$18(a3)` is set by the zero terminator.
+pub(crate) const HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0: u16 =
+    0x0A + 0x0A + 0x0A + 0x0A + 0x0A;
+
+fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16 {
+    match selected_animation_label {
+        "stru_37B98" => HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98,
+        "stru_37BC0" => HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0,
+        _ => 0,
+    }
+}
 
 /// Bosses periodically fire projectiles at the player.
 pub(crate) fn step_boss_fire(
@@ -26726,11 +26753,18 @@ pub(crate) fn step_boss_fire(
             return;
         }
     }
-    // HeadyMetal ASM: fire rate is animation-driven, faster in later phases.
-    // Phase = 37 - hp. Phases < 6 (hp > 31): slower animation → ~120 frame interval.
-    // Phases >= 6 (hp <= 31): rapid-fire animation → ~30 frame interval.
     let interval = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
-        if enemy.hit_points > 31 { 120 } else { 30 }
+        let piece_counter_before_spawn = if enemy.boss_movement_delay_counter == 0 {
+            HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264
+        } else {
+            enemy.boss_movement_delay_counter
+        };
+        // ASM loc_375DE/loc_3761E: `$18(a3)` gates allocation. After spawning,
+        // decrement `$3E(a3)`, reload `$A` only for the stored counter when the
+        // decremented value is zero, then initialise `stru_37B98`/`stru_37BC0`.
+        let spawn_animation = heady_metal_spawn_animation_loc_3761E(piece_counter_before_spawn);
+        enemy.boss_movement_delay_counter = spawn_animation.next_piece_counter;
+        heady_metal_eye_spawn_animation_frames(spawn_animation.selected_animation_label)
     } else if multi_head_boss {
         BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570
     } else {
@@ -26745,8 +26779,8 @@ pub(crate) fn step_boss_fire(
     match enemy.family {
         EnemyFamily::HeadyMetal => {
             // ASM sub_37332/loc_3739C: launch the eye up-and-out once, then
-            // apply `$BB8` gravity each frame. The animation gate remains a
-            // TODO(fidelity) in the surrounding fire scheduler.
+            // apply `$BB8` gravity each frame. The surrounding scheduler above
+            // mirrors loc_375DE's `$18(a3)` gate and `$3E(a3)` animation reload.
             let kid_x_word = (player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16;
             let init = boss_eye_attack_init_sub_37332(
                 (enemy.x_pos >> 16) as u16,

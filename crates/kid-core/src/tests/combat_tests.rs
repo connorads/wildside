@@ -830,6 +830,7 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;
+    boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
     let mut projectiles = Vec::new();
 
     step_boss_fire(
@@ -859,6 +860,14 @@ fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
         "ASM loc_3739C adds `$BB8` gravity each frame"
     );
     assert_eq!(
+        boss.boss_movement_delay_counter, 9,
+        "ASM loc_375DE should decrement the `$FFFFFB7A` anchor `$3E(a3)` after spawning the eye"
+    );
+    assert_eq!(
+        boss.wait_timer, HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98,
+        "ASM loc_3761E should initialise `stru_37B98` while the decremented `$3E(a3)` counter is six or more"
+    );
+    assert_eq!(
         projectile.homing_accel, 0,
         "ASM sub_37332 chooses launch velocity once; it does not home toward Kid"
     );
@@ -866,6 +875,58 @@ fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
         projectile.lifetime,
         u16::MAX,
         "ASM loc_373BE loops until y_pos exceeds Level_height_pixels, not a fixed 120-frame DBF"
+    );
+}
+
+#[test]
+fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_37630() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
+    boss.wait_timer = 0;
+    boss.boss_movement_delay_counter = 1;
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    assert_eq!(
+        boss.boss_movement_delay_counter, HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264,
+        "ASM loc_375DE/loc_3761E should store `$A` back into `$3E(a3)` when the decremented counter reaches zero"
+    );
+    assert_eq!(
+        boss.wait_timer, HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0,
+        "ASM loc_37630 should initialise `stru_37BC0` for the zero/wrapped counter branch"
+    );
+
+    projectiles.clear();
+    for _ in 0..HEADY_METAL_EYE_LOW_ANIMATION_FRAMES_STRU_37BC0 {
+        step_boss_fire(
+            &mut boss,
+            &mut projectiles,
+            Some(0x0090_0000),
+            Some(0x0080_0000),
+        );
+        assert!(
+            projectiles.is_empty(),
+            "ASM loc_375DE should not allocate another eye while `$18(a3)` is still clear"
+        );
+    }
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(
+        projectiles.len(),
+        1,
+        "ASM loc_375DE should allocate the next eye once the selected spawn animation has set `$18(a3)`"
     );
 }
 
