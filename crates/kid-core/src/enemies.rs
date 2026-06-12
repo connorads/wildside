@@ -9617,7 +9617,63 @@ pub(crate) fn step_active_enemies_with_rng(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    let mut tank_drive_refcount = active
+        .iter()
+        .filter(|enemy| {
+            matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
+                && enemy.shared_walker_patrol_short_next
+        })
+        .count()
+        .min(usize::from(u8::MAX)) as u8;
     for enemy in active.iter_mut() {
+        if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
+            && !enemy.shared_walker_patrol_short_next
+        {
+            // ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B690: the
+            // visible init tail plays `sfx_Tank_driving` only for the first
+            // Rock Tank sharing the `$FFFFFA34+object_meta` refcount, then
+            // increments that counter before entering loc_3C026/loc_3C0D2.
+            // Native reuses `shared_walker_patrol_short_next` as this
+            // Tank-only init latch; snapshots only expose that byte for
+            // DragonWalking, where it retains its cadence meaning.
+            let x_direction = if matches!(enemy.facing, Direction::Right) {
+                0xFF
+            } else {
+                0
+            };
+            let result = if matches!(enemy.family, EnemyFamily::Tank) {
+                tank_init_drive_sound_loc_3b40a(tank_drive_refcount, false, x_direction)
+            } else {
+                let result = tank_shooting_init_drive_sound_loc_3b690(
+                    tank_drive_refcount,
+                    false,
+                    x_direction,
+                );
+                TankInitDriveSoundLoc3B40A {
+                    next_tank_drive_refcount: result.next_tank_drive_refcount,
+                    sound_call: result.sound_call,
+                    walker_entry: match result.walker_entry {
+                        TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2 => {
+                            TankInitWalkerEntryLoc3B40A::LeftLoc3C0D2
+                        }
+                        TankShootingInitWalkerEntryLoc3B690::RightLoc3C026 => {
+                            TankInitWalkerEntryLoc3B40A::RightLoc3C026
+                        }
+                    },
+                }
+            };
+            tank_drive_refcount = result.next_tank_drive_refcount;
+            enemy.shared_walker_patrol_short_next = true;
+            if matches!(
+                result.sound_call,
+                Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                    SharedEnemyDriveSoundEffectSub3C352::TankDriving
+                ))
+            ) && let Some(sound_effects) = played_sound_effects.as_deref_mut()
+            {
+                sound_effects.push(QueuedSoundEffect::TankDriving);
+            }
+        }
         // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set,
         // so Samurai Haze skips their object execution on 3 of every 4 frames.
         if samurai_haze_active && time_frames & 3 != 0 {
@@ -26898,6 +26954,84 @@ mod tests {
             enemies[0].x_pos,
             (32 << 16) + 0x0001_0000,
             "ASM loc_E1E lets haze-flagged enemy objects execute normally when `Time_Frames & 3 == 0`",
+        );
+    }
+
+    #[test]
+    fn tank_live_step_queues_initial_drive_sound_once_per_shared_refcount() {
+        let mut enemies = [
+            ActiveEnemy {
+                family: EnemyFamily::Tank,
+                facing: Direction::Left,
+                hit_points: 2,
+                ..mini_hopping_skull_test_enemy()
+            },
+            ActiveEnemy {
+                family: EnemyFamily::TankShooting,
+                facing: Direction::Right,
+                hit_points: 2,
+                ..mini_hopping_skull_test_enemy()
+            },
+        ];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TankDriving],
+            "ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B690 should play `sfx_Tank_driving` only while the shared Rock Tank refcount was zero",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x1F);
+        assert!(
+            enemies
+                .iter()
+                .all(|enemy| enemy.shared_walker_patrol_short_next),
+            "ASM loc_3B40A/loc_3B6AE increments the shared Rock Tank drive refcount for every visible Tank after the init tail",
+        );
+
+        sound_effects.clear();
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            1,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert!(
+            sound_effects.is_empty(),
+            "ASM loc_3B40A/loc_3B690 are visible-init tails, so an already refcounted live Tank must not restart the drive loop every frame",
         );
     }
 
