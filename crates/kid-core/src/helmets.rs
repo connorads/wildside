@@ -6422,16 +6422,15 @@ impl NativeRuntime {
             grid.height_cells as i16,
         );
         let row_count = bottom_tile_row.wrapping_sub(top_tile_row) as u16;
-        // TODO(fidelity): ASM sub_E446 also queues a `$12C` foreground update
-        // worker for each revealed cell. Native has no typed queue for that
-        // static upload path yet, so this bridge applies the gameplay-visible
-        // Level_Layout mutation and intentionally drops the visual descriptors.
-        block_list.hidden_block_column_updates_sub_E446(
+        // ASM sub_E446 (kid.asm:17963) mutates Level_Layout, then queues both
+        // the `$12C` reveal worker and the foreground-cell upload descriptor.
+        let updates = block_list.hidden_block_column_updates_sub_E446(
             grid,
             tile_column as u16,
             top_tile_row as u16,
             row_count,
         );
+        self.hidden_block_fg_update_workers.extend(updates);
 
         let adjacent_column = if latched_x_direction == 0 {
             tile_column.checked_sub(1)
@@ -6447,12 +6446,13 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_counter,
         ) && let Some(adjacent_column) = adjacent_column
         {
-            block_list.hidden_block_column_updates_sub_E446(
+            let updates = block_list.hidden_block_column_updates_sub_E446(
                 grid,
                 adjacent_column as u16,
                 top_tile_row as u16,
                 row_count,
             );
+            self.hidden_block_fg_update_workers.extend(updates);
         }
     }
 

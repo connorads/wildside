@@ -2,7 +2,7 @@
 
 # Projectile System Fidelity Audit
 
-Adversarially-verified audit of the player-form projectile and melee weapon paths in the Kid Chameleon source-port. At audit time, the dominant failure pattern was the same one the enemy audit found, sharpened here onto player weapons: an ASM-faithful collision predicate exists in `terrain.rs` (`probe_relative_collision_sub_B55C`, the exact `& $7000 == $6000` gate) and is wired into live movement, yet projectile terrain probes substituted the generic `solid_terrain_at` (`collision != Empty`). Several of those rows have since been resolved below. Remaining motifs originally included invented per-projectile timers, gates with no ASM basis, and invented hitboxes/behaviours; the live Red Stealth below-foot airborne stomp has since been removed. The remaining active projectile-system gap is the EyeClops hidden-block foreground update worker.
+Adversarially-verified audit of the player-form projectile and melee weapon paths in the Kid Chameleon source-port. At audit time, the dominant failure pattern was the same one the enemy audit found, sharpened here onto player weapons: an ASM-faithful collision predicate exists in `terrain.rs` (`probe_relative_collision_sub_B55C`, the exact `& $7000 == $6000` gate) and is wired into live movement, yet projectile terrain probes substituted the generic `solid_terrain_at` (`collision != Empty`). Several of those rows have since been resolved below. Remaining motifs originally included invented per-projectile timers, gates with no ASM basis, invented hitboxes/behaviours, and dropped helper workers; the live Red Stealth below-foot airborne stomp and EyeClops hidden-block foreground update worker have since been fixed.
 
 ## Coverage summary
 
@@ -21,7 +21,7 @@ Adversarially-verified audit of the player-form projectile and melee weapon path
 | offscreen-and-lifetime-culling-rules | partial | 3 |
 | per-form-ammo-cooldown-gating | partial | 1 |
 
-Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The audit originally found 17 confirmed gaps after refutation; 4 high/medium claims were adversarially refuted and dropped (skull probed-every-frame vs tile-boundary; Maniaxe axe deleted on throw-anim completion; Red Stealth ground re-swing invented-timer; EyeClops gate reopens on enemy contact). After the fixes recorded below, 1 confirmed gap remains active here, with 1 open backlog candidate for the EyeClops foreground-update worker.
+Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The audit originally found 17 confirmed gaps after refutation; 4 high/medium claims were adversarially refuted and dropped (skull probed-every-frame vs tile-boundary; Maniaxe axe deleted on throw-anim completion; Red Stealth ground re-swing invented-timer; EyeClops gate reopens on enemy contact). After the fixes recorded below, no confirmed projectile-system gaps remain active in this audit.
 
 ## Resolved since audit
 
@@ -37,6 +37,7 @@ Original totals: 12 units audited, 1 full (no gaps), 11 partial, 0 stub. The aud
 - **Juggernaut skull concurrent startup workers** (`loc_A87A / loc_7718 / sub_86FA / sub_87B0`) — fixed by modelling pending `sub_86FA` workers as independent 3-frame counters instead of one scalar delay. Native now accepts consecutive C presses while `$FFFFFB70` is below 8, queues multiple startup workers, and spawns each skull when that worker's own counter reaches zero; covered by `juggernaut_skull_c_press_queues_concurrent_sub_86fa_workers`.
 - **EyeClops beam hidden-block gameplay reveal** (`loc_E70A / loc_E756 / sub_E446`) — fixed by wiring the live beam render/collision column scan to `hidden_block_column_updates_sub_E446`. Native now mutates hidden cells touched by the beam into their revealed block type, including the adjacent-column scan once the beam counter reaches the ASM `loc_E790` threshold; covered by `eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column`. The `$12C` foreground upload worker returned by `sub_E446` still has no native queue and remains tracked below as visual fidelity work.
 - **Red Stealth invented below-foot airborne hitbox** (`loc_B350 / loc_B380 / sub_868E / loc_76B0 / loc_8CF8`) — fixed by removing enemy damage from the airborne attack-down counter path. Native `process_sword_hits` now only checks the spawned `sub_868E` side sword worker hitbox, while `sub_B270 loc_B350/loc_B380` remains animation/sound/floor-impact state only; covered by `red_stealth_airborne_slash_does_not_damage_enemy_below_kid_loc_b350` and `red_stealth_airborne_slash_does_not_damage_shooting_rock_tank_below_kid`.
+- **EyeClops beam hidden-block `$12C` foreground update worker** (`sub_E446 / loc_E70A / loc_E790`) — fixed by keeping each returned `HiddenBlockColumnUpdateSubE446` descriptor in live runtime state, ticking its `$12C` lifetime, clearing it on level resets, and counting it as a transient GFX worker. Covered by the extended `eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column` regression.
 
 ## Confirmed gaps
 
@@ -46,8 +47,7 @@ None active after the Red Stealth below-foot hitbox fix.
 
 ### Medium severity
 
-**EyeClops beam reveals hidden blocks but drops the `$12C` foreground update worker** (`sub_E446 / loc_E70A / loc_E790`)
-In the ROM, `sub_E49A`'s render/collision tail (`loc_E70A` onward) computes the beam's block-column span and calls `sub_E446` (up to twice — the adjacent column at `loc_E790` once `($FFFFFAB8) >= 3`), which walks each column, finds `$7000`-mask `== $2000` HiddenBlock cells, resolves them via `sub_E37A`/`sub_E3C6`, writes the revealed cell back to the layout, and queues a `$12C`-frame foreground update plus `EraseBlockFromLevelLayout`. Native now wires the live beam scan to `hidden_block_column_updates_sub_E446`, so the gameplay-visible layout mutation happens, but it intentionally drops the returned `HiddenBlockColumnUpdateSubE446` descriptors because the runtime has no typed foreground upload queue for this static reveal worker yet. Kind: helper-partial. Gated on EyeClops + hidden blocks along the beam; the remaining player-visible risk is visual update timing rather than collision/layout state. Cited native: terrain.rs:985, terrain.rs:1019, helmets.rs:6190, lib.rs:3017.
+None active after the EyeClops hidden-block foreground update worker fix.
 
 ## Already tracked
 
@@ -60,7 +60,7 @@ In the ROM, `sub_E49A`'s render/collision tail (`loc_E70A` onward) computes the 
 | FIXED | [x] | P1 | projectile | Live Maniaxe axe spawns with lifetime:0 and is skipped by process_friendly_projectile_hits (loc_8ABC) — fixed by `f2a96990` and closed in backlog #296 | `cargo test -q -p kid-core live_maniaxe_axe_lifetime_zero_damages_and_deletes_loc_8abc` |
 | FIXED | [x] | P1 | projectile | Juggernaut skull terrain probe used generic solid_terrain_at (!=Empty) instead of sub_B55C ==$6000 gate — fixed by `dd72a5ed` | `cargo test -q -p kid-core probe_ignores_non_6000_collision_classes` |
 | FIXED | [x] | P1 | projectile | Maniaxe one-at-a-time gate keyed to axe-object existence, not the ~17-frame throw animation (sub_78E8 loc_794C) — fixed by modelling the 17-frame throw latch separately from the flying axe object | `cargo test -q -p kid-core grounded_helmet_state_sub_78e8_releases_maniaxe_gate_after_throw_animation` |
-| NEW | [ ] | P2 | projectile | EyeClops beam hidden-block reveal now mutates the live layout, but the `$12C` foreground update worker returned by sub_E446 is still dropped because native has no typed queue for that static upload path | Fire the EyeClops beam across a row of hidden blocks; assert each HiddenBlock cell on the sweep is revealed and a $12C-frame FG update is queued |
+| FIXED | [x] | P2 | projectile | EyeClops beam hidden-block reveal now mutates the live layout and keeps the `$12C` foreground update worker returned by sub_E446 live in runtime state | `cargo test -q -p kid-core eyeclops_beam_loc_E70A -- --nocapture` |
 | FIXED | [x] | P2 | projectile | Lion homing projectile Y target sign inverted (loc_3E20E) — fixed by `d1b3653c`; native converges on kid_y+16px | `cargo test -q -p kid-core homing_y_target_offset_is_16px_below_player` |
 | FIXED | [x] | P2 | projectile | Skull spawn-in-solid immediate delete (loc_87EC/loc_899C) not modelled — fixed by probing the post-offset spawn cell with sub_B55C and deleting immediately on `$6000` | `cargo test -q -p kid-core loc_87EC_skull_spawn` |
 | FIXED | [x] | P2 | projectile | Skull startup serialized to one pending worker; ROM allows concurrent sub_86FA workers within the 3-frame window while FB70<8 (loc_A87A/loc_7718) — fixed by independent pending worker counters | `cargo test -q -p kid-core juggernaut_skull_c_press_queues_concurrent_sub_86fa_workers` |

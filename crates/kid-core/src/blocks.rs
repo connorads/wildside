@@ -2937,6 +2937,7 @@ impl NativeRuntime {
         self.block_state.deferred_ceiling_clears.clear();
         self.block_bounces.clear();
         self.prize_block_spawn_flashes.clear();
+        self.hidden_block_fg_update_workers.clear();
         self.block_destroy_effects.clear();
         self.floating_items.clear();
     }
@@ -4195,6 +4196,12 @@ impl NativeRuntime {
         }
         self.prize_block_spawn_flashes
             .retain(|flash| flash.remaining > 0);
+
+        for worker in &mut self.hidden_block_fg_update_workers {
+            worker.duration_frames = worker.duration_frames.saturating_sub(1);
+        }
+        self.hidden_block_fg_update_workers
+            .retain(|worker| worker.duration_frames > 0);
 
         for e in &mut self.block_destroy_effects {
             if e.pending_ice_origin_nudge {

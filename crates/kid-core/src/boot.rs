@@ -5928,6 +5928,7 @@ impl NativeRuntime {
         self.iron_knight_last_metal_block_hit = None;
         self.prize_block_worker_tails.clear();
         self.prize_block_spawn_flashes.clear();
+        self.hidden_block_fg_update_workers.clear();
         self.block_destroy_effects.clear();
         self.block_debris_swarms.clear();
         self.floating_items.clear();

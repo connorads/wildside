@@ -9214,7 +9214,7 @@ impl NativeRuntime {
         lava_objects.saturating_add(1)
     }
 
-    fn gameplay_transient_gfx_worker_count(&self) -> u16 {
+    pub(crate) fn gameplay_transient_gfx_worker_count(&self) -> u16 {
         let live_floating_prize_objects = self
             .floating_items
             .iter()
@@ -9223,6 +9223,7 @@ impl NativeRuntime {
         (self.block_bounces.len()
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
+            + self.hidden_block_fg_update_workers.len()
             + self.block_destroy_effects.len()
             + live_floating_prize_objects
             // ASM PrizeDiamondCollected_Init (kid.asm:21100) allocates an

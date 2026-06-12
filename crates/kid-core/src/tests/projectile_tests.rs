@@ -5517,8 +5517,9 @@ mod chunk_06 {
     }
 
     /// ASM loc_E70A/loc_E756/sub_E446 (kid.asm:18405/18440/17963): the live
-    /// Eyeclops beam's rendered strip scans its terrain column and reveals
-    /// hidden blocks inside the vertical collision band.
+    /// Eyeclops beam's rendered strip scans its terrain column, reveals hidden
+    /// blocks inside the vertical collision band, and queues the `$12C` worker
+    /// plus foreground update for each revealed cell.
     #[test]
     #[allow(non_snake_case)]
     fn eyeclops_beam_loc_E70A_reveals_hidden_blocks_in_scanned_column() {
@@ -5552,6 +5553,29 @@ mod chunk_06 {
             rt.block_grid().expect("block grid").cell_at(10, 15),
             terrain::Cell::from_be_bytes(0xEA, 0x1D),
             "ASM sub_E446 should reveal the hidden Evanescent block touched by the first beam strip"
+        );
+        assert_eq!(
+            rt.hidden_block_fg_update_workers,
+            vec![terrain::HiddenBlockColumnUpdateSubE446 {
+                layout_addr: ((15u16 * 24u16) + 10u16) * 2,
+                col: 10,
+                row: 15,
+                cell: terrain::Cell::from_be_bytes(0xEA, 0x1D),
+                sprite_mapping: 0x10E4,
+                duration_frames: 0x012C,
+            }],
+            "ASM sub_E446 should keep the `$12C` reveal worker live after queueing the foreground cell update"
+        );
+        assert_eq!(
+            rt.gameplay_transient_gfx_worker_count(),
+            1,
+            "ASM sub_E446 allocates one transient GFX worker for the revealed hidden block"
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(
+            rt.hidden_block_fg_update_workers[0].duration_frames, 0x012B,
+            "ASM sub_E446's `$12C` worker should hibernate and count down while it remains live"
         );
     }
 
