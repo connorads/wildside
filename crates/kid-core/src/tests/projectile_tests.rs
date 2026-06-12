@@ -6272,6 +6272,69 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_87EC (kid.asm:9645): the freshly spawned sub_87B0 projectile
+    /// probes `sub_B55C` at offset (0,0) before `Init_Animation`; if
+    /// `d5 == $6000`, it branches straight to loc_899C and deletes itself
+    /// without moving or spending rebound budget.
+    fn loc_87EC_skull_spawn_inside_solid_deletes_immediately() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 200 << 16;
+        slice.player.facing = Direction::Right;
+        rt.set_block_grid(grid_with_cells(16, 16, &[(7, 12, 0xE0, 0)]));
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+
+        rt.step_juggernaut_skull(&slice, input);
+        rt.prior_input = input;
+        for _ in 0..3 {
+            rt.step_juggernaut_skull(&slice, FrameInput::default());
+        }
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_87EC -> loc_899C: spawn cell collision `$6000` deletes the skull before its first main-loop move"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_87EC only deletes on `cmpi.w #$6000,d5`; hidden blocks, slopes
+    /// and spikes must not trigger the immediate spawn delete.
+    fn loc_87EC_skull_spawn_probe_ignores_non_6000_collision_classes() {
+        for hi in [0xA0, 0xC0, 0xD0, 0xF0] {
+            let mut rt = NativeRuntime::new(manifest());
+            rt.progression.current_form = PlayerForm::Juggernaut;
+            let mut slice = combat_slice();
+            slice.player.x_pos = 100 << 16;
+            slice.player.y_pos = 200 << 16;
+            slice.player.facing = Direction::Right;
+            rt.set_block_grid(grid_with_cells(16, 16, &[(7, 12, hi, 0)]));
+            let input = FrameInput {
+                c: true,
+                ..FrameInput::default()
+            };
+
+            rt.step_juggernaut_skull(&slice, input);
+            rt.prior_input = input;
+            for _ in 0..3 {
+                rt.step_juggernaut_skull(&slice, FrameInput::default());
+            }
+
+            assert_eq!(
+                rt.projectiles.len(),
+                1,
+                "ASM loc_87EC: collision class {hi:#04x} is not `$6000`, so the skull should spawn"
+            );
+        }
+    }
+
     // --- loc_8810: Skull projectile main loop (gravity + collision checks) ---
 
     #[test]

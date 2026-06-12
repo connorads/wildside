@@ -476,9 +476,8 @@ pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u
     // left), stores x_vel and adds the facing-dependent x offset to x_pos.
     // Then `bsr.w sub_B55C` does an initial terrain probe (d0=4 height);
     // `cmpi.w #$6000,d5; beq.w loc_899C` — if the spawn position is inside
-    // solid terrain, the skull is immediately deleted. Native does not model
-    // this initial terrain probe; the first frame of step_juggernaut_skull_sub_87B0
-    // handles the case implicitly via its per-frame solid check.
+    // solid terrain, the skull is immediately deleted before its first
+    // hibernated main-loop frame.
     let x_offset_px = if player.facing == Direction::Right {
         JUGGERNAUT_SKULL_OFFSET_X
     } else {
@@ -492,6 +491,23 @@ pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u
     let x_px = ((player.x_pos >> 16) as i32 + x_offset_px).max(0) as u32;
     let y_px = ((player.y_pos >> 16) as i32 + JUGGERNAUT_SKULL_OFFSET_Y).max(0) as u32;
     (x_px << 16, y_px << 16, x_vel)
+}
+
+#[allow(non_snake_case)]
+fn juggernaut_skull_spawn_blocked_loc_87EC(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+) -> bool {
+    // ASM loc_87EC: after applying the facing x offset, `moveq #0,d7;
+    // moveq #0,d6; bsr.w sub_B55C; cmpi.w #$6000,d5`.
+    terrain::probe_relative_collision_sub_B55C(
+        grid,
+        (x_pos >> 16) as i32,
+        (y_pos >> 16) as i32,
+        0,
+        0,
+    ) == terrain::CollisionKind::Solid
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6683,6 +6699,13 @@ impl NativeRuntime {
             if self.helmet.juggernaut_skull_delay_frames == 0 {
                 let (x_pos, y_pos, x_velocity) =
                     juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
+                if self
+                    .block_grid
+                    .as_ref()
+                    .is_some_and(|grid| juggernaut_skull_spawn_blocked_loc_87EC(grid, x_pos, y_pos))
+                {
+                    return;
+                }
                 self.projectiles.push(EnemyProjectile {
                     x_pos,
                     y_pos,
