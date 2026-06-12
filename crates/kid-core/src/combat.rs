@@ -10066,12 +10066,14 @@ impl NativeRuntime {
             }
         }
         if let Some(camera_lock) = self.death_camera_lock {
-            // ASM loc_B80C: j_sub_8E0 tests the current pose before the
-            // per-frame gravity increment and tumble step. Once the current
-            // death pose is offscreen, the loop falls straight into lose_life.
-            if !Self::death_sprite_still_visible(slice.player, camera_lock) {
-                self.opening_slice = Some(slice);
-                return true;
+            if self.death_windup_path == DeathWindupPath::Tumble {
+                // ASM loc_B80C: j_sub_8E0 tests the current pose before the
+                // per-frame gravity increment and tumble step. Once the current
+                // death pose is offscreen, the loop falls straight into lose_life.
+                if !Self::death_sprite_still_visible(slice.player, camera_lock) {
+                    self.opening_slice = Some(slice);
+                    return true;
+                }
             }
             slice.camera = camera_lock;
         }
@@ -10081,6 +10083,15 @@ impl NativeRuntime {
                 let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
                 slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
                 slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_4000);
+                if let Some(camera_lock) = self.death_camera_lock {
+                    // ASM loc_B7CA calls j_sub_8E0 after the y step; the
+                    // hidden handoff frame must include that movement.
+                    if !Self::death_sprite_still_visible(slice.player, camera_lock) {
+                        slice.player.on_ground = false;
+                        self.opening_slice = Some(slice);
+                        return true;
+                    }
+                }
             }
             DeathWindupPath::Tumble => {
                 // ASM loc_B80C increases d1 by $3000 before applying the tumble step.

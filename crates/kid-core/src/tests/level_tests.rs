@@ -7426,6 +7426,41 @@ mod chunk_02 {
     }
 
     #[test]
+    fn loc_b7ca_pit_death_tests_visibility_after_y_step() {
+        // ASM loc_B7CA (kid.asm:14729-14736) moves y_pos and applies gravity
+        // before calling j_sub_8E0. A pose that is visible before the y step
+        // but hidden afterwards should hand off to lose_life on this frame.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+
+        if let Some(slice) = runtime.opening_slice.as_mut() {
+            slice.player.y_pos = 379 << 16;
+            slice.player.y_velocity = 1 << 16;
+            slice.camera.y_pos = 0;
+        }
+        runtime.begin_pit_death_windup();
+
+        let hidden_handoff_ready = runtime.advance_death_windup_motion();
+        let after = runtime.opening_slice.expect("post-windup slice").player;
+
+        assert!(
+            hidden_handoff_ready,
+            "ASM loc_B7CA should test sprite visibility after the pit-death y step"
+        );
+        assert_eq!(
+            after.y_pos,
+            380 << 16,
+            "the hidden handoff frame should still include loc_B7CA's y movement"
+        );
+        assert_eq!(
+            after.y_velocity,
+            (1 << 16) + 0x4000,
+            "loc_B7CA applies gravity before the visibility-tested frame exits"
+        );
+    }
+
+    #[test]
     fn loc_b7ea_death_strips_helmet_and_resets_to_the_kid() {
         // ASM loc_B7EA (kid.asm:14740-14744): d7==0 death path checks
         // Current_Helmet; if set, clears Current_Helmet_Available and calls

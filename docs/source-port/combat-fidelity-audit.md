@@ -15,7 +15,7 @@ Adversarially-verified audit of the Kid Chameleon source-port combat and collisi
 | kid-stomp-resolution-and-bounce-locB6DA | partial | 2 |
 | kid-hurt-damage-decrement-locB700 | partial | 2 |
 | invulnerability-window-and-flash-loc1d00 | full | 1 |
-| kid-death-windup-and-respawn-sequence | partial | 2 |
+| kid-death-windup-and-respawn-sequence | partial | 1 |
 | enemy-shared-damage-entry-hp-recoil | full | 0 |
 | enemy-colid-routing-delivery-layer | partial | 1 |
 | hitbox-derivation-from-collisionsize-index | stub | 2 |
@@ -23,7 +23,7 @@ Adversarially-verified audit of the Kid Chameleon source-port combat and collisi
 | enemy-projectile-vs-kid-contact | partial | 2 |
 | frame-hazard-ordering-and-murderwall-crush | partial | 2 |
 
-Totals: 14 units audited, 3 full (no gaps), 10 partial, 1 stub. 19 confirmed gaps (3 high, 1 medium, 15 low), of which 1 is already tracked. A further 2 high/medium claims were refuted by the independent refute pass and dropped (the Cloud Kid-side-reversal claim and the duplicate "faithful `sub_5E02` crush-geometry unwired" claim).
+Totals: 14 units audited, 3 full (no gaps), 10 partial, 1 stub. 18 confirmed gaps (3 high, 1 medium, 14 low), of which 1 is already tracked. A further 2 high/medium claims were refuted by the independent refute pass and dropped (the Cloud Kid-side-reversal claim and the duplicate "faithful `sub_5E02` crush-geometry unwired" claim).
 
 ## Confirmed gaps
 
@@ -72,8 +72,8 @@ Fixed 2026-06-12 in native: bare `apply_damage()` now passes the default `VoiceO
 **Death entry does not play `sfx_Voice_die`** (`Death / loc_B7CA / loc_B7FA`)
 Fixed 2026-06-12 in native: `QueuedSoundEffect::VoiceDie` maps to `$60` and `begin_death_windup_path` queues it on the shared death entry, including contact death, pit death, and level-timer death after `sfx_Voice_no_time`. Covered by `fatal_thekid_contact_damage_queues_voice_die_without_ouch` and `level_timer_death_on_expiry`.
 
-**Pit-death arc (PitFall) tests sprite visibility before advancing Y; ASM `loc_B7CA` advances first** (`loc_B7CA / loc_9142`)
-The pit-death path (`DeathWindupPath::PitFall`, ROM `d7=1` via `loc_9142`) uses `loc_B7CA`, whose per-frame loop adds y-velocity to y_pos and bumps gravity by `$4000` BEFORE the render/visibility test. Native `advance_death_windup_motion` runs the `death_sprite_still_visible`/`death_camera_lock` check FIRST and only then advances Y, so the whole pit fall renders one gravity step behind the ROM and the handoff to `lose_life` fires one frame later. The non-pit Tumble path (`loc_B80C`) genuinely is render-then-advance, which native matches; only PitFall inverts the order. Frame-precise visual/timing only — death state is already decided. Kind: deviating. Native `crates/kid-core/src/combat.rs:9777`, `crates/kid-core/src/combat.rs:9787`.
+**Fixed 2026-06-12: Pit-death arc (PitFall) tests sprite visibility after advancing Y** (`loc_B7CA / loc_9142`)
+The pit-death path (`DeathWindupPath::PitFall`, ROM `d7=1` via `loc_9142`) uses `loc_B7CA`, whose per-frame loop adds y-velocity to y_pos and bumps gravity by `$4000` before the render/visibility test. Native now keeps the Tumble path's `loc_B80C` pre-step visibility check but moves the PitFall handoff test after its y step and gravity increment. Covered by `loc_b7ca_pit_death_tests_visibility_after_y_step` and `loc_b7ca_pit_death_uses_y_only_gravity_fall`. Kind: fixed. Native `crates/kid-core/src/combat.rs:10068`, `crates/kid-core/src/tests/level_tests.rs:7432`.
 
 **Side and below Kid `colid` words (`$20`/`$24`/`$28`) are computed then discarded — no enemy ever receives its side/below colid** (`loc_1CF2 / loc_1CD2 / loc_1CD8 / loc_1D4C`)
 `GfxObjects_CollisionKid` (`loc_1CF2`) writes the classified `colid` into `$38(a2)` for EVERY overlap direction, so the enemy can react on its next object pass. Native's `classify_enemy_contact` reproduces the four `ContactSide` branches but maps Below/Left/Right all to `EnemyContactResult::Damage` and only Above to Stomp; the producer (`process_stomps`) then queues a pending `colid` only for the Above case and only for DragonWalking and Tank/TankShooting children (value always `DRAGON_COLID_KIDABOVE=0x2C`). No generic left/right/below colid is delivered to enemies. The previously listed Mini_Hopping_Skull scream consequence is fixed in native by queuing `sub_3F3F0` from the pending side/below contact-damage path; covered by `mini_hopping_skull_contact_queues_sub_3f3f0_scream_worker`, `mini_hopping_skull_sub_3f3f0_plays_scream_after_15_hibernated_frames`, and `mini_hopping_skull_scream_worker_allocation_matches_loc_3eb40`. Most remaining side reactions are either Berzerker-gated and reproduced separately or need a fresh oracle probe before promotion. Kind: deviating. Native `crates/kid-core/src/combat.rs:10665`, `crates/kid-core/src/combat.rs:10718`, `crates/kid-core/src/combat.rs:10728`, `crates/kid-core/src/combat.rs:11378`, `crates/kid-core/src/tests/level_tests.rs:17813`.
@@ -103,7 +103,7 @@ The ROM tests each object's `CollisionSize` sub-boxes (8-byte `x_off/width/y_off
 | NEW | [ ] | P3 | projectile | Enemy-projectile/Kid/sword hitboxes use invented fixed symmetric AABBs instead of `CollisionSize_Index`; faithful `sub_21F8`/`sub_1D76`/`sub_1D84` helpers are `#[cfg(test)]`-only and unwired | Wire the faithful CollisionSize helpers behind a CRC-gated flag and diff a full TAS replay; assert no new oracle divergence before promoting |
 | NEW | [ ] | P3 | combat | `colid` side/below words (`$20`/`$24`/`$28`) lack a generic enemy delivery layer — only kidabove (`0x2C`) is queued for Dragon/Tank children, while Mini_Hopping_Skull has a bespoke side/below damage-path fix | Find a remaining non-Berzerker enemy side/below reaction with oracle evidence, then assert native delivers the same enemy-side `colid` effect |
 
-Closing trivia (not worth backlog rows): the `loc_1D00` invuln-gate helper (`trace.rs:5116`) is faithful but test-only with no currently-observable divergence; the PitFall death arc renders one gravity step behind the ROM (frame-precise visual only); the `loc_1F08` sword hit-explosion sprite is cosmetic and never spawned; and the FA75 latch's omission of the Kid-projectile and enemy-projectile gfx lists, plus the generic 1px minimum-overlap gate, are narrow edge-touch nuances. Fold these into the relevant CollisionSize/SFX work if those units are revisited.
+Closing trivia (not worth backlog rows): the `loc_1D00` invuln-gate helper (`trace.rs:5116`) is faithful but test-only with no currently-observable divergence; the `loc_1F08` sword hit-explosion sprite is cosmetic and never spawned; and the FA75 latch's omission of the Kid-projectile and enemy-projectile gfx lists, plus the generic 1px minimum-overlap gate, are narrow edge-touch nuances. Fold these into the relevant CollisionSize/SFX work if those units are revisited.
 
 ## Not audited
 

@@ -10221,18 +10221,21 @@ mod chunk_06 {
                 runtime.step_frame(FrameInput::default());
                 let trace = runtime.trace_frame();
 
-                // Velocity invariants: must stay within terminal limits
-                if let Some(y_vel) = trace.kid_y_velocity {
-                    assert!(
-                        (-0x8_0000..=0x8_0000).contains(&y_vel),
-                        "level {level_id} frame {frame}: y_vel {y_vel:#x} outside terminal limits"
-                    );
-                }
-                if let Some(x_vel) = trace.kid_x_velocity {
-                    assert!(
-                        x_vel.abs() <= 0x8_0000,
-                        "level {level_id} frame {frame}: x_vel {x_vel:#x} exceeds max ground speed"
-                    );
+                // Movement terminal limits apply to live gameplay. ASM loc_B7CA's
+                // PitFall death arc keeps adding gravity until the sprite hides.
+                if matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+                    if let Some(y_vel) = trace.kid_y_velocity {
+                        assert!(
+                            (-0x8_0000..=0x8_0000).contains(&y_vel),
+                            "level {level_id} frame {frame}: y_vel {y_vel:#x} outside terminal limits"
+                        );
+                    }
+                    if let Some(x_vel) = trace.kid_x_velocity {
+                        assert!(
+                            x_vel.abs() <= 0x8_0000,
+                            "level {level_id} frame {frame}: x_vel {x_vel:#x} exceeds max ground speed"
+                        );
+                    }
                 }
 
                 // Player lifecycle must be a valid state — all variants are valid,
