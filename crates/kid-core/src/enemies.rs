@@ -26517,6 +26517,17 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
 
 /// Boss periodic projectile fire interval (frames).
 pub(crate) const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
+const BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538: u16 = 0x8000;
+/// ASM `stru_39FC6`: frame holds `$14 + $28 + $19 + 1` before `$18(a3)` is set.
+pub(crate) const BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6: u16 = 0x14 + 0x28 + 0x19 + 1;
+pub(crate) const BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538: u16 =
+    BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538 | BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6;
+#[cfg(test)]
+pub(crate) const BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566: u16 =
+    BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538;
+/// ASM loc_39570/loc_37FF4: at least one hibernate after sub_397E4 before returning to wait.
+pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 1;
+
 /// Bosses periodically fire projectiles at the player.
 pub(crate) fn step_boss_fire(
     enemy: &mut ActiveEnemy,
@@ -26524,14 +26535,24 @@ pub(crate) fn step_boss_fire(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
 ) {
-    if enemy.wait_timer > 0 {
+    let multi_head_boss = matches!(
+        enemy.family,
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
+    );
+    let attack_windup_remaining =
+        multi_head_boss && enemy.wait_timer & BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538 != 0;
+    if attack_windup_remaining {
+        let remaining_frames = enemy.wait_timer & !BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538;
+        if remaining_frames > 0 {
+            enemy.wait_timer =
+                BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538 | remaining_frames.saturating_sub(1);
+            return;
+        }
+    } else if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
     }
-    if matches!(
-        enemy.family,
-        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
-    ) {
+    if multi_head_boss {
         let Some(player_y_pos) = player_y_pos else {
             return;
         };
@@ -26543,12 +26564,20 @@ pub(crate) fn step_boss_fire(
             // branch back to the wait loop without starting the attack timer.
             return;
         }
+        if !attack_windup_remaining {
+            // ASM loc_39538/loc_37FC6: entering the Kid Y window starts
+            // `stru_39FC6`; sub_397E4 only runs after `$18(a3)` becomes nonzero.
+            enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
+            return;
+        }
     }
     // HeadyMetal ASM: fire rate is animation-driven, faster in later phases.
     // Phase = 37 - hp. Phases < 6 (hp > 31): slower animation → ~120 frame interval.
     // Phases >= 6 (hp <= 31): rapid-fire animation → ~30 frame interval.
     let interval = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
         if enemy.hit_points > 31 { 120 } else { 30 }
+    } else if multi_head_boss {
+        BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570
     } else {
         BOSS_FIRE_INTERVAL
     };

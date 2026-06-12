@@ -725,15 +725,56 @@ fn live_multi_head_boss_fire_waits_outside_vertical_window_loc_39506() {
 
     assert_eq!(
         projectiles.len(),
-        1,
-        "ASM loc_39506 treats `head_y-$40` as an inclusive attack-window edge"
+        0,
+        "ASM loc_39506 treats `head_y-$40` as an inclusive edge, but only starts `stru_39FC6`; loc_39566 spawns after the animation gate"
     );
-    assert_eq!(boss.wait_timer, BOSS_FIRE_INTERVAL);
+    assert_eq!(
+        boss.wait_timer, BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538,
+        "ASM loc_39538 starts `stru_39FC6` before the projectile gate"
+    );
+}
+
+#[test]
+fn live_multi_head_boss_fire_spawns_after_attack_animation_gate_loc_39566() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    boss.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
+    let mut projectiles = Vec::new();
+
+    for _ in 0..BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6 {
+        step_boss_fire(
+            &mut boss,
+            &mut projectiles,
+            Some(0x0070_0000),
+            Some(0x0080_0000),
+        );
+        assert!(
+            projectiles.is_empty(),
+            "ASM loc_39566 loops while `$18(a3)` is zero during `stru_39FC6`"
+        );
+    }
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0070_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(
+        projectiles.len(),
+        1,
+        "ASM loc_39566 calls sub_397E4 once `stru_39FC6` sets `$18(a3)`"
+    );
+    assert_eq!(
+        boss.wait_timer, BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570,
+        "ASM loc_39570 hibernates after sub_397E4 before returning to the activation wait loop"
+    );
 }
 
 #[test]
 fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
     let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;
     let mut projectiles = Vec::new();
 
     step_boss_fire(
@@ -811,6 +852,7 @@ fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
 #[test]
 fn live_boomerang_boss_projectile_uses_loc_3a1ea_lifecycle_seed() {
     let mut boss = test_enemy(EnemyFamily::BoomerangBosses, 0x0080_0000, 0x0080_0000, 20);
+    boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;
     let mut projectiles = Vec::new();
 
     step_boss_fire(
