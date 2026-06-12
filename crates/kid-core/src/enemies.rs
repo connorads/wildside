@@ -26758,12 +26758,13 @@ pub(crate) fn step_boss_fire(
                 y_pos: enemy.y_pos,
                 x_velocity: init.initial_x_velocity,
                 y_velocity: init.initial_y_velocity,
-                lifetime: 120,
+                lifetime: u16::MAX,
                 gravity: 0x0BB8,
                 friendly: false,
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                kind: EnemyProjectileKind::BossEyeAttack,
                 ..Default::default()
             });
         }

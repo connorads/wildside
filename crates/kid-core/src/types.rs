@@ -2510,6 +2510,8 @@ pub(crate) enum EnemyProjectileKind {
     BossHeadArrow,
     /// Boss-head boomerang child from ASM `sub_397E4` -> `loc_3A1EA`.
     BossHeadBoomerang,
+    /// HeadyMetal boss-eye attack child from ASM `sub_37332`.
+    BossEyeAttack,
     /// Tar_Monster.asm loc_324D0 straight shot; terrain/contact enters loc_324F8.
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.

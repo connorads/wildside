@@ -827,6 +827,85 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 }
 
 #[test]
+fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
+    boss.wait_timer = 0;
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x0080_0000),
+    );
+
+    assert_eq!(projectiles.len(), 1);
+    let projectile = projectiles[0];
+    assert_eq!(
+        projectile.kind,
+        EnemyProjectileKind::BossEyeAttack,
+        "ASM sub_37332 allocates the boss-eye attack child, not the generic homing projectile"
+    );
+    assert_eq!(
+        projectile.x_velocity, -0x0000_7FFF,
+        "ASM sub_37332 launches left with `$FFFF8001` when the eye starts left of Kid"
+    );
+    assert_eq!(
+        projectile.y_velocity, -0x0004_0000,
+        "ASM sub_37332 writes `$FFFC` to y_vel before the gravity loop"
+    );
+    assert_eq!(
+        projectile.gravity, 0x0000_0BB8,
+        "ASM loc_3739C adds `$BB8` gravity each frame"
+    );
+    assert_eq!(
+        projectile.homing_accel, 0,
+        "ASM sub_37332 chooses launch velocity once; it does not home toward Kid"
+    );
+    assert_eq!(
+        projectile.lifetime,
+        u16::MAX,
+        "ASM loc_373BE loops until y_pos exceeds Level_height_pixels, not a fixed 120-frame DBF"
+    );
+}
+
+#[test]
+fn boss_eye_attack_sub_37332_deletes_only_below_level_height() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let level_height = runtime.level_bounds(runtime.current_level).height_pixels;
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossEyeAttack,
+        x_pos: 0x0080_0000,
+        y_pos: (u32::from(level_height) - 1) << 16,
+        x_velocity: 0,
+        y_velocity: 0x0001_0000,
+        gravity: 0,
+        lifetime: 0,
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_373BE keeps the eye alive while y_pos <= Level_height_pixels, even with no DBF lifetime"
+    );
+    assert_eq!(
+        runtime.projectiles[0].y_pos,
+        u32::from(level_height) << 16,
+        "the first native frame should move to the exact level-height boundary and stay alive"
+    );
+
+    runtime.step_projectiles();
+
+    assert!(
+        runtime.projectiles.is_empty(),
+        "ASM sub_37332 deletes the boss-eye attack only after y_pos is strictly past Level_height_pixels"
+    );
+}
+
+#[test]
 fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.projectiles.push(EnemyProjectile {
