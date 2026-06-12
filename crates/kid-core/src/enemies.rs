@@ -9699,6 +9699,7 @@ pub(crate) fn step_active_enemies_with_rng(
                         camera_x_px,
                         rng,
                         projectiles.as_deref_mut(),
+                        played_sound_effects.as_deref_mut(),
                     );
                 }
             }
@@ -13937,7 +13938,24 @@ pub(crate) fn step_big_hopping_skull(
 pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let mut rng = RomRandomState::default();
     let camera_x_px = enemy.x_pos >> 16;
-    step_bouncer_with_rng(enemy, block_grid, Some(camera_x_px), &mut rng, None);
+    step_bouncer_with_rng(enemy, block_grid, Some(camera_x_px), &mut rng, None, None);
+}
+
+fn queue_fireball_bounce_sound_loc_32c60(
+    family: EnemyFamily,
+    played_sound_effects: &mut Option<&mut Vec<QueuedSoundEffect>>,
+    already_queued: &mut bool,
+) {
+    if !matches!(family, EnemyFamily::Fireball) || *already_queued {
+        return;
+    }
+
+    if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+        // ASM Fireball.asm loc_32C60: after a non-zero collision type and
+        // before the behaviour jump table, play `sfx_Fireball_bouncing`.
+        sound_effects.push(QueuedSoundEffect::FireballBouncing);
+    }
+    *already_queued = true;
 }
 
 pub(crate) fn step_bouncer_with_rng(
@@ -13946,6 +13964,7 @@ pub(crate) fn step_bouncer_with_rng(
     camera_x_px: Option<u32>,
     rng: &mut RomRandomState,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     // Apply gravity
     enemy.y_velocity = if matches!(enemy.family, EnemyFamily::Fireball) {
@@ -13961,6 +13980,7 @@ pub(crate) fn step_bouncer_with_rng(
     if let Some(grid) = block_grid {
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
+        let mut fireball_bounce_sound_queued = false;
 
         // Wall bounce
         let moving_right = enemy.x_velocity >= 0;
@@ -13973,6 +13993,11 @@ pub(crate) fn step_bouncer_with_rng(
             moving_right,
         );
         if wall.hit {
+            queue_fireball_bounce_sound_loc_32c60(
+                enemy.family,
+                &mut played_sound_effects,
+                &mut fireball_bounce_sound_queued,
+            );
             enemy.x_velocity = -enemy.x_velocity;
             if !matches!(enemy.family, EnemyFamily::Fireball | EnemyFamily::Sphere) {
                 // ASM Sphere.asm loc_36148 negates `x_vel(a3)` and immediately
@@ -13989,6 +14014,11 @@ pub(crate) fn step_bouncer_with_rng(
             // Fireball.asm loc_32D06/loc_32D46, Big_Hopping_Skull.asm loc_36706/loc_36720).
             // Slopes take precedence over floor bounce.
             if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                queue_fireball_bounce_sound_loc_32c60(
+                    enemy.family,
+                    &mut played_sound_effects,
+                    &mut fireball_bounce_sound_queued,
+                );
                 let old_x = enemy.x_velocity;
                 let old_y = enemy.y_velocity;
                 if matches!(enemy.family, EnemyFamily::Sphere) {
@@ -14025,6 +14055,11 @@ pub(crate) fn step_bouncer_with_rng(
                     }
                 }
             } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                queue_fireball_bounce_sound_loc_32c60(
+                    enemy.family,
+                    &mut played_sound_effects,
+                    &mut fireball_bounce_sound_queued,
+                );
                 let old_x = enemy.x_velocity;
                 let old_y = enemy.y_velocity;
                 if matches!(enemy.family, EnemyFamily::Sphere) {
@@ -14061,6 +14096,11 @@ pub(crate) fn step_bouncer_with_rng(
                     }
                 }
             } else {
+                queue_fireball_bounce_sound_loc_32c60(
+                    enemy.family,
+                    &mut played_sound_effects,
+                    &mut fireball_bounce_sound_queued,
+                );
                 // Regular floor bounce
                 if matches!(enemy.family, EnemyFamily::Fireball) {
                     let fire_trail_count = projectiles
@@ -14093,6 +14133,11 @@ pub(crate) fn step_bouncer_with_rng(
         // Ceiling bounce
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity < 0 {
+            queue_fireball_bounce_sound_loc_32c60(
+                enemy.family,
+                &mut played_sound_effects,
+                &mut fireball_bounce_sound_queued,
+            );
             if matches!(enemy.family, EnemyFamily::Fireball) {
                 // ASM Enemy19_Fireball_BounceFloorCeiling reuses the same
                 // perturb-and-negate path for both floor and ceiling contact.
@@ -27230,6 +27275,63 @@ mod tests {
             "ASM Archer.asm loc_34266 should play `sfx_Archer_shoots` before loading the arrow object",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x59);
+    }
+
+    #[test]
+    fn fireball_live_step_queues_bounce_sound_on_collision_loc_32c60() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&vec![0u8; 20 * 15 * 2], 20, 15);
+        for col in 0..20 {
+            grid.set_cell_at(col, 10, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+
+        let fireball = ActiveEnemy {
+            family: EnemyFamily::Fireball,
+            hit_points: 1,
+            x_pos: 0x0123_0000,
+            y_pos: (159u32 << 16) + 0xC000,
+            x_velocity: 0,
+            y_velocity: 0x0003_0000,
+            facing: Direction::Left,
+            on_ground: false,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [fireball];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            Some(&grid),
+            None,
+            None,
+            Some(0x0123),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::FireballBouncing],
+            "ASM Fireball.asm loc_32C60 should play `sfx_Fireball_bouncing` before the collision behaviour dispatch",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x5D);
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Fireball.asm loc_32CE4 should still allocate the obstacle trail child after the bounce cue",
+        );
+        assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
     }
 
     fn tar_monster_test_enemy() -> ActiveEnemy {
