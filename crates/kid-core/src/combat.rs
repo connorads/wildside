@@ -9458,10 +9458,22 @@ impl NativeRuntime {
             self.played_sound_effects
                 .push(contact_damage_ouch_sound_loc_b73c(enemy_family));
         }
-        self.apply_damage();
+        self.apply_damage_without_ouch();
     }
 
     pub(crate) fn apply_damage(&mut self) {
+        self.apply_damage_with_ouch(QueuedSoundEffect::VoiceOuch);
+    }
+
+    fn apply_damage_without_ouch(&mut self) {
+        self.apply_damage_core(None);
+    }
+
+    fn apply_damage_with_ouch(&mut self, ouch_sound: QueuedSoundEffect) {
+        self.apply_damage_core(Some(ouch_sound));
+    }
+
+    fn apply_damage_core(&mut self, ouch_sound: Option<QueuedSoundEffect>) {
         // ASM loc_B700 (kid.asm:14638): entered from Check_for_recent_damge when
         // Just_received_damage is clear.  Loads HelmetHitpoint_Table[Current_Helmet]
         // + Extra_hitpoint_slots → max HP.  Forces Number_Hitpoints ≥ 1, then caps
@@ -9479,8 +9491,8 @@ impl NativeRuntime {
         //   d5 == $40 → sfx_Voice_ouch_2 ($6C, slowed down)
         //   d5 == $30 → sfx_Voice_ouch_3 ($6D, slowed down)
         //   else      → sfx_Voice_ouch   ($61, default)
-        // Native contact damage queues this in apply_damage_with_knockback;
-        // direct hazards still use apply_damage without an enemy d5 value.
+        // Native contact damage queues this in apply_damage_with_knockback with
+        // the enemy d5 value; direct hazards pass the default loc_B778 ouch.
         self.level_damage_taken = true;
         // ASM loc_BC40 (kid.asm:15187): the damage-flash thread polls
         // Just_received_damage each hibernate; setting it here wakes the
@@ -9501,6 +9513,9 @@ impl NativeRuntime {
         self.progression.number_hitpoints = self.progression.number_hitpoints.saturating_sub(1);
 
         if self.progression.number_hitpoints > 0 {
+            if let Some(ouch_sound) = ouch_sound {
+                self.played_sound_effects.push(ouch_sound);
+            }
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }
@@ -9533,6 +9548,9 @@ impl NativeRuntime {
                 PlayerForm::TheKid,
                 self.progression.extra_hitpoint_slots,
             );
+            if let Some(ouch_sound) = ouch_sound {
+                self.played_sound_effects.push(ouch_sound);
+            }
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }

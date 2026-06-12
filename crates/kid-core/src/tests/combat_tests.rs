@@ -9240,6 +9240,63 @@ mod chunk_03 {
         assert_eq!(QueuedSoundEffect::VoiceDie.sound_id(), 0x60);
     }
 
+    /// ASM loc_B700 -> loc_B778 (kid.asm:14638,14693): non-contact damage has
+    /// no enemy `d5` selector, so survival falls through to default
+    /// `sfx_Voice_ouch`.
+    #[test]
+    fn direct_damage_loc_b700_queues_default_ouch_on_survival() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 2;
+
+        runtime.apply_damage();
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceOuch],
+            "direct hazards should fall through loc_B778 to sfx_Voice_ouch=$61",
+        );
+        assert_eq!(runtime.progression.number_hitpoints, 1);
+    }
+
+    /// ASM loc_B786 (kid.asm:14701): helmet loss branches back to loc_B73C, so
+    /// direct damage that strips a helmet still plays the default ouch instead
+    /// of the death voice.
+    #[test]
+    fn direct_damage_loc_b786_helmet_loss_queues_default_ouch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::IronKnight;
+        runtime.progression.number_hitpoints = 1;
+
+        runtime.apply_damage();
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceOuch]
+        );
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+        );
+    }
+
+    /// ASM loc_B786 -> Death (kid.asm:14701,14714): with no helmet, final
+    /// direct damage goes to Death and suppresses loc_B778's default ouch.
+    #[test]
+    fn direct_damage_fatal_thekid_queues_voice_die_without_default_ouch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.number_hitpoints = 1;
+
+        runtime.apply_damage();
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceDie],
+        );
+    }
+
     #[test]
     fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
         let mut runtime = NativeRuntime::new(manifest());
