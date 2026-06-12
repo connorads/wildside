@@ -64,7 +64,7 @@ Shows which levels improve/regress if physics sub-step order is swapped.
 
 ## Anti-patterns
 
-- **Skipping frontier bootstrap** — run `mise run frontier-status` before reading broad backlog/roadmap prose
+- **Skipping loop bootstrap** — run `mise run project-status` and follow `docs/source-port/loop.md` before reading broad backlog/roadmap prose
 - **Manual frame counter tweaking** — use `--bisect` instead of guessing
 - **Hypothesis without data** — always probe before reading ASM
 - **Unregistered debug payloads** — every new `debug_fields` / `gameplay_debug_fields` key must be added to `docs/source-port/debug-field-registry.yaml`

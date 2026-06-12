@@ -128,8 +128,8 @@ verbatim. Re-check the published route with `mise run verify-tas-full`.
 ## Verification commands
 
 ```bash
-# Print the live frontier summary first
-mise run frontier-status
+# Print the live project summary first
+mise run project-status
 
 # Re-check the live pause-snapshot window
 cargo run --release -p kidcli -- verify-tas \

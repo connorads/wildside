@@ -72,7 +72,7 @@ frontier closed replay-matched; issue-tagged evidence moved to
     "docs/source-port/ralph-gameplay-loop.md"
   ],
   "commands": [
-    "mise run frontier-status",
+    "mise run project-status",
     "mise run verify-slice-fast"
   ],
   "notes": "TAS frontier is complete through frame 37759. The active work is now proactive verification: mutation testing, enemy audits, and backlog items with root causes already identified. See ralph-gameplay-loop.md for the full strategy menu."
