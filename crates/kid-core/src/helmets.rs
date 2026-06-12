@@ -6687,40 +6687,52 @@ impl NativeRuntime {
     pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Juggernaut {
             self.helmet.juggernaut_skull_delay_frames = 0;
+            self.helmet.juggernaut_skull_pending_delay_frames.clear();
             return;
         }
 
-        if self.helmet.juggernaut_skull_delay_frames > 0 {
-            // ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame; subq.w #1,d0;
-            // bne.w loc_879A` — per-frame tick of the skull worker (sub_86FA). Decrements
-            // the 3-frame counter each frame; when d0 reaches 0, falls through to allocate
-            // a sub_87B0 projectile object with Kid's current position/facing.
-            self.helmet.juggernaut_skull_delay_frames -= 1;
-            if self.helmet.juggernaut_skull_delay_frames == 0 {
-                let (x_pos, y_pos, x_velocity) =
-                    juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
-                if self
-                    .block_grid
-                    .as_ref()
-                    .is_some_and(|grid| juggernaut_skull_spawn_blocked_loc_87EC(grid, x_pos, y_pos))
-                {
-                    return;
-                }
-                self.projectiles.push(EnemyProjectile {
-                    x_pos,
-                    y_pos,
-                    x_velocity,
-                    lifetime: JUGGERNAUT_SKULL_LIFETIME,
-                    friendly: true,
-                    gravity: JUGGERNAUT_SKULL_GRAVITY,
-                    reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
-                    ..Default::default()
-                });
+        let mut ready_workers = 0usize;
+        for delay_frames in &mut self.helmet.juggernaut_skull_pending_delay_frames {
+            // ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame;
+            // subq.w #1,d0; bne.w loc_879A` — each allocated sub_86FA
+            // object owns and ticks its own 3-frame counter.
+            *delay_frames = delay_frames.saturating_sub(1);
+            if *delay_frames == 0 {
+                ready_workers += 1;
             }
+        }
+        self.helmet
+            .juggernaut_skull_pending_delay_frames
+            .retain(|delay_frames| *delay_frames > 0);
+        for _ in 0..ready_workers {
+            let (x_pos, y_pos, x_velocity) = juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
+            if self
+                .block_grid
+                .as_ref()
+                .is_some_and(|grid| juggernaut_skull_spawn_blocked_loc_87EC(grid, x_pos, y_pos))
+            {
+                continue;
+            }
+            self.projectiles.push(EnemyProjectile {
+                x_pos,
+                y_pos,
+                x_velocity,
+                lifetime: JUGGERNAUT_SKULL_LIFETIME,
+                friendly: true,
+                gravity: JUGGERNAUT_SKULL_GRAVITY,
+                reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                ..Default::default()
+            });
         }
 
         let c_pressed = input.c && !self.prior_input.c;
-        if !c_pressed || self.helmet.juggernaut_skull_delay_frames > 0 {
+        if !c_pressed {
+            self.helmet.juggernaut_skull_delay_frames = self
+                .helmet
+                .juggernaut_skull_pending_delay_frames
+                .first()
+                .copied()
+                .unwrap_or(0);
             return;
         }
 
@@ -6732,6 +6744,12 @@ impl NativeRuntime {
             .filter(|projectile| is_juggernaut_skull_projectile(projectile))
             .count();
         if active_skulls >= JUGGERNAUT_MAX_SKULLS {
+            self.helmet.juggernaut_skull_delay_frames = self
+                .helmet
+                .juggernaut_skull_pending_delay_frames
+                .first()
+                .copied()
+                .unwrap_or(0);
             return;
         }
 
@@ -6752,7 +6770,15 @@ impl NativeRuntime {
         // loops (loc_876A) until the GFX animation completes ($18 flag), then
         // deletes itself. This post-spawn tracking is visual-only; native does
         // not model the companion GFX object lifecycle.
-        self.helmet.juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES;
+        self.helmet
+            .juggernaut_skull_pending_delay_frames
+            .push(JUGGERNAUT_SKULL_STARTUP_FRAMES);
+        self.helmet.juggernaut_skull_delay_frames = self
+            .helmet
+            .juggernaut_skull_pending_delay_frames
+            .first()
+            .copied()
+            .unwrap_or(0);
     }
 
     /// Diamond Power: Start+A with 20+ diamonds activates a per-form special.

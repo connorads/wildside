@@ -5792,11 +5792,13 @@ mod chunk_06 {
         assert_eq!(rt.projectiles.len(), 8, "should cap at 8 skulls");
     }
 
-    /// ASM loc_876A (kid.asm:9599): while the 3-frame skull worker is pending,
-    /// it decrements the counter and stays in that worker; another C press must
-    /// not re-arm the startup delay.
+    /// ASM loc_7718/loc_7738 + sub_86FA (kid.asm:7800/7810/9599): every
+    /// accepted C press allocates an independent sub_86FA worker. `$FFFFFB70`
+    /// is incremented only when sub_87B0 starts, so a second C press while the
+    /// first 3-frame worker is pending queues another worker instead of being
+    /// blocked by the pending delay.
     #[test]
-    fn juggernaut_skull_c_press_ignored_while_worker_pending_loc_876a() {
+    fn juggernaut_skull_c_press_queues_concurrent_sub_86fa_workers() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Juggernaut;
         let slice = combat_slice();
@@ -5807,18 +5809,46 @@ mod chunk_06 {
 
         rt.step_juggernaut_skull(&slice, c_press);
         assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![3]);
 
         rt.prior_input = FrameInput::default();
         rt.step_juggernaut_skull(&slice, c_press);
 
         assert_eq!(
             rt.helmet.juggernaut_skull_delay_frames, 2,
-            "ASM loc_876A: pending worker should tick 3->2, not re-arm to 3"
+            "ASM loc_876A: oldest pending worker should tick 3->2 before the new C press queues another worker"
+        );
+        assert_eq!(
+            rt.helmet.juggernaut_skull_pending_delay_frames,
+            vec![2, 3],
+            "ASM loc_7738 assigns a fresh sub_86FA object for the second C press while the first worker is still pending"
         );
         assert!(
             rt.projectiles.is_empty(),
-            "ASM loc_876A: pending worker must not spawn before the counter reaches zero"
+            "ASM loc_876A: neither worker should spawn before its counter reaches zero"
         );
+
+        rt.prior_input = c_press;
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![1, 2]);
+
+        rt.prior_input = FrameInput::default();
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_876A: the first queued worker should spawn when its own d0 reaches zero"
+        );
+        assert_eq!(rt.helmet.juggernaut_skull_pending_delay_frames, vec![1]);
+
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        assert_eq!(
+            rt.projectiles.len(),
+            2,
+            "ASM loc_876A: the second queued worker should spawn one frame later from its independent counter"
+        );
+        assert!(rt.helmet.juggernaut_skull_pending_delay_frames.is_empty());
+        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 0);
     }
 
     #[test]
