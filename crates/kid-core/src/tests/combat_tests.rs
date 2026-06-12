@@ -432,6 +432,41 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn big_hopping_skull_contact_uses_live_rom_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 87 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let skull = test_enemy(EnemyFamily::BigHoppingSkull, 101 << 16, 100 << 16, 3);
+    let bounds = enemy_contact_bounds(&skull.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-23, 23, -22, -1),
+        "ASM Big_Hopping_Skull.asm stru_367BE uses LnkTo_unk_C7FD0..C7FE0; GfxObjects_CollisionKid loc_1BCE indexes live rows unk_318EA..unk_318FE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &skull.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Big Hopping Skull live body reaches well beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

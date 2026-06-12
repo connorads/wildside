@@ -11009,12 +11009,28 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+        NativeObjectKind::Enemy { object_type: 0x1D } => big_hopping_skull_contact_bounds(enemy),
         _ => EnemyContactBounds {
             left_px: -ENEMY_CONTACT_HALF_WIDTH,
             right_px: ENEMY_CONTACT_HALF_WIDTH,
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn big_hopping_skull_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Big_Hopping_Skull.asm live loop `stru_367BE` uses
+    // `LnkTo_unk_C7FD0..C7FE0`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to `unk_318EA..unk_318FE`: `dc.w -$17,$2B,-$16,$15`,
+    // `dc.w -$14,$28,-$16,$15`, and `dc.w -$14,$2B,-$16,$15`.
+    // Native does not yet model the floor-wait `stru_367AE` zero row
+    // (`unk_318E8`), so keep the active live-loop union here.
+    EnemyContactBounds {
+        left_px: -23,
+        right_px: 23,
+        top_px: -22,
+        bottom_px: -1,
     }
 }
 
