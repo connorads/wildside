@@ -10972,6 +10972,7 @@ pub(crate) fn support_overlap_detected_sub_1F52(
 
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x09 } => crab_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x10 } => goat_contact_bounds(enemy),
         NativeObjectKind::Enemy {
@@ -11006,6 +11007,26 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
             top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
+    }
+}
+
+fn crab_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Crab.asm uses walking script `stru_3AF62`, whose
+    // `LnkTo_unk_C7C1E..C7C46` entries map through GfxObjects_CollisionKid
+    // loc_1BCE to CollisionSize_Index rows `unk_3179C..unk_317CE`. The frozen
+    // guard frame `LnkTo_unk_C7C4E` maps to the narrower `unk_317D8`; native
+    // does not expose the exact sprite link here yet, so use the live walking
+    // union that preserves every active Crab patrol frame.
+    let (left_px, right_px) = match enemy.facing {
+        Some(Direction::Right) => (-14, 15),
+        Some(Direction::Left) | None => (-15, 14),
+    };
+
+    EnemyContactBounds {
+        left_px,
+        right_px,
+        top_px: -32,
+        bottom_px: 0,
     }
 }
 
