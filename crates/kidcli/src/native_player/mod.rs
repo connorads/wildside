@@ -2114,8 +2114,9 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
         // ASM Load_TitleScreen queues bgm_Ice through j_PlaySound before loading title art.
         NativeBgmCue::TitleShell => Some(gems_bgm::ICE),
         NativeBgmCue::Options => Some(gems_bgm::CITY),
-        NativeBgmCue::Level(level) => resolved_level_header(manifest, level.0)
-            .and_then(|header| theme_to_bgm(header.level_theme)),
+        NativeBgmCue::Level(level) => {
+            resolved_level_header(manifest, level.0).and_then(level_start_bgm)
+        }
         NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
         NativeBgmCue::StoppedForTransition => None,
     }
@@ -2291,6 +2292,17 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
 }
 
 /// Map level theme ID to GEMS BGM ID.
+fn level_start_bgm(header: &LevelHeader) -> Option<u8> {
+    // ASM loc_11FD2 (kid.asm:24183-24186): after Load_InGame's shared setup,
+    // non-zero MurderWall_flag bypasses loc_12004's foreground-theme table and
+    // queues bgm_Murderwall directly.
+    if header.murder_wall_flags != 0 {
+        Some(gems_bgm::MURDERWALL)
+    } else {
+        theme_to_bgm(header.level_theme)
+    }
+}
+
 fn theme_to_bgm(theme: u8) -> Option<u8> {
     // ASM loc_12004 indexes `unk_1201E` by Foreground_theme, then queues the
     // resulting byte through j_PlaySound. These are sound IDs, not theme indexes.
@@ -13770,6 +13782,26 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::CAVE),
             "fixture level theme 0x08 should still route through ASM loc_12004 / unk_1201E"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_level_bgm_cue_uses_murderwall_override() -> anyhow::Result<()> {
+        let mut fixture = ManifestFixture::new()?;
+        let header = fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x09;
+        header.murder_wall_flags = 0b10;
+        let trace = sample_trace(GameMode::InGame);
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&trace)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::MURDERWALL),
+            "ASM loc_11FD2 (kid.asm:24183-24186) checks `MurderWall_flag` before loc_12004, so a murder-wall level must play `bgm_Murderwall` instead of the foreground-theme BGM"
         );
         Ok(())
     }
