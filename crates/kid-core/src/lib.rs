@@ -3851,12 +3851,16 @@ impl NativeRuntime {
             platform_support_crawling,
         );
         let kid_y_px = (slice.player.y_pos >> 16) as i16;
-        for (platform_index, platform) in self.active_platforms.iter_mut().enumerate() {
-            platform.step_special_platform_loc_40D2(
+        let mut platform_index = 0usize;
+        self.active_platforms.retain_mut(|platform| {
+            let action = platform.step_special_platform_loc_40D2(
                 platform_standing_before == Some(platform_index),
                 kid_y_px,
+                0,
             );
-        }
+            platform_index += 1;
+            action != SpecialPlatformStepActionLoc40D2::Delete
+        });
 
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;

@@ -15217,7 +15217,7 @@ mod chunk_04 {
             })),
         );
 
-        platform.step_special_platform_loc_40D2(true, 0);
+        platform.step_special_platform_loc_40D2(true, 0, 0);
         assert_eq!(
             platform.y_pos,
             ((128u32 << 4) + 2) << 16,
@@ -15226,7 +15226,7 @@ mod chunk_04 {
         assert_eq!(platform.y_velocity, 0x0001_9000);
 
         for _ in 0..16 {
-            platform.step_special_platform_loc_40D2(true, 0);
+            platform.step_special_platform_loc_40D2(true, 0, 0);
         }
         assert_eq!(platform.y_pos, (128u32 << 4) << 16);
         assert_eq!(platform.y_velocity, 0);
@@ -15333,7 +15333,7 @@ mod chunk_04 {
             })),
         );
 
-        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16);
+        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16, 0);
         assert_eq!(
             platform.y_pos,
             ((128u32 << 4) + 2) << 16,
@@ -15387,7 +15387,7 @@ mod chunk_04 {
             "ASM TrapPlatformUp_Loop enters loc_4230 after Kid stands on this platform",
         );
 
-        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16);
+        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16, 0);
         assert_eq!(
             platform.y_velocity, -0x4000,
             "ASM loc_4230 starts from zero velocity, then subtracts $4000 after the first move",
@@ -15411,6 +15411,20 @@ mod chunk_04 {
             trap_platform_down_post_fall_step_loc_41EE(0xFF),
             TrapPlatformDownPostFallActionLoc41EE::Delete,
             "nonzero deactivation flag falls through to TrapPlatformDown_Delete",
+        );
+    }
+
+    #[test]
+    fn trap_platform_down_post_fall_live_step_deletes_on_deactivation_loc_41ee() {
+        let mut platform = make_test_platform(64, 128, 1, 0);
+        platform.special = Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+            phase: TrapPlatformDownPhase::PostFall,
+        }));
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0x01),
+            SpecialPlatformStepActionLoc40D2::Delete,
+            "ASM loc_41EE should make the live special-platform step delete once `$12(a3)` is nonzero",
         );
     }
 
@@ -15504,6 +15518,20 @@ mod chunk_04 {
             trap_platform_up_post_rise_step_loc_4270(0xFF),
             TrapPlatformUpPostRiseActionLoc4270::Delete,
             "when deactivation flag is nonzero, the ROM deallocates and deletes",
+        );
+    }
+
+    #[test]
+    fn trap_platform_up_post_rise_live_step_deletes_on_deactivation_loc_4270() {
+        let mut platform = make_test_platform(64, 128, 1, 0);
+        platform.special = Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
+            phase: TrapPlatformUpPhase::PostRise,
+        }));
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0x01),
+            SpecialPlatformStepActionLoc40D2::Delete,
+            "ASM loc_4270 should make the live special-platform step delete once `$12(a3)` is nonzero",
         );
     }
 

@@ -1575,11 +1575,23 @@ impl ActivePlatform {
         &mut self,
         kid_standing_on_this_platform: bool,
         kid_y_px: i16,
-    ) {
+        deactivated_flag: u8,
+    ) -> SpecialPlatformStepActionLoc40D2 {
         let Some(PlatformSpecialState::Soft(ref mut state)) = self.special else {
             match self.special {
                 Some(PlatformSpecialState::TrapDown(ref mut state)) => match state.phase {
-                    TrapPlatformDownPhase::Wait | TrapPlatformDownPhase::PostFall => {}
+                    TrapPlatformDownPhase::Wait => {
+                        if deactivated_flag != 0 {
+                            return SpecialPlatformStepActionLoc40D2::Delete;
+                        }
+                    }
+                    TrapPlatformDownPhase::PostFall => {
+                        if trap_platform_down_post_fall_step_loc_41EE(deactivated_flag)
+                            == TrapPlatformDownPostFallActionLoc41EE::Delete
+                        {
+                            return SpecialPlatformStepActionLoc40D2::Delete;
+                        }
+                    }
                     TrapPlatformDownPhase::Falling => {
                         self.y_pos = (self.y_pos as i32).wrapping_add(self.y_velocity) as u32;
                         let step = trap_platform_down_move_step_loc_4182(
@@ -1596,7 +1608,18 @@ impl ActivePlatform {
                     }
                 },
                 Some(PlatformSpecialState::TrapUp(ref mut state)) => match state.phase {
-                    TrapPlatformUpPhase::Wait | TrapPlatformUpPhase::PostRise => {}
+                    TrapPlatformUpPhase::Wait => {
+                        if deactivated_flag != 0 {
+                            return SpecialPlatformStepActionLoc40D2::Delete;
+                        }
+                    }
+                    TrapPlatformUpPhase::PostRise => {
+                        if trap_platform_up_post_rise_step_loc_4270(deactivated_flag)
+                            == TrapPlatformUpPostRiseActionLoc4270::Delete
+                        {
+                            return SpecialPlatformStepActionLoc40D2::Delete;
+                        }
+                    }
                     TrapPlatformUpPhase::Rising => {
                         self.y_pos = (self.y_pos as i32).wrapping_add(self.y_velocity) as u32;
                         let step = trap_platform_up_move_step_loc_4230(
@@ -1614,10 +1637,13 @@ impl ActivePlatform {
                 },
                 _ => {}
             }
-            return;
+            return SpecialPlatformStepActionLoc40D2::Continue;
         };
         match state.phase {
             SoftPlatformPhase::Wait => {
+                if deactivated_flag != 0 {
+                    return SpecialPlatformStepActionLoc40D2::Delete;
+                }
                 self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
                     .clamp(0, i64::from(u32::MAX)) as u32;
             }
@@ -1649,7 +1675,14 @@ impl ActivePlatform {
                 }
             }
         }
+        SpecialPlatformStepActionLoc40D2::Continue
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SpecialPlatformStepActionLoc40D2 {
+    Continue,
+    Delete,
 }
 
 /// Per-frame action for the TrapPlatformDown post-fall wait state.
