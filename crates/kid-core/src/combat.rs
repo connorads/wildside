@@ -10989,6 +10989,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x12 } => lion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x14 } => spinning_twins_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x19 } => fireball_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
         } => {
@@ -11058,6 +11059,20 @@ fn cloud_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         right_px: 14,
         top_px: -30,
         bottom_px: -1,
+    }
+}
+
+fn fireball_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Fireball.asm loc_3304A writes the main enemy sprite from `off_33026`;
+    // every `LnkTo_unk_C78D6..C795E` entry routes through
+    // GfxObjects_CollisionKid loc_1BCE to `unk_3176A`: `dc.w -$4,$8,-$4,$8`.
+    // Fire trail helpers use separate workers `loc_330D0`/`loc_33128`, so their
+    // `stru_330C2`/`stru_330A8` rows are not folded into parent contact.
+    EnemyContactBounds {
+        left_px: -4,
+        right_px: 4,
+        top_px: -4,
+        bottom_px: 4,
     }
 }
 

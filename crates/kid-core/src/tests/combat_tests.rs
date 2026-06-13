@@ -516,6 +516,41 @@ fn fire_demon_walking_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn fireball_main_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let fireball = test_enemy(EnemyFamily::Fireball, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&fireball.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-4, 4, -4, 4),
+        "ASM Fireball.asm loc_3304A writes LnkTo_unk_C78D6..C795E from off_33026; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize row unk_3176A"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &fireball.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Fireball main enemy has a compact live row; fire-trail helpers are separate loc_330D0/loc_33128 workers"
+    );
+}
+
+#[test]
 fn diamond_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 87 << 16;
