@@ -777,6 +777,10 @@ pub struct PlatformMoveCommand {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlatformScript {
     pub commands: Vec<PlatformMoveCommand>,
+    /// Relative script offset reached after the command stream ends. Usually
+    /// read from the `dc.l PlatformScript_XXXX` pointer after `$FFFF`; labels
+    /// with no sentinel fall through to the next script label.
+    pub loop_target_offset: u16,
 }
 
 /// All platform scripts from platform_scripts.asm, indexed by relative offset.
@@ -1350,6 +1354,7 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
     let mut scripts = std::collections::BTreeMap::new();
     let mut current_offset: Option<u16> = None;
     let mut current_commands: Vec<PlatformMoveCommand> = Vec::new();
+    let mut current_loop_target_offset: Option<u16> = None;
 
     for line in contents.lines() {
         let trimmed = line.trim();
@@ -1357,6 +1362,13 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
         // Detect script label: "PlatformScript_XXXX:   ; relative offset: YYYY"
         if let Some(rest) = trimmed.strip_prefix("PlatformScript_") {
             if let Some(colon_idx) = rest.find(':') {
+                let next_offset = rest.get(colon_idx + 1..).and_then(|comment| {
+                    if let Some(hex_str) = comment.trim().strip_prefix("; relative offset: ") {
+                        u16::from_str_radix(hex_str.trim(), 16).ok()
+                    } else {
+                        parse_platform_script_label_relative_offset(&rest[..colon_idx])
+                    }
+                });
                 // Flush previous script
                 if let Some(offset) = current_offset
                     && !current_commands.is_empty()
@@ -1365,24 +1377,14 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
                         offset,
                         PlatformScript {
                             commands: std::mem::take(&mut current_commands),
+                            loop_target_offset: current_loop_target_offset
+                                .unwrap_or_else(|| next_offset.unwrap_or(offset)),
                         },
                     );
+                    current_loop_target_offset = None;
                 }
                 // Parse relative offset from comment or from label hex
-                if let Some(comment) = rest.get(colon_idx + 1..) {
-                    if let Some(hex_str) = comment.trim().strip_prefix("; relative offset: ") {
-                        current_offset = u16::from_str_radix(hex_str.trim(), 16).ok();
-                    } else {
-                        // Fallback: parse from label name
-                        current_offset =
-                            u16::from_str_radix(&rest[..colon_idx], 16)
-                                .ok()
-                                .map(|addr| {
-                                    // Convert absolute address to relative (base = 0x3602)
-                                    addr.wrapping_sub(0x3602)
-                                });
-                    }
-                }
+                current_offset = next_offset;
             }
             continue;
         }
@@ -1404,6 +1406,15 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
                     y_velocity: y_vel,
                 });
             }
+            continue;
+        }
+
+        if let Some(target) = trimmed
+            .strip_prefix("dc.l")
+            .map(str::trim)
+            .and_then(parse_platform_script_label_relative_offset)
+        {
+            current_loop_target_offset = Some(target);
         }
     }
 
@@ -1415,11 +1426,22 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
             offset,
             PlatformScript {
                 commands: current_commands,
+                loop_target_offset: current_loop_target_offset.unwrap_or(offset),
             },
         );
     }
 
     PlatformScriptTable { scripts }
+}
+
+fn parse_platform_script_label_relative_offset(value: &str) -> Option<u16> {
+    let hex = value
+        .strip_prefix("PlatformScript_")
+        .unwrap_or(value)
+        .trim();
+    u16::from_str_radix(hex, 16)
+        .ok()
+        .map(|addr| addr.wrapping_sub(0x3602))
 }
 
 fn parse_asm_integer(s: &str) -> Option<i64> {
@@ -8482,12 +8504,19 @@ PlatformScript_361C:   ; relative offset: 001A
 \tptfm_move   $E1, $0, -$11000
 \tptfm_move   $E1, $0, $11000
 \tdc.w    $FFFF
-\tdc.l    PlatformScript_361C
+\tdc.l    PlatformScript_3602
+PlatformScript_3F74:   ; relative offset: 0972
+\tptfm_move   $8, $0, $10000
+PlatformScript_3F7E:   ; relative offset: 097C
+\tptfm_move   $5, $0, $4000
+\tdc.w    $FFFF
+\tdc.l    PlatformScript_3F7E
 ";
         let table = parse_platform_scripts(asm);
-        assert_eq!(table.scripts.len(), 2);
+        assert_eq!(table.scripts.len(), 4);
 
         let script_0 = &table.scripts[&0x0000];
+        assert_eq!(script_0.loop_target_offset, 0x0000);
         assert_eq!(script_0.commands.len(), 2);
         assert_eq!(script_0.commands[0].duration, 0x24B);
         assert_eq!(script_0.commands[0].x_velocity, 0x18000);
@@ -8499,6 +8528,18 @@ PlatformScript_361C:   ; relative offset: 001A
         assert_eq!(script_1a.commands[0].duration, 0xE1);
         assert_eq!(script_1a.commands[0].x_velocity, 0);
         assert_eq!(script_1a.commands[0].y_velocity, -0x11000);
+        assert_eq!(
+            script_1a.loop_target_offset, 0x0000,
+            "ASM loc_243E follows the `dc.l PlatformScript_XXXX` pointer after the `$FFFF` sentinel, so cross-script targets must survive parsing",
+        );
+
+        let script_3f74 = &table.scripts[&0x0972];
+        assert_eq!(
+            script_3f74.loop_target_offset, 0x097C,
+            "upstream PlatformScript_3F74 has no `$FFFF` before PlatformScript_3F7E, so native parsing must preserve that label fall-through",
+        );
+        let script_3f7e = &table.scripts[&0x097C];
+        assert_eq!(script_3f7e.loop_target_offset, 0x097C);
     }
 
     fn synthetic_mappings_sub_30194(base: u16) -> Vec<u16> {

@@ -2330,12 +2330,24 @@ impl ActivePlatform {
         if state.remaining_duration == 0 {
             state.command_index += 1;
             if state.command_index >= script.commands.len() {
-                // ASM loc_243E (kid.asm:4302) follows the `$FFFF` sentinel's
-                // loop-back pointer, which the native typed script table
-                // represents by rewinding to command 0 in the current script.
+                // ASM loc_243E (kid.asm:4302): after `$FFFF`, the ROM reads a
+                // longword loop-back pointer and resumes `loc_2422` from that
+                // address. Retail data mostly points at the same script, but
+                // one table entry falls through to another script label.
+                let loop_target_offset = script.loop_target_offset;
+                let Some(loop_target) = script_table.scripts.get(&loop_target_offset) else {
+                    return;
+                };
+                if loop_target.commands.is_empty() {
+                    return;
+                }
+                state.script_offset = loop_target_offset;
                 state.command_index = 0;
             }
-            let next_cmd = &script.commands[state.command_index];
+            let Some(next_script) = script_table.scripts.get(&state.script_offset) else {
+                return;
+            };
+            let next_cmd = &next_script.commands[state.command_index];
             state.remaining_duration = next_cmd.duration;
             self.x_velocity = next_cmd.x_velocity;
             self.y_velocity = next_cmd.y_velocity;

@@ -237,7 +237,6 @@ Still-open gaps (remain authoritative in the original doc):
 - TrapPlatform — deactivation flag `$12(a3)` not modelled for special platforms
 - Platform loader — offset/list helpers modelled but never wired into live roster build
 - Layout indexing — platform index sign-extension (`ext.l`) not modelled; unsigned add only (no base-ROM effect)
-- Scripted movement — `$FFFF` sentinel loop-back pointer discarded; native always rewinds to command 0 of the same script
 - Scripted movement — global freeze gate `$FFFFFA64` not modelled in live caller
 - `find_standing_platform_index_loc_8ED0` adds vertical-proximity logic not in `sub_8ED0` (re-derives standing platform each frame)
 - SoftPlatform — launch velocity sampled post-physics instead of frame-start (one-tick timing nuance)

@@ -13220,12 +13220,22 @@ mod chunk_04 {
         player.on_ground = true;
 
         assert_eq!(
-            find_standing_platform_index_loc_8ED0(&[platform], player, PlayerForm::Juggernaut, false),
+            find_standing_platform_index_loc_8ED0(
+                &[platform],
+                player,
+                PlayerForm::Juggernaut,
+                false
+            ),
             Some(0),
             "ASM loc_8EFA: standing Juggernaut uses the supplied 23px half-width and still overlaps the platform edge",
         );
         assert_eq!(
-            find_standing_platform_index_loc_8ED0(&[platform], player, PlayerForm::Juggernaut, true),
+            find_standing_platform_index_loc_8ED0(
+                &[platform],
+                player,
+                PlayerForm::Juggernaut,
+                true
+            ),
             None,
             "ASM sub_8ED0 (kid.asm:10288-10294): MoveID_Crawling clamps non-Kid support to 7px, so x=32 drops support at the left edge",
         );
@@ -13418,6 +13428,7 @@ mod chunk_04 {
                         x_velocity: 0x1_0000,
                         y_velocity: -0x2_0000,
                     }],
+                    loop_target_offset: script_offset,
                 },
             )]),
         };
@@ -13495,6 +13506,7 @@ mod chunk_04 {
                         y_velocity: 0,
                     },
                 ],
+                loop_target_offset: 0x0000,
             },
         );
         let table = kid_data::PlatformScriptTable { scripts };
@@ -13558,6 +13570,7 @@ mod chunk_04 {
                         y_velocity: 0,
                     },
                 ],
+                loop_target_offset: 0x0000,
             },
         );
         let table = kid_data::PlatformScriptTable { scripts };
@@ -13611,6 +13624,7 @@ mod chunk_04 {
                     x_velocity: 0x2_0000,
                     y_velocity: -0x2_0000,
                 }],
+                loop_target_offset: 0x0000,
             },
         );
         let table = kid_data::PlatformScriptTable { scripts };
@@ -13665,6 +13679,7 @@ mod chunk_04 {
                         y_velocity: 0x2_0000,
                     },
                 ],
+                loop_target_offset: 0x0000,
             },
         );
         let table = kid_data::PlatformScriptTable { scripts };
@@ -13728,6 +13743,7 @@ mod chunk_04 {
                         y_velocity: 0x3_0000,
                     },
                 ],
+                loop_target_offset: 0x0000,
             },
         );
         let table = kid_data::PlatformScriptTable { scripts };
@@ -13759,7 +13775,7 @@ mod chunk_04 {
                 command_index: 0,
                 remaining_duration: 2,
             }),
-            "ASM loc_243E (kid.asm:4302) follows the `$FFFF` loop-back pointer, which the native typed-script port models by rewinding to command 0",
+            "ASM loc_243E (kid.asm:4302) follows the `$FFFF` loop-back pointer; ordinary retail scripts point that longword back to their own first command",
         );
         assert_eq!(
             platform.x_velocity, 0x4_0000,
@@ -13769,6 +13785,68 @@ mod chunk_04 {
             platform.y_velocity, -0x1_0000,
             "ASM loc_243E should leave `$E(a2)` armed with the first command's y velocity after the loop-back",
         );
+    }
+
+    #[test]
+    fn platform_step_script_loc_243e_follows_cross_script_loop_pointer() {
+        use std::collections::BTreeMap;
+
+        let mut scripts = BTreeMap::new();
+        scripts.insert(
+            0x0972,
+            kid_data::PlatformScript {
+                commands: vec![kid_data::PlatformMoveCommand {
+                    duration: 1,
+                    x_velocity: 0x1_0000,
+                    y_velocity: 0,
+                }],
+                loop_target_offset: 0x097C,
+            },
+        );
+        scripts.insert(
+            0x097C,
+            kid_data::PlatformScript {
+                commands: vec![kid_data::PlatformMoveCommand {
+                    duration: 4,
+                    x_velocity: -0x2_0000,
+                    y_velocity: 0x3_0000,
+                }],
+                loop_target_offset: 0x097C,
+            },
+        );
+        let table = kid_data::PlatformScriptTable { scripts };
+
+        let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            width_px: 47,
+            height_px: 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            script: Some(PlatformScriptState {
+                script_offset: 0x0972,
+                command_index: 0,
+                remaining_duration: 1,
+            }),
+            special: None,
+        };
+
+        platform.step_script(&table);
+
+        assert_eq!(
+            platform.script,
+            Some(PlatformScriptState {
+                script_offset: 0x097C,
+                command_index: 0,
+                remaining_duration: 4,
+            }),
+            "ASM loc_243E (kid.asm:4302) loads the longword loop pointer after `$FFFF`; retail PlatformScript_3F74 targets PlatformScript_3F7E rather than its own first command",
+        );
+        assert_eq!(platform.x_velocity, -0x2_0000);
+        assert_eq!(platform.y_velocity, 0x3_0000);
     }
 
     // --- Platform collision targeted mutation tests ---
