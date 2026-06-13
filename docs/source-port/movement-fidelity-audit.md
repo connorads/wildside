@@ -5,7 +5,7 @@
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, and `crawl_wall_escape_sub_81B4` instances are now fixed and test-locked.
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`initiate_jump_with_hand_grab` remains the clearest open case); the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, and `sub_7A10.blocked` instances are now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -20,7 +20,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
 | Ground walk/run horizontal acceleration | partial | 1 |
 | Braking / skid / turn-around | full | 0 |
-| Duck / crawl (`MoveID_Crawling=1`) | partial | 2 |
+| Duck / crawl (`MoveID_Crawling=1`) | partial | 1 |
 | Jump initiation (ground launch velocity) | partial | 2 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
@@ -61,8 +61,8 @@ Same compound-`collision_type` root as above, audited from the wall/ceiling angl
 **FIXED 2026-06-13 — Braking resolves Left+Right before `sub_B084`** (`loc_7464` @kid.asm:7610-7614; affects facing gate `loc_9B14`)
 ROM clears Right once per frame when both are held, so both-held resolves to **LEFT**. The live `update_horizontal_velocity_only` and `update_horizontal_motion` paths now call `with_left_right_conflict_resolved` before constructing `HorizontalInput`, matching `loc_7464` before `sub_B084` consumes the direction bytes. Regression `loc_7464_left_right_conflict_resolves_left_before_sub_b084` verifies both helpers face Left and take the `loc_9B90` strong-brake slot from a stopped, right-facing Kid.
 
-**Crawl — `sub_7A10` entry `blocked` result discarded** (`loc_8C70` @kid.asm:10092; `sub_7A10` `loc_7A90` @8143)
-ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native computes `DownHoldAlignmentSub7A10.blocked` correctly but `lib.rs:2982` reads only `.x_pos`; with no separate crawl `MoveID`, crawl-vs-walk velocity is decided solely by `input.down` (`movement.rs:4488`), so a blocked entry still applies crawl air-table velocity that frame.
+**FIXED 2026-06-13 — Crawl entry honours `sub_7A10` `blocked` result** (`loc_8C70` @kid.asm:10092; `sub_7A10` `loc_7A90` @8143)
+ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native now calls `align_player_for_down_hold_sub_7A10` in the live walking-state crawl transition and clears `movement_input.down` when `DownHoldAlignmentSub7A10.blocked` is true (`lib.rs:3331-3352`). Regression `loc_8c70_sub_7a10_blocked_keeps_walking_velocity_path` verifies the blocked frame uses walking decel rather than the crawl air table.
 
 **Jump — `KidGrabbedByHand` `+$20000` weakening modelled but unwired** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
 ROM adds `$20000` to the (negated) `y_vel` when grabbed, shortening a jump made while held by a Hand. `initiate_jump_with_hand_grab` (`physics.rs:726-761`) ports the arithmetic, but every live caller goes through the `initiate_jump` wrapper that hardcodes `false` (`physics.rs:718-720`; callers `movement.rs:4555,4581,4947,4962,5009,5025`). The `KidGrabbedByHand` RAM flag is never plumbed from the Hand machinery into jump init. (Part of the cross-cutting "grab flag never surfaced" theme; see also the crawl-gate and climb-jump-off lows.)
