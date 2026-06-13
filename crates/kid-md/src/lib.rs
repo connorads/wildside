@@ -2996,7 +2996,12 @@ impl GemsAudioEngine {
     /// Generate audio samples. Returns interleaved stereo f32 (L, R, L, R, ...).
     /// For 60fps at 44.1kHz, request 735 samples per frame.
     pub fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
-        self.mixer.generate(44_100, sample_count)
+        self.generate_samples_at_rate(44_100, sample_count)
+    }
+
+    /// Generate audio samples at the host device rate.
+    pub fn generate_samples_at_rate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        self.mixer.generate(sample_rate, sample_count)
     }
 
     /// Set audio volume levels.

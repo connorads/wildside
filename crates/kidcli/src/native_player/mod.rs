@@ -32,6 +32,8 @@ const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
+const AUDIO_SAMPLE_RATE: u32 = 44_100;
+const AUDIO_FRAME_RATE_HZ: u32 = 60;
 const AUDIO_SAMPLES_PER_FRAME: usize = 735;
 const AUDIO_QUEUE_TARGET_FRAMES: usize = 2;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
@@ -364,7 +366,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let audio_queue: Option<AudioQueue<f32>> = match sdl.audio() {
         Ok(audio) => {
             let desired = sdl2::audio::AudioSpecDesired {
-                freq: Some(44_100),
+                freq: Some(AUDIO_SAMPLE_RATE as i32),
                 channels: Some(audio_channels),
                 samples: Some(SDL_AUDIO_CALLBACK_SAMPLES),
             };
@@ -390,6 +392,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         (Some(_), None) => eprintln!("Audio: SFX fallback (GEMS data unavailable)"),
         (None, _) => eprintln!("Audio: disabled — no sound will play"),
     }
+    let audio_output_sample_rate = audio_queue
+        .as_ref()
+        .and_then(|queue| u32::try_from(queue.spec().freq).ok())
+        .filter(|sample_rate| *sample_rate > 0)
+        .unwrap_or(AUDIO_SAMPLE_RATE);
+    if audio_output_sample_rate != AUDIO_SAMPLE_RATE {
+        eprintln!(
+            "Audio: SDL device opened at {audio_output_sample_rate} Hz; generating live audio at device rate"
+        );
+    }
+    let mut audio_sample_clock = AudioSampleClock::new(audio_output_sample_rate);
     let mut sfx_engine = SfxEngine::new();
 
     let mut runtime = initialise_runtime(manifest, &session_assets, options);
@@ -411,8 +424,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
     let mut recorded_audio_events = Vec::new();
-    let mut audio_diagnostics =
-        NativeAudioDiagnostics::new(has_gems, audio_queue.is_some(), audio_channels);
+    let mut audio_diagnostics = NativeAudioDiagnostics::new(
+        has_gems,
+        audio_queue.is_some(),
+        audio_channels,
+        audio_output_sample_rate,
+    );
     let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
     let mut audio_queue_priming = audio_queue.is_some();
     if let Some(ref aq) = audio_queue {
@@ -740,6 +757,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let should_capture_audio = options.record_to.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
+            let audio_samples_this_frame = if audio_queue.is_some() && !should_capture_audio {
+                audio_sample_clock.next_frame_samples()
+            } else {
+                AUDIO_SAMPLES_PER_FRAME
+            };
             let maybe_samples = if let Some(ref mut gems) = gems_engine {
                 if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
                     gems.play_sound(bgm);
@@ -748,9 +770,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     detect_gems_events(&prev_trace, &trace, gems);
                 }
                 gems.step_frame();
-                Some(gems.generate_samples(AUDIO_SAMPLES_PER_FRAME))
+                if audio_queue.is_some() && !should_capture_audio {
+                    Some(gems.generate_samples_at_rate(
+                        audio_output_sample_rate,
+                        audio_samples_this_frame,
+                    ))
+                } else {
+                    Some(gems.generate_samples(audio_samples_this_frame))
+                }
             } else {
-                Some(sfx_engine.generate(AUDIO_SAMPLES_PER_FRAME))
+                Some(sfx_engine.generate(audio_samples_this_frame))
             };
             if let Some(samples) = maybe_samples {
                 audio_diagnostics.record_generated_frame(samples.len());
@@ -1613,6 +1642,28 @@ fn gems_sound_dir(manifest: &AssetManifest) -> PathBuf {
     manifest.output_root.join("sound")
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AudioSampleClock {
+    sample_rate: u32,
+    remainder: u32,
+}
+
+impl AudioSampleClock {
+    fn new(sample_rate: u32) -> Self {
+        Self {
+            sample_rate: sample_rate.max(1),
+            remainder: 0,
+        }
+    }
+
+    fn next_frame_samples(&mut self) -> usize {
+        let total = self.remainder + self.sample_rate;
+        let samples = total / AUDIO_FRAME_RATE_HZ;
+        self.remainder = total % AUDIO_FRAME_RATE_HZ;
+        usize::try_from(samples).unwrap_or(usize::MAX)
+    }
+}
+
 fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) -> bool {
     let queued_bytes = usize::try_from(queued_bytes).unwrap_or(usize::MAX);
     // SDL_GetQueuedAudioSize reports bytes, while `generate_samples` returns
@@ -1648,6 +1699,7 @@ struct NativeAudioDiagnostics {
     gems_loaded: bool,
     sdl_queue_present: bool,
     audio_channels: u8,
+    output_sample_rate: u32,
     generated_frames: usize,
     generated_samples: usize,
     queued_frames: usize,
@@ -1667,11 +1719,17 @@ struct NativeAudioDiagnostics {
 }
 
 impl NativeAudioDiagnostics {
-    fn new(gems_loaded: bool, sdl_queue_present: bool, audio_channels: u8) -> Self {
+    fn new(
+        gems_loaded: bool,
+        sdl_queue_present: bool,
+        audio_channels: u8,
+        output_sample_rate: u32,
+    ) -> Self {
         Self {
             gems_loaded,
             sdl_queue_present,
             audio_channels,
+            output_sample_rate,
             generated_frames: 0,
             generated_samples: 0,
             queued_frames: 0,
@@ -1750,6 +1808,7 @@ impl NativeAudioDiagnostics {
             format!("gems_loaded={}", self.gems_loaded),
             format!("sdl_queue_present={}", self.sdl_queue_present),
             format!("audio_channels={}", self.audio_channels),
+            format!("output_sample_rate={}", self.output_sample_rate),
             format!("generated_frames={}", self.generated_frames),
             format!("generated_samples={}", self.generated_samples),
             format!("queued_frames={}", self.queued_frames),
@@ -13579,8 +13638,34 @@ mod tests {
     }
 
     #[test]
+    fn play_native_live_audio_sample_clock_uses_obtained_sdl_rate() {
+        let mut default_clock = AudioSampleClock::new(AUDIO_SAMPLE_RATE);
+        assert_eq!(
+            default_clock.next_frame_samples(),
+            AUDIO_SAMPLES_PER_FRAME,
+            "44.1 kHz live playback must preserve the deterministic 735-sample frame used by recorded/oracle audio"
+        );
+
+        let mut host_clock = AudioSampleClock::new(48_000);
+        assert_eq!(
+            (0..3)
+                .map(|_| host_clock.next_frame_samples())
+                .collect::<Vec<_>>(),
+            vec![800, 800, 800],
+            "when SDL opens a 48 kHz device, play-native must generate 48 kHz-timed samples instead of feeding 44.1 kHz audio that the host stretches slow/low"
+        );
+
+        let mut fractional_clock = AudioSampleClock::new(44_117);
+        let samples: usize = (0..60).map(|_| fractional_clock.next_frame_samples()).sum();
+        assert_eq!(
+            samples, 44_117,
+            "fractional device rates must distribute the remainder across frames without long-term drift"
+        );
+    }
+
+    #[test]
     fn play_native_audio_diagnostics_record_generated_and_queued_frames() {
-        let mut diagnostics = NativeAudioDiagnostics::new(true, true, 2);
+        let mut diagnostics = NativeAudioDiagnostics::new(true, true, 2, 48_000);
 
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
         diagnostics.record_queued_frame(AUDIO_SAMPLES_PER_FRAME * 2, 0);
@@ -13597,6 +13682,7 @@ mod tests {
         assert!(
             lines.contains(&String::from("gems_loaded=true"))
                 && lines.contains(&String::from("sdl_queue_present=true"))
+                && lines.contains(&String::from("output_sample_rate=48000"))
                 && lines.contains(&String::from("generated_frames=2"))
                 && lines.contains(&String::from("queued_frames=1"))
                 && lines.contains(&String::from("skipped_full_frames=1"))
