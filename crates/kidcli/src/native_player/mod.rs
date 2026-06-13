@@ -33,7 +33,7 @@ const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const AUDIO_SAMPLES_PER_FRAME: usize = 735;
-const AUDIO_QUEUE_TARGET_FRAMES: usize = 3;
+const AUDIO_QUEUE_TARGET_FRAMES: usize = 2;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
@@ -1609,6 +1609,8 @@ fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) ->
     // SDL_GetQueuedAudioSize reports bytes, while `generate_samples` returns
     // interleaved f32 samples. Keep only a small live queue so gameplay SFX
     // detected from the current trace frame are not heard multiple frames late.
+    // Two generated frames still cover SDL's 512-sample callback without the
+    // three-frame SFX latency that made pickup/block sounds feel detached.
     let target_bytes = generated_sample_count
         .saturating_mul(std::mem::size_of::<f32>())
         .saturating_mul(AUDIO_QUEUE_TARGET_FRAMES);
@@ -13526,7 +13528,7 @@ mod tests {
                 u32::try_from(target_generated_frame_bytes).expect("fits u32"),
                 generated_stereo_samples,
             ),
-            "play-native should cap the SDL queue at the configured target so pickup and block SFX do not drift far behind the visual frame"
+            "play-native should cap the SDL queue at the two-frame target so pickup and block SFX do not drift far behind the visual frame"
         );
     }
 
