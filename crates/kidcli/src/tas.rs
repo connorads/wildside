@@ -110,7 +110,7 @@ fn validate_header(header: &str, source_label: &str) -> Result<()> {
     Ok(())
 }
 
-fn first_crc_mismatch_from_frame(
+pub(crate) fn first_crc_mismatch_from_frame(
     native_crcs: &[u32],
     oracle_crcs: &[u32],
     start: usize,
@@ -457,6 +457,12 @@ pub fn verify_tas(
         &oracle.states,
         crc_clean,
     );
+    reclassify_crc_clean_lion_projectile_count_diffs(
+        &mut state_diffs,
+        &native_states,
+        &oracle.states,
+        crc_clean,
+    );
     let divergence_summary = crate::sweep::summarise_state_diffs(&state_diffs);
 
     if state_diffs.is_empty() {
@@ -584,6 +590,62 @@ fn reclassify_crc_clean_velocity_diffs(
             // lockstep. Treat isolated top-level velocity export skew as a
             // trace limitation so gates still block on real gameplay,
             // position, object, or CRC drift.
+            diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
+        }
+    }
+}
+
+pub(crate) fn reclassify_crc_clean_lion_projectile_count_diffs(
+    state_diffs: &mut [crate::sweep::StateDiff],
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+    crc_clean: bool,
+) {
+    if !crc_clean {
+        return;
+    }
+
+    for diff in state_diffs {
+        if diff.field != "number_objects" {
+            continue;
+        }
+        let Some((native_state, oracle_state)) =
+            checkpoint_pair(&diff.checkpoint, native_states, oracle_states)
+        else {
+            continue;
+        };
+        let native_has_lion_projectile = native_state
+            .gameplay_debug_fields
+            .get("lion_active_projectiles")
+            .and_then(|count| count.parse::<u16>().ok())
+            .is_some_and(|count| count > 0);
+        let oracle_slot_dump_has_lion_projectile = oracle_state
+            .gameplay_debug_fields
+            .get("oracle_object_slots_loc_e1e")
+            .is_some_and(|slots| {
+                slots.contains("code=0x03e196") || slots.contains("code=0x03e2ac")
+            });
+        let lion_parent_is_active = native_state
+            .active_enemies
+            .iter()
+            .chain(oracle_state.active_enemies.iter())
+            .any(|enemy| enemy.object_type == 0x12);
+        if native_state.game_mode == oracle_state.game_mode
+            && native_state.current_level_id == oracle_state.current_level_id
+            && native_state.player_1_level_id == oracle_state.player_1_level_id
+            && native_state.kid_x_pos == oracle_state.kid_x_pos
+            && native_state.kid_y_pos == oracle_state.kid_y_pos
+            && native_state.number_hitpoints == oracle_state.number_hitpoints
+            && native_state.current_helmet_id == oracle_state.current_helmet_id
+            && native_state.number_objects == oracle_state.number_objects.saturating_add(1)
+            && (native_has_lion_projectile || lion_parent_is_active)
+            && oracle_slot_dump_has_lion_projectile
+        {
+            // ASM Lion.asm loc_3E12A allocates the projectile worker through
+            // j_Allocate_ObjectSlot. Oracle WRAM samples expose the live slot
+            // at loc_3E196, or loc_3E2AC while hibernating in the bounce loop,
+            // even when the exported `Number_Objects` is one lower.
+            // CRC-clean frames prove gameplay and pixels are already aligned.
             diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
         }
     }
@@ -1448,6 +1510,151 @@ mod tests {
             diff.category,
             crate::sweep::DivergenceCategory::Authoritative
         );
+    }
+
+    #[test]
+    fn crc_clean_lion_projectile_count_diffs_are_oracle_limitations_loc_3e12a() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_29".into(),
+            field: "number_objects".into(),
+            native_value: "7".into(),
+            oracle_value: "6".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_29", 0x01c0_0000, 0x02bf_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 7;
+        native.player_1_level_id = 7;
+        native.number_objects = 7;
+        native
+            .gameplay_debug_fields
+            .insert("lion_active_projectiles".into(), "1".into());
+        let mut oracle = demo_state("frame_29", 0x01c0_0000, 0x02bf_0000);
+        oracle.game_mode = 0x000c;
+        oracle.boot_phase = Some("in_game".into());
+        oracle.current_level_id = 7;
+        oracle.player_1_level_id = 7;
+        oracle.number_objects = 6;
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff0f70:code=0x03e196,hib=1@441,686".into(),
+        );
+
+        super::reclassify_crc_clean_lion_projectile_count_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "ASM Lion.asm loc_3E12A allocates a child object, but issue289 Level 0x07 CRC-clean frames expose the live loc_3E196 slot while oracle Number_Objects is one lower"
+        );
+    }
+
+    #[test]
+    fn crc_clean_lion_projectile_tail_count_diffs_are_oracle_limitations_loc_3e12a() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_30".into(),
+            field: "number_objects".into(),
+            native_value: "7".into(),
+            oracle_value: "6".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_30", 0x01c0_0000, 0x02bf_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 7;
+        native.player_1_level_id = 7;
+        native.number_objects = 7;
+        native.active_enemies.push(lion_enemy());
+        let mut oracle = demo_state("frame_30", 0x01c0_0000, 0x02bf_0000);
+        oracle.game_mode = 0x000c;
+        oracle.boot_phase = Some("in_game".into());
+        oracle.current_level_id = 7;
+        oracle.player_1_level_id = 7;
+        oracle.number_objects = 6;
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff0f70:code=0x03e196,hib=1@441,686".into(),
+        );
+
+        super::reclassify_crc_clean_lion_projectile_count_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "ASM Lion.asm loc_3E12A child slot remains visible after native lion_active_projectiles clears; CRC-clean Level 0x07 frames should not fail on oracle Number_Objects export skew"
+        );
+    }
+
+    #[test]
+    fn crc_clean_lion_projectile_bounce_loop_count_diffs_are_oracle_limitations_loc_3e2a8() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_38".into(),
+            field: "number_objects".into(),
+            native_value: "7".into(),
+            oracle_value: "6".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_38", 0x01c0_0000, 0x02bf_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 7;
+        native.player_1_level_id = 7;
+        native.number_objects = 7;
+        native.active_enemies.push(lion_enemy());
+        let mut oracle = demo_state("frame_38", 0x01c0_0000, 0x02bf_0000);
+        oracle.game_mode = 0x000c;
+        oracle.boot_phase = Some("in_game".into());
+        oracle.current_level_id = 7;
+        oracle.player_1_level_id = 7;
+        oracle.number_objects = 6;
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff0f70:code=0x03e2ac,hib=1@393,696".into(),
+        );
+
+        super::reclassify_crc_clean_lion_projectile_count_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "ASM Lion.asm loc_3E2A8 hibernates inside the projectile bounce loop, so oracle can expose saved return PC 0x03e2ac while Number_Objects is one lower"
+        );
+    }
+
+    fn lion_enemy() -> crate::oracle::OracleEnemyState {
+        crate::oracle::OracleEnemyState {
+            object_type: 0x12,
+            x_pos: 0x01c0_0000,
+            y_pos: 0x02bf_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
+            layout_index: None,
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: None,
+            current_hp: Some(2),
+            debug_fields: std::collections::BTreeMap::new(),
+        }
     }
 
     fn demo_state(label: &str, kid_x_pos: u32, kid_y_pos: u32) -> OracleState {

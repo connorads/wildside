@@ -9,6 +9,7 @@ use crate::sweep::{
     DivergenceCategory, FrontierKind, StateDiff, compare_sweep_states_for_frontier,
     extract_checkpoint_states,
 };
+use crate::tas::{first_crc_mismatch_from_frame, reclassify_crc_clean_lion_projectile_count_diffs};
 
 /// Run native and oracle side-by-side, print per-frame divergences.
 #[allow(clippy::too_many_arguments)]
@@ -191,7 +192,25 @@ pub fn run_tas_diff(
     }
 
     // Build per-frame diff index
-    let diffs = compare_sweep_states_for_frontier(&native_states, &oracle.states, frontier_kind);
+    let mut diffs =
+        compare_sweep_states_for_frontier(&native_states, &oracle.states, frontier_kind);
+    let crc_clean = matches!(frontier_kind, FrontierKind::Gameplay)
+        && !oracle.frame_crcs.is_empty()
+        && first_crc_mismatch_from_frame(
+            &native_trace
+                .iter()
+                .map(kid_core::NativeTraceFrame::authoritative_crc32)
+                .collect::<Vec<_>>(),
+            &oracle.frame_crcs,
+            start,
+        )
+        .is_none();
+    reclassify_crc_clean_lion_projectile_count_diffs(
+        &mut diffs,
+        &native_states,
+        &oracle.states,
+        crc_clean,
+    );
     let mut diff_by_checkpoint: std::collections::HashMap<&str, Vec<_>> =
         std::collections::HashMap::new();
     for diff in &diffs {
