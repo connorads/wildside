@@ -152,6 +152,19 @@ fn trace_cell_word(cell: terrain::Cell) -> u16 {
     u16::from_be_bytes([hi, cell.skin])
 }
 
+fn trace_cell_for_fixed_pos(grid: &terrain::BlockGrid, x_pos: u32, y_pos: u32) -> String {
+    let x_px = (x_pos >> 16) as u16;
+    let y_px = (y_pos >> 16) as u16;
+    let col = x_px >> 4;
+    let row = y_px >> 4;
+    let cell = grid.cell_at(col, row);
+    format!(
+        "{col},{row}:{:04X}[{}]",
+        trace_cell_word(cell),
+        terrain_cell_debug_summary(cell)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4247,6 +4260,36 @@ mod tests {
     }
 
     #[test]
+    fn drips_lifecycle_probe_reports_child_terrain_cell_loc_33650() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 584 << 16,
+            y_pos: 592 << 16,
+            ..EnemyProjectile::default()
+        });
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 64, 64);
+        grid.set_cell_at(36, 37, terrain::Cell::from_be_bytes(0xE0, 0x42));
+        runtime.set_block_grid(grid);
+
+        // ASM Drips.asm loc_33650 samples neighbouring layout words after the
+        // loc_335D8 crawler child is spawned; issue #260 needs the native trace
+        // to expose which terrain word each Drips child is currently over.
+        let drips_debug = runtime
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("drips_lifecycle_probe")
+            .cloned()
+            .unwrap_or_else(|| panic!("trace frame should emit Drips lifecycle diagnostics"));
+
+        assert!(
+            drips_debug.contains("cell=36,37:E042[solid,Smash,skin=0x42]"),
+            "Drips lifecycle trace should include child terrain cell context, got {drips_debug}",
+        );
+    }
+
+    #[test]
     fn trace_frame_exports_continue_countdown_remaining_frames() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -6905,6 +6948,12 @@ impl NativeRuntime {
                 )
             })
             .map(|(index, projectile)| {
+                let cell = self
+                    .block_grid
+                    .as_ref()
+                    .map_or_else(|| String::from("none"), |grid| {
+                        trace_cell_for_fixed_pos(grid, projectile.x_pos, projectile.y_pos)
+                    });
                 let owner = projectile.owner.map_or_else(
                     || String::from("none"),
                     |owner| {
@@ -6915,10 +6964,11 @@ impl NativeRuntime {
                     },
                 );
                 format!(
-                    "#{index:02}:{:?}@{:#010x},{:#010x} vel={:#010x},{:#010x} life={} owner={} spawn={} state={:?} xflip={} b44={:#04x} b45={:#04x}",
+                    "#{index:02}:{:?}@{:#010x},{:#010x} cell={} vel={:#010x},{:#010x} life={} owner={} spawn={} state={:?} xflip={} b44={:#04x} b45={:#04x}",
                     projectile.kind,
                     projectile.x_pos,
                     projectile.y_pos,
+                    cell,
                     projectile.x_velocity as u32,
                     projectile.y_velocity as u32,
                     projectile.lifetime,
