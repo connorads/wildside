@@ -545,6 +545,43 @@ fn gameplay_input_applies_loc_7464_left_right_conflict_resolution() {
 }
 
 #[test]
+fn gameplay_input_preserves_held_left_on_delayed_jump_edge_sub_a432_sub_b084() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.prior_input = FrameInput {
+        left: true,
+        ..FrameInput::default()
+    };
+    runtime.previous_input = FrameInput {
+        left: true,
+        b: true,
+        ..FrameInput::default()
+    };
+
+    let gameplay_input = runtime.gameplay_input(FrameInput {
+        left: true,
+        b: true,
+        ..FrameInput::default()
+    });
+
+    assert!(
+        runtime.gameplay_jump_pressed(),
+        "ASM sub_A432 is reached from the delayed Ctrl_Pressed B edge after held-left has already latched"
+    );
+    assert!(
+        gameplay_input.left,
+        "ASM sub_B084 must still see Ctrl_Left_Held on the jump frame"
+    );
+    assert!(
+        !gameplay_input.right,
+        "held-left jump frames must not synthesize a rightward input"
+    );
+    assert!(
+        gameplay_input.b,
+        "jump hold remains visible to the airborne gravity path after the edge"
+    );
+}
+
+#[test]
 fn readjoypad_options_scheme_2_swaps_a_b_before_latch_loc_bb6() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.options_controls_scheme = 2;
