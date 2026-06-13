@@ -546,6 +546,8 @@ mod drips_surface_crawler_tests {
             boss_head_index: BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,

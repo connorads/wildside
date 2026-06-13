@@ -7,8 +7,8 @@ use super::{
 };
 use crate::combat::{
     boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
-    boss_head_projectile_spawn_sub_397E4, heady_metal_spawn_animation_loc_3761E,
-    heady_metal_tracking_velocity_loc_37582,
+    boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
+    heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
 };
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -6522,6 +6522,10 @@ pub(crate) struct ActiveEnemy {
     /// HeadyMetal reuses this boss-only slot for the `$FFFFFB4F` active
     /// eye-pop/thrown-head worker count that freezes `loc_37582` tracking.
     pub(crate) boss_movement_script_index: usize,
+    /// HeadyMetal ASM `sub_379E8` `d2`: five-bit palette-wave phase.
+    pub(crate) heady_metal_palette_phase_counter: u16,
+    /// HeadyMetal ASM `sub_379E8`: word written to `Palette_Buffer+$5E`.
+    pub(crate) heady_metal_palette_word_5e: u16,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
     /// Scorpion.asm loc_3DDEE: frames remaining in `stru_3DB8E` while the
@@ -8378,6 +8382,8 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         boss_head_index: BOSS_HEAD_NONE,
         boss_movement_delay_counter: 0,
         boss_movement_script_index: 0,
+        heady_metal_palette_phase_counter: 0,
+        heady_metal_palette_word_5e: 0x0200,
         scorpion_tracking_lock: false,
         scorpion_sting_frames: 0,
         flight_double_acceleration: false,
@@ -8918,6 +8924,16 @@ impl ActiveEnemy {
             debug_fields.insert(
                 "lion_active_projectiles".into(),
                 lion_active_projectile_count(self).to_string(),
+            );
+        }
+        if matches!(self.family, EnemyFamily::HeadyMetal) {
+            debug_fields.insert(
+                "heady_metal_palette_phase_sub_379e8".into(),
+                self.heady_metal_palette_phase_counter.to_string(),
+            );
+            debug_fields.insert(
+                "heady_metal_palette_word_5e_sub_379e8".into(),
+                format!("{:#06x}", self.heady_metal_palette_word_5e),
             );
         }
         let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
@@ -9536,6 +9552,8 @@ fn activate_enemies_with_rng_inner(
                     0
                 },
                 boss_movement_script_index: 0,
+                heady_metal_palette_phase_counter: 0,
+                heady_metal_palette_word_5e: 0x0200,
                 scorpion_tracking_lock: false,
                 scorpion_sting_frames: 0,
                 crab_frozen: false,
@@ -26621,6 +26639,13 @@ pub(crate) fn step_tracker(
     let ey = enemy.y_pos as i64;
 
     if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+        // ASM loc_3763A calls sub_379E8 once per live HeadyMetal tracker loop,
+        // advancing `d2` and writing the selected wave colour to Palette_Buffer+$5E.
+        let palette_cycle =
+            heady_metal_palette_cycle_sub_379E8(enemy.heady_metal_palette_phase_counter);
+        enemy.heady_metal_palette_phase_counter = palette_cycle.next_phase_counter;
+        enemy.heady_metal_palette_word_5e = palette_cycle.palette_word;
+
         let tracking = heady_metal_tracking_velocity_loc_37582(
             (px >> 16) as u16,
             (py >> 16) as u16,
@@ -27012,6 +27037,8 @@ mod tests {
             boss_head_index: BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,
@@ -36665,6 +36692,8 @@ mod tests {
             boss_head_index: BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             crab_frozen: false,
@@ -36764,6 +36793,8 @@ mod tests {
             boss_head_index: BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             crab_frozen: false,

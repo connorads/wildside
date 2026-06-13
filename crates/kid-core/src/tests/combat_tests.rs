@@ -1589,6 +1589,31 @@ fn live_heady_metal_tracker_honours_global_freeze_loc_375d4() {
 }
 
 #[test]
+fn live_heady_metal_tracker_runs_palette_cycle_sub_379e8() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0081_0000, 0x00A9_0000, 30);
+    boss.heady_metal_palette_phase_counter = 0x0009;
+
+    step_tracker(&mut boss, Some(0x0080_0000), Some(0x0080_0000));
+
+    assert_eq!(
+        boss.heady_metal_palette_phase_counter, 0x000A,
+        "ASM loc_3763A should call sub_379E8 once per live tracker loop and store the incremented five-bit `d2` phase"
+    );
+    assert_eq!(
+        boss.heady_metal_palette_word_5e, 0x020A,
+        "ASM sub_379E8 should copy `unk_379A8[d2]` into `Palette_Buffer+$5E`"
+    );
+    assert_eq!(
+        boss.snapshot()
+            .debug_fields
+            .get("heady_metal_palette_word_5e_sub_379e8")
+            .map(String::as_str),
+        Some("0x020a"),
+        "native snapshots should expose the live HeadyMetal palette word until renderer CRAM wiring consumes it"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
     let mut projectiles = Vec::new();
@@ -9901,6 +9926,8 @@ mod chunk_03 {
             boss_head_index: enemies::BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,
@@ -10783,6 +10810,8 @@ mod chunk_03 {
             boss_head_index: enemies::BOSS_HEAD_NONE,
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
             flight_double_acceleration: false,
