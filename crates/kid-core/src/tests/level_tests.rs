@@ -6165,6 +6165,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn platform_layout_loc_2366_does_not_fallback_to_raw_level_after_map_order_tail() {
+        let mut manifest = manifest_with_levels(4);
+        manifest.map_order = vec![0, 1];
+
+        let logical_tail_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 3)
+            .expect("tail logical level should exist");
+        logical_tail_level
+            .platform_metadata
+            .as_mut()
+            .expect("fixture level should have platform metadata")
+            .placements
+            .push(PlatformPlacement {
+                x: 0x0042,
+                y: 0x0088,
+                buffer_left: 0,
+                buffer_right: 0,
+                buffer_top: 0,
+                buffer_bottom: 0,
+                kind: 0x7E,
+                subtype: 0,
+                h_variant: 0,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("PlatformScript_Test-PlatformScript_BaseAddress"),
+                    relative_offset: None,
+                },
+            });
+
+        let runtime = NativeRuntime::new(manifest);
+
+        assert!(
+            runtime.platform_layout(LevelId(3)).is_none(),
+            "ASM Get_PlatformLayoutAddress/sub_2366 reads MapOrder_Index[Current_LevelID] unconditionally; a logical id beyond the table must not reuse its raw-id platform metadata"
+        );
+    }
+
+    #[test]
     fn aliased_levels_prefer_logical_generated_block_grid() {
         let output_root = unique_temp_path("aliased-generated-block-grid");
         let mut manifest = manifest_with_levels(7);

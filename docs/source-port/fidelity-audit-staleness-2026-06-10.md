@@ -237,7 +237,6 @@ Still-open gaps (remain authoritative in the original doc):
 - TrapPlatform — deactivation flag `$12(a3)` not modelled for special platforms
 - Platform loader — offset/list helpers modelled but never wired into live roster build
 - Layout indexing — platform index sign-extension (`ext.l`) not modelled; unsigned add only (no base-ROM effect)
-- Layout indexing — `map_order` out-of-range fallback differs from ROM unconditional table read
 - Platform loader — `PLATFORM_PRELOAD_X_PADDING` constant 64 invented; ROM has no separate preload pass
 - Scripted movement — `$FFFF` sentinel loop-back pointer discarded; native always rewinds to command 0 of the same script
 - Scripted movement — global freeze gate `$FFFFFA64` not modelled in live caller

@@ -19496,12 +19496,29 @@ impl NativeRuntime {
     }
 
     pub(crate) fn platform_layout(&self, level_id: LevelId) -> Option<&kid_data::PlatformLayout> {
-        self.resource_level_record(level_id)
-            .and_then(|level| level.platform_metadata.as_ref())
-            .or_else(|| {
-                self.level_record(level_id)
-                    .and_then(|level| level.platform_metadata.as_ref())
-            })
+        if let Some(&resource_level_id) = self.assets.map_order.get(usize::from(level_id.0)) {
+            // ASM Get_PlatformLayoutAddress/sub_2366 reads
+            // MapOrder_Index[Current_LevelID] directly; it never falls back to
+            // the raw logical id after the table tail.
+            return self
+                .assets
+                .levels
+                .iter()
+                .find(|level| level.level_id == resource_level_id)
+                .and_then(|level| level.platform_metadata.as_ref())
+                .or_else(|| {
+                    self.level_record(level_id)
+                        .and_then(|level| level.platform_metadata.as_ref())
+                });
+        }
+
+        if self.assets.map_order.is_empty() {
+            return self
+                .level_record(level_id)
+                .and_then(|level| level.platform_metadata.as_ref());
+        }
+
+        None
     }
 
     pub(crate) fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
