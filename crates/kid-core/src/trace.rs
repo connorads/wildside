@@ -9311,6 +9311,7 @@ impl NativeRuntime {
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
             + self.hidden_block_fg_update_workers.len()
+            + self.block_state.metal_block_push_workers.len()
             + self.block_destroy_effects.len()
             + live_floating_prize_objects
             // ASM PrizeDiamondCollected_Init (kid.asm:21100) allocates an

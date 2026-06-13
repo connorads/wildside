@@ -7711,21 +7711,21 @@ mod chunk_09 {
     }
 
     #[test]
-    fn metal_block_push_left_delete_gate_loc_11328_continues_only_while_the_left_neighbour_is_solid()
+    fn metal_block_push_left_delete_gate_loc_11328_continues_only_while_the_left_neighbour_is_open()
      {
-        assert!(
-            !NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
-                3,
-                terrain::Cell::from_be_bytes(0x60, 0x00),
-            ),
-            "ASM loc_11328 should loop back to `loc_112E2` when the sampled left neighbour masks to `$6000`, regardless of its block skin",
-        );
         assert!(
             NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
                 3,
+                terrain::Cell::from_be_bytes(0x60, 0x00),
+            ),
+            "ASM loc_1130C should restore once the sampled left neighbour masks to `$6000`",
+        );
+        assert!(
+            !NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
+                3,
                 terrain::Cell::from_be_bytes(0x00, 0x00),
             ),
-            "ASM loc_11328 should fall through to the shared restore-and-delete tail once the sampled left neighbour is not solid",
+            "ASM loc_1130C should loop back to `loc_112E2` while the sampled left neighbour is not solid",
         );
     }
 
@@ -7869,23 +7869,84 @@ mod chunk_09 {
     }
 
     #[test]
-    fn metal_block_push_right_delete_gate_loc_11358_continues_only_while_the_right_neighbour_is_solid()
+    fn metal_block_push_right_delete_gate_loc_11358_continues_only_while_the_right_neighbour_is_open()
      {
-        assert!(
-            !NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
-                3,
-                8,
-                terrain::Cell::from_be_bytes(0x60, 0x00),
-            ),
-            "ASM loc_11358 should loop back to `loc_112E2` when the sampled right neighbour masks to `$6000`",
-        );
         assert!(
             NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
                 3,
                 8,
+                terrain::Cell::from_be_bytes(0x60, 0x00),
+            ),
+            "ASM loc_11334 should restore once the sampled right neighbour masks to `$6000`",
+        );
+        assert!(
+            !NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
+                3,
+                8,
                 terrain::Cell::from_be_bytes(0x00, 0x00),
             ),
-            "ASM loc_11358 should fall through to the shared restore-and-delete tail once the sampled right neighbour is not solid",
+            "ASM loc_11334 should loop back to `loc_112E2` while the sampled right neighbour is not solid",
+        );
+    }
+
+    #[test]
+    fn berzerker_charge_side_hit_starts_metal_block_push_loc_111f4() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 9 * 6 * 2], 9, 6);
+        grid.set_cell_at(5, 3, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+        grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+        grid.set_cell_at(8, 3, terrain::Cell::from_be_bytes(0x60, 0x00));
+        rt.set_block_grid(grid);
+
+        let mut slice = combat_slice();
+        let half_width = PlayerForm::Berzerker.half_width();
+        slice.player.x_pos = ((5 * 16 - half_width - 1) as u32) << 16;
+        slice.player.y_pos = (3 * 16 + 8) << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+
+        rt.berzerker_break_wall_block(&slice);
+
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9326 should clear Berzerker_charging after the non-rubber wall scan"
+        );
+        assert_eq!(
+            rt.block_state.metal_block_push_workers.len(),
+            1,
+            "ASM off_933E[5] should allocate sub_1129C for side-hit Metal blocks instead of treating them as inert"
+        );
+        assert_eq!(rt.block_state.metal_block_push_workers[0].col, 6);
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(6, 3),
+            terrain::Cell::from_be_bytes(0x60, 0x0B),
+            "ASM loc_1125C/sub_1129C should erase the selected edge metal block before the moving sprite starts"
+        );
+        assert!(
+            rt.played_sound_effects
+                .contains(&QueuedSoundEffect::BerzerkerMovingBlock),
+            "ASM sub_1129C should queue sfx_Berzerker_moving_block=$10"
+        );
+
+        rt.step_visual_effects();
+        assert_eq!(
+            rt.block_state.metal_block_push_workers[0].col, 7,
+            "ASM loc_11334 should keep moving through a non-solid right neighbour"
+        );
+        for _ in 0..4 {
+            rt.step_visual_effects();
+        }
+        assert!(
+            rt.block_state.metal_block_push_workers.is_empty(),
+            "ASM loc_11358 should restore and delete once the moving block reaches a solid right neighbour"
+        );
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(7, 3),
+            terrain::Cell::from_be_bytes(0xE5, 0x0B),
+            "ASM loc_11358 should restore `$E50B` at the final moving-block column"
         );
     }
 

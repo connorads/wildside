@@ -629,6 +629,9 @@ pub(crate) struct BlockInteractionState {
     /// ASM sub_10DE4: rubber-block contact toggles the same cell between two
     /// skins with 2/1/1/1/2/2/3/3 frame hibernate gaps.
     pub(crate) rubber_block_animations: Vec<RubberBlockAnimation>,
+    /// ASM loc_111F4/sub_1129C: Berzerker side-hits on metal blocks move the
+    /// selected edge block horizontally until it reaches solid terrain.
+    pub(crate) metal_block_push_workers: Vec<MetalBlockPushWorker>,
 }
 
 impl Default for BlockInteractionState {
@@ -643,6 +646,7 @@ impl Default for BlockInteractionState {
             shooter_last_scanned_row: -1,
             deferred_ceiling_clears: Vec::new(),
             rubber_block_animations: Vec::new(),
+            metal_block_push_workers: Vec::new(),
         }
     }
 }
@@ -2544,6 +2548,15 @@ pub(crate) struct RubberBlockAnimation {
     pub(crate) base_skin: u8,
     pub(crate) phase: u8,
     pub(crate) frames_until_next_write: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MetalBlockPushWorker {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) direction: u16,
+    pub(crate) substep_counter: u16,
+    pub(crate) x_pos_px: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

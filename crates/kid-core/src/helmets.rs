@@ -6729,6 +6729,7 @@ impl NativeRuntime {
         let mut smash_effects = Vec::new();
         let mut ice_effects = Vec::new();
         let mut ice_projectiles = Vec::new();
+        let mut metal_pushes = Vec::new();
         let hit_wall = {
             let Some(grid) = self.block_grid.as_mut() else {
                 return;
@@ -6800,12 +6801,27 @@ impl NativeRuntime {
                     grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
                     ice_effects.push((col * 16, row * 16, smash_direction));
                 }
+                if slice.player.on_ground
+                    && cell.has_block
+                    && cell.block_type == terrain::BlockType::Metal
+                {
+                    // ASM off_933E[5] -> loc_111F4: charging Berzerker side
+                    // impacts select the edge metal block in the struck run
+                    // and hand it to sub_1129C's moving-block worker.
+                    metal_pushes.push((col, row, smash_direction));
+                }
             }
 
             hit_wall
         };
 
         self.projectiles.extend(ice_projectiles);
+        for (col, row, direction) in metal_pushes {
+            if let Some(mut grid) = self.block_grid.take() {
+                self.start_metal_block_push_loc_111F4(&mut grid, col, row, direction);
+                self.block_grid = Some(grid);
+            }
+        }
         for (block_x_px, block_y_px, direction) in smash_effects {
             // ASM off_933E[0] -> j_Block_LoadSmashBits -> sub_10EDA:
             // Berzerker side Smash hits use d6=1 when moving left and d6=3

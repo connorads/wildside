@@ -4094,6 +4094,50 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    pub(crate) fn start_metal_block_push_loc_111F4(
+        &mut self,
+        grid: &mut terrain::BlockGrid,
+        source_col: u16,
+        row: u16,
+        direction: u16,
+    ) {
+        let row_cells = (0..grid.width_cells)
+            .map(|col| grid.cell_at(col, row))
+            .collect::<Vec<_>>();
+        let selected_col = if direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
+            Self::metal_block_push_scan_right_loc_11208(&row_cells, source_col)
+        } else {
+            Self::metal_block_push_scan_left_loc_11230(&row_cells, source_col)
+        };
+        let Some(selected_col) = selected_col else {
+            return;
+        };
+        let selected_cell = grid.cell_at(selected_col, row);
+        let deleted_cell = Self::metal_block_push_mark_deleted_loc_1125C(selected_cell);
+        // ASM loc_1125C marks the selected metal block as deleted, then
+        // sub_1129C immediately calls EraseBlockFromLevelLayout before the
+        // moving sprite starts. For metal skin `$0B`, that leaves ordinary
+        // solid terrain with the block bit clear.
+        grid.set_cell_at(
+            selected_col,
+            row,
+            terrain::Cell::from_be_bytes((deleted_cell.collision as u8) << 4, deleted_cell.skin),
+        );
+        let (x_pos_px, _) = Self::metal_block_effect_sprite_pos_loc_1110E(selected_col, row);
+        self.block_state
+            .metal_block_push_workers
+            .push(MetalBlockPushWorker {
+                col: selected_col,
+                row,
+                direction,
+                substep_counter: 3,
+                x_pos_px,
+            });
+        self.played_sound_effects
+            .push(QueuedSoundEffect::BerzerkerMovingBlock);
+    }
+
+    #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_step_right_loc_112E2(
         x_pos: u16,
@@ -4135,11 +4179,10 @@ impl NativeRuntime {
     ) -> bool {
         // ASM loc_1130C -> loc_11328 (kid.asm:23244-23274): after the
         // 4-substep leftward wake reaches its neighbour check, the worker
-        // deletes immediately when `d1 <= 0`. Otherwise it probes the cell one
-        // column further left and only loops back to `loc_112E2` when
-        // `andi.w #$7000,(a1)` equals `$6000`, i.e. the neighbour collision
-        // nibble is Solid. Any non-solid neighbour falls through loc_11328.
-        source_col == 0 || left_neighbour.collision != terrain::CollisionKind::Solid
+        // restores immediately when `d1 <= 0`. Otherwise it probes the cell
+        // one column further left and loops back to `loc_112E2` only when
+        // that neighbour is NOT solid (`bne.s loc_112E2`).
+        source_col == 0 || left_neighbour.collision == terrain::CollisionKind::Solid
     }
 
     #[allow(non_snake_case)]
@@ -4161,15 +4204,80 @@ impl NativeRuntime {
     ) -> bool {
         // ASM loc_11334 -> loc_11358 (kid.asm:23275-23284): after the
         // 4-substep rightward wake reaches its neighbour check, the worker
-        // deletes immediately once `d1 >= Level_width_blocks-1`. Otherwise it
-        // probes the cell one column further right and only loops back to
-        // `loc_112E2` when the neighbour's masked collision nibble is `$6000`.
+        // restores immediately once `d1 >= Level_width_blocks-1`. Otherwise it
+        // probes the cell one column further right and loops back to
+        // `loc_112E2` only when that neighbour is NOT solid (`bne.s loc_112E2`).
         source_col.saturating_add(1) >= level_width_blocks
-            || right_neighbour.collision != terrain::CollisionKind::Solid
+            || right_neighbour.collision == terrain::CollisionKind::Solid
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn step_metal_block_push_workers_sub_1129C(&mut self) {
+        let Some(grid) = self.block_grid.as_mut() else {
+            self.block_state.metal_block_push_workers.clear();
+            return;
+        };
+        let level_width_blocks = grid.width_cells;
+        let mut retained = Vec::new();
+        for mut worker in std::mem::take(&mut self.block_state.metal_block_push_workers) {
+            let step = if worker.direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
+                Self::metal_block_push_step_right_loc_112E2(
+                    worker.x_pos_px,
+                    worker.substep_counter,
+                )
+            } else {
+                Self::metal_block_push_step_left_loc_112FE(
+                    worker.x_pos_px,
+                    worker.substep_counter,
+                )
+            };
+            worker.x_pos_px = step.x_pos;
+            worker.substep_counter = step.substep_counter;
+            if !step.reached_neighbour_check {
+                retained.push(worker);
+                continue;
+            }
+
+            let should_restore = if worker.direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
+                let right_neighbour = worker
+                    .col
+                    .checked_add(1)
+                    .filter(|col| *col < level_width_blocks)
+                    .map(|col| grid.cell_at(col, worker.row))
+                    .unwrap_or_else(|| terrain::Cell::from_be_bytes(0, 0));
+                Self::metal_block_push_right_delete_gate_loc_11358(
+                    worker.col,
+                    level_width_blocks,
+                    right_neighbour,
+                )
+            } else {
+                let left_neighbour = worker
+                    .col
+                    .checked_sub(1)
+                    .map(|col| grid.cell_at(col, worker.row))
+                    .unwrap_or_else(|| terrain::Cell::from_be_bytes(0, 0));
+                Self::metal_block_push_left_delete_gate_loc_11328(worker.col, left_neighbour)
+            };
+
+            if should_restore {
+                // ASM loc_11328/loc_11358: `move.w #$E50B,d0; bsr.w sub_11530`.
+                grid.set_cell_at(worker.col, worker.row, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+            } else {
+                worker.col = if worker.direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
+                    worker.col.saturating_add(1)
+                } else {
+                    worker.col.saturating_sub(1)
+                };
+                worker.substep_counter = 0;
+                retained.push(worker);
+            }
+        }
+        self.block_state.metal_block_push_workers = retained;
     }
 
     pub(crate) fn step_visual_effects(&mut self) {
         self.step_rubber_block_animations_sub_10de4();
+        self.step_metal_block_push_workers_sub_1129C();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
 
         let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {

@@ -50,6 +50,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceDie,
     RubberBlock,
     MetalBlock,
+    BerzerkerMovingBlock,
     PrizeBlock,
     EvanescentBlock,
     ShiftingBlock,
@@ -119,6 +120,10 @@ impl QueuedSoundEffect {
             // generic `sfx_Block_hit` headbutt heuristic, i.e. the brick-break
             // crunch).
             Self::MetalBlock => 0x12,
+            // ASM sub_1129C (kid.asm:23220): Berzerker moving metal-block
+            // worker plays `sfx_Berzerker_moving_block = $10` once before
+            // the first hibernate.
+            Self::BerzerkerMovingBlock => 0x10,
             // ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays
             // `sfx_Prize_block = $11` before loading bullets and sub_10F9C.
             Self::PrizeBlock => 0x11,
