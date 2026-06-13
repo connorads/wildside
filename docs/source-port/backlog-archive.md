@@ -567,6 +567,19 @@ routes stayed around `dx=-34 dy=-17` from `(584,543)`. Do not repeat these
 early-hop or release/coast axes on the same seed unless the route shape before
 frame 180 changes.
 
+Follow-up 2026-06-13 for #260 route search after latest playtest: checked the
+tracked dynamic seed `tests/data/dynamic-scenarios/issue-213-drips-midbrake-bhold-prefix-700.json`
+instead of the stale cache-only tail files. Its script is `0..59 Right`,
+`60..119 Right+B`, `120..179 Right`, `180..239 Left+Right`,
+`240..289 Left`, `480..529 Left`, then `570..699 B`. A compact batch over
+tail-only overlays (`clear_tail`, `right_tail`, `left_tail`, `right_b_tail`,
+`left_b_tail`, split right/left, split left/right, brake-then-right,
+right-then-neutral) still failed to produce row-32 contact. Best left target
+was `right_tail`/`right_b_tail` at `(456,543) dx=+2 dy=-23 @587`, ending in
+`LevelTransition`; best live survivor was baseline `(456,543) dx=+24 dy=-16
+@580`. Right target remained far below/left (`(584,543) dx=+66 dy=-48 @430`).
+Do not repeat this 700-frame midbrake tail family unchanged.
+
 Follow-up 2026-06-11 for #260 visual-source classification: the latest
 playtest noted that the Drips source now looks like a prize block rather than a
 metal block. On the current known route this is ROM-matching, not a native
