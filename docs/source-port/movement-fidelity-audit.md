@@ -21,7 +21,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Ground walk/run horizontal acceleration | full | 0 |
 | Braking / skid / turn-around | full | 0 |
 | Duck / crawl (`MoveID_Crawling=1`) | full | 0 |
-| Jump initiation (ground launch velocity) | partial | 1 |
+| Jump initiation (ground launch velocity) | full | 0 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
@@ -84,8 +84,8 @@ ROM negates `x_vel` on a charging side-contact only when bit 15 of the enemy `ob
 **FIXED 2026-06-13 — Crawl entry checks `KidGrabbedByHand` before taking Down-held crawl path** (`loc_8C70` @kid.asm:10084)
 ROM skips crawl entry while held by a Hand via `tst.b (KidGrabbedByHand).w; bne.w loc_8CB6`. Native now suppresses the Down-held crawl/air-control path when `slice.kid_grabbed_by_hand` is set and also freezes the Down-look accumulator while grabbed (`lib.rs:3802-3810`). Regression `loc_8c70_crawl_entry_suppressed_while_grabbed_by_hand` verifies the velocity branch stays on the walking table instead of the crawl table, and `loc_8c70_grabbed_kid_down_held_freezes_look_offset` verifies the camera-look side effect.
 
-**Jump — `sfx_Jump` not emitted on launch** (`sub_A432`/`loc_A480` @kid.asm:12821-12822)
-ROM plays `sfx_Jump` as part of launch; the native `initiate_jump` comment defers sound "to call sites" (`physics.rs:765-766`) but the call sites (`movement.rs:4549-4586`) emit none. Audio-only; the deferral note is unfulfilled.
+**FIXED 2026-06-13 — Jump launch queues `sfx_Jump` from `loc_A480`** (`sub_A432`/`loc_A480` @kid.asm:12821-12822)
+ROM plays `sfx_Jump` after storing the launch velocity and applying the three-quarter `x_vel` reduction. Native now queues `QueuedSoundEffect::Jump` from `queue_jump_sound_from_probe_loc_A480` when the live jump probe reports `JumpPressed` or `JumpBuffered` (`lib.rs:2777-2792`), and both Iron Knight climb-resume and normal movement call sites invoke it after the slice step (`lib.rs:3430-3431`, `3462-3463`). Regression `grounded_jump_queues_sfx_jump_loc_a480` verifies the grounded launch sound against ASM `sub_A432`/`loc_A480`; title-card handoff regressions in `trace.rs` verify the sound is not buffered before live gameplay owns the shell.
 
 **FIXED 2026-06-13 — Airborne Skycutter bypasses the 1.5× run-accel multiplier** (`sub_B084` `loc_B09E` @kid.asm:13935-13939)
 This was the low-severity consequence of the unwired `sub_9A20` air branch. Because the live airborne Skycutter paths now branch before `loc_B09E`, the generic `Ctrl_A` multiplier remains limited to the nine helmets that actually reach the ROM table path; Skycutter gets `sub_9A20`'s flat `+$4000` run step.
