@@ -5,7 +5,7 @@
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape; the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `sub_7A10.blocked`, and grounded `initiate_jump_with_hand_grab` instances are now fixed and test-locked.
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape; the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `sub_7A10.blocked`, and `initiate_jump_with_hand_grab` ground/climb instances are now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -26,7 +26,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
 | Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 1 |
-| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 5 |
+| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 4 |
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
 | Damage recoil / knockback & Berzerker charge | partial | 3 |
@@ -99,8 +99,8 @@ At the top of a wall ROM sets `y_vel=$FFFC0000` (−4.0 px upward) and hands off
 **Climb — loop ignores the per-frame `Addr_PlatformStandingOn` moving-platform exit** (`loc_A28A`/`loc_A9AA` @kid.asm:12579-12585,13266-13283)
 ROM clears then re-checks `Addr_PlatformStandingOn` each climb iteration to transfer the climber onto a moving platform crossing the climb column. Neither `step_iron_knight_climb` nor `_resume` checks `active_platforms`. Edge geometry.
 
-**Climb — B-press jump-off bypasses the `KidGrabbedByHand` weakening** *(grab-flag theme)* (`loc_A426`→`sub_A432` `loc_A466` @kid.asm:12774-12805)
-Climb B-press calls `initiate_jump(0, jump_height)` (`helmets.rs:4727`), i.e. the `false` branch, dropping the grabbed-while-climbing adjustment. Very narrow.
+**FIXED 2026-06-13 — Climb B-press jump-off honours `KidGrabbedByHand` weakening** (`loc_A426`→`sub_A432` `loc_A466` @kid.asm:12774-12805)
+Climb B-press now calls `initiate_jump_with_hand_grab(0, jump_height, slice.kid_grabbed_by_hand)` (`helmets.rs:5533-5540`), matching the ROM's jump through `sub_A432` before `loc_A466` stores y velocity. Regression `loc_A426_iron_knight_climb_b_press_honours_kid_grabbed_by_hand_loc_A466` proves the grabbed launch is exactly `$20000` weaker while the existing `iron_knight_b_press_*` tests preserve normal detachment and held-left momentum.
 
 **Climb — stale dead-code attr on wired `iron_knight_climb_visual_sub_A3BC`** *(hygiene → #209)* (`sub_A3BC` @kid.asm:12694-12717)
 `#[cfg_attr(not(test), allow(dead_code))]` (`helmets.rs:868-869`) but called live every climb frame (`helmets.rs:4813`). Accumulator math faithful; only the sprite-mapping output is unconsumed (likely why the attr was left on).

@@ -25338,6 +25338,56 @@ mod chunk_05 {
         assert!(slice.player.y_velocity < 0, "should jump upward");
     }
 
+    /// ASM loc_A426 -> sub_A432/loc_A466 (kid.asm:12774-12805): Iron Knight's
+    /// climb B-press jump-off uses the same jump routine as grounded launch, so
+    /// `KidGrabbedByHand` weakens the climb launch by `addi.l #$20000,d0`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A426_iron_knight_climb_b_press_honours_kid_grabbed_by_hand_loc_A466() {
+        let mut ungrabbed_rt = iron_knight_runtime_with_wall();
+        ungrabbed_rt.helmet.iron_knight_climbing = true;
+        let mut ungrabbed = airborne_slice();
+        ungrabbed.player.x_pos = 154 << 16;
+        ungrabbed.player.y_pos = 32 << 16;
+        ungrabbed.player.facing = Direction::Right;
+
+        let mut grabbed_rt = iron_knight_runtime_with_wall();
+        grabbed_rt.helmet.iron_knight_climbing = true;
+        let mut grabbed = airborne_slice();
+        grabbed.player.x_pos = 154 << 16;
+        grabbed.player.y_pos = 32 << 16;
+        grabbed.player.facing = Direction::Right;
+        grabbed.set_kid_grabbed_by_hand(true);
+
+        let input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+        ungrabbed_rt.step_iron_knight_climb(&mut ungrabbed, input);
+        grabbed_rt.step_iron_knight_climb(&mut grabbed, input);
+
+        let jump_height =
+            crate::physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
+        let (_, expected_ungrabbed) =
+            crate::physics::initiate_jump_with_hand_grab(0, jump_height, false);
+        let (_, expected_grabbed) =
+            crate::physics::initiate_jump_with_hand_grab(0, jump_height, true);
+
+        assert_eq!(
+            ungrabbed.player.y_velocity, expected_ungrabbed,
+            "loc_A466: normal climb B-press launch should match the ungrabbed sub_A432 path",
+        );
+        assert_eq!(
+            grabbed.player.y_velocity, expected_grabbed,
+            "loc_A466: grabbed climb B-press launch must apply addi.l #$20000,d0",
+        );
+        assert_eq!(
+            grabbed.player.y_velocity,
+            ungrabbed.player.y_velocity.wrapping_add(0x2_0000),
+            "loc_A466: grabbed climb launch should be exactly $20000 weaker",
+        );
+    }
+
     #[test]
     fn iron_knight_b_press_keeps_held_left_momentum_after_loc_a426() {
         let mut rt = iron_knight_runtime_with_wall();

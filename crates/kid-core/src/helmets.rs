@@ -5530,10 +5530,13 @@ impl NativeRuntime {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
             self.helmet.iron_knight_climb_pose_accum = 0;
-            // Jump away from wall
             let jump_height =
                 physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
-            let (_, y_vel) = physics::initiate_jump(0, jump_height);
+            // ASM loc_A426 -> sub_A432/loc_A466: climb B-press jumps through
+            // the shared launch routine, so KidGrabbedByHand weakens y_vel by
+            // `addi.l #$20000,d0` before the store.
+            let (_, y_vel) =
+                physics::initiate_jump_with_hand_grab(0, jump_height, slice.kid_grabbed_by_hand);
             slice.player.y_velocity = y_vel;
             return IronKnightClimbStep::None;
         }
