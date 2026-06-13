@@ -17811,6 +17811,82 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_7464 (kid.asm:7610-7614): simultaneous Left+Right clears
+    /// `Ctrl_Right_Held` before loc_779C/sub_B084 consumes the direction bytes.
+    /// The live movement helpers must therefore see left-only input, not the raw
+    /// controller mask where both booleans are set.
+    #[test]
+    fn loc_7464_left_right_conflict_resolves_left_before_sub_b084() {
+        let input = FrameInput {
+            left: true,
+            right: true,
+            ..FrameInput::default()
+        };
+
+        let mut velocity_only = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        velocity_only.player.on_ground = true;
+        velocity_only.player.facing = Direction::Right;
+        velocity_only.player.x_velocity = 0;
+
+        let stepped = velocity_only.update_horizontal_velocity_only(
+            input,
+            false,
+            PlayerForm::TheKid,
+            None,
+            false,
+        );
+
+        assert!(
+            stepped,
+            "loc_779C/sub_B084 should still run after loc_7464 resolves both-held input",
+        );
+        assert_eq!(
+            velocity_only.player.facing,
+            Direction::Left,
+            "ASM loc_7464 clears Ctrl_Right_Held, so sub_B084 must face left",
+        );
+        assert_eq!(
+            velocity_only.player.x_velocity,
+            -physics::NORMAL_KID.strong_brake,
+            "ASM loc_7464 + loc_9B90: both-held input resolves to left, then stopped right-facing Kid takes the strong-brake slot",
+        );
+
+        let mut full_motion = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        full_motion.player.on_ground = true;
+        full_motion.player.facing = Direction::Right;
+        full_motion.player.x_pos = 32 << 16;
+        full_motion.player.x_velocity = 0;
+
+        let moved =
+            full_motion.update_horizontal_motion(input, false, PlayerForm::TheKid, None, false);
+
+        assert!(
+            moved,
+            "full horizontal motion should consume the same loc_7464-normalised input",
+        );
+        assert_eq!(
+            full_motion.player.facing,
+            Direction::Left,
+            "full horizontal motion must inherit the loc_7464 left-wins conflict rule",
+        );
+        assert_eq!(
+            full_motion.player.x_velocity,
+            -physics::NORMAL_KID.strong_brake,
+            "full horizontal motion must apply the left strong-brake slot after conflict resolution",
+        );
+        assert_eq!(
+            full_motion.player.x_pos,
+            ((32 << 16) - physics::NORMAL_KID.strong_brake) as u32,
+            "full horizontal motion should advance by the resolved leftward velocity",
+        );
+    }
+
     /// ASM loc_7664 (kid.asm): `bclr #Button_B,(Ctrl_Pressed); bne loc_A426`
     /// consumes a grounded jump edge before the standing-still loc_779C
     /// right/left probes can write `x_direction`. Native must not flip facing

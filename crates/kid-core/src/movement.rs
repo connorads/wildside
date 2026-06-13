@@ -5115,6 +5115,7 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
+        let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && !input.b {
             self.player.jump_buffer_frames = 0;
         }
@@ -5505,6 +5506,7 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
+        let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }

@@ -5,7 +5,7 @@
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20` instance is now fixed and test-locked.
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20` and `with_left_right_conflict_resolved` instances are now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -18,8 +18,8 @@ Two findings are player-specific and do **not** fit that mould:
 |---|---|---|
 | Kid main object update (integrate + collision dispatch) | partial | 1 |
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
-| Ground walk/run horizontal acceleration | partial | 2 |
-| Braking / skid / turn-around | partial | 1 |
+| Ground walk/run horizontal acceleration | partial | 1 |
+| Braking / skid / turn-around | full | 0 |
 | Duck / crawl (`MoveID_Crawling=1`) | partial | 3 |
 | Jump initiation (ground launch velocity) | partial | 2 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
@@ -58,8 +58,8 @@ ROM integrates X+Y together then runs a single `j_GfxObjects_Collision`; `collis
 **Wall/ceiling response — slope-compound corner-crush (`loc_B9A2`/`loc_BA5A`) unported** (reached from `sub_A4EE` `loc_A53C`/`$14`, `loc_A594`/`$18`; Juggernaut bounce `loc_BB08`/`loc_BB30`; recovery snap `loc_BA1C`/`loc_BAD2`)
 Same compound-`collision_type` root as above, audited from the wall/ceiling angle: corner-crush kill (unless Juggernaut/Skycutter), the Juggernaut fixed-velocity bounce, and the grid-aligned wall-hit recovery snap have no executable counterpart — only the comment block at `movement.rs:3198-3243`. **Note:** the genuine `$04`/`$08` wall and `$10` ceiling responses *are* faithfully wired (`apply_wall_collision` `movement.rs:5057`, `apply_ceiling_collision` `movement.rs:5253`); only the compound `$14/$18` corner is missing. Relates to #207.
 
-**Braking — Left+Right conflict resolver (`sf Ctrl_Right_Held`) unwired** (`loc_7464` @kid.asm:7610-7614; affects facing gate `loc_9B14`)
-ROM clears Right once per frame when both are held, so both-held resolves to **LEFT**. `with_left_right_conflict_resolved` (`types.rs:929`, cites `loc_7464`) models this but is only called from tests; the live path builds `h_input` straight from `input.left`/`input.right` (`movement.rs:4453`) and `update_horizontal_velocity` tests `if input.right` first (`physics.rs:543`), so both-held resolves to **RIGHT**. Reachable via mask/demo/replay input (`from_mask` sets both bits independently). The brake mechanics themselves ($0C turn-brake vs $18 strong-brake asymmetry, run-reverse, over-cap decel, snap-to-zero) are faithful and test-locked (`physics.rs:1361-1397`).
+**FIXED 2026-06-13 — Braking resolves Left+Right before `sub_B084`** (`loc_7464` @kid.asm:7610-7614; affects facing gate `loc_9B14`)
+ROM clears Right once per frame when both are held, so both-held resolves to **LEFT**. The live `update_horizontal_velocity_only` and `update_horizontal_motion` paths now call `with_left_right_conflict_resolved` before constructing `HorizontalInput`, matching `loc_7464` before `sub_B084` consumes the direction bytes. Regression `loc_7464_left_right_conflict_resolves_left_before_sub_b084` verifies both helpers face Left and take the `loc_9B90` strong-brake slot from a stopped, right-facing Kid.
 
 **Crawl — `sub_7A10` entry `blocked` result discarded** (`loc_8C70` @kid.asm:10092; `sub_7A10` `loc_7A90` @8143)
 ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native computes `DownHoldAlignmentSub7A10.blocked` correctly but `lib.rs:2982` reads only `.x_pos`; with no separate crawl `MoveID`, crawl-vs-walk velocity is decided solely by `input.down` (`movement.rs:4488`), so a blocked entry still applies crawl air-table velocity that frame.
