@@ -5581,7 +5581,7 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_accel = 0;
                 self.helmet.iron_knight_climb_pose_accum = 0;
                 slice.player.y_velocity = -0x4_0000;
-                return IronKnightClimbStep::None;
+                return IronKnightClimbStep::ExitHibernate;
             }
         }
 

@@ -25617,7 +25617,7 @@ mod chunk_05 {
         let result = rt.step_iron_knight_climb(&mut slice, FrameInput::default());
 
         assert!(
-            matches!(result, IronKnightClimbStep::None),
+            matches!(result, IronKnightClimbStep::ExitHibernate),
             "ASM loc_A30A wall-gone path exits the climb loop through loc_A6F8",
         );
         assert!(
