@@ -10401,7 +10401,7 @@ pub(crate) enum EnemyContactResult {
     Damage,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyContactBounds {
     pub(crate) left_px: i64,
     pub(crate) right_px: i64,
@@ -11045,12 +11045,20 @@ fn archer_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn cloud_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
-    // ASM Cloud.asm parent idle/death/transition frames `LnkTo_unk_C78B6..C78CE`,
-    // `LnkTo_unk_C789E..C78AE`, and `LnkTo_unk_C787E..C7896` route through
-    // GfxObjects_CollisionKid loc_1BCE to the zero row `unk_314CE`. Spawned
-    // lightning uses separate worker `loc_35DF0` in native, so do not fold
-    // projectile rows into the parent enemy contact.
-    empty_enemy_contact_bounds()
+    // ASM Cloud.asm parent frames route through GfxObjects_CollisionKid loc_1BCE
+    // from addroffset_sprite `$22`: idle `LnkTo_unk_C78B6..C78CE` uses
+    // `unk_31760` (`dc.w -$E,$1B,-$1C,$16`), while attack windup
+    // `LnkTo_unk_C787E..C7896` uses multi-subbox rows `unk_316F6..unk_31744`.
+    // Native does not expose the current sprite link here yet, so keep the
+    // nonzero parent union and leave death zero row `unk_3175E` unmodelled.
+    // Spawned lightning uses separate worker `loc_35DF0`, so do not fold
+    // projectile rows (`unk_316D8`/`unk_316E2`/`unk_316EC`) into parent contact.
+    EnemyContactBounds {
+        left_px: -14,
+        right_px: 14,
+        top_px: -30,
+        bottom_px: -1,
+    }
 }
 
 fn tar_monster_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {

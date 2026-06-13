@@ -236,19 +236,25 @@ fn archer_body_contact_uses_rom_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
-fn cloud_parent_contact_uses_rom_zero_collision_size_row_loc_1bce() {
+fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
-    slice.player.y_pos = 100 << 16;
+    slice.player.y_pos = 92 << 16;
     slice.player.x_velocity = 0;
     slice.player.y_velocity = 0;
     slice.player.on_ground = true;
 
     let cloud = test_enemy(EnemyFamily::Cloud, 101 << 16, 100 << 16, 1);
     let bounds = enemy_contact_bounds(&cloud.snapshot());
-    assert!(
-        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
-        "ASM Cloud.asm parent frames LnkTo_unk_C78B6..C78CE, death frames LnkTo_unk_C789E..C78AE, and transition frames LnkTo_unk_C787E..C7896 index the zero CollisionSize row unk_314CE through GfxObjects_CollisionKid loc_1BCE"
+    assert_eq!(
+        bounds,
+        EnemyContactBounds {
+            left_px: -14,
+            right_px: 14,
+            top_px: -30,
+            bottom_px: -1,
+        },
+        "ASM Cloud.asm parent frames LnkTo_unk_C78B6..C78CE index unk_31760 and attack windup LnkTo_unk_C787E..C7896 indexes unk_316F6..unk_31744 through GfxObjects_CollisionKid loc_1BCE"
     );
 
     assert_eq!(
@@ -259,8 +265,8 @@ fn cloud_parent_contact_uses_rom_zero_collision_size_row_loc_1bce() {
             slice.player.y_pos,
             PlayerForm::TheKid.half_width() as i64,
         ),
-        EnemyContactResult::None,
-        "the ROM Cloud parent uses an empty CollisionSize row; CloudLightning is spawned by Cloud.asm loc_35DF0 as a separate projectile worker"
+        EnemyContactResult::Damage,
+        "the ROM Cloud parent has a live body/windup CollisionSize union; CloudLightning is still spawned by Cloud.asm loc_35DF0 as a separate projectile worker"
     );
 }
 
