@@ -308,6 +308,14 @@ plain fallback for targets with no renderable title-card data. Verification:
 level_card_overlay -- --nocapture`, and `cargo test -q -p kidcli
 live_level_change -- --nocapture`.
 
+Follow-up 2026-06-13 for #282 after latest playtest: the previous fixed
+candidate still showed the synthetic debug card before the real title card
+(`LEVEL 01`, then the actual intro). Revised `debug_hotkey_level_presentation`
+so renderable generated targets hold only the ROM `Load_TitleCard`/VDP path; the
+plain debug fallback remains for targets without title-card data. Verification:
+red/green `cargo test -q -p kidcli debug_hotkey_level_skip -- --nocapture`,
+`cargo fmt --check`, and `git diff --check`.
+
 Follow-up 2026-06-11 for #274/#284 after the latest play-native report:
 current generated prize content still does not reproduce the visible Diamond
 fallback. `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p kid-core
