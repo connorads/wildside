@@ -1434,7 +1434,19 @@ impl ActivePlatform {
                 }
             }
             SoftPlatformPhase::Settled => {
-                if !kid_standing_on_this_platform {
+                // ASM loc_4160 compares Addr_PlatformStandingOn against this
+                // platform's slot address. The runtime caller has already
+                // performed that address-equivalent check as an active-platform
+                // index comparison.
+                let this_platform_addr = 1;
+                let platform_standing_on = if kid_standing_on_this_platform {
+                    this_platform_addr
+                } else {
+                    0
+                };
+                if soft_platform_settled_step_loc_4160(platform_standing_on, this_platform_addr)
+                    == SoftPlatformSettledActionLoc4160::ReturnToWaitLoop
+                {
                     state.phase = SoftPlatformPhase::Wait;
                 }
             }
