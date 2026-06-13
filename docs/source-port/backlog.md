@@ -269,7 +269,15 @@ and stop — never commit churn.
   `--frame-start 520`, the current route remains 32px below left cell `28,32`
   and 157px away from right cell `36,32`; a small baseline/late-B/late-BR batch
   all tied at the same 32px left-cell miss. Do not re-run those unchanged late
-  variants as metal-block proof.
+  variants as metal-block proof. 2026-06-13 follow-up: `kidcli` also accepts
+  `--target-cell-hitbox col,row`, which scores Kid's ASM `loc_902A`/`unk_B408`
+  upper/body bounds against a 16x16 cell. On
+  `issue-260-drips-b-jump-climb-seed-current`, the baseline stays alive and
+  reaches right cell `36,32` at hitbox `dx=+1 dy=-2` (manhattan 3) at frame
+  503; `early_br440_540`, `early_br450_550`, and `neutral430_jump470` improve
+  only to manhattan 2 and all end HP 0. Treat the seed as a confirmed
+  near-contact route, not metal-block proof, and do not reject it based on
+  origin-only cell scoring.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

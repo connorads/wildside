@@ -1060,6 +1060,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     player_motion: bool,
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
+    target_cell_hitboxes: &[TargetCell],
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -1129,6 +1130,16 @@ pub(crate) fn probe_dynamic_record_scenario(
         println!(
             "{}",
             describe_target_cell_approach_from_frame(&trace, *target_cell, target_frame_start)
+        );
+    }
+    for target_cell in target_cell_hitboxes {
+        println!(
+            "{}",
+            describe_target_cell_hitbox_approach_from_frame(
+                &trace,
+                *target_cell,
+                target_frame_start
+            )
         );
     }
 
@@ -1718,6 +1729,12 @@ pub(crate) struct TargetCellApproach {
     pub(crate) manhattan_px: i64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TargetCellProbe {
+    Origin,
+    PlayerHitbox,
+}
+
 pub(crate) fn target_point_approach_from_frame(
     trace: &[NativeTraceFrame],
     target_point: TargetPoint,
@@ -1773,9 +1790,69 @@ fn axis_distance_to_closed_range(value: i64, min: i64, max: i64) -> i64 {
     }
 }
 
+fn range_distance_to_closed_range(left: i64, right: i64, min: i64, max: i64) -> i64 {
+    if right < min {
+        min - right
+    } else if left > max {
+        max - left
+    } else {
+        0
+    }
+}
+
+fn half_width_for_helmet_id_loc_b408(helmet_id: u16) -> i64 {
+    // ASM unk_B408: player collision half-widths indexed by current_helmet_id.
+    match helmet_id {
+        1 => 10,
+        5 => 23,
+        9 => 4,
+        0 => 5,
+        _ => 7,
+    }
+}
+
+fn player_height_for_helmet_id_loc_902a(helmet_id: u16) -> i64 {
+    // ASM loc_902A ceiling/block probes use a shorter upper bound for Juggernaut/Micromax.
+    match helmet_id {
+        5 | 9 => 15,
+        _ => 31,
+    }
+}
+
 pub(crate) fn target_cell_approach_from_frame(
     trace: &[NativeTraceFrame],
     target_cell: TargetCell,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetCellApproach> {
+    target_cell_approach_with_probe_from_frame(
+        trace,
+        target_cell,
+        TargetCellProbe::Origin,
+        require_healthy_kid,
+        frame_start,
+    )
+}
+
+pub(crate) fn target_cell_hitbox_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    target_cell: TargetCell,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetCellApproach> {
+    target_cell_approach_with_probe_from_frame(
+        trace,
+        target_cell,
+        TargetCellProbe::PlayerHitbox,
+        require_healthy_kid,
+        frame_start,
+    )
+}
+
+fn target_cell_approach_with_probe_from_frame(
+    trace: &[NativeTraceFrame],
+    target_cell: TargetCell,
+    probe: TargetCellProbe,
     require_healthy_kid: bool,
     frame_start: usize,
 ) -> Option<TargetCellApproach> {
@@ -1800,8 +1877,25 @@ pub(crate) fn target_cell_approach_from_frame(
         };
         let kid_x_px = i64::from(kid_x) >> 16;
         let kid_y_px = i64::from(kid_y) >> 16;
-        let dx_px = axis_distance_to_closed_range(kid_x_px, left_px, right_px);
-        let dy_px = axis_distance_to_closed_range(kid_y_px, top_px, bottom_px);
+        let (dx_px, dy_px) = match probe {
+            TargetCellProbe::Origin => (
+                axis_distance_to_closed_range(kid_x_px, left_px, right_px),
+                axis_distance_to_closed_range(kid_y_px, top_px, bottom_px),
+            ),
+            TargetCellProbe::PlayerHitbox => {
+                let half_width = half_width_for_helmet_id_loc_b408(frame.current_helmet_id);
+                let height = player_height_for_helmet_id_loc_902a(frame.current_helmet_id);
+                (
+                    range_distance_to_closed_range(
+                        kid_x_px - half_width,
+                        kid_x_px + half_width,
+                        left_px,
+                        right_px,
+                    ),
+                    range_distance_to_closed_range(kid_y_px - height, kid_y_px, top_px, bottom_px),
+                )
+            }
+        };
         let candidate = TargetCellApproach {
             replay_frame,
             kid_x,
@@ -1820,6 +1914,46 @@ pub(crate) fn target_cell_approach_from_frame(
     }
 
     closest
+}
+
+pub(crate) fn describe_target_cell_hitbox_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> String {
+    let Some(approach) =
+        target_cell_hitbox_approach_from_frame(trace, target_cell, false, frame_start)
+    else {
+        return format!(
+            "target cell hitbox {},{}: absent",
+            target_cell.col, target_cell.row
+        );
+    };
+    let healthy = target_cell_hitbox_approach_from_frame(trace, target_cell, true, frame_start)
+        .map(|healthy| {
+            format!(
+                "; closest healthy kid hitbox dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+                healthy.dx_px,
+                healthy.dy_px,
+                healthy.manhattan_px,
+                healthy.replay_frame,
+                healthy.kid_x,
+                healthy.kid_y,
+            )
+        })
+        .unwrap_or_else(|| String::from("; closest healthy kid hitbox <none>"));
+    format!(
+        "target cell hitbox {},{}: closest kid hitbox dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
+        target_cell.col,
+        target_cell.row,
+        approach.dx_px,
+        approach.dy_px,
+        approach.manhattan_px,
+        approach.replay_frame,
+        approach.kid_x,
+        approach.kid_y,
+        healthy
+    )
 }
 
 pub(crate) fn describe_target_cell_approach_from_frame(
@@ -2788,6 +2922,34 @@ mod tests {
                 manhattan_px: 0,
             }),
             "cell scoring should treat any Kid position inside the 16x16 target cell as contact"
+        );
+    }
+
+    #[test]
+    fn target_cell_hitbox_approach_scores_player_bounds_against_cell() {
+        let trace = vec![player_frame(
+            10,
+            GameMode::InGame,
+            Some(0x0240_0000),
+            Some(0x021F_0000),
+        )];
+
+        assert_eq!(
+            target_cell_hitbox_approach_from_frame(
+                &trace,
+                TargetCell { col: 36, row: 32 },
+                true,
+                0
+            ),
+            Some(TargetCellApproach {
+                replay_frame: 0,
+                kid_x: 0x0240_0000,
+                kid_y: 0x021F_0000,
+                dx_px: 0,
+                dy_px: 0,
+                manhattan_px: 0,
+            }),
+            "ASM loc_902A/unk_B408 block probes use Kid's upper/body bounds, not his foot origin"
         );
     }
 

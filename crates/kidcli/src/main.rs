@@ -311,6 +311,9 @@ enum Commands {
         /// Summarise closest live Kid approach to a 16x16 level cell, formatted col,row.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell: Vec<TargetCell>,
+        /// Summarise closest live Kid hitbox approach to a 16x16 level cell.
+        #[arg(long, value_parser = parse_target_cell)]
+        target_cell_hitbox: Vec<TargetCell>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -353,6 +356,9 @@ enum Commands {
         /// Summarise closest live Kid approach to a 16x16 level cell, formatted col,row.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell: Vec<TargetCell>,
+        /// Summarise closest live Kid hitbox approach to a 16x16 level cell.
+        #[arg(long, value_parser = parse_target_cell)]
+        target_cell_hitbox: Vec<TargetCell>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -381,6 +387,9 @@ enum Commands {
         /// Score candidates by closest healthy Kid approach to these 16x16 level cells.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell: Vec<TargetCell>,
+        /// Score candidates by closest healthy Kid hitbox approach to these 16x16 level cells.
+        #[arg(long, value_parser = parse_target_cell)]
+        target_cell_hitbox: Vec<TargetCell>,
         /// Ignore earlier frames when scoring closest target approach.
         #[arg(long, default_value_t = 0)]
         score_frame_start: usize,
@@ -1260,6 +1269,7 @@ fn main() -> Result<()> {
             player_motion,
             target_point,
             target_cell,
+            target_cell_hitbox,
             summary_only,
             frame_start,
             frame_end,
@@ -1287,6 +1297,7 @@ fn main() -> Result<()> {
                 player_motion,
                 &target_point,
                 &target_cell,
+                &target_cell_hitbox,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1302,6 +1313,7 @@ fn main() -> Result<()> {
             player_motion,
             target_point,
             target_cell,
+            target_cell_hitbox,
             summary_only,
             frame_start,
             frame_end,
@@ -1329,6 +1341,7 @@ fn main() -> Result<()> {
                 player_motion,
                 &target_point,
                 &target_cell,
+                &target_cell_hitbox,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1339,6 +1352,7 @@ fn main() -> Result<()> {
             candidate,
             target_point,
             target_cell,
+            target_cell_hitbox,
             score_frame_start,
             limit,
             rom,
@@ -1349,8 +1363,10 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let base = load_record_scenario_file(&scenario)?;
-            if target_point.is_empty() && target_cell.is_empty() {
-                bail!("at least one --target-point or --target-cell is required for batch scoring");
+            if target_point.is_empty() && target_cell.is_empty() && target_cell_hitbox.is_empty() {
+                bail!(
+                    "at least one --target-point, --target-cell, or --target-cell-hitbox is required for batch scoring"
+                );
             }
             if let Some(level) = base.warp_to_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
@@ -1361,6 +1377,7 @@ fn main() -> Result<()> {
                 &candidate,
                 &target_point,
                 &target_cell,
+                &target_cell_hitbox,
                 score_frame_start,
                 limit,
             )?;
@@ -2951,6 +2968,7 @@ fn probe_dynamic_record_scenario_batch(
     candidate_specs: &[String],
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
+    target_cell_hitboxes: &[TargetCell],
     score_frame_start: usize,
     limit: usize,
 ) -> Result<()> {
@@ -2982,7 +3000,9 @@ fn probe_dynamic_record_scenario_batch(
             )
         })?;
         let mut first_target_score = None;
-        let mut target_summaries = Vec::with_capacity(target_points.len() + target_cells.len());
+        let mut target_summaries = Vec::with_capacity(
+            target_points.len() + target_cells.len() + target_cell_hitboxes.len(),
+        );
         for (index, target_point) in target_points.iter().copied().enumerate() {
             let summary = target_point_approach_from_frame(
                 &trace,
@@ -3038,6 +3058,37 @@ fn probe_dynamic_record_scenario_batch(
                 )
             })
             .unwrap_or_else(|| format!("cell {},{} healthy <none>", target_cell.col, target_cell.row));
+            target_summaries.push(summary);
+        }
+        for (index, target_cell) in target_cell_hitboxes.iter().copied().enumerate() {
+            let summary = target_cell_hitbox_approach_from_frame(
+                &trace,
+                target_cell,
+                true,
+                score_frame_start,
+            )
+            .map(|approach| {
+                if target_points.is_empty() && target_cells.is_empty() && index == 0 {
+                    first_target_score = Some(approach.manhattan_px);
+                }
+                format!(
+                    "cell hitbox {},{} healthy dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+                    target_cell.col,
+                    target_cell.row,
+                    approach.dx_px,
+                    approach.dy_px,
+                    approach.manhattan_px,
+                    approach.replay_frame,
+                    approach.kid_x,
+                    approach.kid_y,
+                )
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "cell hitbox {},{} healthy <none>",
+                    target_cell.col, target_cell.row
+                )
+            });
             target_summaries.push(summary);
         }
         results.push(BatchProbeResult {
