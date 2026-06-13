@@ -8664,6 +8664,17 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_3330e_uses_unsigned_y_cell_conversion_after_word_add() {
+        let grid = grid_with_cells(1, 4096, &[(0, 4095, 0x60, 0x00)]);
+
+        assert_eq!(
+            crate::terrain::relative_collision_mask_loc_3330E(&grid, 0, 0, 0, -1),
+            0x6000,
+            "ASM loc_3330E (kid.asm:37750) uses `add.w y_pos(a3),d7` followed by `lsr.w #4,d7`, so y=-1 resolves to row `$0FFF` instead of taking the signed negative-coordinate guard used by loc_331D2",
+        );
+    }
+
+    #[test]
     fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
         let grid = grid_with_cells(
             8,

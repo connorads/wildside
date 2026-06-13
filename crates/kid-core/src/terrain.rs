@@ -1649,10 +1649,13 @@ pub(crate) fn relative_collision_mask_loc_3330E(
     x_offset_px: i32,
     y_offset_px: i32,
 ) -> u16 {
-    // ASM loc_3330E (kid.asm:37750): add `d6/d7` onto `x_pos/y_pos(a3)`,
-    // derive the row pointer through `$FFFF4A04`, fetch one Level_Layout word,
-    // and keep only `andi.w #$7000,d7`.
-    relative_collision_mask_loc_331D2(grid, center_x_px, foot_y_px, x_offset_px, y_offset_px)
+    // ASM loc_3330E (kid.asm:37750): add `d6` to x and `d7` to y as words,
+    // then use `lsr.w #4` for both the row and column before masking d7.
+    let sample_x = (center_x_px as i16 as u16).wrapping_add(x_offset_px as i16 as u16);
+    let sample_y = (foot_y_px as i16 as u16).wrapping_add(y_offset_px as i16 as u16);
+    let cell_x = sample_x >> 4;
+    let cell_y = sample_y >> 4;
+    grid.cell_at(cell_x, cell_y).to_word() & 0x7000
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
