@@ -1,5 +1,5 @@
 <!-- Generated 2026-05-31 by the `platforms-helmets-weather-fidelity-audit` workflow (1 read-only Explore scout enumerated the platform units; one read-only Explore auditor per unit compared the live native path to kid.asm; every high/medium gap adversarially verified by an independent refuter — defaulting to refuted — before inclusion; low gaps included without a refute pass). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Staleness-checked 2026-06-10: of 40 gaps, 5 fixed, 3 partially fixed, 32 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. 2026-06-13 follow-up: crawl-on-platform sub_8ED0 width and type-0 platform height are fixed, leaving 29 still open. Still-open entries below remain authoritative; fixed entries are superseded. -->
+<!-- Staleness-checked 2026-06-10: of 40 gaps, 5 fixed, 3 partially fixed, 32 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. 2026-06-13 follow-up: crawl-on-platform sub_8ED0 width, type-0 platform height, and scripted-position wrapping are fixed, leaving 28 still open. Still-open entries below remain authoritative; fixed entries are superseded. -->
 
 # Platform Fidelity Audit
 
@@ -143,7 +143,7 @@ The ROM reads a 4-byte absolute loop-back pointer after `dc.w $FFFF`, which for 
 The ROM short-circuits the entire scripted-platform pass when `$FFFFFA64 != 0` (a global freeze for some cutscene/boss/transition states). The live caller (`lib.rs:3050-3055`) steps all platforms unconditionally. The writer of `$FFFFFA64` could not be located in the available disasm, so the trigger conditions are uncertain (confidence lowered).
 
 **Scripted movement — position update saturates to `[0,u32::MAX]` instead of ROM 32-bit wrap** (`Execute_ScriptedPlatforms/sub_23EA`, `kid.asm:4282-4285`)
-The ROM adds velocity with `add.l` (wraps mod 2³²); native clamps the i64 sum to `[0,u32::MAX]` (`types.rs:2139-2142`). Diverges only at the 32-bit boundary, which platform positions never reach. The command-ordering itself is faithful.
+Fixed 2026-06-13: `ActivePlatform::step_script` now uses 32-bit wrapping addition for x/y positions, matching `add.l d7,2(a2)` and `add.l d7,6(a2)`. Regression: `platform_step_script_loc_23f2_wraps_position_like_add_l`.
 
 **`find_standing_platform_index_loc_8ED0` adds vertical-proximity logic not in `sub_8ED0` (re-derives standing platform each frame)** (`sub_8ED0`; `Addr_PlatformStandingOn`)
 The ROM `sub_8ED0` is a pure horizontal support test against the known `Addr_PlatformStandingOn`; it never selects which platform Kid stands on. Native `find_standing_platform_index_loc_8ED0` (`platforms.rs:855-878`) re-derives the index each frame, combining the horizontal test with an extra vertical-proximity check (`874-876`) that has no `sub_8ED0` counterpart — can pick a different platform than the ROM when several overlap horizontally at different heights.

@@ -205,7 +205,7 @@ Pattern: nearly every fix landed in the theme-art/background subsystem and was a
 
 ## platforms-fidelity-audit.md (2026-05-31)
 
-Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring and type-0 platform height decode are fixed, leaving 29 still-open from this audit.
+Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring, type-0 platform height decode, and scripted-position wrapping are fixed, leaving 28 still-open from this audit.
 
 | Gap | Sev | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -242,7 +242,6 @@ Still-open gaps (remain authoritative in the original doc):
 - Platform loader — `PLATFORM_PRELOAD_X_PADDING` constant 64 invented; ROM has no separate preload pass
 - Scripted movement — `$FFFF` sentinel loop-back pointer discarded; native always rewinds to command 0 of the same script
 - Scripted movement — global freeze gate `$FFFFFA64` not modelled in live caller
-- Scripted movement — position update saturates to `[0,u32::MAX]` instead of ROM 32-bit wrap
 - `find_standing_platform_index_loc_8ED0` adds vertical-proximity logic not in `sub_8ED0` (re-derives standing platform each frame)
 - SoftPlatform — launch velocity sampled post-physics instead of frame-start (one-tick timing nuance)
 - SoftPlatform — `soft_platform_settled_step_loc_4160` is a dead/test-only helper (logic inlined elsewhere)

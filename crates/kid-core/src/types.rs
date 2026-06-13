@@ -2320,10 +2320,8 @@ impl ActivePlatform {
 
         // ASM loc_23F2 (kid.asm:4269): add the current `$A/$E(a2)` velocities
         // into `2/6(a2)` before decrementing the command timer.
-        self.x_pos = (i64::from(self.x_pos) + i64::from(self.x_velocity))
-            .clamp(0, i64::from(u32::MAX)) as u32;
-        self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
-            .clamp(0, i64::from(u32::MAX)) as u32;
+        self.x_pos = self.x_pos.wrapping_add(self.x_velocity as u32);
+        self.y_pos = self.y_pos.wrapping_add(self.y_velocity as u32);
 
         // ASM loc_2422 (kid.asm:4290): when the timer expires, immediately load
         // the next duration and velocities into platform RAM for the following

@@ -13599,6 +13599,53 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_step_script_loc_23f2_wraps_position_like_add_l() {
+        use std::collections::BTreeMap;
+
+        let mut scripts = BTreeMap::new();
+        scripts.insert(
+            0x0000,
+            kid_data::PlatformScript {
+                commands: vec![kid_data::PlatformMoveCommand {
+                    duration: 2,
+                    x_velocity: 0x2_0000,
+                    y_velocity: -0x2_0000,
+                }],
+            },
+        );
+        let table = kid_data::PlatformScriptTable { scripts };
+
+        let mut platform = ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
+            x_pos: 0xFFFF_0000,
+            y_pos: 0x0001_0000,
+            width_px: 47,
+            height_px: 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            script: Some(PlatformScriptState {
+                script_offset: 0,
+                command_index: 0,
+                remaining_duration: 2,
+            }),
+            special: None,
+        };
+
+        platform.step_script(&table);
+
+        assert_eq!(
+            platform.x_pos, 0x0001_0000,
+            "ASM loc_23F2 (kid.asm:4282): `add.l d7,2(a2)` wraps 32-bit x_pos instead of clamping at u32::MAX",
+        );
+        assert_eq!(
+            platform.y_pos, 0xFFFF_0000,
+            "ASM loc_23F2 (kid.asm:4284): `add.l d7,6(a2)` wraps negative y velocity below zero instead of clamping",
+        );
+    }
+
+    #[test]
     fn platform_step_script_loc_2422_immediately_loads_the_next_velocity_on_expiry() {
         use std::collections::BTreeMap;
 
