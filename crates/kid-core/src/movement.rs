@@ -7793,7 +7793,6 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn grounded_surface_type_sub_8600(
     grid: &terrain::BlockGrid,
     player_x_px: i32,

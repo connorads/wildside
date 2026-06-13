@@ -18,7 +18,7 @@ Two findings are player-specific and do **not** fit that mould:
 |---|---|---|
 | Kid main object update (integrate + collision dispatch) | partial | 1 |
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
-| Ground walk/run horizontal acceleration | partial | 1 |
+| Ground walk/run horizontal acceleration | full | 0 |
 | Braking / skid / turn-around | full | 0 |
 | Duck / crawl (`MoveID_Crawling=1`) | partial | 1 |
 | Jump initiation (ground launch velocity) | partial | 1 |
@@ -26,7 +26,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
 | Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 1 |
-| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 4 |
+| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 3 |
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
 | Damage recoil / knockback & Berzerker charge | partial | 3 |
@@ -78,8 +78,8 @@ ROM negates `x_vel` on a charging side-contact only when bit 15 of the enemy `ob
 
 ### Low severity
 
-**Ground accel — stale `not(test)` dead_code attr on wired `grounded_surface_type_sub_8600`** *(hygiene → #209)* (`sub_8600`)
-Carries `#[cfg_attr(not(test), allow(dead_code))]` (`movement.rs:6355`) but has live callers (`movement.rs:4398-4399,5796-5797,5829-5830`; `boot.rs:6211`). Function itself faithful (incl. the `loc_8688` rubber-wins-ties quirk).
+**FIXED 2026-06-13 — Removed stale `not(test)` dead_code attr from wired `grounded_surface_type_sub_8600`** (`sub_8600`)
+`grounded_surface_type_sub_8600` is live-called from movement terrain refresh paths (`movement.rs:3142`, `5103`, `6837`, `6872`, `7026`, `7047`) and covered by the `sub_8600` rubber/ice regressions. The stale `#[cfg_attr(not(test), allow(dead_code))]` annotation has been removed; the function itself remains faithful, including the `loc_8688` rubber-wins-ties quirk.
 
 **Crawl — `KidGrabbedByHand` not checked in the entry gate** *(grab-flag theme)* (`loc_8C70` @kid.asm:10084)
 ROM skips crawl entry when held by a Hand; native gate (`lib.rs:2968-2974`) omits the flag, which is never surfaced to the player path. Narrow (the grab pins position).
@@ -102,8 +102,8 @@ ROM clears then re-checks `Addr_PlatformStandingOn` each climb iteration to tran
 **FIXED 2026-06-13 — Climb B-press jump-off honours `KidGrabbedByHand` weakening** (`loc_A426`→`sub_A432` `loc_A466` @kid.asm:12774-12805)
 Climb B-press now calls `initiate_jump_with_hand_grab(0, jump_height, slice.kid_grabbed_by_hand)` (`helmets.rs:5533-5540`), matching the ROM's jump through `sub_A432` before `loc_A466` stores y velocity. Regression `loc_A426_iron_knight_climb_b_press_honours_kid_grabbed_by_hand_loc_A466` proves the grabbed launch is exactly `$20000` weaker while the existing `iron_knight_b_press_*` tests preserve normal detachment and held-left momentum.
 
-**Climb — stale dead-code attr on wired `iron_knight_climb_visual_sub_A3BC`** *(hygiene → #209)* (`sub_A3BC` @kid.asm:12694-12717)
-`#[cfg_attr(not(test), allow(dead_code))]` (`helmets.rs:868-869`) but called live every climb frame (`helmets.rs:4813`). Accumulator math faithful; only the sprite-mapping output is unconsumed (likely why the attr was left on).
+**FIXED 2026-06-13 — `iron_knight_climb_visual_sub_A3BC` no longer carries stale dead-code attr** (`sub_A3BC` @kid.asm:12694-12717)
+The helper is live-called every climb frame from `step_iron_knight_climb` (`helmets.rs:5627`) and no longer carries `#[cfg_attr(not(test), allow(dead_code))]`. Existing regressions `iron_knight_climb_visual_sub_a3bc_wraps_negative_motion_to_top_pose` and `iron_knight_resume_climb_updates_sub_a3bc_pose_accumulator` cover the accumulator behaviour against ASM `sub_A3BC`.
 
 **Climb — airborne wall-attach is a native extension with no ROM entry** (`loc_7696` @kid.asm:7762-7769 is the sole `bra loc_A276`)
 The only ROM path into the wall-climb state is the grounded walk state; native additionally allows attach while airborne (`helmets.rs:4684-4698`), letting the Iron Knight grab a wall mid-jump where the ROM cannot. Over-permissive extension; grounded (common) case is faithful.
@@ -119,7 +119,7 @@ ROM tests left-first when facing right, so both-held → LEFT; native `next_faci
 
 ## Relationship to existing backlog
 
-- **Hygiene** (3 gaps: `grounded_surface_type_sub_8600`, `iron_knight_climb_visual_sub_A3BC`, `clear_special_movement_state_sub_DB22`) → fold into **#209** (strip stale `cfg_attr(not(test))` from wired helpers).
+- **Hygiene** (1 remaining gap: `clear_special_movement_state_sub_DB22`) → fold into **#209** (strip stale `cfg_attr(not(test))` from wired helpers).
 - **Platform carry** (2 gaps: X-axis re-collision, `y_pos` re-seat) → under **#208** (all platform physics unwired).
 - **Compound `$14/$18` corner** (the architectural pair) → relates to **#207** (generic collision primitives unwired).
 - **Wiring gaps** that change behaviour against the ROM need the **#205** object/enemy-active oracle harness to verify, *except* the **ice/rubber inversion**, which is a deterministic table-mapping bug fixable and verifiable now via a grounded-walk scenario.
