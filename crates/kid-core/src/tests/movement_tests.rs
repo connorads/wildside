@@ -25054,8 +25054,8 @@ mod chunk_12 {
         );
         assert_eq!(
             slice.teleporter_contact,
-            Some((2, 4)),
-            "sub_B43A loc_B522: stored telepad layout address maps back to the scanned cell",
+            Some(terrain::BlockList::level_layout_low_word_addr(2, 4, 8)),
+            "sub_B43A loc_B522 stores the activated Level_Layout low word for loc_BC80",
         );
     }
 

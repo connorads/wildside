@@ -5759,8 +5759,9 @@ impl OpeningSliceState {
                 continue;
             }
 
-            let cell_index = u32::from(probe_row) * u32::from(grid.width_cells) + u32::from(col);
-            let a0_after_cell_read = ((cell_index + 1) * 2) as u16;
+            let cell_layout_addr =
+                terrain::BlockList::level_layout_low_word_addr(col, probe_row, grid.width_cells);
+            let a0_after_cell_read = cell_layout_addr.wrapping_add(2);
             match telepad_countdown_loc_B522(self.telepad_timer, a0_after_cell_read) {
                 TelepadCountdownLocB522::FloorStillFound { next_timer } => {
                     self.telepad_timer = next_timer;
@@ -5768,12 +5769,9 @@ impl OpeningSliceState {
                 }
                 TelepadCountdownLocB522::Activated { layout_addr } => {
                     self.telepad_timer = 0;
-                    let activated_index = u32::from(layout_addr / 2);
-                    let activated_col = (activated_index % u32::from(grid.width_cells)) as u16;
-                    let activated_row = (activated_index / u32::from(grid.width_cells)) as u16;
-                    // ASM loc_B522 stores $FFFFFA86 for loc_BC80. Native's
-                    // teleporter adapter keys by the equivalent layout cell.
-                    self.teleporter_contact = Some((activated_col, activated_row));
+                    // ASM loc_B522 stores `$FFFFFA86` as the Level_Layout low
+                    // word consumed by loc_BC80/loc_BC96.
+                    self.teleporter_contact = Some(layout_addr);
                     return true;
                 }
             }

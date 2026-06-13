@@ -2061,7 +2061,7 @@ mod chunk_06 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: 0x1234,
                 col: 5,
                 row: 3,
                 dest_map_id: 2,
@@ -2114,18 +2114,21 @@ mod chunk_06 {
             hidden_blocks: vec![],
         };
 
-        // Second entry should match
-        let tp = bl.teleporter_at(7, 1).unwrap();
-        assert_eq!(tp.dest_map_id, 3, "should find second entry by (col,row)");
+        // Second entry should match the stored telepad address.
+        let tp = bl.teleporter_by_layout_addr_loc_BC96(0x2000).unwrap();
+        assert_eq!(
+            tp.dest_map_id, 3,
+            "should find second entry by layout address"
+        );
         assert_eq!(tp.dest_x, 15);
         assert_eq!(tp.dest_y, 6);
 
-        // Third entry
-        let tp = bl.teleporter_at(10, 9).unwrap();
+        // Third entry; loc_BC96 also accepts d6-2 for the left-adjacent telepad cell.
+        let tp = bl.teleporter_by_layout_addr_loc_BC96(0x3002).unwrap();
         assert_eq!(tp.dest_map_id, 1, "should find third entry");
 
-        // No match at unused position
-        assert!(bl.teleporter_at(99, 99).is_none());
+        // No match at an unused layout address.
+        assert!(bl.teleporter_by_layout_addr_loc_BC96(0x4000).is_none());
     }
 
     /// ASM loc_BCAC (kid.asm:15237): `jmp (j_loc_6E2)` — when the teleporter count
@@ -2207,7 +2210,7 @@ mod chunk_06 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: 0x1234,
                 col: 5,
                 row: 3,
                 dest_map_id: 0x2D, // MapOrder_Index[2], not logical LevelId(0x2D)
@@ -2221,7 +2224,7 @@ mod chunk_06 {
         // raw feet position must not bypass the 90-frame countdown.
         slice.player.x_pos = (5 * 16) << 16;
         slice.player.y_pos = (3 * 16) << 16;
-        slice.teleporter_contact = Some((5, 3));
+        slice.teleporter_contact = Some(0x1234);
 
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(
@@ -2241,7 +2244,7 @@ mod chunk_06 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: 0x1234,
                 col: 5,
                 row: 3,
                 dest_map_id: 7,
@@ -2278,7 +2281,7 @@ mod chunk_06 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: 0x1234,
                 col: 5,
                 row: 3,
                 dest_map_id: 0x2D, // Same logical level after loc_BCD6 scan.
@@ -2290,7 +2293,7 @@ mod chunk_06 {
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = (5 * 16) << 16;
         slice.player.y_pos = (3 * 16) << 16;
-        slice.teleporter_contact = Some((5, 3));
+        slice.teleporter_contact = Some(0x1234);
 
         let result = rt.check_teleporter_contact(&slice);
         assert_eq!(

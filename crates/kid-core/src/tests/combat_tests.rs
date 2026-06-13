@@ -1441,7 +1441,7 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
         prize_blocks: vec![],
         ghost_blocks: vec![],
         teleporters: vec![terrain::TeleporterEntry {
-            layout_addr: 0,
+            layout_addr: 0x1234,
             col: 5,
             row: 3,
             dest_map_id: 0x2D,
@@ -1452,7 +1452,7 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
     });
 
     let mut slice = combat_slice();
-    slice.teleporter_contact = Some((5, 3));
+    slice.teleporter_contact = Some(0x1234);
 
     assert!(
         runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
@@ -1486,7 +1486,7 @@ fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
         prize_blocks: vec![],
         ghost_blocks: vec![],
         teleporters: vec![terrain::TeleporterEntry {
-            layout_addr: 0,
+            layout_addr: 0x1234,
             col: 5,
             row: 3,
             dest_map_id: 0x2D,
@@ -1497,7 +1497,7 @@ fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
     });
 
     let mut slice = combat_slice();
-    slice.teleporter_contact = Some((5, 3));
+    slice.teleporter_contact = Some(0x1234);
 
     assert!(
         runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),

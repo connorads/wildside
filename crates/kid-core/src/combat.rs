@@ -9565,16 +9565,17 @@ impl NativeRuntime {
         if block_list.teleporters.is_empty() {
             return None;
         }
-        // ASM loc_B522 (kid.asm:14434) stores the activated telepad layout
-        // address in $FFFFFA86 only after Telepad_timer reaches zero. Native
-        // carries the equivalent cell in `teleporter_contact`; player feet
-        // position alone must not bypass the countdown.
-        let (col, row) = slice.teleporter_contact?;
+        // ASM loc_B522 (kid.asm:14434) stores the activated telepad
+        // Level_Layout low word in `$FFFFFA86` only after Telepad_timer reaches
+        // zero. Player feet position alone must not bypass the countdown.
+        let layout_addr = slice.teleporter_contact?;
 
-        block_list.teleporter_at(col, row).and_then(|t| {
-            self.teleporter_dest_level_loc_bcd6(t.dest_map_id)
-                .map(|level_id| (level_id.0, t.dest_x, t.dest_y))
-        })
+        block_list
+            .teleporter_by_layout_addr_loc_BC96(layout_addr)
+            .and_then(|t| {
+                self.teleporter_dest_level_loc_bcd6(t.dest_map_id)
+                    .map(|level_id| (level_id.0, t.dest_x, t.dest_y))
+            })
     }
 
     pub(crate) fn queue_form_change(&mut self, form: PlayerForm) {

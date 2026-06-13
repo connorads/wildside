@@ -861,17 +861,29 @@ impl BlockList {
 
     /// Look up a teleporter at a given cell position.
     ///
-    /// ASM loc_BC96 (kid.asm:15228): scan loop `move.w (a4),d4; cmp.w d4,d6;
-    /// beq loc_BCB2; addi.w #$A,a4; dbf d7,loc_BC96`. The ROM matches by
-    /// layout_addr (d6 = $FFFFFA86 telepad address, also d5 = d6-2 for the
-    /// adjacent cell). Native matches by (col, row) which is equivalent since
-    /// each block-list entry uniquely maps layout_addr ↔ (col, row).
-    /// No match → loc_BCAC: `jmp (j_loc_6E2)` (lose life — unreachable in
-    /// practice since the telepad entry was placed by the level designer).
+    /// This is a convenience for tools/tests that inspect generated metadata.
+    /// Gameplay uses `teleporter_by_layout_addr_loc_BC96`, because ASM loc_BC96
+    /// matches the `$FFFFFA86` layout address rather than player feet `(col,row)`.
     pub fn teleporter_at(&self, col: u16, row: u16) -> Option<&TeleporterEntry> {
         self.teleporters
             .iter()
             .find(|entry| entry.col == col && entry.row == row)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn teleporter_by_layout_addr_loc_BC96(
+        &self,
+        telepad_layout_addr: u16,
+    ) -> Option<&TeleporterEntry> {
+        // ASM loc_BC80/loc_BC96 (kid.asm:15219-15235): d6 is the
+        // `$FFFFFA86` telepad address written by loc_B522, while d5 is d6-2.
+        // The destination table matches either address against each entry's
+        // first word before reading destination map/Y/X from offsets +6/+8.
+        let adjacent_left_layout_addr = telepad_layout_addr.wrapping_sub(2);
+        self.teleporters.iter().find(|entry| {
+            entry.layout_addr == telepad_layout_addr
+                || entry.layout_addr == adjacent_left_layout_addr
+        })
     }
 
     /// Look up a hidden block at a given cell position.

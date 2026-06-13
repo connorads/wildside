@@ -2859,8 +2859,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) ice_block_hit: Option<(u16, u16, u16)>,
     /// Shooter block headbutted this frame — (cell_x, cell_y).
     pub(crate) shooter_block_hit: Option<(u16, u16)>,
-    /// Teleporter block contacted this frame — (cell_x, cell_y).
-    pub(crate) teleporter_contact: Option<(u16, u16)>,
+    /// Teleporter block activated this frame — ASM `$FFFFFA86` Level_Layout low word.
+    pub(crate) teleporter_contact: Option<u16>,
     /// ASM `Telepad_timer` ($FFFFFA84): countdown before a telepad floor activates.
     pub(crate) telepad_timer: u16,
     /// ASM loc_8E06 runs the sub_B43A walking support scan at the START of

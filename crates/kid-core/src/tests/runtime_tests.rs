@@ -8341,7 +8341,7 @@ mod chunk_09 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: 0x1234,
                 col: 5,
                 row: 3,
                 dest_map_id: 0,
@@ -8355,7 +8355,7 @@ mod chunk_09 {
         slice.player.y_pos = 200 << 16;
         slice.player.y_velocity = -0x2_0000;
         slice.player.on_ground = false;
-        slice.teleporter_contact = Some((5, 3));
+        slice.teleporter_contact = Some(0x1234);
 
         rt.process_block_effects(&mut slice);
 
@@ -8386,7 +8386,7 @@ mod chunk_09 {
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
         slice.player.y_pos = 200 << 16;
-        slice.teleporter_contact = Some((5, 3));
+        slice.teleporter_contact = Some(0x1234);
 
         rt.process_block_effects(&mut slice);
 
@@ -8410,7 +8410,7 @@ mod chunk_09 {
             prize_blocks: vec![],
             ghost_blocks: vec![],
             teleporters: vec![terrain::TeleporterEntry {
-                layout_addr: 0x0000,
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(2, 4, 8),
                 col: 2,
                 row: 4,
                 dest_map_id: 0,
