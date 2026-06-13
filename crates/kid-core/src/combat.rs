@@ -10989,6 +10989,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x12 } => lion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x14 } => spinning_twins_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x17 } => hand_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x19 } => fireball_contact_bounds(enemy),
         NativeObjectKind::Enemy {
             object_type: 0x0A | 0x0B,
@@ -11043,6 +11044,14 @@ fn archer_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // through GfxObjects_CollisionKid loc_1BCE to the zero row `unk_314CE`.
     // Fired arrows are separate projectile workers in native, so the archer
     // body itself keeps the ROM's empty contact row.
+    empty_enemy_contact_bounds()
+}
+
+fn hand_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Hand.asm walk/jump/grab/hibernation frames `LnkTo_unk_C79AE..C7A16`
+    // route through GfxObjects_CollisionKid loc_1BCE to zero rows
+    // `unk_31D58`/`unk_31D5A`. Hand-specific collision and grabbing are handled
+    // by Hand.asm loc_3299C/loc_329F8/loc_32A86, not ordinary body damage.
     empty_enemy_contact_bounds()
 }
 

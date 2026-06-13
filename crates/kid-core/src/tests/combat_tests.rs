@@ -236,6 +236,35 @@ fn archer_body_contact_uses_rom_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn hand_body_contact_uses_rom_zero_collision_size_rows_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let hand = test_enemy(EnemyFamily::Hand, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&hand.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Hand.asm walk/jump/grab frames LnkTo_unk_C79AE..C7A16 index zero CollisionSize rows unk_31D58/unk_31D5A through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &hand.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the ROM Hand body uses empty CollisionSize rows; Hand.asm loc_329F8/loc_32A86 handles grab-specific collision separately"
+    );
+}
+
+#[test]
 fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
