@@ -18471,7 +18471,7 @@ impl NativeRuntime {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             let mut grid = grid;
             let width = grid.width_cells;
-            let block_list = self.load_block_list_for_level(level_id, width);
+            let block_list = self.load_block_list_for_level(level_id, width, &grid);
             if let Some(block_list) = block_list.as_ref() {
                 reconcile_prize_block_cells_loc_123DC(&mut grid, block_list);
             }
@@ -18707,6 +18707,7 @@ impl NativeRuntime {
         &self,
         level_id: LevelId,
         layout_width: u16,
+        grid: &terrain::BlockGrid,
     ) -> Option<terrain::BlockList> {
         let layout_dir = self.assets.output_root.join("level-layout");
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
@@ -18717,7 +18718,11 @@ impl NativeRuntime {
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
         let data = fs::read(path).ok()?;
-        Some(terrain::BlockList::from_raw(&data, layout_width))
+        Some(terrain::BlockList::from_raw_with_level_layout(
+            &data,
+            layout_width,
+            grid,
+        ))
     }
 
     pub(crate) fn level_respawn_slice(&self, level_id: LevelId) -> OpeningSliceState {

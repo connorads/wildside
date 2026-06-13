@@ -682,7 +682,15 @@ impl BlockList {
     ///
     /// Prize entries are 8 bytes each at the start of the block list.
     /// A zero Level_Layout RAM address in bytes 0-1 ends the prize section.
-    pub fn from_raw(data: &[u8], _layout_width: u16) -> Self {
+    pub fn from_raw(data: &[u8], layout_width: u16) -> Self {
+        Self::from_raw_with_grid(data, layout_width, None)
+    }
+
+    pub fn from_raw_with_level_layout(data: &[u8], layout_width: u16, grid: &BlockGrid) -> Self {
+        Self::from_raw_with_grid(data, layout_width, Some(grid))
+    }
+
+    fn from_raw_with_grid(data: &[u8], layout_width: u16, grid: Option<&BlockGrid>) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
         let enforce_level_layout_addr_bounds = data
@@ -734,6 +742,9 @@ impl BlockList {
                 offset = offset.saturating_add(GHOST_BLOCK_RECORD_BYTES);
                 break;
             }
+            if enforce_level_layout_addr_bounds && !is_level_layout_low_word_addr(layout_addr) {
+                break;
+            }
             let col = u16::from_be_bytes([data[offset + 10], data[offset + 11]]);
             let row = u16::from_be_bytes([data[offset + 12], data[offset + 13]]);
             let count = (data[offset + 14] & 0x0F) + 1;
@@ -767,6 +778,17 @@ impl BlockList {
             let dest_map_id = data[offset + 6];
             let dest_y = data[offset + 7];
             let dest_x = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
+            if enforce_level_layout_addr_bounds
+                && (!is_level_layout_low_word_addr(layout_addr)
+                    || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
+                    || grid
+                        .map(|grid| grid.cell_at(col, row).block_type != BlockType::Teleporter)
+                        .unwrap_or(false)
+                    || is_level_layout_low_word_addr(dest_x)
+                    || dest_x > 0x03FF)
+            {
+                break;
+            }
 
             teleporters.push(TeleporterEntry {
                 layout_addr,
@@ -780,9 +802,12 @@ impl BlockList {
         }
 
         // Hidden block entries follow teleporters (8 bytes each).
-        // Skip past teleporter terminator (2 zero bytes).
-        if offset + 2 <= data.len() {
-            offset += 2; // skip teleporter terminator
+        // Skip past teleporter terminator (2 zero bytes) when a ROM/raw fixture
+        // includes one. Generated RAM dumps are count-bounded by ASM loc_11CE0
+        // and can place the hidden section immediately after the final
+        // teleporter record.
+        if offset + 2 <= data.len() && u16::from_be_bytes([data[offset], data[offset + 1]]) == 0 {
+            offset += 2;
         }
         let mut hidden_blocks = Vec::new();
         while offset + HIDDEN_BLOCK_RECORD_BYTES <= data.len() {
@@ -5049,6 +5074,58 @@ mod tests {
         assert_eq!(bl.teleporters[1].dest_map_id, 9);
         assert_eq!(bl.teleporters[1].dest_y, 10);
         assert_eq!(bl.teleporters[1].dest_x, 0x0B0C);
+    }
+
+    #[test]
+    fn block_list_from_raw_generated_ram_dump_keeps_count_bounded_teleporter_before_hidden() {
+        // ASM loc_11CE0 bounds the teleporter section by `$FFFFF8DE * $A`, so
+        // generated RAM dumps do not need a zero teleporter terminator before
+        // ASM loc_11CF6's hidden-block section. Level 0x01 has this exact
+        // shape: one visible telepad at (156,36) immediately followed by
+        // hidden entries.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0xD4, 0x8A, // teleporter layout_addr for col 156,row 36 at width 160
+            0x00, 0x9C, // col
+            0x00, 0x24, // row
+            0x4B, // dest_map_id
+            0x09, // dest_y
+            0x00, 0x1C, // dest_x
+        ]);
+        data.extend_from_slice(&[
+            0xA6, 0x5A, // hidden layout_addr for col 4,row 0
+            0x00, 0x04, // col
+            0x00, 0x00, // row
+            0x0A, // hidden block type
+            0x02, // hidden block setting
+        ]);
+        data.extend_from_slice(&[0x00, 0x00]); // hidden terminator
+
+        let mut layout = vec![0u8; 160 * 40 * 2];
+        let teleporter_offset = ((36 * 160) + 156) * 2;
+        layout[teleporter_offset] = 0xE4;
+        layout[teleporter_offset + 1] = 0x07;
+        let hidden_offset = 4 * 2;
+        layout[hidden_offset] = 0xA0;
+        layout[hidden_offset + 1] = 0x02;
+        let grid = BlockGrid::from_level_layout(&layout, 160, 40);
+
+        let bl = BlockList::from_raw_with_level_layout(&data, 160, &grid);
+
+        assert_eq!(bl.ghost_blocks.len(), 0);
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].layout_addr, 0xD48A);
+        assert_eq!(bl.teleporters[0].col, 156);
+        assert_eq!(bl.teleporters[0].row, 36);
+        assert_eq!(bl.teleporters[0].dest_map_id, 0x4B);
+        assert_eq!(bl.teleporters[0].dest_y, 9);
+        assert_eq!(bl.teleporters[0].dest_x, 28);
+        assert_eq!(bl.hidden_blocks.len(), 1);
+        assert_eq!(bl.hidden_blocks[0].layout_addr, 0xA65A);
+        assert_eq!(bl.hidden_blocks[0].col, 4);
+        assert_eq!(bl.hidden_blocks[0].row, 0);
+        assert_eq!(bl.hidden_blocks[0].block_type, 0x0A);
+        assert_eq!(bl.hidden_blocks[0].block_setting, 0x02);
     }
 
     #[test]

@@ -146,9 +146,15 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
             println!("{line}");
         }
     }
-    if let Some(block_list) =
-        load_inspect_block_list(manifest, level_id, effective_resource_level_id, &bundle)
-    {
+    let block_grid =
+        load_inspect_block_grid(manifest, level_id, effective_resource_level_id, &bundle);
+    if let Some(block_list) = load_inspect_block_list(
+        manifest,
+        level_id,
+        effective_resource_level_id,
+        &bundle,
+        block_grid.as_ref(),
+    ) {
         for line in describe_block_list(&block_list) {
             println!("{line}");
         }
@@ -163,11 +169,37 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
     Ok(())
 }
 
+fn load_inspect_block_grid(
+    manifest: &AssetManifest,
+    level_id: u8,
+    effective_resource_level_id: u8,
+    bundle: &kid_data::LevelAssetBundle,
+) -> Option<terrain::BlockGrid> {
+    let layout_dir = manifest.output_root.join("level-layout");
+    let logical_path = layout_dir.join(format!("{level_id:02X}.bin"));
+    let path = if logical_path.is_file() {
+        logical_path
+    } else {
+        let fallback_path = layout_dir.join(format!("{effective_resource_level_id:02X}.bin"));
+        if !fallback_path.is_file() {
+            return None;
+        }
+        fallback_path
+    };
+    let bytes = std::fs::read(path).ok()?;
+    let header = bundle.parsed_header.as_ref()?;
+    // ASM Load_LevelData loc_15A0: Level_width_blocks = width_screens * 20.
+    let width = u16::from(header.width_screens) * 20;
+    let height = (bytes.len() / 2 / usize::from(width)).max(1) as u16;
+    Some(terrain::BlockGrid::from_level_layout(&bytes, width, height))
+}
+
 fn load_inspect_block_list(
     manifest: &AssetManifest,
     level_id: u8,
     effective_resource_level_id: u8,
     bundle: &kid_data::LevelAssetBundle,
+    grid: Option<&terrain::BlockGrid>,
 ) -> Option<terrain::BlockList> {
     let layout_dir = manifest.output_root.join("level-layout");
     let logical_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
@@ -186,8 +218,12 @@ fn load_inspect_block_list(
         let layout_width = bundle
             .parsed_header
             .as_ref()
-            .map_or(256, |header| u16::from(header.width_screens) * 40);
-        terrain::BlockList::from_raw(&bytes, layout_width)
+            .map_or(256, |header| u16::from(header.width_screens) * 20);
+        if let Some(grid) = grid {
+            terrain::BlockList::from_raw_with_level_layout(&bytes, layout_width, grid)
+        } else {
+            terrain::BlockList::from_raw(&bytes, layout_width)
+        }
     })
 }
 
@@ -229,6 +265,18 @@ fn describe_block_list(block_list: &terrain::BlockList) -> Vec<String> {
             prize.content.to_id(),
             if prize.disguised { " disguised" } else { "" },
             prize.layout_addr,
+        ));
+    }
+
+    for (index, teleporter) in block_list.teleporters.iter().enumerate() {
+        lines.push(format!(
+            "teleporter {index:02}: col {}, row {}, dest map 0x{:02X}, dest {},{} layout 0x{:04X}",
+            teleporter.col,
+            teleporter.row,
+            teleporter.dest_map_id,
+            teleporter.dest_x,
+            teleporter.dest_y,
+            teleporter.layout_addr,
         ));
     }
 
@@ -2124,6 +2172,36 @@ mod tests {
     }
 
     #[test]
+    fn generated_level_01_block_list_reports_teleporter_entry() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let bundle =
+            kid_data::load_level_asset_bundle(&manifest, 0x01).expect("load level 0x01 bundle");
+        let resource_level = resource_level_id(&manifest, 0x01);
+        let grid = load_inspect_block_grid(&manifest, 0x01, resource_level, &bundle)
+            .expect("level 0x01 generated layout grid");
+        let block_list =
+            load_inspect_block_list(&manifest, 0x01, resource_level, &bundle, Some(&grid))
+                .expect("level 0x01 generated block list");
+
+        assert_eq!(block_list.teleporters.len(), 1);
+        let teleporter = &block_list.teleporters[0];
+        assert_eq!(teleporter.layout_addr, 0xD48A);
+        assert_eq!(teleporter.col, 156);
+        assert_eq!(teleporter.row, 36);
+        assert_eq!(teleporter.dest_map_id, 0x4B);
+        assert_eq!(teleporter.dest_x, 28);
+        assert_eq!(teleporter.dest_y, 9);
+        assert!(
+            describe_block_list(&block_list).iter().any(|line| {
+                line == "teleporter 00: col 156, row 36, dest map 0x4B, dest 28,9 layout 0xD48A"
+            }),
+            "inspect-level should print the teleporter destination, not just the count",
+        );
+    }
+
+    #[test]
     fn generated_later_level_block_lists_include_helmet_prize_entries() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -2141,6 +2219,7 @@ mod tests {
                 level_id,
                 resource_level_id(&manifest, level_id),
                 &bundle,
+                None,
             )
             .unwrap_or_else(|| panic!("load level 0x{level_id:02X} block list"));
 
