@@ -262,7 +262,14 @@ and stop — never commit churn.
   left/B+Left windows either keep the same manhattan-19 miss or collapse back
   to the old floor pass. Treat this as another route-shape near-miss, not
   metal-block proof, and do not repeat the `170..260 B+Left` plus `500..620
-  Left/B+Left` brake axis unchanged.
+  Left/B+Left` brake axis unchanged. 2026-06-13 follow-up: `kidcli` now accepts
+  `--target-cell col,row` for single and batch probe scoring, so #260 route
+  search can rank actual 16x16 centre-`EC2D` block-cell contact instead of a
+  guessed point. On `issue_260_drips_drop_contact_probe_01`, scoped to
+  `--frame-start 520`, the current route remains 32px below left cell `28,32`
+  and 157px away from right cell `36,32`; a small baseline/late-B/late-BR batch
+  all tied at the same 32px left-cell miss. Do not re-run those unchanged late
+  variants as metal-block proof.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

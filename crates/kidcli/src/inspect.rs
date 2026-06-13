@@ -461,6 +461,12 @@ pub(crate) struct TargetPoint {
     pub(crate) y_px: i64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TargetCell {
+    pub(crate) col: i64,
+    pub(crate) row: i64,
+}
+
 pub(crate) fn parse_target_point(value: &str) -> Result<TargetPoint> {
     let (x, y) = value
         .split_once(',')
@@ -474,6 +480,21 @@ pub(crate) fn parse_target_point(value: &str) -> Result<TargetPoint> {
         .parse::<i64>()
         .with_context(|| format!("target point y must be a signed pixel integer, got {y}"))?;
     Ok(TargetPoint { x_px, y_px })
+}
+
+pub(crate) fn parse_target_cell(value: &str) -> Result<TargetCell> {
+    let (col, row) = value
+        .split_once(',')
+        .ok_or_else(|| anyhow!("target cell must be formatted as col,row, got {value}"))?;
+    let col = col
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("target cell col must be a signed integer, got {col}"))?;
+    let row = row
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("target cell row must be a signed integer, got {row}"))?;
+    Ok(TargetCell { col, row })
 }
 
 pub(crate) fn inspect_enemy(manifest: &AssetManifest, selector: &str) -> Result<()> {
@@ -1038,6 +1059,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_projectile: Option<ActiveProjectileKind>,
     player_motion: bool,
     target_points: &[TargetPoint],
+    target_cells: &[TargetCell],
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -1096,8 +1118,18 @@ pub(crate) fn probe_dynamic_record_scenario(
     if player_motion {
         println!("{}", describe_player_motion(&trace));
     }
+    let target_frame_start = frame_start.unwrap_or(0);
     for target_point in target_points {
-        println!("{}", describe_target_point_approach(&trace, *target_point));
+        println!(
+            "{}",
+            describe_target_point_approach_from_frame(&trace, *target_point, target_frame_start)
+        );
+    }
+    for target_cell in target_cells {
+        println!(
+            "{}",
+            describe_target_cell_approach_from_frame(&trace, *target_cell, target_frame_start)
+        );
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -1676,12 +1708,14 @@ pub(crate) struct TargetPointApproach {
     pub(crate) manhattan_px: i64,
 }
 
-pub(crate) fn target_point_approach(
-    trace: &[NativeTraceFrame],
-    target_point: TargetPoint,
-    require_healthy_kid: bool,
-) -> Option<TargetPointApproach> {
-    target_point_approach_from_frame(trace, target_point, require_healthy_kid, 0)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetCellApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) kid_x: u32,
+    pub(crate) kid_y: u32,
+    pub(crate) dx_px: i64,
+    pub(crate) dy_px: i64,
+    pub(crate) manhattan_px: i64,
 }
 
 pub(crate) fn target_point_approach_from_frame(
@@ -1729,17 +1763,117 @@ pub(crate) fn target_point_approach_from_frame(
     closest
 }
 
-pub(crate) fn describe_target_point_approach(
+fn axis_distance_to_closed_range(value: i64, min: i64, max: i64) -> i64 {
+    if value < min {
+        min - value
+    } else if value > max {
+        max - value
+    } else {
+        0
+    }
+}
+
+pub(crate) fn target_cell_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    target_cell: TargetCell,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetCellApproach> {
+    let left_px = target_cell.col << 4;
+    let right_px = left_px + 15;
+    let top_px = target_cell.row << 4;
+    let bottom_px = top_px + 15;
+    let mut closest: Option<TargetCellApproach> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        if require_healthy_kid && (frame.number_hitpoints == 0 || frame.death_windup_elapsed > 0) {
+            continue;
+        }
+        let (Some(kid_x), Some(kid_y)) = (frame.kid_x_pos, frame.kid_y_pos) else {
+            continue;
+        };
+        let kid_x_px = i64::from(kid_x) >> 16;
+        let kid_y_px = i64::from(kid_y) >> 16;
+        let dx_px = axis_distance_to_closed_range(kid_x_px, left_px, right_px);
+        let dy_px = axis_distance_to_closed_range(kid_y_px, top_px, bottom_px);
+        let candidate = TargetCellApproach {
+            replay_frame,
+            kid_x,
+            kid_y,
+            dx_px,
+            dy_px,
+            manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+        };
+        match &closest {
+            Some(existing)
+                if existing.manhattan_px < candidate.manhattan_px
+                    || (existing.manhattan_px == candidate.manhattan_px
+                        && existing.replay_frame <= candidate.replay_frame) => {}
+            _ => closest = Some(candidate),
+        }
+    }
+
+    closest
+}
+
+pub(crate) fn describe_target_cell_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> String {
+    let Some(approach) = target_cell_approach_from_frame(trace, target_cell, false, frame_start)
+    else {
+        return format!(
+            "target cell {},{}: absent",
+            target_cell.col, target_cell.row
+        );
+    };
+    let healthy = target_cell_approach_from_frame(trace, target_cell, true, frame_start)
+        .map(|healthy| {
+            format!(
+                "; closest healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
+                healthy.dx_px,
+                healthy.dy_px,
+                healthy.manhattan_px,
+                healthy.replay_frame,
+                healthy.kid_x,
+                healthy.kid_y,
+            )
+        })
+        .unwrap_or_else(|| String::from("; closest healthy kid <none>"));
+    format!(
+        "target cell {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
+        target_cell.col,
+        target_cell.row,
+        approach.dx_px,
+        approach.dy_px,
+        approach.manhattan_px,
+        approach.replay_frame,
+        approach.kid_x,
+        approach.kid_y,
+        healthy
+    )
+}
+
+pub(crate) fn describe_target_point_approach_from_frame(
     trace: &[NativeTraceFrame],
     target_point: TargetPoint,
+    frame_start: usize,
 ) -> String {
-    let Some(approach) = target_point_approach(trace, target_point, false) else {
+    let Some(approach) = target_point_approach_from_frame(trace, target_point, false, frame_start)
+    else {
         return format!(
             "target point {},{}: absent",
             target_point.x_px, target_point.y_px
         );
     };
-    let healthy = target_point_approach(trace, target_point, true)
+    let healthy = target_point_approach_from_frame(trace, target_point, true, frame_start)
         .map(|healthy| {
             format!(
                 "; closest healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
@@ -2573,7 +2707,11 @@ mod tests {
         ];
 
         assert_eq!(
-            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            describe_target_point_approach_from_frame(
+                &trace,
+                TargetPoint { x_px: 32, y_px: 64 },
+                0
+            ),
             "target point 32,64: closest kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000; closest healthy kid dx_px -1 dy_px +1 manhattan_px 2 @2 kid 00210000,003F0000"
         );
     }
@@ -2589,7 +2727,11 @@ mod tests {
         trace[1].death_windup_elapsed = 3;
 
         assert_eq!(
-            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            describe_target_point_approach_from_frame(
+                &trace,
+                TargetPoint { x_px: 32, y_px: 64 },
+                0
+            ),
             "target point 32,64: closest kid dx_px +0 dy_px +0 manhattan_px 0 @1 kid 00200000,00400000; closest healthy kid dx_px -4 dy_px +1 manhattan_px 5 @2 kid 00240000,003F0000"
         );
     }
@@ -2616,6 +2758,70 @@ mod tests {
     }
 
     #[test]
+    fn target_cell_parser_accepts_col_row_cells() {
+        assert_eq!(
+            parse_target_cell("28,32").expect("target cell should parse"),
+            TargetCell { col: 28, row: 32 }
+        );
+        assert!(
+            parse_target_cell("28").is_err(),
+            "cell probes must specify both column and row"
+        );
+    }
+
+    #[test]
+    fn target_cell_approach_scores_distance_to_cell_rectangle() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x01B0_0000), Some(0x0200_0000)),
+            player_frame(11, GameMode::InGame, Some(0x01C8_0000), Some(0x0208_0000)),
+            player_frame(12, GameMode::InGame, Some(0x01BF_0000), Some(0x01FF_0000)),
+        ];
+
+        assert_eq!(
+            target_cell_approach_from_frame(&trace, TargetCell { col: 28, row: 32 }, true, 0),
+            Some(TargetCellApproach {
+                replay_frame: 1,
+                kid_x: 0x01C8_0000,
+                kid_y: 0x0208_0000,
+                dx_px: 0,
+                dy_px: 0,
+                manhattan_px: 0,
+            }),
+            "cell scoring should treat any Kid position inside the 16x16 target cell as contact"
+        );
+    }
+
+    #[test]
+    fn target_cell_approach_reports_closest_healthy_position_separately() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x01C0_0000), Some(0x0200_0000)),
+            player_frame(11, GameMode::InGame, Some(0x01C8_0000), Some(0x0208_0000)),
+            player_frame(12, GameMode::InGame, Some(0x01E0_0000), Some(0x020F_0000)),
+        ];
+        trace[1].number_hitpoints = 0;
+        trace[1].death_windup_elapsed = 3;
+
+        assert_eq!(
+            describe_target_cell_approach_from_frame(&trace, TargetCell { col: 28, row: 32 }, 0),
+            "target cell 28,32: closest kid dx_px +0 dy_px +0 manhattan_px 0 @0 kid 01C00000,02000000; closest healthy kid dx_px +0 dy_px +0 manhattan_px 0 @0 kid 01C00000,02000000"
+        );
+    }
+
+    #[test]
+    fn target_cell_approach_from_frame_ignores_early_cell_contact() {
+        let trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x01C0_0000), Some(0x0200_0000)),
+            player_frame(11, GameMode::InGame, Some(0x01B0_0000), Some(0x01F0_0000)),
+            player_frame(12, GameMode::InGame, Some(0x01C8_0000), Some(0x01F8_0000)),
+        ];
+
+        assert_eq!(
+            describe_target_cell_approach_from_frame(&trace, TargetCell { col: 28, row: 32 }, 1),
+            "target cell 28,32: closest kid dx_px +0 dy_px +8 manhattan_px 8 @2 kid 01C80000,01F80000; closest healthy kid dx_px +0 dy_px +8 manhattan_px 8 @2 kid 01C80000,01F80000"
+        );
+    }
+
+    #[test]
     fn target_point_approach_reports_absent_without_live_player_position() {
         let trace = vec![player_frame(
             10,
@@ -2625,7 +2831,11 @@ mod tests {
         )];
 
         assert_eq!(
-            describe_target_point_approach(&trace, TargetPoint { x_px: 32, y_px: 64 }),
+            describe_target_point_approach_from_frame(
+                &trace,
+                TargetPoint { x_px: 32, y_px: 64 },
+                0
+            ),
             "target point 32,64: absent"
         );
     }
