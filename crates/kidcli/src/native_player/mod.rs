@@ -2715,6 +2715,7 @@ mod tests {
             prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
+            heady_metal_death_splits: Vec::new(),
             stomped_this_frame: false,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,

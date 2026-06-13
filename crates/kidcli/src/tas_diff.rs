@@ -1088,6 +1088,7 @@ mod tests {
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             enemy_death_effects: Vec::new(),
+            heady_metal_death_splits: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,

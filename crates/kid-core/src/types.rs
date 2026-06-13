@@ -1345,6 +1345,9 @@ pub struct NativeTraceFrame {
     pub floating_items: Vec<(u16, u16, u16, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u16)>,
+    /// HeadyMetal death split impulses from ASM `sub_378C8 loc_378D6`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heady_metal_death_splits: Vec<HeadyMetalDeathSplitTrace>,
     /// Death windup elapsed frames (0=not dying). Used by renderer for tumble animation.
     #[serde(default)]
     pub death_windup_elapsed: u16,
@@ -1521,6 +1524,7 @@ impl Default for NativeTraceFrame {
             prize_block_spawn_flashes: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
+            heady_metal_death_splits: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             stomped_this_frame: false,
@@ -1736,6 +1740,27 @@ pub(crate) struct EnemyDeathEffect {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
     pub(crate) remaining: u16,
+    pub(crate) heady_metal_split: Option<HeadyMetalDeathEffectSplit>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalDeathEffectSplit {
+    pub(crate) current_x_velocity_delta: i32,
+    pub(crate) left_worker_x_velocity_delta: i32,
+    pub(crate) centre_worker_y_velocity_delta: i32,
+    pub(crate) centre_worker_sprite_label: Option<&'static str>,
+    pub(crate) right_worker_x_velocity_delta: i32,
+    pub(crate) far_right_worker_x_velocity_delta: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeadyMetalDeathSplitTrace {
+    pub current_x_velocity_delta: i32,
+    pub left_worker_x_velocity_delta: i32,
+    pub centre_worker_y_velocity_delta: i32,
+    pub centre_worker_sprite_label: Option<String>,
+    pub right_worker_x_velocity_delta: i32,
+    pub far_right_worker_x_velocity_delta: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

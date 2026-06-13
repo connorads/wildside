@@ -10884,6 +10884,7 @@ mod chunk_09 {
             x_pos: 100,
             y_pos: 200,
             remaining: 1,
+            heady_metal_split: None,
         });
 
         rt.step_visual_effects();

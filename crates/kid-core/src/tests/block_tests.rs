@@ -8644,6 +8644,30 @@ mod chunk_04 {
             HEADYMETAL_DEATH_EFFECT_FRAMES
         );
         assert_eq!(
+            runtime.enemy_death_effects[0].heady_metal_split,
+            Some(HeadyMetalDeathEffectSplit {
+                current_x_velocity_delta: -0x0002_6D18,
+                left_worker_x_velocity_delta: 0x0002_6D18,
+                centre_worker_y_velocity_delta: 0x0001_3880,
+                centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index"),
+                right_worker_x_velocity_delta: -0x0002_6D18,
+                far_right_worker_x_velocity_delta: 0x0002_6D18,
+            }),
+            "ASM sub_378C8 loc_378D6 applies these per-worker split impulses before loc_37922 deletes the cached HeadyMetal workers"
+        );
+        assert_eq!(
+            runtime.trace_frame().heady_metal_death_splits,
+            vec![HeadyMetalDeathSplitTrace {
+                current_x_velocity_delta: -0x0002_6D18,
+                left_worker_x_velocity_delta: 0x0002_6D18,
+                centre_worker_y_velocity_delta: 0x0001_3880,
+                centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index".to_owned()),
+                right_worker_x_velocity_delta: -0x0002_6D18,
+                far_right_worker_x_velocity_delta: 0x0002_6D18,
+            }],
+            "trace_frame should expose the live HeadyMetal sub_378C8 split impulse for oracle/debug comparisons"
+        );
+        assert_eq!(
             runtime.played_sound_effects,
             vec![QueuedSoundEffect::BossDies],
             "ASM HeadyMetal sub_378C8 loc_378D6 plays `sfx_Boss_dies` as the breakup pieces scatter"

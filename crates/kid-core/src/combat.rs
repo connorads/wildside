@@ -8253,13 +8253,25 @@ impl NativeRuntime {
         if !matches!(family, EnemyFamily::HeadyMetal) {
             return;
         }
-        // ASM sub_378C8 loc_378D6: the HeadyMetal breakup split impulse plays
-        // `sfx_Boss_dies` while the five worker pieces scatter.
-        self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+        let cleanup = heady_metal_cleanup_sub_378C8(false, HEADYMETAL_DEATH_EFFECT_FRAMES);
+        if cleanup.played_sound_effect == Some("sfx_Boss_dies") {
+            self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+        }
         self.enemy_death_effects.push(EnemyDeathEffect {
             x_pos,
             y_pos,
             remaining: HEADYMETAL_DEATH_EFFECT_FRAMES,
+            // ASM sub_378C8 loc_378D6: cache the split impulse applied to the
+            // five HeadyMetal breakup workers while the boss-death shell is
+            // still represented natively as one visual effect.
+            heady_metal_split: Some(HeadyMetalDeathEffectSplit {
+                current_x_velocity_delta: cleanup.current_x_velocity_delta,
+                left_worker_x_velocity_delta: cleanup.left_worker_x_velocity_delta,
+                centre_worker_y_velocity_delta: cleanup.centre_worker_y_velocity_delta,
+                centre_worker_sprite_label: cleanup.centre_worker_sprite_label,
+                right_worker_x_velocity_delta: cleanup.right_worker_x_velocity_delta,
+                far_right_worker_x_velocity_delta: cleanup.far_right_worker_x_velocity_delta,
+            }),
         });
     }
 

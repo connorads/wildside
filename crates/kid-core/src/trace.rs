@@ -6748,6 +6748,23 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_pos, e.y_pos, e.remaining))
                 .collect(),
+            heady_metal_death_splits: self
+                .enemy_death_effects
+                .iter()
+                .filter_map(|effect| {
+                    let split = effect.heady_metal_split?;
+                    Some(HeadyMetalDeathSplitTrace {
+                        current_x_velocity_delta: split.current_x_velocity_delta,
+                        left_worker_x_velocity_delta: split.left_worker_x_velocity_delta,
+                        centre_worker_y_velocity_delta: split.centre_worker_y_velocity_delta,
+                        centre_worker_sprite_label: split
+                            .centre_worker_sprite_label
+                            .map(str::to_owned),
+                        right_worker_x_velocity_delta: split.right_worker_x_velocity_delta,
+                        far_right_worker_x_velocity_delta: split.far_right_worker_x_velocity_delta,
+                    })
+                })
+                .collect(),
             death_windup_elapsed: match self.player_lifecycle {
                 PlayerLifecycle::DeathWindup { remaining_frames } => {
                     (PLAYER_DEATH_WINDUP_FRAMES.saturating_sub(remaining_frames)) as u16

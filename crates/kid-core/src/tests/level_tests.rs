@@ -119,6 +119,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         x_pos: 0x0030_0000,
         y_pos: 0x0040_0000,
         remaining: 12,
+        heady_metal_split: None,
     });
     runtime.block_bounces.push(BlockBounceAnim {
         cell_x: 3,
