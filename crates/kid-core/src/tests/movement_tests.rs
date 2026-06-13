@@ -6115,6 +6115,43 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_75d4_camera_last_kid_y_stores_post_collision_y() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(4));
+        runtime.camera_last_kid_y = 0;
+
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 60 << 16;
+        slice.player.y_velocity = 0x0004_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(FrameInput::default(), false);
+
+        let slice = runtime
+            .opening_slice
+            .expect("opening slice after landing frame");
+        assert!(slice.player.on_ground, "fixture should land this frame");
+        assert_ne!(
+            slice.player.y_pos >> 16,
+            60,
+            "fixture must exercise Character_CheckCollision changing y_pos"
+        );
+        assert_eq!(
+            runtime.camera_last_kid_y,
+            (slice.player.y_pos >> 16) as i16,
+            "ASM loc_75D4/loc_8BF0 (kid.asm:7712-7714,10046-10048): $FFFFFA2E stores y_pos after Character_CheckCollision"
+        );
+    }
+
     /// ASM loc_8C12: walking-state clamp to 0 when decrement goes negative.
     #[test]
     fn loc_8c12_walking_offset_clamp_to_zero() {

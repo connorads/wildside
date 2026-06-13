@@ -2,7 +2,7 @@
 
 # Camera & Scroll Fidelity Audit
 
-Adversarially-verified per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics (`sub_71E4` target clamp, ±1 edge nudges, `(target-camera+4)>>3` smooth step clamped to ±8, the post-velocity defensive re-clamp, and the page-snap level seed) are faithful and reachable on the live path. The remaining failure pattern is a small set of edge-case camera interactions: the `$FFFFFB58` look-down accumulator still has a one-frame reference-Y timing skew, and the respawn path has an invented +2px carry. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small but no longer hidden by that cap.
+Adversarially-verified per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics (`sub_71E4` target clamp, ±1 edge nudges, `(target-camera+4)>>3` smooth step clamped to ±8, the post-velocity defensive re-clamp, and the page-snap level seed) are faithful and reachable on the live path. The remaining open camera-audit gap is the respawn path's invented +2px carry. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small but no longer hidden by that cap.
 
 ## Coverage summary
 
@@ -11,7 +11,7 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port camera an
 | horizontal-follow-window | full | 0 |
 | vertical-follow-and-final-clamp | partial | 0 |
 | look-down-accumulator | full | 0 |
-| look-offset-ceiling-pullbacks | full | 1 |
+| look-offset-ceiling-pullbacks | full | 0 |
 | follow-call-site-coverage | full | 0 |
 | murder-wall-left-bound-advance | full | 0 |
 | level-bound-camera-clamping | full | 0 |
@@ -19,7 +19,7 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port camera an
 | death-respawn-camera-convergence | full | 1 |
 | bg-parallax-and-demo-camera | full | 0 |
 
-Totals: 10 units audited, 8 full, 2 partial, 0 stub. 2 confirmed gaps (0 high, 0 medium, 2 low). 2 high/medium claims were refuted and dropped (the high `.min(30)` look-down cap, refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity; the cross-level teleporter dest-discard, refuted as an already-tracked recombination with no reachability evidence).
+Totals: 10 units audited, 8 full, 2 partial, 0 stub. 1 confirmed gap (0 high, 0 medium, 1 low). 2 high/medium claims were refuted and dropped (the high `.min(30)` look-down cap, refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity; the cross-level teleporter dest-discard, refuted as an already-tracked recombination with no reachability evidence).
 
 ## Confirmed gaps
 
@@ -39,8 +39,8 @@ Fixed 2026-06-13: the merged native look-offset branch now keeps Down-held as a 
 **`loc_7334` `Camera_max_X_pos` right-bound wall clamp fixed** (`loc_7334` / `loc_7316` / `loc_7346`)
 Fixed 2026-06-13: the forward MurderWall path now clamps `MurderWall_X_pos.w` to `Camera_max_X_pos` (`level width - $140`) immediately after the accelerated `add.l d7,(MurderWall_X_pos).w` and before the `loc_7346` camera-gap push. The clamp preserves the fixed-point fractional low word, matching the ROM's word write. Regression: `loc_7334_forward_wall_clamps_to_camera_max_x_before_push`.
 
-**`loc_726C` reference (`$FFFFFA2E`) stored from pre-physics Y, but the ROM stores post-collision Y** (`loc_726C` / `loc_75D4` / `loc_8218` / `loc_8BF0` / `sub_71E4`)
-The `loc_726C` ceiling pull-back compares Kid's current Y against `$FFFFFA2E` (last_kid_y). In the ROM, `$FFFFFA2E` is written at `loc_75D4`/crawl `loc_8218`/walk `loc_8BF0` from `y_pos(a3)` *after* `Character_CheckCollision` — the post-collision Y at the end of the movement step (walk `loc_8BF0` kid.asm:10046-10048; crawl `loc_8218` kid.asm:9002-9004; standing `loc_75D4` kid.asm:7712-7714). The native stores `camera_last_kid_y` (lib.rs:3160) from the pre-physics `kid_y` captured at the start of the look-offset block (lib.rs:3141), and reads it again next frame. Because position carries over between frames, the ROM effectively compares this-frame pre-physics Y against last-frame post-collision Y, whereas native compares it against last-frame pre-physics Y; the two references differ by one frame's physics+collision delta, so the `-2` pull-back's trigger condition (`kid_y < last_kid_y`) fires under different conditions than the ROM. Consequence is limited to how fast `y_look_offset` settles toward 0 around upward ceiling/top-viewport motion, but after the removed `.min(30)` cap it can affect visible down-look camera recovery. Kind: deviating. `crates/kid-core/src/lib.rs:3140-3161`, `crates/kid-core/src/physics.rs:974-980`.
+**`loc_726C` reference (`$FFFFFA2E`) post-collision store fixed** (`loc_726C` / `loc_75D4` / `loc_8218` / `loc_8BF0` / `sub_71E4`)
+Fixed 2026-06-13: native now updates `camera_last_kid_y` after the movement/collision step, matching the ROM's `Character_CheckCollision; move.w y_pos(a3),($FFFFFA2E)` order at `loc_75D4`, `loc_8218`, and `loc_8BF0`. Regression: `loc_75d4_camera_last_kid_y_stores_post_collision_y`.
 
 **`loc_728C` look-down accumulator floor-clamp decrement is already modelled** (`loc_728C` / `loc_72A8`)
 Fixed before this audit refresh: native applies `camera_y_bottom_look_adjust_loc_728c` in the same pre-camera `sub_71E4` adjustment block as `loc_726C` and `loc_727E`, preserving the current frame's shifted target while decrementing `$FFFFFB58` for future frames when the offset-extended target saturates at `height-$E0`. Regression: `loc_728c_bottom_bound_decrements_look_offset_before_down_increment`.
@@ -68,7 +68,7 @@ Fixed 2026-06-13: the `AttachHibernate` branch now runs the native `sub_71E4` ca
 | NEW | [x] | P3 | camera | Fixed 2026-06-13: Iron Knight wall-climb attach now runs the `loc_A28A` / `sub_71E4` camera-follow equivalent before hibernating | `loc_a28a_attach_hibernate_advances_camera_follow` |
 | NEW | [x] | P3 | camera | Fixed before this audit refresh: `loc_728C` floor-clamp accumulator decrement is modelled by `camera_y_bottom_look_adjust_loc_728c` | `loc_728c_bottom_bound_decrements_look_offset_before_down_increment` |
 | NEW | [x] | P3 | camera | Fixed 2026-06-13: look-down increment now honours the `KidGrabbedByHand` gate from `loc_7772`/`loc_8C70` while preserving Down-held no-decay | `loc_8c70_grabbed_kid_down_held_freezes_look_offset` |
-| NEW | [ ] | P3 | camera | `loc_726C` reference Y stored pre-physics instead of post-collision; refresh `camera_last_kid_y` from the post-`Character_CheckCollision` Y at step end (`lib.rs:3160`) | Replay a vertical-motion frame near the ceiling pull-back; assert the `-2` trigger fires on the post-collision reference Y while the down-look accumulator is active |
+| NEW | [x] | P3 | camera | Fixed 2026-06-13: `loc_726C` reference Y now stores post-collision `y_pos` into native `camera_last_kid_y` | `loc_75d4_camera_last_kid_y_stores_post_collision_y` |
 | NEW | [ ] | P3 | camera | Respawn +2px Y carry is an invented residue-gated substitute, not gated by level or ASM trajectory; gate on level `0x24`/`0x51` or replace with a faithful frame-by-frame settle | Respawn on a level other than `0x24`/`0x51` that settles at delta=2; assert no unjustified +1px camera-Y nudge, and `0x24`/`0x51` still match oracle (#037) |
 
 ## Not audited

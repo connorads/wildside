@@ -3326,13 +3326,6 @@ impl NativeRuntime {
                     max_y,
                     self.y_look_offset,
                 );
-                // ASM loc_75D4 (kid.asm:7712–7714):
-                //   move.w x_pos(a3),($FFFFFA2C).w
-                //   move.w y_pos(a3),($FFFFFA2E).w
-                // Stores Kid's current position for camera follow reference.
-                // Native only models the Y component ($FFFFFA2E); the X
-                // counterpart ($FFFFFA2C) is not consumed by any camera logic.
-                self.camera_last_kid_y = kid_y;
             }
 
             // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
@@ -3472,6 +3465,16 @@ impl NativeRuntime {
                     ledge_snap_cooldown_before,
                     slice.player.ledge_snap_cooldown,
                 );
+            }
+            if !matches!(
+                iron_knight_climb_step,
+                IronKnightClimbStep::AttachHibernate | IronKnightClimbStep::ExitHibernate
+            ) {
+                // ASM loc_75D4/loc_8218/loc_8BF0: after sub_71E4 and
+                // Character_CheckCollision, store y_pos(a3) into $FFFFFA2E.
+                // Native only models the Y component; $FFFFFA2C is not consumed
+                // by camera logic.
+                self.camera_last_kid_y = (slice.player.y_pos >> 16) as i16;
             }
             self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
