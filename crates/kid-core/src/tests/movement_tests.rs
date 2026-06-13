@@ -19157,6 +19157,59 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> sub_9386 -> loc_9D22:
+    /// mirror of the rightward SlopeUp leading-edge handoff for leftward
+    /// SlopeDown contacts.
+    #[test]
+    fn level00_airborne_leading_edge_slope_down_left_recontact_enters_loc_9d22_same_frame() {
+        let w: u16 = 50;
+        let h: u16 = 20;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (15usize * usize::from(w) + 44) * 2;
+        data[slope_offset] = 0x50;
+        data[slope_offset + 1] = 0x82;
+        let solid_offset = (15usize * usize::from(w) + 43) * 2;
+        data[solid_offset] = 0x60;
+        data[solid_offset + 1] = 0x24;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 0x02CE_7300;
+        slice.player.y_pos = 0x00F8_B000;
+        slice.player.x_velocity = -0x0002_9100;
+        slice.player.y_velocity = 0x0003_BC00;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_902A should land from the leading-edge SlopeDown contact",
+        );
+        assert_eq!(
+            slice.player.y_velocity, slice.player.x_velocity,
+            "ASM loc_9D22: SlopeDown same-frame recontact stores y_vel = +x_vel",
+        );
+    }
+
     /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the later Level 00
     /// natural route recontact lands on the next SlopeUp/Solid edge at high
     /// air speed. The first reduced #211 route divergence was frame 478, where

@@ -6720,10 +6720,23 @@ impl OpeningSliceState {
                             self.player.y_pos.abs_diff(floor_y_fp) <= 0x0001_0000;
                         let downward_motion_reached_slope =
                             self.player.y_velocity > 0 && self.player.y_pos >= floor_y_fp;
+                        let leading_left_edge_slopedown_contact = self.player.x_velocity < 0
+                            && left_edge_probe.on_ground
+                            && left_edge_probe.cell.collision == terrain::CollisionKind::SlopeDown
+                            && probe.cell_x == left_edge_probe.cell_x
+                            && probe.cell_y == left_edge_probe.cell_y;
                         let downward_scan_allowed = was_on_ground
                             || crossed_descending_floor_scan_boundary
                             || center_slope_snap_candidate
-                            || probe.cell.collision != terrain::CollisionKind::SlopeDown;
+                            || probe.cell.collision != terrain::CollisionKind::SlopeDown
+                            // ASM sub_902A -> loc_A984 -> loc_A99E promotes a
+                            // fresh leading-edge slope contact once the
+                            // trailing flat support is gone. The row-boundary
+                            // guard below exists for rightward trailing-edge
+                            // SlopeDown overlaps, but must not suppress the
+                            // leftward leading-edge mirror of the SlopeUp
+                            // recontact path.
+                            || leading_left_edge_slopedown_contact;
                         // ASM sub_902A (kid.asm:10437) calls sub_914A for a
                         // fresh downward floor scan only after the integer Y
                         // step crosses the next 16px row boundary. Level 00
