@@ -8978,7 +8978,9 @@ mod chunk_04 {
 
     #[test]
     fn loc_3215e_enemy_art_slot_assignment_matches_second_slot_before_fallback() {
-        use enemies::enemy_art_slot_assignment_sub_36E84;
+        use enemies::{
+            boss_enemy_art_slot_assignment_loc_32146, enemy_art_slot_assignment_sub_36E84,
+        };
 
         let first = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0022);
         assert_eq!(first.slot_index, 0);
@@ -9000,6 +9002,17 @@ mod chunk_04 {
         assert_eq!(fallback.slot_index, 2);
         assert_eq!(fallback.palette_line, 2);
         assert_eq!(fallback.vram_tile, 0x0517);
+
+        let boss_first = boss_enemy_art_slot_assignment_loc_32146(&[0x0122, 0x011C], 0x0022);
+        assert_eq!(
+            boss_first.slot_index, 0,
+            "ASM loc_32146 masks boss header slots with `$FF`, so `$0122` matches enemy id `$22`",
+        );
+        let boss_second = boss_enemy_art_slot_assignment_loc_32146(&[0x0122, 0x011C], 0x001C);
+        assert_eq!(
+            boss_second.slot_index, 1,
+            "ASM loc_3215E masks the second boss header slot with `$FF`, so `$011C` matches enemy id `$1C`",
+        );
     }
 
     #[test]

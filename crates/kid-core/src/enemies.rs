@@ -41708,6 +41708,40 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn boss_enemy_art_slot_assignment_loc_32146(
+    enemy_type_slots: &[u16],
+    enemy_id: u16,
+) -> EnemyArtSlotAssignmentSub36E84 {
+    // ASM loc_32146 (kid.asm:37566): boss object init uses the current enemy
+    // layout header directly and masks slots with `$FF`, unlike generic
+    // sub_36E84/loc_36EA6 which compares 12-bit enemy-load ids.
+    const ENEMY_ART_PALETTE_LINES: [u8; 4] = [1, 2, 2, 0];
+    const ENEMY_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
+
+    let enemy_id = enemy_id & 0x00FF;
+    let slot_index = if enemy_type_slots
+        .first()
+        .is_some_and(|slot| slot & 0x00FF == enemy_id)
+    {
+        0
+    } else if enemy_type_slots
+        .get(1)
+        .is_some_and(|slot| slot & 0x00FF == enemy_id)
+    {
+        1
+    } else {
+        2
+    };
+
+    EnemyArtSlotAssignmentSub36E84 {
+        slot_index,
+        palette_line: ENEMY_ART_PALETTE_LINES[usize::from(slot_index)],
+        vram_tile: ENEMY_ART_VRAM_TILE_ADDRESSES[usize::from(slot_index)],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn enemy_gfx_slot_link_loc_32188(
     free_slot_address: u32,
     next_free_slot_address: u32,
