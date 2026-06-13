@@ -284,7 +284,15 @@ and stop — never commit churn.
   cache scenario through frames 430..620. It is the best current comparable
   near-contact route, but focused probing still leaves the DripsSurfaceCrawler
   far away (`dx=-58 dy=+1 @575`), so it is not the reported slime/metal-block
-  contact.
+  contact. A fresh `floor_sling` family on
+  `issue-260-drips-drop-contact-probe-current` changed the bootstrap (`220..300
+  B+Left`, `301..390 B+Right`, `391..462 Left`, `463..512 Right`) and found
+  a stronger native-live right-side near-contact: `513..559 B+Right` reaches
+  cell `36,32` at Kid-hitbox `dx=0 dy=-1 @522` while staying `InGame`/HP 1.
+  This is still not slime/metal-block proof: the closest DripsDrop separation
+  is `dx=-5 dy=-36 @529`, and the only DripsSurfaceCrawler frame is at 559
+  with `dx=-67 dy=+1`. Do not repeat this `floor_sling` hand-off family
+  unchanged unless a new bootstrap changes the Drips/Kid phase.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
