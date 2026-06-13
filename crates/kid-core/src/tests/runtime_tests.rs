@@ -11096,6 +11096,10 @@ mod chunk_09 {
         assert_eq!(rt.block_state.lift_platforms.len(), 1);
         assert_eq!(rt.block_state.lift_platforms[0].x_pos, 48 << 16);
         assert_eq!(rt.block_state.lift_platforms[0].y_pos, 80 << 16);
+        assert_eq!(
+            rt.block_state.lift_platforms[0].y_velocity, -0x0001_0000,
+            "ASM sub_FB3E (kid.asm:20999): lift platform worker seeds y_vel with `$FFFF0000` before sub_FCA6 steps it",
+        );
         assert_eq!(rt.block_state.lift_platforms[0].source_col, 48 / 16);
         assert_eq!(rt.block_state.lift_platforms[0].source_row, 80 / 16);
         assert_eq!(rt.block_state.lift_platforms[0].age, 0);
