@@ -7639,6 +7639,49 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_922C loc_9294 -> loc_92B6: a `$7000` side-wall cell writes
+    /// `collision_type=colid_kidbelow` ($28) before falling through to the
+    /// normal wall-hit return, so the runtime damage path must see a spike
+    /// latch even though horizontal movement is clamped like a solid wall.
+    #[test]
+    fn loc_92b6_side_wall_spike_sets_on_spikes_and_clamps_x() {
+        let w: u16 = 5;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for row in 1..=3 {
+            let offset = (row * w + 2) as usize * 2;
+            data[offset] = 0x70;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        // Post-velocity x_pos=27. vel=1px means old right edge was 31,
+        // distance_to_tile=0, so sub_8F26 enters sub_922C. The new probe edge
+        // is 27 + 5 + 1 = 33, column 2, where the `$7000` spike wall sits.
+        slice.player.x_pos = 27 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert!(
+            slice.player.on_spikes,
+            "ASM loc_92B6 should latch `colid_kidbelow` for side-wall spikes"
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            26 << 16,
+            "ASM loc_92BC should still clamp the right-moving wall hit flush with the spike wall"
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM sub_8F26 should clear x_vel after the spike wall hit"
+        );
+    }
+
     /// ASM sub_922C loc_92BC/loc_9318: a wall cell must have bit 15 set and
     /// block type Rubber (`cmpi.w #$18,d7`) before the special rubber return.
     #[test]
@@ -16850,6 +16893,10 @@ mod chunk_12 {
         assert_eq!(
             slice.player.x_velocity, 0,
             "loc_779C/sub_922C should treat a spike wall column as blocked and keep standing still",
+        );
+        assert!(
+            slice.player.on_spikes,
+            "ASM loc_92B6 should latch `colid_kidbelow` for the standing-still sub_922C spike wall hit",
         );
         assert_eq!(
             slice.player.facing,

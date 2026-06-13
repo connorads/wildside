@@ -4514,6 +4514,12 @@ impl OpeningSliceState {
             direction == Direction::Right,
         );
         if wall_probe.hit {
+            if wall_probe.cell.collision == terrain::CollisionKind::Spikes {
+                // ASM loc_92B6 (kid.asm:10712): loc_779C/loc_77E6 call the
+                // same sub_922C wall scan, so a standing-still spike wall hit
+                // still writes `colid_kidbelow` ($28).
+                self.player.on_spikes = true;
+            }
             if wall_probe.cell.has_block && wall_probe.cell.block_type == terrain::BlockType::Rubber
             {
                 // ASM loc_779C/loc_77E6 -> sub_922C -> off_933E[6] ->
@@ -6090,6 +6096,12 @@ impl OpeningSliceState {
         }
 
         if probe.hit {
+            if probe.cell.collision == terrain::CollisionKind::Spikes {
+                // ASM loc_92B6 (kid.asm:10712): sub_922C side-wall spikes
+                // write `colid_kidbelow` ($28) before falling through to
+                // loc_92BC's normal wall-hit handler.
+                self.player.on_spikes = true;
+            }
             if self.terrain.slope_sliding && self.grounded_slope_collision(Some(grid)).is_some() {
                 // ASM loc_9D22 -> loc_9F18 owns slope-walk edge handling
                 // while sub_A254 still sees live slope support. The generic
