@@ -1,5 +1,7 @@
 use super::*;
-use crate::combat::{CollisionRectSub1F52, heady_metal_cleanup_sub_378C8};
+use crate::combat::{
+    CollisionRectSub1F52, heady_metal_cleanup_sub_378C8, support_overlap_detected_sub_1F52,
+};
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1340,6 +1342,46 @@ impl NativeRuntime {
         ShooterCollisionRightBottomBlocksLocF580 {
             right_block,
             bottom_block,
+        }
+    }
+
+    pub(crate) fn apply_shooter_barrel_support_sub_1f52(
+        &self,
+        slice: &mut OpeningSliceState,
+        form: PlayerForm,
+    ) {
+        if self.block_state.shooter_blocks.is_empty() {
+            return;
+        }
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let half_width = form.half_width();
+        let kid_hitbox = CollisionRectSub1F52 {
+            left_px: (x_px - half_width).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+            right_px: (x_px + half_width).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+            top_px: (y_px - form.ceiling_probe_height())
+                .clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+            bottom_px: y_px.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16,
+        };
+        let shooter_blocks = self
+            .block_state
+            .shooter_blocks
+            .iter()
+            .map(|entry| (entry.col, entry.row, entry.directions))
+            .collect::<Vec<_>>();
+        let support_rects = Self::shooter_collision_rects_sub_F568(kid_hitbox, &shooter_blocks);
+        if support_overlap_detected_sub_1F52(kid_hitbox, &support_rects) {
+            // ASM sub_F568 + sub_1F52: live shooter-barrel rectangles write
+            // `colid_kidbelow` ($28). Native turns that collision latch into
+            // the same grounded support state used by terrain/platform floors.
+            slice.player.on_ground = true;
+            slice.player.on_spikes = false;
+            slice.player.y_velocity = 0;
+            slice.terrain.floor_y_pos = slice.player.y_pos;
+            slice.terrain.floor_terrain_type = TerrainType::Normal;
+            slice.terrain.slope_walk_kind = None;
+            slice.terrain.slope_sliding = false;
         }
     }
 

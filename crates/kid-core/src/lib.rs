@@ -3359,6 +3359,7 @@ impl NativeRuntime {
             slice.wall_cling_release_probe = None;
             slice.kid_flip_follow_on_stages = None;
             slice.kid_jump_gravity_probe = None;
+            self.apply_shooter_barrel_support_sub_1f52(&mut slice, self.progression.current_form);
 
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then

@@ -16957,6 +16957,38 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_barrel_support_sub_f568_sub_1f52_latches_ground_without_grid_floor() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.block_state.shooter_blocks = vec![ShooterBlockEntry {
+            col: 5,
+            row: 5,
+            directions: 0x01,
+            supported_by_neighbour: false,
+            restored_touch_shooter: false,
+            age: 1,
+        }];
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = 88 << 16;
+        slice.player.y_pos = 79 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+
+        runtime.apply_shooter_barrel_support_sub_1f52(&mut slice, PlayerForm::TheKid);
+
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_F568 emits the upward shooter nub rectangle and sub_1F52 writes `colid_kidbelow` even when the layout grid has no floor cell under Kid"
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "native should translate the sub_1F52 `colid_kidbelow` latch into grounded support before Kid physics"
+        );
+        assert_eq!(slice.terrain.floor_y_pos, slice.player.y_pos);
+    }
+
+    #[test]
     fn loc_f254_continues_scan_without_allocating_when_shooter_free_list_empty() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
