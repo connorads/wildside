@@ -34,6 +34,9 @@ pub(crate) fn render_frame_on_blank_canvas(
 pub(crate) fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     clear_frame(rgb, scene.background);
     render_scene_overlay(scene, rgb);
+    if scene.pause_palette_darken {
+        apply_pause_palette_darken_loc_6c70(rgb);
+    }
 }
 
 pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
@@ -523,6 +526,22 @@ pub(super) fn clear_frame(rgb: &mut [u8], colour: [u8; 3]) {
     }
 }
 
+pub(super) fn apply_pause_palette_darken_loc_6c70(rgb: &mut [u8]) {
+    // ASM Pause_DarkenPalette loc_6C70/loc_6C9E halves each MD CRAM channel
+    // before Palette_to_VRAM uploads the paused palette. Native-player has
+    // already resolved palette slots into expanded RGB by this point, so map
+    // each RGB channel back to its nearest 3-bit MD value, halve it, then
+    // expand it again.
+    for channel in rgb {
+        *channel = pause_darken_expanded_channel_loc_6c70(*channel);
+    }
+}
+
+fn pause_darken_expanded_channel_loc_6c70(channel: u8) -> u8 {
+    let md_channel = ((u16::from(channel) * 7 + 127) / 255).min(7);
+    ((md_channel >> 1) * 255 / 7) as u8
+}
+
 pub(super) fn push_panel(
     commands: &mut Vec<DrawCommand>,
     x: i32,
@@ -902,5 +921,18 @@ mod tests {
         };
 
         assert_eq!(resolve_palette_colour(&palette, 1, 1), Some([1, 2, 3]));
+    }
+
+    #[test]
+    fn pause_palette_darken_halves_expanded_md_channels_loc_6c70() {
+        let mut rgb = vec![255, 218, 145, 109, 72, 36, 0];
+
+        apply_pause_palette_darken_loc_6c70(&mut rgb);
+
+        assert_eq!(
+            rgb,
+            vec![109, 109, 72, 36, 36, 0, 0],
+            "ASM Pause_DarkenPalette loc_6C70 halves each 3-bit MD colour channel before re-expansion"
+        );
     }
 }

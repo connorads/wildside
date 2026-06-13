@@ -101,6 +101,7 @@ impl From<DynamicScenario> for NativeScriptedRoute {
 pub(crate) struct Scene {
     background: [u8; 3],
     commands: Vec<DrawCommand>,
+    pause_palette_darken: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1058,6 +1059,7 @@ fn build_debug_level_card_fallback_scene(trace: &NativeTraceFrame) -> Scene {
                 scale: 1,
             },
         ],
+        pause_palette_darken: false,
     }
 }
 
@@ -6336,6 +6338,7 @@ mod tests {
                 },
                 palette,
             }],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6370,6 +6373,7 @@ mod tests {
                 },
                 palette,
             }],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6414,6 +6418,7 @@ mod tests {
                 },
                 palette,
             }],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6455,6 +6460,7 @@ mod tests {
                 },
                 palette,
             }],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6507,6 +6513,7 @@ mod tests {
                 },
                 palette,
             }],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6581,6 +6588,7 @@ mod tests {
                     palette,
                 },
             ],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -6636,6 +6644,7 @@ mod tests {
                     palette,
                 },
             ],
+            pause_palette_darken: false,
         };
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
@@ -8862,6 +8871,19 @@ mod tests {
         assert!(
             !contains_text(&scene, "Press Start to resume"),
             "ASM loc_6A84 only writes cursor locations; native should not add an invented instruction hint"
+        );
+    }
+
+    #[test]
+    fn paused_ingame_scene_requests_palette_darken_loc_6c70() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            scene.pause_palette_darken,
+            "ASM sub_6874 -> Pause_DarkenPalette loc_6C70 darkens Palette_Buffer before rendering paused gameplay"
         );
     }
 

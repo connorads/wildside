@@ -848,6 +848,7 @@ pub(super) fn build_transition_scene(
     Scene {
         background: [0, 0, 0],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -899,6 +900,7 @@ pub(super) fn build_title_card_worker_overlay_scene(
     Scene {
         background: [0, 0, 0],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -1061,6 +1063,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         return Scene {
             background: [0, 0, 0],
             commands,
+            pause_palette_darken: false,
         };
     }
 
@@ -1087,6 +1090,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
         return Scene {
             background: [0, 0, 0],
             commands,
+            pause_palette_darken: false,
         };
     }
 
@@ -1171,6 +1175,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     Scene {
         background: [18, 24, 32],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -1246,6 +1251,7 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     Scene {
         background: [8, 12, 20],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -1291,6 +1297,7 @@ fn build_sound_test_scene(track: u8) -> Scene {
     Scene {
         background: [8, 12, 20],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -1362,6 +1369,7 @@ pub(super) fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
     Scene {
         background: [8, 32, 16],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -1460,6 +1468,7 @@ pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
         return Scene {
             background: [0, 0, 0],
             commands,
+            pause_palette_darken: false,
         };
     }
 
@@ -1512,6 +1521,7 @@ pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
     Scene {
         background: [4, 8, 20],
         commands,
+        pause_palette_darken: false,
     }
 }
 
@@ -4432,6 +4442,7 @@ fn build_game_scene_filtered(
             return Scene {
                 background,
                 commands,
+                pause_palette_darken: trace.paused,
             };
         }
         let text_y = (FRAME_HEIGHT as i32) / 2 - 40;
@@ -4627,6 +4638,7 @@ fn build_game_scene_filtered(
     Scene {
         background,
         commands,
+        pause_palette_darken: trace.paused,
     }
 }
 
