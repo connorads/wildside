@@ -2945,6 +2945,21 @@ impl GemsAudioEngine {
         self.queue_byte(sound_id);
     }
 
+    /// Apply Kid_Transform's music-speed update: sub_E1330 followed by sub_E1338.
+    pub fn set_music_speed(&mut self, speed: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        // ASM loc_7E26 (kid.asm:8564-8566): `jsr (sub_E1330).l; jsr
+        // (sub_E1338).l`. sub_E1330 queues `FF 05 <speed>` and sub_E1338
+        // queues `FF 0D`.
+        self.queue_byte(0xFF);
+        self.queue_byte(0x05);
+        self.queue_byte(speed);
+        self.queue_byte(0xFF);
+        self.queue_byte(0x0D);
+    }
+
     /// Stop all currently running sequences (GEMS command $16 with sequence $FF).
     pub fn stop_all_sequences(&mut self) {
         if !self.initialised {
@@ -5553,6 +5568,26 @@ mod tests {
             &queue[14..17],
             [0xFF, 0x12, 0x23],
             "ASM PlaySound2/sub_E153E differs from PlaySound only by queueing command $12"
+        );
+    }
+
+    #[test]
+    fn gems_engine_set_music_speed_queues_sub_e1330_then_sub_e1338() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.set_music_speed(0x7E);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..19];
+        assert_eq!(
+            &queue[14..19],
+            [0xFF, 0x05, 0x7E, 0xFF, 0x0D],
+            "ASM loc_7E26/sub_E1330/sub_E1338 queues the transform tempo write before the reset command"
         );
     }
 

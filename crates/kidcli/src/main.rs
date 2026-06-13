@@ -4415,6 +4415,7 @@ AddrTbl_LevelNames:
             physics_trace: None,
             options_cursor: None,
             played_sound_effect_ids: Vec::new(),
+            played_music_speed_updates: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

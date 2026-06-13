@@ -8077,6 +8077,35 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_7E14..loc_7E26 (kid.asm:8557-8566): after any transform cleanup,
+    /// the ROM indexes `unk_7ECC[Foreground_theme]`, queues that byte through
+    /// sub_E1330 (`FF 05 <byte>`), then queues sub_E1338 (`FF 0D`).
+    #[test]
+    fn loc_7e26_form_change_queues_theme_music_speed_byte() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        runtime.queue_form_change(PlayerForm::Skycutter);
+        runtime.resolve_pending_form_change();
+
+        assert_eq!(
+            runtime.played_music_speed_updates,
+            vec![0x74],
+            "ASM loc_7E26 should use unk_7ECC[8] = $74 for the fixture cave foreground theme"
+        );
+    }
+
+    /// ASM loc_7E14 (kid.asm:8560): a non-zero MurderWall_flag bypasses
+    /// Foreground_theme and indexes `MusicSpeed_Murderwall` instead.
+    #[test]
+    fn loc_7e14_murderwall_transform_music_speed_overrides_theme() {
+        assert_eq!(
+            transform_music_speed_byte_loc_7e26(8, true),
+            0x76,
+            "ASM loc_7E14 should use MusicSpeed_Murderwall=$76 when MurderWall_flag is set"
+        );
+    }
+
     /// ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7; lea off_7EE2(pc),a0;
     /// move.w (a0,d7.w),d7; subq.w #2,d7; add.w d7,a0` — indexes the old helmet's
     /// animation table end via off_7EE2, then iterates backward through loc_7CA6.

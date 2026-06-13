@@ -204,6 +204,28 @@ pub(crate) struct PendingSoundEffect {
     pub(crate) suppress: bool,
 }
 
+pub(crate) fn transform_music_speed_byte_loc_7e26(
+    foreground_theme: u8,
+    murder_wall_flag: bool,
+) -> u8 {
+    const MUSIC_SPEEDS_LOC_7ECC: [u8; 11] = [
+        0x00, 0x7E, 0x7A, 0x87, 0x78, 0x6C, 0x78, 0x7D, 0x74, 0x78, 0x68,
+    ];
+    const MUSIC_SPEED_MURDERWALL_LOC_7E26: u8 = 0x76;
+
+    // ASM loc_7E14..loc_7E26 (kid.asm:8557-8566): when MurderWall_flag is
+    // set, index the byte after unk_7ECC; otherwise index unk_7ECC by
+    // Foreground_theme and pass that byte to sub_E1330 before sub_E1338.
+    if murder_wall_flag {
+        MUSIC_SPEED_MURDERWALL_LOC_7E26
+    } else {
+        MUSIC_SPEEDS_LOC_7ECC
+            .get(usize::from(foreground_theme))
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
 pub(crate) fn contact_damage_ouch_sound_loc_b73c(enemy_family: EnemyFamily) -> QueuedSoundEffect {
     // ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14693):
     // Character_CheckCollision compares d5, the object_meta word after
@@ -9590,8 +9612,13 @@ impl NativeRuntime {
         // jsr (sub_E1338).l` — index unk_7ECC[Foreground_theme] (or
         // MusicSpeed_Murderwall if MurderWall_flag set) for the post-transform
         // music speed byte, then queue it via sub_E1330 and reset via sub_E1338.
-        // Sound-only; native doesn't drive the GEMS sound driver.
-        //
+        let transform_music_speed = transform_music_speed_byte_loc_7e26(
+            self.level_header(self.current_level)
+                .map_or(0, |header| header.level_theme),
+            self.murder_wall.is_some(),
+        );
+        self.played_music_speed_updates.push(transform_music_speed);
+
         // ASM loc_7E48 (kid.asm:8575): cleanup after the optional
         // sfx_Voice_bummer (TheKid only). `bsr.w sub_80D0` (palette load),
         // `bsr.w sub_B41C` (set half-width from d0=1), `bsr.w sub_DB22`

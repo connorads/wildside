@@ -2057,6 +2057,9 @@ fn native_audio_events_for_trace_with_initial_bgm(
                 for sound_id in gems_event_sound_ids(prev, trace) {
                     events.push(format_native_sound_event(frame_index, trace, sound_id));
                 }
+                for speed in gems_event_music_speed_updates(prev, trace) {
+                    events.push(format_native_music_speed_event(frame_index, trace, speed));
+                }
             }
         }
         prev_trace = Some(trace);
@@ -2132,6 +2135,9 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
             for sound_id in gems_event_sound_ids(prev, trace) {
                 gems.play_sound(sound_id);
+            }
+            for speed in gems_event_music_speed_updates(prev, trace) {
+                gems.set_music_speed(speed);
             }
         }
         gems.step_frame();
@@ -2220,6 +2226,17 @@ fn format_native_sound_event(frame_index: usize, trace: &NativeTraceFrame, sound
     )
 }
 
+fn format_native_music_speed_event(
+    frame_index: usize,
+    trace: &NativeTraceFrame,
+    speed: u8,
+) -> String {
+    format!(
+        "frame={frame_index} mode={:?} level={:02X} command=SetMusicSpeed({speed})",
+        trace.game_mode, trace.current_level.0
+    )
+}
+
 fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
     match cue {
         // ASM Load_TitleScreen queues bgm_Ice through j_PlaySound before loading title art.
@@ -2242,6 +2259,21 @@ fn queued_gems_sound_ids_since<'a>(
     } else {
         &curr.played_sound_effect_ids
     }
+}
+
+fn queued_gems_music_speed_updates_since<'a>(
+    prev: &NativeTraceFrame,
+    curr: &'a NativeTraceFrame,
+) -> &'a [u8] {
+    if curr.played_music_speed_updates.len() >= prev.played_music_speed_updates.len() {
+        &curr.played_music_speed_updates[prev.played_music_speed_updates.len()..]
+    } else {
+        &curr.played_music_speed_updates
+    }
+}
+
+fn gems_event_music_speed_updates(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
+    queued_gems_music_speed_updates_since(prev, curr).to_vec()
 }
 
 fn is_ouch_sound_id(sound_id: u8) -> bool {
@@ -2441,6 +2473,9 @@ fn detect_gems_events(
 ) {
     for sound_id in gems_event_sound_ids(prev, curr) {
         gems.play_sound(sound_id);
+    }
+    for speed in gems_event_music_speed_updates(prev, curr) {
+        gems.set_music_speed(speed);
     }
 }
 
@@ -2793,7 +2828,9 @@ mod tests {
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,
+            sound_test_track: None,
             played_sound_effect_ids: Vec::new(),
+            played_music_speed_updates: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,
@@ -2826,7 +2863,6 @@ mod tests {
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             blocks_hit_this_frame: 0,
-            sound_test_track: None,
             sound_test_play_pending: false,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
@@ -14221,6 +14257,33 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::MINI_HOPPING_SKULL_SCREAM, gems_sfx::THUNDERSTORM],
             "a restarted NativeRuntime resets the cumulative core sound list; the next trace frame must treat all current ASM-backed ids as new"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_core_queued_transform_music_speed_loc_7e26() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_music_speed_updates = vec![0x7E];
+
+        assert_eq!(
+            gems_event_music_speed_updates(&prev, &curr),
+            vec![0x7E],
+            "ASM loc_7E26 queues unk_7ECC[Foreground_theme] through sub_E1330/sub_E1338; play-native must replay the core tempo byte"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_core_queued_transform_music_speed_after_trace_reset() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.played_music_speed_updates = vec![0x7E, 0x7A];
+        curr.played_music_speed_updates = vec![0x76];
+
+        assert_eq!(
+            gems_event_music_speed_updates(&prev, &curr),
+            vec![0x76],
+            "a restarted NativeRuntime resets the cumulative transform tempo list; the next trace frame must treat all current ASM-backed speed bytes as new"
         );
     }
 
