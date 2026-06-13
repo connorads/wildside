@@ -8274,7 +8274,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn process_block_effects_teleporter_warps_player() {
+    fn process_block_effects_teleporter_leaves_transition_to_hazard_path_loc_bc80() {
         let mut rt = NativeRuntime::new(manifest());
         rt.block_list = Some(terrain::BlockList {
             prize_blocks: vec![],
@@ -8300,16 +8300,22 @@ mod chunk_09 {
 
         assert_eq!(
             slice.player.x_pos,
-            (20 * 16) << 16,
-            "x should warp to dest col×16"
+            100 << 16,
+            "ASM loc_BC80/loc_BCF6 routes teleporter activation through Teleport; block effects must not inline-snap x"
         );
         assert_eq!(
             slice.player.y_pos,
-            (10 * 16) << 16,
-            "y should warp to dest row×16"
+            200 << 16,
+            "ASM Teleport reloads the level shell rather than mutating the live slice y"
         );
-        assert_eq!(slice.player.y_velocity, 0, "velocity zeroed after warp");
-        assert!(slice.player.on_ground, "player grounded after warp");
+        assert_eq!(
+            slice.player.y_velocity, -0x2_0000,
+            "inline teleporter snap must not invent a velocity clear"
+        );
+        assert!(
+            !slice.player.on_ground,
+            "inline teleporter snap must not invent grounded state"
+        );
     }
 
     #[test]
@@ -8379,19 +8385,23 @@ mod chunk_09 {
         }
 
         rt.step_frame(FrameInput::default());
+        assert!(
+            matches!(rt.boot_state, BootState::StartingLevel { .. }),
+            "ASM loc_BCF6 branches through Teleport -> loc_6E2 after the loc_B522 countdown reaches zero"
+        );
         let slice = rt
             .opening_slice
             .as_ref()
-            .expect("telepad activation should keep same-level gameplay slice");
+            .expect("telepad activation should seed the same-level reload slice");
         assert_eq!(
             slice.player.x_pos,
             (7 * 16) << 16,
-            "loc_B522 frame 90 should activate loc_BC80 destination x",
+            "loc_B522 frame 90 should activate loc_BC80 destination x through PlayerStart_X",
         );
         assert_eq!(
             slice.player.y_pos,
-            (6 * 16) << 16,
-            "loc_B522 frame 90 should activate loc_BC80 destination y",
+            ((6 * 16) - 1) << 16,
+            "loc_B522 frame 90 should activate loc_BC80 destination y, then loc_7526 places Kid at PlayerStart_Y-1",
         );
     }
 
@@ -8441,14 +8451,18 @@ mod chunk_09 {
         }
         rt.step_frame(FrameInput::default());
 
+        assert!(
+            matches!(rt.boot_state, BootState::StartingLevel { .. }),
+            "ASM loc_BCF6 branches through Teleport -> loc_6E2 even for same-level telepads"
+        );
         let slice = rt
             .opening_slice
             .as_ref()
-            .expect("same-level teleporter should keep gameplay slice");
+            .expect("same-level teleporter should seed the reloaded level slice");
         assert_eq!(
             (slice.player.x_pos, slice.player.y_pos),
-            ((28 * 16) << 16, (9 * 16) << 16),
-            "ASM loc_BCB2/loc_BCF6 should warp the level-1 telepad to destination tile 28,9 after the 90-frame loc_B522 countdown",
+            ((28 * 16) << 16, ((9 * 16) - 1) << 16),
+            "ASM loc_BCB2 writes PlayerStart tile 28,9, then loc_7526 seeds Kid at PlayerStart_Y-1 during the Teleport level reload",
         );
         assert!(
             rt.played_sound_effects

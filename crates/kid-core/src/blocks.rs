@@ -3727,20 +3727,10 @@ impl NativeRuntime {
             });
         }
 
-        // Teleporter block: warp player to destination
-        if let Some((cell_x, cell_y)) = slice.teleporter_contact
-            && let Some(block_list) = self.block_list.as_ref()
-            && let Some(tp) = block_list.teleporter_at(cell_x, cell_y)
-            && self
-                .teleporter_dest_level_loc_bcd6(tp.dest_map_id)
-                .is_some_and(|level_id| level_id == self.current_level)
-        {
-            // Warp to destination position
-            slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;
-            slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
-            slice.player.y_velocity = 0;
-            slice.player.on_ground = true;
-        }
+        // ASM loc_BC80/loc_BCF6 routes every teleporter activation through the
+        // shared Teleport tail. The live transition is handled in
+        // resolve_frame_hazards so the block-effect shell does not perform an
+        // invented same-frame reposition here.
     }
 
     /// Check player overlap with floating prize items and collect on contact.

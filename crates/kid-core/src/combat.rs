@@ -12103,12 +12103,18 @@ impl NativeRuntime {
         if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
             self.opening_slice = Some(*slice);
             self.played_sound_effects.push(QueuedSoundEffect::Teleport);
-            // Same-level teleport: reposition. Cross-level: trigger level skip.
+            // ASM loc_BCB2 writes PlayerStart_X/Y from the teleporter record;
+            // loc_BCF6 then branches through Teleport even when the destination
+            // level equals Current_LevelID. Native reuses the loc_11BD2 start
+            // override so Load_InGame preserves those words instead of reading
+            // the level header spawn pair.
+            let player_start_x = dest_x.saturating_mul(16);
+            let player_start_y = u16::from(dest_y).saturating_mul(16);
+            self.pending_player_start_override_loc_11bd2 = Some((player_start_x, player_start_y));
+            // Same-level teleport: re-enter the level shell. Cross-level:
+            // preserve the existing deferred level-skip transition path.
             if dest_map == self.current_level.0 {
-                if let Some(ref mut s) = self.opening_slice {
-                    s.player.x_pos = u32::from(dest_x) << 20; // blocks to FP16.16
-                    s.player.y_pos = u32::from(dest_y as u16) << 20;
-                }
+                self.begin_level_entry(self.current_level);
             } else {
                 self.pending_level_skip = Some(LevelId(dest_map));
             }

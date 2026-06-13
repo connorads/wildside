@@ -1476,6 +1476,57 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
 }
 
 #[test]
+fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
+    let mut manifest = manifest_with_levels(4);
+    manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.boot_state = BootState::InGame;
+    runtime.current_level = LevelId(2);
+    runtime.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0,
+            col: 5,
+            row: 3,
+            dest_map_id: 0x2D,
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+
+    let mut slice = combat_slice();
+    slice.teleporter_contact = Some((5, 3));
+
+    assert!(
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
+        "teleporter activation should consume the frame"
+    );
+    assert!(
+        runtime.pending_level_skip.is_none(),
+        "ASM loc_BCEA same-level branch skips setting $FFFFFC36"
+    );
+    assert!(
+        matches!(runtime.boot_state, BootState::StartingLevel { .. }),
+        "ASM loc_BCF6 still branches through Teleport -> loc_6E2 for same-level teleports"
+    );
+    let reloaded = runtime
+        .opening_slice
+        .expect("Teleport should seed the same-level Load_InGame slice");
+    assert_eq!(
+        (reloaded.player.x_pos, reloaded.player.y_pos),
+        ((20 * 16) << 16, ((10 * 16) - 1) << 16),
+        "ASM loc_BCB2 writes PlayerStart_X/Y, then loc_7526 places Kid at PlayerStart_Y-1"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::Teleport],
+        "ASM loc_BCF6 passes d6=-5 into Teleport for sfx_Teleport"
+    );
+}
+
+#[test]
 fn boss_level_flag_touch_is_suppressed_while_boss_alive_loc_c03a() {
     let mut runtime = NativeRuntime::new(manifest_with_levels(0x34));
     runtime.current_level = LevelId(0x10);
