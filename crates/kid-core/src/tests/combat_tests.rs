@@ -15673,10 +15673,10 @@ mod chunk_05 {
 
     #[test]
     fn loc_78a8_upward_platform_ceiling_hit_reports_crush_death() {
-        let mut platform = make_test_platform(40, 48, 2, 0);
+        let mut platform = make_test_platform(40, 32, 2, 0);
         platform.y_velocity = -0x0010_0000;
 
-        let mut slice = make_airborne_slice(50, 48);
+        let mut slice = make_airborne_slice(50, 32);
         slice.player.on_ground = true;
         slice.player.y_velocity = 0;
 

@@ -775,11 +775,15 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             // sub_8ED0; unsupported platforms are skipped (no carry), so Kid
             // falls off via normal gravity.
             //
-            // Carry player with platform velocity
+            // Carry player with platform velocity.
+            //
+            // ASM loc_8DA0/loc_8306: horizontal carry is applied through
+            // `sub_8F26`, then the vertical seat is hard-copied from platform
+            // `6(a4)` and the integer word is decremented by one pixel.
             slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
                 .clamp(0, i64::from(u32::MAX)) as u32;
-            slice.player.y_pos = (i64::from(slice.player.y_pos) + i64::from(platform.y_velocity))
-                .clamp(0, i64::from(u32::MAX)) as u32;
+            slice.player.y_velocity = platform.y_velocity;
+            slice.player.y_pos = platform.y_pos.wrapping_sub(0x0001_0000);
             let floor_y_px = (slice.player.y_pos >> 16) as i32;
             slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
             if platform.y_velocity < 0

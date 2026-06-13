@@ -3423,9 +3423,11 @@ impl NativeRuntime {
                 let within_snap =
                     slice.player.y_pos.abs_diff(lift.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
                 if within_snap && player_right >= plat_x_px && player_left <= plat_right {
-                    slice.player.y_pos = (i64::from(slice.player.y_pos)
-                        + i64::from(lift.y_velocity))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
+                    // ASM loc_8DA0/loc_8306: riding platforms copy `6(a4)`
+                    // into Kid's y_pos and subtract one pixel; `$E(a4)` is
+                    // copied into y_vel for the subsequent ceiling probe.
+                    slice.player.y_pos = lift.y_pos.wrapping_sub(0x0001_0000);
+                    slice.player.y_velocity = lift.y_velocity;
                     slice.terrain.floor_y_pos =
                         (((slice.player.y_pos >> 16) as i32).max(0) as u32) << 16;
                     if lift.y_velocity < 0

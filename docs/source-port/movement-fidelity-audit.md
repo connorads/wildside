@@ -108,8 +108,8 @@ The helper is live-called every climb frame from `step_iron_knight_climb` (`helm
 **Climb — airborne wall-attach is a native extension with no ROM entry** (`loc_7696` @kid.asm:7762-7769 is the sole `bra loc_A276`)
 The only ROM path into the wall-climb state is the grounded walk state; native additionally allows attach while airborne (`helmets.rs:4684-4698`), letting the Iron Knight grab a wall mid-jump where the ROM cannot. Over-permissive extension; grounded (common) case is faithful.
 
-**Landing — grounded platform carry never re-seats `y_pos = platform_top − 1`** *(→ #208)* (`loc_8D72` @kid.asm:10164-10165, `loc_8306` @9077-9078)
-ROM hard-reseats `y_pos` to `platform_y − 1` each frame; native only does additive carry (`platforms.rs:780-785`), so sub-pixel drift is never re-corrected. Normally invisible (the landing snap establishes alignment).
+**FIXED 2026-06-13 — Grounded platform carry re-seats `y_pos = platform_top − 1`** *(→ #208)* (`loc_8D72` @kid.asm:10164-10165, `loc_8306` @9077-9078)
+ROM hard-reseats `y_pos` to `platform_y − 1` each riding frame and copies platform `y_vel` before the ceiling probe. Native now mirrors that in both the generic platform rider path and the lift-platform rider path instead of applying additive Y velocity. Regressions `loc_8da0_platform_y_position_reseats_grounded_player`, `platform_collision_reseats_rider_to_platform_y_loc_8da0`, and `lift_platform_carries_grounded_player` cover the generic and lift variants. The remaining platform-carry gap is the horizontal `sub_8F26`/wall re-collision bypass above.
 
 **Damage — `clear_special_movement_state_sub_DB22` is test-only** *(hygiene → #209)* (`sub_DB22` @kid.asm:17170)
 `#[cfg(test)]` helper (`helmets.rs:4180-4207`); not a behavioural gap (production clears flags via `refresh_grounded_helmet_state_sub_78E8`) but the ASM symbol resolves only to a test fixture, so an auditor searching this symbol finds no live wiring.
@@ -120,6 +120,6 @@ ROM hard-reseats `y_pos` to `platform_y − 1` each frame; native only does addi
 ## Relationship to existing backlog
 
 - **Hygiene** (1 remaining gap: `clear_special_movement_state_sub_DB22`) → fold into **#209** (strip stale `cfg_attr(not(test))` from wired helpers).
-- **Platform carry** (2 gaps: X-axis re-collision, `y_pos` re-seat) → under **#208** (all platform physics unwired).
+- **Platform carry** (remaining gap: X-axis re-collision) → under **#208** (all platform physics unwired).
 - **Compound `$14/$18` corner** (the architectural pair) → relates to **#207** (generic collision primitives unwired).
 - **Wiring gaps** that change behaviour against the ROM need the **#205** object/enemy-active oracle harness to verify, *except* the **ice/rubber inversion**, which is a deterministic table-mapping bug fixable and verifiable now via a grounded-walk scenario.

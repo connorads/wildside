@@ -15717,25 +15717,25 @@ mod chunk_04 {
     }
 
     #[test]
-    fn platform_collision_carry_y_velocity() {
-        // Mutants: lines 108 — replace + with - or *
+    fn platform_collision_reseats_rider_to_platform_y_loc_8da0() {
+        // ASM loc_8DA0/loc_8306: copy platform y_pos then subtract one pixel.
         let mut platform = make_test_platform(40, 100, 2, 0);
         platform.y_velocity = -0x2_0000; // moving up 2px/frame
 
         let mut slice = make_airborne_slice(50, 100);
         slice.player.on_ground = true;
         slice.player.y_velocity = 0;
-        let y_before = slice.player.y_pos;
         apply_platform_collision(&mut slice, &[platform]);
 
-        // y_pos should decrease (platform moving up)
-        assert!(
-            slice.player.y_pos < y_before,
-            "player should be carried upward by platform with negative y_velocity"
+        assert_eq!(
+            slice.player.y_pos,
+            99 << 16,
+            "ASM loc_8DA0/loc_8306 reseats the rider to platform_y - 1"
         );
-        let expected =
-            (i64::from(y_before) + i64::from(-0x2_0000i32)).clamp(0, i64::from(u32::MAX)) as u32;
-        assert_eq!(slice.player.y_pos, expected);
+        assert_eq!(
+            slice.player.y_velocity, platform.y_velocity,
+            "ASM loc_8DA0/loc_8306 still copies platform y_vel for follow-up collision"
+        );
     }
 
     #[test]

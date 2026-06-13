@@ -6743,14 +6743,14 @@ mod chunk_11 {
     // Native: apply_platform_collision carries player additively with platform vel.
     // ---------------------------------------------------------------------------
 
-    /// ASM loc_8DA0: platform y_velocity is applied to grounded player.
+    /// ASM loc_8DA0: platform y_pos is copied to grounded player each frame.
     #[test]
-    fn loc_8da0_platform_y_velocity_carries_grounded_player() {
+    fn loc_8da0_platform_y_position_reseats_grounded_player() {
         use crate::platforms::apply_platform_collision;
 
         let mut platform = make_test_platform(50, 100, 2, 0);
         platform.y_velocity = -0x1_0000_i32; // moving up 1px/frame
-        let mut slice = make_airborne_slice(50, 99);
+        let mut slice = make_airborne_slice(50, 97);
         slice.player.on_ground = true;
         slice.player.y_velocity = 0;
 
@@ -6758,8 +6758,12 @@ mod chunk_11 {
 
         assert_eq!(
             slice.player.y_pos,
-            (99u32 << 16).wrapping_sub(0x1_0000),
-            "ASM loc_8DA0: move.l $E(a4),y_vel(a3) — platform y_vel carries player"
+            99u32 << 16,
+            "ASM loc_8DA0: `move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3)` reseats Kid to platform_y - 1"
+        );
+        assert_eq!(
+            slice.player.y_velocity, platform.y_velocity,
+            "ASM loc_8DA0 copies platform y_vel into Kid before the ceiling probe"
         );
     }
 

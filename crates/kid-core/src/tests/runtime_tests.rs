@@ -10986,20 +10986,21 @@ mod chunk_09 {
         );
         assert_eq!(
             slice.player.y_pos,
-            lift_y.wrapping_add_signed(-0x0708),
-            "grounded riders should still inherit the newly updated `$E(a3)` even before the integer `6(a3)` word changes",
+            99 << 16,
+            "ASM loc_8DA0 reseats grounded riders to platform_y - 1 even before the lift's integer `6(a3)` word changes",
         );
 
         let outcome = rt.step_lift_platforms(&mut slice);
         assert_eq!(outcome, PlatformCollisionOutcome::None);
-        let expected_lift_y = 0x0063_F8F8;
+        let expected_lift_y = 0x0063_F8F8u32;
         assert_eq!(
             rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
             "ASM sub_FCA6 should move the lift by the fractional `sub_FD00` step on the second frame",
         );
-        assert!(
-            slice.player.y_pos < lift_y,
-            "player should be carried upward with the lift"
+        assert_eq!(
+            slice.player.y_pos,
+            expected_lift_y.wrapping_sub(0x0001_0000),
+            "ASM loc_8DA0 copies the lift's current 16.16 y_pos then subtracts one pixel",
         );
     }
 
