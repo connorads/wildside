@@ -12005,6 +12005,131 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_object_overlap_does_not_enter_kid_collision_loc_edfa_issue_277() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ShooterBlock,
+            x_pos: 99 << 16,
+            y_pos: 114 << 16,
+            y_velocity: -(4 << 16),
+            lifetime: 117,
+            ..EnemyProjectile::default()
+        });
+        let hitpoints_before = rt.progression.number_hitpoints;
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 101 << 16;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.player.x_velocity = -0x0002_9900;
+        slice.player.facing = Direction::Left;
+        let post_snap_x_pos = slice.player.x_pos;
+        rt.opening_slice = Some(slice);
+
+        let consumed = rt.resolve_frame_hazards(
+            &mut slice,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            0x0007_0000,
+            100 << 16,
+            post_snap_x_pos,
+            100 << 16,
+        );
+
+        assert!(
+            !consumed,
+            "ASM Process_ShooterObjects loc_EDFA..loc_EF62 moves ShooterBlock slots against level layout and compiles sprites; it does not call Character_CheckCollision/off_B640"
+        );
+        assert_eq!(
+            rt.progression.number_hitpoints, hitpoints_before,
+            "the issue-277 left-stair shard contact must not be recast as generic projectile damage"
+        );
+        assert!(
+            rt.pending_stomp_bounce.is_none(),
+            "the same contact must not synthesize off_B640 `$2C`/Jump_On_Enemy"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ROM shooter objects survive Kid overlap until their layout/lifetime path deletes them"
+        );
+        assert!(
+            !rt.kid_touched_enemy_this_frame_loc_fa75,
+            "loc_1C18's projectile-list contact latch should not see shooter-object sprite slots"
+        );
+    }
+
+    #[test]
+    fn shooter_object_body_overlap_damages_without_stomp_loc_edfa_issue_277() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ShooterBlock,
+            x_pos: 101 << 16,
+            y_pos: 98 << 16,
+            y_velocity: -(4 << 16),
+            lifetime: 115,
+            ..EnemyProjectile::default()
+        });
+        let hitpoints_before = rt.progression.number_hitpoints;
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 101 << 16;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.player.x_velocity = -0x0002_9900;
+        slice.player.facing = Direction::Left;
+        rt.opening_slice = Some(slice);
+
+        let consumed = rt.resolve_frame_hazards(
+            &mut slice,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            0x0007_0000,
+            100 << 16,
+            100 << 16,
+            100 << 16,
+        );
+
+        assert!(
+            consumed,
+            "issue-277 oracle frame 90 takes damage once the upward ShooterBlock shard reaches Kid's body"
+        );
+        assert_eq!(
+            rt.progression.number_hitpoints,
+            hitpoints_before - 1,
+            "ShooterBlock body contact should use Check_for_recent_damge semantics, not Jump_On_Enemy"
+        );
+        assert!(
+            rt.pending_stomp_bounce.is_none(),
+            "ASM Process_ShooterObjects loc_EDFA..loc_EF62 does not synthesize off_B640 `$2C`/Jump_On_Enemy"
+        );
+        assert!(
+            !rt.projectiles.is_empty(),
+            "ASM Process_ShooterObjects keeps the shooter-object slot alive after Kid damage"
+        );
+        let slice_after = rt.opening_slice.expect("damage should store slice");
+        assert_eq!(
+            slice_after.player.y_pos, 0x0007_4000 + (100 << 16),
+            "issue-277 ShooterBlock damage should preserve the airborne post-gravity Y instead of the native same-frame floor snap"
+        );
+        assert_eq!(slice_after.player.y_velocity, 0x0007_4000);
+        assert_eq!(
+            slice_after.player.x_pos,
+            (100 << 16) - 0x0002_9800,
+            "issue-277 ShooterBlock damage should also preserve the cancelled jump-air X step"
+        );
+        assert_eq!(slice_after.player.x_velocity, -0x0002_9800);
+        assert!(
+            !slice_after.player.on_ground,
+            "ShooterBlock damage before terrain snap should leave Kid airborne for this frame"
+        );
+    }
+
+    #[test]
     fn projectile_overlap_latches_fa75_and_blocks_next_frame_fresh_stomp_loc_1c18() {
         let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
         rt.progression.invulnerable_frames = 1;

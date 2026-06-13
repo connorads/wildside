@@ -3276,6 +3276,11 @@ impl NativeRuntime {
             if p.friendly {
                 return false;
             }
+            if p.kind == EnemyProjectileKind::ShooterBlock {
+                return shooter_block_can_damage_player_loc_edfa(
+                    (p.y_pos >> 16) as i32 - py,
+                ) && projectile_overlaps_player_loc_1c18(p, px, py, half);
+            }
             projectile_overlaps_player_loc_1c18(p, px, py, half)
         }) || self.fire_demon_trails.iter().any(|trail| {
             let prx = (trail.x_pos >> 16) as i32;
@@ -3333,10 +3338,24 @@ impl NativeRuntime {
             let overlaps = projectile_overlaps_player_loc_1c18(p, px, py, half);
             if overlaps {
                 if contact == ProjectilePlayerContactLocB640::None {
-                    contact = projectile_player_contact_kind_loc_b640(
-                        pry - py,
-                        stomp_registration_blocked,
-                    );
+                    contact = if p.kind == EnemyProjectileKind::ShooterBlock {
+                        // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
+                        // shooter-object worker, not a normal enemy object
+                        // entering Character_CheckCollision/off_B640. Oracle
+                        // issue-277 frames 88-90 show an upward shard ignored
+                        // while below Kid, then damaging once it reaches the
+                        // body; it never routes to Jump_On_Enemy.
+                        if shooter_block_can_damage_player_loc_edfa(pry - py) {
+                            ProjectilePlayerContactLocB640::Damage
+                        } else {
+                            ProjectilePlayerContactLocB640::None
+                        }
+                    } else {
+                        projectile_player_contact_kind_loc_b640(
+                            pry - py,
+                            stomp_registration_blocked,
+                        )
+                    };
                 }
                 if self.last_projectile_damage_probe.is_none() {
                     let dx = prx - px;
@@ -3361,7 +3380,14 @@ impl NativeRuntime {
                         owner,
                     ));
                 }
-                if p.kind == EnemyProjectileKind::LionProjectile {
+                if contact == ProjectilePlayerContactLocB640::None {
+                    true
+                } else if p.kind == EnemyProjectileKind::ShooterBlock {
+                    // ASM Process_ShooterObjects loc_EF62 writes the sprite and
+                    // continues the linked shooter-object list; Kid damage does
+                    // not delete the shooter slot.
+                    true
+                } else if p.kind == EnemyProjectileKind::LionProjectile {
                     // ASM Lion.asm loc_3E192 -> sub_3E2CE keeps the child
                     // object count-visible for the current collision frame;
                     // native removes and releases parent `$5B` during the
@@ -3447,6 +3473,15 @@ fn projectile_player_contact_kind_loc_b640(
     } else {
         ProjectilePlayerContactLocB640::Damage
     }
+}
+
+fn shooter_block_can_damage_player_loc_edfa(projectile_delta_y: i32) -> bool {
+    // ASM Process_ShooterObjects loc_EDFA..loc_EF62 compiles shooter shards as
+    // tiny sprite-table entries after directional movement. Unlike normal
+    // projectile objects, their foot-level overlap from below does not enter
+    // Character_CheckCollision/off_B640; the first issue-277 oracle damage is
+    // when the upward shard has reached Kid's body.
+    projectile_delta_y <= 0
 }
 
 fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut i16) -> bool {

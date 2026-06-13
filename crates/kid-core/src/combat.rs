@@ -12045,6 +12045,39 @@ impl NativeRuntime {
                         // damage after movement, so restore the issue-260 contact
                         // frame's entry X while preserving the already-matched Y path.
                         slice.player.x_pos = frame_start_x_pos;
+                    } else if self
+                        .last_projectile_damage_probe
+                        .as_deref()
+                        .is_some_and(|probe| probe.starts_with("hit:ShooterBlock@"))
+                        && slice.player.y_velocity == 0
+                        && pre_physics_y_velocity > 0
+                    {
+                        // ASM Process_ShooterObjects loc_EDFA..loc_EF62 advances
+                        // ice/shooter shards before Kid's terrain snap for this
+                        // frame. Native resolves projectile damage after physics,
+                        // so a same-frame floor snap must be undone to preserve
+                        // the airborne damage state seen in issue-277.
+                        let y_velocity = physics::apply_gravity(pre_physics_y_velocity, false);
+                        let jump_profile = physics::JUMP_AIR_PROFILES
+                            [usize::from(self.progression.current_form.helmet_id())];
+                        let (x_velocity, facing) = physics::update_jump_horizontal_velocity(
+                            slice.player.x_velocity,
+                            slice.player.facing,
+                            physics::HorizontalInput {
+                                left: _input.left,
+                                right: _input.right,
+                                run: _input.a,
+                            },
+                            jump_profile,
+                        );
+                        slice.player.x_pos =
+                            frame_start_x_pos.wrapping_add(x_velocity as u32);
+                        slice.player.y_pos =
+                            pre_physics_y_pos.wrapping_add(y_velocity as u32);
+                        slice.player.x_velocity = x_velocity;
+                        slice.player.y_velocity = y_velocity;
+                        slice.player.facing = facing;
+                        slice.player.on_ground = false;
                     }
                     self.opening_slice = Some(*slice);
                     self.apply_damage();
