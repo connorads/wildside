@@ -55,6 +55,16 @@ pub(crate) enum QueuedSoundEffect {
     ShiftingBlock,
     ElevatorBlock,
     ReplenishHealth,
+    VoiceBummer,
+    SkycutterTransform,
+    CycloneTransform,
+    RedStealthTransform,
+    EyeclopsTransform,
+    JuggernautTransform,
+    IronKnightTransform,
+    BerzerkerTransform,
+    ManiaxeTransform,
+    MicromaxTransform,
     RedStealthSwordSwinging,
     RedStealthHittingTarget,
     RedStealthAttackDown,
@@ -124,6 +134,20 @@ impl QueuedSoundEffect {
             // ASM loc_7C76 (kid.asm:8393): collecting the current helmet again
             // plays `sfx_Replenish_Health = $2A`.
             Self::ReplenishHealth => 0x2A,
+            // ASM loc_7E40 (kid.asm:8570): transforming back to The Kid plays
+            // `sfx_Voice_bummer = $68` after the loc_7E26 music-speed update.
+            Self::VoiceBummer => 0x68,
+            // ASM loc_7CD0 (kid.asm:8426): `unk_7ED8[Current_Helmet]`
+            // supplies the per-helmet transform cue before the forward table.
+            Self::SkycutterTransform => 0x30,
+            Self::CycloneTransform => 0x32,
+            Self::RedStealthTransform => 0x2E,
+            Self::EyeclopsTransform => 0x31,
+            Self::JuggernautTransform => 0x34,
+            Self::IronKnightTransform => 0x1A,
+            Self::BerzerkerTransform => 0x2F,
+            Self::ManiaxeTransform => 0x1B,
+            Self::MicromaxTransform => 0x33,
             // constants.asm: Red Stealth ability SFX.
             Self::RedStealthSwordSwinging => 0x23,
             Self::RedStealthHittingTarget => 0x5A,
@@ -223,6 +247,24 @@ pub(crate) fn transform_music_speed_byte_loc_7e26(
             .get(usize::from(foreground_theme))
             .copied()
             .unwrap_or(0)
+    }
+}
+
+pub(crate) fn transform_sound_effect_loc_7cd0(form: PlayerForm) -> Option<QueuedSoundEffect> {
+    // ASM loc_7CD0 (kid.asm:8426): after `Current_Helmet_Available` becomes
+    // `Current_Helmet`, non-demo transforms index `unk_7ED8` by helmet id and
+    // call `j_PlaySound` unless the table byte is zero.
+    match form {
+        PlayerForm::TheKid => None,
+        PlayerForm::Skycutter => Some(QueuedSoundEffect::SkycutterTransform),
+        PlayerForm::Cyclone => Some(QueuedSoundEffect::CycloneTransform),
+        PlayerForm::RedStealth => Some(QueuedSoundEffect::RedStealthTransform),
+        PlayerForm::Eyeclops => Some(QueuedSoundEffect::EyeclopsTransform),
+        PlayerForm::Juggernaut => Some(QueuedSoundEffect::JuggernautTransform),
+        PlayerForm::IronKnight => Some(QueuedSoundEffect::IronKnightTransform),
+        PlayerForm::Berzerker => Some(QueuedSoundEffect::BerzerkerTransform),
+        PlayerForm::Maniaxe => Some(QueuedSoundEffect::ManiaxeTransform),
+        PlayerForm::Micromax => Some(QueuedSoundEffect::MicromaxTransform),
     }
 }
 
@@ -9593,6 +9635,9 @@ impl NativeRuntime {
             // the target, plays per-helmet transform sound (unk_7ED8), then walks
             // the new helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
             // Native sets current_form above; frame counting below covers both phases.
+            if let Some(transform_sound) = transform_sound_effect_loc_7cd0(form) {
+                self.played_sound_effects.push(transform_sound);
+            }
             let old_frames = transform_anim_frames(old_form);
             let new_frames = transform_anim_frames(form);
             // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
@@ -9618,6 +9663,13 @@ impl NativeRuntime {
             self.murder_wall.is_some(),
         );
         self.played_music_speed_updates.push(transform_music_speed);
+        if form == PlayerForm::TheKid {
+            // ASM loc_7E26/loc_7E40 (kid.asm:8564-8574): after the
+            // post-transform music-speed update, `Current_Helmet == 0`
+            // queues `sfx_Voice_bummer`.
+            self.played_sound_effects
+                .push(QueuedSoundEffect::VoiceBummer);
+        }
 
         // ASM loc_7E48 (kid.asm:8575): cleanup after the optional
         // sfx_Voice_bummer (TheKid only). `bsr.w sub_80D0` (palette load),

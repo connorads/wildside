@@ -8259,6 +8259,100 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_7CD0 (kid.asm:8426): non-demo transforms index `unk_7ED8` by
+    /// `Current_Helmet` and play that per-helmet transform sound before the
+    /// forward animation loop at loc_7D0A.
+    #[test]
+    fn loc_7cd0_queues_per_helmet_transform_sfx_from_unk_7ed8() {
+        let expected = [
+            (
+                PlayerForm::Skycutter,
+                QueuedSoundEffect::SkycutterTransform,
+                0x30,
+            ),
+            (
+                PlayerForm::Cyclone,
+                QueuedSoundEffect::CycloneTransform,
+                0x32,
+            ),
+            (
+                PlayerForm::RedStealth,
+                QueuedSoundEffect::RedStealthTransform,
+                0x2E,
+            ),
+            (
+                PlayerForm::Eyeclops,
+                QueuedSoundEffect::EyeclopsTransform,
+                0x31,
+            ),
+            (
+                PlayerForm::Juggernaut,
+                QueuedSoundEffect::JuggernautTransform,
+                0x34,
+            ),
+            (
+                PlayerForm::IronKnight,
+                QueuedSoundEffect::IronKnightTransform,
+                0x1A,
+            ),
+            (
+                PlayerForm::Berzerker,
+                QueuedSoundEffect::BerzerkerTransform,
+                0x2F,
+            ),
+            (
+                PlayerForm::Maniaxe,
+                QueuedSoundEffect::ManiaxeTransform,
+                0x1B,
+            ),
+            (
+                PlayerForm::Micromax,
+                QueuedSoundEffect::MicromaxTransform,
+                0x33,
+            ),
+        ];
+
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        for (form, effect, sound_id) in expected {
+            runtime.played_sound_effects.clear();
+            runtime.progression.current_form = PlayerForm::TheKid;
+            runtime.queue_form_change(form);
+            runtime.resolve_pending_form_change();
+
+            assert_eq!(
+                runtime.played_sound_effects,
+                vec![effect],
+                "ASM loc_7CD0/unk_7ED8 should queue the transform SFX for {form:?}"
+            );
+            assert_eq!(
+                effect.sound_id(),
+                sound_id,
+                "constants.asm transform SFX id mismatch for {form:?}"
+            );
+        }
+    }
+
+    /// ASM loc_7E26/loc_7E40 (kid.asm:8564-8574): when `Current_Helmet` is
+    /// zero after transform cleanup, the ROM plays `sfx_Voice_bummer=$68`.
+    #[test]
+    fn loc_7e40_queues_voice_bummer_when_transforming_back_to_thekid() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::RedStealth;
+
+        runtime.queue_form_change(PlayerForm::TheKid);
+        runtime.resolve_pending_form_change();
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::VoiceBummer],
+            "ASM loc_7E40 should queue only sfx_Voice_bummer when the target Current_Helmet is zero"
+        );
+        assert_eq!(QueuedSoundEffect::VoiceBummer.sound_id(), 0x68);
+    }
+
     #[test]
     fn sub_7eb2_uses_transform_hp_table_not_damage_cap_table() {
         let mut runtime = NativeRuntime::new(manifest());

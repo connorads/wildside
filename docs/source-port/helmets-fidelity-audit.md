@@ -118,11 +118,11 @@ The ROM gates `sub_7EB2` behind the `$FFFFFA64` dying flag, so the death helmet-
 **`sub_DB22` — faithful clear helper is `#[cfg(test)]`-gated; live path uses `helmet.reset()` (broader, acceptable)** (`sub_DB22`, `kid.asm:17170`)
 `Kid_Transform` calls `sub_DB22` to clear a specific set of transient flags. The faithful `clear_special_movement_state_sub_DB22` (`helmets.rs:4220`) is `#[cfg(test)]` and never compiled into the runtime; the live path calls `self.helmet.reset()` (`combat.rs:8497`) = full `HelmetState::default()`, a superset. Benign, but the dead helper is the canonical failure-mode shape.
 
-**Transform SFX — per-helmet transform sound (`unk_7ED8`), `sfx_Replenish_Health`, and `sfx_Voice_bummer` all omitted** (`unk_7ED8`, `loc_7E14/loc_7E40`, `loc_7C76`)
-The ROM transform plays three sounds (per-helmet transform, voice-bummer back to Kid, replenish-health on same-helmet pickup). `resolve_pending_form_change` (`combat.rs:8336-8498`) emits none. Audio-only.
+**Transform SFX — per-helmet transform sound (`unk_7ED8`), `sfx_Replenish_Health`, and `sfx_Voice_bummer` now core-queued** (`unk_7ED8`, `loc_7E14/loc_7E40`, `loc_7C76`)
+The ROM transform plays three sounds (per-helmet transform, voice-bummer back to Kid, replenish-health on same-helmet pickup). Native now queues those via `resolve_pending_form_change` and `transform_sound_effect_loc_7cd0`; demo-mode suppression of the per-helmet transform cue remains a live-trace fidelity wrinkle because the historical native-player fallback was not demo-gated.
 
-**Music-speed selection (`unk_7ECC` / `MusicSpeed_Murderwall`) omitted** (`loc_7E14/loc_7E26`, `unk_7ECC`)
-The ROM selects a post-transform music-speed byte by theme (or murderwall) and applies it via the GEMS driver (`kid.asm:8562-8567`). Native does not model the GEMS driver or music tempo at all (`combat.rs:8408-8412`). Architectural (audio).
+**Music-speed selection (`unk_7ECC` / `MusicSpeed_Murderwall`) now queued for native audio** (`loc_7E14/loc_7E26`, `unk_7ECC`)
+The ROM selects a post-transform music-speed byte by theme (or murderwall) and applies it via the GEMS driver (`kid.asm:8562-8567`). Native now records the byte in `played_music_speed_updates` and native-player replays it as the GEMS `FF 05 <speed>; FF 0D` sequence.
 
 **`clr.w ($FFFFFB70)` walk/animation accumulator not modelled or cleared at transform** (`loc_7E48`, `kid.asm:8580`)
 The ROM clears the `$FFFFFB70` walk/animation accumulator at transform. Native models no such per-frame accumulator (`combat.rs:8421` hand-waves it), so there is nothing to clear and no observable divergence.

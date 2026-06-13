@@ -1873,6 +1873,7 @@ mod gems_sfx {
     pub const VOICE_OUCH: u8 = 0x61;
     pub const VOICE_DIAMOND: u8 = 0x62;
     pub const KID_PULLUP: u8 = 0x64;
+    pub const VOICE_BUMMER: u8 = 0x68;
     pub const VOICE_OUCH_1: u8 = 0x6B;
     pub const VOICE_OUCH_2: u8 = 0x6C;
     pub const VOICE_OUCH_3: u8 = 0x6D;
@@ -2293,6 +2294,24 @@ fn is_explicit_block_sound_id(sound_id: u8) -> bool {
     )
 }
 
+fn transform_sound_for_helmet_id_loc_7cd0(helmet_id: u16) -> Option<u8> {
+    // ASM loc_7CD0 (kid.asm:8426): `unk_7ED8[Current_Helmet]` maps helmet ids
+    // to transform SFX. Keep this fallback for older traces; current core
+    // frames queue the same id explicitly.
+    match helmet_id {
+        1 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
+        2 => Some(gems_sfx::CYCLONE_TRANSFORM),
+        3 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
+        4 => Some(gems_sfx::EYECLOPS_TRANSFORM),
+        5 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
+        6 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
+        7 => Some(gems_sfx::BERZERKER_TRANSFORM),
+        8 => Some(gems_sfx::MANIAXE_TRANSFORM),
+        9 => Some(gems_sfx::MICROMAX_TRANSFORM),
+        _ => None,
+    }
+}
+
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
     let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
     let mut sound_ids = queued_sound_ids.to_vec();
@@ -2348,19 +2367,9 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     // Form change (helmet ID changed). ASM unk_7ED8 indexes this table by
     // Current_Helmet, whose order differs from the extracted art order.
     if curr.current_helmet_id != prev.current_helmet_id {
-        let sfx = match curr.current_helmet_id {
-            1 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
-            2 => Some(gems_sfx::CYCLONE_TRANSFORM),
-            3 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
-            4 => Some(gems_sfx::EYECLOPS_TRANSFORM),
-            5 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
-            6 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
-            7 => Some(gems_sfx::BERZERKER_TRANSFORM),
-            8 => Some(gems_sfx::MANIAXE_TRANSFORM),
-            9 => Some(gems_sfx::MICROMAX_TRANSFORM),
-            _ => None,
-        };
-        if let Some(id) = sfx {
+        if let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
+            && !queued_sound_ids.contains(&id)
+        {
             sound_ids.push(id);
         }
     }
@@ -14538,6 +14547,34 @@ mod tests {
                 form.helmet_id()
             );
         }
+    }
+
+    #[test]
+    fn play_native_uses_core_transform_sfx_without_fallback_duplicate_loc_7cd0() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.current_helmet_id = PlayerForm::TheKid.helmet_id();
+        curr.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        curr.played_sound_effect_ids = vec![gems_sfx::RED_STEALTH_TRANSFORM];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::RED_STEALTH_TRANSFORM],
+            "ASM loc_7CD0 transform SFX now arrives from the core trace; play-native must not add the legacy helmet-id fallback twice"
+        );
+    }
+
+    #[test]
+    fn play_native_replays_voice_bummer_from_core_trace_loc_7e40() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_BUMMER];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::VOICE_BUMMER],
+            "ASM loc_7E40 (kid.asm:8570) queues sfx_Voice_bummer=$68 when transform cleanup leaves Current_Helmet zero"
+        );
     }
 
     #[test]
