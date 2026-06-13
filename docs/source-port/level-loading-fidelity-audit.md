@@ -35,7 +35,7 @@ Three findings stand out because they are **not** the simple modelled-but-unwire
 | Block-debris scratch slots (settle/break visual scratch RAM) | partial | 3 |
 | Death respawn / settle re-entry (reload current level, snap to floor) | partial | 2 |
 | Warp / next-level / teleport-door level selection | stub | 1 |
-| Flagpole touch → scoreboard reveal → end-of-level score counter | partial | 2 |
+| Flagpole touch → scoreboard reveal → end-of-level score counter | partial | 1 |
 | Level-name / title-card load (per-theme art, tilemap, palette) | partial | 1 |
 
 Totals: 18 units audited, 0 full, 11 partial, 7 stub. **55 confirmed gaps** (18 high, 19 medium, 18 low). 16 high/medium claims were refuted and dropped.
@@ -209,8 +209,8 @@ The ROM writes `$EE` to the continue/fade colour word `FBCC` (yellow teleport fl
 **Flagpole — hologram fade-out step modelled but unwired; no palette fade applied** (`loc_C1D0 / loc_C1DC`)
 The ROM runs a per-frame fade subtracting `$10` from `$FFFFF876` and reseeding pending palette masks until negative, fading the hologram BG before the scoreboard reveal (`kid.asm:15765`). Native models this exactly in `flagpole_fade_step_loc_C1D0` (`level.rs:14391`) but it is `allow(dead_code)`, referenced only from `tests.rs:240`. The live `LevelComplete` handler (`boot.rs:7660`) is a plain countdown applying no palette change, so the fade is a timing-only wait with no visual effect.
 
-**Flagpole — EOL extra-life award routed through generic `add_score`/`arm_hundred_k_trip` rather than `loc_D79E`** (`loc_D79E`)
-The ROM awards one life when the `divu #50000` quotient changes during the per-chunk EOL tally, with no `Prize10000Points_Init` side effects (`kid.asm:16872`). Native awards the EOL bonus through generic `add_score` (`combat.rs:7990`), which awards one life per boundary (functionally equal here) AND calls `arm_hundred_k_trip_timer_loc_10_ac2` (`combat.rs:8003`) — a side effect the ROM's EOL counter does not perform. The faithful side-effect-free `eol_score_counter_awards_life_loc_D79E` (`level.rs:16872`) and `eol_score_counter_apply_loc_D77E` (`16882`) are dead. Total life count matches; only the spurious 100k-trip arm on one specific level diverges.
+**RESOLVED candidate — Flagpole EOL extra-life award now routes through `loc_D77E`/`loc_D79E`, not generic `add_score`** (`loc_D77E` / `loc_D79E`)
+The ROM awards one life when the `divu #50000` quotient changes during the per-chunk EOL tally, with no `Prize10000Points_Init` side effects (`kid.asm:16862-16884`). Native now applies each EOL bonus row through `eol_score_counter_apply_loc_D77E` from `apply_level_completion_bonuses`, updates `Score`/`Number_Lives` directly, and leaves `hundred_k_trip_timer` clear when level-4 EOL bonuses cross 100K. Covered by `loc_D77E_eol_score_counter_does_not_arm_hundred_k_trip_timer`.
 
 **Level-name/title-card — faithful `load_title_card_*_loc_*` centering helpers are dead; logic re-implemented inline in `vdp.rs`** (`loc_19ABE … loc_19C04`)
 A complete family of ASM-faithful pure helpers for every `Load_TitleCard` fill/centering sub-loop exists in `level.rs` (`load_title_card_clear_vram_loc_19ABE`, `_tilemap_clear_loc_19B58`, `_palette_copy_word_count_loc_19B80`, `_top_padding_loc_19BC2`, `_left_padding_loc_19BD4`, `_row_copy_*_loc_19BDA/19BDE`, `_right_padding_loc_19BEE`, `_bottom_padding_loc_19C02/19C04`), all `allow(dead_code)`. `build_title_card_vdp` (`vdp.rs:2766-2821`) re-derives the same constants inline (`0x1C0` clear words, `$E000` fill `0x0094`×`0x800`, centering `top_rows=(0x1C-h)>>1`, `left_words=(0x28-w)>>1`, `0x02FB` pad). The inline values match the ASM and the unit-tested helpers, so this is duplication/hygiene, not a behaviour gap, but the canonical helpers are dead code.

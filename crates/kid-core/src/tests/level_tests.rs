@@ -17646,6 +17646,36 @@ mod chunk_02 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_D77E_eol_score_counter_does_not_arm_hundred_k_trip_timer() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        runtime.current_level = LevelId(4);
+        runtime.progression.score = 99_000;
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = false;
+        runtime.level_timer.seconds = 0;
+        let lives_before = runtime.progression.number_lives;
+
+        runtime.apply_level_completion_bonuses();
+
+        assert_eq!(
+            runtime.progression.score, 104_000,
+            "ASM loc_D77E should apply the EOL no-prize row directly to Score"
+        );
+        assert_eq!(
+            runtime.progression.number_lives,
+            lives_before + 1,
+            "ASM loc_D79E should award one life when the EOL row crosses a 50K quotient"
+        );
+        assert_eq!(
+            runtime.hundred_k_trip_timer, 0,
+            "ASM loc_D77E/loc_D79E never enters Prize10000Points_Init loc_10AC2, so the Hundred-K-Trip timer must stay clear"
+        );
+    }
+
+    #[test]
     fn add_score_caps_at_9_999_999() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

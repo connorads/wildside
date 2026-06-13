@@ -9369,7 +9369,16 @@ impl NativeRuntime {
         self.level_path_bonus_amount = tally.path_bonus_amount;
         self.level_speed_bonus_awarded = tally.speed_bonus_awarded;
         for amount in tally.amounts() {
-            self.add_score(*amount);
+            // ASM loc_D77E/loc_D79E (kid.asm:16862-16884): the EOL counter
+            // writes Score/Number_Lives directly. It does not enter the
+            // Prize10000Points_Init loc_10AC2 side path that arms Hundred-K-Trip.
+            let applied =
+                crate::level::eol_score_counter_apply_loc_D77E(self.progression.score, *amount);
+            self.progression.score = applied.score;
+            if applied.awards_extra_life {
+                self.add_life();
+                self.played_sound_effects.push(QueuedSoundEffect::AnkhPrize);
+            }
         }
     }
 
