@@ -3400,6 +3400,7 @@ impl NativeRuntime {
             let player_right = player_x_px + player_half_width;
             let plat_right = plat_x_px + i32::from(lift.width_px);
 
+            let mut mounted_this_frame = false;
             if player_right >= plat_x_px
                 && player_left <= plat_right
                 && slice.player.y_velocity >= 0
@@ -3407,15 +3408,18 @@ impl NativeRuntime {
             {
                 let foot_dist = player_foot_y_px - plat_y_px;
                 if (-2..=4).contains(&foot_dist) {
-                    slice.player.y_pos = lift.y_pos;
+                    // ASM loc_8DA0: move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3).
+                    let mounted_y_pos = ((plat_y_px.saturating_sub(1)).max(0) as u32) << 16;
+                    slice.player.y_pos = mounted_y_pos;
                     slice.player.y_velocity = lift.y_velocity;
                     slice.player.on_ground = true;
-                    slice.terrain.floor_y_pos = lift.y_pos;
+                    slice.terrain.floor_y_pos = mounted_y_pos;
+                    mounted_this_frame = true;
                 }
             }
 
             // If player is on ground and riding this lift, carry along
-            if slice.player.on_ground {
+            if slice.player.on_ground && !mounted_this_frame {
                 let within_snap =
                     slice.player.y_pos.abs_diff(lift.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
                 if within_snap && player_right >= plat_x_px && player_left <= plat_right {

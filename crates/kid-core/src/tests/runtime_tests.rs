@@ -10998,6 +10998,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn lift_platform_mount_snaps_to_platform_top_minus_one_loc_8da0() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_state.lift_platforms.push(LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 100 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 100,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: true,
+        });
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 100 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+
+        rt.step_lift_platforms(&mut slice);
+
+        assert_eq!(
+            slice.player.y_pos,
+            99 << 16,
+            "ASM loc_8DA0 copies platform_y then subtracts one pixel, instead of additively carrying on the mount frame",
+        );
+    }
+
+    #[test]
     fn lift_block_bob_deltas_sub_fb3e_match_the_three_hibernating_passes() {
         let deltas = NativeRuntime::lift_block_bob_deltas_sub_FB3E();
 
