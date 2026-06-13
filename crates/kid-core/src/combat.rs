@@ -9913,6 +9913,9 @@ impl NativeRuntime {
         self.allow_pausing = false;
         self.allow_pausing_fade_frames = 0;
         self.progression.invulnerable_frames = 0;
+        // ASM Death (kid.asm:14719): `clr.w (Extra_hitpoint_slots).w` happens
+        // before the visible tumble/arc, not only at the later lose_life tail.
+        self.progression.extra_hitpoint_slots = 0;
         self.death_windup_path = path;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.death_preserved_object_velocity = self

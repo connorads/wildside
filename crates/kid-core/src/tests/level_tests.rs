@@ -7766,6 +7766,11 @@ mod chunk_02 {
         runtime.progression.number_hitpoints = 0;
         runtime.begin_death_windup();
 
+        assert_eq!(
+            runtime.progression.extra_hitpoint_slots, 0,
+            "ASM Death (kid.asm:14719): clears Extra_hitpoint_slots immediately on death entry, before the visible tumble"
+        );
+
         // Advance through windup until sprite leaves viewport.
         let mut frames = 0usize;
         while matches!(
