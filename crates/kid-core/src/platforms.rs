@@ -694,10 +694,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     current_form: PlayerForm,
     crawling: bool,
 ) -> PlatformCollisionOutcome {
-    let player_x_px = (slice.player.x_pos >> 16) as i32;
     let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
-    let player_left = player_x_px - PLAYER_HALF_WIDTH;
-    let player_right = player_x_px + PLAYER_HALF_WIDTH;
 
     // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
     // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
@@ -809,115 +806,153 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         return PlatformCollisionOutcome::None;
     }
 
-    for (platform_index, platform) in platforms.iter().enumerate() {
-        let plat_x_px = (platform.x_pos >> 16) as i32;
-        let plat_y_px = (platform.y_pos >> 16) as i32;
-        let plat_right = plat_x_px + i32::from(platform.width_px);
-
-        // Horizontal overlap check
-        if player_right < plat_x_px || player_left > plat_right {
-            continue;
-        }
-
-        let plat_bottom = plat_y_px + i32::from(platform.height_px);
+    let mut touched_left_side = false;
+    let mut touched_right_side = false;
+    let mut scan_restarts = 0usize;
+    loop {
+        let player_x_px = (slice.player.x_pos >> 16) as i32;
+        let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
+        let player_left = player_x_px - PLAYER_HALF_WIDTH;
+        let player_right = player_x_px + PLAYER_HALF_WIDTH;
         let player_top = player_foot_y_px - PLAYER_HEIGHT;
-        if plat_y_px <= player_foot_y_px && plat_bottom >= player_top {
-            // ASM Platforms_CheckCollision loc_25A0..loc_2686: after the
-            // AABB overlap test, compare the absolute horizontal and vertical
-            // escape distances. Only a strictly smaller vertical escape enters
-            // loc_26D4 landing; ties and smaller horizontal escapes go through
-            // loc_2686 and push Kid sideways.
-            let platform_left_px = plat_x_px as i16;
-            let platform_right_px = plat_right as i16;
-            let platform_top_px = plat_y_px as i16;
-            let platform_bottom_px = plat_bottom as i16;
-            let kid_left_px = player_left as i16;
-            let kid_right_px = player_right as i16;
-            let kid_top_px = player_top as i16;
-            let kid_bottom_px = player_foot_y_px as i16;
+        let mut restart_scan = false;
 
-            let push_x_px = if kid_left_px > platform_left_px {
-                if kid_right_px > platform_right_px {
-                    horizontal_overlap_right_exit_loc_2616(platform_right_px, kid_left_px).push_x_px
-                } else {
-                    horizontal_overlap_resolution_loc_25EE(
-                        platform_left_px,
-                        platform_right_px,
-                        kid_left_px,
-                        kid_right_px,
-                    )
-                    .push_x_px
-                }
-            } else {
-                platform_left_px.wrapping_sub(kid_right_px).wrapping_sub(1)
-            };
-            let push_y_px = if kid_top_px > platform_top_px {
-                if kid_bottom_px > platform_bottom_px {
-                    vertical_overlap_bottom_exit_loc_265A(platform_bottom_px, kid_top_px).push_y_px
-                } else {
-                    vertical_overlap_resolution_loc_2632(
-                        platform_top_px,
-                        platform_bottom_px,
-                        kid_top_px,
-                        kid_bottom_px,
-                    )
-                    .push_y_px
-                }
-            } else {
-                vertical_overlap_top_exit_loc_261E(platform_top_px, kid_bottom_px).push_y_px
-            };
-            let horizontal_magnitude = push_x_px.unsigned_abs();
-            let vertical_magnitude = vertical_push_magnitude_loc_266A(push_y_px).magnitude_word;
-            if vertical_magnitude >= horizontal_magnitude {
-                let pushed = apply_horizontal_platform_push_loc_2686(
-                    kid_left_px,
-                    kid_right_px,
-                    player_x_px as i16,
-                    push_x_px,
-                );
-                // ASM loc_26A2/loc_26B6: side escapes copy only platform
-                // velocity travelling in the escape direction into `$26(a0)`.
-                slice.player.x_velocity = if pushed.takes_negative_branch {
-                    negative_platform_carry_loc_26B6(platform.x_velocity, false)
-                        .carried_x_velocity_fp
-                } else {
-                    positive_platform_carry_loc_26A2(platform.x_velocity, false)
-                        .carried_x_velocity_fp
-                };
-                slice.player.x_pos = (i32::from(pushed.kid_gfx_x_px).max(0) as u32) << 16;
-                slice.player.on_ground = false;
-                return PlatformCollisionOutcome::None;
-            }
-        }
+        for (platform_index, platform) in platforms.iter().enumerate() {
+            let plat_x_px = (platform.x_pos >> 16) as i32;
+            let plat_y_px = (platform.y_pos >> 16) as i32;
+            let plat_right = plat_x_px + i32::from(platform.width_px);
 
-        // Vertical check: player feet should be at or just below the platform top.
-        // Use the same snap tolerance as terrain floor collision.
-        let plat_top_fp = platform.y_pos;
-        let within_snap = slice.player.y_pos.abs_diff(plat_top_fp) <= GROUND_SNAP_TOLERANCE_FP;
-        let feet_at_or_below = player_foot_y_px >= plat_y_px;
-
-        if feet_at_or_below || within_snap {
-            // Don't land if player feet are well past the platform (inside it)
-            if player_foot_y_px > plat_bottom {
+            // Horizontal overlap check
+            if player_right < plat_x_px || player_left > plat_right {
                 continue;
             }
 
-            // Land on this platform
-            let floor_y_px = plat_y_px.saturating_sub(1);
-            let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
-            // ASM floor landing: loc_AAF8 (y_vel >= 0) preserves sub-pixel,
-            // loc_AB22 (y_vel < 0) zeroes it. Use pre_gravity_y_vel since
-            // native applies gravity before collisions (GravityFirst).
-            if slice.pre_gravity_y_vel >= 0 {
-                slice.player.y_pos =
-                    (floor_y_fp & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
-            } else {
-                slice.player.y_pos = floor_y_fp;
+            let plat_bottom = plat_y_px + i32::from(platform.height_px);
+            if plat_y_px <= player_foot_y_px && plat_bottom >= player_top {
+                // ASM Platforms_CheckCollision loc_25A0..loc_2686: after the
+                // AABB overlap test, compare the absolute horizontal and vertical
+                // escape distances. Only a strictly smaller vertical escape enters
+                // loc_26D4 landing; ties and smaller horizontal escapes go through
+                // loc_2686 and push Kid sideways.
+                let platform_left_px = plat_x_px as i16;
+                let platform_right_px = plat_right as i16;
+                let platform_top_px = plat_y_px as i16;
+                let platform_bottom_px = plat_bottom as i16;
+                let kid_left_px = player_left as i16;
+                let kid_right_px = player_right as i16;
+                let kid_top_px = player_top as i16;
+                let kid_bottom_px = player_foot_y_px as i16;
+
+                let push_x_px = if kid_left_px > platform_left_px {
+                    if kid_right_px > platform_right_px {
+                        horizontal_overlap_right_exit_loc_2616(platform_right_px, kid_left_px)
+                            .push_x_px
+                    } else {
+                        horizontal_overlap_resolution_loc_25EE(
+                            platform_left_px,
+                            platform_right_px,
+                            kid_left_px,
+                            kid_right_px,
+                        )
+                        .push_x_px
+                    }
+                } else {
+                    platform_left_px.wrapping_sub(kid_right_px).wrapping_sub(1)
+                };
+                let push_y_px = if kid_top_px > platform_top_px {
+                    if kid_bottom_px > platform_bottom_px {
+                        vertical_overlap_bottom_exit_loc_265A(platform_bottom_px, kid_top_px)
+                            .push_y_px
+                    } else {
+                        vertical_overlap_resolution_loc_2632(
+                            platform_top_px,
+                            platform_bottom_px,
+                            kid_top_px,
+                            kid_bottom_px,
+                        )
+                        .push_y_px
+                    }
+                } else {
+                    vertical_overlap_top_exit_loc_261E(platform_top_px, kid_bottom_px).push_y_px
+                };
+                let horizontal_magnitude = push_x_px.unsigned_abs();
+                let vertical_magnitude = vertical_push_magnitude_loc_266A(push_y_px).magnitude_word;
+                if vertical_magnitude >= horizontal_magnitude {
+                    let pushed = apply_horizontal_platform_push_loc_2686(
+                        kid_left_px,
+                        kid_right_px,
+                        player_x_px as i16,
+                        push_x_px,
+                    );
+                    // ASM loc_26A2/loc_26B6: side escapes copy only platform
+                    // velocity travelling in the escape direction into `$26(a0)`,
+                    // set FAA2/FAA3, and restart at loc_2590 unless the opposite
+                    // side was already touched, which jumps to loc_271A.
+                    if pushed.takes_negative_branch {
+                        let carry = negative_platform_carry_loc_26B6(
+                            platform.x_velocity,
+                            touched_right_side,
+                        );
+                        slice.player.x_velocity = carry.carried_x_velocity_fp;
+                        touched_left_side = true;
+                        if carry.escalates_to_loc_271_a {
+                            return PlatformCollisionOutcome::CrushDeath;
+                        }
+                    } else {
+                        let carry = positive_platform_carry_loc_26A2(
+                            platform.x_velocity,
+                            touched_left_side,
+                        );
+                        slice.player.x_velocity = carry.carried_x_velocity_fp;
+                        touched_right_side = true;
+                        if carry.escalates_to_loc_271_a {
+                            return PlatformCollisionOutcome::CrushDeath;
+                        }
+                    }
+                    slice.player.x_pos = (i32::from(pushed.kid_gfx_x_px).max(0) as u32) << 16;
+                    slice.player.on_ground = false;
+                    restart_scan = true;
+                    break;
+                }
             }
-            slice.player.on_ground = true;
-            slice.player.y_velocity = 0;
-            slice.terrain.floor_y_pos = floor_y_fp;
-            return PlatformCollisionOutcome::StandingOn(platform_index);
+
+            // Vertical check: player feet should be at or just below the platform top.
+            // Use the same snap tolerance as terrain floor collision.
+            let plat_top_fp = platform.y_pos;
+            let within_snap = slice.player.y_pos.abs_diff(plat_top_fp) <= GROUND_SNAP_TOLERANCE_FP;
+            let feet_at_or_below = player_foot_y_px >= plat_y_px;
+
+            if feet_at_or_below || within_snap {
+                // Don't land if player feet are well past the platform (inside it)
+                if player_foot_y_px > plat_bottom {
+                    continue;
+                }
+
+                // Land on this platform
+                let floor_y_px = plat_y_px.saturating_sub(1);
+                let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+                // ASM floor landing: loc_AAF8 (y_vel >= 0) preserves sub-pixel,
+                // loc_AB22 (y_vel < 0) zeroes it. Use pre_gravity_y_vel since
+                // native applies gravity before collisions (GravityFirst).
+                if slice.pre_gravity_y_vel >= 0 {
+                    slice.player.y_pos =
+                        (floor_y_fp & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
+                } else {
+                    slice.player.y_pos = floor_y_fp;
+                }
+                slice.player.on_ground = true;
+                slice.player.y_velocity = 0;
+                slice.terrain.floor_y_pos = floor_y_fp;
+                return PlatformCollisionOutcome::StandingOn(platform_index);
+            }
+        }
+
+        if !restart_scan {
+            break;
+        }
+        scan_restarts += 1;
+        if scan_restarts > platforms.len() {
+            break;
         }
     }
     PlatformCollisionOutcome::None

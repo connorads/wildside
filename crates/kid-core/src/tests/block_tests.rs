@@ -13165,6 +13165,21 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_opposite_side_escapes_escalate_to_crush_loc_271a() {
+        let left_escape = make_test_platform(40, 100, 2, 0);
+        let right_escape = make_test_platform(18, 100, 0, 0);
+        let mut slice = make_airborne_slice(40, 110);
+
+        let outcome = apply_platform_collision(&mut slice, &[left_escape, right_escape]);
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::CrushDeath,
+            "ASM loc_26B6 sets `$FFFFFAA2`, restarts at loc_2590, then loc_26A2 must jump to loc_271A when the opposite side also pushes Kid",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),
