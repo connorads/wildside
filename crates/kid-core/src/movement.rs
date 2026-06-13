@@ -8069,7 +8069,6 @@ pub(crate) fn slope_to_solid_exit_floor_y_loc_9fbc(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn crawl_wall_escape_sub_81B4(
     grid: &terrain::BlockGrid,
     x_pos: u32,

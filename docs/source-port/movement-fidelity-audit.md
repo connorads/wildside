@@ -5,7 +5,7 @@
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20` and `with_left_right_conflict_resolved` instances are now fixed and test-locked.
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, and `crawl_wall_escape_sub_81B4` instances are now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -20,7 +20,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
 | Ground walk/run horizontal acceleration | partial | 1 |
 | Braking / skid / turn-around | full | 0 |
-| Duck / crawl (`MoveID_Crawling=1`) | partial | 3 |
+| Duck / crawl (`MoveID_Crawling=1`) | partial | 2 |
 | Jump initiation (ground launch velocity) | partial | 2 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
@@ -41,8 +41,8 @@ Original totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 conf
 **FIXED 2026-06-13 — Ground accel terrain index selection preserved the ROM's ice/rubber swap** (`loc_9AE0`/`loc_9AF2`/`loc_9AFC` select; `sub_8600`/`loc_8680`/`loc_8688` write)
 `sub_8600` writes index 1 for ice blocks (`BlockType::Ice=2`) and 2 for rubber (`BlockType::Rubber=6`); the selector `loc_9AE0` reads them **inverted** (`#2`→`unk_9C7A` punchy table, `#1`→`unk_9CCE` slippery table). Net ROM behaviour: ice → slippery glide (`accel $200`, caps `$40000-$70000`), rubber → punchy (`accel $2000`/`decel $5000`). Commit "Cross-wire ice rubber ground speed tables" centralised that original quirk in `PlayerForm::ground_speed_table` and removed the previous `movement.rs` rubber-to-ice hand-off. Verified by selector regressions, `level00_frame_731_flat_rubber_span_uses_refreshed_code_two_table_loc_8e16`, and `mise run verify-slice-fast`.
 
-**Crawl — stand-up wall escape (`sub_81B4`) implemented and tested but never called** (`sub_81B4` @kid.asm:8952, from crawl stand-up `loc_8270` @9033)
-ROM stand-up runs `sub_DAA6` (overhead platform) → `sub_B43A` (floor) → Skycutter gate → `sub_81B4` (wall escape): probes 16px above the feet at `x±$E`; both sides solid → stay crawling (wedged); one side open → restore standing half-width and snap `x_pos` flush to the tile boundary. Native `crawl_wall_escape_sub_81B4` (`movement.rs:6431`, `#[allow(dead_code)]`) ports all of this but the only callers are tests; the live gate (`lib.rs:2516-2536`) consults only `sub_DAA6`. Missing: (1) Kid wedged in a 1-tile gap can wrongly stand; (2) the deterministic flush x-snap as the standing box re-expands.
+**FIXED 2026-06-13 — Crawl stand-up wall escape (`sub_81B4`) is wired live** (`sub_81B4` @kid.asm:8952, from crawl stand-up `loc_8270` @9033)
+ROM stand-up runs `sub_DAA6` (overhead platform) → `sub_B43A` (floor) → Skycutter gate → `sub_81B4` (wall escape): probes 16px above the feet at `x±$E`; both sides solid → stay crawling (wedged); one side open → restore standing half-width and snap `x_pos` flush to the tile boundary. Native now calls `crawl_wall_escape_sub_81B4` from the live crawl-release gate (`lib.rs:3272-3301`) after the `sub_DAA6` and head-row checks; `loc_8270_sub_81b4_both_side_walls_keep_release_frame_crawling` and `loc_8270_sub_81b4_right_escape_snaps_live_standup` verify the blocked and snap-out branches.
 
 **FIXED 2026-06-13 — Airborne control delegates Skycutter air-jump to `sub_9A20`** (`sub_B084` @kid.asm:13921-13927; `sub_9A20` @11588)
 `sub_B084`'s first action: `cmpi.w #Skycutter,(Current_Helmet); bne loc_B09E; move.l x_vel,d0; bsr sub_9A20` — airborne Skycutter **bypasses** the `unk_A4B2`/`unk_A4C6` air tables and uses `sub_9A20` (caps `$20000` walk/`$40000` run, `$2000`/`$4000` accel, two-tier cruise-decel). Native now mirrors that in both `update_horizontal_velocity_only` (`movement.rs:5244-5251`) and the full horizontal motion helper (`movement.rs:5590-5597`). Regression `sub_b084_airborne_skycutter_uses_sub_9a20_velocity` (`movement_tests.rs:4728-4790`) proves both live paths apply `$2000` from `sub_9A20` instead of the generic Skycutter jump-air table's `$3400`.
