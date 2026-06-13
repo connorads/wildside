@@ -8396,6 +8396,68 @@ mod chunk_09 {
     }
 
     #[test]
+    fn blue_lake_woods_2_teleporter_uses_generated_block_list_loc_b522_loc_bc80() {
+        let Some(mut rt) = cached_generated_runtime() else {
+            return;
+        };
+        rt.boot_state = BootState::InGame;
+        rt.current_level = LevelId(1);
+        rt.reload_block_grid_for_level(LevelId(1));
+
+        let grid = rt
+            .block_grid()
+            .expect("Blue Lake Woods 2 generated block grid");
+        assert_eq!(
+            (
+                grid.cell_at(156, 36).has_block,
+                grid.cell_at(156, 36).block_type
+            ),
+            (true, terrain::BlockType::Teleporter),
+            "ASM sub_B43A loc_B4FA only starts loc_B522 for block type `$400` with bit 15 set",
+        );
+        assert!(
+            rt.block_list
+                .as_ref()
+                .expect("Blue Lake Woods 2 block list")
+                .teleporter_at(156, 36)
+                .is_some(),
+            "ASM loc_BC96 must find the generated block-list teleporter entry for the activated tile",
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.x_pos = ((156 * 16) + 7) << 16;
+        slice.player.y_pos = ((36 * 16) - 1) << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.terrain.floor_y_pos = 36 * 16;
+        rt.opening_slice = Some(slice);
+
+        for _ in 1..90 {
+            rt.step_frame(FrameInput::default());
+        }
+        rt.step_frame(FrameInput::default());
+
+        let slice = rt
+            .opening_slice
+            .as_ref()
+            .expect("same-level teleporter should keep gameplay slice");
+        assert_eq!(
+            (slice.player.x_pos, slice.player.y_pos),
+            ((28 * 16) << 16, (9 * 16) << 16),
+            "ASM loc_BCB2/loc_BCF6 should warp the level-1 telepad to destination tile 28,9 after the 90-frame loc_B522 countdown",
+        );
+        assert!(
+            rt.played_sound_effects
+                .contains(&QueuedSoundEffect::Teleport),
+            "ASM loc_BCF6 passes d6=-5 into Teleport for sfx_Teleport",
+        );
+    }
+
+    #[test]
     fn loc_7a60_left_probe_blocked_snaps_right_to_tile_boundary() {
         // ASM loc_7A60 (kid.asm:8126): when x_pos - $E < 0 or left probe finds
         // $4000, snap x to `((x-14) & $FFF0) + $10 + 14`. Grid col 1 at y=4
