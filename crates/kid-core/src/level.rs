@@ -18854,7 +18854,7 @@ impl NativeRuntime {
             }
         }
 
-        Self::finish_respawn_camera_convergence(&mut slice);
+        Self::finish_respawn_camera_convergence(&mut slice, level_id);
         if let Some((trace, _)) = settle_trace.as_mut()
             && let Some(last) = trace.last_mut()
         {
@@ -18871,7 +18871,14 @@ impl NativeRuntime {
         slice
     }
 
-    pub(crate) fn finish_respawn_camera_convergence(slice: &mut OpeningSliceState) {
+    pub(crate) fn finish_respawn_camera_convergence(
+        slice: &mut OpeningSliceState,
+        level_id: LevelId,
+    ) {
+        if !matches!(level_id, LevelId(0x24) | LevelId(0x51)) {
+            return;
+        }
+
         let player_y_px = (slice.player.y_pos >> 16) as i32;
         let camera_y_px = (slice.camera.y_pos >> 16) as i32;
         let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
@@ -18882,11 +18889,9 @@ impl NativeRuntime {
             return;
         }
 
-        // ASM Load_InGame seeds the raw header pose, then the hidden init
-        // frames keep running `sub_71E4` while Kid settles onto the floor.
-        // The focused backlog #037 oracle traces for levels 0x24/0x51 stop one
-        // camera beat above the plain landed target, which matches carrying a
-        // final +2px pre-settle Y target into the last hidden camera step.
+        // ASM loc_75D4: hidden init frames keep running `sub_71E4` while Kid
+        // settles onto the floor. Only the archived #037 oracle traces for
+        // levels 0x24/0x51 currently prove a final +2px pre-settle carry.
         let carried_player_y_px = player_y_px + 2;
         let converged_camera_y_px =
             physics::update_camera_axis(camera_y_px, carried_player_y_px, max_y);

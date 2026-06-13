@@ -4614,7 +4614,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn respawn_camera_convergence_uses_level_height_minus_viewport_clamp() {
+    fn respawn_camera_convergence_is_limited_to_oracle_backed_levels() {
         let max_y = 76i32;
         let mut slice = OpeningSliceState::respawn_from_pose(
             LevelBounds {
@@ -4634,12 +4634,20 @@ mod chunk_02 {
             },
         );
 
-        NativeRuntime::finish_respawn_camera_convergence(&mut slice);
+        NativeRuntime::finish_respawn_camera_convergence(&mut slice, LevelId(0));
+
+        assert_eq!(
+            slice.camera.y_pos,
+            u32::try_from(max_y - 2).expect("synthetic camera y should fit in u32") << 16,
+            "ordinary respawns should not receive the archived #037 +2px settle carry",
+        );
+
+        NativeRuntime::finish_respawn_camera_convergence(&mut slice, LevelId(0x24));
 
         assert_eq!(
             slice.camera.y_pos,
             u32::try_from(max_y - 1).expect("synthetic converged camera y should fit in u32") << 16,
-            "respawn camera convergence should clamp the target with level height minus viewport before applying the final +2px settle beat",
+            "special-case respawn camera convergence should clamp with level height minus viewport before applying the final +2px settle beat",
         );
 
         let target_y = 40i32;
@@ -4660,13 +4668,13 @@ mod chunk_02 {
             },
         );
 
-        NativeRuntime::finish_respawn_camera_convergence(&mut unclamped_slice);
+        NativeRuntime::finish_respawn_camera_convergence(&mut unclamped_slice, LevelId(0x51));
 
         assert_eq!(
             unclamped_slice.camera.y_pos,
             u32::try_from(target_y - 1).expect("synthetic converged camera y should fit in u32")
                 << 16,
-            "respawn camera convergence should derive the unclamped target from player y minus the camera offset",
+            "special-case respawn camera convergence should derive the unclamped target from player y minus the camera offset",
         );
 
         let mut airborne_slice = unclamped_slice;
@@ -4674,7 +4682,7 @@ mod chunk_02 {
         airborne_slice.camera.y_pos =
             u32::try_from(target_y - 2).expect("synthetic camera y should fit in u32") << 16;
 
-        NativeRuntime::finish_respawn_camera_convergence(&mut airborne_slice);
+        NativeRuntime::finish_respawn_camera_convergence(&mut airborne_slice, LevelId(0x51));
 
         assert_eq!(
             airborne_slice.camera.y_pos,
