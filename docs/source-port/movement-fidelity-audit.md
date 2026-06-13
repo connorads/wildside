@@ -73,8 +73,8 @@ ROM inherits platform motion into the player's **velocity** then re-runs the col
 **FIXED 2026-06-13 — Damage preserves wall-grab/cling state** (`Check_for_recent_damge`/`loc_B700`/`loc_B72C` @kid.asm:14632-14659)
 The ROM hurt path only touches HP, damage flags, SFX, and helmet/death routing; it never writes the wall-stick/cling latches. Native `apply_damage_core` now leaves `right_wall_sticky`/`left_wall_sticky`/`wall_cling_direction` untouched while applying the `Just_received_damage` and hitpoint effects. Regression `damage_preserves_wall_sticky_loc_b700` covers the preservation against the ASM hurt path.
 
-**Berzerker — charge negates Kid `x_vel` unconditionally; ROM gates on `object_meta` bit 15** (`loc_B678`/`loc_B692`/`return_B690` @kid.asm:14582-14598)
-ROM negates `x_vel` on a charging side-contact only when bit 15 of the enemy `object_meta` is set (`bclr #$F,d6; bne loc_B692`). Native `process_berzerker_charge_hits` (`helmets.rs:5259-5264`) negates on the first overlap unconditionally; the transient bit-15 recoil flag is neither set nor consulted. Net: native bounces off enemies the ROM passes through. (The authors documented the exact gate at `combat.rs:8158-8163` but did not model it.)
+**FIXED 2026-06-13 — Berzerker charge reflects Kid `x_vel` only for `object_meta` bit 15** (`loc_B678`/`loc_B692`/`return_B690` @kid.asm:14582-14598)
+ROM negates `x_vel` on a charging side-contact only when bit 15 of the copied enemy `object_meta` is set (`bclr #$F,d6; bne loc_B692`). Native `process_berzerker_charge_hits` now routes that through `berzerker_charge_reflects_player_velocity_loc_b678`: ordinary enemy and boss-head contacts skip the reflection, while Scorpion's sting window reflects once. Regressions `berzerker_charge_loc_b692_skips_reflect_when_object_meta_bit_15_clear`, `berzerker_charge_loc_b692_skips_boss_heads_with_only_object_meta_bit_7`, and `berzerker_charge_loc_b692_reflects_player_x_velocity_once_for_scorpion_sting_bit_15` cover the gate.
 
 ### Low severity
 
