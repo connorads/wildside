@@ -15683,6 +15683,7 @@ mod chunk_05 {
             &[platform],
             Some(&grid),
             PlayerForm::TheKid,
+            false,
         );
 
         assert_eq!(

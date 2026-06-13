@@ -13157,6 +13157,7 @@ mod chunk_04 {
             &[platform],
             None,
             PlayerForm::RedStealth,
+            false,
         );
 
         assert_eq!(
@@ -13209,6 +13210,24 @@ mod chunk_04 {
                 true,
             ),
             "ASM sub_8ED0 should drop crawling Kid support one pixel earlier than the generic 7px path",
+        );
+    }
+
+    #[test]
+    fn find_standing_platform_index_loc_8ed0_uses_crawling_width_override() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut player = make_airborne_slice(32, 100).player;
+        player.on_ground = true;
+
+        assert_eq!(
+            find_standing_platform_index_loc_8ED0(&[platform], player, PlayerForm::Juggernaut, false),
+            Some(0),
+            "ASM loc_8EFA: standing Juggernaut uses the supplied 23px half-width and still overlaps the platform edge",
+        );
+        assert_eq!(
+            find_standing_platform_index_loc_8ED0(&[platform], player, PlayerForm::Juggernaut, true),
+            None,
+            "ASM sub_8ED0 (kid.asm:10288-10294): MoveID_Crawling clamps non-Kid support to 7px, so x=32 drops support at the left edge",
         );
     }
 

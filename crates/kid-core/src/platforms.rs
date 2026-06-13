@@ -675,7 +675,7 @@ pub(crate) fn apply_platform_collision(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],
 ) -> PlatformCollisionOutcome {
-    apply_platform_collision_with_ceiling_probe(slice, platforms, None, PlayerForm::TheKid)
+    apply_platform_collision_with_ceiling_probe(slice, platforms, None, PlayerForm::TheKid, false)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -689,6 +689,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     platforms: &[ActivePlatform],
     block_grid: Option<&terrain::BlockGrid>,
     current_form: PlayerForm,
+    crawling: bool,
 ) -> PlatformCollisionOutcome {
     let player_x_px = (slice.player.x_pos >> 16) as i32;
     let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
@@ -714,7 +715,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                 slice.player.x_pos,
                 current_form.half_width(),
                 current_form,
-                false,
+                crawling,
             ) {
                 continue;
             }
@@ -915,6 +916,7 @@ pub(crate) fn find_standing_platform_index_loc_8ED0(
     platforms: &[ActivePlatform],
     player: PlayerState,
     current_form: PlayerForm,
+    crawling: bool,
 ) -> Option<usize> {
     if !player.on_ground {
         return None;
@@ -926,7 +928,7 @@ pub(crate) fn find_standing_platform_index_loc_8ED0(
             player.x_pos,
             current_form.half_width(),
             current_form,
-            false,
+            crawling,
         ) {
             return false;
         }

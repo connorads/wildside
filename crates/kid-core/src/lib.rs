@@ -3231,6 +3231,7 @@ impl NativeRuntime {
         // ASM Kid_Transform runs as a coroutine: during the transform animation,
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
+        let mut platform_support_crawling = false;
         if self.progression.form_change_flash_frames == 0 {
             let deferred_prize_ceiling_cells: Vec<(u16, u16, DeferredPrizeBlockPhase)> = self
                 .block_state
@@ -3751,6 +3752,11 @@ impl NativeRuntime {
                 &slice,
             );
             self.maybe_hold_wall_cling_boundary_trace_y_velocity(slice.player);
+            // ASM loc_833E -> sub_8ED0 checks `Character_Movement` for
+            // MoveID_Crawling before choosing the platform-support width.
+            // Native has no persistent movement ID, so preserve the post
+            // stand-up-check crawl-path decision for the later platform pass.
+            platform_support_crawling = movement_input.down && slice.player.on_ground;
         }
         self.finish_deferred_ceiling_clears();
         // Wide spawn-support settling is a bootstrap/respawn helper, not
@@ -3839,6 +3845,7 @@ impl NativeRuntime {
             &self.active_platforms,
             slice.player,
             self.progression.current_form,
+            platform_support_crawling,
         );
         for (platform_index, platform) in self.active_platforms.iter_mut().enumerate() {
             platform.step_soft_platform_loc_40E2(platform_standing_before == Some(platform_index));
@@ -3851,6 +3858,7 @@ impl NativeRuntime {
             &self.active_platforms,
             self.block_grid.as_ref(),
             self.progression.current_form,
+            platform_support_crawling,
         );
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_platform_collision
@@ -3870,6 +3878,7 @@ impl NativeRuntime {
             &self.active_platforms,
             slice.player,
             self.progression.current_form,
+            platform_support_crawling,
         ) && let Some(platform) = self.active_platforms.get_mut(platform_index)
         {
             platform.trigger_soft_platform_bounce_loc_40E2(
@@ -4012,6 +4021,7 @@ impl NativeRuntime {
                 &self.active_platforms,
                 slice.player,
                 self.progression.current_form,
+                false,
             )
             .is_none()
         {

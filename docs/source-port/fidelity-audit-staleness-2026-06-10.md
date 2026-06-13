@@ -205,7 +205,7 @@ Pattern: nearly every fix landed in the theme-art/background subsystem and was a
 
 ## platforms-fidelity-audit.md (2026-05-31)
 
-Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer.
+Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring is fixed, leaving 31 still-open from this audit.
 
 | Gap | Sev | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -235,7 +235,6 @@ Still-open gaps (remain authoritative in the original doc):
 - Field decode — art selection bypasses `PlatformArtAddr_Table`; render-flag vs type nibble conflated
 - `Platforms_CheckCollision` — invented `GROUND_SNAP_TOLERANCE_FP` replaces exact AABB overlap test
 - `Platforms_CheckCollision` — single-pass full-slot loop with epilogue decomposed into multiple recomputed passes
-- `sub_8ED0` — crawl-on-platform 5/7 half-width override is test-only (never wired)
 - Walk/crawl platform crush — additive carry instead of ROM snap-to-(platform_y-1)+copy-y_vel; d7==2 ceiling-up path approximated
 - TrapPlatform — deactivation flag `$12(a3)` not modelled for special platforms
 - Lift block — ceiling-crush while riding upward (loc_78A8) omitted
